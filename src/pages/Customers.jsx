@@ -244,10 +244,10 @@ export default function Customers() {
       ) : (
         <div className="space-y-3">
           {filteredCustomers.map((customer) => (
-            <Link
+            <div
               key={customer.id}
-              to={createPageUrl(`CustomerDetail?id=${customer.id}`)}
-              className="flex items-center gap-4 bg-white rounded-lg border border-slate-200/50 p-4 hover:border-slate-300 hover:shadow-sm transition-all group"
+              onClick={() => setSelectedCustomerDetail(customer)}
+              className="flex items-center gap-4 bg-white rounded-lg border border-slate-200/50 p-4 hover:border-slate-300 hover:shadow-sm transition-all group cursor-pointer"
             >
               <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
                 {customer.logo_url ? (
