@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
     const haloPsaApi = (endpoint) => `${halopsa_api_url.endsWith('/') ? halopsa_api_url : halopsa_api_url + '/'}${endpoint}`;
 
     const fetchHaloPSA = async (url) => {
-      await new Promise(resolve => setTimeout(resolve, 500)); // Add rate limit delay
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Add rate limit delay
       const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${access_token}`,
