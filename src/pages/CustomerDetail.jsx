@@ -921,7 +921,62 @@ export default function CustomerDetail() {
         </TabsContent>
 
                       <TabsContent value="tickets">
-                        <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
+                                      <div className="space-y-6">
+                                        {/* Ticket Stats Widgets */}
+                                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                          <div className="bg-white rounded-xl border border-slate-200/50 p-4">
+                                            <div className="flex items-center gap-3">
+                                              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                                                <Monitor className="w-5 h-5 text-blue-600" />
+                                              </div>
+                                              <div>
+                                                <p className="text-2xl font-bold text-slate-900">{tickets.length}</p>
+                                                <p className="text-xs text-slate-500">Total Tickets</p>
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <div className="bg-white rounded-xl border border-slate-200/50 p-4">
+                                            <div className="flex items-center gap-3">
+                                              <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                                                <Monitor className="w-5 h-5 text-emerald-600" />
+                                              </div>
+                                              <div>
+                                                <p className="text-2xl font-bold text-slate-900">
+                                                  {tickets.filter(t => ['open', 'in_progress', 'new'].includes(t.status)).length}
+                                                </p>
+                                                <p className="text-xs text-slate-500">Open Tickets</p>
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <div className="bg-white rounded-xl border border-slate-200/50 p-4">
+                                            <div className="flex items-center gap-3">
+                                              <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
+                                                <Monitor className="w-5 h-5 text-red-600" />
+                                              </div>
+                                              <div>
+                                                <p className="text-2xl font-bold text-slate-900">
+                                                  {tickets.filter(t => ['critical', 'high'].includes(t.priority)).length}
+                                                </p>
+                                                <p className="text-xs text-slate-500">High Priority</p>
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <div className="bg-white rounded-xl border border-slate-200/50 p-4">
+                                            <div className="flex items-center gap-3">
+                                              <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                                                <Monitor className="w-5 h-5 text-purple-600" />
+                                              </div>
+                                              <div>
+                                                <p className="text-2xl font-bold text-slate-900">
+                                                  {tickets.filter(t => t.status === 'closed').length}
+                                                </p>
+                                                <p className="text-xs text-slate-500">Resolved</p>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                      <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
                           <div className="flex items-center justify-between mb-6">
                             <div>
                               <h3 className="text-lg font-semibold text-slate-900">Support Tickets</h3>
@@ -1063,13 +1118,14 @@ export default function CustomerDetail() {
                                   >
                                     Next
                                   </Button>
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </TabsContent>
-                      </Tabs>
+                                  </div>
+                                  )}
+                                  </>
+                                  )}
+                                  </div>
+                                  </div>
+                                  </TabsContent>
+                                  </Tabs>
                       </div>
                       );
                       }
