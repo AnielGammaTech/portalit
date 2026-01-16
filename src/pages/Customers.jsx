@@ -238,66 +238,74 @@ export default function Customers() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="space-y-3">
           {filteredCustomers.map((customer) => (
-            <div
+            <Link
               key={customer.id}
-              className="bg-white rounded border border-slate-200/50 p-3 hover:shadow-sm transition-all"
+              to={createPageUrl(`CustomerDetail?id=${customer.id}`)}
+              className="flex items-center gap-4 bg-white rounded-lg border border-slate-200/50 p-4 hover:border-slate-300 hover:shadow-sm transition-all group"
             >
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center flex-shrink-0">
-                  {customer.logo_url ? (
-                    <img src={customer.logo_url} alt={customer.name} className="w-6 h-6 rounded" />
-                  ) : (
-                    <Building2 className="w-4 h-4 text-slate-500" />
-                  )}
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-5 w-5 -mr-1">
-                      <MoreVertical className="w-3 h-3 text-slate-400" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-32">
-                    <DropdownMenuItem onClick={() => handleOpenDialog(customer)} className="text-xs">
-                      <Pencil className="w-3 h-3 mr-2" />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      className="text-red-600 text-xs"
-                      onClick={() => deleteMutation.mutate(customer.id)}
-                    >
-                      <Trash2 className="w-3 h-3 mr-2" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-              <div className="mb-2">
-                <Link to={createPageUrl(`CustomerDetail?id=${customer.id}`)}>
-                  <p className="font-semibold text-slate-900 text-xs hover:text-blue-600 line-clamp-1">{customer.name}</p>
-                </Link>
-                {customer.source === 'halopsa' && (
-                  <Badge className="bg-blue-100 text-blue-700 text-xs py-0 px-1.5 mt-1">Halo</Badge>
+              <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
+                {customer.logo_url ? (
+                  <img src={customer.logo_url} alt={customer.name} className="w-6 h-6 rounded" />
+                ) : (
+                  <Building2 className="w-5 h-5 text-slate-500" />
                 )}
               </div>
 
-              <div className="flex justify-around text-center text-xs">
-                <div>
-                  <p className="font-semibold text-slate-900 text-sm">{customer.total_devices || 0}</p>
-                  <p className="text-slate-500">Devices</p>
-                </div>
-                <div>
-                  <p className="font-semibold text-slate-900 text-sm">{customer.total_users || 0}</p>
-                  <p className="text-slate-500">Users</p>
-                </div>
-                <div>
-                  <p className="font-semibold text-slate-900 text-sm">0</p>
-                  <p className="text-slate-500">Sites</p>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="font-medium text-slate-900 truncate">{customer.name}</p>
+                  {customer.source === 'halopsa' && (
+                    <Badge className="bg-blue-100 text-blue-700 text-xs">Halo</Badge>
+                  )}
                 </div>
               </div>
-            </div>
+
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-1 text-sm">
+                  <Building2 className="w-4 h-4 text-emerald-500" />
+                  <span className="font-medium text-slate-900">{customer.total_devices || 0}</span>
+                </div>
+                <div className="flex items-center gap-1 text-sm">
+                  <Users className="w-4 h-4 text-blue-500" />
+                  <span className="font-medium text-slate-900">{customer.total_users || 0}</span>
+                </div>
+                <div className="flex items-center gap-1 text-sm">
+                  <FileText className="w-4 h-4 text-orange-500" />
+                  <span className="font-medium text-slate-900">0</span>
+                </div>
+              </div>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild onClick={(e) => e.preventDefault()}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                    <MoreVertical className="w-4 h-4 text-slate-400" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={(e) => {
+                    e.preventDefault();
+                    handleOpenDialog(customer);
+                  }}>
+                    <Pencil className="w-4 h-4 mr-2" />
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    className="text-red-600"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      deleteMutation.mutate(customer.id);
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-slate-600 flex-shrink-0" />
+            </Link>
           ))}
         </div>
       )}
