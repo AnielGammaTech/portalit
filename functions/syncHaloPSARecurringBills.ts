@@ -167,9 +167,10 @@ Deno.serve(async (req) => {
         const dbCustomer = customers[0];
         if (!dbCustomer) throw new Error('Customer not found in database');
 
-        // Extract: Fetch recurring bills
-        const url = buildHaloPsaApiUrl(apiUrl, `RecurringInvoice?client_id=${customer_id}&page_size=1000`);
+        // Extract: Fetch recurring bills WITH line items included
+        const url = buildHaloPsaApiUrl(apiUrl, `RecurringInvoice?client_id=${customer_id}&page_size=1000&includelines=true`);
         const data = await fetchFromHaloPSA(url, accessToken, clientId);
+        console.log(`Response sample: ${JSON.stringify(data).substring(0, 2000)}`);
         const recurringBills = extractRecurringBillsFromResponse(data);
 
         // Transform & Load: Process each bill
