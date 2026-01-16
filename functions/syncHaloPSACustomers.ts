@@ -24,6 +24,7 @@ Deno.serve(async (req) => {
     const excludedIds = halopsa_excluded_ids ? halopsa_excluded_ids.split(',').map(id => id.trim()) : [];
 
     // Get Access Token
+    console.log('Fetching token from:', halopsa_auth_url);
     const tokenResponse = await fetch(halopsa_auth_url, {
       method: 'POST',
       headers: {
@@ -37,11 +38,15 @@ Deno.serve(async (req) => {
       }).toString()
     });
 
+    console.log('Token response status:', tokenResponse.status);
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
+      console.log('Token error:', errorText);
       throw new Error(`Failed to get HaloPSA access token: ${tokenResponse.status} - ${errorText}`);
     }
-    const { access_token } = await tokenResponse.json();
+    const tokenData = await tokenResponse.json();
+    console.log('Token response:', Object.keys(tokenData));
+    const access_token = tokenData.access_token;
 
     const haloPsaApi = (endpoint) => `${halopsa_api_url.endsWith('/') ? halopsa_api_url : halopsa_api_url + '/'}${endpoint}`;
 
