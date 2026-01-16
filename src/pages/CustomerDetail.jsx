@@ -110,6 +110,8 @@ export default function CustomerDetail() {
   const [expandedQuotes, setExpandedQuotes] = useState({});
   const [expandedContracts, setExpandedContracts] = useState({});
   const [invoiceFilter, setInvoiceFilter] = useState('all');
+  const contractImportRef = React.useRef(null);
+  const billImportRef = React.useRef(null);
 
   const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems || loadingContractItems;
 
@@ -134,6 +136,75 @@ export default function CustomerDetail() {
     } finally {
       setIsSyncing(false);
     }
+  };
+
+  const handleContractImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').filter(line => line.trim());
+      const contractsToCreate = [];
+      
+      for (let i = 1; i < lines.length; i++) {
+        const [name, description, value, frequency, status] = lines[i].split(',').map(v => v.trim());
+        if (name) {
+          contractsToCreate.push({
+            customer_id: customerId,
+            name,
+            description: description || '',
+            value: parseFloat(value) || 0,
+            frequency: frequency || 'monthly',
+            status: status || 'active'
+          });
+        }
+      }
+      
+      if (contractsToCreate.length > 0) {
+        await base44.entities.Contract.bulkCreate(contractsToCreate);
+        toast.success(`Imported ${contractsToCreate.length} contracts`);
+        queryClient.invalidateQueries({ queryKey: ['contracts', customerId] });
+      }
+    } catch (error) {
+      toast.error('Error importing contracts: ' + error.message);
+    }
+    if (contractImportRef.current) contractImportRef.current.value = '';
+  };
+
+  const handleBillImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').filter(line => line.trim());
+      const billsToCreate = [];
+      
+      for (let i = 1; i < lines.length; i++) {
+        const [name, description, amount, frequency, status] = lines[i].split(',').map(v => v.trim());
+        if (name) {
+          billsToCreate.push({
+            customer_id: customerId,
+            halopsa_id: `imported_${Date.now()}_${i}`,
+            name,
+            description: description || '',
+            amount: parseFloat(amount) || 0,
+            frequency: frequency || 'monthly',
+            status: status || 'active'
+          });
+        }
+      }
+      
+      if (billsToCreate.length > 0) {
+        await base44.entities.RecurringBill.bulkCreate(billsToCreate);
+        toast.success(`Imported ${billsToCreate.length} recurring bills`);
+        queryClient.invalidateQueries({ queryKey: ['recurring_bills', customerId] });
+      }
+    } catch (error) {
+      toast.error('Error importing bills: ' + error.message);
+    }
+    if (billImportRef.current) billImportRef.current.value = '';
   };
 
   if (isLoading) {
@@ -378,10 +449,27 @@ export default function CustomerDetail() {
             <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="font-semibold text-slate-900">Contracts</h3>
-                <Button size="sm" className="gap-2 bg-slate-900 hover:bg-slate-800">
-                  <Plus className="w-4 h-4" />
-                  New Contract
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => contractImportRef.current?.click()}
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Import
+                  </Button>
+                  <input
+                    ref={contractImportRef}
+                    type="file"
+                    accept=".csv"
+                    onChange={handleContractImport}
+                    className="hidden"
+                  />
+                  <Button size="sm" className="gap-2 bg-slate-900 hover:bg-slate-800">
+                    <Plus className="w-4 h-4" />
+                    New Contract
+                  </Button>
+                </div>
               </div>
               {contracts.length === 0 ? (
                 <div className="p-12 text-center">
@@ -476,36 +564,53 @@ export default function CustomerDetail() {
              <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
                <div className="flex items-center justify-between mb-6">
                  <h3 className="font-semibold text-slate-900">Recurring Bills</h3>
-                 {customer?.source === 'halopsa' && (
+                 <div className="flex gap-2">
                    <Button 
-                     size="sm"
+                     size="sm" 
                      variant="outline"
-                     className="gap-2"
-                     onClick={async () => {
-                       try {
-                         setIsSyncing(true);
-                         const response = await base44.functions.invoke('syncHaloPSARecurringBills', { 
-                           action: 'sync_customer',
-                           customer_id: customer.external_id 
-                         });
-                         if (response.data.success) {
-                           toast.success(`Synced ${response.data.recordsSynced} recurring bills!`);
-                           queryClient.invalidateQueries({ queryKey: ['recurring_bills', customerId] });
-                         } else {
-                           toast.error(response.data.error || 'Sync failed');
-                         }
-                       } catch (error) {
-                         toast.error(error.message || 'An error occurred during sync');
-                       } finally {
-                         setIsSyncing(false);
-                       }
-                     }}
-                     disabled={isSyncing}
+                     onClick={() => billImportRef.current?.click()}
                    >
-                     <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
-                     Sync from Halo
+                     <Plus className="w-4 h-4 mr-1" />
+                     Import
                    </Button>
-                 )}
+                   <input
+                     ref={billImportRef}
+                     type="file"
+                     accept=".csv"
+                     onChange={handleBillImport}
+                     className="hidden"
+                   />
+                   {customer?.source === 'halopsa' && (
+                     <Button 
+                       size="sm"
+                       variant="outline"
+                       className="gap-2"
+                       onClick={async () => {
+                         try {
+                           setIsSyncing(true);
+                           const response = await base44.functions.invoke('syncHaloPSARecurringBills', { 
+                             action: 'sync_customer',
+                             customer_id: customer.external_id 
+                           });
+                           if (response.data.success) {
+                             toast.success(`Synced ${response.data.recordsSynced} recurring bills!`);
+                             queryClient.invalidateQueries({ queryKey: ['recurring_bills', customerId] });
+                           } else {
+                             toast.error(response.data.error || 'Sync failed');
+                           }
+                         } catch (error) {
+                           toast.error(error.message || 'An error occurred during sync');
+                         } finally {
+                           setIsSyncing(false);
+                         }
+                       }}
+                       disabled={isSyncing}
+                     >
+                       <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
+                       Sync from Halo
+                     </Button>
+                   )}
+                 </div>
                </div>
 
                {recurringBills.length === 0 ? (
