@@ -129,14 +129,12 @@ Deno.serve(async (req) => {
       const errors = [];
 
       try {
-        const customers = await base44.asServiceRole.entities.Customer.filter({ 
-          external_id: String(customer_id),
-          source: 'halopsa'
-        });
-        const dbCustomer = customers[0];
-        if (!dbCustomer) throw new Error('Customer not found in database');
+        // First find the customer using the internal ID passed from frontend
+        const allCustomers = await base44.asServiceRole.entities.Customer.list();
+        const dbCustomer = allCustomers.find(c => c.external_id === String(customer_id) && c.source === 'halopsa');
+        if (!dbCustomer) throw new Error(`Customer not found in database for external_id: ${customer_id}`);
 
-        // Fetch tickets for this client
+        // Fetch tickets for this client using the external HaloPSA ID
         const url = buildHaloPsaApiUrl(apiUrl, `Tickets?client_id=${customer_id}&page_size=500&order=dateoccurred&orderdesc=true`);
         const data = await fetchFromHaloPSA(url, accessToken, clientId);
         
