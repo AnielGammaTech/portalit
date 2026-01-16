@@ -42,7 +42,6 @@ export default function Layout({ children, currentPageName }) {
   const navigation = [
     { name: 'Dashboard', page: 'Dashboard', icon: LayoutDashboard },
     { name: 'Customers', page: 'Customers', icon: Building2 },
-    { name: 'Integrations', page: 'Integrations', icon: RefreshCw },
   ];
 
   return (
