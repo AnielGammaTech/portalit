@@ -31,7 +31,8 @@ Deno.serve(async (req) => {
         body: new URLSearchParams({
           grant_type: 'client_credentials',
           client_id: clientId,
-          client_secret: clientSecret
+          client_secret: clientSecret,
+          scope: 'all'
         })
       });
 
@@ -52,19 +53,15 @@ Deno.serve(async (req) => {
       return Response.json({ error: `Authentication error: ${error.message}` }, { status: 500 });
     }
 
-    const haloPsaApi = (endpoint) => `${apiUrl}/${endpoint}`;
+    const haloPsaApi = (endpoint) => `${apiUrl.endsWith('/') ? apiUrl : apiUrl + '/'}${endpoint}`;
 
-    let requestCount = 0;
     const fetchHaloPSA = async (url) => {
-      requestCount++;
-      if (requestCount > 1 && requestCount % 25 === 0) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
-          'Tenant': tenant
+          'Client-ID': clientId
         }
       });
 
