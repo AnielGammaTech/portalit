@@ -266,26 +266,7 @@ export default function CustomerDetail() {
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-100">
-          <div className="text-center p-4 bg-slate-50 rounded-xl">
-            <p className="text-2xl font-semibold text-slate-900">{customer.total_users || 0}</p>
-            <p className="text-sm text-slate-500">Users</p>
-          </div>
-          <div className="text-center p-4 bg-slate-50 rounded-xl">
-            <p className="text-2xl font-semibold text-slate-900">{customer.total_devices || 0}</p>
-            <p className="text-sm text-slate-500">Devices</p>
-          </div>
-          <div className="text-center p-4 bg-slate-50 rounded-xl">
-            <p className="text-2xl font-semibold text-slate-900">{contracts.length}</p>
-            <p className="text-sm text-slate-500">Contracts</p>
-          </div>
-          <div className="text-center p-4 bg-slate-50 rounded-xl">
-            <p className="text-2xl font-semibold text-slate-900">{licenses.length}</p>
-            <p className="text-sm text-slate-500">Licenses</p>
-          </div>
         </div>
-      </div>
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
