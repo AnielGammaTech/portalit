@@ -211,6 +211,7 @@ Deno.serve(async (req) => {
 
           for (const bill of recurringBills) {
             try {
+              console.log('Bill fields:', Object.keys(bill), 'Bill data:', JSON.stringify(bill));
               const customerId = customerMap.get(`${bill.client_id || bill.ClientID}:halopsa`);
               if (!customerId) {
                 recordsFailed++;
@@ -222,7 +223,7 @@ Deno.serve(async (req) => {
                 halopsa_id: String(bill.id),
                 name: bill.name || bill.Name || `Bill ${bill.id}`,
                 description: bill.description || bill.Description || '',
-                amount: parseFloat(bill.value || bill.Value || 0) || 0,
+                amount: parseFloat(bill.value || bill.Value || bill.total || bill.Total || 0) || 0,
                 frequency: (bill.frequency || bill.Frequency || 'monthly').toLowerCase(),
                 status: bill.status?.toLowerCase() === 'inactive' ? 'inactive' : 'active',
                 start_date: bill.startdate || bill.StartDate || null,
