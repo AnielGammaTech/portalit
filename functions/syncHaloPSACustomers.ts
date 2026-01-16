@@ -14,9 +14,11 @@ Deno.serve(async (req) => {
     const settingsList = await base44.asServiceRole.entities.Settings.list();
     const settings = settingsList[0];
     
-    if (!settings || !settings.halopsa_client_id || !settings.halopsa_client_secret || !settings.halopsa_tenant || !settings.halopsa_auth_url || !settings.halopsa_api_url) {
+    console.log('Settings found:', !!settings);
+    if (!settings) {
       return Response.json({ error: 'HaloPSA settings are not configured.' }, { status: 400 });
     }
+    console.log('Has client_id:', !!settings.halopsa_client_id, 'Has auth_url:', !!settings.halopsa_auth_url, 'Has api_url:', !!settings.halopsa_api_url);
 
     const { halopsa_client_id, halopsa_client_secret, halopsa_auth_url, halopsa_api_url, halopsa_excluded_ids } = settings;
     const excludedIds = halopsa_excluded_ids ? halopsa_excluded_ids.split(',').map(id => id.trim()) : [];
