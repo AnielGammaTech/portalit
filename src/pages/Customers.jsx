@@ -238,63 +238,63 @@ export default function Customers() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filteredCustomers.map((customer) => (
             <div
               key={customer.id}
-              className="bg-white rounded-lg border border-slate-200/50 p-6 hover:shadow-md transition-all"
+              className="bg-white rounded border border-slate-200/50 p-3 hover:shadow-sm transition-all"
             >
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-10 h-10 rounded bg-slate-100 flex items-center justify-center flex-shrink-0">
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center flex-shrink-0">
                   {customer.logo_url ? (
-                    <img src={customer.logo_url} alt={customer.name} className="w-8 h-8 rounded" />
+                    <img src={customer.logo_url} alt={customer.name} className="w-6 h-6 rounded" />
                   ) : (
-                    <Building2 className="w-5 h-5 text-slate-500" />
+                    <Building2 className="w-4 h-4 text-slate-500" />
                   )}
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 -mr-2">
-                      <MoreVertical className="w-4 h-4 text-slate-400" />
+                    <Button variant="ghost" size="icon" className="h-5 w-5 -mr-1">
+                      <MoreVertical className="w-3 h-3 text-slate-400" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleOpenDialog(customer)}>
-                      <Pencil className="w-4 h-4 mr-2" />
+                  <DropdownMenuContent align="end" className="w-32">
+                    <DropdownMenuItem onClick={() => handleOpenDialog(customer)} className="text-xs">
+                      <Pencil className="w-3 h-3 mr-2" />
                       Edit
                     </DropdownMenuItem>
                     <DropdownMenuItem 
-                      className="text-red-600"
+                      className="text-red-600 text-xs"
                       onClick={() => deleteMutation.mutate(customer.id)}
                     >
-                      <Trash2 className="w-4 h-4 mr-2" />
+                      <Trash2 className="w-3 h-3 mr-2" />
                       Delete
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
 
-              <div className="mb-4">
+              <div className="mb-2">
                 <Link to={createPageUrl(`CustomerDetail?id=${customer.id}`)}>
-                  <p className="font-semibold text-slate-900 text-sm hover:text-blue-600 line-clamp-2">{customer.name}</p>
+                  <p className="font-semibold text-slate-900 text-xs hover:text-blue-600 line-clamp-1">{customer.name}</p>
                 </Link>
                 {customer.source === 'halopsa' && (
-                  <Badge className="bg-blue-100 text-blue-700 text-xs mt-2">Halo</Badge>
+                  <Badge className="bg-blue-100 text-blue-700 text-xs py-0 px-1.5 mt-1">Halo</Badge>
                 )}
               </div>
 
-              <div className="flex justify-between text-center">
+              <div className="flex justify-around text-center text-xs">
                 <div>
-                  <p className="text-lg font-semibold text-slate-900">{customer.total_devices || 0}</p>
-                  <p className="text-xs text-slate-500">Devices</p>
+                  <p className="font-semibold text-slate-900 text-sm">{customer.total_devices || 0}</p>
+                  <p className="text-slate-500">Devices</p>
                 </div>
                 <div>
-                  <p className="text-lg font-semibold text-slate-900">{customer.total_users || 0}</p>
-                  <p className="text-xs text-slate-500">Users</p>
+                  <p className="font-semibold text-slate-900 text-sm">{customer.total_users || 0}</p>
+                  <p className="text-slate-500">Users</p>
                 </div>
                 <div>
-                  <p className="text-lg font-semibold text-slate-900">0</p>
-                  <p className="text-xs text-slate-500">Sites</p>
+                  <p className="font-semibold text-slate-900 text-sm">0</p>
+                  <p className="text-slate-500">Sites</p>
                 </div>
               </div>
             </div>
