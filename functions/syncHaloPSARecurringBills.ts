@@ -180,6 +180,14 @@ Deno.serve(async (req) => {
       let hasMore = true;
 
       try {
+        const allCustomers = await base44.asServiceRole.entities.Customer.list();
+        const existingBills = await base44.asServiceRole.entities.RecurringBill.list('-created_date', 500);
+        const customerMap = new Map(allCustomers.map(c => [`${c.external_id}:halopsa`, c.id]));
+        const billMap = new Map(existingBills.map(b => [`${b.halopsa_id}:${b.customer_id}`, b.id]));
+        
+        const allToCreate = [];
+        const allToUpdate = [];
+
         while (hasMore) {
           const data = await fetchHaloPSA(haloPsaApi(`RecurringInvoice?page_number=${pageNumber}&page_size=${pageSize}`));
           let recurringBills = [];
@@ -201,22 +209,16 @@ Deno.serve(async (req) => {
             break;
           }
 
-          const allCustomers = await base44.asServiceRole.entities.Customer.list();
-          const existingBills = await base44.asServiceRole.entities.RecurringBill.list('-created_date', 1000);
-          
-          const toCreate = [];
-          const toUpdate = [];
-
           for (const bill of recurringBills) {
             try {
-              const customer = allCustomers.find(c => c.external_id === String(bill.client_id || bill.ClientID) && c.source === 'halopsa');
-              if (!customer) {
+              const customerId = customerMap.get(`${bill.client_id || bill.ClientID}:halopsa`);
+              if (!customerId) {
                 recordsFailed++;
                 continue;
               }
 
               const billPayload = {
-                customer_id: customer.id,
+                customer_id: customerId,
                 halopsa_id: String(bill.id),
                 name: bill.name || bill.Name || `Bill ${bill.id}`,
                 description: bill.description || bill.Description || '',
@@ -227,11 +229,12 @@ Deno.serve(async (req) => {
                 end_date: bill.enddate || bill.EndDate || null
               };
 
-              const existingBill = existingBills.find(b => b.halopsa_id === String(bill.id) && b.customer_id === customer.id);
-              if (existingBill) {
-                toUpdate.push({ id: existingBill.id, data: billPayload });
+              const billKey = `${bill.id}:${customerId}`;
+              const existingId = billMap.get(billKey);
+              if (existingId) {
+                allToUpdate.push({ id: existingId, data: billPayload });
               } else {
-                toCreate.push(billPayload);
+                allToCreate.push(billPayload);
               }
             } catch (itemError) {
               recordsFailed++;
@@ -239,21 +242,21 @@ Deno.serve(async (req) => {
             }
           }
 
-          if (toCreate.length > 0) {
-            await base44.asServiceRole.entities.RecurringBill.bulkCreate(toCreate);
-            recordsSynced += toCreate.length;
-          }
-
-          for (const { id, data } of toUpdate) {
-            await base44.asServiceRole.entities.RecurringBill.update(id, data);
-            recordsSynced++;
-          }
-
           if (recurringBills.length < pageSize) {
             hasMore = false;
           } else {
             pageNumber++;
           }
+        }
+
+        if (allToCreate.length > 0) {
+          await base44.asServiceRole.entities.RecurringBill.bulkCreate(allToCreate);
+          recordsSynced += allToCreate.length;
+        }
+
+        for (const { id, data } of allToUpdate) {
+          await base44.asServiceRole.entities.RecurringBill.update(id, data);
+          recordsSynced++;
         }
 
         await base44.asServiceRole.entities.SyncLog.update(syncLog.id, {
