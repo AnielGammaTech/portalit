@@ -87,6 +87,12 @@ export default function CustomerDetail() {
     enabled: !!customerId
   });
 
+  const { data: contacts = [], isLoading: loadingContacts } = useQuery({
+    queryKey: ['contacts', customerId],
+    queryFn: () => base44.entities.Contact.filter({ customer_id: customerId }),
+    enabled: !!customerId
+  });
+
   const { data: quoteItems = [], isLoading: loadingQuoteItems } = useQuery({
     queryKey: ['quote_items', customerId],
     queryFn: async () => {
@@ -118,7 +124,7 @@ export default function CustomerDetail() {
   const [expandedContracts, setExpandedContracts] = useState({});
   const [invoiceFilter, setInvoiceFilter] = useState('all');
 
-  const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems || loadingContractItems;
+  const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems || loadingContractItems || loadingContacts;
 
   const handleSyncCustomer = async () => {
     if (!customer) return;
@@ -284,9 +290,9 @@ export default function CustomerDetail() {
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList className="bg-white border border-slate-200/50">
           <TabsTrigger value="overview" className="gap-2">
-            <Building2 className="w-4 h-4" />
-            Overview
-          </TabsTrigger>
+                        <Building2 className="w-4 h-4" />
+                        Dashboard
+                      </TabsTrigger>
           <TabsTrigger value="contracts" className="gap-2">
             <FileText className="w-4 h-4" />
             Contracts
