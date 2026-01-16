@@ -481,6 +481,101 @@ export default function CustomerDetail() {
                             <p className="text-purple-200 text-sm">Billed {recurringBills[0]?.frequency || 'monthly'}</p>
                           </div>
 
+                          {/* Contracts Section */}
+                          <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
+                            <div className="flex items-center justify-between mb-6">
+                              <div>
+                                <h3 className="text-lg font-semibold text-slate-900">Your Contracts</h3>
+                                <p className="text-sm text-slate-500">Active service agreements</p>
+                              </div>
+                              {customer?.source === 'halopsa' && (
+                                <Button 
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-2"
+                                  onClick={async () => {
+                                    try {
+                                      setIsSyncing(true);
+                                      const response = await base44.functions.invoke('syncHaloPSAContracts', { 
+                                        action: 'sync_customer',
+                                        customer_id: customer.external_id 
+                                      });
+                                      if (response.data.success) {
+                                        toast.success(`Synced ${response.data.recordsSynced} contracts!`);
+                                        queryClient.invalidateQueries({ queryKey: ['contracts', customerId] });
+                                      } else {
+                                        toast.error(response.data.error || 'Sync failed');
+                                      }
+                                    } catch (error) {
+                                      toast.error(error.message || 'An error occurred during sync');
+                                    } finally {
+                                      setIsSyncing(false);
+                                    }
+                                  }}
+                                  disabled={isSyncing}
+                                >
+                                  <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
+                                  Sync Contracts
+                                </Button>
+                              )}
+                            </div>
+
+                            {contracts.length === 0 ? (
+                              <div className="py-12 text-center">
+                                <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                                <p className="text-slate-500">No contracts found</p>
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                {contracts.map(contract => (
+                                  <div key={contract.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
+                                    <div className="flex items-center gap-4">
+                                      <div className={cn(
+                                        "w-10 h-10 rounded-full flex items-center justify-center",
+                                        contract.status === 'active' && "bg-emerald-100",
+                                        contract.status === 'expired' && "bg-red-100",
+                                        !['active', 'expired'].includes(contract.status) && "bg-slate-200"
+                                      )}>
+                                        <FileText className={cn(
+                                          "w-5 h-5",
+                                          contract.status === 'active' && "text-emerald-600",
+                                          contract.status === 'expired' && "text-red-600",
+                                          !['active', 'expired'].includes(contract.status) && "text-slate-500"
+                                        )} />
+                                      </div>
+                                      <div>
+                                        <p className="font-semibold text-slate-900">{contract.name}</p>
+                                        <div className="flex items-center gap-3 text-sm text-slate-500">
+                                          {contract.start_date && (
+                                            <span>Started: {format(parseISO(contract.start_date), 'MMM d, yyyy')}</span>
+                                          )}
+                                          {contract.renewal_date && (
+                                            <span>• Renews: {format(parseISO(contract.renewal_date), 'MMM d, yyyy')}</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      {contract.value > 0 && (
+                                        <p className="text-lg font-bold text-slate-900">
+                                          ${contract.value.toLocaleString('en-US', { minimumFractionDigits: 2 })}/{contract.billing_cycle === 'annually' ? 'yr' : 'mo'}
+                                        </p>
+                                      )}
+                                      <Badge className={cn(
+                                        'text-xs capitalize',
+                                        contract.status === 'active' && 'bg-emerald-100 text-emerald-700',
+                                        contract.status === 'expired' && 'bg-red-100 text-red-700',
+                                        !['active', 'expired'].includes(contract.status) && 'bg-slate-100 text-slate-700'
+                                      )}>
+                                        {contract.status}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
                           {/* What You're Paying For */}
                           <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
                             <div className="flex items-center justify-between mb-6">
