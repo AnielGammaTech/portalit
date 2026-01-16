@@ -366,305 +366,180 @@ export default function CustomerDetail() {
         </TabsContent>
 
         <TabsContent value="contracts">
-          <div className="space-y-6">
-            {/* Total Summary */}
-            {contracts.length > 0 && (
-              <div className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-100 rounded-lg">
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                  <DollarSign className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-slate-600">Total Monthly Recurring</p>
-                  <p className="text-xl font-semibold text-slate-900">
-                    ${contracts.reduce((sum, c) => sum + (c.value || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">({contracts.filter(c => c.status === 'active').length} active contract{contracts.filter(c => c.status === 'active').length !== 1 ? 's' : ''})</p>
-                </div>
-              </div>
-            )}
+                        <div className="space-y-6">
+                          {/* Monthly Summary Card */}
+                          <div className="bg-gradient-to-br from-purple-600 to-purple-800 rounded-2xl p-6 text-white">
+                            <p className="text-purple-200 text-sm mb-1">Your Monthly Total</p>
+                            <p className="text-4xl font-bold mb-2">
+                              ${recurringBills.reduce((sum, b) => sum + (b.amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            </p>
+                            <p className="text-purple-200 text-sm">Billed {recurringBills[0]?.frequency || 'monthly'}</p>
+                          </div>
 
-            {/* Contracts List */}
-            <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="font-semibold text-slate-900">Contracts</h3>
-                <div className="flex gap-2">
-                  {customer?.source === 'halopsa' && (
-                      <Button 
-                        size="sm"
-                        variant="outline"
-                        className="gap-2"
-                        onClick={async () => {
-                          try {
-                            setIsSyncing(true);
-                            const response = await base44.functions.invoke('syncHaloPSAContracts', { 
-                              action: 'sync_customer',
-                              customer_id: customer.external_id
-                            });
-                            if (response.data.success) {
-                              toast.success(`Synced ${response.data.recordsSynced} contracts!`);
-                              queryClient.invalidateQueries({ queryKey: ['contracts', customerId] });
-                              queryClient.invalidateQueries({ queryKey: ['contract_items', customerId] });
-                            } else {
-                              toast.error(response.data.error || 'Sync failed');
-                            }
-                          } catch (error) {
-                            toast.error(error.message || 'An error occurred during sync');
-                          } finally {
-                            setIsSyncing(false);
-                          }
-                        }}
-                        disabled={isSyncing}
-                      >
-                        <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
-                        Sync from Halo
-                      </Button>
-                    )}
-                  <Button size="sm" className="gap-2 bg-slate-900 hover:bg-slate-800">
-                    <Plus className="w-4 h-4" />
-                    New Contract
-                  </Button>
-                </div>
-              </div>
-              {contracts.length === 0 ? (
-                <div className="p-12 text-center">
-                  <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                  <p className="text-slate-500">No contracts found</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {contracts.map((contract) => {
-                    const contractLineItems = contractItems.filter(item => item.contract_id === contract.id);
-                    const isExpanded = expandedContracts[contract.id];
-                    return (
-                      <div key={contract.id} className="border border-slate-100 rounded-lg overflow-hidden">
-                        <button
-                          onClick={() => setExpandedContracts(prev => ({ ...prev, [contract.id]: !prev[contract.id] }))}
-                          className="w-full px-4 py-4 flex items-start justify-between hover:bg-slate-50 transition-colors"
-                        >
-                          <div className="flex-1 text-left">
-                            <div className="flex items-center gap-3 mb-2">
-                              <span className="font-semibold text-slate-900">{contract.name}</span>
-                              <Badge className={cn(
-                                "capitalize text-xs",
-                                contract.status === 'active' && "bg-emerald-100 text-emerald-700",
-                                contract.status === 'expired' && "bg-red-100 text-red-700",
-                                contract.status === 'pending' && "bg-yellow-100 text-yellow-700",
-                                contract.status === 'cancelled' && "bg-slate-100 text-slate-700"
-                              )}>
-                                {contract.status}
-                              </Badge>
+                          {/* What You're Paying For */}
+                          <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
+                            <div className="flex items-center justify-between mb-6">
+                              <div>
+                                <h3 className="text-lg font-semibold text-slate-900">What You're Paying For</h3>
+                                <p className="text-sm text-slate-500">Your current services and subscriptions</p>
+                              </div>
+                              {customer?.source === 'halopsa' && (
+                                <Button 
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-2"
+                                  onClick={async () => {
+                                    try {
+                                      setIsSyncing(true);
+                                      const response = await base44.functions.invoke('syncHaloPSARecurringBills', { 
+                                        action: 'sync_customer',
+                                        customer_id: customer.external_id 
+                                      });
+                                      if (response.data.success) {
+                                        toast.success(`Synced successfully!`);
+                                        queryClient.invalidateQueries({ queryKey: ['recurring_bills', customerId] });
+                                        queryClient.invalidateQueries({ queryKey: ['line_items', customerId] });
+                                      } else {
+                                        toast.error(response.data.error || 'Sync failed');
+                                      }
+                                    } catch (error) {
+                                      toast.error(error.message || 'An error occurred during sync');
+                                    } finally {
+                                      setIsSyncing(false);
+                                    }
+                                  }}
+                                  disabled={isSyncing}
+                                >
+                                  <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
+                                  Refresh
+                                </Button>
+                              )}
                             </div>
-                            {contract.start_date && contract.end_date && (
-                              <div className="flex items-center gap-4 text-sm text-slate-600">
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="w-3 h-3" />
-                                  Start: {format(parseISO(contract.start_date), 'MMM dd, yyyy')}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="w-3 h-3" />
-                                  Renewal: {format(parseISO(contract.end_date), 'MMM dd, yyyy')}
-                                </span>
+
+                            {lineItems.length === 0 ? (
+                              <div className="py-12 text-center">
+                                <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                                <p className="text-slate-500">No items found</p>
+                              </div>
+                            ) : (
+                              <div className="overflow-x-auto">
+                                <table className="w-full">
+                                  <thead>
+                                    <tr className="border-b border-slate-200">
+                                      <th className="text-left py-3 px-2 text-sm font-medium text-slate-600">Service</th>
+                                      <th className="text-center py-3 px-2 text-sm font-medium text-slate-600">Qty</th>
+                                      <th className="text-right py-3 px-2 text-sm font-medium text-slate-600">Unit Price</th>
+                                      <th className="text-right py-3 px-2 text-sm font-medium text-slate-600">Amount</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {lineItems.map(item => (
+                                      <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                                        <td className="py-4 px-2">
+                                          <p className="font-medium text-slate-900">{item.description}</p>
+                                          {item.item_code && <p className="text-xs text-slate-500">Code: {item.item_code}</p>}
+                                        </td>
+                                        <td className="py-4 px-2 text-center text-slate-600">{item.quantity}</td>
+                                        <td className="py-4 px-2 text-right text-slate-600">
+                                          ${(item.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                        </td>
+                                        <td className="py-4 px-2 text-right font-semibold text-slate-900">
+                                          ${(item.net_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                  <tfoot>
+                                    <tr className="bg-slate-50">
+                                      <td colSpan="3" className="py-4 px-2 text-right font-semibold text-slate-900">Total</td>
+                                      <td className="py-4 px-2 text-right font-bold text-lg text-slate-900">
+                                        ${lineItems.reduce((sum, item) => sum + (item.net_amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                      </td>
+                                    </tr>
+                                  </tfoot>
+                                </table>
                               </div>
                             )}
                           </div>
-                          <div className="flex items-center gap-4">
-                            <p className="font-semibold text-slate-900">
-                              ${(contract.value || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                            </p>
-                            <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", isExpanded && "rotate-180")} />
-                          </div>
-                        </button>
-                        {isExpanded && contractLineItems.length > 0 && (
-                          <div className="bg-slate-50 border-t border-slate-100 px-4 py-4 overflow-x-auto">
-                            <table className="w-full text-sm">
-                              <thead>
-                                <tr className="border-b border-slate-200">
-                                  <th className="text-left py-2 px-2 text-slate-600 font-medium">Description</th>
-                                  <th className="text-center py-2 px-2 text-slate-600 font-medium">Qty</th>
-                                  <th className="text-right py-2 px-2 text-slate-600 font-medium">Price</th>
-                                  <th className="text-right py-2 px-2 text-slate-600 font-medium">Net</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {contractLineItems.map(item => (
-                                  <tr key={item.id} className="border-b border-slate-100 hover:bg-white transition-colors">
-                                    <td className="py-2 px-2">
-                                      <div>
-                                        <p className="text-slate-900">{item.description}</p>
-                                        {item.item_code && <p className="text-xs text-slate-500">#{item.item_code}</p>}
+
+                          {/* Recent Invoices */}
+                          <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
+                            <div className="flex items-center justify-between mb-6">
+                              <div>
+                                <h3 className="text-lg font-semibold text-slate-900">Recent Invoices</h3>
+                                <p className="text-sm text-slate-500">Your billing history</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Filter className="w-4 h-4 text-slate-400" />
+                                <select
+                                  value={invoiceFilter}
+                                  onChange={(e) => setInvoiceFilter(e.target.value)}
+                                  className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                >
+                                  <option value="all">All</option>
+                                  <option value="paid">Paid</option>
+                                  <option value="overdue">Overdue</option>
+                                  <option value="sent">Pending</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            {invoices.length === 0 ? (
+                              <div className="py-12 text-center">
+                                <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                                <p className="text-slate-500">No invoices yet</p>
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                {invoices
+                                  .filter(inv => invoiceFilter === 'all' || inv.status === invoiceFilter)
+                                  .slice(0, 10)
+                                  .map(invoice => (
+                                    <div key={invoice.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
+                                      <div className="flex items-center gap-4">
+                                        <div className={cn(
+                                          "w-10 h-10 rounded-full flex items-center justify-center",
+                                          invoice.status === 'paid' && "bg-emerald-100",
+                                          invoice.status === 'overdue' && "bg-red-100",
+                                          invoice.status === 'sent' && "bg-blue-100",
+                                          !['paid', 'overdue', 'sent'].includes(invoice.status) && "bg-slate-200"
+                                        )}>
+                                          <FileText className={cn(
+                                            "w-5 h-5",
+                                            invoice.status === 'paid' && "text-emerald-600",
+                                            invoice.status === 'overdue' && "text-red-600",
+                                            invoice.status === 'sent' && "text-blue-600",
+                                            !['paid', 'overdue', 'sent'].includes(invoice.status) && "text-slate-500"
+                                          )} />
+                                        </div>
+                                        <div>
+                                          <p className="font-semibold text-slate-900">{invoice.invoice_number}</p>
+                                          <p className="text-sm text-slate-500">
+                                            {invoice.invoice_date ? format(parseISO(invoice.invoice_date), 'MMMM d, yyyy') : 'No date'}
+                                          </p>
+                                        </div>
                                       </div>
-                                    </td>
-                                    <td className="py-2 px-2 text-center text-slate-600">{item.quantity}</td>
-                                    <td className="py-2 px-2 text-right text-slate-900">
-                                      ${(item.unit_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                    </td>
-                                    <td className="py-2 px-2 text-right font-semibold text-slate-900">
-                                      ${(item.net_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                                      <div className="text-right">
+                                        <p className="text-lg font-bold text-slate-900">
+                                          ${(invoice.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                        </p>
+                                        <Badge className={cn(
+                                          'text-xs capitalize',
+                                          invoice.status === 'paid' && 'bg-emerald-100 text-emerald-700',
+                                          invoice.status === 'overdue' && 'bg-red-100 text-red-700',
+                                          invoice.status === 'sent' && 'bg-blue-100 text-blue-700',
+                                          !['paid', 'overdue', 'sent'].includes(invoice.status) && 'bg-slate-100 text-slate-700'
+                                        )}>
+                                          {invoice.status === 'sent' ? 'Pending' : invoice.status}
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-             {/* Recurring Bills */}
-             <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
-               <div className="flex items-center justify-between mb-6">
-                 <h3 className="font-semibold text-slate-900">Recurring Bills</h3>
-                 {customer?.source === 'halopsa' && (
-                   <Button 
-                     size="sm"
-                     variant="outline"
-                     className="gap-2"
-                     onClick={async () => {
-                       try {
-                         setIsSyncing(true);
-                         const response = await base44.functions.invoke('syncHaloPSARecurringBills', { 
-                           action: 'sync_customer',
-                           customer_id: customer.external_id 
-                         });
-                         if (response.data.success) {
-                           toast.success(`Synced ${response.data.recordsSynced} recurring bills!`);
-                           queryClient.invalidateQueries({ queryKey: ['recurring_bills', customerId] });
-                         } else {
-                           toast.error(response.data.error || 'Sync failed');
-                         }
-                       } catch (error) {
-                         toast.error(error.message || 'An error occurred during sync');
-                       } finally {
-                         setIsSyncing(false);
-                       }
-                     }}
-                     disabled={isSyncing}
-                   >
-                     <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
-                     Sync from Halo
-                   </Button>
-                 )}
-               </div>
-
-               {recurringBills.length === 0 ? (
-                 <div className="p-12 text-center">
-                   <DollarSign className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                   <p className="text-slate-500">No recurring bills found</p>
-                 </div>
-               ) : (
-                 <div className="space-y-6">
-                   {/* Total Summary */}
-                   <div className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-100 rounded-lg">
-                     <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                       <DollarSign className="w-5 h-5 text-blue-600" />
-                     </div>
-                     <div>
-                       <p className="text-sm text-slate-600">Total Monthly Recurring</p>
-                       <p className="text-xl font-semibold text-slate-900">
-                         ${recurringBills.reduce((sum, b) => sum + (b.amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                       </p>
-                       <p className="text-xs text-slate-500 mt-1">({recurringBills.length} bill{recurringBills.length !== 1 ? 's' : ''})</p>
-                     </div>
-                   </div>
-
-                   {/* Bills List with Line Items */}
-                   <div className="space-y-4">
-                     {recurringBills.map((bill) => {
-                       const billLineItems = lineItems.filter(item => item.recurring_bill_id === bill.id);
-                       const isExpanded = expandedBills[bill.id];
-                       return (
-                         <div key={bill.id} className="border border-slate-100 rounded-lg overflow-hidden">
-                           <button
-                             onClick={() => setExpandedBills(prev => ({ ...prev, [bill.id]: !prev[bill.id] }))}
-                             className="w-full px-4 py-4 flex items-start justify-between hover:bg-slate-50 transition-colors"
-                           >
-                             <div className="flex-1 text-left">
-                               <p className="font-semibold text-slate-900">{bill.name}</p>
-                               <p className="text-sm text-slate-500 capitalize">{bill.frequency}</p>
-                             </div>
-                             <div className="flex items-center gap-4">
-                               <p className="font-semibold text-slate-900">
-                                 ${(bill.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                               </p>
-                               <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", isExpanded && "rotate-180")} />
-                             </div>
-                           </button>
-                           {isExpanded && billLineItems.length > 0 && (
-                             <div className="bg-slate-50 border-t border-slate-100 px-4 py-3">
-                               <div className="space-y-2 text-xs">
-                                 {billLineItems.map(item => (
-                                   <div key={item.id} className="flex justify-between">
-                                     <span className="text-slate-600">{item.description}</span>
-                                     <span className="font-medium text-slate-900">
-                                       ${(item.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                     </span>
-                                   </div>
-                                 ))}
-                               </div>
-                             </div>
-                           )}
-                         </div>
-                       );
-                     })}
-                   </div>
-
-                   {/* Last Invoices */}
-                   <div className="mt-8 pt-6 border-t border-slate-100">
-                     <div className="flex items-center justify-between mb-4">
-                       <h4 className="font-semibold text-slate-900">Recent Invoices</h4>
-                       <div className="flex items-center gap-2">
-                         <Filter className="w-4 h-4 text-slate-400" />
-                         <select
-                           value={invoiceFilter}
-                           onChange={(e) => setInvoiceFilter(e.target.value)}
-                           className="text-sm border border-slate-200 rounded-lg px-2 py-1 focus:outline-none"
-                         >
-                           <option value="all">All Statuses</option>
-                           <option value="paid">Paid</option>
-                           <option value="overdue">Overdue</option>
-                           <option value="sent">Sent</option>
-                         </select>
-                       </div>
-                     </div>
-                     {invoices.length === 0 ? (
-                       <p className="text-sm text-slate-500">No invoices</p>
-                     ) : (
-                       <div className="space-y-2">
-                         {invoices
-                           .filter(inv => invoiceFilter === 'all' || inv.status === invoiceFilter)
-                           .slice(0, 10)
-                           .map(invoice => (
-                             <div key={invoice.id} className="flex items-center justify-between text-sm p-3 bg-slate-50 rounded-lg">
-                               <div>
-                                 <p className="font-medium text-slate-900">{invoice.invoice_number}</p>
-                                 <p className="text-xs text-slate-500">{invoice.invoice_date ? format(parseISO(invoice.invoice_date), 'MMM dd') : '-'}</p>
-                               </div>
-                               <div className="text-right">
-                                 <p className="font-semibold text-slate-900">
-                                   ${(invoice.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                 </p>
-                                 <Badge className={cn('text-xs capitalize', 
-                                   invoice.status === 'paid' && 'bg-emerald-100 text-emerald-700',
-                                   invoice.status === 'overdue' && 'bg-red-100 text-red-700',
-                                   invoice.status === 'sent' && 'bg-blue-100 text-blue-700'
-                                 )}>
-                                   {invoice.status}
-                                 </Badge>
-                               </div>
-                             </div>
-                           ))}
-                       </div>
-                     )}
-                   </div>
-                 </div>
-               )}
-             </div>
-           </div>
-         </TabsContent>
+                        </div>
+                      </TabsContent>
 
         <TabsContent value="licenses">
           <div className="bg-white rounded-2xl border border-slate-200/50 overflow-hidden">
