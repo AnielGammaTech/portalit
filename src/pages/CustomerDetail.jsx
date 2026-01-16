@@ -64,8 +64,15 @@ export default function CustomerDetail() {
 
   const { data: lineItems = [], isLoading: loadingLineItems } = useQuery({
     queryKey: ['line_items', customerId],
-    queryFn: () => base44.entities.RecurringBillLineItem.filter({ customer_id: customerId }),
-    enabled: !!customerId
+    queryFn: async () => {
+      const allItems = [];
+      for (const bill of recurringBills) {
+        const items = await base44.entities.RecurringBillLineItem.filter({ recurring_bill_id: bill.id });
+        allItems.push(...items);
+      }
+      return allItems;
+    },
+    enabled: !!customerId && recurringBills.length > 0
   });
 
   const { data: invoices = [], isLoading: loadingInvoices } = useQuery({
