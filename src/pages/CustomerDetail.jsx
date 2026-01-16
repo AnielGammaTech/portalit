@@ -452,7 +452,7 @@ export default function CustomerDetail() {
                                               ) : (
                                                 <>
                                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                    {contacts.slice((teamPage - 1) * 25, teamPage * 25).map(contact => (
+                                                    {contacts.slice((teamPage - 1) * 10, teamPage * 10).map(contact => (
                                                       <div key={contact.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
                                                         <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-medium">
                                                           {contact.full_name?.charAt(0) || '?'}
@@ -467,7 +467,7 @@ export default function CustomerDetail() {
                                                       </div>
                                                     ))}
                                                   </div>
-                                                  {contacts.length > 25 && (
+                                                  {contacts.length > 10 && (
                                                     <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t border-slate-100">
                                                       <Button
                                                         variant="outline"
@@ -478,13 +478,13 @@ export default function CustomerDetail() {
                                                         Previous
                                                       </Button>
                                                       <span className="text-sm text-slate-600 px-3">
-                                                        Page {teamPage} of {Math.ceil(contacts.length / 25)}
+                                                        Page {teamPage} of {Math.ceil(contacts.length / 10)}
                                                       </span>
                                                       <Button
                                                         variant="outline"
                                                         size="sm"
                                                         onClick={() => setTeamPage(p => Math.min(Math.ceil(contacts.length / 25), p + 1))}
-                                                        disabled={teamPage >= Math.ceil(contacts.length / 25)}
+                                                        disabled={teamPage >= Math.ceil(contacts.length / 10)}
                                                       >
                                                         Next
                                                       </Button>
