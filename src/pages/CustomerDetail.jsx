@@ -20,7 +20,9 @@ import {
   RefreshCw,
   Edit2,
   Trash2,
-  Plus
+  Plus,
+  Filter,
+  ChevronDown
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -60,7 +62,22 @@ export default function CustomerDetail() {
     enabled: !!customerId
   });
 
-  const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingBills;
+  const { data: lineItems = [], isLoading: loadingLineItems } = useQuery({
+    queryKey: ['line_items', customerId],
+    queryFn: () => base44.entities.RecurringBillLineItem.filter({ customer_id: customerId }),
+    enabled: !!customerId
+  });
+
+  const { data: invoices = [], isLoading: loadingInvoices } = useQuery({
+    queryKey: ['invoices', customerId],
+    queryFn: () => base44.entities.Invoice.filter({ customer_id: customerId }),
+    enabled: !!customerId
+  });
+
+  const [expandedBills, setExpandedBills] = useState({});
+  const [invoiceFilter, setInvoiceFilter] = useState('all');
+
+  const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingBills || loadingLineItems || loadingInvoices;
 
   const handleSyncCustomer = async () => {
     if (!customer) return;
@@ -425,39 +442,94 @@ export default function CustomerDetail() {
                      </div>
                    </div>
 
-                   {/* Bills List */}
-                   <div className="divide-y divide-slate-100">
-                     {recurringBills.map((bill) => (
-                       <div key={bill.id} className="py-4">
-                         <div className="flex items-start justify-between mb-3">
-                           <div>
-                             <p className="font-semibold text-slate-900">{bill.name}</p>
-                             <p className="text-sm text-slate-500 capitalize">{bill.frequency}</p>
-                           </div>
-                           <p className="font-semibold text-slate-900">
-                             ${(bill.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                           </p>
-                         </div>
-                         {bill.description && (
-                           <div className="text-xs text-slate-500 space-y-1">
-                             <div className="grid grid-cols-4 gap-2 font-medium text-slate-600 mb-2">
-                               <span>Description</span>
-                               <span className="text-right">Qty</span>
-                               <span className="text-right">Price</span>
-                               <span className="text-right">Net</span>
+                   {/* Bills List with Line Items */}
+                   <div className="space-y-4">
+                     {recurringBills.map((bill) => {
+                       const billLineItems = lineItems.filter(item => item.recurring_bill_id === bill.id);
+                       const isExpanded = expandedBills[bill.id];
+                       return (
+                         <div key={bill.id} className="border border-slate-100 rounded-lg overflow-hidden">
+                           <button
+                             onClick={() => setExpandedBills(prev => ({ ...prev, [bill.id]: !prev[bill.id] }))}
+                             className="w-full px-4 py-4 flex items-start justify-between hover:bg-slate-50 transition-colors"
+                           >
+                             <div className="flex-1 text-left">
+                               <p className="font-semibold text-slate-900">{bill.name}</p>
+                               <p className="text-sm text-slate-500 capitalize">{bill.frequency}</p>
                              </div>
-                             {bill.description && (
-                               <div className="grid grid-cols-4 gap-2">
-                                 <span>{bill.description}</span>
-                                 <span className="text-right">-</span>
-                                 <span className="text-right">-</span>
-                                 <span className="text-right">${(bill.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                             <div className="flex items-center gap-4">
+                               <p className="font-semibold text-slate-900">
+                                 ${(bill.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                               </p>
+                               <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", isExpanded && "rotate-180")} />
+                             </div>
+                           </button>
+                           {isExpanded && billLineItems.length > 0 && (
+                             <div className="bg-slate-50 border-t border-slate-100 px-4 py-3">
+                               <div className="space-y-2 text-xs">
+                                 {billLineItems.map(item => (
+                                   <div key={item.id} className="flex justify-between">
+                                     <span className="text-slate-600">{item.description}</span>
+                                     <span className="font-medium text-slate-900">
+                                       ${(item.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                     </span>
+                                   </div>
+                                 ))}
                                </div>
-                             )}
-                           </div>
-                         )}
+                             </div>
+                           )}
+                         </div>
+                       );
+                     })}
+                   </div>
+
+                   {/* Last Invoices */}
+                   <div className="mt-8 pt-6 border-t border-slate-100">
+                     <div className="flex items-center justify-between mb-4">
+                       <h4 className="font-semibold text-slate-900">Recent Invoices</h4>
+                       <div className="flex items-center gap-2">
+                         <Filter className="w-4 h-4 text-slate-400" />
+                         <select
+                           value={invoiceFilter}
+                           onChange={(e) => setInvoiceFilter(e.target.value)}
+                           className="text-sm border border-slate-200 rounded-lg px-2 py-1 focus:outline-none"
+                         >
+                           <option value="all">All Statuses</option>
+                           <option value="paid">Paid</option>
+                           <option value="overdue">Overdue</option>
+                           <option value="sent">Sent</option>
+                         </select>
                        </div>
-                     ))}
+                     </div>
+                     {invoices.length === 0 ? (
+                       <p className="text-sm text-slate-500">No invoices</p>
+                     ) : (
+                       <div className="space-y-2">
+                         {invoices
+                           .filter(inv => invoiceFilter === 'all' || inv.status === invoiceFilter)
+                           .slice(0, 10)
+                           .map(invoice => (
+                             <div key={invoice.id} className="flex items-center justify-between text-sm p-3 bg-slate-50 rounded-lg">
+                               <div>
+                                 <p className="font-medium text-slate-900">{invoice.invoice_number}</p>
+                                 <p className="text-xs text-slate-500">{invoice.invoice_date ? format(parseISO(invoice.invoice_date), 'MMM dd') : '-'}</p>
+                               </div>
+                               <div className="text-right">
+                                 <p className="font-semibold text-slate-900">
+                                   ${(invoice.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                 </p>
+                                 <Badge className={cn('text-xs capitalize', 
+                                   invoice.status === 'paid' && 'bg-emerald-100 text-emerald-700',
+                                   invoice.status === 'overdue' && 'bg-red-100 text-red-700',
+                                   invoice.status === 'sent' && 'bg-blue-100 text-blue-700'
+                                 )}>
+                                   {invoice.status}
+                                 </Badge>
+                               </div>
+                             </div>
+                           ))}
+                       </div>
+                     )}
                    </div>
                  </div>
                )}
