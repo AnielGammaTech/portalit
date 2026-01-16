@@ -139,12 +139,12 @@ export default function Adminland() {
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-3 px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 group"
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-3 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200"
       >
-        <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
+        <div className="w-6 h-6 rounded bg-purple-500 flex items-center justify-center">
           <Shield className="w-4 h-4 text-white" />
         </div>
-        <span className="font-semibold">Adminland</span>
+        <span className="font-semibold text-sm">Adminland</span>
       </button>
 
       {/* Admin Panel Dialog */}
@@ -152,7 +152,7 @@ export default function Adminland() {
         <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden p-0">
           <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-200">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-lg bg-purple-500 flex items-center justify-center">
                 <Shield className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -183,8 +183,8 @@ export default function Adminland() {
                           }}
                           className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors text-left group"
                         >
-                          <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
-                            <Icon className="w-5 h-5 text-blue-600" />
+                          <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0 group-hover:bg-purple-100 transition-colors">
+                            <Icon className="w-5 h-5 text-purple-600" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-slate-900 text-sm">{item.title}</p>
