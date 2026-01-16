@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
 
     let accessToken;
     try {
-      const tokenResponse = await fetch(`${authUrl}/token`, {
+      const tokenResponse = await fetch(authUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
