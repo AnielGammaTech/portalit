@@ -37,12 +37,19 @@ Deno.serve(async (req) => {
       });
 
       if (!tokenResponse.ok) {
-        return Response.json({ error: 'Failed to authenticate with HaloPSA' }, { status: 401 });
+        const errorText = await tokenResponse.text();
+        console.error('Token response error:', tokenResponse.status, errorText);
+        return Response.json({ error: `Failed to authenticate with HaloPSA: ${tokenResponse.status} - ${errorText}` }, { status: 401 });
       }
 
       const tokenData = await tokenResponse.json();
       accessToken = tokenData.access_token;
+      if (!accessToken) {
+        console.error('No access token in response:', tokenData);
+        return Response.json({ error: 'No access token received from HaloPSA' }, { status: 401 });
+      }
     } catch (error) {
+      console.error('Token fetch error:', error);
       return Response.json({ error: `Authentication error: ${error.message}` }, { status: 500 });
     }
 
