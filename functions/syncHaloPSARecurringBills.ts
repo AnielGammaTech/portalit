@@ -137,7 +137,8 @@ Deno.serve(async (req) => {
             }
 
             // Sync line items
-            if (bill.line_items && Array.isArray(bill.line_items)) {
+            const lineItems = bill.line_items || bill.LineItems || bill.lines || bill.Lines || bill.billableitem || bill.BillableItem || [];
+            if (lineItems && Array.isArray(lineItems) && lineItems.length > 0) {
               // Delete old line items
               const existingLineItems = await base44.asServiceRole.entities.RecurringBillLineItem.filter({ recurring_bill_id: createdOrUpdatedBill.id });
               for (const item of existingLineItems) {
@@ -145,7 +146,7 @@ Deno.serve(async (req) => {
               }
 
               // Create new line items
-              const itemsToCreate = bill.line_items.map(item => ({
+              const itemsToCreate = lineItems.map(item => ({
                 recurring_bill_id: createdOrUpdatedBill.id,
                 halopsa_id: String(item.id || item.ID),
                 description: item.description || item.Description || '',
@@ -245,6 +246,9 @@ Deno.serve(async (req) => {
                 continue;
               }
 
+              // Check for line items in different possible field names
+              const lineItems = bill.line_items || bill.LineItems || bill.lines || bill.Lines || bill.billableitem || bill.BillableItem || [];
+
               const billPayload = {
                 customer_id: customerId,
                 halopsa_id: String(bill.id),
@@ -260,9 +264,9 @@ Deno.serve(async (req) => {
               const billKey = `${bill.id}:${customerId}`;
               const existingId = billMap.get(billKey);
               if (existingId) {
-                allToUpdate.push({ id: existingId, data: billPayload, lineItems: bill.line_items });
+                allToUpdate.push({ id: existingId, data: billPayload, lineItems });
               } else {
-                allToCreate.push({ ...billPayload, _lineItems: bill.line_items });
+                allToCreate.push({ ...billPayload, _lineItems: lineItems });
               }
             } catch (itemError) {
               recordsFailed++;
