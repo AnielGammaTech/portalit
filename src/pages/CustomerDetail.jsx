@@ -403,70 +403,95 @@ export default function CustomerDetail() {
                           )}
 
                           {/* Team Members / Users */}
-                          <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
-                            <div className="flex items-center justify-between mb-4">
-                              <div>
-                                <h3 className="font-semibold text-slate-900">Your Team</h3>
-                                <p className="text-sm text-slate-500">{contacts.length} members</p>
-                              </div>
-                              {customer?.source === 'halopsa' && (
-                                <Button 
-                                  size="sm"
-                                  variant="outline"
-                                  className="gap-2"
-                                  onClick={async () => {
-                                    try {
-                                      setIsSyncing(true);
-                                      const response = await base44.functions.invoke('syncHaloPSAContacts', { 
-                                        action: 'sync_customer',
-                                        customer_id: customer.external_id 
-                                      });
-                                      if (response.data.success) {
-                                        toast.success(`Synced ${response.data.recordsSynced} users!`);
-                                        queryClient.invalidateQueries({ queryKey: ['contacts', customerId] });
-                                      } else {
-                                        toast.error(response.data.error || 'Sync failed');
-                                      }
-                                    } catch (error) {
-                                      toast.error(error.message || 'An error occurred during sync');
-                                    } finally {
-                                      setIsSyncing(false);
-                                    }
-                                  }}
-                                  disabled={isSyncing}
-                                >
-                                  <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
-                                  Sync Users
-                                </Button>
-                              )}
-                            </div>
-                            {contacts.length === 0 ? (
-                              <div className="py-8 text-center">
-                                <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                                <p className="text-slate-500">No team members found</p>
-                                {customer?.source === 'halopsa' && (
-                                  <p className="text-sm text-slate-400 mt-1">Click "Sync Users" to pull from HaloPSA</p>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {contacts.map(contact => (
-                                  <div key={contact.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                                    <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-medium">
-                                      {contact.full_name?.charAt(0) || '?'}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="font-medium text-slate-900 truncate">{contact.full_name}</p>
-                                      <p className="text-sm text-slate-500 truncate">{contact.email || contact.title || 'No email'}</p>
-                                    </div>
-                                    {contact.is_primary && (
-                                      <Badge className="bg-purple-100 text-purple-700 text-xs">Primary</Badge>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
+                                            <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
+                                              <div className="flex items-center justify-between mb-4">
+                                                <div>
+                                                  <h3 className="font-semibold text-slate-900">Your Team</h3>
+                                                  <p className="text-sm text-slate-500">{contacts.length} members</p>
+                                                </div>
+                                                {customer?.source === 'halopsa' && (
+                                                  <Button 
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="gap-2"
+                                                    onClick={async () => {
+                                                      try {
+                                                        setIsSyncing(true);
+                                                        const response = await base44.functions.invoke('syncHaloPSAContacts', { 
+                                                          action: 'sync_customer',
+                                                          customer_id: customer.external_id 
+                                                        });
+                                                        if (response.data.success) {
+                                                          toast.success(`Synced ${response.data.recordsSynced} users!`);
+                                                          queryClient.invalidateQueries({ queryKey: ['contacts', customerId] });
+                                                        } else {
+                                                          toast.error(response.data.error || 'Sync failed');
+                                                        }
+                                                      } catch (error) {
+                                                        toast.error(error.message || 'An error occurred during sync');
+                                                      } finally {
+                                                        setIsSyncing(false);
+                                                      }
+                                                    }}
+                                                    disabled={isSyncing}
+                                                  >
+                                                    <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
+                                                    Sync Users
+                                                  </Button>
+                                                )}
+                                              </div>
+                                              {contacts.length === 0 ? (
+                                                <div className="py-8 text-center">
+                                                  <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                                                  <p className="text-slate-500">No team members found</p>
+                                                  {customer?.source === 'halopsa' && (
+                                                    <p className="text-sm text-slate-400 mt-1">Click "Sync Users" to pull from HaloPSA</p>
+                                                  )}
+                                                </div>
+                                              ) : (
+                                                <>
+                                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    {contacts.slice((teamPage - 1) * 25, teamPage * 25).map(contact => (
+                                                      <div key={contact.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                                                        <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-medium">
+                                                          {contact.full_name?.charAt(0) || '?'}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                          <p className="font-medium text-slate-900 truncate">{contact.full_name}</p>
+                                                          <p className="text-sm text-slate-500 truncate">{contact.email || contact.title || 'No email'}</p>
+                                                        </div>
+                                                        {contact.is_primary && (
+                                                          <Badge className="bg-purple-100 text-purple-700 text-xs">Primary</Badge>
+                                                        )}
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                  {contacts.length > 25 && (
+                                                    <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t border-slate-100">
+                                                      <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => setTeamPage(p => Math.max(1, p - 1))}
+                                                        disabled={teamPage === 1}
+                                                      >
+                                                        Previous
+                                                      </Button>
+                                                      <span className="text-sm text-slate-600 px-3">
+                                                        Page {teamPage} of {Math.ceil(contacts.length / 25)}
+                                                      </span>
+                                                      <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => setTeamPage(p => Math.min(Math.ceil(contacts.length / 25), p + 1))}
+                                                        disabled={teamPage >= Math.ceil(contacts.length / 25)}
+                                                      >
+                                                        Next
+                                                      </Button>
+                                                    </div>
+                                                  )}
+                                                </>
+                                              )}
+                                            </div>
                         </div>
                       </TabsContent>
 
