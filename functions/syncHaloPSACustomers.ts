@@ -84,14 +84,14 @@ Deno.serve(async (req) => {
 
           const existingCustomer = (await base44.asServiceRole.entities.Customer.filter({ external_id: String(client.id), source: 'halopsa' }))[0];
           const customerData = {
-            name: client.Name,
+            name: client.Name || client.name || `Customer ${client.id}`,
             external_id: String(client.id),
             source: 'halopsa',
-            status: client.Active ? 'active' : 'inactive',
-            primary_contact: client.PrimaryContactName,
-            email: client.PrimaryContactEmail,
-            phone: client.PrimaryContactPhone,
-            address: client.Address1 && client.Address2 ? `${client.Address1}, ${client.Address2}, ${client.Postcode}` : client.Address1 || client.Address2 || ''
+            status: client.Active !== false ? 'active' : 'inactive',
+            primary_contact: client.PrimaryContactName || client.primaryContactName || '',
+            email: client.PrimaryContactEmail || client.primaryContactEmail || '',
+            phone: client.PrimaryContactPhone || client.primaryContactPhone || '',
+            address: (client.Address1 || client.address1 || '') + (client.Address2 || client.address2 ? ` ${client.Address2}` : '') + (client.Postcode || client.postcode ? ` ${client.Postcode}` : '')
           };
 
           let customerId;
