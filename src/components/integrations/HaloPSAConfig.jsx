@@ -11,6 +11,8 @@ export default function HaloPSAConfig() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState(null);
+  const [syncStatus, setSyncStatus] = useState(null);
   const [settings, setSettings] = useState({
     halopsa_client_id: '',
     halopsa_client_secret: '',
@@ -62,13 +64,17 @@ export default function HaloPSAConfig() {
   const handleTestConnection = async () => {
     try {
       setTesting(true);
+      setConnectionStatus(null);
       const response = await base44.functions.invoke('syncHaloPSACustomers', { action: 'test_connection' });
       if (response.data.success) {
+        setConnectionStatus({ success: true, message: 'Connection successful!' });
         toast.success('HaloPSA connection successful!');
       } else {
+        setConnectionStatus({ success: false, message: response.data.error || 'Connection test failed' });
         toast.error(response.data.error || 'Connection test failed');
       }
     } catch (error) {
+      setConnectionStatus({ success: false, message: error.message });
       toast.error('Failed to test connection');
     } finally {
       setTesting(false);
@@ -78,13 +84,17 @@ export default function HaloPSAConfig() {
   const handleSyncNow = async () => {
     try {
       setSaving(true);
+      setSyncStatus(null);
       const response = await base44.functions.invoke('syncHaloPSACustomers', { action: 'sync_now' });
       if (response.data.success) {
+        setSyncStatus({ success: true, message: `Synced ${response.data.recordsSynced} records` });
         toast.success(`Sync completed! Synced ${response.data.recordsSynced} records`);
       } else {
+        setSyncStatus({ success: false, message: response.data.error || 'Sync failed' });
         toast.error(response.data.error || 'Sync failed');
       }
     } catch (error) {
+      setSyncStatus({ success: false, message: error.message });
       toast.error('Failed to start sync');
     } finally {
       setSaving(false);
@@ -179,6 +189,47 @@ export default function HaloPSAConfig() {
           <p className="text-xs text-slate-500 mt-1">Enter customer/site IDs separated by commas to exclude them from syncs</p>
         </div>
       </div>
+
+      {/* Status Messages */}
+      {connectionStatus && (
+        <div className={`border rounded-lg p-4 flex gap-3 ${connectionStatus.success ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+          <div className="flex-shrink-0">
+            {connectionStatus.success ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+            )}
+          </div>
+          <div>
+            <p className={`text-sm font-medium ${connectionStatus.success ? 'text-emerald-900' : 'text-red-900'}`}>
+              Test Connection {connectionStatus.success ? 'Successful' : 'Failed'}
+            </p>
+            <p className={`text-sm mt-1 ${connectionStatus.success ? 'text-emerald-700' : 'text-red-700'}`}>
+              {connectionStatus.message}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {syncStatus && (
+        <div className={`border rounded-lg p-4 flex gap-3 ${syncStatus.success ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+          <div className="flex-shrink-0">
+            {syncStatus.success ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+            )}
+          </div>
+          <div>
+            <p className={`text-sm font-medium ${syncStatus.success ? 'text-emerald-900' : 'text-red-900'}`}>
+              Sync {syncStatus.success ? 'Completed' : 'Failed'}
+            </p>
+            <p className={`text-sm mt-1 ${syncStatus.success ? 'text-emerald-700' : 'text-red-700'}`}>
+              {syncStatus.message}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Info Box */}
       {!isConfigured && (
