@@ -216,7 +216,6 @@ Deno.serve(async (req) => {
         
         const allToCreate = [];
         const allToUpdate = [];
-        let seenBillStructure = false;
 
         while (hasMore) {
           const data = await fetchHaloPSA(haloPsaApi(`RecurringInvoice?page_number=${pageNumber}&page_size=500`));
@@ -247,17 +246,14 @@ Deno.serve(async (req) => {
                 continue;
               }
 
-              // Log first bill to see structure and line items
-              if (!seenBillStructure) {
-                console.log('Bill keys:', Object.keys(bill));
-                console.log('Bill line_items:', bill.line_items ? 'found' : 'not found');
-                console.log('Bill LineItems:', bill.LineItems ? 'found' : 'not found');
-                console.log('Bill lines:', bill.lines ? 'found' : 'not found');
-                seenBillStructure = true;
+              // Fetch invoice details with line items
+              let lineItems = [];
+              try {
+                const invoiceDetails = await fetchHaloPSA(haloPsaApi(`Invoice/${bill.id}`));
+                lineItems = invoiceDetails.line_items || invoiceDetails.LineItems || invoiceDetails.lines || invoiceDetails.Lines || [];
+              } catch (err) {
+                console.log(`Could not fetch invoice details for ${bill.id}:`, err.message);
               }
-
-              // Check for line items in different possible field names
-              const lineItems = bill.line_items || bill.LineItems || bill.lines || bill.Lines || bill.billableitem || bill.BillableItem || [];
 
               const billPayload = {
                 customer_id: customerId,
