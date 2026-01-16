@@ -232,9 +232,9 @@ Deno.serve(async (req) => {
               const billKey = `${bill.id}:${customerId}`;
               const existingId = billMap.get(billKey);
               if (existingId) {
-                allToUpdate.push({ id: existingId, data: billPayload });
+                allToUpdate.push({ id: existingId, data: billPayload, lineItems: bill.line_items });
               } else {
-                allToCreate.push(billPayload);
+                allToCreate.push({ ...billPayload, _lineItems: bill.line_items });
               }
             } catch (itemError) {
               recordsFailed++;
