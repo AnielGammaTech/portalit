@@ -17,6 +17,7 @@ import {
   X
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
+import HaloPSASection from '../integrations/HaloPSASection';
 
 export default function FloatingAdminland() {
   const [user, setUser] = useState(null);
