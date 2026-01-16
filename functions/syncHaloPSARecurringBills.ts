@@ -69,7 +69,9 @@ Deno.serve(async (req) => {
         throw new Error(`HaloPSA API error: ${response.status}`);
       }
 
-      return await response.json();
+      const data = await response.json();
+      console.log('HaloPSA API Response:', JSON.stringify(data).substring(0, 500));
+      return data;
     };
 
     if (action === 'test_connection') {
