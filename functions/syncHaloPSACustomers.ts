@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
     };
 
     if (action === 'test_connection') {
-      await fetchHaloPSA(haloPsaApi('clients'));
+      await fetchHaloPSA(haloPsaApi('Client'));
       return Response.json({ success: true, message: 'HaloPSA connection successful!' });
     }
 
@@ -75,9 +75,9 @@ Deno.serve(async (req) => {
       const errors = [];
 
       try {
-        // Fetch Clients (Customers) with pagination
-        const clientsData = await fetchHaloPSA(haloPsaApi('clients'));
-        const clients = clientsData.pageDetails?.pageResult || Array.isArray(clientsData) ? clientsData : [];
+        // Fetch Clients (Customers)
+        const clientsData = await fetchHaloPSA(haloPsaApi('Client'));
+        const clients = Array.isArray(clientsData) ? clientsData : clientsData.clients || [];
 
         for (const client of clients) {
           if (excludedIds.includes(String(client.id))) continue;
@@ -105,8 +105,8 @@ Deno.serve(async (req) => {
           recordsSynced++;
 
           // Fetch Sites for this Client
-          const sitesData = await fetchHaloPSA(haloPsaApi(`sites?client_id=${client.id}`));
-          const sites = sitesData.pageDetails?.pageResult || Array.isArray(sitesData) ? sitesData : [];
+          const sitesData = await fetchHaloPSA(haloPsaApi(`Site?client_id=${client.id}`));
+          const sites = Array.isArray(sitesData) ? sitesData : sitesData.sites || [];
           
           for (const site of sites) {
             if (excludedIds.includes(String(site.id))) continue;
@@ -129,8 +129,8 @@ Deno.serve(async (req) => {
           }
 
           // Fetch Users (Contacts) for this Client
-          const usersData = await fetchHaloPSA(haloPsaApi(`users?client_id=${client.id}`));
-          const users = usersData.pageDetails?.pageResult || Array.isArray(usersData) ? usersData : [];
+          const usersData = await fetchHaloPSA(haloPsaApi(`User?client_id=${client.id}`));
+          const users = Array.isArray(usersData) ? usersData : usersData.users || [];
           
           for (const user of users) {
             if (excludedIds.includes(String(user.id))) continue;
@@ -153,8 +153,8 @@ Deno.serve(async (req) => {
           }
 
           // Fetch Contracts (Recurring Bills) for this Client
-          const contractsData = await fetchHaloPSA(haloPsaApi(`recurringcontracts?client_id=${client.id}`));
-          const contracts = contractsData.pageDetails?.pageResult || Array.isArray(contractsData) ? contractsData : [];
+          const contractsData = await fetchHaloPSA(haloPsaApi(`RecurringInvoice?client_id=${client.id}`));
+          const contracts = Array.isArray(contractsData) ? contractsData : contractsData.recurringinvoices || contractsData.invoices || contractsData.contracts || [];
           
           for (const contract of contracts) {
             if (excludedIds.includes(String(contract.id))) continue;
