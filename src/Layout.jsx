@@ -22,6 +22,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import Adminland from './components/admin/Adminland';
 
 export default function Layout({ children, currentPageName }) {
   const [user, setUser] = useState(null);
@@ -140,6 +141,9 @@ export default function Layout({ children, currentPageName }) {
       <main className="p-6 lg:p-8">
         {children}
       </main>
+
+      {/* Adminland Floating Button */}
+      <Adminland />
     </div>
   );
 }
