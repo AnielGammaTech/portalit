@@ -77,6 +77,7 @@ Deno.serve(async (req) => {
       try {
         // Fetch Clients (Customers)
         const clientsData = await fetchHaloPSA(haloPsaApi('Client'));
+        console.log('Clients data:', JSON.stringify(clientsData).substring(0, 500));
         const clients = Array.isArray(clientsData) ? clientsData : clientsData.clients || [];
 
         for (const client of clients) {
