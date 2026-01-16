@@ -11,7 +11,8 @@ import {
   RefreshCw,
   Building2,
   ChevronDown,
-  LogOut
+  LogOut,
+  Shield
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import {
@@ -22,7 +23,6 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import Adminland from './components/admin/Adminland';
 
 export default function Layout({ children, currentPageName }) {
   const [user, setUser] = useState(null);
@@ -42,6 +42,7 @@ export default function Layout({ children, currentPageName }) {
   const navigation = [
     { name: 'Dashboard', page: 'Dashboard', icon: LayoutDashboard },
     { name: 'Customers', page: 'Customers', icon: Building2 },
+    ...(user?.role === 'admin' ? [{ name: 'Adminland', page: 'Adminland', icon: Shield }] : []),
   ];
 
   return (
@@ -140,9 +141,6 @@ export default function Layout({ children, currentPageName }) {
       <main className="p-6 lg:p-8">
         {children}
       </main>
-
-      {/* Adminland Floating Button */}
-      <Adminland />
     </div>
   );
 }

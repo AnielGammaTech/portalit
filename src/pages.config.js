@@ -5,6 +5,7 @@ import Contracts from './pages/Contracts';
 import SaaSManagement from './pages/SaaSManagement';
 import Integrations from './pages/Integrations';
 import Settings from './pages/Settings';
+import Adminland from './pages/Adminland';
 import __Layout from './Layout.jsx';
 
 
@@ -16,6 +17,7 @@ export const PAGES = {
     "SaaSManagement": SaaSManagement,
     "Integrations": Integrations,
     "Settings": Settings,
+    "Adminland": Adminland,
 }
 
 export const pagesConfig = {
