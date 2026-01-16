@@ -51,7 +51,13 @@ export default function CustomerDetail() {
     enabled: !!customerId
   });
 
-  const isLoading = loadingCustomer || loadingContracts || loadingLicenses;
+  const { data: recurringBills = [], isLoading: loadingBills } = useQuery({
+    queryKey: ['recurring_bills', customerId],
+    queryFn: () => base44.entities.RecurringBill.filter({ customer_id: customerId }),
+    enabled: !!customerId
+  });
+
+  const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingBills;
 
   const handleSyncCustomer = async () => {
     if (!customer) return;
