@@ -251,8 +251,9 @@ Deno.serve(async (req) => {
           // Transform & Load
           for (const haloContract of haloContracts) {
             try {
-              const customerId = customerMap.get(`${haloContract.clientid || haloContract.ClientID}:halopsa`);
+              const customerId = customerMap.get(`${haloContract.client_id || haloContract.clientid || haloContract.ClientID}:halopsa`);
               if (!customerId) {
+                console.log(`No customer found for contract ${haloContract.id}, client_id: ${haloContract.client_id || haloContract.clientid || haloContract.ClientID}`);
                 recordsFailed++;
                 continue;
               }
