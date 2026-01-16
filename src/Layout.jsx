@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from './utils';
+import { base44 } from '@/api/base44Client';
 import { 
   LayoutDashboard, 
   Users, 
@@ -8,15 +9,34 @@ import {
   Cloud, 
   Settings, 
   RefreshCw,
-  Menu,
-  X,
-  ChevronRight,
-  Building2
+  Building2,
+  ChevronDown,
+  LogOut
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 
 export default function Layout({ children, currentPageName }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const currentUser = await base44.auth.me();
+        setUser(currentUser);
+      } catch (error) {
+        console.error('Failed to load user', error);
+      }
+    };
+    loadUser();
+  }, []);
 
   const navigation = [
     { name: 'Dashboard', page: 'Dashboard', icon: LayoutDashboard },
@@ -24,16 +44,15 @@ export default function Layout({ children, currentPageName }) {
     { name: 'Contracts', page: 'Contracts', icon: FileText },
     { name: 'SaaS Management', page: 'SaaSManagement', icon: Cloud },
     { name: 'Integrations', page: 'Integrations', icon: RefreshCw },
-    { name: 'Settings', page: 'Settings', icon: Settings },
   ];
 
   return (
     <div className="min-h-screen bg-slate-50">
       <style>{`
         :root {
-          --color-primary: #0f172a;
-          --color-accent: #3b82f6;
-          --color-accent-hover: #2563eb;
+          --color-primary: #f97316;
+          --color-accent: #f97316;
+          --color-accent-hover: #ea580c;
         }
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         * {
@@ -41,107 +60,88 @@ export default function Layout({ children, currentPageName }) {
         }
       `}</style>
 
-      {/* Mobile sidebar backdrop */}
-      {sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside className={cn(
-        "fixed top-0 left-0 z-50 h-full w-72 bg-slate-900 transform transition-transform duration-300 ease-in-out lg:translate-x-0",
-        sidebarOpen ? "translate-x-0" : "-translate-x-full"
-      )}>
-        <div className="flex flex-col h-full">
+      {/* Horizontal Top Navigation */}
+      <header className="sticky top-0 z-50 bg-slate-900 border-b border-slate-800">
+        <div className="flex items-center justify-between h-16 px-6">
           {/* Logo */}
-          <div className="flex items-center justify-between h-20 px-6 border-b border-slate-800">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                <Cloud className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-semibold text-white tracking-tight">PortalIT</h1>
-                <p className="text-xs text-slate-400">MSP Management</p>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center">
+              <Cloud className="w-4 h-4 text-white" />
             </div>
-            <button 
-              onClick={() => setSidebarOpen(false)}
-              className="lg:hidden text-slate-400 hover:text-white"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <h1 className="text-lg font-semibold text-white tracking-tight">PortalIT</h1>
           </div>
 
-          {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          {/* Navigation Links */}
+          <nav className="hidden md:flex items-center gap-1">
             {navigation.map((item) => {
               const isActive = currentPageName === item.page;
               return (
                 <Link
                   key={item.page}
                   to={createPageUrl(item.page)}
-                  onClick={() => setSidebarOpen(false)}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200",
+                    "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors",
                     isActive 
-                      ? "bg-blue-500/10 text-blue-400" 
-                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                      ? "bg-orange-500 text-white" 
+                      : "text-slate-300 hover:text-white hover:bg-slate-800"
                   )}
                 >
-                  <item.icon className={cn("w-5 h-5", isActive && "text-blue-400")} />
+                  <item.icon className="w-4 h-4" />
                   <span>{item.name}</span>
-                  {isActive && <ChevronRight className="w-4 h-4 ml-auto" />}
                 </Link>
               );
             })}
           </nav>
 
-          {/* Sync Status */}
-          <div className="p-4 border-t border-slate-800">
-            <div className="px-4 py-3 bg-slate-800/50 rounded-xl">
-              <div className="flex items-center gap-2 text-xs text-slate-400">
-                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>All systems synced</span>
-              </div>
-            </div>
+          {/* Right Side Actions */}
+          <div className="flex items-center gap-3">
+            <Button 
+              size="sm" 
+              className="bg-orange-500 hover:bg-orange-600 text-white gap-2 hidden sm:flex"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Sync Now
+            </Button>
+
+            {/* User Menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors">
+                  <div className="w-7 h-7 rounded-full bg-orange-500 flex items-center justify-center text-white text-sm font-medium">
+                    {user?.full_name?.charAt(0) || 'U'}
+                  </div>
+                  <div className="hidden sm:block text-left">
+                    <p className="text-sm font-medium text-white">{user?.full_name || 'User'}</p>
+                    <p className="text-xs text-slate-400">{user?.email}</p>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-slate-400 hidden sm:block" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem asChild>
+                  <Link to={createPageUrl('Settings')} className="cursor-pointer">
+                    <Settings className="w-4 h-4 mr-2" />
+                    Settings
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={() => base44.auth.logout()}
+                  className="text-red-600 focus:text-red-600"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
-      </aside>
+      </header>
 
-      {/* Main content */}
-      <div className="lg:pl-72">
-        {/* Top bar */}
-        <header className="sticky top-0 z-30 h-20 bg-white/80 backdrop-blur-xl border-b border-slate-200/50">
-          <div className="flex items-center justify-between h-full px-6">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 -ml-2 text-slate-600 hover:text-slate-900"
-            >
-              <Menu className="w-6 h-6" />
-            </button>
-            
-            <div className="flex-1 lg:flex-none">
-              <h2 className="text-lg font-semibold text-slate-900 hidden lg:block">
-                {navigation.find(n => n.page === currentPageName)?.name || currentPageName}
-              </h2>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
-                <RefreshCw className="w-4 h-4" />
-                <span className="hidden sm:inline">Sync Now</span>
-              </button>
-            </div>
-          </div>
-        </header>
-
-        {/* Page content */}
-        <main className="p-6 lg:p-8">
-          {children}
-        </main>
-      </div>
+      {/* Page content */}
+      <main className="p-6 lg:p-8">
+        {children}
+      </main>
     </div>
   );
 }
