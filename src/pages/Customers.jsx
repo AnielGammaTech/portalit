@@ -426,12 +426,6 @@ export default function Customers() {
         </DialogContent>
       </Dialog>
 
-      {/* Customer Details Drawer */}
-      <CustomerDetailsDrawer 
-        customer={selectedCustomerDetail}
-        isOpen={!!selectedCustomerDetail}
-        onClose={() => setSelectedCustomerDetail(null)}
-      />
     </div>
   );
 }
