@@ -63,6 +63,60 @@ Deno.serve(async (req) => {
       return Response.json({ success: true, message: 'HaloPSA connection successful!' });
     }
 
+    if (action === 'sync_customer') {
+      const { customer_id } = await req.json();
+
+      const syncLog = await base44.asServiceRole.entities.SyncLog.create({
+        source: 'halopsa',
+        status: 'in_progress',
+        sync_type: 'customers',
+        started_at: new Date().toISOString()
+      });
+
+      let recordsSynced = 0;
+      const errors = [];
+
+      try {
+        const clientData = await fetchHaloPSA(haloPsaApi(`Client/${customer_id}`));
+        const client = clientData;
+
+        const existingCustomer = (await base44.asServiceRole.entities.Customer.filter({ external_id: String(client.id), source: 'halopsa' }))[0];
+        const customerData = {
+          name: client.name || client.Name || `Customer ${client.id}`,
+          external_id: String(client.id),
+          source: 'halopsa',
+          status: !client.inactive ? 'active' : 'inactive',
+          primary_contact: client.primary_contact_name || client.PrimaryContactName || '',
+          email: client.primary_contact_email || client.PrimaryContactEmail || '',
+          phone: client.primary_contact_phone || client.PrimaryContactPhone || '',
+          address: (client.address1 || client.Address1 || '') + (client.address2 || client.Address2 ? ` ${client.address2}` : '') + (client.postcode || client.Postcode ? ` ${client.postcode}` : '')
+        };
+
+        if (existingCustomer) {
+          await base44.asServiceRole.entities.Customer.update(existingCustomer.id, customerData);
+        } else {
+          await base44.asServiceRole.entities.Customer.create(customerData);
+        }
+        recordsSynced = 1;
+
+        await base44.asServiceRole.entities.SyncLog.update(syncLog.id, {
+          status: 'success',
+          records_synced: recordsSynced,
+          completed_at: new Date().toISOString()
+        });
+
+        return Response.json({ success: true, message: 'Customer synced successfully', recordsSynced });
+      } catch (syncError) {
+        errors.push(syncError.message);
+        await base44.asServiceRole.entities.SyncLog.update(syncLog.id, {
+          status: 'failed',
+          error_message: JSON.stringify(errors),
+          completed_at: new Date().toISOString()
+        });
+        return Response.json({ success: false, message: 'Customer sync failed', error: syncError.message }, { status: 500 });
+      }
+    }
+
     if (action === 'sync_now') {
       const syncLog = await base44.asServiceRole.entities.SyncLog.create({
         source: 'halopsa',
