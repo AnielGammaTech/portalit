@@ -15,7 +15,9 @@ import {
   Pencil,
   Trash2,
   Mail,
-  Phone
+  Phone,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +33,9 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
+import { toast } from 'sonner';
 import {
   Select,
   SelectContent,
@@ -49,6 +53,9 @@ export default function Customers() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [errorDialogOpen, setErrorDialogOpen] = useState(false);
+  const [syncError, setSyncError] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     primary_contact: '',
@@ -128,6 +135,25 @@ export default function Customers() {
     }
   };
 
+  const handleSyncHaloPSA = async () => {
+    try {
+      setIsSyncing(true);
+      const response = await base44.functions.invoke('syncHaloPSACustomers', { action: 'sync_now' });
+      if (response.data.success) {
+        toast.success(`Sync completed! ${response.data.recordsSynced} records synced.`);
+        queryClient.invalidateQueries({ queryKey: ['customers'] });
+      } else {
+        setSyncError(response.data.error || 'Sync failed');
+        setErrorDialogOpen(true);
+      }
+    } catch (error) {
+      setSyncError(error.message || 'An error occurred during sync');
+      setErrorDialogOpen(true);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const filteredCustomers = customers.filter(customer => {
     const matchesSearch = customer.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          customer.email?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -143,13 +169,24 @@ export default function Customers() {
           <h1 className="text-2xl font-semibold text-slate-900">Customers</h1>
           <p className="text-slate-500 mt-1">{customers.length} total customers</p>
         </div>
-        <Button 
-          onClick={() => handleOpenDialog()}
-          className="bg-slate-900 hover:bg-slate-800"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Customer
-        </Button>
+        <div className="flex gap-3">
+          <Button 
+            onClick={handleSyncHaloPSA}
+            disabled={isSyncing}
+            variant="outline"
+            className="border-slate-200"
+          >
+            <RefreshCw className={cn("w-4 h-4 mr-2", isSyncing && "animate-spin")} />
+            Sync from HaloPSA
+          </Button>
+          <Button 
+            onClick={() => handleOpenDialog()}
+            className="bg-slate-900 hover:bg-slate-800"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Customer
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -283,6 +320,26 @@ export default function Customers() {
           </div>
         </div>
       )}
+
+      {/* Error Dialog */}
+      <Dialog open={errorDialogOpen} onOpenChange={setErrorDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600" />
+              <DialogTitle>Sync Error</DialogTitle>
+            </div>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-slate-700">{syncError}</p>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={() => setErrorDialogOpen(false)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
