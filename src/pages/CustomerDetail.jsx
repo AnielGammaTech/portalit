@@ -291,11 +291,7 @@ export default function CustomerDetail() {
 
         <TabsContent value="overview">
                         <div className="space-y-6">
-                          {/* Welcome Header */}
-                          <div className="bg-gradient-to-br from-purple-600 to-purple-800 rounded-2xl p-6 text-white">
-                            <h2 className="text-2xl font-bold mb-1">Welcome, {customer.name}</h2>
-                            <p className="text-purple-200">Your service dashboard</p>
-                          </div>
+
 
                           {/* Quick Stats Widgets */}
                           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
