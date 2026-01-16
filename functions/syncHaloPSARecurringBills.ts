@@ -31,8 +31,7 @@ Deno.serve(async (req) => {
         body: new URLSearchParams({
           grant_type: 'client_credentials',
           client_id: clientId,
-          client_secret: clientSecret,
-          scope: 'api'
+          client_secret: clientSecret
         })
       });
 
