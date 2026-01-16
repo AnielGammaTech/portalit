@@ -309,7 +309,7 @@ export default function Customers() {
               </DropdownMenu>
 
               <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-slate-600 flex-shrink-0" />
-            </div>
+            </Link>
           ))}
         </div>
       )}
