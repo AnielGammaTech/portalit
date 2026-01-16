@@ -436,9 +436,9 @@ export default function CustomerDetail() {
                                     {lineItems.map(item => (
                                       <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                                         <td className="py-4 px-2">
-                                          <p className="font-medium text-slate-900">{item.description}</p>
-                                          {item.item_code && <p className="text-xs text-slate-500">Code: {item.item_code}</p>}
-                                        </td>
+                                                                          <p className="font-medium text-slate-900">{item.description?.replace(/\s*\$recurringbillingdate\s*/gi, '').trim()}</p>
+                                                                          {item.item_code && <p className="text-xs text-slate-500">Code: {item.item_code}</p>}
+                                                                        </td>
                                         <td className="py-4 px-2 text-center text-slate-600">{item.quantity}</td>
                                         <td className="py-4 px-2 text-right text-slate-600">
                                           ${(item.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
