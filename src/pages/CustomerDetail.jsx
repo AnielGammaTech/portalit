@@ -27,6 +27,8 @@ import { cn } from "@/lib/utils";
 import { format, parseISO } from 'date-fns';
 
 export default function CustomerDetail() {
+  const [isSyncing, setIsSyncing] = useState(false);
+  const queryClient = useQueryClient();
   const params = new URLSearchParams(window.location.search);
   const customerId = params.get('id');
 
