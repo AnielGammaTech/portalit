@@ -302,68 +302,167 @@ export default function CustomerDetail() {
           </TabsList>
 
         <TabsContent value="overview">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Contracts Summary */}
-            <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-slate-900">Contracts Summary</h3>
-                <FileText className="w-5 h-5 text-slate-400" />
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-600">Total Contracts</span>
-                  <span className="font-semibold text-slate-900">{contracts.length}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-600">Active Contracts</span>
-                  <span className="font-semibold text-emerald-600">
-                    {contracts.filter(c => c.status === 'active').length}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-600">Monthly Value</span>
-                  <span className="font-semibold text-slate-900">
-                    ${totalContractValue.toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            </div>
+                        <div className="space-y-6">
+                          {/* Welcome Header */}
+                          <div className="bg-gradient-to-br from-purple-600 to-purple-800 rounded-2xl p-6 text-white">
+                            <h2 className="text-2xl font-bold mb-1">Welcome, {customer.name}</h2>
+                            <p className="text-purple-200">Your service dashboard</p>
+                          </div>
 
-            {/* SaaS Summary */}
-            <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-slate-900">SaaS Licenses Summary</h3>
-                <Cloud className="w-5 h-5 text-slate-400" />
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-600">Total Licenses</span>
-                  <span className="font-semibold text-slate-900">{licenses.length}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-600">Active Licenses</span>
-                  <span className="font-semibold text-emerald-600">
-                    {licenses.filter(l => l.status === 'active').length}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-600">Monthly Cost</span>
-                  <span className="font-semibold text-slate-900">
-                    ${totalLicenseCost.toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
+                          {/* Quick Stats Widgets */}
+                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="bg-white rounded-xl border border-slate-200/50 p-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                                  <Users className="w-5 h-5 text-blue-600" />
+                                </div>
+                                <div>
+                                  <p className="text-2xl font-bold text-slate-900">{contacts.length}</p>
+                                  <p className="text-xs text-slate-500">Team Members</p>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="bg-white rounded-xl border border-slate-200/50 p-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                                  <DollarSign className="w-5 h-5 text-emerald-600" />
+                                </div>
+                                <div>
+                                  <p className="text-2xl font-bold text-slate-900">
+                                    ${recurringBills.reduce((sum, b) => sum + (b.amount || 0), 0).toLocaleString()}
+                                  </p>
+                                  <p className="text-xs text-slate-500">Monthly Spend</p>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="bg-white rounded-xl border border-slate-200/50 p-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
+                                  <FileText className="w-5 h-5 text-orange-600" />
+                                </div>
+                                <div>
+                                  <p className="text-2xl font-bold text-slate-900">{contracts.length}</p>
+                                  <p className="text-xs text-slate-500">Active Contracts</p>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="bg-white rounded-xl border border-slate-200/50 p-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                                  <Cloud className="w-5 h-5 text-purple-600" />
+                                </div>
+                                <div>
+                                  <p className="text-2xl font-bold text-slate-900">{licenses.length}</p>
+                                  <p className="text-xs text-slate-500">SaaS Licenses</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
 
-          {/* Notes */}
-          {customer.notes && (
-            <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
-              <h3 className="font-medium text-slate-900 mb-3">Notes</h3>
-              <p className="text-slate-600 whitespace-pre-wrap">{customer.notes}</p>
-            </div>
-          )}
-        </TabsContent>
+                          {/* Contract Renewal Widget */}
+                          {contracts.filter(c => c.renewal_date || c.end_date).length > 0 && (
+                            <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
+                              <div className="flex items-center justify-between mb-4">
+                                <h3 className="font-semibold text-slate-900">Upcoming Renewals</h3>
+                                <Calendar className="w-5 h-5 text-slate-400" />
+                              </div>
+                              <div className="space-y-3">
+                                {contracts
+                                  .filter(c => c.renewal_date || c.end_date)
+                                  .sort((a, b) => new Date(a.renewal_date || a.end_date) - new Date(b.renewal_date || b.end_date))
+                                  .slice(0, 3)
+                                  .map(contract => {
+                                    const renewalDate = contract.renewal_date || contract.end_date;
+                                    const daysUntil = Math.ceil((new Date(renewalDate) - new Date()) / (1000 * 60 * 60 * 24));
+                                    return (
+                                      <div key={contract.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                                        <div>
+                                          <p className="font-medium text-slate-900">{contract.name}</p>
+                                          <p className="text-sm text-slate-500">
+                                            {renewalDate ? format(parseISO(renewalDate), 'MMMM d, yyyy') : 'No date'}
+                                          </p>
+                                        </div>
+                                        <Badge className={cn(
+                                          daysUntil <= 30 ? 'bg-red-100 text-red-700' :
+                                          daysUntil <= 90 ? 'bg-yellow-100 text-yellow-700' :
+                                          'bg-emerald-100 text-emerald-700'
+                                        )}>
+                                          {daysUntil > 0 ? `${daysUntil} days` : 'Expired'}
+                                        </Badge>
+                                      </div>
+                                    );
+                                  })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Team Members / Users */}
+                          <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
+                            <div className="flex items-center justify-between mb-4">
+                              <div>
+                                <h3 className="font-semibold text-slate-900">Your Team</h3>
+                                <p className="text-sm text-slate-500">{contacts.length} members</p>
+                              </div>
+                              {customer?.source === 'halopsa' && (
+                                <Button 
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-2"
+                                  onClick={async () => {
+                                    try {
+                                      setIsSyncing(true);
+                                      const response = await base44.functions.invoke('syncHaloPSAContacts', { 
+                                        action: 'sync_customer',
+                                        customer_id: customer.external_id 
+                                      });
+                                      if (response.data.success) {
+                                        toast.success(`Synced ${response.data.recordsSynced} users!`);
+                                        queryClient.invalidateQueries({ queryKey: ['contacts', customerId] });
+                                      } else {
+                                        toast.error(response.data.error || 'Sync failed');
+                                      }
+                                    } catch (error) {
+                                      toast.error(error.message || 'An error occurred during sync');
+                                    } finally {
+                                      setIsSyncing(false);
+                                    }
+                                  }}
+                                  disabled={isSyncing}
+                                >
+                                  <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
+                                  Sync Users
+                                </Button>
+                              )}
+                            </div>
+                            {contacts.length === 0 ? (
+                              <div className="py-8 text-center">
+                                <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                                <p className="text-slate-500">No team members found</p>
+                                {customer?.source === 'halopsa' && (
+                                  <p className="text-sm text-slate-400 mt-1">Click "Sync Users" to pull from HaloPSA</p>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {contacts.map(contact => (
+                                  <div key={contact.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                                    <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-medium">
+                                      {contact.full_name?.charAt(0) || '?'}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-medium text-slate-900 truncate">{contact.full_name}</p>
+                                      <p className="text-sm text-slate-500 truncate">{contact.email || contact.title || 'No email'}</p>
+                                    </div>
+                                    {contact.is_primary && (
+                                      <Badge className="bg-purple-100 text-purple-700 text-xs">Primary</Badge>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </TabsContent>
 
         <TabsContent value="contracts">
                         <div className="space-y-6">
