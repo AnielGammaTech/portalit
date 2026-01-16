@@ -120,9 +120,10 @@ export default function CustomerDetail() {
   });
 
   const [expandedBills, setExpandedBills] = useState({});
-  const [expandedQuotes, setExpandedQuotes] = useState({});
-  const [expandedContracts, setExpandedContracts] = useState({});
-  const [invoiceFilter, setInvoiceFilter] = useState('all');
+      const [expandedQuotes, setExpandedQuotes] = useState({});
+      const [expandedContracts, setExpandedContracts] = useState({});
+      const [invoiceFilter, setInvoiceFilter] = useState('all');
+      const [teamPage, setTeamPage] = useState(1);
 
   const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems || loadingContractItems || loadingContacts;
 
