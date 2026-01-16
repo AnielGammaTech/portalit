@@ -88,10 +88,16 @@ export default function CustomerDetail() {
   });
 
   const { data: contacts = [], isLoading: loadingContacts } = useQuery({
-    queryKey: ['contacts', customerId],
-    queryFn: () => base44.entities.Contact.filter({ customer_id: customerId }),
-    enabled: !!customerId
-  });
+        queryKey: ['contacts', customerId],
+        queryFn: () => base44.entities.Contact.filter({ customer_id: customerId }),
+        enabled: !!customerId
+      });
+
+      const { data: tickets = [], isLoading: loadingTickets } = useQuery({
+        queryKey: ['tickets', customerId],
+        queryFn: () => base44.entities.Ticket.filter({ customer_id: customerId }),
+        enabled: !!customerId
+      });
 
   const { data: quoteItems = [], isLoading: loadingQuoteItems } = useQuery({
     queryKey: ['quote_items', customerId],
@@ -123,9 +129,11 @@ export default function CustomerDetail() {
       const [expandedQuotes, setExpandedQuotes] = useState({});
       const [expandedContracts, setExpandedContracts] = useState({});
       const [invoiceFilter, setInvoiceFilter] = useState('all');
-      const [teamPage, setTeamPage] = useState(1);
+          const [teamPage, setTeamPage] = useState(1);
+          const [ticketFilter, setTicketFilter] = useState('all');
+          const [ticketPage, setTicketPage] = useState(1);
 
-  const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems || loadingContractItems || loadingContacts;
+  const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems || loadingContractItems || loadingContacts || loadingTickets;
 
   const handleSyncCustomer = async () => {
     if (!customer) return;
@@ -284,10 +292,14 @@ export default function CustomerDetail() {
               SaaS Licenses
             </TabsTrigger>
             <TabsTrigger value="quotes" className="gap-2">
-              <FileText className="w-4 h-4" />
-              Quotes
-            </TabsTrigger>
-          </TabsList>
+                                <FileText className="w-4 h-4" />
+                                Quotes
+                              </TabsTrigger>
+                              <TabsTrigger value="tickets" className="gap-2">
+                                <Monitor className="w-4 h-4" />
+                                Tickets
+                              </TabsTrigger>
+                            </TabsList>
 
         <TabsContent value="overview">
                         <div className="space-y-6">
@@ -907,7 +919,157 @@ export default function CustomerDetail() {
             </div>
           </div>
         </TabsContent>
-        </Tabs>
-        </div>
-        );
-        }
+
+                      <TabsContent value="tickets">
+                        <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
+                          <div className="flex items-center justify-between mb-6">
+                            <div>
+                              <h3 className="text-lg font-semibold text-slate-900">Support Tickets</h3>
+                              <p className="text-sm text-slate-500">{tickets.length} tickets</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              {customer?.source === 'halopsa' && (
+                                <Button 
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-2"
+                                  onClick={async () => {
+                                    try {
+                                      setIsSyncing(true);
+                                      const response = await base44.functions.invoke('syncHaloPSATickets', { 
+                                        action: 'sync_customer',
+                                        customer_id: customer.external_id 
+                                      });
+                                      if (response.data.success) {
+                                        toast.success(`Synced ${response.data.recordsSynced} tickets!`);
+                                        queryClient.invalidateQueries({ queryKey: ['tickets', customerId] });
+                                      } else {
+                                        toast.error(response.data.error || 'Sync failed');
+                                      }
+                                    } catch (error) {
+                                      toast.error(error.message || 'An error occurred during sync');
+                                    } finally {
+                                      setIsSyncing(false);
+                                    }
+                                  }}
+                                  disabled={isSyncing}
+                                >
+                                  <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
+                                  Sync Tickets
+                                </Button>
+                              )}
+                              <div className="flex items-center gap-2">
+                                <Filter className="w-4 h-4 text-slate-400" />
+                                <select
+                                  value={ticketFilter}
+                                  onChange={(e) => { setTicketFilter(e.target.value); setTicketPage(1); }}
+                                  className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                >
+                                  <option value="all">All</option>
+                                  <option value="open">Open</option>
+                                  <option value="in_progress">In Progress</option>
+                                  <option value="waiting">Waiting</option>
+                                  <option value="resolved">Resolved</option>
+                                  <option value="closed">Closed</option>
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+
+                          {tickets.length === 0 ? (
+                            <div className="py-12 text-center">
+                              <Monitor className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                              <p className="text-slate-500">No tickets found</p>
+                              {customer?.source === 'halopsa' && (
+                                <p className="text-sm text-slate-400 mt-1">Click "Sync Tickets" to pull from HaloPSA</p>
+                              )}
+                            </div>
+                          ) : (
+                            <>
+                              <div className="space-y-3">
+                                {tickets
+                                  .filter(t => ticketFilter === 'all' || t.status === ticketFilter)
+                                  .slice((ticketPage - 1) * 10, ticketPage * 10)
+                                  .map(ticket => (
+                                    <div key={ticket.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
+                                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                                        <div className={cn(
+                                          "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",
+                                          ticket.priority === 'critical' && "bg-red-100",
+                                          ticket.priority === 'high' && "bg-orange-100",
+                                          ticket.priority === 'medium' && "bg-yellow-100",
+                                          ticket.priority === 'low' && "bg-blue-100"
+                                        )}>
+                                          <Monitor className={cn(
+                                            "w-5 h-5",
+                                            ticket.priority === 'critical' && "text-red-600",
+                                            ticket.priority === 'high' && "text-orange-600",
+                                            ticket.priority === 'medium' && "text-yellow-600",
+                                            ticket.priority === 'low' && "text-blue-600"
+                                          )} />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="font-semibold text-slate-900 truncate">#{ticket.ticket_number} - {ticket.summary}</p>
+                                          <div className="flex items-center gap-3 text-sm text-slate-500">
+                                            {ticket.requested_by && <span>By: {ticket.requested_by}</span>}
+                                            {ticket.date_opened && (
+                                              <span>Opened: {format(parseISO(ticket.date_opened), 'MMM d, yyyy')}</span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-2 flex-shrink-0">
+                                        <Badge className={cn(
+                                          'text-xs capitalize',
+                                          ticket.priority === 'critical' && 'bg-red-100 text-red-700',
+                                          ticket.priority === 'high' && 'bg-orange-100 text-orange-700',
+                                          ticket.priority === 'medium' && 'bg-yellow-100 text-yellow-700',
+                                          ticket.priority === 'low' && 'bg-blue-100 text-blue-700'
+                                        )}>
+                                          {ticket.priority}
+                                        </Badge>
+                                        <Badge className={cn(
+                                          'text-xs capitalize',
+                                          ticket.status === 'open' && 'bg-emerald-100 text-emerald-700',
+                                          ticket.status === 'in_progress' && 'bg-blue-100 text-blue-700',
+                                          ticket.status === 'waiting' && 'bg-yellow-100 text-yellow-700',
+                                          ticket.status === 'resolved' && 'bg-purple-100 text-purple-700',
+                                          ticket.status === 'closed' && 'bg-slate-100 text-slate-700'
+                                        )}>
+                                          {ticket.status?.replace('_', ' ')}
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                              {tickets.filter(t => ticketFilter === 'all' || t.status === ticketFilter).length > 10 && (
+                                <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t border-slate-100">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setTicketPage(p => Math.max(1, p - 1))}
+                                    disabled={ticketPage === 1}
+                                  >
+                                    Previous
+                                  </Button>
+                                  <span className="text-sm text-slate-600 px-3">
+                                    Page {ticketPage} of {Math.ceil(tickets.filter(t => ticketFilter === 'all' || t.status === ticketFilter).length / 10)}
+                                  </span>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setTicketPage(p => Math.min(Math.ceil(tickets.filter(t => ticketFilter === 'all' || t.status === ticketFilter).length / 10), p + 1))}
+                                    disabled={ticketPage >= Math.ceil(tickets.filter(t => ticketFilter === 'all' || t.status === ticketFilter).length / 10)}
+                                  >
+                                    Next
+                                  </Button>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </TabsContent>
+                      </Tabs>
+                      </div>
+                      );
+                      }
