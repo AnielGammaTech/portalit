@@ -171,8 +171,12 @@ export default function CustomerDetail() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="contracts" className="space-y-6">
+      <Tabs defaultValue="overview" className="space-y-6">
         <TabsList className="bg-white border border-slate-200/50">
+          <TabsTrigger value="overview" className="gap-2">
+            <Building2 className="w-4 h-4" />
+            Overview
+          </TabsTrigger>
           <TabsTrigger value="contracts" className="gap-2">
             <FileText className="w-4 h-4" />
             Contracts
@@ -182,6 +186,70 @@ export default function CustomerDetail() {
             SaaS Licenses
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="overview">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Contracts Summary */}
+            <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-slate-900">Contracts Summary</h3>
+                <FileText className="w-5 h-5 text-slate-400" />
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-600">Total Contracts</span>
+                  <span className="font-semibold text-slate-900">{contracts.length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-600">Active Contracts</span>
+                  <span className="font-semibold text-emerald-600">
+                    {contracts.filter(c => c.status === 'active').length}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-600">Monthly Value</span>
+                  <span className="font-semibold text-slate-900">
+                    ${totalContractValue.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* SaaS Summary */}
+            <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-slate-900">SaaS Licenses Summary</h3>
+                <Cloud className="w-5 h-5 text-slate-400" />
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-600">Total Licenses</span>
+                  <span className="font-semibold text-slate-900">{licenses.length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-600">Active Licenses</span>
+                  <span className="font-semibold text-emerald-600">
+                    {licenses.filter(l => l.status === 'active').length}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-600">Monthly Cost</span>
+                  <span className="font-semibold text-slate-900">
+                    ${totalLicenseCost.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Notes */}
+          {customer.notes && (
+            <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
+              <h3 className="font-medium text-slate-900 mb-3">Notes</h3>
+              <p className="text-slate-600 whitespace-pre-wrap">{customer.notes}</p>
+            </div>
+          )}
+        </TabsContent>
 
         <TabsContent value="contracts">
           <div className="bg-white rounded-2xl border border-slate-200/50 overflow-hidden">
@@ -270,14 +338,6 @@ export default function CustomerDetail() {
           </div>
         </TabsContent>
       </Tabs>
-
-      {/* Notes */}
-      {customer.notes && (
-        <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
-          <h3 className="font-medium text-slate-900 mb-3">Notes</h3>
-          <p className="text-slate-600 whitespace-pre-wrap">{customer.notes}</p>
-        </div>
-      )}
     </div>
   );
 }
