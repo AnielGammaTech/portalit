@@ -43,6 +43,9 @@ export default function Integrations() {
       ...prev,
       [integrationId]: { ...prev[integrationId], enabled: checked }
     }));
+    if (checked) {
+      setExpandedIntegration(integrationId);
+    }
   };
 
   return (
