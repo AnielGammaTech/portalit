@@ -201,26 +201,22 @@ Deno.serve(async (req) => {
             break;
           }
 
+          const allCustomers = await base44.asServiceRole.entities.Customer.list();
+          const existingBills = await base44.asServiceRole.entities.RecurringBill.list('-created_date', 10000);
+          
+          const toCreate = [];
+          const toUpdate = [];
+
           for (const bill of recurringBills) {
             try {
-              const customers = await base44.asServiceRole.entities.Customer.filter({ 
-                external_id: String(bill.clientid || bill.ClientID),
-                source: 'halopsa'
-              });
-              const customerId = customers[0]?.id;
-
-              if (!customerId) {
+              const customer = allCustomers.find(c => c.external_id === String(bill.client_id || bill.ClientID) && c.source === 'halopsa');
+              if (!customer) {
                 recordsFailed++;
                 continue;
               }
 
-              const existingBill = (await base44.asServiceRole.entities.RecurringBill.filter({ 
-                halopsa_id: String(bill.id),
-                customer_id: customerId
-              }))[0];
-
               const billPayload = {
-                customer_id: customerId,
+                customer_id: customer.id,
                 halopsa_id: String(bill.id),
                 name: bill.name || bill.Name || `Bill ${bill.id}`,
                 description: bill.description || bill.Description || '',
@@ -231,16 +227,26 @@ Deno.serve(async (req) => {
                 end_date: bill.enddate || bill.EndDate || null
               };
 
+              const existingBill = existingBills.find(b => b.halopsa_id === String(bill.id) && b.customer_id === customer.id);
               if (existingBill) {
-                await base44.asServiceRole.entities.RecurringBill.update(existingBill.id, billPayload);
+                toUpdate.push({ id: existingBill.id, data: billPayload });
               } else {
-                await base44.asServiceRole.entities.RecurringBill.create(billPayload);
+                toCreate.push(billPayload);
               }
-              recordsSynced++;
             } catch (itemError) {
               recordsFailed++;
               errors.push(`Bill ${bill.id}: ${itemError.message}`);
             }
+          }
+
+          if (toCreate.length > 0) {
+            await base44.asServiceRole.entities.RecurringBill.bulkCreate(toCreate);
+            recordsSynced += toCreate.length;
+          }
+
+          for (const { id, data } of toUpdate) {
+            await base44.asServiceRole.entities.RecurringBill.update(id, data);
+            recordsSynced++;
           }
 
           if (recurringBills.length < pageSize) {
