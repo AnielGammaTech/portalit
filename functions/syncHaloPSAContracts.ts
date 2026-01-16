@@ -1,5 +1,106 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
+// Helper: Authenticate with HaloPSA via OAuth 2.0 Client Credentials
+async function authenticateWithHaloPSA(authUrl, clientId, clientSecret) {
+  const tokenResponse = await fetch(authUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: clientId,
+      client_secret: clientSecret,
+      scope: 'all'
+    })
+  });
+
+  if (!tokenResponse.ok) {
+    const errorText = await tokenResponse.text();
+    throw new Error(`HaloPSA auth failed: ${tokenResponse.status} - ${errorText}`);
+  }
+
+  const tokenData = await tokenResponse.json();
+  if (!tokenData.access_token) {
+    throw new Error('No access token received from HaloPSA');
+  }
+
+  return tokenData.access_token;
+}
+
+// Helper: Build HaloPSA API URL
+function buildHaloPsaApiUrl(baseUrl, endpoint) {
+  return `${baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'}${endpoint}`;
+}
+
+// Helper: Fetch from HaloPSA with rate limiting
+async function fetchFromHaloPSA(url, accessToken, clientId) {
+  await new Promise(resolve => setTimeout(resolve, 1000));
+
+  const response = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Client-ID': clientId
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`HaloPSA API error: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+// Helper: Extract contracts array from response
+function extractContractsFromResponse(data) {
+  if (Array.isArray(data)) return data;
+  if (data.contracts) return data.contracts;
+  return [];
+}
+
+// Helper: Fetch line items for a specific contract
+async function fetchLineItemsForContract(contractId, baseUrl, accessToken, clientId) {
+  try {
+    const url = buildHaloPsaApiUrl(baseUrl, `ContractLineItem?contract_id=${contractId}`);
+    const data = await fetchFromHaloPSA(url, accessToken, clientId);
+    if (Array.isArray(data)) return data;
+    if (data.line_items) return data.line_items;
+    if (data.LineItems) return data.LineItems;
+    return [];
+  } catch (err) {
+    console.log(`Could not fetch line items for contract ${contractId}: ${err.message}`);
+    return [];
+  }
+}
+
+// Transform HaloPSA contract data to Contract schema
+function transformContract(haloContract, customerId) {
+  return {
+    customer_id: customerId,
+    customer_name: haloContract.client_name || haloContract.ClientName || '',
+    name: haloContract.contractname || haloContract.ContractName || `Contract ${haloContract.id}`,
+    external_id: String(haloContract.id),
+    source: 'halopsa',
+    type: 'managed_services',
+    status: haloContract.status?.toLowerCase?.() || 'active',
+    start_date: haloContract.startdate || haloContract.StartDate || null,
+    end_date: haloContract.enddate || haloContract.EndDate || null,
+    value: parseFloat(haloContract.contractvalue || haloContract.ContractValue || 0) || 0,
+    description: haloContract.notes || haloContract.Notes || ''
+  };
+}
+
+// Transform HaloPSA line item to ContractItem schema
+function transformLineItem(haloLineItem, contractId) {
+  return {
+    contract_id: contractId,
+    external_id: String(haloLineItem.id || haloLineItem.ID),
+    description: haloLineItem.description || haloLineItem.Description || '',
+    quantity: parseFloat(haloLineItem.quantity || haloLineItem.Quantity || 1),
+    unit_price: parseFloat(haloLineItem.unit_price || haloLineItem.UnitPrice || haloLineItem.Price || 0) || 0,
+    net_amount: parseFloat(haloLineItem.net_amount || haloLineItem.NetAmount || haloLineItem.total || haloLineItem.Total || 0) || 0,
+    item_code: haloLineItem.item_code || haloLineItem.ItemCode || ''
+  };
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -17,63 +118,23 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'HaloPSA settings not configured' }, { status: 400 });
     }
 
-    const clientId = settings.halopsa_client_id;
-    const clientSecret = settings.halopsa_client_secret;
-    const tenant = settings.halopsa_tenant;
-    const authUrl = settings.halopsa_auth_url;
-    const apiUrl = settings.halopsa_api_url;
-
     let accessToken;
     try {
-      const tokenResponse = await fetch(authUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type: 'client_credentials',
-          client_id: clientId,
-          client_secret: clientSecret,
-          scope: 'all'
-        })
-      });
-
-      if (!tokenResponse.ok) {
-        const errorText = await tokenResponse.text();
-        console.error('Token response error:', tokenResponse.status, errorText);
-        return Response.json({ error: `Failed to authenticate with HaloPSA: ${tokenResponse.status} - ${errorText}` }, { status: 401 });
-      }
-
-      const tokenData = await tokenResponse.json();
-      accessToken = tokenData.access_token;
-      if (!accessToken) {
-        console.error('No access token in response:', tokenData);
-        return Response.json({ error: 'No access token received from HaloPSA' }, { status: 401 });
-      }
+      accessToken = await authenticateWithHaloPSA(
+        settings.halopsa_auth_url,
+        settings.halopsa_client_id,
+        settings.halopsa_client_secret
+      );
     } catch (error) {
-      console.error('Token fetch error:', error);
-      return Response.json({ error: `Authentication error: ${error.message}` }, { status: 500 });
+      return Response.json({ error: error.message }, { status: 401 });
     }
 
-    const haloPsaApi = (endpoint) => `${apiUrl.endsWith('/') ? apiUrl : apiUrl + '/'}${endpoint}`;
-
-    const fetchHaloPSA = async (url) => {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Client-ID': clientId
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HaloPSA API error: ${response.status}`);
-      }
-
-      return await response.json();
-    };
+    const apiUrl = settings.halopsa_api_url;
+    const clientId = settings.halopsa_client_id;
 
     if (action === 'test_connection') {
-      await fetchHaloPSA(haloPsaApi('Contracts?page_number=1&page_size=1'));
+      const url = buildHaloPsaApiUrl(apiUrl, 'Contracts?page_number=1&page_size=1');
+      await fetchFromHaloPSA(url, accessToken, clientId);
       return Response.json({ success: true, message: 'HaloPSA connection successful!' });
     }
 
@@ -91,43 +152,51 @@ Deno.serve(async (req) => {
       const errors = [];
 
       try {
-        const contractData = await fetchHaloPSA(haloPsaApi(`Contracts/${contract_id}`));
-        const contract = contractData;
+        // Extract: Fetch contract from HaloPSA
+        const url = buildHaloPsaApiUrl(apiUrl, `Contracts/${contract_id}`);
+        const haloContract = await fetchFromHaloPSA(url, accessToken, clientId);
 
-        const existingContract = (await base44.asServiceRole.entities.Contract.filter({ 
-          external_id: String(contract.id), 
-          source: 'halopsa' 
-        }))[0];
-
+        // Extract: Lookup customer in database
         const customers = await base44.asServiceRole.entities.Customer.filter({ 
-          external_id: String(contract.clientid || contract.ClientID),
+          external_id: String(haloContract.clientid || haloContract.ClientID),
           source: 'halopsa'
         });
         const customerId = customers[0]?.id;
+        if (!customerId) throw new Error('Associated customer not found');
 
-        if (!customerId) {
-          throw new Error('Associated customer not found');
-        }
+        // Transform: Contract data
+        const contractPayload = transformContract(haloContract, customerId);
 
-        const contractPayload = {
-          customer_id: customerId,
-          customer_name: contract.client_name || contract.ClientName || '',
-          name: contract.contractname || contract.ContractName || `Contract ${contract.id}`,
-          external_id: String(contract.id),
-          source: 'halopsa',
-          type: 'managed_services',
-          status: contract.status?.toLowerCase() || 'active',
-          start_date: contract.startdate || contract.StartDate || null,
-          end_date: contract.enddate || contract.EndDate || null,
-          value: parseFloat(contract.contractvalue || contract.ContractValue || 0) || 0,
-          description: contract.notes || contract.Notes || ''
-        };
+        // Load: Create or update contract
+        const existingContract = (await base44.asServiceRole.entities.Contract.filter({ 
+          external_id: String(haloContract.id), 
+          source: 'halopsa' 
+        }))[0];
 
+        let savedContract;
         if (existingContract) {
           await base44.asServiceRole.entities.Contract.update(existingContract.id, contractPayload);
+          savedContract = existingContract;
         } else {
-          await base44.asServiceRole.entities.Contract.create(contractPayload);
+          savedContract = await base44.asServiceRole.entities.Contract.create(contractPayload);
         }
+
+        // Extract & Load: Line items
+        const lineItems = await fetchLineItemsForContract(haloContract.id, apiUrl, accessToken, clientId);
+        if (Array.isArray(lineItems) && lineItems.length > 0) {
+          // Delete old line items
+          const existingItems = await base44.asServiceRole.entities.ContractItem.filter({ contract_id: savedContract.id });
+          if (existingItems.length > 0) {
+            for (const item of existingItems) {
+              await base44.asServiceRole.entities.ContractItem.delete(item.id);
+            }
+          }
+
+          // Transform & Load: New line items
+          const transformedItems = lineItems.map(item => transformLineItem(item, savedContract.id));
+          await base44.asServiceRole.entities.ContractItem.bulkCreate(transformedItems);
+        }
+
         recordsSynced = 1;
 
         await base44.asServiceRole.entities.SyncLog.update(syncLog.id, {
@@ -164,64 +233,72 @@ Deno.serve(async (req) => {
       let hasMore = true;
 
       try {
-        while (hasMore) {
-          const data = await fetchHaloPSA(haloPsaApi(`Contracts?page_number=${pageNumber}&page_size=${pageSize}`));
-          const contracts = data.contracts || data || [];
+        // Extract: Fetch all customers for mapping
+        const allCustomers = await base44.asServiceRole.entities.Customer.list();
+        const customerMap = new Map(allCustomers.map(c => [`${c.external_id}:halopsa`, c.id]));
 
-          if (contracts.length === 0) {
+        // Extract: Paginate through HaloPSA contracts
+        while (hasMore) {
+          const url = buildHaloPsaApiUrl(apiUrl, `Contracts?page_number=${pageNumber}&page_size=${pageSize}`);
+          const data = await fetchFromHaloPSA(url, accessToken, clientId);
+          const haloContracts = extractContractsFromResponse(data);
+
+          if (haloContracts.length === 0) {
             hasMore = false;
             break;
           }
 
-          for (const contract of contracts) {
+          // Transform & Load
+          for (const haloContract of haloContracts) {
             try {
-              const existingContract = (await base44.asServiceRole.entities.Contract.filter({ 
-                external_id: String(contract.id), 
-                source: 'halopsa' 
-              }))[0];
-
-              const customers = await base44.asServiceRole.entities.Customer.filter({ 
-                external_id: String(contract.clientid || contract.ClientID),
-                source: 'halopsa'
-              });
-              const customerId = customers[0]?.id;
-
+              const customerId = customerMap.get(`${haloContract.clientid || haloContract.ClientID}:halopsa`);
               if (!customerId) {
                 recordsFailed++;
                 continue;
               }
 
-              const contractPayload = {
-                customer_id: customerId,
-                customer_name: contract.client_name || contract.ClientName || '',
-                name: contract.contractname || contract.ContractName || `Contract ${contract.id}`,
-                external_id: String(contract.id),
-                source: 'halopsa',
-                type: 'managed_services',
-                status: contract.status?.toLowerCase() || 'active',
-                start_date: contract.startdate || contract.StartDate || null,
-                end_date: contract.enddate || contract.EndDate || null,
-                value: parseFloat(contract.contractvalue || contract.ContractValue || 0) || 0,
-                description: contract.notes || contract.Notes || ''
-              };
+              // Transform contract data
+              const contractPayload = transformContract(haloContract, customerId);
 
+              // Load: Create or update contract
+              const existingContract = (await base44.asServiceRole.entities.Contract.filter({ 
+                external_id: String(haloContract.id), 
+                source: 'halopsa' 
+              }))[0];
+
+              let savedContract;
               if (existingContract) {
                 await base44.asServiceRole.entities.Contract.update(existingContract.id, contractPayload);
+                savedContract = existingContract;
               } else {
-                await base44.asServiceRole.entities.Contract.create(contractPayload);
+                savedContract = await base44.asServiceRole.entities.Contract.create(contractPayload);
               }
+
+              // Extract & Load: Line items
+              const lineItems = await fetchLineItemsForContract(haloContract.id, apiUrl, accessToken, clientId);
+              if (Array.isArray(lineItems) && lineItems.length > 0) {
+                // Delete old line items
+                const existingItems = await base44.asServiceRole.entities.ContractItem.filter({ contract_id: savedContract.id });
+                if (existingItems.length > 0) {
+                  for (const item of existingItems) {
+                    await base44.asServiceRole.entities.ContractItem.delete(item.id);
+                  }
+                }
+
+                // Transform & Load: New line items
+                const transformedItems = lineItems.map(item => transformLineItem(item, savedContract.id));
+                await base44.asServiceRole.entities.ContractItem.bulkCreate(transformedItems);
+              }
+
               recordsSynced++;
             } catch (itemError) {
               recordsFailed++;
-              errors.push(`Contract ${contract.id}: ${itemError.message}`);
+              errors.push(`Contract ${haloContract.id}: ${itemError.message}`);
             }
           }
 
-          if (contracts.length < pageSize) {
-            hasMore = false;
-          } else {
-            pageNumber++;
-          }
+          pageNumber++;
+          if (haloContracts.length < pageSize) hasMore = false;
         }
 
         await base44.asServiceRole.entities.SyncLog.update(syncLog.id, {
