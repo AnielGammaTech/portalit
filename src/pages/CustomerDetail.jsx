@@ -74,10 +74,30 @@ export default function CustomerDetail() {
     enabled: !!customerId
   });
 
+  const { data: quotes = [], isLoading: loadingQuotes } = useQuery({
+    queryKey: ['quotes', customerId],
+    queryFn: () => base44.entities.Quote.filter({ customer_id: customerId }),
+    enabled: !!customerId
+  });
+
+  const { data: quoteItems = [], isLoading: loadingQuoteItems } = useQuery({
+    queryKey: ['quote_items', customerId],
+    queryFn: async () => {
+      const allItems = [];
+      for (const quote of quotes) {
+        const items = await base44.entities.QuoteItem.filter({ quote_id: quote.id });
+        allItems.push(...items);
+      }
+      return allItems;
+    },
+    enabled: !!customerId && quotes.length > 0
+  });
+
   const [expandedBills, setExpandedBills] = useState({});
+  const [expandedQuotes, setExpandedQuotes] = useState({});
   const [invoiceFilter, setInvoiceFilter] = useState('all');
 
-  const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingBills || loadingLineItems || loadingInvoices;
+  const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems;
 
   const handleSyncCustomer = async () => {
     if (!customer) return;
@@ -249,10 +269,14 @@ export default function CustomerDetail() {
             Contracts
           </TabsTrigger>
           <TabsTrigger value="licenses" className="gap-2">
-            <Cloud className="w-4 h-4" />
-            SaaS Licenses
-          </TabsTrigger>
-        </TabsList>
+              <Cloud className="w-4 h-4" />
+              SaaS Licenses
+            </TabsTrigger>
+            <TabsTrigger value="quotes" className="gap-2">
+              <FileText className="w-4 h-4" />
+              Quotes
+            </TabsTrigger>
+          </TabsList>
 
         <TabsContent value="overview">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -577,7 +601,98 @@ export default function CustomerDetail() {
             )}
           </div>
         </TabsContent>
-      </Tabs>
-    </div>
-  );
-}
+
+        <TabsContent value="quotes">
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-semibold text-slate-900">Quotes</h3>
+                <Button size="sm" className="gap-2 bg-slate-900 hover:bg-slate-800">
+                  <Plus className="w-4 h-4" />
+                  New Quote
+                </Button>
+              </div>
+              {quotes.length === 0 ? (
+                <div className="p-12 text-center">
+                  <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                  <p className="text-slate-500">No quotes found</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {quotes.map((quote) => {
+                    const quoteLineItems = quoteItems.filter(item => item.quote_id === quote.id);
+                    const isExpanded = expandedQuotes[quote.id];
+                    return (
+                      <div key={quote.id} className="border border-slate-100 rounded-lg overflow-hidden">
+                        <button
+                          onClick={() => setExpandedQuotes(prev => ({ ...prev, [quote.id]: !prev[quote.id] }))}
+                          className="w-full px-4 py-4 flex items-start justify-between hover:bg-slate-50 transition-colors"
+                        >
+                          <div className="flex-1 text-left">
+                            <div className="flex items-center gap-3 mb-2">
+                              <span className="font-semibold text-slate-900">{quote.title || quote.quote_number}</span>
+                              <Badge className={cn(
+                                "capitalize text-xs",
+                                quote.status === 'accepted' && "bg-emerald-100 text-emerald-700",
+                                quote.status === 'sent' && "bg-blue-100 text-blue-700",
+                                quote.status === 'draft' && "bg-slate-100 text-slate-700",
+                                quote.status === 'rejected' && "bg-red-100 text-red-700",
+                                quote.status === 'expired' && "bg-yellow-100 text-yellow-700"
+                              )}>
+                                {quote.status}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-4 text-sm text-slate-600">
+                              <span>Quote #{quote.quote_number}</span>
+                              {quote.quote_date && (
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  {format(parseISO(quote.quote_date), 'MM/dd/yyyy')}
+                                </span>
+                              )}
+                              {quote.expiry_date && (
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  Expires: {format(parseISO(quote.expiry_date), 'MM/dd/yyyy')}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <p className="font-semibold text-slate-900">
+                              ${(quote.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            </p>
+                            <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", isExpanded && "rotate-180")} />
+                          </div>
+                        </button>
+                        {isExpanded && quoteLineItems.length > 0 && (
+                          <div className="bg-slate-50 border-t border-slate-100 px-4 py-3">
+                            <div className="space-y-3">
+                              {quoteLineItems.map(item => (
+                                <div key={item.id} className="flex justify-between items-start text-sm">
+                                  <div className="flex-1">
+                                    <p className="text-slate-900 font-medium">{item.description}</p>
+                                    <p className="text-xs text-slate-500 mt-1">
+                                      {item.quantity} × ${(item.unit_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                    </p>
+                                  </div>
+                                  <p className="font-semibold text-slate-900">
+                                    ${(item.total_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+        </Tabs>
+        </div>
+        );
+        }
