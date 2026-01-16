@@ -59,6 +59,7 @@ export default function Customers() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [errorDialogOpen, setErrorDialogOpen] = useState(false);
   const [syncError, setSyncError] = useState(null);
+  const [selectedCustomerDetail, setSelectedCustomerDetail] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     primary_contact: '',
