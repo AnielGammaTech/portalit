@@ -122,18 +122,59 @@ Deno.serve(async (req) => {
         try {
           console.log(`Processing contract: ${JSON.stringify(haloContract)}`);
 
+          // Map contract type from HaloPSA
+          const typeMap = {
+            'managed': 'managed_services',
+            'managed services': 'managed_services',
+            'break fix': 'break_fix',
+            'breakfix': 'break_fix',
+            'project': 'project',
+            'subscription': 'subscription'
+          };
+          const rawType = (haloContract.type_name || haloContract.typename || haloContract.type || '').toLowerCase();
+          const contractType = typeMap[rawType] || 'other';
+
+          // Map contract status from HaloPSA
+          const statusMap = {
+            'active': 'active',
+            'pending': 'pending',
+            'expired': 'expired',
+            'cancelled': 'cancelled',
+            'canceled': 'cancelled',
+            'inactive': 'expired'
+          };
+          const rawStatus = (haloContract.status_name || haloContract.statusname || haloContract.status || 'active').toLowerCase();
+          const contractStatus = statusMap[rawStatus] || 'active';
+
+          // Map billing cycle from HaloPSA
+          const billingMap = {
+            'monthly': 'monthly',
+            'quarterly': 'quarterly',
+            'annually': 'annually',
+            'annual': 'annually',
+            'yearly': 'annually',
+            'one time': 'one_time',
+            'one-time': 'one_time',
+            'onetime': 'one_time'
+          };
+          const rawBilling = (haloContract.billing_cycle || haloContract.billingcycle || haloContract.billingfrequency || 'monthly').toLowerCase();
+          const billingCycle = billingMap[rawBilling] || 'monthly';
+
           const contractPayload = {
             customer_id: dbCustomer.id,
             customer_name: dbCustomer.name,
             name: haloContract.contractname || haloContract.ref || haloContract.name || `Contract ${haloContract.id}`,
             external_id: String(haloContract.id),
             source: 'halopsa',
-            type: 'managed_services',
-            status: 'active',
-            start_date: haloContract.startdate || null,
-            end_date: haloContract.enddate || null,
-            value: parseFloat(haloContract.contractvalue || haloContract.value || 0) || 0,
-            description: haloContract.notes || ''
+            type: contractType,
+            status: contractStatus,
+            start_date: haloContract.startdate || haloContract.start_date || null,
+            end_date: haloContract.enddate || haloContract.end_date || null,
+            renewal_date: haloContract.renewaldate || haloContract.renewal_date || haloContract.nextbillingdate || null,
+            billing_cycle: billingCycle,
+            value: parseFloat(haloContract.contractvalue || haloContract.value || haloContract.monthlyvalue || haloContract.recurringvalue || 0) || 0,
+            description: haloContract.notes || haloContract.description || '',
+            auto_renew: haloContract.autorenew === true || haloContract.auto_renew === true || false
           };
 
           console.log(`Contract payload: ${JSON.stringify(contractPayload)}`);
