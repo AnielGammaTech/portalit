@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import HaloPSAConfig from '../components/integrations/HaloPSAConfig';
 
 const INTEGRATIONS = [
   {
@@ -117,9 +118,15 @@ export default function Integrations() {
 
                   {isExpanded && (
                     <div className="px-6 pb-6 border-t border-slate-100">
-                      <p className="text-sm text-slate-600 mt-4">
-                        Configuration options for {integration.name} would appear here.
-                      </p>
+                      <div className="mt-6">
+                        {integration.id === 'halopsa' ? (
+                          <HaloPSAConfig />
+                        ) : (
+                          <p className="text-sm text-slate-600">
+                            Configuration options for {integration.name} would appear here.
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
