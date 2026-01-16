@@ -247,9 +247,12 @@ Deno.serve(async (req) => {
                 continue;
               }
 
-              // Log first bill to see structure
+              // Log first bill to see structure and line items
               if (!seenBillStructure) {
-                console.log('Bill structure:', JSON.stringify(bill).substring(0, 500));
+                console.log('Bill keys:', Object.keys(bill));
+                console.log('Bill line_items:', bill.line_items ? 'found' : 'not found');
+                console.log('Bill LineItems:', bill.LineItems ? 'found' : 'not found');
+                console.log('Bill lines:', bill.lines ? 'found' : 'not found');
                 seenBillStructure = true;
               }
 
