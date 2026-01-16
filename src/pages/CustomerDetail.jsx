@@ -53,6 +53,29 @@ export default function CustomerDetail() {
 
   const isLoading = loadingCustomer || loadingContracts || loadingLicenses;
 
+  const handleSyncCustomer = async () => {
+    if (!customer) return;
+    try {
+      setIsSyncing(true);
+      const response = await base44.functions.invoke('syncHaloPSACustomers', { 
+        action: 'sync_customer',
+        customer_id: customer.external_id 
+      });
+      if (response.data.success) {
+        toast.success(`Customer synced successfully!`);
+        queryClient.invalidateQueries({ queryKey: ['customers'] });
+        queryClient.invalidateQueries({ queryKey: ['contracts', customerId] });
+        queryClient.invalidateQueries({ queryKey: ['licenses', customerId] });
+      } else {
+        toast.error(response.data.error || 'Sync failed');
+      }
+    } catch (error) {
+      toast.error(error.message || 'An error occurred during sync');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
