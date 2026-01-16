@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'sync_customer') {
-      const { customer_id } = await req.json();
+      const { customer_id } = body;
 
       const syncLog = await base44.asServiceRole.entities.SyncLog.create({
         source: 'halopsa',
