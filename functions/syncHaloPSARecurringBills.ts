@@ -1,5 +1,110 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
+// Helper: Extract HaloPSA access token via OAuth 2.0 Client Credentials flow
+async function authenticateWithHaloPSA(authUrl, clientId, clientSecret) {
+  const tokenResponse = await fetch(authUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: clientId,
+      client_secret: clientSecret,
+      scope: 'all'
+    })
+  });
+
+  if (!tokenResponse.ok) {
+    const errorText = await tokenResponse.text();
+    throw new Error(`HaloPSA auth failed: ${tokenResponse.status} - ${errorText}`);
+  }
+
+  const tokenData = await tokenResponse.json();
+  if (!tokenData.access_token) {
+    throw new Error('No access token received from HaloPSA');
+  }
+
+  return tokenData.access_token;
+}
+
+// Helper: Build HaloPSA API URL
+function buildHaloPsaApiUrl(baseUrl, endpoint) {
+  return `${baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'}${endpoint}`;
+}
+
+// Helper: Fetch from HaloPSA with rate limiting and error handling
+async function fetchFromHaloPSA(url, accessToken, clientId) {
+  await new Promise(resolve => setTimeout(resolve, 500)); // Rate limiting
+
+  const response = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Client-ID': clientId
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`HaloPSA API error: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+// Helper: Extract recurring bills array from various HaloPSA response formats
+function extractRecurringBillsFromResponse(data) {
+  if (Array.isArray(data)) return data;
+  if (data.invoices) return data.invoices;
+  if (data.recurringInvoices) return data.recurringInvoices;
+  if (data.pageDetails?.pageResult) return data.pageDetails.pageResult;
+  if (data.records) return data.records;
+  return [];
+}
+
+// Helper: Fetch line items for a specific recurring invoice
+async function fetchLineItemsForBill(billId, baseUrl, accessToken, clientId) {
+  try {
+    const url = buildHaloPsaApiUrl(baseUrl, `RecurringInvoiceLineItem?recurringinvoice_id=${billId}`);
+    const data = await fetchFromHaloPSA(url, accessToken, clientId);
+    if (Array.isArray(data)) return data;
+    if (data.line_items) return data.line_items;
+    if (data.LineItems) return data.LineItems;
+    return [];
+  } catch (err) {
+    console.log(`Could not fetch line items for bill ${billId}: ${err.message}`);
+    return [];
+  }
+}
+
+// Transform HaloPSA bill data to RecurringBill schema
+function transformRecurringBill(haloBill, customerId) {
+  return {
+    customer_id: customerId,
+    halopsa_id: String(haloBill.id),
+    name: haloBill.name || haloBill.Name || `Bill ${haloBill.id}`,
+    description: haloBill.description || haloBill.Description || '',
+    amount: parseFloat(haloBill.total || haloBill.Total || 0) || 0,
+    frequency: (haloBill.frequency || haloBill.Frequency || 'monthly').toLowerCase(),
+    status: haloBill.status?.toLowerCase?.() === 'inactive' ? 'inactive' : 'active',
+    start_date: haloBill.startdate || haloBill.StartDate || null,
+    end_date: haloBill.enddate || haloBill.EndDate || null
+  };
+}
+
+// Transform HaloPSA line item to RecurringBillLineItem schema
+function transformLineItem(haloLineItem, recurringBillId) {
+  return {
+    recurring_bill_id: recurringBillId,
+    halopsa_id: String(haloLineItem.id || haloLineItem.ID),
+    description: haloLineItem.description || haloLineItem.Description || '',
+    quantity: parseFloat(haloLineItem.quantity || haloLineItem.Quantity || 1),
+    price: parseFloat(haloLineItem.unit_price || haloLineItem.UnitPrice || haloLineItem.Price || 0) || 0,
+    net_amount: parseFloat(haloLineItem.net_amount || haloLineItem.NetAmount || haloLineItem.total || haloLineItem.Total || 0) || 0,
+    tax: parseFloat(haloLineItem.tax || haloLineItem.Tax || 0) || 0,
+    item_code: haloLineItem.item_code || haloLineItem.ItemCode || '',
+    asset: haloLineItem.asset || haloLineItem.Asset || '',
+    active: haloLineItem.active !== false
+  };
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -17,63 +122,23 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'HaloPSA settings not configured' }, { status: 400 });
     }
 
-    const clientId = settings.halopsa_client_id;
-    const clientSecret = settings.halopsa_client_secret;
-    const tenant = settings.halopsa_tenant;
-    const authUrl = settings.halopsa_auth_url;
-    const apiUrl = settings.halopsa_api_url;
-
     let accessToken;
     try {
-      const tokenResponse = await fetch(authUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type: 'client_credentials',
-          client_id: clientId,
-          client_secret: clientSecret,
-          scope: 'all'
-        })
-      });
-
-      if (!tokenResponse.ok) {
-        const errorText = await tokenResponse.text();
-        console.error('Token response error:', tokenResponse.status, errorText);
-        return Response.json({ error: `Failed to authenticate with HaloPSA: ${tokenResponse.status} - ${errorText}` }, { status: 401 });
-      }
-
-      const tokenData = await tokenResponse.json();
-      accessToken = tokenData.access_token;
-      if (!accessToken) {
-        console.error('No access token in response:', tokenData);
-        return Response.json({ error: 'No access token received from HaloPSA' }, { status: 401 });
-      }
+      accessToken = await authenticateWithHaloPSA(
+        settings.halopsa_auth_url,
+        settings.halopsa_client_id,
+        settings.halopsa_client_secret
+      );
     } catch (error) {
-      console.error('Token fetch error:', error);
-      return Response.json({ error: `Authentication error: ${error.message}` }, { status: 500 });
+      return Response.json({ error: error.message }, { status: 401 });
     }
 
-    const haloPsaApi = (endpoint) => `${apiUrl.endsWith('/') ? apiUrl : apiUrl + '/'}${endpoint}`;
-
-    const fetchHaloPSA = async (url) => {
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Client-ID': clientId
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HaloPSA API error: ${response.status}`);
-      }
-
-      return await response.json();
-    };
+    const apiUrl = settings.halopsa_api_url;
+    const clientId = settings.halopsa_client_id;
 
     if (action === 'test_connection') {
-      await fetchHaloPSA(haloPsaApi('RecurringInvoice?page_number=1&page_size=1'));
+      const url = buildHaloPsaApiUrl(apiUrl, 'RecurringInvoice?page_number=1&page_size=1');
+      await fetchFromHaloPSA(url, accessToken, clientId);
       return Response.json({ success: true, message: 'HaloPSA connection successful!' });
     }
 
@@ -94,80 +159,63 @@ Deno.serve(async (req) => {
       const errors = [];
 
       try {
-        // Get the customer by external_id
+        // Extract customer from database
         const customers = await base44.asServiceRole.entities.Customer.filter({ 
           external_id: String(customer_id),
           source: 'halopsa'
         });
         const dbCustomer = customers[0];
+        if (!dbCustomer) throw new Error('Customer not found in database');
 
-        if (!dbCustomer) {
-          throw new Error('Customer not found in database');
-        }
+        // Extract: Fetch recurring bills
+        const url = buildHaloPsaApiUrl(apiUrl, `RecurringInvoice?client_id=${customer_id}&page_size=1000`);
+        const data = await fetchFromHaloPSA(url, accessToken, clientId);
+        const recurringBills = extractRecurringBillsFromResponse(data);
 
-        // Fetch recurring bills for this client
-        const data = await fetchHaloPSA(haloPsaApi(`RecurringInvoice?client_id=${customer_id}&page_size=1000`));
-        const recurringBills = Array.isArray(data) ? data : (data.invoices || data.recurringInvoices || []);
-
-        for (const bill of recurringBills) {
+        // Transform & Load: Process each bill
+        for (const haloBill of recurringBills) {
           try {
+            // Transform bill data
+            const billPayload = transformRecurringBill(haloBill, dbCustomer.id);
+
+            // Load: Create or update bill
             const existingBill = (await base44.asServiceRole.entities.RecurringBill.filter({ 
-              halopsa_id: String(bill.id),
+              halopsa_id: billPayload.halopsa_id,
               customer_id: dbCustomer.id
             }))[0];
 
-            const billPayload = {
-              customer_id: dbCustomer.id,
-              halopsa_id: String(bill.id),
-              name: bill.name || bill.Name || `Bill ${bill.id}`,
-              description: bill.description || bill.Description || '',
-              amount: parseFloat(bill.total || 0) || 0,
-              frequency: (bill.frequency || bill.Frequency || 'monthly').toLowerCase(),
-              status: bill.status?.toLowerCase() === 'inactive' ? 'inactive' : 'active',
-              start_date: bill.startdate || bill.StartDate || null,
-              end_date: bill.enddate || bill.EndDate || null
-            };
-
-            let createdOrUpdatedBill;
+            let savedBill;
             if (existingBill) {
               await base44.asServiceRole.entities.RecurringBill.update(existingBill.id, billPayload);
-              createdOrUpdatedBill = existingBill;
+              savedBill = existingBill;
             } else {
-              createdOrUpdatedBill = await base44.asServiceRole.entities.RecurringBill.create(billPayload);
+              savedBill = await base44.asServiceRole.entities.RecurringBill.create(billPayload);
             }
 
-            // Sync line items
-            const lineItems = bill.line_items || bill.LineItems || bill.lines || bill.Lines || bill.billableitem || bill.BillableItem || [];
-            if (lineItems && Array.isArray(lineItems) && lineItems.length > 0) {
+            // Extract & Transform: Line items
+            const lineItems = haloBill.line_items || haloBill.LineItems || haloBill.lines || haloBill.Lines || [];
+            if (Array.isArray(lineItems) && lineItems.length > 0) {
               // Delete old line items
-              const existingLineItems = await base44.asServiceRole.entities.RecurringBillLineItem.filter({ recurring_bill_id: createdOrUpdatedBill.id });
-              for (const item of existingLineItems) {
-                await base44.asServiceRole.entities.RecurringBillLineItem.delete(item.id);
+              const existingItems = await base44.asServiceRole.entities.RecurringBillLineItem.filter({ recurring_bill_id: savedBill.id });
+              if (existingItems.length > 0) {
+                for (const item of existingItems) {
+                  await base44.asServiceRole.entities.RecurringBillLineItem.delete(item.id);
+                }
               }
 
-              // Create new line items
-              const itemsToCreate = lineItems.map(item => ({
-                recurring_bill_id: createdOrUpdatedBill.id,
-                halopsa_id: String(item.id || item.ID),
-                description: item.description || item.Description || '',
-                quantity: parseFloat(item.quantity || item.Quantity || 1),
-                price: parseFloat(item.unit_price || item.UnitPrice || item.Price || 0) || 0,
-                net_amount: parseFloat(item.net_amount || item.NetAmount || item.total || item.Total || 0) || 0,
-                tax: parseFloat(item.tax || item.Tax || 0) || 0,
-                item_code: item.item_code || item.ItemCode || '',
-                asset: item.asset || item.Asset || '',
-                active: item.active !== false
-              }));
-              if (itemsToCreate.length > 0) {
-                await base44.asServiceRole.entities.RecurringBillLineItem.bulkCreate(itemsToCreate);
+              // Load: Create new line items
+              const transformedItems = lineItems.map(item => transformLineItem(item, savedBill.id));
+              if (transformedItems.length > 0) {
+                await base44.asServiceRole.entities.RecurringBillLineItem.bulkCreate(transformedItems);
               }
             }
+
             recordsSynced++;
-            } catch (itemError) {
+          } catch (itemError) {
             recordsFailed++;
-            errors.push(`Bill ${bill.id}: ${itemError.message}`);
-            }
-            }
+            errors.push(`Bill ${haloBill.id}: ${itemError.message}`);
+          }
+        }
 
         await base44.asServiceRole.entities.SyncLog.update(syncLog.id, {
           status: recordsFailed === 0 ? 'success' : 'partial',
@@ -209,65 +257,43 @@ Deno.serve(async (req) => {
       let hasMore = true;
 
       try {
+        // Extract: Fetch all customers and existing bills for comparison
         const allCustomers = await base44.asServiceRole.entities.Customer.list();
         const existingBills = await base44.asServiceRole.entities.RecurringBill.list('-created_date', 500);
         const customerMap = new Map(allCustomers.map(c => [`${c.external_id}:halopsa`, c.id]));
         const billMap = new Map(existingBills.map(b => [`${b.halopsa_id}:${b.customer_id}`, b.id]));
-        
+
         const allToCreate = [];
         const allToUpdate = [];
 
+        // Extract: Paginate through HaloPSA recurring invoices
         while (hasMore) {
-          const data = await fetchHaloPSA(haloPsaApi(`RecurringInvoice?page_number=${pageNumber}&page_size=500`));
-          let recurringBills = [];
-          
-          if (Array.isArray(data)) {
-            recurringBills = data;
-          } else if (data.invoices) {
-            recurringBills = data.invoices;
-          } else if (data.recurringInvoices) {
-            recurringBills = data.recurringInvoices;
-          } else if (data.pageDetails && data.pageDetails.pageResult) {
-            recurringBills = data.pageDetails.pageResult;
-          } else if (data.records) {
-            recurringBills = data.records;
-          }
+          const url = buildHaloPsaApiUrl(apiUrl, `RecurringInvoice?page_number=${pageNumber}&page_size=500`);
+          const data = await fetchFromHaloPSA(url, accessToken, clientId);
+          const recurringBills = extractRecurringBillsFromResponse(data);
 
           if (recurringBills.length === 0) {
             hasMore = false;
             break;
           }
 
-          for (const bill of recurringBills) {
+          // Transform & prepare for load
+          for (const haloBill of recurringBills) {
             try {
-              const customerId = customerMap.get(`${bill.client_id || bill.ClientID}:halopsa`);
+              const customerId = customerMap.get(`${haloBill.client_id || haloBill.ClientID}:halopsa`);
               if (!customerId) {
                 recordsFailed++;
                 continue;
               }
 
-              // Fetch line items for recurring invoice
-              let lineItems = [];
-              try {
-                const lineItemsData = await fetchHaloPSA(haloPsaApi(`RecurringInvoiceLineItem?recurringinvoice_id=${bill.id}`));
-                lineItems = Array.isArray(lineItemsData) ? lineItemsData : (lineItemsData.line_items || lineItemsData.LineItems || []);
-              } catch (err) {
-                console.log(`Could not fetch line items for recurring invoice ${bill.id}:`, err.message);
-              }
+              // Transform bill
+              const billPayload = transformRecurringBill(haloBill, customerId);
 
-              const billPayload = {
-                customer_id: customerId,
-                halopsa_id: String(bill.id),
-                name: bill.name || bill.Name || `Bill ${bill.id}`,
-                description: bill.description || bill.Description || '',
-                amount: parseFloat(bill.total || 0) || 0,
-                frequency: (bill.frequency || bill.Frequency || 'monthly').toLowerCase(),
-                status: bill.status?.toLowerCase() === 'inactive' ? 'inactive' : 'active',
-                start_date: bill.startdate || bill.StartDate || null,
-                end_date: bill.enddate || bill.EndDate || null
-              };
+              // Extract: Fetch line items
+              const lineItems = await fetchLineItemsForBill(haloBill.id, apiUrl, accessToken, clientId);
 
-              const billKey = `${bill.id}:${customerId}`;
+              // Determine if creating or updating
+              const billKey = `${haloBill.id}:${customerId}`;
               const existingId = billMap.get(billKey);
               if (existingId) {
                 allToUpdate.push({ id: existingId, data: billPayload, lineItems });
@@ -276,76 +302,52 @@ Deno.serve(async (req) => {
               }
             } catch (itemError) {
               recordsFailed++;
-              errors.push(`Bill ${bill.id}: ${itemError.message}`);
+              errors.push(`Bill ${haloBill.id}: ${itemError.message}`);
             }
           }
 
-          if (recurringBills.length < 500) {
-            hasMore = false;
-          } else {
-            pageNumber++;
-          }
+          pageNumber++;
+          if (recurringBills.length < 500) hasMore = false;
         }
 
+        // Load: Create new bills
         let createdBills = [];
         if (allToCreate.length > 0) {
           const billsToCreate = allToCreate.map(({ _lineItems, ...rest }) => rest);
           createdBills = await base44.asServiceRole.entities.RecurringBill.bulkCreate(billsToCreate);
-          console.log('Created bills:', createdBills.length, 'with line items:', allToCreate.map(b => ({ id: b.halopsa_id, lineItems: b._lineItems?.length || 0 })));
           recordsSynced += allToCreate.length;
         }
 
-        // Sync line items for new bills
+        // Load: Create line items for new bills
         for (let i = 0; i < allToCreate.length; i++) {
           const bill = createdBills[i];
           const billData = allToCreate[i];
           const lineItems = billData._lineItems;
-          console.log(`Processing line items for bill ${bill.id}:`, lineItems ? lineItems.length : 0, 'items');
-          if (lineItems && Array.isArray(lineItems) && lineItems.length > 0) {
-            const itemsToCreate = lineItems.map(item => ({
-              recurring_bill_id: bill.id,
-              halopsa_id: String(item.id || item.ID),
-              description: item.description || item.Description || '',
-              quantity: parseFloat(item.quantity || item.Quantity || 1),
-              price: parseFloat(item.unit_price || item.UnitPrice || item.Price || 0) || 0,
-              net_amount: parseFloat(item.net_amount || item.NetAmount || item.total || item.Total || 0) || 0,
-              tax: parseFloat(item.tax || item.Tax || 0) || 0,
-              item_code: item.item_code || item.ItemCode || '',
-              asset: item.asset || item.Asset || '',
-              active: item.active !== false
-            }));
-            console.log(`Creating ${itemsToCreate.length} line items for bill ${bill.id}`);
-            await base44.asServiceRole.entities.RecurringBillLineItem.bulkCreate(itemsToCreate);
+
+          if (Array.isArray(lineItems) && lineItems.length > 0) {
+            const transformedItems = lineItems.map(item => transformLineItem(item, bill.id));
+            await base44.asServiceRole.entities.RecurringBillLineItem.bulkCreate(transformedItems);
           }
         }
 
+        // Load: Update existing bills and their line items
         for (const { id, data, lineItems } of allToUpdate) {
           await base44.asServiceRole.entities.RecurringBill.update(id, data);
-          
+
           // Delete old line items
-          const existingLineItems = await base44.asServiceRole.entities.RecurringBillLineItem.filter({ recurring_bill_id: id });
-          for (const item of existingLineItems) {
-            await base44.asServiceRole.entities.RecurringBillLineItem.delete(item.id);
-          }
-          
-          // Create new line items
-          if (lineItems && Array.isArray(lineItems)) {
-            const itemsToCreate = lineItems.map(item => ({
-              recurring_bill_id: id,
-              halopsa_id: String(item.id || item.ID),
-              description: item.description || item.Description || '',
-              quantity: parseFloat(item.quantity || item.Quantity || 1),
-              price: parseFloat(item.unit_price || item.UnitPrice || item.Price || 0) || 0,
-              net_amount: parseFloat(item.net_amount || item.NetAmount || item.total || item.Total || 0) || 0,
-              tax: parseFloat(item.tax || item.Tax || 0) || 0,
-              item_code: item.item_code || item.ItemCode || '',
-              asset: item.asset || item.Asset || '',
-              active: item.active !== false
-            }));
-            if (itemsToCreate.length > 0) {
-              await base44.asServiceRole.entities.RecurringBillLineItem.bulkCreate(itemsToCreate);
+          const existingItems = await base44.asServiceRole.entities.RecurringBillLineItem.filter({ recurring_bill_id: id });
+          if (existingItems.length > 0) {
+            for (const item of existingItems) {
+              await base44.asServiceRole.entities.RecurringBillLineItem.delete(item.id);
             }
           }
+
+          // Create new line items
+          if (Array.isArray(lineItems) && lineItems.length > 0) {
+            const transformedItems = lineItems.map(item => transformLineItem(item, id));
+            await base44.asServiceRole.entities.RecurringBillLineItem.bulkCreate(transformedItems);
+          }
+
           recordsSynced++;
         }
 
