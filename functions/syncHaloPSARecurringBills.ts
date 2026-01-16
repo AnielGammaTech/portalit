@@ -202,7 +202,7 @@ Deno.serve(async (req) => {
           }
 
           const allCustomers = await base44.asServiceRole.entities.Customer.list();
-          const existingBills = await base44.asServiceRole.entities.RecurringBill.list('-created_date', 10000);
+          const existingBills = await base44.asServiceRole.entities.RecurringBill.list('-created_date', 1000);
           
           const toCreate = [];
           const toUpdate = [];
