@@ -128,17 +128,45 @@ Deno.serve(async (req) => {
               end_date: bill.enddate || bill.EndDate || null
             };
 
+            let createdOrUpdatedBill;
             if (existingBill) {
               await base44.asServiceRole.entities.RecurringBill.update(existingBill.id, billPayload);
+              createdOrUpdatedBill = existingBill;
             } else {
-              await base44.asServiceRole.entities.RecurringBill.create(billPayload);
+              createdOrUpdatedBill = await base44.asServiceRole.entities.RecurringBill.create(billPayload);
+            }
+
+            // Sync line items
+            if (bill.line_items && Array.isArray(bill.line_items)) {
+              // Delete old line items
+              const existingLineItems = await base44.asServiceRole.entities.RecurringBillLineItem.filter({ recurring_bill_id: createdOrUpdatedBill.id });
+              for (const item of existingLineItems) {
+                await base44.asServiceRole.entities.RecurringBillLineItem.delete(item.id);
+              }
+
+              // Create new line items
+              const itemsToCreate = bill.line_items.map(item => ({
+                recurring_bill_id: createdOrUpdatedBill.id,
+                halopsa_id: String(item.id || item.ID),
+                description: item.description || item.Description || '',
+                quantity: parseFloat(item.quantity || item.Quantity || 1),
+                price: parseFloat(item.unit_price || item.UnitPrice || item.Price || 0) || 0,
+                net_amount: parseFloat(item.net_amount || item.NetAmount || item.total || item.Total || 0) || 0,
+                tax: parseFloat(item.tax || item.Tax || 0) || 0,
+                item_code: item.item_code || item.ItemCode || '',
+                asset: item.asset || item.Asset || '',
+                active: item.active !== false
+              }));
+              if (itemsToCreate.length > 0) {
+                await base44.asServiceRole.entities.RecurringBillLineItem.bulkCreate(itemsToCreate);
+              }
             }
             recordsSynced++;
-          } catch (itemError) {
+            } catch (itemError) {
             recordsFailed++;
             errors.push(`Bill ${bill.id}: ${itemError.message}`);
-          }
-        }
+            }
+            }
 
         await base44.asServiceRole.entities.SyncLog.update(syncLog.id, {
           status: recordsFailed === 0 ? 'success' : 'partial',
@@ -249,13 +277,62 @@ Deno.serve(async (req) => {
           }
         }
 
+        let createdBills = [];
         if (allToCreate.length > 0) {
-          await base44.asServiceRole.entities.RecurringBill.bulkCreate(allToCreate);
+          createdBills = await base44.asServiceRole.entities.RecurringBill.bulkCreate(allToCreate.map(({ _lineItems, ...rest }) => rest));
           recordsSynced += allToCreate.length;
         }
 
-        for (const { id, data } of allToUpdate) {
+        // Sync line items for new bills
+        for (let i = 0; i < allToCreate.length; i++) {
+          const bill = createdBills[i];
+          const lineItems = allToCreate[i]._lineItems;
+          if (lineItems && Array.isArray(lineItems)) {
+            const itemsToCreate = lineItems.map(item => ({
+              recurring_bill_id: bill.id,
+              halopsa_id: String(item.id || item.ID),
+              description: item.description || item.Description || '',
+              quantity: parseFloat(item.quantity || item.Quantity || 1),
+              price: parseFloat(item.unit_price || item.UnitPrice || item.Price || 0) || 0,
+              net_amount: parseFloat(item.net_amount || item.NetAmount || item.total || item.Total || 0) || 0,
+              tax: parseFloat(item.tax || item.Tax || 0) || 0,
+              item_code: item.item_code || item.ItemCode || '',
+              asset: item.asset || item.Asset || '',
+              active: item.active !== false
+            }));
+            if (itemsToCreate.length > 0) {
+              await base44.asServiceRole.entities.RecurringBillLineItem.bulkCreate(itemsToCreate);
+            }
+          }
+        }
+
+        for (const { id, data, lineItems } of allToUpdate) {
           await base44.asServiceRole.entities.RecurringBill.update(id, data);
+          
+          // Delete old line items
+          const existingLineItems = await base44.asServiceRole.entities.RecurringBillLineItem.filter({ recurring_bill_id: id });
+          for (const item of existingLineItems) {
+            await base44.asServiceRole.entities.RecurringBillLineItem.delete(item.id);
+          }
+          
+          // Create new line items
+          if (lineItems && Array.isArray(lineItems)) {
+            const itemsToCreate = lineItems.map(item => ({
+              recurring_bill_id: id,
+              halopsa_id: String(item.id || item.ID),
+              description: item.description || item.Description || '',
+              quantity: parseFloat(item.quantity || item.Quantity || 1),
+              price: parseFloat(item.unit_price || item.UnitPrice || item.Price || 0) || 0,
+              net_amount: parseFloat(item.net_amount || item.NetAmount || item.total || item.Total || 0) || 0,
+              tax: parseFloat(item.tax || item.Tax || 0) || 0,
+              item_code: item.item_code || item.ItemCode || '',
+              asset: item.asset || item.Asset || '',
+              active: item.active !== false
+            }));
+            if (itemsToCreate.length > 0) {
+              await base44.asServiceRole.entities.RecurringBillLineItem.bulkCreate(itemsToCreate);
+            }
+          }
           recordsSynced++;
         }
 
