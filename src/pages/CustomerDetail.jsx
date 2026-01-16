@@ -302,50 +302,150 @@ export default function CustomerDetail() {
         </TabsContent>
 
         <TabsContent value="contracts">
-          <div className="bg-white rounded-2xl border border-slate-200/50 overflow-hidden">
-            {contracts.length === 0 ? (
-              <div className="p-12 text-center">
-                <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                <p className="text-slate-500">No contracts found</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {contracts.map((contract) => (
-                  <div key={contract.id} className="p-6 hover:bg-slate-50 transition-colors">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="font-medium text-slate-900">{contract.name}</h3>
-                        <p className="text-sm text-slate-500 mt-1">{contract.description}</p>
-                        <div className="flex items-center gap-4 mt-3">
-                          <Badge variant="outline" className={cn(
-                            "capitalize",
-                            contract.status === 'active' && "border-emerald-200 bg-emerald-50 text-emerald-700",
-                            contract.status === 'expired' && "border-red-200 bg-red-50 text-red-700"
-                          )}>
-                            {contract.status}
-                          </Badge>
-                          <span className="text-sm text-slate-500 capitalize">{contract.type?.replace('_', ' ')}</span>
-                          {contract.renewal_date && (
-                            <span className="flex items-center gap-1 text-sm text-slate-500">
-                              <Calendar className="w-3 h-3" />
-                              Renews {format(parseISO(contract.renewal_date), 'MMM d, yyyy')}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-lg font-semibold text-slate-900">
-                          ${(contract.value || 0).toLocaleString()}
-                        </p>
-                        <p className="text-sm text-slate-500 capitalize">{contract.billing_cycle}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </TabsContent>
+           <div className="space-y-6">
+             {/* Contract Renewals */}
+             <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
+               <div className="flex items-center justify-between mb-6">
+                 <div className="flex items-center gap-2">
+                   <Calendar className="w-5 h-5 text-slate-600" />
+                   <h3 className="font-semibold text-slate-900">Contract Renewals</h3>
+                 </div>
+                 <Button size="sm" className="gap-2 bg-slate-900 hover:bg-slate-800">
+                   <Plus className="w-4 h-4" />
+                   Add Renewal
+                 </Button>
+               </div>
+               {contracts.length === 0 ? (
+                 <div className="p-12 text-center">
+                   <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                   <p className="text-slate-500">No contracts found</p>
+                 </div>
+               ) : (
+                 <div className="space-y-3">
+                   {contracts.map((contract) => {
+                     const daysLeft = contract.end_date ? Math.ceil((new Date(contract.end_date) - new Date()) / (1000 * 60 * 60 * 24)) : null;
+                     return (
+                       <div key={contract.id} className="flex items-center justify-between p-4 border border-slate-100 rounded-lg hover:bg-slate-50 transition-colors">
+                         <div className="flex-1">
+                           <div className="flex items-center gap-3 mb-2">
+                             <span className="font-semibold text-slate-900">{contract.name}</span>
+                             <Badge className={cn(
+                               "capitalize text-xs",
+                               contract.status === 'active' && "bg-emerald-100 text-emerald-700",
+                               contract.status === 'expired' && "bg-red-100 text-red-700",
+                               contract.status === 'pending' && "bg-yellow-100 text-yellow-700"
+                             )}>
+                               {contract.status}
+                             </Badge>
+                           </div>
+                           <div className="flex items-center gap-4 text-sm text-slate-600">
+                             <span className="font-medium">${(contract.value || 0).toLocaleString()}/{contract.billing_cycle}</span>
+                             {contract.end_date && (
+                               <>
+                                 <span className="flex items-center gap-1">
+                                   <Calendar className="w-3 h-3" />
+                                   Renews: {format(parseISO(contract.end_date), 'MM/dd/yyyy')}
+                                 </span>
+                                 {daysLeft !== null && (
+                                   <span className={cn(daysLeft < 30 ? 'text-red-600 font-medium' : '')}>{daysLeft.toLocaleString()} days left</span>
+                                 )}
+                               </>
+                             )}
+                           </div>
+                         </div>
+                         <div className="flex items-center gap-2">
+                           <Button variant="ghost" size="icon" className="h-8 w-8">
+                             <Edit2 className="w-4 h-4 text-slate-400" />
+                           </Button>
+                           <Button variant="ghost" size="icon" className="h-8 w-8">
+                             <Trash2 className="w-4 h-4 text-red-400 hover:text-red-600" />
+                           </Button>
+                         </div>
+                       </div>
+                     );
+                   })}
+                 </div>
+               )}
+             </div>
+
+             {/* Recurring Bills */}
+             <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
+               <div className="flex items-center justify-between mb-6">
+                 <h3 className="font-semibold text-slate-900">Recurring Bills</h3>
+                 {customer?.source === 'halopsa' && (
+                   <Button 
+                     size="sm"
+                     variant="outline"
+                     className="gap-2"
+                     onClick={handleSyncCustomer}
+                     disabled={isSyncing}
+                   >
+                     <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
+                     Sync from Halo
+                   </Button>
+                 )}
+               </div>
+
+               {recurringBills.length === 0 ? (
+                 <div className="p-12 text-center">
+                   <DollarSign className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                   <p className="text-slate-500">No recurring bills found</p>
+                 </div>
+               ) : (
+                 <div className="space-y-6">
+                   {/* Total Summary */}
+                   <div className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-100 rounded-lg">
+                     <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                       <DollarSign className="w-5 h-5 text-blue-600" />
+                     </div>
+                     <div>
+                       <p className="text-sm text-slate-600">Total Monthly Recurring</p>
+                       <p className="text-xl font-semibold text-slate-900">
+                         ${recurringBills.reduce((sum, b) => sum + (b.amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                       </p>
+                       <p className="text-xs text-slate-500 mt-1">({recurringBills.length} bill{recurringBills.length !== 1 ? 's' : ''})</p>
+                     </div>
+                   </div>
+
+                   {/* Bills List */}
+                   <div className="divide-y divide-slate-100">
+                     {recurringBills.map((bill) => (
+                       <div key={bill.id} className="py-4">
+                         <div className="flex items-start justify-between mb-3">
+                           <div>
+                             <p className="font-semibold text-slate-900">{bill.name}</p>
+                             <p className="text-sm text-slate-500 capitalize">{bill.frequency}</p>
+                           </div>
+                           <p className="font-semibold text-slate-900">
+                             ${(bill.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                           </p>
+                         </div>
+                         {bill.description && (
+                           <div className="text-xs text-slate-500 space-y-1">
+                             <div className="grid grid-cols-4 gap-2 font-medium text-slate-600 mb-2">
+                               <span>Description</span>
+                               <span className="text-right">Qty</span>
+                               <span className="text-right">Price</span>
+                               <span className="text-right">Net</span>
+                             </div>
+                             {bill.description && (
+                               <div className="grid grid-cols-4 gap-2">
+                                 <span>{bill.description}</span>
+                                 <span className="text-right">-</span>
+                                 <span className="text-right">-</span>
+                                 <span className="text-right">${(bill.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                               </div>
+                             )}
+                           </div>
+                         )}
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+               )}
+             </div>
+           </div>
+         </TabsContent>
 
         <TabsContent value="licenses">
           <div className="bg-white rounded-2xl border border-slate-200/50 overflow-hidden">
