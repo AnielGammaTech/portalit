@@ -176,6 +176,15 @@ export default function FloatingAdminland() {
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {/* HaloPSA Section */}
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900 mb-3 uppercase tracking-wide">
+                Integrations
+              </h3>
+              <HaloPSASection />
+            </div>
+
+            {/* Other Sections */}
             {sections.map((section, sectionIdx) => (
               <div key={sectionIdx}>
                 <h3 className="text-sm font-semibold text-slate-900 mb-3 uppercase tracking-wide">
