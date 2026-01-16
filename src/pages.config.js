@@ -1,20 +1,20 @@
-import Dashboard from './pages/Dashboard';
-import Customers from './pages/Customers';
-import CustomerDetail from './pages/CustomerDetail';
 import Contracts from './pages/Contracts';
-import SaaSManagement from './pages/SaaSManagement';
+import CustomerDetail from './pages/CustomerDetail';
+import Customers from './pages/Customers';
+import Dashboard from './pages/Dashboard';
 import Integrations from './pages/Integrations';
+import SaaSManagement from './pages/SaaSManagement';
 import Settings from './pages/Settings';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
-    "Dashboard": Dashboard,
-    "Customers": Customers,
-    "CustomerDetail": CustomerDetail,
     "Contracts": Contracts,
-    "SaaSManagement": SaaSManagement,
+    "CustomerDetail": CustomerDetail,
+    "Customers": Customers,
+    "Dashboard": Dashboard,
     "Integrations": Integrations,
+    "SaaSManagement": SaaSManagement,
     "Settings": Settings,
 }
 

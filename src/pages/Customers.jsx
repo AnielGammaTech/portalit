@@ -216,9 +216,9 @@ export default function Customers() {
 
       {/* Customer List */}
       {isLoading ? (
-        <div className="space-y-4">
-          {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-2xl" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => (
+            <Skeleton key={i} className="h-32 rounded-lg" />
           ))}
         </div>
       ) : filteredCustomers.length === 0 ? (
@@ -238,77 +238,41 @@ export default function Customers() {
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200/50 overflow-hidden">
-          <div className="divide-y divide-slate-100">
-            {filteredCustomers.map((customer) => (
-              <div
-                key={customer.id}
-                className="flex items-center gap-4 p-4 sm:p-6 hover:bg-slate-50 transition-colors group"
-              >
-                <Link 
-                  to={createPageUrl(`CustomerDetail?id=${customer.id}`)}
-                  className="flex items-center gap-4 flex-1 min-w-0"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center flex-shrink-0">
-                    {customer.logo_url ? (
-                      <img src={customer.logo_url} alt={customer.name} className="w-8 h-8 rounded" />
-                    ) : (
-                      <Building2 className="w-6 h-6 text-slate-500" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3">
-                      <p className="font-medium text-slate-900 truncate">{customer.name}</p>
-                      <Badge variant="outline" className={cn(
-                        "capitalize hidden sm:inline-flex",
-                        customer.status === 'active' && "border-emerald-200 bg-emerald-50 text-emerald-700",
-                        customer.status === 'inactive' && "border-slate-200 bg-slate-50 text-slate-600",
-                        customer.status === 'suspended' && "border-red-200 bg-red-50 text-red-700"
-                      )}>
-                        {customer.status || 'active'}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-4 mt-1 text-sm text-slate-500">
-                      {customer.email && (
-                        <span className="flex items-center gap-1 truncate">
-                          <Mail className="w-3 h-3" />
-                          {customer.email}
-                        </span>
-                      )}
-                      {customer.phone && (
-                        <span className="hidden sm:flex items-center gap-1">
-                          <Phone className="w-3 h-3" />
-                          {customer.phone}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="hidden md:flex items-center gap-6 text-sm">
-                    <div className="text-center">
-                      <p className="font-medium text-slate-900">{customer.total_users || 0}</p>
-                      <p className="text-slate-500">Users</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="font-medium text-slate-900">{customer.total_devices || 0}</p>
-                      <p className="text-slate-500">Devices</p>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-slate-600" />
-                </Link>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredCustomers.map((customer) => (
+            <Link
+              key={customer.id}
+              to={createPageUrl(`CustomerDetail?id=${customer.id}`)}
+              className="bg-white rounded-lg border border-slate-200/50 p-4 hover:border-slate-300 hover:shadow-md transition-all group"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center flex-shrink-0">
+                  {customer.logo_url ? (
+                    <img src={customer.logo_url} alt={customer.name} className="w-6 h-6 rounded" />
+                  ) : (
+                    <Building2 className="w-5 h-5 text-slate-500" />
+                  )}
+                </div>
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="flex-shrink-0">
-                      <MoreVertical className="w-4 h-4" />
+                  <DropdownMenuTrigger asChild onClick={(e) => e.preventDefault()}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 -mr-2 -mt-1">
+                      <MoreVertical className="w-3 h-3" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleOpenDialog(customer)}>
+                    <DropdownMenuItem onClick={(e) => {
+                      e.preventDefault();
+                      handleOpenDialog(customer);
+                    }}>
                       <Pencil className="w-4 h-4 mr-2" />
                       Edit
                     </DropdownMenuItem>
                     <DropdownMenuItem 
                       className="text-red-600"
-                      onClick={() => deleteMutation.mutate(customer.id)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        deleteMutation.mutate(customer.id);
+                      }}
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
                       Delete
@@ -316,8 +280,32 @@ export default function Customers() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-            ))}
-          </div>
+
+              <div className="mb-3">
+                <p className="font-semibold text-slate-900 text-sm line-clamp-1">{customer.name}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  {customer.source === 'halopsa' && (
+                    <Badge className="bg-blue-100 text-blue-700 text-xs py-0">Halo</Badge>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-xs text-slate-500 space-x-2">
+                <div className="text-center flex-1">
+                  <p className="font-semibold text-slate-700">{customer.total_devices || 0}</p>
+                  <p className="text-slate-500 text-xs">Devices</p>
+                </div>
+                <div className="text-center flex-1">
+                  <p className="font-semibold text-slate-700">{customer.total_users || 0}</p>
+                  <p className="text-slate-500 text-xs">Users</p>
+                </div>
+                <div className="text-center flex-1">
+                  <p className="font-semibold text-slate-700">0</p>
+                  <p className="text-slate-500 text-xs">Sites</p>
+                </div>
+              </div>
+            </Link>
+          ))}
         </div>
       )}
 
