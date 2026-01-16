@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
     };
 
     if (action === 'test_connection') {
-      await fetchHaloPSA(haloPsaApi('Contract?page_number=1&page_size=1'));
+      await fetchHaloPSA(haloPsaApi('Contracts?page_number=1&page_size=1'));
       return Response.json({ success: true, message: 'HaloPSA connection successful!' });
     }
 
@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
       const errors = [];
 
       try {
-        const contractData = await fetchHaloPSA(haloPsaApi(`Contract/${contract_id}`));
+        const contractData = await fetchHaloPSA(haloPsaApi(`Contracts/${contract_id}`));
         const contract = contractData;
 
         const existingContract = (await base44.asServiceRole.entities.Contract.filter({ 
@@ -165,7 +165,7 @@ Deno.serve(async (req) => {
 
       try {
         while (hasMore) {
-          const data = await fetchHaloPSA(haloPsaApi(`Contract?page_number=${pageNumber}&page_size=${pageSize}`));
+          const data = await fetchHaloPSA(haloPsaApi(`Contracts?page_number=${pageNumber}&page_size=${pageSize}`));
           const contracts = data.contracts || data || [];
 
           if (contracts.length === 0) {
