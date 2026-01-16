@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
     const clientId = settings.halopsa_client_id;
 
     if (action === 'test_connection') {
-      const url = buildHaloPsaApiUrl(apiUrl, 'Contracts?page_number=1&page_size=1');
+      const url = buildHaloPsaApiUrl(apiUrl, 'ClientContract?page_number=1&page_size=1');
       await fetchFromHaloPSA(url, accessToken, clientId);
       return Response.json({ success: true, message: 'HaloPSA connection successful!' });
     }
@@ -153,7 +153,7 @@ Deno.serve(async (req) => {
 
       try {
         // Extract: Fetch contract from HaloPSA
-        const url = buildHaloPsaApiUrl(apiUrl, `Contracts/${contract_id}`);
+        const url = buildHaloPsaApiUrl(apiUrl, `ClientContract/${contract_id}`);
         const haloContract = await fetchFromHaloPSA(url, accessToken, clientId);
 
         // Extract: Lookup customer in database
@@ -239,7 +239,7 @@ Deno.serve(async (req) => {
 
         // Extract: Paginate through HaloPSA contracts
         while (hasMore) {
-          const url = buildHaloPsaApiUrl(apiUrl, `Contracts?page_number=${pageNumber}&page_size=${pageSize}`);
+          const url = buildHaloPsaApiUrl(apiUrl, `ClientContract?page_number=${pageNumber}&page_size=${pageSize}`);
           const data = await fetchFromHaloPSA(url, accessToken, clientId);
           const haloContracts = extractContractsFromResponse(data);
 
