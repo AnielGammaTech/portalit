@@ -17,7 +17,10 @@ import {
   Calendar,
   DollarSign,
   ExternalLink,
-  RefreshCw
+  RefreshCw,
+  Edit2,
+  Trash2,
+  Plus
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
