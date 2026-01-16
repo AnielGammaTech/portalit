@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
 
         // Fetch recurring bills for this client
         const data = await fetchHaloPSA(haloPsaApi(`RecurringInvoice?client_id=${customer_id}&page_size=1000`));
-        const recurringBills = Array.isArray(data) ? data : data.recurringInvoices || data.recurringInvoices || [];
+        const recurringBills = Array.isArray(data) ? data : (data.invoices || data.recurringInvoices || []);
 
         for (const bill of recurringBills) {
           try {
@@ -188,14 +188,14 @@ Deno.serve(async (req) => {
           
           if (Array.isArray(data)) {
             recurringBills = data;
+          } else if (data.invoices) {
+            recurringBills = data.invoices;
           } else if (data.recurringInvoices) {
             recurringBills = data.recurringInvoices;
           } else if (data.pageDetails && data.pageDetails.pageResult) {
             recurringBills = data.pageDetails.pageResult;
           } else if (data.records) {
             recurringBills = data.records;
-          } else {
-            console.log('Unexpected response structure:', JSON.stringify(data).substring(0, 200));
           }
 
           if (recurringBills.length === 0) {
