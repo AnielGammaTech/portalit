@@ -50,9 +50,9 @@ export default function Layout({ children, currentPageName }) {
     <div className="min-h-screen bg-slate-50">
       <style>{`
         :root {
-          --color-primary: #f97316;
-          --color-accent: #f97316;
-          --color-accent-hover: #ea580c;
+          --color-primary: #8b5cf6;
+          --color-accent: #8b5cf6;
+          --color-accent-hover: #7c3aed;
         }
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         * {
@@ -65,7 +65,7 @@ export default function Layout({ children, currentPageName }) {
         <div className="flex items-center justify-between h-16 px-6">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center">
               <Cloud className="w-4 h-4 text-white" />
             </div>
             <h1 className="text-lg font-semibold text-white tracking-tight">PortalIT</h1>
@@ -82,7 +82,7 @@ export default function Layout({ children, currentPageName }) {
                   className={cn(
                     "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors",
                     isActive 
-                      ? "bg-orange-500 text-white" 
+                      ? "bg-purple-500 text-white" 
                       : "text-slate-300 hover:text-white hover:bg-slate-800"
                   )}
                 >
@@ -97,7 +97,7 @@ export default function Layout({ children, currentPageName }) {
           <div className="flex items-center gap-3">
             <Button 
               size="sm" 
-              className="bg-orange-500 hover:bg-orange-600 text-white gap-2 hidden sm:flex"
+              className="bg-purple-500 hover:bg-purple-600 text-white gap-2 hidden sm:flex"
             >
               <RefreshCw className="w-4 h-4" />
               Sync Now
@@ -107,7 +107,7 @@ export default function Layout({ children, currentPageName }) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors">
-                  <div className="w-7 h-7 rounded-full bg-orange-500 flex items-center justify-center text-white text-sm font-medium">
+                  <div className="w-7 h-7 rounded-full bg-purple-500 flex items-center justify-center text-white text-sm font-medium">
                     {user?.full_name?.charAt(0) || 'U'}
                   </div>
                   <div className="hidden sm:block text-left">
