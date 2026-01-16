@@ -184,7 +184,19 @@ Deno.serve(async (req) => {
       try {
         while (hasMore) {
           const data = await fetchHaloPSA(haloPsaApi(`RecurringInvoice?page_number=${pageNumber}&page_size=${pageSize}`));
-          const recurringBills = Array.isArray(data) ? data : data.recurringInvoices || data.recurringInvoices || [];
+          let recurringBills = [];
+          
+          if (Array.isArray(data)) {
+            recurringBills = data;
+          } else if (data.recurringInvoices) {
+            recurringBills = data.recurringInvoices;
+          } else if (data.pageDetails && data.pageDetails.pageResult) {
+            recurringBills = data.pageDetails.pageResult;
+          } else if (data.records) {
+            recurringBills = data.records;
+          } else {
+            console.log('Unexpected response structure:', JSON.stringify(data).substring(0, 200));
+          }
 
           if (recurringBills.length === 0) {
             hasMore = false;
