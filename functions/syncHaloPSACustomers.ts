@@ -24,7 +24,6 @@ Deno.serve(async (req) => {
     const excludedIds = halopsa_excluded_ids ? halopsa_excluded_ids.split(',').map(id => id.trim()) : [];
 
     // Get Access Token
-    console.log('Fetching token from:', halopsa_auth_url);
     const tokenResponse = await fetch(halopsa_auth_url, {
       method: 'POST',
       headers: {
@@ -38,15 +37,11 @@ Deno.serve(async (req) => {
       }).toString()
     });
 
-    console.log('Token response status:', tokenResponse.status);
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
-      console.log('Token error:', errorText);
       throw new Error(`Failed to get HaloPSA access token: ${tokenResponse.status} - ${errorText}`);
     }
-    const tokenData = await tokenResponse.json();
-    console.log('Token response:', Object.keys(tokenData));
-    const access_token = tokenData.access_token;
+    const { access_token } = await tokenResponse.json();
 
     const haloPsaApi = (endpoint) => `${halopsa_api_url.endsWith('/') ? halopsa_api_url : halopsa_api_url + '/'}${endpoint}`;
 
@@ -84,26 +79,21 @@ Deno.serve(async (req) => {
       try {
         // Fetch Clients (Customers)
         const clientsData = await fetchHaloPSA(haloPsaApi('Client'));
-        console.log('Clients data response:', JSON.stringify(clientsData).substring(0, 1000));
         const clients = Array.isArray(clientsData) ? clientsData : clientsData.clients || clientsData.pageDetails?.pageResult || [];
-        console.log('Clients array length:', clients.length);
-        if (clients.length > 0) {
-          console.log('First client sample:', JSON.stringify(clients[0]));
-        }
 
         for (const client of clients) {
           if (excludedIds.includes(String(client.id))) continue;
 
           const existingCustomer = (await base44.asServiceRole.entities.Customer.filter({ external_id: String(client.id), source: 'halopsa' }))[0];
           const customerData = {
-            name: client.Name || client.name || `Customer ${client.id}`,
+            name: client.name || client.Name || `Customer ${client.id}`,
             external_id: String(client.id),
             source: 'halopsa',
-            status: client.Active !== false ? 'active' : 'inactive',
-            primary_contact: client.PrimaryContactName || client.primaryContactName || '',
-            email: client.PrimaryContactEmail || client.primaryContactEmail || '',
-            phone: client.PrimaryContactPhone || client.primaryContactPhone || '',
-            address: (client.Address1 || client.address1 || '') + (client.Address2 || client.address2 ? ` ${client.Address2}` : '') + (client.Postcode || client.postcode ? ` ${client.Postcode}` : '')
+            status: !client.inactive ? 'active' : 'inactive',
+            primary_contact: client.primary_contact_name || client.PrimaryContactName || '',
+            email: client.primary_contact_email || client.PrimaryContactEmail || '',
+            phone: client.primary_contact_phone || client.PrimaryContactPhone || '',
+            address: (client.address1 || client.Address1 || '') + (client.address2 || client.Address2 ? ` ${client.address2}` : '') + (client.postcode || client.Postcode ? ` ${client.postcode}` : '')
           };
 
           let customerId;
@@ -126,11 +116,11 @@ Deno.serve(async (req) => {
             const siteData = {
               customer_id: customerId,
               halopsa_id: String(site.id),
-              name: site.Name,
-              address: site.Address1 && site.Address2 ? `${site.Address1}, ${site.Address2}, ${site.Postcode}` : site.Address1 || site.Address2 || '',
-              contact_name: site.ContactName,
-              contact_email: site.ContactEmail,
-              contact_phone: site.ContactPhone
+              name: site.name || site.Name || `Site ${site.id}`,
+              address: (site.address1 || site.Address1 || '') + (site.address2 || site.Address2 ? ` ${site.address2}` : '') + (site.postcode || site.Postcode ? ` ${site.postcode}` : ''),
+              contact_name: site.contact_name || site.ContactName || '',
+              contact_email: site.contact_email || site.ContactEmail || '',
+              contact_phone: site.contact_phone || site.ContactPhone || ''
             };
             if (existingSite) {
               await base44.asServiceRole.entities.Site.update(existingSite.id, siteData);
@@ -174,14 +164,14 @@ Deno.serve(async (req) => {
             const billData = {
               customer_id: customerId,
               halopsa_id: String(contract.id),
-              name: contract.ContractName,
-              description: contract.ContractDescription,
-              amount: contract.Value,
+              name: contract.name || contract.ContractName || `Contract ${contract.id}`,
+              description: contract.description || contract.ContractDescription || '',
+              amount: contract.value || contract.Value || 0,
               currency: 'USD',
               frequency: 'monthly',
-              start_date: contract.StartDate,
-              end_date: contract.EndDate,
-              status: contract.Active ? 'active' : 'inactive'
+              start_date: contract.start_date || contract.StartDate,
+              end_date: contract.end_date || contract.EndDate,
+              status: contract.active !== false ? 'active' : 'inactive'
             };
             if (existingBill) {
               await base44.asServiceRole.entities.RecurringBill.update(existingBill.id, billData);
