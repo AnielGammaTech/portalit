@@ -465,24 +465,56 @@ export default function CustomerDetail() {
                           {/* Recent Invoices */}
                           <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
                             <div className="flex items-center justify-between mb-6">
-                              <div>
-                                <h3 className="text-lg font-semibold text-slate-900">Recent Invoices</h3>
-                                <p className="text-sm text-slate-500">Your billing history</p>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Filter className="w-4 h-4 text-slate-400" />
-                                <select
-                                  value={invoiceFilter}
-                                  onChange={(e) => setInvoiceFilter(e.target.value)}
-                                  className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                >
-                                  <option value="all">All</option>
-                                  <option value="paid">Paid</option>
-                                  <option value="overdue">Overdue</option>
-                                  <option value="sent">Pending</option>
-                                </select>
-                              </div>
-                            </div>
+                                                  <div>
+                                                    <h3 className="text-lg font-semibold text-slate-900">Recent Invoices</h3>
+                                                    <p className="text-sm text-slate-500">Your billing history</p>
+                                                  </div>
+                                                  <div className="flex items-center gap-3">
+                                                    {customer?.source === 'halopsa' && (
+                                                      <Button 
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="gap-2"
+                                                        onClick={async () => {
+                                                          try {
+                                                            setIsSyncing(true);
+                                                            const response = await base44.functions.invoke('syncHaloPSAInvoices', { 
+                                                              action: 'sync_customer',
+                                                              customer_id: customer.external_id 
+                                                            });
+                                                            if (response.data.success) {
+                                                              toast.success(`Synced ${response.data.recordsSynced} invoices!`);
+                                                              queryClient.invalidateQueries({ queryKey: ['invoices', customerId] });
+                                                            } else {
+                                                              toast.error(response.data.error || 'Sync failed');
+                                                            }
+                                                          } catch (error) {
+                                                            toast.error(error.message || 'An error occurred during sync');
+                                                          } finally {
+                                                            setIsSyncing(false);
+                                                          }
+                                                        }}
+                                                        disabled={isSyncing}
+                                                      >
+                                                        <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
+                                                        Sync
+                                                      </Button>
+                                                    )}
+                                                    <div className="flex items-center gap-2">
+                                                      <Filter className="w-4 h-4 text-slate-400" />
+                                                      <select
+                                                        value={invoiceFilter}
+                                                        onChange={(e) => setInvoiceFilter(e.target.value)}
+                                                        className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                      >
+                                                        <option value="all">All</option>
+                                                        <option value="paid">Paid</option>
+                                                        <option value="overdue">Overdue</option>
+                                                        <option value="sent">Pending</option>
+                                                      </select>
+                                                    </div>
+                                                  </div>
+                                                </div>
 
                             {invoices.length === 0 ? (
                               <div className="py-12 text-center">
