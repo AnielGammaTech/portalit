@@ -14,11 +14,9 @@ Deno.serve(async (req) => {
     const settingsList = await base44.asServiceRole.entities.Settings.list();
     const settings = settingsList[0];
     
-    console.log('Settings found:', !!settings);
     if (!settings) {
       return Response.json({ error: 'HaloPSA settings are not configured.' }, { status: 400 });
     }
-    console.log('Has client_id:', !!settings.halopsa_client_id, 'Has auth_url:', !!settings.halopsa_auth_url, 'Has api_url:', !!settings.halopsa_api_url);
 
     const { halopsa_client_id, halopsa_client_secret, halopsa_auth_url, halopsa_api_url, halopsa_excluded_ids } = settings;
     const excludedIds = halopsa_excluded_ids ? halopsa_excluded_ids.split(',').map(id => id.trim()) : [];
@@ -107,56 +105,64 @@ Deno.serve(async (req) => {
           recordsSynced++;
 
           // Fetch Sites for this Client
-          const sitesData = await fetchHaloPSA(haloPsaApi(`Site?client_id=${client.id}`));
-          const sites = Array.isArray(sitesData) ? sitesData : sitesData.sites || [];
-          
-          for (const site of sites) {
-            if (excludedIds.includes(String(site.id))) continue;
-            const existingSite = (await base44.asServiceRole.entities.Site.filter({ halopsa_id: String(site.id) }))[0];
-            const siteData = {
-              customer_id: customerId,
-              halopsa_id: String(site.id),
-              name: site.name || site.Name || `Site ${site.id}`,
-              address: (site.address1 || site.Address1 || '') + (site.address2 || site.Address2 ? ` ${site.address2}` : '') + (site.postcode || site.Postcode ? ` ${site.postcode}` : ''),
-              contact_name: site.contact_name || site.ContactName || '',
-              contact_email: site.contact_email || site.ContactEmail || '',
-              contact_phone: site.contact_phone || site.ContactPhone || ''
-            };
-            if (existingSite) {
-              await base44.asServiceRole.entities.Site.update(existingSite.id, siteData);
-            } else {
-              await base44.asServiceRole.entities.Site.create(siteData);
+          try {
+            const sitesData = await fetchHaloPSA(haloPsaApi(`Site?client_id=${client.id}`));
+            const sites = Array.isArray(sitesData) ? sitesData : sitesData.sites || [];
+            
+            for (const site of sites) {
+              if (excludedIds.includes(String(site.id))) continue;
+              const existingSite = (await base44.asServiceRole.entities.Site.filter({ halopsa_id: String(site.id) }))[0];
+              const siteData = {
+                customer_id: customerId,
+                halopsa_id: String(site.id),
+                name: site.name || site.Name || `Site ${site.id}`,
+                address: (site.address1 || site.Address1 || '') + (site.address2 || site.Address2 ? ` ${site.address2}` : '') + (site.postcode || site.Postcode ? ` ${site.postcode}` : ''),
+                contact_name: site.contact_name || site.ContactName || '',
+                contact_email: site.contact_email || site.ContactEmail || '',
+                contact_phone: site.contact_phone || site.ContactPhone || ''
+              };
+              if (existingSite) {
+                await base44.asServiceRole.entities.Site.update(existingSite.id, siteData);
+              } else {
+                await base44.asServiceRole.entities.Site.create(siteData);
+              }
+              recordsSynced++;
             }
-            recordsSynced++;
+          } catch (siteError) {
+            // Skip sites if endpoint fails
           }
 
           // Skip users - endpoint not available, causes rate limiting issues
 
           // Fetch Contracts (Recurring Bills) for this Client
-          const contractsData = await fetchHaloPSA(haloPsaApi(`RecurringInvoice?client_id=${client.id}`));
-          const contracts = Array.isArray(contractsData) ? contractsData : contractsData.recurringinvoices || contractsData.invoices || contractsData.contracts || [];
-          
-          for (const contract of contracts) {
-            if (excludedIds.includes(String(contract.id))) continue;
-            const existingBill = (await base44.asServiceRole.entities.RecurringBill.filter({ halopsa_id: String(contract.id) }))[0];
-            const billData = {
-              customer_id: customerId,
-              halopsa_id: String(contract.id),
-              name: contract.name || contract.ContractName || `Contract ${contract.id}`,
-              description: contract.description || contract.ContractDescription || '',
-              amount: contract.value || contract.Value || 0,
-              currency: 'USD',
-              frequency: 'monthly',
-              start_date: contract.start_date || contract.StartDate,
-              end_date: contract.end_date || contract.EndDate,
-              status: contract.active !== false ? 'active' : 'inactive'
-            };
-            if (existingBill) {
-              await base44.asServiceRole.entities.RecurringBill.update(existingBill.id, billData);
-            } else {
-              await base44.asServiceRole.entities.RecurringBill.create(billData);
+          try {
+            const contractsData = await fetchHaloPSA(haloPsaApi(`RecurringInvoice?client_id=${client.id}`));
+            const contracts = Array.isArray(contractsData) ? contractsData : contractsData.recurringinvoices || contractsData.invoices || contractsData.contracts || [];
+            
+            for (const contract of contracts) {
+              if (excludedIds.includes(String(contract.id))) continue;
+              const existingBill = (await base44.asServiceRole.entities.RecurringBill.filter({ halopsa_id: String(contract.id) }))[0];
+              const billData = {
+                customer_id: customerId,
+                halopsa_id: String(contract.id),
+                name: contract.name || contract.ContractName || `Contract ${contract.id}`,
+                description: contract.description || contract.ContractDescription || '',
+                amount: contract.value || contract.Value || 0,
+                currency: 'USD',
+                frequency: 'monthly',
+                start_date: contract.start_date || contract.StartDate,
+                end_date: contract.end_date || contract.EndDate,
+                status: contract.active !== false ? 'active' : 'inactive'
+              };
+              if (existingBill) {
+                await base44.asServiceRole.entities.RecurringBill.update(existingBill.id, billData);
+              } else {
+                await base44.asServiceRole.entities.RecurringBill.create(billData);
+              }
+              recordsSynced++;
             }
-            recordsSynced++;
+          } catch (contractError) {
+            // Skip contracts if endpoint fails
           }
         }
 
