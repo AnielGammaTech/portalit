@@ -79,8 +79,12 @@ Deno.serve(async (req) => {
       try {
         // Fetch Clients (Customers)
         const clientsData = await fetchHaloPSA(haloPsaApi('Client'));
-        console.log('Clients data:', JSON.stringify(clientsData).substring(0, 500));
-        const clients = Array.isArray(clientsData) ? clientsData : clientsData.clients || [];
+        console.log('Clients data response:', JSON.stringify(clientsData).substring(0, 1000));
+        const clients = Array.isArray(clientsData) ? clientsData : clientsData.clients || clientsData.pageDetails?.pageResult || [];
+        console.log('Clients array length:', clients.length);
+        if (clients.length > 0) {
+          console.log('First client sample:', JSON.stringify(clients[0]));
+        }
 
         for (const client of clients) {
           if (excludedIds.includes(String(client.id))) continue;
