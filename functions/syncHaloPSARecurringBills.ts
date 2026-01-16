@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
     const haloPsaApi = (endpoint) => `${apiUrl.endsWith('/') ? apiUrl : apiUrl + '/'}${endpoint}`;
 
     const fetchHaloPSA = async (url) => {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       const response = await fetch(url, {
         headers: {
@@ -69,9 +69,7 @@ Deno.serve(async (req) => {
         throw new Error(`HaloPSA API error: ${response.status}`);
       }
 
-      const data = await response.json();
-      console.log('HaloPSA API Response:', JSON.stringify(data).substring(0, 500));
-      return data;
+      return await response.json();
     };
 
     if (action === 'test_connection') {
