@@ -76,11 +76,23 @@ Deno.serve(async (req) => {
       const errors = [];
 
       try {
-        // Fetch Clients (Customers)
-        const clientsData = await fetchHaloPSA(haloPsaApi('Client'));
-        const clients = Array.isArray(clientsData) ? clientsData : clientsData.clients || clientsData.pageDetails?.pageResult || [];
+        // Fetch all Clients with pagination
+        let allClients = [];
+        let pageNumber = 1;
+        const pageSize = 100;
+        
+        while (true) {
+          const clientsData = await fetchHaloPSA(haloPsaApi(`Client?page_number=${pageNumber}&page_size=${pageSize}`));
+          const clients = Array.isArray(clientsData) ? clientsData : clientsData.clients || clientsData.pageDetails?.pageResult || [];
+          
+          if (!clients || clients.length === 0) break;
+          allClients = allClients.concat(clients);
+          
+          if (clients.length < pageSize) break;
+          pageNumber++;
+        }
 
-        for (const client of clients) {
+        for (const client of allClients) {
           if (excludedIds.includes(String(client.id))) continue;
 
           const existingCustomer = (await base44.asServiceRole.entities.Customer.filter({ external_id: String(client.id), source: 'halopsa' }))[0];
@@ -95,17 +107,12 @@ Deno.serve(async (req) => {
             address: (client.address1 || client.Address1 || '') + (client.address2 || client.Address2 ? ` ${client.address2}` : '') + (client.postcode || client.Postcode ? ` ${client.postcode}` : '')
           };
 
-          let customerId;
           if (existingCustomer) {
             await base44.asServiceRole.entities.Customer.update(existingCustomer.id, customerData);
-            customerId = existingCustomer.id;
           } else {
-            const newCustomer = await base44.asServiceRole.entities.Customer.create(customerData);
-            customerId = newCustomer.id;
+            await base44.asServiceRole.entities.Customer.create(customerData);
           }
           recordsSynced++;
-
-
         }
 
         await base44.asServiceRole.entities.SyncLog.update(syncLog.id, {
