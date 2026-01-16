@@ -382,35 +382,35 @@ export default function CustomerDetail() {
                 <h3 className="font-semibold text-slate-900">Contracts</h3>
                 <div className="flex gap-2">
                   {customer?.source === 'halopsa' && (
-                    <Button 
-                      size="sm"
-                      variant="outline"
-                      className="gap-2"
-                      onClick={async () => {
-                        try {
-                          setIsSyncing(true);
-                          const response = await base44.functions.invoke('syncHaloPSAContracts', { 
-                            action: 'sync_customer',
-                            customer_id: customer.external_id 
-                          });
-                          if (response.data.success) {
-                            toast.success(`Synced ${response.data.recordsSynced} contracts!`);
-                            queryClient.invalidateQueries({ queryKey: ['contracts', customerId] });
-                          } else {
-                            toast.error(response.data.error || 'Sync failed');
+                      <Button 
+                        size="sm"
+                        variant="outline"
+                        className="gap-2"
+                        onClick={async () => {
+                          try {
+                            setIsSyncing(true);
+                            const response = await base44.functions.invoke('syncHaloPSAContracts', { 
+                              action: 'sync_now'
+                            });
+                            if (response.data.success) {
+                              toast.success(`Synced ${response.data.recordsSynced} contracts!`);
+                              queryClient.invalidateQueries({ queryKey: ['contracts', customerId] });
+                              queryClient.invalidateQueries({ queryKey: ['contract_items', customerId] });
+                            } else {
+                              toast.error(response.data.error || 'Sync failed');
+                            }
+                          } catch (error) {
+                            toast.error(error.message || 'An error occurred during sync');
+                          } finally {
+                            setIsSyncing(false);
                           }
-                        } catch (error) {
-                          toast.error(error.message || 'An error occurred during sync');
-                        } finally {
-                          setIsSyncing(false);
-                        }
-                      }}
-                      disabled={isSyncing}
-                    >
-                      <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
-                      Sync from Halo
-                    </Button>
-                  )}
+                        }}
+                        disabled={isSyncing}
+                      >
+                        <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
+                        Sync from Halo
+                      </Button>
+                    )}
                   <Button size="sm" className="gap-2 bg-slate-900 hover:bg-slate-800">
                     <Plus className="w-4 h-4" />
                     New Contract
