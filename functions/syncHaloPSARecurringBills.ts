@@ -246,13 +246,13 @@ Deno.serve(async (req) => {
                 continue;
               }
 
-              // Fetch invoice details with line items
+              // Fetch line items for recurring invoice
               let lineItems = [];
               try {
-                const invoiceDetails = await fetchHaloPSA(haloPsaApi(`Invoice/${bill.id}`));
-                lineItems = invoiceDetails.line_items || invoiceDetails.LineItems || invoiceDetails.lines || invoiceDetails.Lines || [];
+                const lineItemsData = await fetchHaloPSA(haloPsaApi(`RecurringInvoiceLineItem?recurringinvoice_id=${bill.id}`));
+                lineItems = Array.isArray(lineItemsData) ? lineItemsData : (lineItemsData.line_items || lineItemsData.LineItems || []);
               } catch (err) {
-                console.log(`Could not fetch invoice details for ${bill.id}:`, err.message);
+                console.log(`Could not fetch line items for recurring invoice ${bill.id}:`, err.message);
               }
 
               const billPayload = {
