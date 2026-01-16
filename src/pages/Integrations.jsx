@@ -38,6 +38,13 @@ export default function Integrations() {
     halopsa: { enabled: false }
   });
 
+  const handleToggle = (integrationId, checked) => {
+    setIntegrationStates(prev => ({
+      ...prev,
+      [integrationId]: { ...prev[integrationId], enabled: checked }
+    }));
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -104,12 +111,7 @@ export default function Integrations() {
                           <span className="text-sm text-slate-500">Enable</span>
                           <Switch
                             checked={state?.enabled || false}
-                            onCheckedChange={(checked) =>
-                              setIntegrationStates({
-                                ...integrationStates,
-                                [integration.id]: { ...state, enabled: checked }
-                              })
-                            }
+                            onCheckedChange={(checked) => handleToggle(integration.id, checked)}
                           />
                         </div>
                       )}
