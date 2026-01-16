@@ -91,16 +91,29 @@ function transformRecurringBill(haloBill, customerId) {
 
 // Transform HaloPSA line item to RecurringBillLineItem schema
 function transformLineItem(haloLineItem, recurringBillId) {
+  // Log full line item structure for debugging
+  console.log(`Line item raw: ${JSON.stringify(haloLineItem)}`);
+  
+  // Try multiple field names for description
+  const description = haloLineItem.description || haloLineItem.Description || 
+                     haloLineItem.itemdescription || haloLineItem.item_description ||
+                     haloLineItem.item_name || haloLineItem.itemname ||
+                     haloLineItem.name || haloLineItem.Name ||
+                     haloLineItem.summary || haloLineItem.Summary || '';
+  
   return {
     recurring_bill_id: recurringBillId,
     halopsa_id: String(haloLineItem.id || haloLineItem.ID),
-    description: haloLineItem.description || haloLineItem.Description || '',
-    quantity: parseFloat(haloLineItem.quantity || haloLineItem.Quantity || 1),
-    price: parseFloat(haloLineItem.unit_price || haloLineItem.UnitPrice || haloLineItem.Price || 0) || 0,
-    net_amount: parseFloat(haloLineItem.net_amount || haloLineItem.NetAmount || haloLineItem.total || haloLineItem.Total || 0) || 0,
-    tax: parseFloat(haloLineItem.tax || haloLineItem.Tax || 0) || 0,
-    item_code: haloLineItem.item_code || haloLineItem.ItemCode || '',
-    asset: haloLineItem.asset || haloLineItem.Asset || '',
+    description: description,
+    quantity: parseFloat(haloLineItem.quantity || haloLineItem.Quantity || haloLineItem.count || 1),
+    price: parseFloat(haloLineItem.unit_price || haloLineItem.UnitPrice || haloLineItem.unitprice || 
+                     haloLineItem.price || haloLineItem.Price || 0) || 0,
+    net_amount: parseFloat(haloLineItem.net_amount || haloLineItem.NetAmount || haloLineItem.netamount ||
+                          haloLineItem.net || haloLineItem.total || haloLineItem.Total || 0) || 0,
+    tax: parseFloat(haloLineItem.tax || haloLineItem.Tax || haloLineItem.taxamount || 0) || 0,
+    item_code: String(haloLineItem.item_id || haloLineItem.itemid || haloLineItem.item_code || 
+                     haloLineItem.ItemCode || haloLineItem.itemcode || ''),
+    asset: haloLineItem.asset || haloLineItem.Asset || haloLineItem.assetname || '',
     active: haloLineItem.active !== false
   };
 }
