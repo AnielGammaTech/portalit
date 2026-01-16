@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
     const haloPsaApi = (endpoint) => `${apiUrl.endsWith('/') ? apiUrl : apiUrl + '/'}${endpoint}`;
 
     const fetchHaloPSA = async (url) => {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       const response = await fetch(url, {
         headers: {
@@ -189,7 +189,7 @@ Deno.serve(async (req) => {
         const allToUpdate = [];
 
         while (hasMore) {
-          const data = await fetchHaloPSA(haloPsaApi(`RecurringInvoice?page_number=${pageNumber}&page_size=${pageSize}`));
+          const data = await fetchHaloPSA(haloPsaApi(`RecurringInvoice?page_number=${pageNumber}&page_size=500`));
           let recurringBills = [];
           
           if (Array.isArray(data)) {
@@ -242,7 +242,7 @@ Deno.serve(async (req) => {
             }
           }
 
-          if (recurringBills.length < pageSize) {
+          if (recurringBills.length < 500) {
             hasMore = false;
           } else {
             pageNumber++;
