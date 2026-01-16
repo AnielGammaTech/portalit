@@ -93,11 +93,25 @@ export default function CustomerDetail() {
     enabled: !!customerId && quotes.length > 0
   });
 
+  const { data: contractItems = [], isLoading: loadingContractItems } = useQuery({
+    queryKey: ['contract_items', customerId],
+    queryFn: async () => {
+      const allItems = [];
+      for (const contract of contracts) {
+        const items = await base44.entities.ContractItem.filter({ contract_id: contract.id });
+        allItems.push(...items);
+      }
+      return allItems;
+    },
+    enabled: !!customerId && contracts.length > 0
+  });
+
   const [expandedBills, setExpandedBills] = useState({});
   const [expandedQuotes, setExpandedQuotes] = useState({});
+  const [expandedContracts, setExpandedContracts] = useState({});
   const [invoiceFilter, setInvoiceFilter] = useState('all');
 
-  const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems;
+  const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems || loadingContractItems;
 
   const handleSyncCustomer = async () => {
     if (!customer) return;
@@ -343,71 +357,120 @@ export default function CustomerDetail() {
         </TabsContent>
 
         <TabsContent value="contracts">
-           <div className="space-y-6">
-             {/* Contract Renewals */}
-             <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
-               <div className="flex items-center justify-between mb-6">
-                 <div className="flex items-center gap-2">
-                   <Calendar className="w-5 h-5 text-slate-600" />
-                   <h3 className="font-semibold text-slate-900">Contract Renewals</h3>
-                 </div>
-                 <Button size="sm" className="gap-2 bg-slate-900 hover:bg-slate-800">
-                   <Plus className="w-4 h-4" />
-                   Add Renewal
-                 </Button>
-               </div>
-               {contracts.length === 0 ? (
-                 <div className="p-12 text-center">
-                   <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                   <p className="text-slate-500">No contracts found</p>
-                 </div>
-               ) : (
-                 <div className="space-y-3">
-                   {contracts.map((contract) => {
-                     const daysLeft = contract.end_date ? Math.ceil((new Date(contract.end_date) - new Date()) / (1000 * 60 * 60 * 24)) : null;
-                     return (
-                       <div key={contract.id} className="flex items-center justify-between p-4 border border-slate-100 rounded-lg hover:bg-slate-50 transition-colors">
-                         <div className="flex-1">
-                           <div className="flex items-center gap-3 mb-2">
-                             <span className="font-semibold text-slate-900">{contract.name}</span>
-                             <Badge className={cn(
-                               "capitalize text-xs",
-                               contract.status === 'active' && "bg-emerald-100 text-emerald-700",
-                               contract.status === 'expired' && "bg-red-100 text-red-700",
-                               contract.status === 'pending' && "bg-yellow-100 text-yellow-700"
-                             )}>
-                               {contract.status}
-                             </Badge>
-                           </div>
-                           <div className="flex items-center gap-4 text-sm text-slate-600">
-                             <span className="font-medium">${(contract.value || 0).toLocaleString()}/{contract.billing_cycle}</span>
-                             {contract.end_date && (
-                               <>
-                                 <span className="flex items-center gap-1">
-                                   <Calendar className="w-3 h-3" />
-                                   Renews: {format(parseISO(contract.end_date), 'MM/dd/yyyy')}
-                                 </span>
-                                 {daysLeft !== null && (
-                                   <span className={cn(daysLeft < 30 ? 'text-red-600 font-medium' : '')}>{daysLeft.toLocaleString()} days left</span>
-                                 )}
-                               </>
-                             )}
-                           </div>
-                         </div>
-                         <div className="flex items-center gap-2">
-                           <Button variant="ghost" size="icon" className="h-8 w-8">
-                             <Edit2 className="w-4 h-4 text-slate-400" />
-                           </Button>
-                           <Button variant="ghost" size="icon" className="h-8 w-8">
-                             <Trash2 className="w-4 h-4 text-red-400 hover:text-red-600" />
-                           </Button>
-                         </div>
-                       </div>
-                     );
-                   })}
-                 </div>
-               )}
-             </div>
+          <div className="space-y-6">
+            {/* Total Summary */}
+            {contracts.length > 0 && (
+              <div className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-100 rounded-lg">
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <DollarSign className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-slate-600">Total Monthly Recurring</p>
+                  <p className="text-xl font-semibold text-slate-900">
+                    ${contracts.reduce((sum, c) => sum + (c.value || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">({contracts.filter(c => c.status === 'active').length} active contract{contracts.filter(c => c.status === 'active').length !== 1 ? 's' : ''})</p>
+                </div>
+              </div>
+            )}
+
+            {/* Contracts List */}
+            <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-semibold text-slate-900">Contracts</h3>
+                <Button size="sm" className="gap-2 bg-slate-900 hover:bg-slate-800">
+                  <Plus className="w-4 h-4" />
+                  New Contract
+                </Button>
+              </div>
+              {contracts.length === 0 ? (
+                <div className="p-12 text-center">
+                  <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                  <p className="text-slate-500">No contracts found</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {contracts.map((contract) => {
+                    const contractLineItems = contractItems.filter(item => item.contract_id === contract.id);
+                    const isExpanded = expandedContracts[contract.id];
+                    return (
+                      <div key={contract.id} className="border border-slate-100 rounded-lg overflow-hidden">
+                        <button
+                          onClick={() => setExpandedContracts(prev => ({ ...prev, [contract.id]: !prev[contract.id] }))}
+                          className="w-full px-4 py-4 flex items-start justify-between hover:bg-slate-50 transition-colors"
+                        >
+                          <div className="flex-1 text-left">
+                            <div className="flex items-center gap-3 mb-2">
+                              <span className="font-semibold text-slate-900">{contract.name}</span>
+                              <Badge className={cn(
+                                "capitalize text-xs",
+                                contract.status === 'active' && "bg-emerald-100 text-emerald-700",
+                                contract.status === 'expired' && "bg-red-100 text-red-700",
+                                contract.status === 'pending' && "bg-yellow-100 text-yellow-700",
+                                contract.status === 'cancelled' && "bg-slate-100 text-slate-700"
+                              )}>
+                                {contract.status}
+                              </Badge>
+                            </div>
+                            {contract.start_date && contract.end_date && (
+                              <div className="flex items-center gap-4 text-sm text-slate-600">
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  Start: {format(parseISO(contract.start_date), 'MMM dd, yyyy')}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  Renewal: {format(parseISO(contract.end_date), 'MMM dd, yyyy')}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <p className="font-semibold text-slate-900">
+                              ${(contract.value || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            </p>
+                            <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", isExpanded && "rotate-180")} />
+                          </div>
+                        </button>
+                        {isExpanded && contractLineItems.length > 0 && (
+                          <div className="bg-slate-50 border-t border-slate-100 px-4 py-4 overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b border-slate-200">
+                                  <th className="text-left py-2 px-2 text-slate-600 font-medium">Description</th>
+                                  <th className="text-center py-2 px-2 text-slate-600 font-medium">Qty</th>
+                                  <th className="text-right py-2 px-2 text-slate-600 font-medium">Price</th>
+                                  <th className="text-right py-2 px-2 text-slate-600 font-medium">Net</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {contractLineItems.map(item => (
+                                  <tr key={item.id} className="border-b border-slate-100 hover:bg-white transition-colors">
+                                    <td className="py-2 px-2">
+                                      <div>
+                                        <p className="text-slate-900">{item.description}</p>
+                                        {item.item_code && <p className="text-xs text-slate-500">#{item.item_code}</p>}
+                                      </div>
+                                    </td>
+                                    <td className="py-2 px-2 text-center text-slate-600">{item.quantity}</td>
+                                    <td className="py-2 px-2 text-right text-slate-900">
+                                      ${(item.unit_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                    </td>
+                                    <td className="py-2 px-2 text-right font-semibold text-slate-900">
+                                      ${(item.net_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
              {/* Recurring Bills */}
              <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
