@@ -23,6 +23,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import FloatingAdminland from './components/admin/FloatingAdminland';
 
 export default function Layout({ children, currentPageName }) {
   const [user, setUser] = useState(null);
@@ -42,7 +43,6 @@ export default function Layout({ children, currentPageName }) {
   const navigation = [
     { name: 'Dashboard', page: 'Dashboard', icon: LayoutDashboard },
     { name: 'Customers', page: 'Customers', icon: Building2 },
-    ...(user?.role === 'admin' ? [{ name: 'Adminland', page: 'Adminland', icon: Shield }] : []),
   ];
 
   return (
@@ -141,6 +141,9 @@ export default function Layout({ children, currentPageName }) {
       <main className="p-6 lg:p-8">
         {children}
       </main>
+
+      {/* Floating Adminland */}
+      <FloatingAdminland />
     </div>
   );
 }
