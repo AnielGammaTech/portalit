@@ -131,27 +131,32 @@ Deno.serve(async (req) => {
           }
 
           // Fetch Users (Contacts) for this Client
-          const usersData = await fetchHaloPSA(haloPsaApi(`User?client_id=${client.id}`));
-          const users = Array.isArray(usersData) ? usersData : usersData.users || [];
-          
-          for (const user of users) {
-            if (excludedIds.includes(String(user.id))) continue;
-            const existingContact = (await base44.asServiceRole.entities.Contact.filter({ halopsa_id: String(user.id) }))[0];
-            const contactData = {
-              customer_id: customerId,
-              halopsa_id: String(user.id),
-              full_name: user.FullName,
-              email: user.EmailAddress,
-              phone: user.Telephone,
-              title: user.JobTitle,
-              is_primary: user.IsPrimaryContact
-            };
-            if (existingContact) {
-              await base44.asServiceRole.entities.Contact.update(existingContact.id, contactData);
-            } else {
-              await base44.asServiceRole.entities.Contact.create(contactData);
+          try {
+            const usersData = await fetchHaloPSA(haloPsaApi(`User?client_id=${client.id}`));
+            const users = Array.isArray(usersData) ? usersData : usersData.users || [];
+            
+            for (const user of users) {
+              if (excludedIds.includes(String(user.id))) continue;
+              const existingContact = (await base44.asServiceRole.entities.Contact.filter({ halopsa_id: String(user.id) }))[0];
+              const contactData = {
+                customer_id: customerId,
+                halopsa_id: String(user.id),
+                full_name: user.full_name || user.FullName || `User ${user.id}`,
+                email: user.email || user.EmailAddress || '',
+                phone: user.telephone || user.Telephone || '',
+                title: user.job_title || user.JobTitle || '',
+                is_primary: user.is_primary_contact || user.IsPrimaryContact || false
+              };
+              if (existingContact) {
+                await base44.asServiceRole.entities.Contact.update(existingContact.id, contactData);
+              } else {
+                await base44.asServiceRole.entities.Contact.create(contactData);
+              }
+              recordsSynced++;
             }
-            recordsSynced++;
+          } catch (userError) {
+            // Skip users if endpoint doesn't exist
+            console.log('Skipping users for client', client.id, 'Error:', userError.message);
           }
 
           // Fetch Contracts (Recurring Bills) for this Client
