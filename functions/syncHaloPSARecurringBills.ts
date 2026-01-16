@@ -197,8 +197,9 @@ Deno.serve(async (req) => {
               savedBill = await base44.asServiceRole.entities.RecurringBill.create(billPayload);
             }
 
-            // Extract & Transform: Line items
-            const lineItems = haloBill.line_items || haloBill.LineItems || haloBill.lines || haloBill.Lines || [];
+            // Extract & Transform: Line items (HaloPSA uses "lines" field)
+            const lineItems = haloBill.lines || haloBill.line_items || haloBill.LineItems || haloBill.Lines || [];
+            console.log(`Bill ${haloBill.id} has ${lineItems.length} line items`);
             if (Array.isArray(lineItems) && lineItems.length > 0) {
               // Delete old line items
               const existingItems = await base44.asServiceRole.entities.RecurringBillLineItem.filter({ recurring_bill_id: savedBill.id });
