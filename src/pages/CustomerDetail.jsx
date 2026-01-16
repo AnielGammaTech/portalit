@@ -968,9 +968,9 @@ export default function CustomerDetail() {
                                               </div>
                                               <div>
                                                 <p className="text-2xl font-bold text-slate-900">
-                                                  {tickets.filter(t => t.status === 'closed').length}
-                                                </p>
-                                                <p className="text-xs text-slate-500">Resolved</p>
+                                                                            {tickets.filter(t => ['closed', 'resolved'].includes(t.status)).length}
+                                                                          </p>
+                                                                          <p className="text-xs text-slate-500">Resolved</p>
                                               </div>
                                             </div>
                                           </div>
@@ -1043,8 +1043,9 @@ export default function CustomerDetail() {
                             <>
                               <div className="space-y-3">
                                 {tickets
-                                  .filter(t => ticketFilter === 'all' || t.status === ticketFilter)
-                                  .slice((ticketPage - 1) * 10, ticketPage * 10)
+                                                          .filter(t => ticketFilter === 'all' || t.status === ticketFilter)
+                                                          .sort((a, b) => new Date(b.date_opened || 0) - new Date(a.date_opened || 0))
+                                                          .slice((ticketPage - 1) * 10, ticketPage * 10)
                                   .map(ticket => (
                                     <div key={ticket.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
                                       <div className="flex items-center gap-4 flex-1 min-w-0">
