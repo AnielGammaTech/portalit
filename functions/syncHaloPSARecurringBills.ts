@@ -279,15 +279,19 @@ Deno.serve(async (req) => {
 
         let createdBills = [];
         if (allToCreate.length > 0) {
-          createdBills = await base44.asServiceRole.entities.RecurringBill.bulkCreate(allToCreate.map(({ _lineItems, ...rest }) => rest));
+          const billsToCreate = allToCreate.map(({ _lineItems, ...rest }) => rest);
+          createdBills = await base44.asServiceRole.entities.RecurringBill.bulkCreate(billsToCreate);
+          console.log('Created bills:', createdBills.length, 'with line items:', allToCreate.map(b => ({ id: b.halopsa_id, lineItems: b._lineItems?.length || 0 })));
           recordsSynced += allToCreate.length;
         }
 
         // Sync line items for new bills
         for (let i = 0; i < allToCreate.length; i++) {
           const bill = createdBills[i];
-          const lineItems = allToCreate[i]._lineItems;
-          if (lineItems && Array.isArray(lineItems)) {
+          const billData = allToCreate[i];
+          const lineItems = billData._lineItems;
+          console.log(`Processing line items for bill ${bill.id}:`, lineItems ? lineItems.length : 0, 'items');
+          if (lineItems && Array.isArray(lineItems) && lineItems.length > 0) {
             const itemsToCreate = lineItems.map(item => ({
               recurring_bill_id: bill.id,
               halopsa_id: String(item.id || item.ID),
@@ -300,9 +304,8 @@ Deno.serve(async (req) => {
               asset: item.asset || item.Asset || '',
               active: item.active !== false
             }));
-            if (itemsToCreate.length > 0) {
-              await base44.asServiceRole.entities.RecurringBillLineItem.bulkCreate(itemsToCreate);
-            }
+            console.log(`Creating ${itemsToCreate.length} line items for bill ${bill.id}`);
+            await base44.asServiceRole.entities.RecurringBillLineItem.bulkCreate(itemsToCreate);
           }
         }
 
