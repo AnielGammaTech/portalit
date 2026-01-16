@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
     };
 
     if (action === 'test_connection') {
-      await fetchHaloPSA(haloPsaApi('Contract'));
+      await fetchHaloPSA(haloPsaApi('Contract?page_number=1&page_size=1'));
       return Response.json({ success: true, message: 'HaloPSA connection successful!' });
     }
 

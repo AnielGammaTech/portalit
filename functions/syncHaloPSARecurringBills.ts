@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
     };
 
     if (action === 'test_connection') {
-      await fetchHaloPSA(haloPsaApi('RecurringBill?pageSize=1'));
+      await fetchHaloPSA(haloPsaApi('RecurringInvoice?page_number=1&page_size=1'));
       return Response.json({ success: true, message: 'HaloPSA connection successful!' });
     }
 
@@ -106,8 +106,8 @@ Deno.serve(async (req) => {
         }
 
         // Fetch recurring bills for this client
-        const data = await fetchHaloPSA(haloPsaApi(`RecurringBill?clientid=${customer_id}&pageSize=1000`));
-        const recurringBills = data.recurringbills || data || [];
+        const data = await fetchHaloPSA(haloPsaApi(`RecurringInvoice?client_id=${customer_id}&page_size=1000`));
+        const recurringBills = Array.isArray(data) ? data : data.recurringInvoices || data.recurringInvoices || [];
 
         for (const bill of recurringBills) {
           try {
@@ -181,8 +181,8 @@ Deno.serve(async (req) => {
 
       try {
         while (hasMore) {
-          const data = await fetchHaloPSA(haloPsaApi(`RecurringBill?pageNumber=${pageNumber}&pageSize=${pageSize}`));
-          const recurringBills = data.recurringbills || data || [];
+          const data = await fetchHaloPSA(haloPsaApi(`RecurringInvoice?page_number=${pageNumber}&page_size=${pageSize}`));
+          const recurringBills = Array.isArray(data) ? data : data.recurringInvoices || data.recurringInvoices || [];
 
           if (recurringBills.length === 0) {
             hasMore = false;
