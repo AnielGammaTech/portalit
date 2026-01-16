@@ -216,6 +216,7 @@ Deno.serve(async (req) => {
         
         const allToCreate = [];
         const allToUpdate = [];
+        let seenBillStructure = false;
 
         while (hasMore) {
           const data = await fetchHaloPSA(haloPsaApi(`RecurringInvoice?page_number=${pageNumber}&page_size=500`));
@@ -244,6 +245,12 @@ Deno.serve(async (req) => {
               if (!customerId) {
                 recordsFailed++;
                 continue;
+              }
+
+              // Log first bill to see structure
+              if (!seenBillStructure) {
+                console.log('Bill structure:', JSON.stringify(bill).substring(0, 500));
+                seenBillStructure = true;
               }
 
               // Check for line items in different possible field names
