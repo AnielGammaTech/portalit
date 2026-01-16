@@ -112,13 +112,27 @@ export default function CustomerDetail() {
 
   return (
     <div className="space-y-6">
-      {/* Back Button */}
-      <Link to={createPageUrl('Customers')}>
-        <Button variant="ghost" size="sm" className="gap-2">
-          <ArrowLeft className="w-4 h-4" />
-          Back to Customers
-        </Button>
-      </Link>
+      {/* Header with Back Button and Sync */}
+      <div className="flex items-center justify-between">
+       <Link to={createPageUrl('Customers')}>
+         <Button variant="ghost" size="sm" className="gap-2">
+           <ArrowLeft className="w-4 h-4" />
+           Back to Customers
+         </Button>
+       </Link>
+       {customer?.source === 'halopsa' && (
+         <Button 
+           onClick={handleSyncCustomer}
+           disabled={isSyncing}
+           variant="outline"
+           className="gap-2"
+           size="sm"
+         >
+           <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
+           Sync Customer
+         </Button>
+       )}
+      </div>
 
       {/* Customer Header */}
       <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
