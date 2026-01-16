@@ -2,6 +2,9 @@ import Dashboard from './pages/Dashboard';
 import Customers from './pages/Customers';
 import CustomerDetail from './pages/CustomerDetail';
 import Contracts from './pages/Contracts';
+import SaaSManagement from './pages/SaaSManagement';
+import Integrations from './pages/Integrations';
+import Settings from './pages/Settings';
 import __Layout from './Layout.jsx';
 
 
@@ -10,6 +13,9 @@ export const PAGES = {
     "Customers": Customers,
     "CustomerDetail": CustomerDetail,
     "Contracts": Contracts,
+    "SaaSManagement": SaaSManagement,
+    "Integrations": Integrations,
+    "Settings": Settings,
 }
 
 export const pagesConfig = {
