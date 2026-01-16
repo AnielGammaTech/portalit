@@ -377,7 +377,25 @@ export default function CustomerDetail() {
                      size="sm"
                      variant="outline"
                      className="gap-2"
-                     onClick={handleSyncCustomer}
+                     onClick={async () => {
+                       try {
+                         setIsSyncing(true);
+                         const response = await base44.functions.invoke('syncHaloPSARecurringBills', { 
+                           action: 'sync_customer',
+                           customer_id: customer.external_id 
+                         });
+                         if (response.data.success) {
+                           toast.success(`Synced ${response.data.recordsSynced} recurring bills!`);
+                           queryClient.invalidateQueries({ queryKey: ['recurring_bills', customerId] });
+                         } else {
+                           toast.error(response.data.error || 'Sync failed');
+                         }
+                       } catch (error) {
+                         toast.error(error.message || 'An error occurred during sync');
+                       } finally {
+                         setIsSyncing(false);
+                       }
+                     }}
                      disabled={isSyncing}
                    >
                      <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
