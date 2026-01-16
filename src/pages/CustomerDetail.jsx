@@ -390,7 +390,8 @@ export default function CustomerDetail() {
                           try {
                             setIsSyncing(true);
                             const response = await base44.functions.invoke('syncHaloPSAContracts', { 
-                              action: 'sync_now'
+                              action: 'sync_customer',
+                              customer_id: customer.external_id
                             });
                             if (response.data.success) {
                               toast.success(`Synced ${response.data.recordsSynced} contracts!`);
