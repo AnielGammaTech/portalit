@@ -243,10 +243,10 @@ export default function CustomerDetail() {
     <div className="space-y-6">
       {/* Header with Back Button and Sync */}
       <div className="flex items-center justify-between">
-       <Link to={createPageUrl('Customers')}>
+       <Link to={createPageUrl('Dashboard')}>
          <Button variant="ghost" size="sm" className="gap-2">
            <ArrowLeft className="w-4 h-4" />
-           Back to Customers
+           Back to Dashboard
          </Button>
        </Link>
        {customer?.source === 'halopsa' && (
@@ -258,7 +258,7 @@ export default function CustomerDetail() {
            size="sm"
          >
            <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
-           Sync Customer
+           Refresh Data
          </Button>
        )}
       </div>
