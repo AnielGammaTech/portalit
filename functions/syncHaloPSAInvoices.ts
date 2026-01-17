@@ -49,35 +49,76 @@ async function fetchHalo(url, accessToken, clientId) {
   return await response.json();
 }
 
+// Helper: Parse HaloPSA date (handles various formats including OLE dates)
+function parseHaloDate(dateValue) {
+  if (!dateValue) return null;
+  
+  // If it's a string that looks like ISO date
+  if (typeof dateValue === 'string') {
+    // Check for invalid/default dates
+    if (dateValue.includes('1899') || dateValue.includes('1900-01-01')) {
+      return null;
+    }
+    const parsed = new Date(dateValue);
+    if (!isNaN(parsed.getTime()) && parsed.getFullYear() > 1900) {
+      return parsed.toISOString();
+    }
+  }
+  
+  // If it's a number (OLE date - days since Dec 30, 1899)
+  if (typeof dateValue === 'number' && dateValue > 0) {
+    const oleBaseDate = new Date(1899, 11, 30);
+    const resultDate = new Date(oleBaseDate.getTime() + dateValue * 24 * 60 * 60 * 1000);
+    if (resultDate.getFullYear() > 1900) {
+      return resultDate.toISOString();
+    }
+  }
+  
+  return null;
+}
+
 // Transform HaloPSA invoice to Invoice schema
 function transformInvoice(haloInvoice, customerId) {
-  // Determine status
+  // Determine status based on payment status code
+  // HaloPSA: -1 = unpaid, 1 = partial, 2 = paid
   let status = 'draft';
-  if (haloInvoice.paymentstatus === 1 || haloInvoice.amountdue === 0) {
+  const paymentStatus = haloInvoice.paymentstatus;
+  
+  if (paymentStatus === 2 || haloInvoice.amountdue === 0) {
     status = 'paid';
-  } else if (haloInvoice.posted) {
+  } else if (haloInvoice.posted || paymentStatus === -1 || paymentStatus === 1) {
     status = 'sent';
   }
   
   // Check if overdue
-  if (status === 'sent' && haloInvoice.duedate) {
-    const dueDate = new Date(haloInvoice.duedate);
-    if (dueDate < new Date()) {
+  const dueDate = parseHaloDate(haloInvoice.duedate);
+  if (status === 'sent' && dueDate) {
+    const dueDateObj = new Date(dueDate);
+    if (dueDateObj < new Date()) {
       status = 'overdue';
     }
   }
 
+  // Try multiple possible field names for invoice date
+  const invoiceDate = parseHaloDate(haloInvoice.invoicedate) || 
+                      parseHaloDate(haloInvoice.date_sent) ||
+                      parseHaloDate(haloInvoice.datesent) ||
+                      parseHaloDate(haloInvoice.dateraised) ||
+                      parseHaloDate(haloInvoice.date_raised) ||
+                      parseHaloDate(haloInvoice.date) ||
+                      dueDate; // Fallback to due date if no invoice date
+
   return {
     customer_id: customerId,
     halopsa_id: String(haloInvoice.id),
-    invoice_number: haloInvoice.invoicenumber || `INV-${haloInvoice.id}`,
-    total: parseFloat(haloInvoice.total || haloInvoice.amountdue + haloInvoice.amountpaid || 0),
-    amount_paid: parseFloat(haloInvoice.amountpaid || 0),
-    amount_due: parseFloat(haloInvoice.amountdue || 0),
-    invoice_date: haloInvoice.invoicedate || haloInvoice.datesent || null,
-    due_date: haloInvoice.duedate || null,
+    invoice_number: haloInvoice.invoicenumber || haloInvoice.ref || `INV-${haloInvoice.id}`,
+    total: parseFloat(haloInvoice.total || haloInvoice.totalamount || (haloInvoice.amountdue || 0) + (haloInvoice.amountpaid || 0) || 0),
+    amount_paid: parseFloat(haloInvoice.amountpaid || haloInvoice.amount_paid || 0),
+    amount_due: parseFloat(haloInvoice.amountdue || haloInvoice.amount_due || 0),
+    invoice_date: invoiceDate,
+    due_date: dueDate,
     status: status,
-    payment_status: String(haloInvoice.paymentstatus || ''),
+    payment_status: String(paymentStatus ?? ''),
     source: 'halopsa'
   };
 }
