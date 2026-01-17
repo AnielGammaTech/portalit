@@ -542,10 +542,10 @@ export default function CustomerDetail() {
 
                           {/* Contracts Section */}
                           <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
-                            <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center justify-between mb-4">
                               <div>
                                 <h3 className="text-lg font-semibold text-slate-900">Your Contracts</h3>
-                                <p className="text-sm text-slate-500">Active service agreements</p>
+                                <p className="text-sm text-slate-500">{contracts.length} service agreement{contracts.length !== 1 ? 's' : ''}</p>
                               </div>
                               {customer?.source === 'halopsa' && (
                                 <Button 
@@ -574,7 +574,7 @@ export default function CustomerDetail() {
                                   disabled={isSyncing}
                                 >
                                   <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
-                                  Sync Contracts
+                                  Sync
                                 </Button>
                               )}
                             </div>
@@ -585,52 +585,93 @@ export default function CustomerDetail() {
                                 <p className="text-slate-500">No contracts found</p>
                               </div>
                             ) : (
-                              <div className="space-y-3">
-                                {contracts.map(contract => (
-                                  <div key={contract.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
-                                    <div className="flex items-center gap-4">
-                                      <div className={cn(
-                                        "w-10 h-10 rounded-full flex items-center justify-center",
-                                        contract.status === 'active' && "bg-emerald-100",
-                                        contract.status === 'expired' && "bg-red-100",
-                                        !['active', 'expired'].includes(contract.status) && "bg-slate-200"
-                                      )}>
-                                        <FileText className={cn(
-                                          "w-5 h-5",
-                                          contract.status === 'active' && "text-emerald-600",
-                                          contract.status === 'expired' && "text-red-600",
-                                          !['active', 'expired'].includes(contract.status) && "text-slate-500"
-                                        )} />
-                                      </div>
-                                      <div>
-                                        <p className="font-semibold text-slate-900">{contract.name}</p>
-                                        <div className="flex items-center gap-3 text-sm text-slate-500">
-                                          {contract.start_date && (
-                                            <span>Started: {format(parseISO(contract.start_date), 'MMM d, yyyy')}</span>
-                                          )}
-                                          {contract.renewal_date && (
-                                            <span>• Renews: {format(parseISO(contract.renewal_date), 'MMM d, yyyy')}</span>
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {contracts.map(contract => {
+                                  const isExpanded = expandedContracts[contract.id];
+                                  return (
+                                    <div 
+                                      key={contract.id} 
+                                      className={cn(
+                                        "border rounded-xl transition-all cursor-pointer",
+                                        contract.status === 'active' ? "border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50" : "border-slate-200 bg-slate-50 hover:bg-slate-100",
+                                        isExpanded && "col-span-full"
+                                      )}
+                                    >
+                                      <button
+                                        onClick={() => setExpandedContracts(prev => ({ ...prev, [contract.id]: !prev[contract.id] }))}
+                                        className="w-full p-4 text-left"
+                                      >
+                                        <div className="flex items-start justify-between gap-3">
+                                          <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                              <Badge className={cn(
+                                                'text-xs capitalize',
+                                                contract.status === 'active' && 'bg-emerald-100 text-emerald-700 border-emerald-200',
+                                                contract.status === 'expired' && 'bg-red-100 text-red-700 border-red-200',
+                                                !['active', 'expired'].includes(contract.status) && 'bg-slate-100 text-slate-700'
+                                              )}>
+                                                {contract.status}
+                                              </Badge>
+                                            </div>
+                                            <p className="font-semibold text-slate-900 truncate">{contract.name}</p>
+                                            <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
+                                              {contract.start_date && (
+                                                <span>From {format(parseISO(contract.start_date), 'MMM yyyy')}</span>
+                                              )}
+                                              {contract.renewal_date && (
+                                                <>
+                                                  <span>•</span>
+                                                  <span className="text-purple-600 font-medium">Renews {format(parseISO(contract.renewal_date), 'MMM d')}</span>
+                                                </>
+                                              )}
+                                            </div>
+                                          </div>
+                                          <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform flex-shrink-0 mt-1", isExpanded && "rotate-180")} />
+                                        </div>
+                                      </button>
+
+                                      {isExpanded && (
+                                        <div className="px-4 pb-4 pt-0 border-t border-slate-200/50">
+                                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3">
+                                            <div>
+                                              <p className="text-xs text-slate-500 mb-1">Start Date</p>
+                                              <p className="text-sm font-medium text-slate-900">
+                                                {contract.start_date ? format(parseISO(contract.start_date), 'MMM d, yyyy') : 'N/A'}
+                                              </p>
+                                            </div>
+                                            <div>
+                                              <p className="text-xs text-slate-500 mb-1">End Date</p>
+                                              <p className="text-sm font-medium text-slate-900">
+                                                {contract.end_date ? format(parseISO(contract.end_date), 'MMM d, yyyy') : 'Ongoing'}
+                                              </p>
+                                            </div>
+                                            <div>
+                                              <p className="text-xs text-slate-500 mb-1">Next Renewal</p>
+                                              <p className="text-sm font-medium text-purple-600">
+                                                {contract.renewal_date ? format(parseISO(contract.renewal_date), 'MMM d, yyyy') : 'N/A'}
+                                              </p>
+                                            </div>
+                                            <div>
+                                              <p className="text-xs text-slate-500 mb-1">Value</p>
+                                              <p className="text-sm font-medium text-slate-900">
+                                                {contract.value > 0 
+                                                  ? `$${contract.value.toLocaleString('en-US', { minimumFractionDigits: 2 })}/${contract.billing_cycle === 'annually' ? 'yr' : 'mo'}`
+                                                  : 'N/A'
+                                                }
+                                              </p>
+                                            </div>
+                                          </div>
+                                          {contract.description && (
+                                            <div className="mt-3 pt-3 border-t border-slate-200/50">
+                                              <p className="text-xs text-slate-500 mb-1">Description</p>
+                                              <p className="text-sm text-slate-700">{contract.description}</p>
+                                            </div>
                                           )}
                                         </div>
-                                      </div>
-                                    </div>
-                                    <div className="text-right">
-                                      {contract.value > 0 && (
-                                        <p className="text-lg font-bold text-slate-900">
-                                          ${contract.value.toLocaleString('en-US', { minimumFractionDigits: 2 })}/{contract.billing_cycle === 'annually' ? 'yr' : 'mo'}
-                                        </p>
                                       )}
-                                      <Badge className={cn(
-                                        'text-xs capitalize',
-                                        contract.status === 'active' && 'bg-emerald-100 text-emerald-700',
-                                        contract.status === 'expired' && 'bg-red-100 text-red-700',
-                                        !['active', 'expired'].includes(contract.status) && 'bg-slate-100 text-slate-700'
-                                      )}>
-                                        {contract.status}
-                                      </Badge>
                                     </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             )}
                           </div>

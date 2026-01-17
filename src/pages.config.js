@@ -1,17 +1,17 @@
 import CustomerDetail from './pages/CustomerDetail';
+import Customers from './pages/Customers';
 import Dashboard from './pages/Dashboard';
 import Integrations from './pages/Integrations';
 import Settings from './pages/Settings';
-import Customers from './pages/Customers';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
     "CustomerDetail": CustomerDetail,
+    "Customers": Customers,
     "Dashboard": Dashboard,
     "Integrations": Integrations,
     "Settings": Settings,
-    "Customers": Customers,
 }
 
 export const pagesConfig = {
