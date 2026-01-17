@@ -100,17 +100,30 @@ export default function CustomerDetail() {
       });
 
   const { data: quoteItems = [], isLoading: loadingQuoteItems } = useQuery({
-    queryKey: ['quote_items', customerId],
-    queryFn: async () => {
-      const allItems = [];
-      for (const quote of quotes) {
-        const items = await base44.entities.QuoteItem.filter({ quote_id: quote.id });
-        allItems.push(...items);
-      }
-      return allItems;
-    },
-    enabled: !!customerId && quotes.length > 0
-  });
+        queryKey: ['quote_items', customerId],
+        queryFn: async () => {
+          const allItems = [];
+          for (const quote of quotes) {
+            const items = await base44.entities.QuoteItem.filter({ quote_id: quote.id });
+            allItems.push(...items);
+          }
+          return allItems;
+        },
+        enabled: !!customerId && quotes.length > 0
+      });
+
+      const { data: invoiceLineItems = [], isLoading: loadingInvoiceLineItems } = useQuery({
+        queryKey: ['invoice_line_items', customerId],
+        queryFn: async () => {
+          const allItems = [];
+          for (const invoice of invoices) {
+            const items = await base44.entities.InvoiceLineItem.filter({ invoice_id: invoice.id });
+            allItems.push(...items);
+          }
+          return allItems;
+        },
+        enabled: !!customerId && invoices.length > 0
+      });
 
   const { data: contractItems = [], isLoading: loadingContractItems } = useQuery({
     queryKey: ['contract_items', customerId],
