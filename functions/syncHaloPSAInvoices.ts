@@ -206,28 +206,37 @@ Deno.serve(async (req) => {
             dbInvoiceId = created.id;
           }
 
-          // Sync line items if available
-          const lineItems = haloInvoice.lines || haloInvoice.lineitems || haloInvoice.items || [];
-          if (lineItems.length > 0) {
-            // Delete existing line items for this invoice
-            const existingItems = await base44.asServiceRole.entities.InvoiceLineItem.filter({ invoice_id: dbInvoiceId });
-            for (const item of existingItems) {
-              await base44.asServiceRole.entities.InvoiceLineItem.delete(item.id);
-            }
+          // Fetch line items separately from HaloPSA
+          try {
+            const invoiceDetailUrl = buildUrl(apiUrl, `Invoice/${haloInvoice.id}`);
+            const invoiceDetail = await fetchHalo(invoiceDetailUrl, accessToken, haloClientId);
+            const lineItems = invoiceDetail.lines || invoiceDetail.lineitems || invoiceDetail.items || [];
             
-            // Create new line items
-            for (const line of lineItems) {
-              await base44.asServiceRole.entities.InvoiceLineItem.create({
-                invoice_id: dbInvoiceId,
-                halopsa_id: String(line.id || line.line_id || `${haloInvoice.id}-${lineItems.indexOf(line)}`),
-                description: line.description || line.itemname || line.name || 'Item',
-                quantity: parseFloat(line.quantity || line.qty || 1),
-                unit_price: parseFloat(line.unitprice || line.price || line.unit_price || 0),
-                net_amount: parseFloat(line.netamount || line.net || line.amount || line.total || 0),
-                tax: parseFloat(line.tax || line.taxamount || 0),
-                item_code: line.itemcode || line.code || ''
-              });
+            console.log(`Invoice ${haloInvoice.id} has ${lineItems.length} line items`);
+            
+            if (lineItems.length > 0) {
+              // Delete existing line items for this invoice
+              const existingItems = await base44.asServiceRole.entities.InvoiceLineItem.filter({ invoice_id: dbInvoiceId });
+              for (const item of existingItems) {
+                await base44.asServiceRole.entities.InvoiceLineItem.delete(item.id);
+              }
+              
+              // Create new line items
+              for (const line of lineItems) {
+                await base44.asServiceRole.entities.InvoiceLineItem.create({
+                  invoice_id: dbInvoiceId,
+                  halopsa_id: String(line.id || line.line_id || `${haloInvoice.id}-${lineItems.indexOf(line)}`),
+                  description: line.description || line.itemname || line.name || line.item_name || 'Item',
+                  quantity: parseFloat(line.quantity || line.qty || line.count || 1),
+                  unit_price: parseFloat(line.unitprice || line.price || line.unit_price || line.baseprice || 0),
+                  net_amount: parseFloat(line.netamount || line.net || line.amount || line.total || line.linetotal || 0),
+                  tax: parseFloat(line.tax || line.taxamount || line.vat || 0),
+                  item_code: line.itemcode || line.code || line.item_id || ''
+                });
+              }
             }
+          } catch (lineErr) {
+            console.log(`Could not fetch line items for invoice ${haloInvoice.id}: ${lineErr.message}`);
           }
 
           recordsSynced++;
