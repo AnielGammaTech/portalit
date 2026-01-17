@@ -14,69 +14,258 @@ import {
   HelpCircle,
   Phone,
   Mail,
-  Clock,
   CheckCircle2,
   AlertCircle,
   ChevronDown,
-  ExternalLink
+  AlertTriangle
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { format, parseISO, differenceInDays } from 'date-fns';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { toast } from 'sonner';
 
-export default function Dashboard() {
-  const [user, setUser] = useState(null);
-  const [customer, setCustomer] = useState(null);
+// Admin Dashboard Component
+function AdminDashboard() {
+  const navigate = useNavigate();
+  
+  const { data: customers = [], isLoading: loadingCustomers } = useQuery({
+    queryKey: ['customers'],
+    queryFn: () => base44.entities.Customer.list('-created_date', 100),
+  });
+
+  const { data: contracts = [], isLoading: loadingContracts } = useQuery({
+    queryKey: ['contracts'],
+    queryFn: () => base44.entities.Contract.list('-created_date', 500),
+  });
+
+  const { data: tickets = [], isLoading: loadingTickets } = useQuery({
+    queryKey: ['tickets'],
+    queryFn: () => base44.entities.Ticket.list('-created_date', 500),
+  });
+
+  const { data: invoices = [] } = useQuery({
+    queryKey: ['invoices'],
+    queryFn: () => base44.entities.Invoice.list('-created_date', 500),
+  });
+
+  const isLoading = loadingCustomers || loadingContracts || loadingTickets;
+
+  // Calculate stats
+  const activeCustomers = customers.filter(c => c.status === 'active').length;
+  const activeContracts = contracts.filter(c => c.status === 'active').length;
+  const openTickets = tickets.filter(t => ['new', 'open', 'in_progress'].includes(t.status)).length;
+  const totalMRR = contracts.filter(c => c.status === 'active').reduce((sum, c) => sum + (c.value || 0), 0);
+  const overdueInvoices = invoices.filter(i => i.status === 'overdue');
+  const overdueAmount = overdueInvoices.reduce((sum, i) => sum + (i.total || 0), 0);
+
+  // Contracts expiring soon
+  const expiringContracts = contracts.filter(c => {
+    const date = c.renewal_date || c.end_date;
+    if (!date) return false;
+    const days = differenceInDays(parseISO(date), new Date());
+    return days >= 0 && days <= 30;
+  });
+
+  // Recent tickets
+  const recentTickets = tickets
+    .filter(t => ['new', 'open', 'in_progress'].includes(t.status))
+    .slice(0, 5);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
+        </div>
+        <Skeleton className="h-96 rounded-2xl" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-semibold text-slate-900">Dashboard</h1>
+        <p className="text-slate-500">Overview of your managed services</p>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-xl border border-slate-200/50 p-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+              <Building2 className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-slate-900">{activeCustomers}</p>
+              <p className="text-sm text-slate-500">Active Customers</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200/50 p-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+              <DollarSign className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-slate-900">${totalMRR.toLocaleString()}</p>
+              <p className="text-sm text-slate-500">Monthly Revenue</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200/50 p-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
+              <Monitor className="w-5 h-5 text-orange-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-slate-900">{openTickets}</p>
+              <p className="text-sm text-slate-500">Open Tickets</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200/50 p-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+              <FileText className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-slate-900">{activeContracts}</p>
+              <p className="text-sm text-slate-500">Active Contracts</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Alerts */}
+      {(overdueAmount > 0 || expiringContracts.length > 0) && (
+        <div className="space-y-3">
+          {overdueAmount > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-4">
+              <div className="p-2 bg-red-100 rounded-lg">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-red-900">Overdue Invoices</p>
+                <p className="text-sm text-red-700">{overdueInvoices.length} invoices totaling ${overdueAmount.toLocaleString()}</p>
+              </div>
+            </div>
+          )}
+          {expiringContracts.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-4">
+              <div className="p-2 bg-amber-100 rounded-lg">
+                <AlertTriangle className="w-5 h-5 text-amber-600" />
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-amber-900">Contracts Expiring Soon</p>
+                <p className="text-sm text-amber-700">{expiringContracts.length} contracts expiring in the next 30 days</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Main Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Customers */}
+        <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-slate-900">Recent Customers</h2>
+            <Link to={createPageUrl('Customers')}>
+              <Button variant="ghost" size="sm" className="text-purple-600">View All</Button>
+            </Link>
+          </div>
+          <div className="space-y-3">
+            {customers.slice(0, 5).map(customer => (
+              <div 
+                key={customer.id}
+                onClick={() => navigate(createPageUrl(`CustomerDetail?id=${customer.id}`))}
+                className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 cursor-pointer transition-colors"
+              >
+                <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                  <Building2 className="w-5 h-5 text-purple-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-slate-900 truncate">{customer.name}</p>
+                  <p className="text-sm text-slate-500">{customer.email || 'No email'}</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Recent Tickets */}
+        <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-slate-900">Open Tickets</h2>
+            <Badge className="bg-orange-100 text-orange-700">{openTickets} open</Badge>
+          </div>
+          {recentTickets.length === 0 ? (
+            <div className="py-8 text-center">
+              <Monitor className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+              <p className="text-slate-500">No open tickets</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentTickets.map(ticket => (
+                <div key={ticket.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+                  <div className={cn(
+                    "w-10 h-10 rounded-lg flex items-center justify-center",
+                    ticket.priority === 'critical' && "bg-red-100",
+                    ticket.priority === 'high' && "bg-orange-100",
+                    ticket.priority === 'medium' && "bg-yellow-100",
+                    ticket.priority === 'low' && "bg-blue-100"
+                  )}>
+                    <Monitor className={cn(
+                      "w-5 h-5",
+                      ticket.priority === 'critical' && "text-red-600",
+                      ticket.priority === 'high' && "text-orange-600",
+                      ticket.priority === 'medium' && "text-yellow-600",
+                      ticket.priority === 'low' && "text-blue-600"
+                    )} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-slate-900 text-sm truncate">#{ticket.ticket_number}</p>
+                    <p className="text-xs text-slate-500 truncate">{ticket.summary}</p>
+                  </div>
+                  <Badge className={cn(
+                    'text-xs',
+                    ticket.status === 'new' && 'bg-purple-100 text-purple-700',
+                    ticket.status === 'open' && 'bg-emerald-100 text-emerald-700',
+                    ticket.status === 'in_progress' && 'bg-blue-100 text-blue-700',
+                  )}>
+                    {ticket.status?.replace('_', ' ')}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Customer Dashboard Component
+function CustomerDashboard({ customer }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [expandedInvoices, setExpandedInvoices] = useState({});
   const queryClient = useQueryClient();
-
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const currentUser = await base44.auth.me();
-        setUser(currentUser);
-      } catch (error) {
-        console.error('Failed to load user', error);
-      }
-    };
-    loadUser();
-  }, []);
-
-  // Find customer linked to user
-  const { data: customers = [], isLoading: loadingCustomers } = useQuery({
-    queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list('-created_date', 500),
-  });
-
-  // For now, get first customer or match by email domain
-  useEffect(() => {
-    if (customers.length > 0 && user) {
-      // Try to match customer by user email domain or just use first customer for demo
-      const emailDomain = user.email?.split('@')[1];
-      const matched = customers.find(c => 
-        c.email?.includes(emailDomain) || 
-        c.name?.toLowerCase().includes(emailDomain?.split('.')[0])
-      );
-      setCustomer(matched || customers[0]);
-    }
-  }, [customers, user]);
-
   const customerId = customer?.id;
 
-  // Fetch customer-specific data
-  const { data: contracts = [], isLoading: loadingContracts } = useQuery({
+  const { data: contracts = [] } = useQuery({
     queryKey: ['contracts', customerId],
     queryFn: () => base44.entities.Contract.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
-  const { data: recurringBills = [], isLoading: loadingBills } = useQuery({
+  const { data: recurringBills = [] } = useQuery({
     queryKey: ['recurring_bills', customerId],
     queryFn: () => base44.entities.RecurringBill.filter({ customer_id: customerId }),
     enabled: !!customerId
@@ -95,7 +284,7 @@ export default function Dashboard() {
     enabled: !!customerId && recurringBills.length > 0
   });
 
-  const { data: invoices = [], isLoading: loadingInvoices } = useQuery({
+  const { data: invoices = [] } = useQuery({
     queryKey: ['invoices', customerId],
     queryFn: () => base44.entities.Invoice.filter({ customer_id: customerId }),
     enabled: !!customerId
@@ -114,7 +303,7 @@ export default function Dashboard() {
     enabled: !!customerId && invoices.length > 0
   });
 
-  const { data: tickets = [], isLoading: loadingTickets } = useQuery({
+  const { data: tickets = [] } = useQuery({
     queryKey: ['tickets', customerId],
     queryFn: () => base44.entities.Ticket.filter({ customer_id: customerId }),
     enabled: !!customerId
@@ -126,16 +315,11 @@ export default function Dashboard() {
     enabled: !!customerId
   });
 
-  const isLoading = loadingCustomers || loadingContracts || loadingBills || loadingInvoices || loadingTickets;
-
-  // Calculate stats
   const monthlyTotal = recurringBills.reduce((sum, b) => sum + (b.amount || 0), 0);
   const openTickets = tickets.filter(t => ['new', 'open', 'in_progress'].includes(t.status)).length;
   const activeContracts = contracts.filter(c => c.status === 'active').length;
-  const pendingInvoices = invoices.filter(i => i.status === 'sent' || i.status === 'overdue');
   const overdueAmount = invoices.filter(i => i.status === 'overdue').reduce((sum, i) => sum + (i.total || 0), 0);
 
-  // Get upcoming renewals
   const upcomingRenewals = contracts
     .filter(c => c.renewal_date || c.end_date)
     .map(c => ({
@@ -150,7 +334,6 @@ export default function Dashboard() {
     if (!customer?.external_id) return;
     setIsSyncing(true);
     try {
-      // Sync all data types
       await Promise.all([
         base44.functions.invoke('syncHaloPSAContracts', { action: 'sync_customer', customer_id: customer.external_id }),
         base44.functions.invoke('syncHaloPSARecurringBills', { action: 'sync_customer', customer_id: customer.external_id }),
@@ -166,18 +349,6 @@ export default function Dashboard() {
       setIsSyncing(false);
     }
   };
-
-  if (isLoading || !customer) {
-    return (
-      <div className="max-w-6xl mx-auto space-y-8">
-        <Skeleton className="h-32 rounded-2xl" />
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
-        </div>
-        <Skeleton className="h-96 rounded-2xl" />
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
@@ -204,7 +375,6 @@ export default function Dashboard() {
             )}
           </div>
           
-          {/* Quick Stats Row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
             <div className="bg-white/10 backdrop-blur rounded-xl p-4">
               <DollarSign className="w-5 h-5 text-emerald-400 mb-2" />
@@ -254,22 +424,20 @@ export default function Dashboard() {
                 <p className="font-medium text-amber-900">Contract Renewal Coming Up</p>
                 <p className="text-sm text-amber-700">{upcomingRenewals[0].name} renews in {upcomingRenewals[0].daysUntil} days</p>
               </div>
-              <Button size="sm" variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-100">Review</Button>
             </div>
           )}
         </div>
       )}
 
-      {/* Main Content Grid */}
+      {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Services & Billing */}
         <div className="lg:col-span-2 space-y-6">
-          {/* What You're Paying For */}
+          {/* Services */}
           <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">Your Services</h2>
-                <p className="text-sm text-slate-500">What's included in your monthly plan</p>
+                <p className="text-sm text-slate-500">What's included in your plan</p>
               </div>
               <div className="text-right">
                 <p className="text-2xl font-bold text-slate-900">${monthlyTotal.toLocaleString()}</p>
@@ -284,31 +452,23 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="space-y-2">
-                {lineItems.slice(0, 8).map(item => (
+                {lineItems.slice(0, 6).map(item => (
                   <div key={item.id} className="flex items-center justify-between py-3 px-4 bg-slate-50 rounded-lg">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
-                        <CheckCircle2 className="w-4 h-4 text-purple-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-slate-900 text-sm">
-                          {item.description?.replace(/\s*\$recurringbillingdate\s*/gi, '').trim()}
-                        </p>
-                        {item.quantity > 1 && (
-                          <p className="text-xs text-slate-500">{item.quantity} units</p>
-                        )}
-                      </div>
+                      <CheckCircle2 className="w-4 h-4 text-purple-600" />
+                      <p className="font-medium text-slate-900 text-sm">
+                        {item.description?.replace(/\s*\$recurringbillingdate\s*/gi, '').trim()}
+                      </p>
                     </div>
                     <p className="font-semibold text-slate-900">
-                      ${(item.net_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      ${(item.net_amount || 0).toFixed(2)}
                     </p>
                   </div>
                 ))}
-                {lineItems.length > 8 && (
-                  <Link to={createPageUrl(`CustomerDetail?id=${customerId}`)} className="block">
-                    <Button variant="ghost" className="w-full text-purple-600 hover:text-purple-700 hover:bg-purple-50">
-                      View all {lineItems.length} services
-                      <ChevronRight className="w-4 h-4 ml-1" />
+                {lineItems.length > 6 && (
+                  <Link to={createPageUrl(`CustomerDetail?id=${customerId}`)}>
+                    <Button variant="ghost" className="w-full text-purple-600">
+                      View all {lineItems.length} services <ChevronRight className="w-4 h-4 ml-1" />
                     </Button>
                   </Link>
                 )}
@@ -332,104 +492,77 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
-                {invoices
-                  .sort((a, b) => new Date(b.due_date || 0) - new Date(a.due_date || 0))
-                  .slice(0, 5)
-                  .map(invoice => {
-                    const items = invoiceLineItems.filter(item => item.invoice_id === invoice.id);
-                    const isExpanded = expandedInvoices[invoice.id];
-                    return (
-                      <div key={invoice.id}>
-                        <button
-                          onClick={() => setExpandedInvoices(prev => ({ ...prev, [invoice.id]: !prev[invoice.id] }))}
-                          className="w-full flex items-center justify-between py-4 hover:bg-slate-50 -mx-2 px-2 rounded-lg transition-colors"
-                        >
-                          <div className="flex items-center gap-3">
-                            <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", isExpanded && "rotate-180")} />
-                            <div className="text-left">
-                              <div className="flex items-center gap-2">
-                                <p className="font-medium text-slate-900">{invoice.invoice_number}</p>
-                                <Badge className={cn(
-                                  'text-xs',
-                                  invoice.status === 'paid' && 'bg-green-100 text-green-700',
-                                  invoice.status === 'overdue' && 'bg-red-100 text-red-700',
-                                  invoice.status === 'sent' && 'bg-yellow-100 text-yellow-700',
-                                )}>
-                                  {invoice.status === 'sent' ? 'Pending' : invoice.status}
-                                </Badge>
-                              </div>
-                              <p className="text-xs text-slate-500">
-                                {invoice.due_date && `Due: ${format(parseISO(invoice.due_date), 'MMM d, yyyy')}`}
-                              </p>
+                {invoices.slice(0, 5).map(invoice => {
+                  const items = invoiceLineItems.filter(item => item.invoice_id === invoice.id);
+                  const isExpanded = expandedInvoices[invoice.id];
+                  return (
+                    <div key={invoice.id}>
+                      <button
+                        onClick={() => setExpandedInvoices(prev => ({ ...prev, [invoice.id]: !prev[invoice.id] }))}
+                        className="w-full flex items-center justify-between py-4 hover:bg-slate-50 -mx-2 px-2 rounded-lg"
+                      >
+                        <div className="flex items-center gap-3">
+                          <ChevronDown className={cn("w-4 h-4 text-slate-400", isExpanded && "rotate-180")} />
+                          <div className="text-left">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-slate-900">{invoice.invoice_number}</p>
+                              <Badge className={cn(
+                                'text-xs',
+                                invoice.status === 'paid' && 'bg-green-100 text-green-700',
+                                invoice.status === 'overdue' && 'bg-red-100 text-red-700',
+                                invoice.status === 'sent' && 'bg-yellow-100 text-yellow-700',
+                              )}>
+                                {invoice.status === 'sent' ? 'Pending' : invoice.status}
+                              </Badge>
                             </div>
+                            <p className="text-xs text-slate-500">
+                              {invoice.due_date && `Due: ${format(parseISO(invoice.due_date), 'MMM d, yyyy')}`}
+                            </p>
                           </div>
-                          <p className="text-lg font-semibold text-slate-900">
-                            ${(invoice.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                          </p>
-                        </button>
-                        {isExpanded && items.length > 0 && (
-                          <div className="bg-slate-50 rounded-lg px-4 py-3 mb-2 ml-7">
-                            <div className="space-y-2">
-                              {items.map(item => (
-                                <div key={item.id} className="flex justify-between text-sm py-1">
-                                  <span className="text-slate-700">{item.description}</span>
-                                  <span className="font-medium">${(item.net_amount || 0).toFixed(2)}</span>
-                                </div>
-                              ))}
+                        </div>
+                        <p className="text-lg font-semibold">${(invoice.total || 0).toFixed(2)}</p>
+                      </button>
+                      {isExpanded && items.length > 0 && (
+                        <div className="bg-slate-50 rounded-lg px-4 py-3 mb-2 ml-7">
+                          {items.map(item => (
+                            <div key={item.id} className="flex justify-between text-sm py-1">
+                              <span className="text-slate-700">{item.description}</span>
+                              <span className="font-medium">${(item.net_amount || 0).toFixed(2)}</span>
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
         </div>
 
-        {/* Right Column - Support & Quick Actions */}
+        {/* Right Column */}
         <div className="space-y-6">
-          {/* Support Tickets */}
+          {/* Support */}
           <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-slate-900">Support</h2>
               <Badge className="bg-purple-100 text-purple-700">{openTickets} open</Badge>
             </div>
-
-            {tickets.length === 0 ? (
+            {tickets.filter(t => ['new', 'open', 'in_progress'].includes(t.status)).length === 0 ? (
               <div className="py-6 text-center">
                 <HelpCircle className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-500 text-sm">No tickets</p>
+                <p className="text-slate-500 text-sm">No open tickets</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {tickets
-                  .filter(t => ['new', 'open', 'in_progress', 'waiting'].includes(t.status))
-                  .slice(0, 3)
-                  .map(ticket => (
-                    <div key={ticket.id} className="p-3 bg-slate-50 rounded-lg">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-slate-900 text-sm truncate">
-                            #{ticket.ticket_number}
-                          </p>
-                          <p className="text-xs text-slate-500 truncate">{ticket.summary}</p>
-                        </div>
-                        <Badge className={cn(
-                          'text-xs ml-2 flex-shrink-0',
-                          ticket.status === 'open' && 'bg-emerald-100 text-emerald-700',
-                          ticket.status === 'in_progress' && 'bg-blue-100 text-blue-700',
-                          ticket.status === 'waiting' && 'bg-yellow-100 text-yellow-700',
-                          ticket.status === 'new' && 'bg-purple-100 text-purple-700',
-                        )}>
-                          {ticket.status?.replace('_', ' ')}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
+                {tickets.filter(t => ['new', 'open', 'in_progress'].includes(t.status)).slice(0, 3).map(ticket => (
+                  <div key={ticket.id} className="p-3 bg-slate-50 rounded-lg">
+                    <p className="font-medium text-slate-900 text-sm">#{ticket.ticket_number}</p>
+                    <p className="text-xs text-slate-500 truncate">{ticket.summary}</p>
+                  </div>
+                ))}
               </div>
             )}
-
             <Link to={createPageUrl(`CustomerDetail?id=${customerId}`)}>
               <Button className="w-full mt-4 bg-purple-600 hover:bg-purple-700">
                 <HelpCircle className="w-4 h-4 mr-2" />
@@ -444,48 +577,88 @@ export default function Dashboard() {
             <div className="space-y-2">
               <Button variant="outline" className="w-full justify-start gap-3 h-12">
                 <Phone className="w-4 h-4 text-purple-600" />
-                <span>Call Support</span>
+                Call Support
               </Button>
               <Button variant="outline" className="w-full justify-start gap-3 h-12">
                 <Mail className="w-4 h-4 text-purple-600" />
-                <span>Email Support</span>
+                Email Support
               </Button>
               <Link to={createPageUrl(`CustomerDetail?id=${customerId}`)} className="block">
                 <Button variant="outline" className="w-full justify-start gap-3 h-12">
                   <FileText className="w-4 h-4 text-purple-600" />
-                  <span>View Full Account</span>
+                  View Full Account
                 </Button>
               </Link>
             </div>
           </div>
-
-          {/* Contract Renewals */}
-          {upcomingRenewals.length > 0 && (
-            <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
-              <h2 className="text-lg font-semibold text-slate-900 mb-4">Upcoming Renewals</h2>
-              <div className="space-y-3">
-                {upcomingRenewals.slice(0, 3).map(contract => (
-                  <div key={contract.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                    <div>
-                      <p className="font-medium text-slate-900 text-sm">{contract.name}</p>
-                      <p className="text-xs text-slate-500">
-                        {format(parseISO(contract.renewalDate), 'MMM d, yyyy')}
-                      </p>
-                    </div>
-                    <Badge className={cn(
-                      contract.daysUntil <= 30 ? 'bg-red-100 text-red-700' :
-                      contract.daysUntil <= 60 ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-slate-100 text-slate-700'
-                    )}>
-                      {contract.daysUntil} days
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// Main Dashboard - Routes based on user role
+export default function Dashboard() {
+  const [user, setUser] = useState(null);
+  const [customer, setCustomer] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const { data: customers = [] } = useQuery({
+    queryKey: ['customers'],
+    queryFn: () => base44.entities.Customer.list('-created_date', 500),
+  });
+
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const currentUser = await base44.auth.me();
+        setUser(currentUser);
+        
+        // For non-admin users, find their linked customer
+        if (currentUser?.role !== 'admin' && customers.length > 0) {
+          const emailDomain = currentUser.email?.split('@')[1];
+          const matched = customers.find(c => 
+            c.email?.includes(emailDomain) || 
+            c.name?.toLowerCase().includes(emailDomain?.split('.')[0])
+          );
+          setCustomer(matched || customers[0]);
+        }
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Failed to load user', error);
+        setIsLoading(false);
+      }
+    };
+    loadUser();
+  }, [customers]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-32 rounded-2xl" />
+        <div className="grid grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
+        </div>
+      </div>
+    );
+  }
+
+  // Admin users see the MSP dashboard
+  if (user?.role === 'admin') {
+    return <AdminDashboard />;
+  }
+
+  // Regular users see the customer dashboard
+  if (customer) {
+    return <CustomerDashboard customer={customer} />;
+  }
+
+  // Fallback if no customer found
+  return (
+    <div className="text-center py-12">
+      <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+      <h2 className="text-xl font-semibold text-slate-900 mb-2">Account Not Found</h2>
+      <p className="text-slate-500">Please contact support to link your account.</p>
     </div>
   );
 }
