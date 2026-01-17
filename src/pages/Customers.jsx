@@ -77,6 +77,11 @@ export default function Customers() {
     queryFn: () => base44.entities.Contract.list('-created_date', 1000),
   });
 
+  const { data: recurringBills = [] } = useQuery({
+    queryKey: ['all_recurring_bills'],
+    queryFn: () => base44.entities.RecurringBill.list('-created_date', 1000),
+  });
+
   const { data: tickets = [] } = useQuery({
     queryKey: ['all_tickets'],
     queryFn: () => base44.entities.Ticket.list('-created_date', 1000),
@@ -174,7 +179,8 @@ export default function Customers() {
   const getCustomerStats = (customerId) => {
     const customerContracts = contracts.filter(c => c.customer_id === customerId && c.status === 'active');
     const customerTickets = tickets.filter(t => t.customer_id === customerId && ['new', 'open', 'in_progress'].includes(t.status));
-    const mrr = customerContracts.reduce((sum, c) => sum + (c.value || 0), 0);
+    const customerBills = recurringBills.filter(b => b.customer_id === customerId && b.status === 'active');
+    const mrr = customerBills.reduce((sum, b) => sum + (b.amount || 0), 0);
     return { contracts: customerContracts.length, tickets: customerTickets.length, mrr };
   };
 
