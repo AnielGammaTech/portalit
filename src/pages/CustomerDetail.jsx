@@ -219,12 +219,12 @@ export default function CustomerDetail() {
     return (
       <div className="text-center py-12">
         <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-        <h2 className="text-xl font-semibold text-slate-900 mb-2">Customer Not Found</h2>
-        <p className="text-slate-500 mb-6">The customer you're looking for doesn't exist.</p>
-        <Link to={createPageUrl('Customers')}>
+        <h2 className="text-xl font-semibold text-slate-900 mb-2">Account Not Found</h2>
+        <p className="text-slate-500 mb-6">We couldn't find your account. Please contact support.</p>
+        <Link to={createPageUrl('Dashboard')}>
           <Button>
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Customers
+            Back to Dashboard
           </Button>
         </Link>
       </div>
