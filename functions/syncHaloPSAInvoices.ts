@@ -167,7 +167,7 @@ Deno.serve(async (req) => {
       // Fetch invoices from HaloPSA
       const url = buildUrl(apiUrl, `Invoice?client_id=${customer_id}&page_size=100`);
       const data = await fetchHalo(url, accessToken, haloClientId);
-      console.log(`Invoice response sample: ${JSON.stringify(data).substring(0, 1500)}`);
+      console.log(`Invoice response sample: ${JSON.stringify(data).substring(0, 2500)}`);
       
       // Extract invoices array
       let invoices = [];
