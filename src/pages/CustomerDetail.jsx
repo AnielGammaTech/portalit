@@ -263,63 +263,62 @@ export default function CustomerDetail() {
        )}
       </div>
 
-      {/* Customer Header */}
-      <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
-        <div className="flex flex-col md:flex-row md:items-start gap-6">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center flex-shrink-0">
+      {/* Account Header */}
+      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-6 text-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl" />
+        <div className="relative flex flex-col md:flex-row md:items-center gap-6">
+          <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur flex items-center justify-center flex-shrink-0">
             {customer.logo_url ? (
               <img src={customer.logo_url} alt={customer.name} className="w-10 h-10 rounded-xl" />
             ) : (
-              <Building2 className="w-8 h-8 text-slate-500" />
+              <Building2 className="w-8 h-8 text-white" />
             )}
           </div>
           <div className="flex-1">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-              <h1 className="text-2xl font-semibold text-slate-900">{customer.name}</h1>
-              <Badge variant="outline" className={cn(
-                "capitalize w-fit",
-                customer.status === 'active' && "border-emerald-200 bg-emerald-50 text-emerald-700",
-                customer.status === 'inactive' && "border-slate-200 bg-slate-50 text-slate-600",
-                customer.status === 'suspended' && "border-red-200 bg-red-50 text-red-700"
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-3">
+              <h1 className="text-2xl font-bold">{customer.name}</h1>
+              <Badge className={cn(
+                "w-fit",
+                customer.status === 'active' && "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+                customer.status === 'inactive' && "bg-slate-500/20 text-slate-300",
+                customer.status === 'suspended' && "bg-red-500/20 text-red-300"
               )}>
-                {customer.status || 'active'}
+                {customer.status || 'Active'}
               </Badge>
-              {customer.source && (
-                <Badge variant="outline" className="capitalize w-fit">
-                  {customer.source}
-                </Badge>
-              )}
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-              {customer.primary_contact && (
-                <div className="flex items-center gap-2 text-slate-600">
-                  <Users className="w-4 h-4 text-slate-400" />
-                  {customer.primary_contact}
-                </div>
-              )}
+            <div className="flex flex-wrap gap-4 text-sm text-slate-300">
               {customer.email && (
-                <div className="flex items-center gap-2 text-slate-600">
-                  <Mail className="w-4 h-4 text-slate-400" />
+                <div className="flex items-center gap-2">
+                  <Mail className="w-4 h-4" />
                   {customer.email}
                 </div>
               )}
               {customer.phone && (
-                <div className="flex items-center gap-2 text-slate-600">
-                  <Phone className="w-4 h-4 text-slate-400" />
+                <div className="flex items-center gap-2">
+                  <Phone className="w-4 h-4" />
                   {customer.phone}
-                </div>
-              )}
-              {customer.address && (
-                <div className="flex items-center gap-2 text-slate-600">
-                  <MapPin className="w-4 h-4 text-slate-400" />
-                  {customer.address}
                 </div>
               )}
             </div>
           </div>
-        </div>
 
+          {/* Quick Stats */}
+          <div className="flex gap-6">
+            <div className="text-center">
+              <p className="text-2xl font-bold">{contacts.length}</p>
+              <p className="text-xs text-slate-400">Team</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold">{contracts.filter(c => c.status === 'active').length}</p>
+              <p className="text-xs text-slate-400">Contracts</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold">{tickets.filter(t => ['open', 'in_progress', 'new'].includes(t.status)).length}</p>
+              <p className="text-xs text-slate-400">Open Tickets</p>
+            </div>
+          </div>
         </div>
+      </div>
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
