@@ -213,6 +213,9 @@ Deno.serve(async (req) => {
             const lineItems = invoiceDetail.lines || invoiceDetail.lineitems || invoiceDetail.items || [];
             
             console.log(`Invoice ${haloInvoice.id} has ${lineItems.length} line items`);
+            if (lineItems.length > 0) {
+              console.log(`Sample line item: ${JSON.stringify(lineItems[0])}`);
+            }
             
             if (lineItems.length > 0) {
               // Delete existing line items for this invoice
