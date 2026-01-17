@@ -746,58 +746,99 @@ export default function CustomerDetail() {
                                                 </div>
 
                             {invoices.length === 0 ? (
-                              <div className="py-12 text-center">
-                                <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                                <p className="text-slate-500">No invoices yet</p>
-                              </div>
-                            ) : (
-                              <div className="space-y-3">
-                                {invoices
-                                  .filter(inv => invoiceFilter === 'all' || inv.status === invoiceFilter)
-                                  .slice(0, 10)
-                                  .map(invoice => (
-                                    <div key={invoice.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
-                                      <div className="flex items-center gap-4">
-                                        <div className={cn(
-                                          "w-10 h-10 rounded-full flex items-center justify-center",
-                                          invoice.status === 'paid' && "bg-emerald-100",
-                                          invoice.status === 'overdue' && "bg-red-100",
-                                          invoice.status === 'sent' && "bg-blue-100",
-                                          !['paid', 'overdue', 'sent'].includes(invoice.status) && "bg-slate-200"
-                                        )}>
-                                          <FileText className={cn(
-                                            "w-5 h-5",
-                                            invoice.status === 'paid' && "text-emerald-600",
-                                            invoice.status === 'overdue' && "text-red-600",
-                                            invoice.status === 'sent' && "text-blue-600",
-                                            !['paid', 'overdue', 'sent'].includes(invoice.status) && "text-slate-500"
-                                          )} />
+                                <div className="py-12 text-center">
+                                  <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                                  <p className="text-slate-500">No invoices yet</p>
+                                </div>
+                              ) : (
+                                <div className="space-y-3">
+                                  {invoices
+                                    .filter(inv => invoiceFilter === 'all' || inv.status === invoiceFilter)
+                                    .slice(0, 10)
+                                    .map(invoice => {
+                                      const invoiceItems = invoiceLineItems.filter(item => item.invoice_id === invoice.id);
+                                      const isExpanded = expandedInvoices[invoice.id];
+                                      return (
+                                        <div key={invoice.id} className="border border-slate-100 rounded-xl overflow-hidden">
+                                          <button
+                                            onClick={() => setExpandedInvoices(prev => ({ ...prev, [invoice.id]: !prev[invoice.id] }))}
+                                            className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
+                                          >
+                                            <div className="flex items-center gap-4">
+                                              <div className={cn(
+                                                "w-10 h-10 rounded-full flex items-center justify-center",
+                                                invoice.status === 'paid' && "bg-emerald-100",
+                                                invoice.status === 'overdue' && "bg-red-100",
+                                                invoice.status === 'sent' && "bg-blue-100",
+                                                !['paid', 'overdue', 'sent'].includes(invoice.status) && "bg-slate-200"
+                                              )}>
+                                                <FileText className={cn(
+                                                  "w-5 h-5",
+                                                  invoice.status === 'paid' && "text-emerald-600",
+                                                  invoice.status === 'overdue' && "text-red-600",
+                                                  invoice.status === 'sent' && "text-blue-600",
+                                                  !['paid', 'overdue', 'sent'].includes(invoice.status) && "text-slate-500"
+                                                )} />
+                                              </div>
+                                              <div className="text-left">
+                                                <p className="font-semibold text-slate-900">{invoice.invoice_number}</p>
+                                                <p className="text-sm text-slate-500">
+                                                  {invoice.invoice_date && !invoice.invoice_date.includes('1899') ? format(parseISO(invoice.invoice_date), 'MMMM d, yyyy') : (invoice.due_date ? `Due: ${format(parseISO(invoice.due_date), 'MMMM d, yyyy')}` : 'No date')}
+                                                </p>
+                                              </div>
+                                            </div>
+                                            <div className="flex items-center gap-4">
+                                              <div className="text-right">
+                                                <p className="text-lg font-bold text-slate-900">
+                                                  ${(invoice.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                                </p>
+                                                <Badge className={cn(
+                                                  'text-xs capitalize',
+                                                  invoice.status === 'paid' && 'bg-emerald-100 text-emerald-700',
+                                                  invoice.status === 'overdue' && 'bg-red-100 text-red-700',
+                                                  invoice.status === 'sent' && 'bg-blue-100 text-blue-700',
+                                                  !['paid', 'overdue', 'sent'].includes(invoice.status) && 'bg-slate-100 text-slate-700'
+                                                )}>
+                                                  {invoice.status === 'sent' ? 'Pending' : invoice.status}
+                                                </Badge>
+                                              </div>
+                                              <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", isExpanded && "rotate-180")} />
+                                            </div>
+                                          </button>
+                                          {isExpanded && (
+                                            <div className="bg-white border-t border-slate-100 px-4 py-3">
+                                              {invoiceItems.length > 0 ? (
+                                                <div className="space-y-2">
+                                                  {invoiceItems.map(item => (
+                                                    <div key={item.id} className="flex justify-between items-start text-sm py-2 border-b border-slate-50 last:border-0">
+                                                      <div className="flex-1">
+                                                        <p className="text-slate-900 font-medium">{item.description}</p>
+                                                        <p className="text-xs text-slate-500 mt-1">
+                                                          {item.quantity} × ${(item.unit_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                                        </p>
+                                                      </div>
+                                                      <p className="font-semibold text-slate-900">
+                                                        ${(item.net_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                                      </p>
+                                                    </div>
+                                                  ))}
+                                                  <div className="flex justify-between pt-2 border-t border-slate-200">
+                                                    <p className="font-semibold text-slate-700">Total</p>
+                                                    <p className="font-bold text-slate-900">
+                                                      ${(invoice.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                                    </p>
+                                                  </div>
+                                                </div>
+                                              ) : (
+                                                <p className="text-sm text-slate-500 text-center py-4">No line items available. Re-sync to fetch details.</p>
+                                              )}
+                                            </div>
+                                          )}
                                         </div>
-                                        <div>
-                                          <p className="font-semibold text-slate-900">{invoice.invoice_number}</p>
-                                          <p className="text-sm text-slate-500">
-                                            {invoice.invoice_date ? format(parseISO(invoice.invoice_date), 'MMMM d, yyyy') : 'No date'}
-                                          </p>
-                                        </div>
-                                      </div>
-                                      <div className="text-right">
-                                        <p className="text-lg font-bold text-slate-900">
-                                          ${(invoice.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                        </p>
-                                        <Badge className={cn(
-                                          'text-xs capitalize',
-                                          invoice.status === 'paid' && 'bg-emerald-100 text-emerald-700',
-                                          invoice.status === 'overdue' && 'bg-red-100 text-red-700',
-                                          invoice.status === 'sent' && 'bg-blue-100 text-blue-700',
-                                          !['paid', 'overdue', 'sent'].includes(invoice.status) && 'bg-slate-100 text-slate-700'
-                                        )}>
-                                          {invoice.status === 'sent' ? 'Pending' : invoice.status}
-                                        </Badge>
-                                      </div>
-                                    </div>
-                                  ))}
-                              </div>
-                            )}
+                                      );
+                                    })}
+                                </div>
+                              )}
                           </div>
                         </div>
                       </TabsContent>
