@@ -228,13 +228,13 @@ Deno.serve(async (req) => {
               for (const line of lineItems) {
                 await base44.asServiceRole.entities.InvoiceLineItem.create({
                   invoice_id: dbInvoiceId,
-                  halopsa_id: String(line.id || line.line_id || `${haloInvoice.id}-${lineItems.indexOf(line)}`),
-                  description: line.description || line.itemname || line.name || line.item_name || 'Item',
-                  quantity: parseFloat(line.quantity || line.qty || line.count || 1),
-                  unit_price: parseFloat(line.unitprice || line.price || line.unit_price || line.baseprice || 0),
-                  net_amount: parseFloat(line.netamount || line.net || line.amount || line.total || line.linetotal || 0),
-                  tax: parseFloat(line.tax || line.taxamount || line.vat || 0),
-                  item_code: line.itemcode || line.code || line.item_id || ''
+                  halopsa_id: String(line.id || `${haloInvoice.id}-${lineItems.indexOf(line)}`),
+                  description: line.item_shortdescription || line.item_longdescription || line.linked_item?.name || 'Item',
+                  quantity: parseFloat(line.qty_order || line.quantity || 1),
+                  unit_price: parseFloat(line.unit_price || 0),
+                  net_amount: parseFloat(line.net_amount || 0),
+                  tax: parseFloat(line.tax_amount || 0),
+                  item_code: line.item_code || ''
                 });
               }
             }
