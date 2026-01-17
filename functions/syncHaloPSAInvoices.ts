@@ -99,19 +99,22 @@ function transformInvoice(haloInvoice, customerId) {
     }
   }
 
-  // Try multiple possible field names for invoice date
-  const invoiceDate = parseHaloDate(haloInvoice.invoicedate) || 
-                      parseHaloDate(haloInvoice.date_sent) ||
-                      parseHaloDate(haloInvoice.datesent) ||
-                      parseHaloDate(haloInvoice.dateraised) ||
-                      parseHaloDate(haloInvoice.date_raised) ||
-                      parseHaloDate(haloInvoice.date) ||
-                      dueDate; // Fallback to due date if no invoice date
+  // Try multiple possible field names for invoice date - use datepaid for paid invoices
+  const invoiceDate = parseHaloDate(haloInvoice.datepaid) ||
+                      parseHaloDate(haloInvoice.invoice_date) || 
+                      parseHaloDate(haloInvoice.dateposted) ||
+                      dueDate;
+
+  // Get actual invoice number - try thirdpartyinvoicenumber first
+  let invoiceNumber = haloInvoice.thirdpartyinvoicenumber || haloInvoice.invoicenumber;
+  if (!invoiceNumber || invoiceNumber === '0' || invoiceNumber === 0) {
+    invoiceNumber = haloInvoice.contract_ref || `INV-${haloInvoice.id}`;
+  }
 
   return {
     customer_id: customerId,
     halopsa_id: String(haloInvoice.id),
-    invoice_number: haloInvoice.invoicenumber || haloInvoice.ref || `INV-${haloInvoice.id}`,
+    invoice_number: invoiceNumber,
     total: parseFloat(haloInvoice.total || haloInvoice.totalamount || (haloInvoice.amountdue || 0) + (haloInvoice.amountpaid || 0) || 0),
     amount_paid: parseFloat(haloInvoice.amountpaid || haloInvoice.amount_paid || 0),
     amount_due: parseFloat(haloInvoice.amountdue || haloInvoice.amount_due || 0),
