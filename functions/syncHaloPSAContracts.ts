@@ -135,16 +135,25 @@ Deno.serve(async (req) => {
           const contractType = typeMap[rawType] || 'other';
 
           // Map contract status from HaloPSA
-          const statusMap = {
-            'active': 'active',
-            'pending': 'pending',
-            'expired': 'expired',
-            'cancelled': 'cancelled',
-            'canceled': 'cancelled',
-            'inactive': 'expired'
-          };
-          const rawStatus = (haloContract.status_name || haloContract.statusname || haloContract.status || 'active').toLowerCase();
-          const contractStatus = statusMap[rawStatus] || 'active';
+          // contract_status is the string value (e.g., "Active"), status is numeric
+          let contractStatus = 'active';
+          const contractStatusStr = haloContract.contract_status || haloContract.status_name || haloContract.statusname || '';
+          if (typeof contractStatusStr === 'string') {
+            const rawStatus = contractStatusStr.toLowerCase();
+            const statusMap = {
+              'active': 'active',
+              'pending': 'pending',
+              'expired': 'expired',
+              'cancelled': 'cancelled',
+              'canceled': 'cancelled',
+              'inactive': 'expired'
+            };
+            contractStatus = statusMap[rawStatus] || 'active';
+          } else if (haloContract.active === true) {
+            contractStatus = 'active';
+          } else if (haloContract.expired === true) {
+            contractStatus = 'expired';
+          }
 
           // Map billing cycle from HaloPSA
           const billingMap = {
@@ -160,19 +169,27 @@ Deno.serve(async (req) => {
           const rawBilling = (haloContract.billing_cycle || haloContract.billingcycle || haloContract.billingfrequency || 'monthly').toLowerCase();
           const billingCycle = billingMap[rawBilling] || 'monthly';
 
+          // Parse dates properly
+          const parseDate = (dateStr) => {
+            if (!dateStr) return null;
+            // Check for invalid dates like 2099-12-31
+            if (dateStr.includes('2099')) return null;
+            return dateStr.split('T')[0]; // Return just the date part
+          };
+
           const contractPayload = {
             customer_id: dbCustomer.id,
             customer_name: dbCustomer.name,
-            name: haloContract.contractname || haloContract.ref || haloContract.name || `Contract ${haloContract.id}`,
+            name: haloContract.contractname || haloContract.ref || haloContract.client_name || haloContract.name || `Contract ${haloContract.id}`,
             external_id: String(haloContract.id),
             source: 'halopsa',
             type: contractType,
             status: contractStatus,
-            start_date: haloContract.startdate || haloContract.start_date || null,
-            end_date: haloContract.enddate || haloContract.end_date || null,
-            renewal_date: haloContract.renewaldate || haloContract.renewal_date || haloContract.nextbillingdate || null,
+            start_date: parseDate(haloContract.start_date || haloContract.startdate),
+            end_date: parseDate(haloContract.end_date || haloContract.enddate),
+            renewal_date: parseDate(haloContract.next_invoice_date || haloContract.renewaldate || haloContract.renewal_date),
             billing_cycle: billingCycle,
-            value: parseFloat(haloContract.contractvalue || haloContract.value || haloContract.monthlyvalue || haloContract.recurringvalue || 0) || 0,
+            value: parseFloat(haloContract.periodchargeamount || haloContract.contractvalue || haloContract.value || haloContract.monthlyvalue || 0) || 0,
             description: haloContract.notes || haloContract.description || '',
             auto_renew: haloContract.autorenew === true || haloContract.auto_renew === true || false
           };
