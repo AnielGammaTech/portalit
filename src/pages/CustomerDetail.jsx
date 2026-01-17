@@ -35,16 +35,45 @@ import { format, parseISO } from 'date-fns';
 
 export default function CustomerDetail() {
   const [isSyncing, setIsSyncing] = useState(false);
+  const [user, setUser] = useState(null);
   const queryClient = useQueryClient();
   const params = new URLSearchParams(window.location.search);
-  const customerId = params.get('id');
+  let customerId = params.get('id');
+
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const currentUser = await base44.auth.me();
+        setUser(currentUser);
+      } catch (error) {
+        console.error('Failed to load user', error);
+      }
+    };
+    loadUser();
+  }, []);
 
   const { data: customers = [], isLoading: loadingCustomer } = useQuery({
     queryKey: ['customers'],
     queryFn: () => base44.entities.Customer.list(),
   });
 
-  const customer = customers.find(c => c.id === customerId);
+  // If no customerId, find customer by user email
+  const customer = customerId 
+    ? customers.find(c => c.id === customerId)
+    : customers.length > 0 
+      ? (() => {
+          const emailDomain = user?.email?.split('@')[1];
+          return customers.find(c => 
+            c.email?.includes(emailDomain) || 
+            c.name?.toLowerCase().includes(emailDomain?.split('.')[0])
+          ) || customers[0];
+        })()
+      : null;
+  
+  // Update customerId if found through email matching
+  if (!customerId && customer) {
+    customerId = customer.id;
+  }
 
   const { data: contracts = [], isLoading: loadingContracts } = useQuery({
     queryKey: ['contracts', customerId],
