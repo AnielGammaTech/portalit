@@ -323,28 +323,28 @@ export default function CustomerDetail() {
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="bg-white border border-slate-200/50">
+        <TabsList className="bg-white border border-slate-200/50 flex-wrap h-auto p-1">
           <TabsTrigger value="overview" className="gap-2">
-                        <Building2 className="w-4 h-4" />
-                        Dashboard
-                      </TabsTrigger>
+            <Building2 className="w-4 h-4" />
+            Overview
+          </TabsTrigger>
           <TabsTrigger value="contracts" className="gap-2">
             <FileText className="w-4 h-4" />
-            Contracts
+            Billing & Services
           </TabsTrigger>
           <TabsTrigger value="licenses" className="gap-2">
-              <Cloud className="w-4 h-4" />
-              SaaS Licenses
-            </TabsTrigger>
-            <TabsTrigger value="quotes" className="gap-2">
-                                <FileText className="w-4 h-4" />
-                                Quotes
-                              </TabsTrigger>
-                              <TabsTrigger value="tickets" className="gap-2">
-                                <Monitor className="w-4 h-4" />
-                                Tickets
-                              </TabsTrigger>
-                            </TabsList>
+            <Cloud className="w-4 h-4" />
+            Software
+          </TabsTrigger>
+          <TabsTrigger value="quotes" className="gap-2">
+            <FileText className="w-4 h-4" />
+            Quotes
+          </TabsTrigger>
+          <TabsTrigger value="tickets" className="gap-2">
+            <HelpCircle className="w-4 h-4" />
+            Support
+          </TabsTrigger>
+        </TabsList>
 
         <TabsContent value="overview">
                         <div className="space-y-6">
