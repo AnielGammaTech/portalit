@@ -167,8 +167,35 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'Customer not found in database' }, { status: 404 });
       }
 
-      // Fetch invoices from HaloPSA
-      const url = buildUrl(apiUrl, `Invoice?client_id=${customer_id}&page_size=100`);
+      // Get existing invoices to find latest sync date
+      const existingInvoices = await base44.asServiceRole.entities.Invoice.filter({ 
+        customer_id: dbCustomer.id 
+      });
+      
+      // Find the most recent invoice update date for incremental sync
+      let lastSyncDate = null;
+      if (existingInvoices.length > 0) {
+        const dates = existingInvoices
+          .map(inv => inv.updated_date)
+          .filter(d => d)
+          .sort((a, b) => new Date(b) - new Date(a));
+        if (dates.length > 0) {
+          // Go back 1 day to catch any updates we might have missed
+          const lastDate = new Date(dates[0]);
+          lastDate.setDate(lastDate.getDate() - 1);
+          lastSyncDate = lastDate.toISOString().split('T')[0];
+        }
+      }
+
+      // Fetch invoices from HaloPSA - use date filter for incremental sync
+      let url = buildUrl(apiUrl, `Invoice?client_id=${customer_id}&page_size=100`);
+      if (lastSyncDate) {
+        url += `&datemodified_gte=${lastSyncDate}`;
+        console.log(`Incremental sync from ${lastSyncDate}`);
+      } else {
+        console.log(`Full initial sync for customer ${customer_id}`);
+      }
+      
       const data = await fetchHalo(url, accessToken, haloClientId);
       console.log(`Invoice response sample: ${JSON.stringify(data).substring(0, 2500)}`);
       
