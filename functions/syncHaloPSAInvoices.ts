@@ -194,10 +194,37 @@ Deno.serve(async (req) => {
             customer_id: dbCustomer.id
           });
 
+          let dbInvoiceId;
           if (existing.length > 0) {
             await base44.asServiceRole.entities.Invoice.update(existing[0].id, invoicePayload);
+            dbInvoiceId = existing[0].id;
           } else {
-            await base44.asServiceRole.entities.Invoice.create(invoicePayload);
+            const created = await base44.asServiceRole.entities.Invoice.create(invoicePayload);
+            dbInvoiceId = created.id;
+          }
+
+          // Sync line items if available
+          const lineItems = haloInvoice.lines || haloInvoice.lineitems || haloInvoice.items || [];
+          if (lineItems.length > 0) {
+            // Delete existing line items for this invoice
+            const existingItems = await base44.asServiceRole.entities.InvoiceLineItem.filter({ invoice_id: dbInvoiceId });
+            for (const item of existingItems) {
+              await base44.asServiceRole.entities.InvoiceLineItem.delete(item.id);
+            }
+            
+            // Create new line items
+            for (const line of lineItems) {
+              await base44.asServiceRole.entities.InvoiceLineItem.create({
+                invoice_id: dbInvoiceId,
+                halopsa_id: String(line.id || line.line_id || `${haloInvoice.id}-${lineItems.indexOf(line)}`),
+                description: line.description || line.itemname || line.name || 'Item',
+                quantity: parseFloat(line.quantity || line.qty || 1),
+                unit_price: parseFloat(line.unitprice || line.price || line.unit_price || 0),
+                net_amount: parseFloat(line.netamount || line.net || line.amount || line.total || 0),
+                tax: parseFloat(line.tax || line.taxamount || 0),
+                item_code: line.itemcode || line.code || ''
+              });
+            }
           }
 
           recordsSynced++;
