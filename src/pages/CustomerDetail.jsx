@@ -147,7 +147,7 @@ export default function CustomerDetail() {
                   const [ticketFilter, setTicketFilter] = useState('all');
                   const [ticketPage, setTicketPage] = useState(1);
 
-  const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems || loadingContractItems || loadingContacts || loadingTickets;
+  const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems || loadingContractItems || loadingContacts || loadingTickets || loadingInvoiceLineItems;
 
   const handleSyncCustomer = async () => {
     if (!customer) return;
