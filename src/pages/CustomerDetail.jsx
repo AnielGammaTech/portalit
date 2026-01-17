@@ -693,152 +693,182 @@ export default function CustomerDetail() {
 
                           {/* Recent Invoices */}
                           <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
-                            <div className="flex items-center justify-between mb-6">
-                                                  <div>
-                                                    <h3 className="text-lg font-semibold text-slate-900">Recent Invoices</h3>
-                                                    <p className="text-sm text-slate-500">Your billing history</p>
-                                                  </div>
-                                                  <div className="flex items-center gap-3">
-                                                    {customer?.source === 'halopsa' && (
-                                                      <Button 
-                                                        size="sm"
-                                                        variant="outline"
-                                                        className="gap-2"
-                                                        onClick={async () => {
-                                                          try {
-                                                            setIsSyncing(true);
-                                                            const response = await base44.functions.invoke('syncHaloPSAInvoices', { 
-                                                              action: 'sync_customer',
-                                                              customer_id: customer.external_id 
-                                                            });
-                                                            if (response.data.success) {
-                                                              toast.success(`Synced ${response.data.recordsSynced} invoices!`);
-                                                              queryClient.invalidateQueries({ queryKey: ['invoices', customerId] });
-                                                            } else {
-                                                              toast.error(response.data.error || 'Sync failed');
-                                                            }
-                                                          } catch (error) {
-                                                            toast.error(error.message || 'An error occurred during sync');
-                                                          } finally {
-                                                            setIsSyncing(false);
-                                                          }
-                                                        }}
-                                                        disabled={isSyncing}
-                                                      >
-                                                        <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
-                                                        Sync
-                                                      </Button>
-                                                    )}
-                                                    <div className="flex items-center gap-2">
-                                                      <Filter className="w-4 h-4 text-slate-400" />
-                                                      <select
-                                                        value={invoiceFilter}
-                                                        onChange={(e) => setInvoiceFilter(e.target.value)}
-                                                        className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                                      >
-                                                        <option value="all">All</option>
-                                                        <option value="paid">Paid</option>
-                                                        <option value="overdue">Overdue</option>
-                                                        <option value="sent">Pending</option>
-                                                      </select>
-                                                    </div>
-                                                  </div>
-                                                </div>
+                            {/* Invoice Summary Stats */}
+                            {invoices.length > 0 && (
+                              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                                    <DollarSign className="w-5 h-5 text-emerald-600" />
+                                  </div>
+                                  <div>
+                                    <p className="text-lg font-bold text-slate-900">
+                                      ${invoices.reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                    </p>
+                                    <p className="text-xs text-slate-500">Total Value</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                                    <FileText className="w-5 h-5 text-green-600" />
+                                  </div>
+                                  <div>
+                                    <p className="text-lg font-bold text-slate-900">
+                                      ${invoices.filter(i => i.status === 'paid').reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                    </p>
+                                    <p className="text-xs text-slate-500">Paid</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                                    <Calendar className="w-5 h-5 text-yellow-600" />
+                                  </div>
+                                  <div>
+                                    <p className="text-lg font-bold text-slate-900">
+                                      ${invoices.filter(i => i.status === 'sent').reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                    </p>
+                                    <p className="text-xs text-slate-500">Pending</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                                    <FileText className="w-5 h-5 text-red-600" />
+                                  </div>
+                                  <div>
+                                    <p className="text-lg font-bold text-red-600">
+                                      ${invoices.filter(i => i.status === 'overdue').reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                    </p>
+                                    <p className="text-xs text-slate-500">Overdue ({invoices.filter(i => i.status === 'overdue').length})</p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="flex items-center justify-between mb-4">
+                              <div className="flex items-center gap-3">
+                                {customer?.source === 'halopsa' && (
+                                  <Button 
+                                    size="sm"
+                                    variant="outline"
+                                    className="gap-2"
+                                    onClick={async () => {
+                                      try {
+                                        setIsSyncing(true);
+                                        const response = await base44.functions.invoke('syncHaloPSAInvoices', { 
+                                          action: 'sync_customer',
+                                          customer_id: customer.external_id 
+                                        });
+                                        if (response.data.success) {
+                                          toast.success(`Synced ${response.data.recordsSynced} invoices!`);
+                                          queryClient.invalidateQueries({ queryKey: ['invoices', customerId] });
+                                          queryClient.invalidateQueries({ queryKey: ['invoice_line_items', customerId] });
+                                        } else {
+                                          toast.error(response.data.error || 'Sync failed');
+                                        }
+                                      } catch (error) {
+                                        toast.error(error.message || 'An error occurred during sync');
+                                      } finally {
+                                        setIsSyncing(false);
+                                      }
+                                    }}
+                                    disabled={isSyncing}
+                                  >
+                                    <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
+                                    Sync
+                                  </Button>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Filter className="w-4 h-4 text-slate-400" />
+                                <select
+                                  value={invoiceFilter}
+                                  onChange={(e) => setInvoiceFilter(e.target.value)}
+                                  className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                >
+                                  <option value="all">All</option>
+                                  <option value="paid">Paid</option>
+                                  <option value="overdue">Overdue</option>
+                                  <option value="sent">Pending</option>
+                                </select>
+                              </div>
+                            </div>
 
                             {invoices.length === 0 ? (
-                                <div className="py-12 text-center">
-                                  <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                                  <p className="text-slate-500">No invoices yet</p>
-                                </div>
-                              ) : (
-                                <div className="space-y-3">
-                                  {invoices
-                                    .filter(inv => invoiceFilter === 'all' || inv.status === invoiceFilter)
-                                    .slice(0, 10)
-                                    .map(invoice => {
-                                      const invoiceItems = invoiceLineItems.filter(item => item.invoice_id === invoice.id);
-                                      const isExpanded = expandedInvoices[invoice.id];
-                                      return (
-                                        <div key={invoice.id} className="border border-slate-100 rounded-xl overflow-hidden">
-                                          <button
-                                            onClick={() => setExpandedInvoices(prev => ({ ...prev, [invoice.id]: !prev[invoice.id] }))}
-                                            className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
-                                          >
-                                            <div className="flex items-center gap-4">
-                                              <div className={cn(
-                                                "w-10 h-10 rounded-full flex items-center justify-center",
-                                                invoice.status === 'paid' && "bg-emerald-100",
-                                                invoice.status === 'overdue' && "bg-red-100",
-                                                invoice.status === 'sent' && "bg-blue-100",
-                                                !['paid', 'overdue', 'sent'].includes(invoice.status) && "bg-slate-200"
-                                              )}>
-                                                <FileText className={cn(
-                                                  "w-5 h-5",
-                                                  invoice.status === 'paid' && "text-emerald-600",
-                                                  invoice.status === 'overdue' && "text-red-600",
-                                                  invoice.status === 'sent' && "text-blue-600",
-                                                  !['paid', 'overdue', 'sent'].includes(invoice.status) && "text-slate-500"
-                                                )} />
-                                              </div>
-                                              <div className="text-left">
-                                                <p className="font-semibold text-slate-900">{invoice.invoice_number}</p>
-                                                <p className="text-sm text-slate-500">
-                                                  {invoice.invoice_date && !invoice.invoice_date.includes('1899') ? format(parseISO(invoice.invoice_date), 'MMMM d, yyyy') : (invoice.due_date ? `Due: ${format(parseISO(invoice.due_date), 'MMMM d, yyyy')}` : 'No date')}
-                                                </p>
-                                              </div>
-                                            </div>
-                                            <div className="flex items-center gap-4">
-                                              <div className="text-right">
-                                                <p className="text-lg font-bold text-slate-900">
-                                                  ${(invoice.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                                </p>
+                              <div className="py-12 text-center">
+                                <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                                <p className="text-slate-500">No invoices yet</p>
+                              </div>
+                            ) : (
+                              <div className="divide-y divide-slate-100">
+                                {invoices
+                                  .filter(inv => invoiceFilter === 'all' || inv.status === invoiceFilter)
+                                  .sort((a, b) => new Date(b.due_date || 0) - new Date(a.due_date || 0))
+                                  .slice(0, 15)
+                                  .map(invoice => {
+                                    const invoiceItems = invoiceLineItems.filter(item => item.invoice_id === invoice.id);
+                                    const isExpanded = expandedInvoices[invoice.id];
+                                    return (
+                                      <div key={invoice.id}>
+                                        <button
+                                          onClick={() => setExpandedInvoices(prev => ({ ...prev, [invoice.id]: !prev[invoice.id] }))}
+                                          className="w-full flex items-center justify-between py-4 hover:bg-slate-50 transition-colors px-2 -mx-2 rounded-lg"
+                                        >
+                                          <div className="flex items-center gap-3">
+                                            <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", isExpanded && "rotate-180")} />
+                                            <div className="text-left">
+                                              <div className="flex items-center gap-2">
+                                                <p className="font-medium text-slate-900">{invoice.invoice_number}</p>
                                                 <Badge className={cn(
-                                                  'text-xs capitalize',
-                                                  invoice.status === 'paid' && 'bg-emerald-100 text-emerald-700',
-                                                  invoice.status === 'overdue' && 'bg-red-100 text-red-700',
-                                                  invoice.status === 'sent' && 'bg-blue-100 text-blue-700',
+                                                  'text-xs',
+                                                  invoice.status === 'paid' && 'bg-green-100 text-green-700 border-green-200',
+                                                  invoice.status === 'overdue' && 'bg-red-100 text-red-700 border-red-200',
+                                                  invoice.status === 'sent' && 'bg-yellow-100 text-yellow-700 border-yellow-200',
                                                   !['paid', 'overdue', 'sent'].includes(invoice.status) && 'bg-slate-100 text-slate-700'
                                                 )}>
-                                                  {invoice.status === 'sent' ? 'Pending' : invoice.status}
+                                                  {invoice.status === 'sent' ? 'Pending' : invoice.status === 'paid' ? 'Paid' : invoice.status}
                                                 </Badge>
                                               </div>
-                                              <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", isExpanded && "rotate-180")} />
+                                              <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
+                                                {invoice.due_date && (
+                                                  <span>Due: {format(parseISO(invoice.due_date), 'MMM d, yyyy')}</span>
+                                                )}
+                                                {invoice.status === 'paid' && invoice.invoice_date && !invoice.invoice_date.includes('1899') && (
+                                                  <span className="text-green-600">Paid: {format(parseISO(invoice.invoice_date), 'MMM d, yyyy')}</span>
+                                                )}
+                                              </div>
                                             </div>
-                                          </button>
-                                          {isExpanded && (
-                                            <div className="bg-white border-t border-slate-100 px-4 py-3">
-                                              {invoiceItems.length > 0 ? (
-                                                <div className="space-y-2">
-                                                  {invoiceItems.map(item => (
-                                                    <div key={item.id} className="flex justify-between items-start text-sm py-2 border-b border-slate-50 last:border-0">
-                                                      <div className="flex-1">
-                                                        <p className="text-slate-900 font-medium">{item.description}</p>
-                                                        <p className="text-xs text-slate-500 mt-1">
-                                                          {item.quantity} × ${(item.unit_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                                        </p>
-                                                      </div>
-                                                      <p className="font-semibold text-slate-900">
-                                                        ${(item.net_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                          </div>
+                                          <p className="text-lg font-semibold text-slate-900">
+                                            ${(invoice.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                          </p>
+                                        </button>
+                                        {isExpanded && (
+                                          <div className="bg-slate-50 rounded-lg px-4 py-3 mb-2 ml-7">
+                                            {invoiceItems.length > 0 ? (
+                                              <div className="space-y-2">
+                                                {invoiceItems.map(item => (
+                                                  <div key={item.id} className="flex justify-between items-start text-sm py-2 border-b border-slate-100 last:border-0">
+                                                    <div className="flex-1">
+                                                      <p className="text-slate-900">{item.description}</p>
+                                                      <p className="text-xs text-slate-500 mt-0.5">
+                                                        {item.quantity} × ${(item.unit_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                                       </p>
                                                     </div>
-                                                  ))}
-                                                  <div className="flex justify-between pt-2 border-t border-slate-200">
-                                                    <p className="font-semibold text-slate-700">Total</p>
-                                                    <p className="font-bold text-slate-900">
-                                                      ${(invoice.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                                    <p className="font-medium text-slate-900">
+                                                      ${(item.net_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                                     </p>
                                                   </div>
-                                                </div>
-                                              ) : (
-                                                <p className="text-sm text-slate-500 text-center py-4">No line items available. Re-sync to fetch details.</p>
-                                              )}
-                                            </div>
-                                          )}
-                                        </div>
-                                      );
-                                    })}
-                                </div>
-                              )}
+                                                ))}
+                                              </div>
+                                            ) : (
+                                              <p className="text-sm text-slate-500 text-center py-2">No line items available</p>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </TabsContent>
