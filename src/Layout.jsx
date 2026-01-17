@@ -4,15 +4,14 @@ import { createPageUrl } from './utils';
 import { base44 } from '@/api/base44Client';
 import { 
   LayoutDashboard, 
-  Users, 
   FileText, 
-  Cloud, 
+  HelpCircle,
   Settings, 
-  RefreshCw,
-  Building2,
+  Cloud,
   ChevronDown,
   LogOut,
-  Shield
+  User,
+  Bell
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import {
@@ -27,22 +26,34 @@ import FloatingAdminland from './components/admin/FloatingAdminland';
 
 export default function Layout({ children, currentPageName }) {
   const [user, setUser] = useState(null);
+  const [customer, setCustomer] = useState(null);
 
   useEffect(() => {
-    const loadUser = async () => {
+    const loadData = async () => {
       try {
         const currentUser = await base44.auth.me();
         setUser(currentUser);
+        
+        // Load customers to find the current user's company
+        const customers = await base44.entities.Customer.list('-created_date', 500);
+        if (customers.length > 0) {
+          const emailDomain = currentUser.email?.split('@')[1];
+          const matched = customers.find(c => 
+            c.email?.includes(emailDomain) || 
+            c.name?.toLowerCase().includes(emailDomain?.split('.')[0])
+          );
+          setCustomer(matched || customers[0]);
+        }
       } catch (error) {
-        console.error('Failed to load user', error);
+        console.error('Failed to load data', error);
       }
     };
-    loadUser();
+    loadData();
   }, []);
 
   const navigation = [
     { name: 'Dashboard', page: 'Dashboard', icon: LayoutDashboard },
-    { name: 'Customers', page: 'Customers', icon: Building2 },
+    { name: 'My Account', page: 'CustomerDetail', icon: FileText, query: customer?.id ? `?id=${customer.id}` : '' },
   ];
 
   return (
@@ -59,30 +70,38 @@ export default function Layout({ children, currentPageName }) {
         }
       `}</style>
 
-      {/* Horizontal Top Navigation */}
-      <header className="sticky top-0 z-50 bg-slate-900 border-b border-slate-800">
-        <div className="flex items-center justify-between h-16 px-6">
-          {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center">
-              <Cloud className="w-4 h-4 text-white" />
+      {/* Header */}
+      <header className="sticky top-0 z-50 bg-white border-b border-slate-200">
+        <div className="flex items-center justify-between h-16 px-6 max-w-7xl mx-auto">
+          {/* Logo & Company */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-purple-700 flex items-center justify-center">
+                <Cloud className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-semibold text-slate-900">Client Portal</h1>
+                {customer && (
+                  <p className="text-xs text-slate-500">{customer.name}</p>
+                )}
+              </div>
             </div>
-            <h1 className="text-lg font-semibold text-white tracking-tight">PortalIT</h1>
           </div>
 
-          {/* Navigation Links */}
+          {/* Navigation */}
           <nav className="hidden md:flex items-center gap-1">
             {navigation.map((item) => {
-              const isActive = currentPageName === item.page;
+              const isActive = currentPageName === item.page || 
+                (item.page === 'CustomerDetail' && currentPageName === 'CustomerDetail');
               return (
                 <Link
                   key={item.page}
-                  to={createPageUrl(item.page)}
+                  to={createPageUrl(item.page) + (item.query || '')}
                   className={cn(
                     "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors",
                     isActive 
-                      ? "bg-purple-500 text-white" 
-                      : "text-slate-300 hover:text-white hover:bg-slate-800"
+                      ? "bg-purple-100 text-purple-700" 
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                   )}
                 >
                   <item.icon className="w-4 h-4" />
@@ -92,26 +111,23 @@ export default function Layout({ children, currentPageName }) {
             })}
           </nav>
 
-          {/* Right Side Actions */}
+          {/* Right Side */}
           <div className="flex items-center gap-3">
-            <Button 
-              size="sm" 
-              className="bg-purple-500 hover:bg-purple-600 text-white gap-2 hidden sm:flex"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Sync Now
+            {/* Notifications */}
+            <Button variant="ghost" size="icon" className="relative">
+              <Bell className="w-5 h-5 text-slate-500" />
             </Button>
 
             {/* User Menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors">
-                  <div className="w-7 h-7 rounded-full bg-purple-500 flex items-center justify-center text-white text-sm font-medium">
+                <button className="flex items-center gap-3 px-3 py-2 hover:bg-slate-100 rounded-lg transition-colors">
+                  <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-medium">
                     {user?.full_name?.charAt(0) || 'U'}
                   </div>
                   <div className="hidden sm:block text-left">
-                    <p className="text-sm font-medium text-white">{user?.full_name || 'User'}</p>
-                    <p className="text-xs text-slate-400">{user?.email}</p>
+                    <p className="text-sm font-medium text-slate-900">{user?.full_name || 'User'}</p>
+                    <p className="text-xs text-slate-500">{user?.email}</p>
                   </div>
                   <ChevronDown className="w-4 h-4 text-slate-400 hidden sm:block" />
                 </button>
@@ -129,7 +145,7 @@ export default function Layout({ children, currentPageName }) {
                   className="text-red-600 focus:text-red-600"
                 >
                   <LogOut className="w-4 h-4 mr-2" />
-                  Logout
+                  Sign Out
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -138,11 +154,29 @@ export default function Layout({ children, currentPageName }) {
       </header>
 
       {/* Page content */}
-      <main className="p-6 lg:p-8">
+      <main className="p-6 lg:p-8 max-w-7xl mx-auto">
         {children}
       </main>
 
-      {/* Floating Adminland */}
+      {/* Footer */}
+      <footer className="border-t border-slate-200 bg-white py-6 mt-12">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="text-sm text-slate-500">
+            Need help? Contact your IT provider
+          </p>
+          <div className="flex items-center gap-4">
+            <a href="tel:" className="text-sm text-purple-600 hover:text-purple-700 font-medium">
+              Call Support
+            </a>
+            <span className="text-slate-300">|</span>
+            <a href="mailto:" className="text-sm text-purple-600 hover:text-purple-700 font-medium">
+              Email Support
+            </a>
+          </div>
+        </div>
+      </footer>
+
+      {/* Floating Adminland - Only for admins */}
       <FloatingAdminland />
     </div>
   );
