@@ -530,28 +530,42 @@ export default function CustomerDetail() {
                       </TabsContent>
 
         <TabsContent value="contracts">
-                        <div className="space-y-6">
-                          {/* Monthly Summary Card */}
-                          <div className="bg-gradient-to-br from-purple-600 to-purple-800 rounded-2xl p-6 text-white">
-                            <p className="text-purple-200 text-sm mb-1">Your Monthly Total</p>
-                            <p className="text-4xl font-bold mb-2">
-                              ${recurringBills.reduce((sum, b) => sum + (b.amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                            </p>
-                            <p className="text-purple-200 text-sm">Billed {recurringBills[0]?.frequency || 'monthly'}</p>
+                        <div className="space-y-8">
+                          
+                          {/* Monthly Summary - Clean Gray Header */}
+                          <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-2xl p-8 text-white shadow-xl">
+                            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+                              <div>
+                                <p className="text-gray-400 text-sm font-medium uppercase tracking-wider mb-2">Monthly Recurring</p>
+                                <p className="text-5xl font-bold tracking-tight">
+                                  ${recurringBills.reduce((sum, b) => sum + (b.amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                </p>
+                              </div>
+                              <div className="flex gap-8">
+                                <div className="text-center">
+                                  <p className="text-3xl font-bold">{contracts.filter(c => c.status === 'active').length}</p>
+                                  <p className="text-gray-400 text-xs uppercase tracking-wide mt-1">Active Contracts</p>
+                                </div>
+                                <div className="text-center">
+                                  <p className="text-3xl font-bold">{invoices.filter(i => i.status === 'paid').length}</p>
+                                  <p className="text-gray-400 text-xs uppercase tracking-wide mt-1">Invoices Paid</p>
+                                </div>
+                              </div>
+                            </div>
                           </div>
 
-                          {/* Contracts Section */}
-                          <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
-                            <div className="flex items-center justify-between mb-4">
+                          {/* Contracts Section - Card Grid */}
+                          <div>
+                            <div className="flex items-center justify-between mb-5">
                               <div>
-                                <h3 className="text-lg font-semibold text-slate-900">Your Contracts</h3>
-                                <p className="text-sm text-slate-500">{contracts.length} service agreement{contracts.length !== 1 ? 's' : ''}</p>
+                                <h3 className="text-xl font-semibold text-gray-900">Service Agreements</h3>
+                                <p className="text-sm text-gray-500 mt-0.5">{contracts.length} contract{contracts.length !== 1 ? 's' : ''} on file</p>
                               </div>
                               {customer?.source === 'halopsa' && (
                                 <Button 
                                   size="sm"
                                   variant="outline"
-                                  className="gap-2"
+                                  className="gap-2 border-gray-300 text-gray-700 hover:bg-gray-100"
                                   onClick={async () => {
                                     try {
                                       setIsSyncing(true);
@@ -580,91 +594,97 @@ export default function CustomerDetail() {
                             </div>
 
                             {contracts.length === 0 ? (
-                              <div className="py-12 text-center">
-                                <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                                <p className="text-slate-500">No contracts found</p>
+                              <div className="bg-gray-50 rounded-2xl py-16 text-center border-2 border-dashed border-gray-200">
+                                <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                                <p className="text-gray-500 font-medium">No contracts on file</p>
+                                <p className="text-gray-400 text-sm mt-1">Contracts will appear here once added</p>
                               </div>
                             ) : (
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {contracts.map(contract => {
                                   const isExpanded = expandedContracts[contract.id];
+                                  const isActive = contract.status === 'active';
                                   return (
                                     <div 
                                       key={contract.id} 
                                       className={cn(
-                                        "border rounded-xl transition-all cursor-pointer",
-                                        contract.status === 'active' ? "border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50" : "border-slate-200 bg-slate-50 hover:bg-slate-100",
-                                        isExpanded && "col-span-full"
+                                        "bg-white border-2 rounded-xl transition-all duration-200 overflow-hidden",
+                                        isActive ? "border-gray-200 hover:border-gray-400 hover:shadow-md" : "border-gray-100 bg-gray-50",
+                                        isExpanded && "sm:col-span-2 lg:col-span-3"
                                       )}
                                     >
                                       <button
                                         onClick={() => setExpandedContracts(prev => ({ ...prev, [contract.id]: !prev[contract.id] }))}
-                                        className="w-full p-4 text-left"
+                                        className="w-full p-5 text-left"
                                       >
                                         <div className="flex items-start justify-between gap-3">
                                           <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-1">
-                                              <Badge className={cn(
-                                                'text-xs capitalize',
-                                                contract.status === 'active' && 'bg-emerald-100 text-emerald-700 border-emerald-200',
-                                                contract.status === 'expired' && 'bg-red-100 text-red-700 border-red-200',
-                                                !['active', 'expired'].includes(contract.status) && 'bg-slate-100 text-slate-700'
+                                            <div className="flex items-center gap-2 mb-2">
+                                              <span className={cn(
+                                                "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium",
+                                                isActive ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-600"
                                               )}>
-                                                {contract.status}
-                                              </Badge>
+                                                {isActive ? '● Active' : contract.status}
+                                              </span>
                                             </div>
-                                            <p className="font-semibold text-slate-900 truncate">{contract.name}</p>
-                                            <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
+                                            <p className="font-semibold text-gray-900 truncate text-base">{contract.name}</p>
+                                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-gray-500">
                                               {contract.start_date && (
-                                                <span>From {format(parseISO(contract.start_date), 'MMM yyyy')}</span>
+                                                <span className="flex items-center gap-1">
+                                                  <Calendar className="w-3 h-3" />
+                                                  Since {format(parseISO(contract.start_date), 'MMM yyyy')}
+                                                </span>
                                               )}
                                               {contract.renewal_date && (
-                                                <>
-                                                  <span>•</span>
-                                                  <span className="text-purple-600 font-medium">Renews {format(parseISO(contract.renewal_date), 'MMM d')}</span>
-                                                </>
+                                                <span className="flex items-center gap-1 text-gray-700 font-medium">
+                                                  <RefreshCw className="w-3 h-3" />
+                                                  Renews {format(parseISO(contract.renewal_date), 'MMM d, yyyy')}
+                                                </span>
                                               )}
                                             </div>
                                           </div>
-                                          <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform flex-shrink-0 mt-1", isExpanded && "rotate-180")} />
+                                          <ChevronDown className={cn(
+                                            "w-5 h-5 text-gray-400 transition-transform flex-shrink-0", 
+                                            isExpanded && "rotate-180"
+                                          )} />
                                         </div>
                                       </button>
 
                                       {isExpanded && (
-                                        <div className="px-4 pb-4 pt-0 border-t border-slate-200/50">
-                                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3">
+                                        <div className="px-5 pb-5 pt-0 border-t border-gray-100">
+                                          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-4">
                                             <div>
-                                              <p className="text-xs text-slate-500 mb-1">Start Date</p>
-                                              <p className="text-sm font-medium text-slate-900">
-                                                {contract.start_date ? format(parseISO(contract.start_date), 'MMM d, yyyy') : 'N/A'}
+                                              <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Start Date</p>
+                                              <p className="text-sm font-semibold text-gray-900">
+                                                {contract.start_date ? format(parseISO(contract.start_date), 'MMM d, yyyy') : '—'}
                                               </p>
                                             </div>
                                             <div>
-                                              <p className="text-xs text-slate-500 mb-1">End Date</p>
-                                              <p className="text-sm font-medium text-slate-900">
+                                              <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">End Date</p>
+                                              <p className="text-sm font-semibold text-gray-900">
                                                 {contract.end_date ? format(parseISO(contract.end_date), 'MMM d, yyyy') : 'Ongoing'}
                                               </p>
                                             </div>
                                             <div>
-                                              <p className="text-xs text-slate-500 mb-1">Next Renewal</p>
-                                              <p className="text-sm font-medium text-purple-600">
-                                                {contract.renewal_date ? format(parseISO(contract.renewal_date), 'MMM d, yyyy') : 'N/A'}
+                                              <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Next Renewal</p>
+                                              <p className="text-sm font-semibold text-gray-900">
+                                                {contract.renewal_date ? format(parseISO(contract.renewal_date), 'MMM d, yyyy') : '—'}
                                               </p>
                                             </div>
                                             <div>
-                                              <p className="text-xs text-slate-500 mb-1">Value</p>
-                                              <p className="text-sm font-medium text-slate-900">
+                                              <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Value</p>
+                                              <p className="text-sm font-semibold text-gray-900">
                                                 {contract.value > 0 
                                                   ? `$${contract.value.toLocaleString('en-US', { minimumFractionDigits: 2 })}/${contract.billing_cycle === 'annually' ? 'yr' : 'mo'}`
-                                                  : 'N/A'
+                                                  : '—'
                                                 }
                                               </p>
                                             </div>
                                           </div>
                                           {contract.description && (
-                                            <div className="mt-3 pt-3 border-t border-slate-200/50">
-                                              <p className="text-xs text-slate-500 mb-1">Description</p>
-                                              <p className="text-sm text-slate-700">{contract.description}</p>
+                                            <div className="mt-4 pt-4 border-t border-gray-100">
+                                              <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Description</p>
+                                              <p className="text-sm text-gray-700">{contract.description}</p>
                                             </div>
                                           )}
                                         </div>
@@ -676,18 +696,18 @@ export default function CustomerDetail() {
                             )}
                           </div>
 
-                          {/* What You're Paying For */}
-                          <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
-                            <div className="flex items-center justify-between mb-6">
+                          {/* Services Breakdown - Clean Table */}
+                          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+                            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
                               <div>
-                                <h3 className="text-lg font-semibold text-slate-900">What You're Paying For</h3>
-                                <p className="text-sm text-slate-500">Your current services and subscriptions</p>
+                                <h3 className="text-lg font-semibold text-gray-900">Current Services</h3>
+                                <p className="text-sm text-gray-500 mt-0.5">Itemized breakdown of your recurring charges</p>
                               </div>
                               {customer?.source === 'halopsa' && (
                                 <Button 
                                   size="sm"
-                                  variant="outline"
-                                  className="gap-2"
+                                  variant="ghost"
+                                  className="gap-2 text-gray-600 hover:text-gray-900"
                                   onClick={async () => {
                                     try {
                                       setIsSyncing(true);
@@ -717,66 +737,63 @@ export default function CustomerDetail() {
                             </div>
 
                             {lineItems.length === 0 ? (
-                              <div className="py-12 text-center">
-                                <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                                <p className="text-slate-500">No items found</p>
+                              <div className="py-16 text-center">
+                                <FileText className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                                <p className="text-gray-500">No service items found</p>
                               </div>
                             ) : (
                               <div className="overflow-x-auto">
                                 <table className="w-full">
                                   <thead>
-                                    <tr className="border-b border-slate-200">
-                                      <th className="text-left py-3 px-2 text-sm font-medium text-slate-600">Service</th>
-                                      <th className="text-center py-3 px-2 text-sm font-medium text-slate-600">Qty</th>
-                                      <th className="text-right py-3 px-2 text-sm font-medium text-slate-600">Unit Price</th>
-                                      <th className="text-right py-3 px-2 text-sm font-medium text-slate-600">Amount</th>
+                                    <tr className="bg-gray-50">
+                                      <th className="text-left py-3 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Service</th>
+                                      <th className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Qty</th>
+                                      <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Unit Price</th>
+                                      <th className="text-right py-3 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
                                     </tr>
                                   </thead>
-                                  <tbody>
+                                  <tbody className="divide-y divide-gray-100">
                                     {lineItems.map(item => (
-                                      <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                                        <td className="py-4 px-2">
-                                                                          <p className="font-medium text-slate-900">{item.description?.replace(/\s*\$recurringbillingdate\s*/gi, '').trim()}</p>
-                                                                          {item.item_code && <p className="text-xs text-slate-500">Code: {item.item_code}</p>}
-                                                                        </td>
-                                        <td className="py-4 px-2 text-center text-slate-600">{item.quantity}</td>
-                                        <td className="py-4 px-2 text-right text-slate-600">
+                                      <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="py-4 px-6">
+                                          <p className="font-medium text-gray-900">{item.description?.replace(/\s*\$recurringbillingdate\s*/gi, '').trim()}</p>
+                                          {item.item_code && <p className="text-xs text-gray-400 mt-0.5">Code: {item.item_code}</p>}
+                                        </td>
+                                        <td className="py-4 px-4 text-center text-gray-600 font-medium">{item.quantity}</td>
+                                        <td className="py-4 px-4 text-right text-gray-600">
                                           ${(item.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                         </td>
-                                        <td className="py-4 px-2 text-right font-semibold text-slate-900">
+                                        <td className="py-4 px-6 text-right font-semibold text-gray-900">
                                           ${(item.net_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                         </td>
                                       </tr>
                                     ))}
                                   </tbody>
-                                  <tfoot>
-                                    <tr className="bg-slate-50">
-                                      <td colSpan="3" className="py-4 px-2 text-right font-semibold text-slate-900">Total</td>
-                                      <td className="py-4 px-2 text-right font-bold text-lg text-slate-900">
-                                        ${lineItems.reduce((sum, item) => sum + (item.net_amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                      </td>
-                                    </tr>
-                                  </tfoot>
                                 </table>
+                                <div className="bg-gray-900 px-6 py-4 flex items-center justify-between">
+                                  <span className="text-gray-300 font-medium">Monthly Total</span>
+                                  <span className="text-2xl font-bold text-white">
+                                    ${lineItems.reduce((sum, item) => sum + (item.net_amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                  </span>
+                                </div>
                               </div>
                             )}
                           </div>
 
-                          {/* Invoices Section */}
-                          <div className="bg-white rounded-2xl border border-slate-200/50 overflow-hidden">
-                            {/* Header */}
-                            <div className="p-6 border-b border-slate-200">
-                              <div className="flex items-center justify-between mb-4">
+                          {/* Invoices Section - Refined Design */}
+                          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+                            <div className="px-6 py-5 border-b border-gray-100">
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                                 <div>
-                                  <h3 className="text-lg font-semibold text-slate-900">Invoices</h3>
-                                  <p className="text-sm text-slate-500">{invoices.length} total invoices</p>
+                                  <h3 className="text-lg font-semibold text-gray-900">Invoice History</h3>
+                                  <p className="text-sm text-gray-500 mt-0.5">{invoices.length} invoices on record</p>
                                 </div>
                                 <div className="flex items-center gap-3">
                                   {customer?.source === 'halopsa' && (
                                     <Button 
                                       size="sm"
-                                      variant="outline"
-                                      className="gap-2"
+                                      variant="ghost"
+                                      className="gap-2 text-gray-600 hover:text-gray-900"
                                       onClick={async () => {
                                         try {
                                           setIsSyncing(true);
@@ -800,13 +817,13 @@ export default function CustomerDetail() {
                                       disabled={isSyncing}
                                     >
                                       <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
-                                      Sync Invoices
+                                      Sync
                                     </Button>
                                   )}
                                   <select
                                     value={invoiceFilter}
                                     onChange={(e) => setInvoiceFilter(e.target.value)}
-                                    className="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
                                   >
                                     <option value="all">All Invoices</option>
                                     <option value="paid">Paid</option>
@@ -818,28 +835,28 @@ export default function CustomerDetail() {
 
                               {/* Invoice Summary Stats */}
                               {invoices.length > 0 && (
-                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                                  <div className="bg-slate-50 rounded-lg p-3">
-                                    <p className="text-xs text-slate-500 mb-1">Total Invoiced</p>
-                                    <p className="text-lg font-bold text-slate-900">
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-5">
+                                  <div className="bg-gray-50 rounded-xl p-4">
+                                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Total Invoiced</p>
+                                    <p className="text-xl font-bold text-gray-900 mt-1">
                                       ${invoices.reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                     </p>
                                   </div>
-                                  <div className="bg-emerald-50 rounded-lg p-3">
-                                    <p className="text-xs text-emerald-600 mb-1">Paid</p>
-                                    <p className="text-lg font-bold text-emerald-700">
+                                  <div className="bg-gray-50 rounded-xl p-4 border-l-4 border-gray-400">
+                                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Paid</p>
+                                    <p className="text-xl font-bold text-gray-900 mt-1">
                                       ${invoices.filter(i => i.status === 'paid').reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                     </p>
                                   </div>
-                                  <div className="bg-yellow-50 rounded-lg p-3">
-                                    <p className="text-xs text-yellow-600 mb-1">Pending</p>
-                                    <p className="text-lg font-bold text-yellow-700">
+                                  <div className="bg-gray-50 rounded-xl p-4 border-l-4 border-gray-300">
+                                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Pending</p>
+                                    <p className="text-xl font-bold text-gray-900 mt-1">
                                       ${invoices.filter(i => i.status === 'sent').reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                     </p>
                                   </div>
-                                  <div className="bg-red-50 rounded-lg p-3">
-                                    <p className="text-xs text-red-600 mb-1">Overdue ({invoices.filter(i => i.status === 'overdue').length})</p>
-                                    <p className="text-lg font-bold text-red-700">
+                                  <div className="bg-red-50 rounded-xl p-4 border-l-4 border-red-400">
+                                    <p className="text-xs text-red-600 font-medium uppercase tracking-wide">Overdue ({invoices.filter(i => i.status === 'overdue').length})</p>
+                                    <p className="text-xl font-bold text-red-700 mt-1">
                                       ${invoices.filter(i => i.status === 'overdue').reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                     </p>
                                   </div>
@@ -849,103 +866,113 @@ export default function CustomerDetail() {
 
                             {/* Invoice List */}
                             {invoices.length === 0 ? (
-                              <div className="py-12 text-center">
-                                <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                                <p className="text-slate-500">No invoices yet</p>
+                              <div className="py-16 text-center">
+                                <FileText className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                                <p className="text-gray-500">No invoices found</p>
                                 {customer?.source === 'halopsa' && (
-                                  <p className="text-sm text-slate-400 mt-1">Click "Sync Invoices" to pull from HaloPSA</p>
+                                  <p className="text-sm text-gray-400 mt-1">Click "Sync" to pull from HaloPSA</p>
                                 )}
                               </div>
                             ) : (
-                              <div className="divide-y divide-slate-100">
+                              <div className="divide-y divide-gray-100">
                                 {invoices
                                   .filter(inv => invoiceFilter === 'all' || inv.status === invoiceFilter)
                                   .sort((a, b) => new Date(b.due_date || 0) - new Date(a.due_date || 0))
                                   .map(invoice => {
                                     const invoiceItems = invoiceLineItems.filter(item => item.invoice_id === invoice.id);
                                     const isExpanded = expandedInvoices[invoice.id];
+                                    const isPaid = invoice.status === 'paid';
+                                    const isOverdue = invoice.status === 'overdue';
+                                    
                                     return (
                                       <div key={invoice.id} className={cn(
                                         "transition-colors",
-                                        invoice.status === 'overdue' && "bg-red-50/50"
+                                        isOverdue && "bg-red-50/30"
                                       )}>
                                         <button
                                           onClick={() => setExpandedInvoices(prev => ({ ...prev, [invoice.id]: !prev[invoice.id] }))}
-                                          className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors"
+                                          className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
                                         >
-                                          <div className="flex items-center gap-4">
+                                          <div className="flex items-center gap-5">
                                             <div className={cn(
-                                              "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",
-                                              invoice.status === 'paid' && "bg-emerald-100",
-                                              invoice.status === 'overdue' && "bg-red-100",
-                                              invoice.status === 'sent' && "bg-yellow-100",
-                                              !['paid', 'overdue', 'sent'].includes(invoice.status) && "bg-slate-100"
+                                              "w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0",
+                                              isPaid && "bg-gray-100",
+                                              isOverdue && "bg-red-100",
+                                              !isPaid && !isOverdue && "bg-gray-100"
                                             )}>
-                                              <FileText className={cn(
-                                                "w-5 h-5",
-                                                invoice.status === 'paid' && "text-emerald-600",
-                                                invoice.status === 'overdue' && "text-red-600",
-                                                invoice.status === 'sent' && "text-yellow-600",
-                                                !['paid', 'overdue', 'sent'].includes(invoice.status) && "text-slate-500"
-                                              )} />
+                                              {isPaid ? (
+                                                <CheckCircle2 className="w-5 h-5 text-gray-600" />
+                                              ) : (
+                                                <FileText className={cn(
+                                                  "w-5 h-5",
+                                                  isOverdue ? "text-red-600" : "text-gray-500"
+                                                )} />
+                                              )}
                                             </div>
                                             <div className="text-left">
-                                              <div className="flex items-center gap-2">
-                                                <p className="font-semibold text-slate-900">{invoice.invoice_number}</p>
-                                                <Badge className={cn(
-                                                  'text-xs',
-                                                  invoice.status === 'paid' && 'bg-emerald-100 text-emerald-700',
-                                                  invoice.status === 'overdue' && 'bg-red-100 text-red-700',
-                                                  invoice.status === 'sent' && 'bg-yellow-100 text-yellow-700',
-                                                  !['paid', 'overdue', 'sent'].includes(invoice.status) && 'bg-slate-100 text-slate-700'
+                                              <div className="flex items-center gap-3">
+                                                <p className="font-semibold text-gray-900">{invoice.invoice_number}</p>
+                                                <span className={cn(
+                                                  "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
+                                                  isPaid && "bg-gray-200 text-gray-700",
+                                                  isOverdue && "bg-red-100 text-red-700",
+                                                  invoice.status === 'sent' && "bg-gray-100 text-gray-600"
                                                 )}>
-                                                  {invoice.status === 'sent' ? 'Pending' : invoice.status === 'paid' ? 'Paid' : invoice.status}
-                                                </Badge>
+                                                  {isPaid ? 'Paid' : isOverdue ? 'Overdue' : 'Pending'}
+                                                </span>
                                               </div>
-                                              <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
+                                              <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
                                                 {invoice.due_date && (
-                                                  <span>Due: {format(parseISO(invoice.due_date), 'MMM d, yyyy')}</span>
-                                                )}
-                                                {invoice.status === 'paid' && invoice.invoice_date && !invoice.invoice_date.includes('1899') && (
-                                                  <span className="text-emerald-600">Paid: {format(parseISO(invoice.invoice_date), 'MMM d, yyyy')}</span>
+                                                  <span>Due {format(parseISO(invoice.due_date), 'MMM d, yyyy')}</span>
                                                 )}
                                               </div>
                                             </div>
                                           </div>
-                                          <div className="flex items-center gap-4">
-                                            <p className="text-xl font-bold text-slate-900">
+                                          <div className="flex items-center gap-5">
+                                            <p className={cn(
+                                              "text-xl font-bold",
+                                              isPaid ? "text-gray-600" : "text-gray-900"
+                                            )}>
                                               ${(invoice.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                             </p>
-                                            <ChevronDown className={cn("w-5 h-5 text-slate-400 transition-transform", isExpanded && "rotate-180")} />
+                                            <ChevronDown className={cn(
+                                              "w-5 h-5 text-gray-400 transition-transform", 
+                                              isExpanded && "rotate-180"
+                                            )} />
                                           </div>
                                         </button>
+                                        
                                         {isExpanded && (
-                                          <div className="bg-slate-50 border-t border-slate-100 px-4 py-4 mx-4 mb-4 rounded-lg">
+                                          <div className="bg-gray-50 mx-6 mb-4 rounded-xl overflow-hidden">
                                             {invoiceItems.length > 0 ? (
-                                              <div className="space-y-3">
-                                                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Line Items</p>
-                                                {invoiceItems.map(item => (
-                                                  <div key={item.id} className="flex justify-between items-start py-2 border-b border-slate-200 last:border-0">
-                                                    <div className="flex-1">
-                                                      <p className="font-medium text-slate-900">{item.description}</p>
-                                                      <p className="text-sm text-slate-500 mt-0.5">
-                                                        {item.quantity} × ${(item.unit_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                              <div>
+                                                <div className="px-4 py-3 bg-gray-100">
+                                                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Line Items</p>
+                                                </div>
+                                                <div className="divide-y divide-gray-100">
+                                                  {invoiceItems.map(item => (
+                                                    <div key={item.id} className="flex justify-between items-center px-4 py-3">
+                                                      <div className="flex-1">
+                                                        <p className="font-medium text-gray-900 text-sm">{item.description}</p>
+                                                        <p className="text-xs text-gray-500 mt-0.5">
+                                                          {item.quantity} × ${(item.unit_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                                        </p>
+                                                      </div>
+                                                      <p className="font-semibold text-gray-900 text-sm">
+                                                        ${(item.net_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                                       </p>
                                                     </div>
-                                                    <p className="font-semibold text-slate-900">
-                                                      ${(item.net_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                                    </p>
-                                                  </div>
-                                                ))}
-                                                <div className="flex justify-between pt-2 border-t border-slate-300">
-                                                  <p className="font-semibold text-slate-700">Total</p>
-                                                  <p className="font-bold text-slate-900">
+                                                  ))}
+                                                </div>
+                                                <div className="flex justify-between items-center px-4 py-3 bg-gray-200">
+                                                  <p className="font-semibold text-gray-700 text-sm">Invoice Total</p>
+                                                  <p className="font-bold text-gray-900">
                                                     ${(invoice.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                                   </p>
                                                 </div>
                                               </div>
                                             ) : (
-                                              <p className="text-sm text-slate-500 text-center py-4">No line items available</p>
+                                              <p className="text-sm text-gray-500 text-center py-6">No line items available</p>
                                             )}
                                           </div>
                                         )}
