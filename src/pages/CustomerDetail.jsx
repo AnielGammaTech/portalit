@@ -416,34 +416,35 @@ export default function CustomerDetail() {
 
                           {/* Contract Renewal Widget */}
                           {contracts.filter(c => c.renewal_date || c.end_date).length > 0 && (
-                            <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
-                              <div className="flex items-center justify-between mb-4">
-                                <h3 className="font-semibold text-slate-900">Upcoming Renewals</h3>
-                                <Calendar className="w-5 h-5 text-slate-400" />
+                            <div className="bg-white rounded-2xl border border-slate-200/50 p-4">
+                              <div className="flex items-center justify-between mb-3">
+                                <h3 className="font-semibold text-slate-900 text-sm">Upcoming Renewals</h3>
+                                <Calendar className="w-4 h-4 text-slate-400" />
                               </div>
-                              <div className="space-y-3">
+                              <div className="flex flex-wrap gap-2">
                                 {contracts
                                   .filter(c => c.renewal_date || c.end_date)
                                   .sort((a, b) => new Date(a.renewal_date || a.end_date) - new Date(b.renewal_date || b.end_date))
-                                  .slice(0, 3)
+                                  .slice(0, 6)
                                   .map(contract => {
                                     const renewalDate = contract.renewal_date || contract.end_date;
                                     const daysUntil = Math.ceil((new Date(renewalDate) - new Date()) / (1000 * 60 * 60 * 24));
                                     return (
-                                      <div key={contract.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                                        <div>
-                                          <p className="font-medium text-slate-900">{contract.name}</p>
-                                          <p className="text-sm text-slate-500">
-                                            {renewalDate ? format(parseISO(renewalDate), 'MMMM d, yyyy') : 'No date'}
-                                          </p>
-                                        </div>
-                                        <Badge className={cn(
-                                          daysUntil <= 30 ? 'bg-red-100 text-red-700' :
-                                          daysUntil <= 90 ? 'bg-yellow-100 text-yellow-700' :
-                                          'bg-emerald-100 text-emerald-700'
+                                      <div key={contract.id} className={cn(
+                                        "flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs",
+                                        daysUntil <= 30 ? 'bg-red-50 border border-red-200' :
+                                        daysUntil <= 90 ? 'bg-yellow-50 border border-yellow-200' :
+                                        'bg-slate-50 border border-slate-200'
+                                      )}>
+                                        <span className="font-medium text-slate-900 truncate max-w-[100px]">{contract.name}</span>
+                                        <span className={cn(
+                                          "font-semibold whitespace-nowrap",
+                                          daysUntil <= 30 ? 'text-red-600' :
+                                          daysUntil <= 90 ? 'text-yellow-600' :
+                                          'text-slate-500'
                                         )}>
-                                          {daysUntil > 0 ? `${daysUntil} days` : 'Expired'}
-                                        </Badge>
+                                          {daysUntil > 0 ? `${daysUntil}d` : 'Exp'}
+                                        </span>
                                       </div>
                                     );
                                   })}
