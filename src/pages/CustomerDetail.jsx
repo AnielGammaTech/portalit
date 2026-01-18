@@ -421,29 +421,32 @@ export default function CustomerDetail() {
                                 <h3 className="font-semibold text-slate-900 text-sm">Upcoming Renewals</h3>
                                 <Calendar className="w-4 h-4 text-slate-400" />
                               </div>
-                              <div className="flex flex-wrap gap-2">
+                              <div className="flex flex-wrap justify-center gap-3">
                                 {contracts
                                   .filter(c => c.renewal_date || c.end_date)
                                   .sort((a, b) => new Date(a.renewal_date || a.end_date) - new Date(b.renewal_date || b.end_date))
-                                  .slice(0, 6)
+                                  .slice(0, 8)
                                   .map(contract => {
                                     const renewalDate = contract.renewal_date || contract.end_date;
                                     const daysUntil = Math.ceil((new Date(renewalDate) - new Date()) / (1000 * 60 * 60 * 24));
                                     return (
                                       <div key={contract.id} className={cn(
-                                        "flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs",
+                                        "flex flex-col items-center px-4 py-2 rounded-xl text-xs min-w-[90px]",
                                         daysUntil <= 30 ? 'bg-red-50 border border-red-200' :
                                         daysUntil <= 90 ? 'bg-yellow-50 border border-yellow-200' :
                                         'bg-slate-50 border border-slate-200'
                                       )}>
-                                        <span className="font-medium text-slate-900 truncate max-w-[100px]">{contract.name}</span>
+                                        <span className="font-semibold text-slate-900 truncate max-w-[100px]">{contract.name}</span>
+                                        <span className="text-slate-500 text-[10px] mt-0.5">
+                                          {renewalDate ? format(parseISO(renewalDate), 'MMM d, yyyy') : '—'}
+                                        </span>
                                         <span className={cn(
-                                          "font-semibold whitespace-nowrap",
+                                          "font-bold text-sm mt-1",
                                           daysUntil <= 30 ? 'text-red-600' :
                                           daysUntil <= 90 ? 'text-yellow-600' :
-                                          'text-slate-500'
+                                          'text-emerald-600'
                                         )}>
-                                          {daysUntil > 0 ? `${daysUntil}d` : 'Exp'}
+                                          {daysUntil > 0 ? `${daysUntil} days` : 'Expired'}
                                         </span>
                                       </div>
                                     );
