@@ -414,40 +414,60 @@ export default function CustomerDetail() {
                             </div>
                           </div>
 
-                          {/* Contract Renewal Widget */}
-                          {contracts.filter(c => c.renewal_date || c.end_date).length > 0 && (
+                          {/* Active Contracts Widget */}
+                          {contracts.length > 0 && (
                             <div className="bg-white rounded-2xl border border-slate-200/50 p-5">
                               <div className="flex items-center justify-between mb-4">
-                                <h3 className="font-semibold text-slate-900">Upcoming Renewals</h3>
-                                <Calendar className="w-5 h-5 text-slate-400" />
+                                <h3 className="font-semibold text-slate-900">Active Contracts</h3>
+                                <FileText className="w-5 h-5 text-slate-400" />
                               </div>
-                              <div className="flex flex-wrap justify-center gap-4">
+                              <div className="space-y-3">
                                 {contracts
-                                  .filter(c => c.renewal_date || c.end_date)
-                                  .sort((a, b) => new Date(a.renewal_date || a.end_date) - new Date(b.renewal_date || b.end_date))
+                                  .sort((a, b) => (b.status === 'active' ? 1 : 0) - (a.status === 'active' ? 1 : 0))
                                   .slice(0, 10)
                                   .map(contract => {
+                                    const isActive = contract.status === 'active';
                                     const renewalDate = contract.renewal_date || contract.end_date;
-                                    const daysUntil = Math.ceil((new Date(renewalDate) - new Date()) / (1000 * 60 * 60 * 24));
+                                    const daysUntil = renewalDate ? Math.ceil((new Date(renewalDate) - new Date()) / (1000 * 60 * 60 * 24)) : null;
                                     return (
                                       <div key={contract.id} className={cn(
-                                        "flex flex-col items-center px-5 py-3 rounded-xl text-sm min-w-[110px]",
-                                        daysUntil <= 30 ? 'bg-red-50 border border-red-200' :
-                                        daysUntil <= 90 ? 'bg-yellow-50 border border-yellow-200' :
-                                        'bg-slate-50 border border-slate-200'
+                                        "flex items-center justify-between p-4 rounded-xl border",
+                                        isActive ? 'bg-slate-50 border-slate-200' : 'bg-gray-50 border-gray-200'
                                       )}>
-                                        <span className="font-semibold text-slate-900 truncate max-w-[120px]">{contract.name}</span>
-                                        <span className="text-slate-500 text-xs mt-1">
-                                          {renewalDate ? format(parseISO(renewalDate), 'MMM d, yyyy') : '—'}
-                                        </span>
-                                        <span className={cn(
-                                          "font-bold text-base mt-1",
-                                          daysUntil <= 30 ? 'text-red-600' :
-                                          daysUntil <= 90 ? 'text-yellow-600' :
-                                          'text-emerald-600'
-                                        )}>
-                                          {daysUntil > 0 ? `${daysUntil} days` : 'Expired'}
-                                        </span>
+                                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                                          <div className={cn(
+                                            "w-2 h-2 rounded-full flex-shrink-0",
+                                            isActive ? "bg-emerald-500" : "bg-gray-400"
+                                          )} />
+                                          <div className="min-w-0">
+                                            <p className="font-semibold text-slate-900 truncate">{contract.name}</p>
+                                            <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
+                                              <span className="capitalize">{contract.type?.replace('_', ' ') || 'Contract'}</span>
+                                              {contract.billing_cycle && (
+                                                <span className="capitalize">{contract.billing_cycle}</span>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center gap-4 flex-shrink-0">
+                                          {contract.value > 0 && (
+                                            <div className="text-right">
+                                              <p className="font-bold text-slate-900">${contract.value.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                                              <p className="text-xs text-slate-500">/{contract.billing_cycle === 'annually' ? 'yr' : 'mo'}</p>
+                                            </div>
+                                          )}
+                                          {renewalDate && (
+                                            <div className={cn(
+                                              "text-center px-3 py-1.5 rounded-lg text-xs",
+                                              daysUntil && daysUntil <= 30 ? 'bg-red-100 text-red-700' :
+                                              daysUntil && daysUntil <= 90 ? 'bg-amber-100 text-amber-700' :
+                                              'bg-emerald-100 text-emerald-700'
+                                            )}>
+                                              <p className="font-medium">Renews</p>
+                                              <p className="font-bold">{format(parseISO(renewalDate), 'MMM d')}</p>
+                                            </div>
+                                          )}
+                                        </div>
                                       </div>
                                     );
                                   })}
