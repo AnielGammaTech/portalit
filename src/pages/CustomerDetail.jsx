@@ -322,26 +322,41 @@ export default function CustomerDetail() {
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="bg-white border border-slate-200/50 flex-wrap h-auto p-1">
-          <TabsTrigger value="overview" className="gap-2">
-            <Building2 className="w-4 h-4" />
-            Overview
+        <TabsList className="bg-white border border-gray-200 rounded-2xl p-2 flex flex-wrap gap-2 h-auto shadow-sm">
+          <TabsTrigger 
+            value="overview" 
+            className="flex-1 min-w-[140px] gap-3 py-4 px-6 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800"
+          >
+            <Building2 className="w-5 h-5" />
+            <span className="text-sm">Overview</span>
           </TabsTrigger>
-          <TabsTrigger value="contracts" className="gap-2">
-            <FileText className="w-4 h-4" />
-            Billing & Services
+          <TabsTrigger 
+            value="contracts" 
+            className="flex-1 min-w-[140px] gap-3 py-4 px-6 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800"
+          >
+            <DollarSign className="w-5 h-5" />
+            <span className="text-sm">Billing & Services</span>
           </TabsTrigger>
-          <TabsTrigger value="licenses" className="gap-2">
-            <Cloud className="w-4 h-4" />
-            Software
+          <TabsTrigger 
+            value="licenses" 
+            className="flex-1 min-w-[140px] gap-3 py-4 px-6 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800"
+          >
+            <Cloud className="w-5 h-5" />
+            <span className="text-sm">Software</span>
           </TabsTrigger>
-          <TabsTrigger value="quotes" className="gap-2">
-            <FileText className="w-4 h-4" />
-            Quotes
+          <TabsTrigger 
+            value="quotes" 
+            className="flex-1 min-w-[140px] gap-3 py-4 px-6 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800"
+          >
+            <FileText className="w-5 h-5" />
+            <span className="text-sm">Quotes</span>
           </TabsTrigger>
-          <TabsTrigger value="tickets" className="gap-2">
-            <HelpCircle className="w-4 h-4" />
-            Support
+          <TabsTrigger 
+            value="tickets" 
+            className="flex-1 min-w-[140px] gap-3 py-4 px-6 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800"
+          >
+            <HelpCircle className="w-5 h-5" />
+            <span className="text-sm">Support</span>
           </TabsTrigger>
         </TabsList>
 
