@@ -1222,15 +1222,21 @@ export default function CustomerDetail() {
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-4">
                                 <div className={cn(
-                                  "w-12 h-12 rounded-xl flex items-center justify-center",
-                                  utilizationPercent >= 90 ? "bg-emerald-100" :
-                                  utilizationPercent >= 50 ? "bg-amber-100" : "bg-red-100"
+                                  "w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden",
+                                  !license.logo_url && (
+                                    utilizationPercent >= 90 ? "bg-emerald-100" :
+                                    utilizationPercent >= 50 ? "bg-amber-100" : "bg-red-100"
+                                  )
                                 )}>
-                                  <Cloud className={cn(
-                                    "w-6 h-6",
-                                    utilizationPercent >= 90 ? "text-emerald-600" :
-                                    utilizationPercent >= 50 ? "text-amber-600" : "text-red-600"
-                                  )} />
+                                  {license.logo_url ? (
+                                    <img src={license.logo_url} alt={license.application_name} className="w-10 h-10 object-contain" />
+                                  ) : (
+                                    <Cloud className={cn(
+                                      "w-6 h-6",
+                                      utilizationPercent >= 90 ? "text-emerald-600" :
+                                      utilizationPercent >= 50 ? "text-amber-600" : "text-red-600"
+                                    )} />
+                                  )}
                                 </div>
                                 <div>
                                   <h3 className="font-semibold text-slate-900">{license.application_name}</h3>
@@ -1360,7 +1366,11 @@ export default function CustomerDetail() {
                                   onClick={() => setSelectedLicense(license)}
                                   className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
                                 >
-                                  <Cloud className="w-4 h-4 text-purple-600" />
+                                  {license.logo_url ? (
+                                    <img src={license.logo_url} alt="" className="w-4 h-4 object-contain" />
+                                  ) : (
+                                    <Cloud className="w-4 h-4 text-purple-600" />
+                                  )}
                                   <span className="text-sm text-slate-700">{license.application_name}</span>
                                 </button>
                               ))}
@@ -1396,8 +1406,12 @@ export default function CustomerDetail() {
                             onClick={() => setSelectedLicense(license)}
                             className="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors text-left"
                           >
-                            <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
-                              <Cloud className="w-5 h-5 text-purple-600" />
+                            <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                              {license.logo_url ? (
+                                <img src={license.logo_url} alt={license.application_name} className="w-8 h-8 object-contain" />
+                              ) : (
+                                <Cloud className="w-5 h-5 text-purple-600" />
+                              )}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between mb-1">
