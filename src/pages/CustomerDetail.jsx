@@ -416,32 +416,32 @@ export default function CustomerDetail() {
 
                           {/* Contract Renewal Widget */}
                           {contracts.filter(c => c.renewal_date || c.end_date).length > 0 && (
-                            <div className="bg-white rounded-2xl border border-slate-200/50 p-4">
-                              <div className="flex items-center justify-between mb-3">
-                                <h3 className="font-semibold text-slate-900 text-sm">Upcoming Renewals</h3>
-                                <Calendar className="w-4 h-4 text-slate-400" />
+                            <div className="bg-white rounded-2xl border border-slate-200/50 p-5">
+                              <div className="flex items-center justify-between mb-4">
+                                <h3 className="font-semibold text-slate-900">Upcoming Renewals</h3>
+                                <Calendar className="w-5 h-5 text-slate-400" />
                               </div>
-                              <div className="flex flex-wrap justify-center gap-3">
+                              <div className="flex flex-wrap justify-center gap-4">
                                 {contracts
                                   .filter(c => c.renewal_date || c.end_date)
                                   .sort((a, b) => new Date(a.renewal_date || a.end_date) - new Date(b.renewal_date || b.end_date))
-                                  .slice(0, 8)
+                                  .slice(0, 10)
                                   .map(contract => {
                                     const renewalDate = contract.renewal_date || contract.end_date;
                                     const daysUntil = Math.ceil((new Date(renewalDate) - new Date()) / (1000 * 60 * 60 * 24));
                                     return (
                                       <div key={contract.id} className={cn(
-                                        "flex flex-col items-center px-4 py-2 rounded-xl text-xs min-w-[90px]",
+                                        "flex flex-col items-center px-5 py-3 rounded-xl text-sm min-w-[110px]",
                                         daysUntil <= 30 ? 'bg-red-50 border border-red-200' :
                                         daysUntil <= 90 ? 'bg-yellow-50 border border-yellow-200' :
                                         'bg-slate-50 border border-slate-200'
                                       )}>
-                                        <span className="font-semibold text-slate-900 truncate max-w-[100px]">{contract.name}</span>
-                                        <span className="text-slate-500 text-[10px] mt-0.5">
+                                        <span className="font-semibold text-slate-900 truncate max-w-[120px]">{contract.name}</span>
+                                        <span className="text-slate-500 text-xs mt-1">
                                           {renewalDate ? format(parseISO(renewalDate), 'MMM d, yyyy') : '—'}
                                         </span>
                                         <span className={cn(
-                                          "font-bold text-sm mt-1",
+                                          "font-bold text-base mt-1",
                                           daysUntil <= 30 ? 'text-red-600' :
                                           daysUntil <= 90 ? 'text-yellow-600' :
                                           'text-emerald-600'
@@ -755,21 +755,35 @@ export default function CustomerDetail() {
                             )}
                           </div>
 
-                          {/* Invoices Section - Refined Design */}
+                          {/* Invoices Section - Collapsible */}
                           <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-                            <div className="px-6 py-5 border-b border-gray-100">
+                            <button
+                              onClick={() => setExpandedInvoices(prev => ({ ...prev, _section: !prev._section }))}
+                              className="w-full px-6 py-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="text-left">
+                                <h3 className="text-lg font-semibold text-gray-900">Invoice History</h3>
+                                <p className="text-sm text-gray-500 mt-0.5">{invoices.length} invoices on record</p>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <ChevronDown className={cn(
+                                  "w-5 h-5 text-gray-400 transition-transform",
+                                  expandedInvoices._section && "rotate-180"
+                                )} />
+                              </div>
+                            </button>
+                            
+                            {expandedInvoices._section && (
+                            <div className="border-t border-gray-100 px-6 py-5">
                               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                                <div>
-                                  <h3 className="text-lg font-semibold text-gray-900">Invoice History</h3>
-                                  <p className="text-sm text-gray-500 mt-0.5">{invoices.length} invoices on record</p>
-                                </div>
                                 <div className="flex items-center gap-3">
                                   {customer?.source === 'halopsa' && (
                                     <Button 
                                       size="sm"
                                       variant="ghost"
                                       className="gap-2 text-gray-600 hover:text-gray-900"
-                                      onClick={async () => {
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
                                         try {
                                           setIsSyncing(true);
                                           const response = await base44.functions.invoke('syncHaloPSAInvoices', { 
@@ -798,6 +812,7 @@ export default function CustomerDetail() {
                                   <select
                                     value={invoiceFilter}
                                     onChange={(e) => setInvoiceFilter(e.target.value)}
+                                    onClick={(e) => e.stopPropagation()}
                                     className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
                                   >
                                     <option value="all">All Invoices</option>
@@ -806,7 +821,6 @@ export default function CustomerDetail() {
                                     <option value="sent">Pending</option>
                                   </select>
                                 </div>
-                              </div>
 
                               {/* Invoice Summary Stats */}
                               {invoices.length > 0 && (
@@ -955,6 +969,8 @@ export default function CustomerDetail() {
                                     );
                                   })}
                               </div>
+                            )}
+                            </div>
                             )}
                           </div>
                         </div>
