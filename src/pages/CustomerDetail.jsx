@@ -547,15 +547,79 @@ export default function CustomerDetail() {
         <TabsContent value="contracts">
                         <div className="space-y-6">
                           
-                          {/* Monthly Summary - Compact Header */}
-                          <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-2xl p-6 text-white shadow-xl">
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                          {/* Monthly Summary Header with Contracts */}
+                          <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-2xl text-white shadow-xl overflow-hidden">
+                            <div className="p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                               <div>
                                 <p className="text-gray-400 text-xs font-medium uppercase tracking-wider mb-1">Monthly Recurring</p>
                                 <p className="text-4xl font-bold tracking-tight">
                                   ${recurringBills.reduce((sum, b) => sum + (b.amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                 </p>
                               </div>
+                              
+                              {/* Contracts inline in header */}
+                              <div className="flex-1 lg:mx-8">
+                                {contracts.length > 0 ? (
+                                  <div className="flex flex-wrap gap-2">
+                                    {contracts.map(contract => {
+                                      const isActive = contract.status === 'active';
+                                      return (
+                                        <button
+                                          key={contract.id}
+                                          onClick={() => setExpandedContracts(prev => ({ ...prev, [contract.id]: !prev[contract.id] }))}
+                                          className={cn(
+                                            "px-3 py-2 rounded-lg text-left transition-all text-sm",
+                                            isActive ? "bg-white/10 hover:bg-white/20" : "bg-white/5 hover:bg-white/10"
+                                          )}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <span className={cn(
+                                              "w-1.5 h-1.5 rounded-full",
+                                              isActive ? "bg-emerald-400" : "bg-gray-400"
+                                            )} />
+                                            <span className="font-medium text-white">{contract.name}</span>
+                                          </div>
+                                          {contract.renewal_date && (
+                                            <p className="text-xs text-gray-400 mt-0.5">
+                                              Renews {format(parseISO(contract.renewal_date), 'MMM d, yyyy')}
+                                            </p>
+                                          )}
+                                        </button>
+                                      );
+                                    })}
+                                    {customer?.source === 'halopsa' && (
+                                      <button
+                                        onClick={async () => {
+                                          try {
+                                            setIsSyncing(true);
+                                            const response = await base44.functions.invoke('syncHaloPSAContracts', { 
+                                              action: 'sync_customer',
+                                              customer_id: customer.external_id 
+                                            });
+                                            if (response.data.success) {
+                                              toast.success(`Synced ${response.data.recordsSynced} contracts!`);
+                                              queryClient.invalidateQueries({ queryKey: ['contracts', customerId] });
+                                            } else {
+                                              toast.error(response.data.error || 'Sync failed');
+                                            }
+                                          } catch (error) {
+                                            toast.error(error.message || 'An error occurred during sync');
+                                          } finally {
+                                            setIsSyncing(false);
+                                          }
+                                        }}
+                                        disabled={isSyncing}
+                                        className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all"
+                                      >
+                                        <RefreshCw className={cn("w-4 h-4 text-gray-400", isSyncing && "animate-spin")} />
+                                      </button>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <p className="text-gray-500 text-sm">No contracts on file</p>
+                                )}
+                              </div>
+                              
                               <div className="flex gap-6">
                                 <div className="text-center">
                                   <p className="text-2xl font-bold">{contracts.filter(c => c.status === 'active').length}</p>
@@ -571,125 +635,35 @@ export default function CustomerDetail() {
                                 </div>
                               </div>
                             </div>
-                          </div>
-
-                          {/* Contracts - Compact List */}
-                          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                            <button
-                              onClick={() => setExpandedContracts(prev => ({ ...prev, _section: !prev._section }))}
-                              className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center">
-                                  <FileText className="w-4 h-4 text-gray-600" />
-                                </div>
-                                <div className="text-left">
-                                  <h3 className="font-semibold text-gray-900">Service Agreements</h3>
-                                  <p className="text-xs text-gray-500">{contracts.length} contract{contracts.length !== 1 ? 's' : ''}</p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                {customer?.source === 'halopsa' && (
-                                  <Button 
-                                    size="sm"
-                                    variant="ghost"
-                                    className="gap-1.5 text-gray-500 hover:text-gray-700 h-8"
-                                    onClick={async (e) => {
-                                      e.stopPropagation();
-                                      try {
-                                        setIsSyncing(true);
-                                        const response = await base44.functions.invoke('syncHaloPSAContracts', { 
-                                          action: 'sync_customer',
-                                          customer_id: customer.external_id 
-                                        });
-                                        if (response.data.success) {
-                                          toast.success(`Synced ${response.data.recordsSynced} contracts!`);
-                                          queryClient.invalidateQueries({ queryKey: ['contracts', customerId] });
-                                        } else {
-                                          toast.error(response.data.error || 'Sync failed');
-                                        }
-                                      } catch (error) {
-                                        toast.error(error.message || 'An error occurred during sync');
-                                      } finally {
-                                        setIsSyncing(false);
-                                      }
-                                    }}
-                                    disabled={isSyncing}
-                                  >
-                                    <RefreshCw className={cn("w-3.5 h-3.5", isSyncing && "animate-spin")} />
-                                  </Button>
-                                )}
-                                <ChevronDown className={cn(
-                                  "w-5 h-5 text-gray-400 transition-transform",
-                                  expandedContracts._section && "rotate-180"
-                                )} />
-                              </div>
-                            </button>
                             
-                            {expandedContracts._section && (
-                              <div className="border-t border-gray-100">
-                                {contracts.length === 0 ? (
-                                  <div className="py-8 text-center">
-                                    <p className="text-gray-500 text-sm">No contracts on file</p>
+                            {/* Expanded contract details */}
+                            {contracts.some(c => expandedContracts[c.id]) && (
+                              <div className="border-t border-white/10 bg-white/5 px-6 py-4">
+                                {contracts.filter(c => expandedContracts[c.id]).map(contract => (
+                                  <div key={contract.id} className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div>
+                                      <p className="text-xs text-gray-400 uppercase">Start</p>
+                                      <p className="text-sm font-medium text-white">{contract.start_date ? format(parseISO(contract.start_date), 'MMM d, yyyy') : '—'}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-400 uppercase">End</p>
+                                      <p className="text-sm font-medium text-white">{contract.end_date ? format(parseISO(contract.end_date), 'MMM d, yyyy') : 'Ongoing'}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-400 uppercase">Renewal</p>
+                                      <p className="text-sm font-medium text-white">{contract.renewal_date ? format(parseISO(contract.renewal_date), 'MMM d, yyyy') : '—'}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-gray-400 uppercase">Value</p>
+                                      <p className="text-sm font-medium text-white">{contract.value > 0 ? `$${contract.value.toLocaleString('en-US', { minimumFractionDigits: 2 })}/${contract.billing_cycle === 'annually' ? 'yr' : 'mo'}` : '—'}</p>
+                                    </div>
+                                    {contract.description && (
+                                      <div className="col-span-full pt-2 border-t border-white/10 mt-2">
+                                        <p className="text-sm text-gray-300">{contract.description}</p>
+                                      </div>
+                                    )}
                                   </div>
-                                ) : (
-                                  <div className="divide-y divide-gray-100">
-                                    {contracts.map(contract => {
-                                      const isExpanded = expandedContracts[contract.id];
-                                      const isActive = contract.status === 'active';
-                                      return (
-                                        <div key={contract.id}>
-                                          <button
-                                            onClick={() => setExpandedContracts(prev => ({ ...prev, [contract.id]: !prev[contract.id], _section: true }))}
-                                            className="w-full px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
-                                          >
-                                            <div className="flex items-center gap-3">
-                                              <span className={cn(
-                                                "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium",
-                                                isActive ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"
-                                              )}>
-                                                {isActive ? '● Active' : contract.status}
-                                              </span>
-                                              <span className="font-medium text-gray-900">{contract.name}</span>
-                                            </div>
-                                            <div className="flex items-center gap-4 text-sm text-gray-500">
-                                              {contract.start_date && (
-                                                <span className="hidden sm:inline">Since {format(parseISO(contract.start_date), 'MMM yyyy')}</span>
-                                              )}
-                                              {contract.renewal_date && (
-                                                <span className="text-gray-700 font-medium">Renews {format(parseISO(contract.renewal_date), 'MMM d, yyyy')}</span>
-                                              )}
-                                              <ChevronDown className={cn("w-4 h-4 text-gray-400 transition-transform", isExpanded && "rotate-180")} />
-                                            </div>
-                                          </button>
-                                          {isExpanded && (
-                                            <div className="px-5 pb-4 bg-gray-50">
-                                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-3">
-                                                <div>
-                                                  <p className="text-xs text-gray-400 uppercase">Start</p>
-                                                  <p className="text-sm font-medium text-gray-900">{contract.start_date ? format(parseISO(contract.start_date), 'MMM d, yyyy') : '—'}</p>
-                                                </div>
-                                                <div>
-                                                  <p className="text-xs text-gray-400 uppercase">End</p>
-                                                  <p className="text-sm font-medium text-gray-900">{contract.end_date ? format(parseISO(contract.end_date), 'MMM d, yyyy') : 'Ongoing'}</p>
-                                                </div>
-                                                <div>
-                                                  <p className="text-xs text-gray-400 uppercase">Renewal</p>
-                                                  <p className="text-sm font-medium text-gray-900">{contract.renewal_date ? format(parseISO(contract.renewal_date), 'MMM d, yyyy') : '—'}</p>
-                                                </div>
-                                                <div>
-                                                  <p className="text-xs text-gray-400 uppercase">Value</p>
-                                                  <p className="text-sm font-medium text-gray-900">{contract.value > 0 ? `$${contract.value.toLocaleString('en-US', { minimumFractionDigits: 2 })}/${contract.billing_cycle === 'annually' ? 'yr' : 'mo'}` : '—'}</p>
-                                                </div>
-                                              </div>
-                                              {contract.description && <p className="text-sm text-gray-600 pt-2 border-t border-gray-200">{contract.description}</p>}
-                                            </div>
-                                          )}
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
+                                ))}
                               </div>
                             )}
                           </div>
