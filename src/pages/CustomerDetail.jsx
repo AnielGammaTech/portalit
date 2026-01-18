@@ -857,15 +857,15 @@ export default function CustomerDetail() {
                                       ${invoices.reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                     </p>
                                   </div>
-                                  <div className="bg-gray-50 rounded-xl p-4 border-l-4 border-gray-400">
-                                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Paid</p>
-                                    <p className="text-xl font-bold text-gray-900 mt-1">
+                                  <div className="bg-emerald-50 rounded-xl p-4 border-l-4 border-emerald-500">
+                                    <p className="text-xs text-emerald-600 font-medium uppercase tracking-wide">Paid</p>
+                                    <p className="text-xl font-bold text-emerald-700 mt-1">
                                       ${invoices.filter(i => i.status === 'paid').reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                     </p>
                                   </div>
-                                  <div className="bg-gray-50 rounded-xl p-4 border-l-4 border-gray-300">
-                                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Pending</p>
-                                    <p className="text-xl font-bold text-gray-900 mt-1">
+                                  <div className="bg-amber-50 rounded-xl p-4 border-l-4 border-amber-400">
+                                    <p className="text-xs text-amber-600 font-medium uppercase tracking-wide">Pending</p>
+                                    <p className="text-xl font-bold text-amber-700 mt-1">
                                       ${invoices.filter(i => i.status === 'sent').reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                     </p>
                                   </div>
@@ -911,16 +911,16 @@ export default function CustomerDetail() {
                                           <div className="flex items-center gap-5">
                                             <div className={cn(
                                               "w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0",
-                                              isPaid && "bg-gray-100",
+                                              isPaid && "bg-emerald-100",
                                               isOverdue && "bg-red-100",
-                                              !isPaid && !isOverdue && "bg-gray-100"
+                                              !isPaid && !isOverdue && "bg-amber-50"
                                             )}>
                                               {isPaid ? (
-                                                <CheckCircle2 className="w-5 h-5 text-gray-600" />
+                                                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                                               ) : (
                                                 <FileText className={cn(
                                                   "w-5 h-5",
-                                                  isOverdue ? "text-red-600" : "text-gray-500"
+                                                  isOverdue ? "text-red-600" : "text-amber-600"
                                                 )} />
                                               )}
                                             </div>
@@ -929,11 +929,11 @@ export default function CustomerDetail() {
                                                 <p className="font-semibold text-gray-900">{invoice.invoice_number}</p>
                                                 <span className={cn(
                                                   "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
-                                                  isPaid && "bg-gray-200 text-gray-700",
+                                                  isPaid && "bg-emerald-100 text-emerald-700",
                                                   isOverdue && "bg-red-100 text-red-700",
-                                                  invoice.status === 'sent' && "bg-gray-100 text-gray-600"
+                                                  invoice.status === 'sent' && "bg-amber-100 text-amber-700"
                                                 )}>
-                                                  {isPaid ? 'Paid' : isOverdue ? 'Overdue' : 'Pending'}
+                                                  {isPaid ? '✓ Paid' : isOverdue ? 'Overdue' : 'Pending'}
                                                 </span>
                                               </div>
                                               <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
@@ -946,7 +946,7 @@ export default function CustomerDetail() {
                                           <div className="flex items-center gap-5">
                                             <p className={cn(
                                               "text-xl font-bold",
-                                              isPaid ? "text-gray-600" : "text-gray-900"
+                                              isPaid ? "text-emerald-600" : "text-gray-900"
                                             )}>
                                               ${(invoice.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                             </p>

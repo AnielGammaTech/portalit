@@ -167,49 +167,45 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'Customer not found in database' }, { status: 404 });
       }
 
-      // Get existing invoices to find latest sync date
-      const existingInvoices = await base44.asServiceRole.entities.Invoice.filter({ 
-        customer_id: dbCustomer.id 
-      });
+      // Fetch ALL invoices from HaloPSA - no date filter, get everything with pagination
+      console.log(`Full sync for customer ${customer_id}`);
       
-      // Find the most recent invoice update date for incremental sync
-      let lastSyncDate = null;
-      if (existingInvoices.length > 0) {
-        const dates = existingInvoices
-          .map(inv => inv.updated_date)
-          .filter(d => d)
-          .sort((a, b) => new Date(b) - new Date(a));
-        if (dates.length > 0) {
-          // Go back 1 day to catch any updates we might have missed
-          const lastDate = new Date(dates[0]);
-          lastDate.setDate(lastDate.getDate() - 1);
-          lastSyncDate = lastDate.toISOString().split('T')[0];
+      let allInvoices = [];
+      let page = 1;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const url = buildUrl(apiUrl, `Invoice?client_id=${customer_id}&page_size=100&page_no=${page}`);
+        console.log(`Fetching page ${page}: ${url}`);
+        const data = await fetchHalo(url, accessToken, haloClientId);
+        
+        // Extract invoices array
+        let pageInvoices = [];
+        if (Array.isArray(data)) {
+          pageInvoices = data;
+        } else if (data.invoices) {
+          pageInvoices = data.invoices;
+        } else if (data.records) {
+          pageInvoices = data.records;
+        }
+        
+        console.log(`Page ${page}: Found ${pageInvoices.length} invoices`);
+        
+        if (pageInvoices.length === 0) {
+          hasMore = false;
+        } else {
+          allInvoices = allInvoices.concat(pageInvoices);
+          page++;
+          // Safety limit to prevent infinite loops
+          if (page > 50) {
+            console.log('Reached page limit of 50');
+            hasMore = false;
+          }
         }
       }
-
-      // Fetch invoices from HaloPSA - use date filter for incremental sync
-      let url = buildUrl(apiUrl, `Invoice?client_id=${customer_id}&page_size=100`);
-      if (lastSyncDate) {
-        url += `&datemodified_gte=${lastSyncDate}`;
-        console.log(`Incremental sync from ${lastSyncDate}`);
-      } else {
-        console.log(`Full initial sync for customer ${customer_id}`);
-      }
       
-      const data = await fetchHalo(url, accessToken, haloClientId);
-      console.log(`Invoice response sample: ${JSON.stringify(data).substring(0, 2500)}`);
-      
-      // Extract invoices array
-      let invoices = [];
-      if (Array.isArray(data)) {
-        invoices = data;
-      } else if (data.invoices) {
-        invoices = data.invoices;
-      } else if (data.records) {
-        invoices = data.records;
-      }
-
-      console.log(`Found ${invoices.length} invoices for client ${customer_id}`);
+      const invoices = allInvoices;
+      console.log(`Total invoices found for client ${customer_id}: ${invoices.length}`);
 
       let recordsSynced = 0;
       let recordsFailed = 0;
