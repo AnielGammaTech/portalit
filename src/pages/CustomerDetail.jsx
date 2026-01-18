@@ -32,10 +32,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from 'date-fns';
+import LicenseAssignmentModal from '../components/saas/LicenseAssignmentModal';
+import AddLicenseModal from '../components/saas/AddLicenseModal';
 
 export default function CustomerDetail() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [user, setUser] = useState(null);
+  const [selectedLicense, setSelectedLicense] = useState(null);
+  const [showAddLicense, setShowAddLicense] = useState(false);
   const queryClient = useQueryClient();
   const params = new URLSearchParams(window.location.search);
   let customerId = params.get('id');
@@ -169,6 +173,12 @@ export default function CustomerDetail() {
     enabled: !!customerId && contracts.length > 0
   });
 
+  const { data: licenseAssignments = [], isLoading: loadingAssignments } = useQuery({
+    queryKey: ['license_assignments', customerId],
+    queryFn: () => base44.entities.LicenseAssignment.filter({ customer_id: customerId }),
+    enabled: !!customerId
+  });
+
   const [expandedBills, setExpandedBills] = useState({});
               const [expandedQuotes, setExpandedQuotes] = useState({});
               const [expandedContracts, setExpandedContracts] = useState({});
@@ -178,7 +188,46 @@ export default function CustomerDetail() {
                   const [ticketFilter, setTicketFilter] = useState('all');
                   const [ticketPage, setTicketPage] = useState(1);
 
-  const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems || loadingContractItems || loadingContacts || loadingTickets || loadingInvoiceLineItems;
+  const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems || loadingContractItems || loadingContacts || loadingTickets || loadingInvoiceLineItems || loadingAssignments;
+
+  const handleAssignLicense = async (contactId) => {
+    await base44.entities.LicenseAssignment.create({
+      license_id: selectedLicense.id,
+      contact_id: contactId,
+      customer_id: customerId,
+      assigned_date: new Date().toISOString().split('T')[0],
+      status: 'active'
+    });
+    // Update license assigned_users count
+    const newCount = licenseAssignments.filter(a => a.license_id === selectedLicense.id && a.status === 'active').length + 1;
+    await base44.entities.SaaSLicense.update(selectedLicense.id, { assigned_users: newCount });
+    queryClient.invalidateQueries({ queryKey: ['license_assignments', customerId] });
+    queryClient.invalidateQueries({ queryKey: ['licenses', customerId] });
+    toast.success('License assigned!');
+  };
+
+  const handleRevokeLicense = async (contactId) => {
+    const assignment = licenseAssignments.find(a => 
+      a.license_id === selectedLicense.id && 
+      a.contact_id === contactId && 
+      a.status === 'active'
+    );
+    if (assignment) {
+      await base44.entities.LicenseAssignment.update(assignment.id, { status: 'revoked' });
+      const newCount = Math.max(0, licenseAssignments.filter(a => a.license_id === selectedLicense.id && a.status === 'active').length - 1);
+      await base44.entities.SaaSLicense.update(selectedLicense.id, { assigned_users: newCount });
+      queryClient.invalidateQueries({ queryKey: ['license_assignments', customerId] });
+      queryClient.invalidateQueries({ queryKey: ['licenses', customerId] });
+      toast.success('License revoked!');
+    }
+  };
+
+  const handleAddLicense = async (licenseData) => {
+    await base44.entities.SaaSLicense.create(licenseData);
+    queryClient.invalidateQueries({ queryKey: ['licenses', customerId] });
+    setShowAddLicense(false);
+    toast.success('License added!');
+  };
 
   const handleSyncCustomer = async () => {
     if (!customer) return;
@@ -342,7 +391,7 @@ export default function CustomerDetail() {
             className="flex-1 min-w-[140px] gap-3 py-4 px-6 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800"
           >
             <Cloud className="w-5 h-5" />
-            <span className="text-sm">Software</span>
+            <span className="text-sm">SaaS</span>
           </TabsTrigger>
           <TabsTrigger 
             value="quotes" 
@@ -951,44 +1000,159 @@ export default function CustomerDetail() {
                       </TabsContent>
 
         <TabsContent value="licenses">
-          <div className="bg-white rounded-2xl border border-slate-200/50 overflow-hidden">
-            {licenses.length === 0 ? (
-              <div className="p-12 text-center">
-                <Cloud className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                <p className="text-slate-500">No SaaS licenses found</p>
+          <div className="space-y-6">
+            {/* SaaS Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white rounded-2xl border border-gray-200 p-6">
+                <p className="text-sm text-gray-500 mb-1">Total SaaS Spend</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  ${licenses.reduce((sum, l) => sum + (l.total_cost || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  <span className="text-base font-normal text-gray-500">/mo</span>
+                </p>
               </div>
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {licenses.map((license) => (
-                  <div key={license.id} className="p-6 hover:bg-slate-50 transition-colors">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="font-medium text-slate-900">{license.application_name}</h3>
-                        <div className="flex items-center gap-4 mt-2">
-                          <span className="text-sm text-slate-500">{license.vendor}</span>
-                          <span className="text-sm text-slate-500">{license.license_type}</span>
-                          <Badge variant="outline" className={cn(
-                            "capitalize",
-                            license.status === 'active' && "border-emerald-200 bg-emerald-50 text-emerald-700"
-                          )}>
-                            {license.status}
-                          </Badge>
+              <div className="bg-white rounded-2xl border border-gray-200 p-6">
+                <p className="text-sm text-gray-500 mb-1">Total Licenses</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {licenses.reduce((sum, l) => sum + (l.quantity || 0), 0)}
+                </p>
+                <p className="text-sm text-gray-400">{licenses.length} applications</p>
+              </div>
+              <div className="bg-white rounded-2xl border border-gray-200 p-6">
+                <p className="text-sm text-gray-500 mb-1">Assigned</p>
+                <p className="text-3xl font-bold text-emerald-600">
+                  {licenses.reduce((sum, l) => sum + (l.assigned_users || 0), 0)}
+                  <span className="text-base font-normal text-gray-500">
+                    /{licenses.reduce((sum, l) => sum + (l.quantity || 0), 0)}
+                  </span>
+                </p>
+                <p className="text-sm text-gray-400">seats in use</p>
+              </div>
+            </div>
+
+            {/* License List */}
+            <div className="bg-white rounded-2xl border border-slate-200/50 overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h3 className="font-semibold text-slate-900">SaaS Licenses</h3>
+                <Button 
+                  size="sm" 
+                  className="gap-2 bg-purple-600 hover:bg-purple-700"
+                  onClick={() => setShowAddLicense(true)}
+                >
+                  <Plus className="w-4 h-4" />
+                  Add License
+                </Button>
+              </div>
+              {licenses.length === 0 ? (
+                <div className="p-12 text-center">
+                  <Cloud className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                  <p className="text-slate-500 mb-4">No SaaS licenses yet</p>
+                  <Button onClick={() => setShowAddLicense(true)} className="bg-purple-600 hover:bg-purple-700">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Your First License
+                  </Button>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {licenses.map((license) => {
+                    const assignedCount = licenseAssignments.filter(a => a.license_id === license.id && a.status === 'active').length;
+                    const utilizationPercent = license.quantity > 0 ? (assignedCount / license.quantity) * 100 : 0;
+                    return (
+                      <div key={license.id} className="p-5 hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+                              <Cloud className="w-6 h-6 text-purple-600" />
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-slate-900">{license.application_name}</h3>
+                              <div className="flex items-center gap-3 mt-1">
+                                {license.vendor && <span className="text-sm text-slate-500">{license.vendor}</span>}
+                                {license.license_type && <span className="text-sm text-slate-400">• {license.license_type}</span>}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-6">
+                            <div className="text-right">
+                              <p className="text-sm text-slate-500">Usage</p>
+                              <p className="font-semibold text-slate-900">
+                                {assignedCount} / {license.quantity || 0}
+                              </p>
+                            </div>
+                            <div className="w-24">
+                              <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                                <div 
+                                  className={cn(
+                                    "h-full rounded-full transition-all",
+                                    utilizationPercent >= 90 ? "bg-red-500" :
+                                    utilizationPercent >= 70 ? "bg-amber-500" : "bg-emerald-500"
+                                  )}
+                                  style={{ width: `${Math.min(100, utilizationPercent)}%` }}
+                                />
+                              </div>
+                            </div>
+                            <div className="text-right min-w-[80px]">
+                              <p className="text-sm text-slate-500">Cost</p>
+                              <p className="font-semibold text-slate-900">${(license.total_cost || 0).toLocaleString()}</p>
+                            </div>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => setSelectedLicense(license)}
+                            >
+                              Manage
+                            </Button>
+                          </div>
                         </div>
+                        
+                        {/* Assigned Users Preview */}
+                        {assignedCount > 0 && (
+                          <div className="mt-4 pt-4 border-t border-slate-100">
+                            <p className="text-xs text-slate-500 mb-2">Assigned to:</p>
+                            <div className="flex flex-wrap gap-2">
+                              {licenseAssignments
+                                .filter(a => a.license_id === license.id && a.status === 'active')
+                                .slice(0, 5)
+                                .map(assignment => {
+                                  const contact = contacts.find(c => c.id === assignment.contact_id);
+                                  return contact ? (
+                                    <div key={assignment.id} className="flex items-center gap-2 px-2 py-1 bg-slate-100 rounded-lg">
+                                      <div className="w-6 h-6 rounded-full bg-purple-200 flex items-center justify-center text-xs font-medium text-purple-700">
+                                        {contact.full_name?.charAt(0)}
+                                      </div>
+                                      <span className="text-sm text-slate-700">{contact.full_name}</span>
+                                    </div>
+                                  ) : null;
+                                })}
+                              {assignedCount > 5 && (
+                                <span className="text-sm text-slate-500 px-2 py-1">+{assignedCount - 5} more</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div className="text-right">
-                        <p className="text-lg font-semibold text-slate-900">
-                          {license.assigned_users || 0} / {license.quantity || 0}
-                        </p>
-                        <p className="text-sm text-slate-500">
-                          ${(license.total_cost || 0).toLocaleString()}/mo
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Modals */}
+          <LicenseAssignmentModal
+            open={!!selectedLicense}
+            onClose={() => setSelectedLicense(null)}
+            license={selectedLicense}
+            contacts={contacts}
+            assignments={licenseAssignments}
+            onAssign={handleAssignLicense}
+            onRevoke={handleRevokeLicense}
+          />
+          <AddLicenseModal
+            open={showAddLicense}
+            onClose={() => setShowAddLicense(false)}
+            onSave={handleAddLicense}
+            customerId={customerId}
+          />
         </TabsContent>
 
         <TabsContent value="quotes">
