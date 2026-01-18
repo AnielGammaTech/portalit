@@ -1218,7 +1218,11 @@ export default function CustomerDetail() {
                         const wastedCost = license.quantity > 0 ? (unusedSeats / license.quantity) * (license.total_cost || 0) : 0;
                         
                         return (
-                          <div key={license.id} className="p-5 hover:bg-slate-50 transition-colors">
+                          <Link 
+                          key={license.id} 
+                          to={createPageUrl(`LicenseDetail?id=${license.id}`)}
+                          className="block p-5 hover:bg-slate-50 transition-colors cursor-pointer"
+                        >
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-4">
                                 <div className={cn(
@@ -1278,9 +1282,9 @@ export default function CustomerDetail() {
                                 <Button 
                                   size="sm" 
                                   variant="outline"
-                                  onClick={() => setSelectedLicense(license)}
+                                  onClick={(e) => { e.preventDefault(); setSelectedLicense(license); }}
                                 >
-                                  Manage
+                                  Assign
                                 </Button>
                               </div>
                             </div>
@@ -1296,16 +1300,16 @@ export default function CustomerDetail() {
                                     .map(assignment => {
                                       const contact = contacts.find(c => c.id === assignment.contact_id);
                                       return contact ? (
-                                        <button
+                                        <div
                                           key={assignment.id}
-                                          onClick={() => { setSaasUserFilter(contact.id); setSaasView('users'); }}
-                                          className="flex items-center gap-2 px-2 py-1 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+                                          onClick={(e) => { e.preventDefault(); setSaasUserFilter(contact.id); setSaasView('users'); }}
+                                          className="flex items-center gap-2 px-2 py-1 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
                                         >
                                           <div className="w-6 h-6 rounded-full bg-purple-200 flex items-center justify-center text-xs font-medium text-purple-700">
                                             {contact.full_name?.charAt(0)}
                                           </div>
                                           <span className="text-sm text-slate-700">{contact.full_name}</span>
-                                        </button>
+                                        </div>
                                       ) : null;
                                     })}
                                   {assignedCount > 5 && (
@@ -1314,7 +1318,7 @@ export default function CustomerDetail() {
                                 </div>
                               </div>
                             )}
-                          </div>
+                        </Link>
                         );
                       })}
                     </div>
