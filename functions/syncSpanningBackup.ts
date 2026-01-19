@@ -106,12 +106,28 @@ Deno.serve(async (req) => {
       }
 
       const mapping = mappings[0];
-      const users = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?page_size=1000`);
+      const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?page_size=1000`);
+      
+      // Parse nested response: [{ users: [...] }] or { users: [{ users: [...] }] }
+      let users = [];
+      if (Array.isArray(usersResponse)) {
+        if (usersResponse[0]?.users) {
+          users = usersResponse[0].users;
+        } else {
+          users = usersResponse;
+        }
+      } else if (usersResponse?.users) {
+        if (Array.isArray(usersResponse.users) && usersResponse.users[0]?.users) {
+          users = usersResponse.users[0].users;
+        } else {
+          users = usersResponse.users;
+        }
+      }
       
       return Response.json({ 
         success: true, 
-        users: users || [],
-        total: users?.length || 0
+        users: users,
+        total: users.length
       });
     }
 
