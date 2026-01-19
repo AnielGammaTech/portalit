@@ -58,7 +58,7 @@ async function dattoApiCall(accessToken, endpoint) {
 // Helper to check if device data has changed
 function hasDeviceChanged(existing, newData) {
   if (!existing) return true;
-  const fieldsToCheck = ['hostname', 'os', 'ip_address', 'status', 'last_seen', 'last_user', 'serial_number', 'manufacturer', 'model'];
+  const fieldsToCheck = ['hostname', 'os', 'ip_address', 'status', 'last_seen'];
   return fieldsToCheck.some(field => existing[field] !== newData[field]);
 }
 
