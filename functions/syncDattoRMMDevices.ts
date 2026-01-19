@@ -279,9 +279,13 @@ Deno.serve(async (req) => {
           const existingByDattoId = {};
           existingDevices.forEach(d => { existingByDattoId[d.datto_id] = d; });
 
+          const dattoDeviceIds = new Set();
+          
           for (const device of devices) {
             const deviceUid = device.uid || device.id;
-            const existing = existingByDattoId[String(deviceUid)];
+            const dattoId = String(deviceUid);
+            dattoDeviceIds.add(dattoId);
+            const existing = existingByDattoId[dattoId];
 
             // Convert lastSeen timestamp to ISO string if it's a number
             let lastSeenStr = null;
@@ -290,10 +294,10 @@ Deno.serve(async (req) => {
               lastSeenStr = typeof lastSeen === 'number' ? new Date(lastSeen).toISOString() : lastSeen;
             }
 
-            // Build basic device data from list endpoint
-            const basicDeviceData = {
+            // Build device data from list endpoint
+            const deviceData = {
               customer_id: mapping.customer_id,
-              datto_id: String(deviceUid),
+              datto_id: dattoId,
               datto_site_id: siteUid,
               hostname: device.hostname || device.name || 'Unknown',
               description: device.description || '',
@@ -301,46 +305,12 @@ Deno.serve(async (req) => {
               os: device.operatingSystem || '',
               ip_address: device.intIpAddress || device.extIpAddress || '',
               last_seen: lastSeenStr,
+              last_user: device.lastLoggedInUser || '',
               status: device.online ? 'online' : 'offline'
             };
 
-            // Only fetch full details if new device OR basic data changed OR missing serial number
-            const needsFullFetch = !existing || 
-              hasDeviceChanged(existing, basicDeviceData) || 
-              !existing.serial_number;
-
-            let deviceData = basicDeviceData;
-
-            if (needsFullFetch) {
-              try {
-                const fullDevice = await dattoApiCall(accessToken, `/device/${deviceUid}`);
-                const fullLastSeen = fullDevice.lastSeen || device.lastSeen;
-                const fullLastSeenStr = fullLastSeen ? 
-                  (typeof fullLastSeen === 'number' ? new Date(fullLastSeen).toISOString() : fullLastSeen) : null;
-                
-                deviceData = {
-                  customer_id: mapping.customer_id,
-                  datto_id: String(deviceUid),
-                  datto_site_id: siteUid,
-                  hostname: fullDevice.hostname || device.hostname || 'Unknown',
-                  description: fullDevice.description || device.description || '',
-                  device_type: mapDeviceType(fullDevice.deviceType?.category || device.deviceType?.category),
-                  os: fullDevice.operatingSystem || device.operatingSystem || '',
-                  manufacturer: fullDevice.manufacturer || '',
-                  model: fullDevice.model || '',
-                  serial_number: fullDevice.serialNumber || fullDevice.bios?.serialNumber || '',
-                  ip_address: fullDevice.intIpAddress || device.intIpAddress || fullDevice.extIpAddress || '',
-                  mac_address: fullDevice.macAddresses?.[0] || '',
-                  last_seen: fullLastSeenStr,
-                  last_user: fullDevice.lastLoggedInUser || fullDevice.lastUser || '',
-                  status: fullDevice.online ? 'online' : 'offline',
-                  agent_version: fullDevice.agentVersion || ''
-                };
-              } catch (e) {
-                console.log(`Could not fetch details for device ${deviceUid}: ${e.message}`);
-              }
-            } else {
-              // No changes, skip update
+            // Skip if no changes
+            if (existing && !hasDeviceChanged(existing, deviceData)) {
               continue;
             }
 
@@ -350,6 +320,14 @@ Deno.serve(async (req) => {
               await base44.asServiceRole.entities.Device.create(deviceData);
             }
             totalSynced++;
+          }
+
+          // Delete devices no longer in Datto
+          for (const existing of existingDevices) {
+            if (!dattoDeviceIds.has(existing.datto_id)) {
+              await base44.asServiceRole.entities.Device.delete(existing.id);
+              totalSynced++;
+            }
           }
         } catch (err) {
           console.error(`Error syncing site ${mapping.datto_site_id}:`, err.message);
