@@ -57,10 +57,11 @@ export default function Layout({ children, currentPageName }) {
   }, []);
 
   // Admin navigation (MSP view)
-  const adminNavigation = [
-    { name: 'Dashboard', page: 'Dashboard', icon: LayoutDashboard },
-    { name: 'Customers', page: 'Customers', icon: Building2 },
-  ];
+      const adminNavigation = [
+        { name: 'Dashboard', page: 'Dashboard', icon: LayoutDashboard },
+        { name: 'Customers', page: 'Customers', icon: Building2 },
+        { name: 'SaaS Reports', page: 'SaaSReports', icon: Cloud },
+      ];
 
   // Customer navigation (end-user view)
   const customerNavigation = [
