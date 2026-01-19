@@ -175,6 +175,80 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Action: Sync JumpCloud users with customer contacts
+    if (action === 'sync_users') {
+      if (!customer_id) {
+        return Response.json({ error: 'customer_id is required' }, { status: 400 });
+      }
+
+      // Get the JumpCloud mapping for this customer
+      const mappings = await base44.asServiceRole.entities.JumpCloudMapping.filter({ customer_id });
+      if (mappings.length === 0) {
+        return Response.json({ error: 'No JumpCloud organization mapped to this customer' }, { status: 400 });
+      }
+
+      const mapping = mappings[0];
+      const orgId = mapping.jumpcloud_org_id !== 'default' ? mapping.jumpcloud_org_id : null;
+
+      // Get JumpCloud users
+      const usersResponse = await jumpcloudApiCall('/systemusers', orgId);
+      const jcUsers = usersResponse.results || [];
+
+      // Get existing contacts for this customer
+      const existingContacts = await base44.asServiceRole.entities.Contact.filter({ customer_id });
+      const existingByEmail = {};
+      existingContacts.forEach(c => { 
+        if (c.email) existingByEmail[c.email.toLowerCase()] = c; 
+      });
+
+      let created = 0;
+      let matched = 0;
+      let updated = 0;
+
+      for (const jcUser of jcUsers) {
+        const email = jcUser.email?.toLowerCase();
+        if (!email) continue;
+
+        const fullName = [jcUser.firstname, jcUser.lastname].filter(Boolean).join(' ') || jcUser.username || email;
+        
+        const existing = existingByEmail[email];
+        if (existing) {
+          // Update if name changed
+          if (existing.full_name !== fullName) {
+            await base44.asServiceRole.entities.Contact.update(existing.id, {
+              full_name: fullName,
+              title: jcUser.jobTitle || existing.title
+            });
+            updated++;
+          }
+          matched++;
+        } else {
+          // Create new contact
+          await base44.asServiceRole.entities.Contact.create({
+            customer_id,
+            full_name: fullName,
+            email: jcUser.email,
+            title: jcUser.jobTitle || '',
+            source: 'jumpcloud'
+          });
+          created++;
+        }
+      }
+
+      // Update last_synced timestamp
+      await base44.asServiceRole.entities.JumpCloudMapping.update(mapping.id, {
+        last_synced: new Date().toISOString()
+      });
+
+      return Response.json({
+        success: true,
+        totalJumpCloudUsers: jcUsers.length,
+        created,
+        matched,
+        updated
+      });
+    }
+
     // Action: Sync licenses for a specific customer
     if (action === 'sync_licenses') {
       if (!customer_id) {

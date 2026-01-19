@@ -35,6 +35,7 @@ export default function JumpCloudConfig() {
   const [showMappingView, setShowMappingView] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncingCustomerId, setSyncingCustomerId] = useState(null);
+  const [syncingUsersCustomerId, setSyncingUsersCustomerId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTab, setFilterTab] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -156,6 +157,27 @@ export default function JumpCloudConfig() {
     }
   };
 
+  const syncCustomerUsers = async (customerId) => {
+    setSyncingUsersCustomerId(customerId);
+    try {
+      const response = await base44.functions.invoke('syncJumpCloudLicenses', { 
+        action: 'sync_users', 
+        customer_id: customerId 
+      });
+      if (response.data.success) {
+        toast.success(`Synced ${response.data.totalJumpCloudUsers} users: ${response.data.created} new, ${response.data.matched} matched!`);
+        queryClient.invalidateQueries({ queryKey: ['contacts'] });
+        refetchMappings();
+      } else {
+        toast.error(response.data.error || 'User sync failed');
+      }
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setSyncingUsersCustomerId(null);
+    }
+  };
+
   const getCustomerName = (customerId) => {
     const customer = customers.find(c => c.id === customerId);
     return customer?.name || 'Unknown';
@@ -274,12 +296,22 @@ export default function JumpCloudConfig() {
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => syncCustomerUsers(mapping.customer_id)}
+                      disabled={syncingUsersCustomerId === mapping.customer_id}
+                      className="text-xs h-7"
+                    >
+                      <RefreshCw className={cn("w-3 h-3 mr-1", syncingUsersCustomerId === mapping.customer_id && "animate-spin")} />
+                      Sync Users
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => syncCustomerLicenses(mapping.customer_id)}
                       disabled={syncingCustomerId === mapping.customer_id}
                       className="text-xs h-7"
                     >
-                      <RefreshCw className={cn("w-3 h-3 mr-1", syncingCustomerId === mapping.customer_id && "animate-spin")} />
-                      Sync
+                      <Cloud className={cn("w-3 h-3 mr-1", syncingCustomerId === mapping.customer_id && "animate-spin")} />
+                      Sync Licenses
                     </Button>
                     <Button
                       variant="ghost"
