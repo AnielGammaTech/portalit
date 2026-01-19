@@ -10,7 +10,9 @@ import {
   Key,
   Save,
   Mail,
-  Link2
+  Link2,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,8 +22,41 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import DattoRMMConfig from '../components/integrations/DattoRMMConfig';
 import JumpCloudConfig from '../components/integrations/JumpCloudConfig';
+
+function IntegrationSection({ title, description, children }) {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  return (
+    <Card>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full text-left"
+      >
+        <CardHeader className="flex flex-row items-center justify-between py-4">
+          <div>
+            <CardTitle className="text-base">{title}</CardTitle>
+            <CardDescription className="text-sm mt-1">
+              {description}
+            </CardDescription>
+          </div>
+          {isOpen ? (
+            <ChevronDown className="w-5 h-5 text-slate-400" />
+          ) : (
+            <ChevronRight className="w-5 h-5 text-slate-400" />
+          )}
+        </CardHeader>
+      </button>
+      {isOpen && (
+        <CardContent className="pt-0 border-t border-slate-100">
+          {children}
+        </CardContent>
+      )}
+    </Card>
+  );
+}
 
 export default function Settings() {
   const [user, setUser] = useState(null);
@@ -171,30 +206,20 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="integrations">
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Datto RMM</CardTitle>
-                <CardDescription>
-                  Connect your Datto RMM account to sync devices
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <DattoRMMConfig />
-              </CardContent>
-            </Card>
+          <div className="space-y-4">
+            <IntegrationSection
+              title="Datto RMM"
+              description="Connect your Datto RMM account to sync devices"
+            >
+              <DattoRMMConfig />
+            </IntegrationSection>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>JumpCloud</CardTitle>
-                <CardDescription>
-                  Connect JumpCloud to automatically sync SSO applications as SaaS licenses for your customers
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <JumpCloudConfig />
-              </CardContent>
-            </Card>
+            <IntegrationSection
+              title="JumpCloud"
+              description="Connect JumpCloud to automatically sync SSO applications as SaaS licenses for your customers"
+            >
+              <JumpCloudConfig />
+            </IntegrationSection>
           </div>
         </TabsContent>
 
