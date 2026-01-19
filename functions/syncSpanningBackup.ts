@@ -176,12 +176,12 @@ Deno.serve(async (req) => {
         const email = spUser.email?.toLowerCase() || spUser.userPrincipalName?.toLowerCase();
         if (!email) continue;
 
-        const fullName = spUser.displayName || spUser.name || email.split('@')[0];
         const isActive = spUser.lastBackupStatusTotal === 'success' || spUser.assigned === true || spUser.isLicensed === true;
         
         // Calculate storage info
-        const mailStorageBytes = spUser.mailStorageBytes || spUser.exchangeStorageBytes || 0;
-        const driveStorageBytes = spUser.driveStorageBytes || spUser.oneDriveStorageBytes || 0;
+        const storageInfoObj = spUser.storageInformation || {};
+        const mailStorageBytes = storageInfoObj.protectedMailBytes || spUser.mailStorageBytes || spUser.exchangeStorageBytes || 0;
+        const driveStorageBytes = storageInfoObj.protectedBytes || spUser.driveStorageBytes || spUser.oneDriveStorageBytes || 0;
         const totalStorageBytes = mailStorageBytes + driveStorageBytes;
         
         const formatStorage = (bytes) => {
@@ -191,38 +191,24 @@ Deno.serve(async (req) => {
           return `${(bytes / 1024).toFixed(2)} KB`;
         };
         
-        const storageInfo = formatStorage(totalStorageBytes);
+        const storageStr = formatStorage(totalStorageBytes);
         const backupStatus = spUser.lastBackupStatusTotal || (isActive ? 'success' : 'inactive');
         const titleParts = [];
-        if (storageInfo) titleParts.push(storageInfo);
+        if (storageStr) titleParts.push(storageStr);
         titleParts.push(backupStatus);
+        if (isActive) titleParts.push('PROTECTED');
         const contactTitle = titleParts.join(' | ');
         
         const existing = existingByEmail[email];
         if (existing) {
-          // Update with spanning info
-          const updateData = {
+          // Update existing contact with spanning info - NEVER change source
+          await base44.asServiceRole.entities.Contact.update(existing.id, {
             spanning_status: contactTitle
-          };
-          if (!existing.full_name || existing.source === 'spanning') {
-            updateData.full_name = fullName;
-          }
-          if (!existing.source || existing.source === 'manual' || existing.source === 'spanning') {
-            updateData.source = 'spanning';
-          }
-          await base44.asServiceRole.entities.Contact.update(existing.id, updateData);
+          });
           updated++;
           matched++;
-        } else {
-          await base44.asServiceRole.entities.Contact.create({
-            customer_id,
-            full_name: fullName,
-            email: email,
-            spanning_status: contactTitle,
-            source: 'spanning'
-          });
-          created++;
         }
+        // NEVER create new contacts - Spanning only attaches to existing contacts
       }
 
       // Update last_synced timestamp
