@@ -277,7 +277,7 @@ export default function CustomerServicesTab({
                 <CardHeader className="flex flex-row items-center justify-between">
                   <div>
                     <CardTitle>JumpCloud Users</CardTitle>
-                    <CardDescription>Users synced from JumpCloud directory</CardDescription>
+                    <CardDescription>Users synced from JumpCloud directory ({jumpcloudContacts.length} total)</CardDescription>
                   </div>
                   <Button 
                     variant="outline" 
@@ -295,7 +295,7 @@ export default function CustomerServicesTab({
                     <p className="text-center text-slate-500 py-8">No JumpCloud users found. Click Sync to pull data.</p>
                   ) : (
                     <div className="space-y-2">
-                      {jumpcloudContacts.slice(0, 10).map(contact => (
+                      {jumpcloudContacts.slice(jcUsersPage * 10, (jcUsersPage + 1) * 10).map(contact => (
                         <div key={contact.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
                           <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-medium text-sm">
                             {contact.full_name?.charAt(0) || '?'}
@@ -307,9 +307,29 @@ export default function CustomerServicesTab({
                         </div>
                       ))}
                       {jumpcloudContacts.length > 10 && (
-                        <p className="text-center text-sm text-slate-500 py-2">
-                          +{jumpcloudContacts.length - 10} more users
-                        </p>
+                        <div className="flex items-center justify-between pt-3 border-t mt-3">
+                          <p className="text-sm text-slate-500">
+                            Showing {jcUsersPage * 10 + 1}-{Math.min((jcUsersPage + 1) * 10, jumpcloudContacts.length)} of {jumpcloudContacts.length}
+                          </p>
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => setJcUsersPage(p => p - 1)}
+                              disabled={jcUsersPage === 0}
+                            >
+                              Previous
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => setJcUsersPage(p => p + 1)}
+                              disabled={(jcUsersPage + 1) * 10 >= jumpcloudContacts.length}
+                            >
+                              Next
+                            </Button>
+                          </div>
+                        </div>
                       )}
                     </div>
                   )}
