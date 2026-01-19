@@ -300,7 +300,11 @@ export default function CustomerServicesTab({
                   ) : (
                     <div className="space-y-2">
                       {jumpcloudContacts.slice(jcUsersPage * 10, (jcUsersPage + 1) * 10).map(contact => (
-                        <div key={contact.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                        <div 
+                          key={contact.id} 
+                          className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 cursor-pointer transition-colors"
+                          onClick={() => setSelectedContact(contact)}
+                        >
                           <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-medium text-sm">
                             {contact.full_name?.charAt(0) || '?'}
                           </div>
@@ -308,6 +312,7 @@ export default function CustomerServicesTab({
                             <p className="font-medium text-slate-900 truncate">{contact.full_name}</p>
                             <p className="text-sm text-slate-500 truncate">{contact.email}</p>
                           </div>
+                          <ChevronRight className="w-4 h-4 text-slate-400" />
                         </div>
                       ))}
                       {jumpcloudContacts.length > 10 && (
