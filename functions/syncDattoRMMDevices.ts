@@ -40,7 +40,7 @@ async function getDattoAccessToken() {
 
 async function dattoApiCall(accessToken, endpoint) {
   const baseUrl = DATTO_API_URL.replace(/\/$/, '');
-  const response = await fetch(`${baseUrl}/public-api/v1${endpoint}`, {
+  const response = await fetch(`${baseUrl}/api/v2${endpoint}`, {
     headers: {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json'
