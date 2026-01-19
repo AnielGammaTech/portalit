@@ -507,6 +507,14 @@ export default function CustomerServicesTab({
           </CardContent>
         </Card>
       )}
+
+      {/* User Detail Modal */}
+      <UserDetailModal 
+        contact={selectedContact}
+        open={!!selectedContact}
+        onClose={() => setSelectedContact(null)}
+        customerId={customerId}
+      />
     </div>
   );
 }
