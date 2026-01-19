@@ -194,10 +194,26 @@ Deno.serve(async (req) => {
 
       const mapping = mappings[0];
       const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?page_size=1000`);
-      const users = usersResponse || [];
       
-      const assignedUsers = users.filter(u => u.isLicensed === true || u.assigned === true).length || users.length;
+      // Handle nested response structure - API returns { users: [{ users: [...] }] } or similar
+      let users = [];
+      if (Array.isArray(usersResponse)) {
+        // Check if first element has nested users array
+        if (usersResponse[0]?.users) {
+          users = usersResponse[0].users;
+        } else {
+          users = usersResponse;
+        }
+      } else if (usersResponse?.users) {
+        if (Array.isArray(usersResponse.users) && usersResponse.users[0]?.users) {
+          users = usersResponse.users[0].users;
+        } else {
+          users = usersResponse.users;
+        }
+      }
+      
       const totalUsers = users.length;
+      const assignedUsers = users.filter(u => u.lastBackupStatusTotal === 'success').length || totalUsers;
 
       // Get customer name
       const customers = await base44.asServiceRole.entities.Customer.filter({ id: customer_id });
@@ -214,11 +230,11 @@ Deno.serve(async (req) => {
       let contactsUpdated = 0;
 
       for (const spUser of users) {
-        const email = spUser.userPrincipalName?.toLowerCase() || spUser.email?.toLowerCase();
+        const email = spUser.email?.toLowerCase() || spUser.userPrincipalName?.toLowerCase();
         if (!email) continue;
 
         const fullName = spUser.displayName || spUser.name || email.split('@')[0];
-        const isActive = spUser.isLicensed === true || spUser.assigned === true || spUser.status === 'active';
+        const isActive = spUser.lastBackupStatusTotal === 'success';
         
         const existing = existingByEmail[email];
         if (existing) {
