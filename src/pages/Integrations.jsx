@@ -1,32 +1,30 @@
 import React, { useState } from 'react';
 import { 
-  Mail,
   Cloud,
-  Shield,
+  Monitor,
   ChevronDown
 } from 'lucide-react';
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import HaloPSAConfig from '../components/integrations/HaloPSAConfig';
+import DattoRMMConfig from '../components/integrations/DattoRMMConfig';
 
 const INTEGRATIONS = [
   {
-    id: 'resend',
-    name: 'Resend Email',
-    description: 'Configure email sending via Resend API',
-    icon: Mail,
-    color: 'bg-purple-500',
-    status: 'connected'
-  },
-  {
     id: 'halopsa',
     name: 'HaloPSA',
-    description: 'Sync customers, contacts, and sites from HaloPSA.',
+    description: 'Sync customers, contacts, contracts, invoices, and tickets from HaloPSA.',
     icon: Cloud,
     color: 'bg-blue-500',
+    status: 'disabled'
+  },
+  {
+    id: 'dattormm',
+    name: 'Datto RMM',
+    description: 'Sync devices and endpoints from Datto RMM.',
+    icon: Monitor,
+    color: 'bg-emerald-500',
     status: 'disabled'
   }
 ];
