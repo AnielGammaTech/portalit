@@ -366,7 +366,18 @@ export default function LicenseDetail() {
                       {contact?.full_name?.charAt(0) || '?'}
                     </div>
                     <div>
-                      <p className="font-medium text-slate-900">{contact?.full_name || 'Unknown User'}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-slate-900">{contact?.full_name || 'Unknown User'}</p>
+                        {contact?.source === 'jumpcloud' && (
+                          <Badge className="bg-blue-100 text-blue-700 text-xs">JumpCloud</Badge>
+                        )}
+                        {contact?.source === 'halopsa' && (
+                          <Badge className="bg-amber-100 text-amber-700 text-xs">Halo</Badge>
+                        )}
+                        {contact?.source === 'manual' && (
+                          <Badge variant="outline" className="text-xs">Manual</Badge>
+                        )}
+                      </div>
                       <p className="text-sm text-slate-500">{contact?.email || 'No email'}</p>
                     </div>
                   </div>
