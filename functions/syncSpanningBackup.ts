@@ -48,12 +48,13 @@ async function unitrendsApiCall(endpoint) {
   const response = await fetch(`${UNITRENDS_API_BASE}${endpoint}`, {
     headers: {
       'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
+      'Accept': 'application/json'
     }
   });
   
   if (!response.ok) {
-    throw new Error(`Unitrends API error: ${response.status} ${response.statusText}`);
+    const errorText = await response.text();
+    throw new Error(`Unitrends API error: ${response.status} - ${errorText}`);
   }
   
   return response.json();
