@@ -74,21 +74,9 @@ export default function AddLicenseModal({ open, onClose, onSave, customerId }) {
       }
       domain = domain.split('/')[0];
       
-      // Try to get logo from multiple sources
-      const clearbitLogo = `https://logo.clearbit.com/${domain}`;
-      const googleFavicon = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
-      
-      // Test clearbit first
-      try {
-        const response = await fetch(clearbitLogo, { method: 'HEAD' });
-        if (response.ok) {
-          setForm(prev => ({ ...prev, logo_url: clearbitLogo }));
-        } else {
-          setForm(prev => ({ ...prev, logo_url: googleFavicon }));
-        }
-      } catch {
-        setForm(prev => ({ ...prev, logo_url: googleFavicon }));
-      }
+      // Use Google's high-res favicon service (most reliable)
+      const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+      setForm(prev => ({ ...prev, logo_url: faviconUrl }));
       setIsLoadingLogo(false);
 
       // Use AI to get app info
