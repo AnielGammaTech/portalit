@@ -128,7 +128,22 @@ Deno.serve(async (req) => {
 
       const mapping = mappings[0];
       const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?page_size=1000`);
-      const spanningUsers = usersResponse || [];
+      
+      // Handle nested response structure
+      let spanningUsers = [];
+      if (Array.isArray(usersResponse)) {
+        if (usersResponse[0]?.users) {
+          spanningUsers = usersResponse[0].users;
+        } else {
+          spanningUsers = usersResponse;
+        }
+      } else if (usersResponse?.users) {
+        if (Array.isArray(usersResponse.users) && usersResponse.users[0]?.users) {
+          spanningUsers = usersResponse.users[0].users;
+        } else {
+          spanningUsers = usersResponse.users;
+        }
+      }
 
       // Get existing contacts
       const existingContacts = await base44.asServiceRole.entities.Contact.filter({ customer_id });
@@ -142,25 +157,52 @@ Deno.serve(async (req) => {
       let updated = 0;
 
       for (const spUser of spanningUsers) {
-        const email = spUser.userPrincipalName?.toLowerCase() || spUser.email?.toLowerCase();
+        const email = spUser.email?.toLowerCase() || spUser.userPrincipalName?.toLowerCase();
         if (!email) continue;
 
         const fullName = spUser.displayName || spUser.name || email.split('@')[0];
+        const isActive = spUser.lastBackupStatusTotal === 'success' || spUser.assigned === true || spUser.isLicensed === true;
+        
+        // Calculate storage info
+        const mailStorageBytes = spUser.mailStorageBytes || spUser.exchangeStorageBytes || 0;
+        const driveStorageBytes = spUser.driveStorageBytes || spUser.oneDriveStorageBytes || 0;
+        const totalStorageBytes = mailStorageBytes + driveStorageBytes;
+        
+        const formatStorage = (bytes) => {
+          if (!bytes || bytes === 0) return null;
+          if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(2)} GB`;
+          if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(2)} MB`;
+          return `${(bytes / 1024).toFixed(2)} KB`;
+        };
+        
+        const storageInfo = formatStorage(totalStorageBytes);
+        const backupStatus = spUser.lastBackupStatusTotal || (isActive ? 'success' : 'inactive');
+        const titleParts = [];
+        if (storageInfo) titleParts.push(storageInfo);
+        titleParts.push(backupStatus);
+        const contactTitle = titleParts.join(' | ');
         
         const existing = existingByEmail[email];
         if (existing) {
-          if (existing.full_name !== fullName) {
-            await base44.asServiceRole.entities.Contact.update(existing.id, {
-              full_name: fullName
-            });
-            updated++;
+          // Update with spanning info
+          const updateData = {
+            spanning_status: contactTitle
+          };
+          if (!existing.full_name || existing.source === 'spanning') {
+            updateData.full_name = fullName;
           }
+          if (!existing.source || existing.source === 'manual' || existing.source === 'spanning') {
+            updateData.source = 'spanning';
+          }
+          await base44.asServiceRole.entities.Contact.update(existing.id, updateData);
+          updated++;
           matched++;
         } else {
           await base44.asServiceRole.entities.Contact.create({
             customer_id,
             full_name: fullName,
             email: email,
+            spanning_status: contactTitle,
             source: 'spanning'
           });
           created++;
