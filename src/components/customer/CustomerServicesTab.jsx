@@ -453,13 +453,14 @@ export default function CustomerServicesTab({
                     ) : (
                       <div className="space-y-2">
                         {spanningContacts.map(contact => {
-                          // Parse spanning_status for storage and status info
-                          const statusField = contact.spanning_status || contact.title || '';
-                          const titleParts = statusField.split(' | ');
-                          const hasStorage = titleParts.length > 1;
-                          const storageInfo = hasStorage ? titleParts[0] : null;
-                          const backupStatus = hasStorage ? titleParts[1] : statusField;
-                          const isSuccess = backupStatus === 'success' || statusField === 'active';
+                          // Parse spanning_status: "storage | status | PROTECTED"
+                          const statusField = contact.spanning_status || '';
+                          const parts = statusField.split(' | ');
+                          const isProtected = parts.includes('PROTECTED');
+                          const hasStorage = parts.length >= 2 && !parts[0].includes('success') && !parts[0].includes('protected');
+                          const storageInfo = hasStorage ? parts[0] : null;
+                          const backupStatus = hasStorage ? parts[1] : parts[0];
+                          const isSuccess = backupStatus === 'success';
 
                           return (
                             <div key={contact.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
@@ -473,12 +474,14 @@ export default function CustomerServicesTab({
                               {storageInfo && (
                                 <div className="text-right mr-2">
                                   <p className="text-sm font-medium text-slate-700">{storageInfo}</p>
-                                  <p className="text-xs text-slate-400">Protected</p>
+                                  <p className="text-xs text-slate-400">Backed up</p>
                                 </div>
                               )}
-                              <Badge className={isSuccess ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}>
-                                {isSuccess ? 'Active' : (backupStatus || 'unknown')}
-                              </Badge>
+                              {isProtected ? (
+                                <Badge className="bg-green-100 text-green-700">Protected</Badge>
+                              ) : (
+                                <Badge className="bg-slate-100 text-slate-500">Not Protected</Badge>
+                              )}
                             </div>
                           );
                         })}
