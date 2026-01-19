@@ -17,8 +17,10 @@ import {
   CheckCircle2,
   AlertCircle,
   ChevronDown,
-  AlertTriangle
+  AlertTriangle,
+  BarChart3
 } from 'lucide-react';
+import ActivityFeed from '../components/dashboard/ActivityFeed';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -171,7 +173,7 @@ function AdminDashboard() {
       )}
 
       {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Customers */}
         <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
           <div className="flex items-center justify-between mb-4">
@@ -246,6 +248,20 @@ function AdminDashboard() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Activity Feed */}
+        <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-slate-900">Recent Activity</h2>
+            <Link to={createPageUrl('Analytics')}>
+              <Button variant="ghost" size="sm" className="text-purple-600 gap-1">
+                <BarChart3 className="w-4 h-4" />
+                Analytics
+              </Button>
+            </Link>
+          </div>
+          <ActivityFeed limit={10} showFilters={false} compact={true} />
         </div>
       </div>
     </div>
