@@ -187,46 +187,69 @@ Deno.serve(async (req) => {
 
         for (const device of devices) {
           const deviceUid = device.uid || device.id;
-
-          // Fetch full device details to get serial number and other info
-          let fullDevice = device;
-          try {
-            fullDevice = await dattoApiCall(accessToken, `/device/${deviceUid}`);
-          } catch (e) {
-            console.log(`Could not fetch details for device ${deviceUid}: ${e.message}`);
-          }
+          const existing = existingByDattoId[String(deviceUid)];
 
           // Convert lastSeen timestamp to ISO string if it's a number
           let lastSeenStr = null;
-          const lastSeen = fullDevice.lastSeen || device.lastSeen;
+          const lastSeen = device.lastSeen;
           if (lastSeen) {
-            if (typeof lastSeen === 'number') {
-              lastSeenStr = new Date(lastSeen).toISOString();
-            } else {
-              lastSeenStr = lastSeen;
-            }
+            lastSeenStr = typeof lastSeen === 'number' ? new Date(lastSeen).toISOString() : lastSeen;
           }
 
-          const deviceData = {
+          // Build basic device data from list endpoint
+          const basicDeviceData = {
             customer_id,
             datto_id: String(deviceUid),
             datto_site_id: siteUid,
-            hostname: fullDevice.hostname || device.hostname || device.name || 'Unknown',
-            description: fullDevice.description || device.description || '',
-            device_type: mapDeviceType(fullDevice.deviceType?.category || device.deviceType?.category),
-            os: fullDevice.operatingSystem || device.operatingSystem || '',
-            manufacturer: fullDevice.manufacturer || device.manufacturer || '',
-            model: fullDevice.model || device.model || '',
-            serial_number: fullDevice.serialNumber || fullDevice.bios?.serialNumber || '',
-            ip_address: fullDevice.intIpAddress || device.intIpAddress || fullDevice.extIpAddress || '',
-            mac_address: fullDevice.macAddresses?.[0] || device.macAddresses?.[0] || '',
+            hostname: device.hostname || device.name || 'Unknown',
+            description: device.description || '',
+            device_type: mapDeviceType(device.deviceType?.category),
+            os: device.operatingSystem || '',
+            ip_address: device.intIpAddress || device.extIpAddress || '',
             last_seen: lastSeenStr,
-            last_user: fullDevice.lastLoggedInUser || fullDevice.lastUser || '',
-            status: (fullDevice.online !== undefined ? fullDevice.online : device.online) ? 'online' : 'offline',
-            agent_version: fullDevice.agentVersion || device.agentVersion || ''
+            status: device.online ? 'online' : 'offline'
           };
 
-          const existing = existingByDattoId[deviceData.datto_id];
+          // Only fetch full details if new device OR basic data changed OR missing serial number
+          const needsFullFetch = !existing || 
+            hasDeviceChanged(existing, basicDeviceData) || 
+            !existing.serial_number;
+
+          let deviceData = basicDeviceData;
+
+          if (needsFullFetch) {
+            try {
+              const fullDevice = await dattoApiCall(accessToken, `/device/${deviceUid}`);
+              const fullLastSeen = fullDevice.lastSeen || device.lastSeen;
+              const fullLastSeenStr = fullLastSeen ? 
+                (typeof fullLastSeen === 'number' ? new Date(fullLastSeen).toISOString() : fullLastSeen) : null;
+              
+              deviceData = {
+                customer_id,
+                datto_id: String(deviceUid),
+                datto_site_id: siteUid,
+                hostname: fullDevice.hostname || device.hostname || 'Unknown',
+                description: fullDevice.description || device.description || '',
+                device_type: mapDeviceType(fullDevice.deviceType?.category || device.deviceType?.category),
+                os: fullDevice.operatingSystem || device.operatingSystem || '',
+                manufacturer: fullDevice.manufacturer || '',
+                model: fullDevice.model || '',
+                serial_number: fullDevice.serialNumber || fullDevice.bios?.serialNumber || '',
+                ip_address: fullDevice.intIpAddress || device.intIpAddress || fullDevice.extIpAddress || '',
+                mac_address: fullDevice.macAddresses?.[0] || '',
+                last_seen: fullLastSeenStr,
+                last_user: fullDevice.lastLoggedInUser || fullDevice.lastUser || '',
+                status: fullDevice.online ? 'online' : 'offline',
+                agent_version: fullDevice.agentVersion || ''
+              };
+            } catch (e) {
+              console.log(`Could not fetch details for device ${deviceUid}: ${e.message}`);
+            }
+          } else {
+            // No changes, skip update
+            continue;
+          }
+
           if (existing) {
             await base44.asServiceRole.entities.Device.update(existing.id, deviceData);
           } else {
