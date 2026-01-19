@@ -448,11 +448,18 @@ export default function CustomerDetail() {
             <span className="text-sm">Overview</span>
           </TabsTrigger>
           <TabsTrigger 
-            value="contracts" 
+            value="billing" 
             className="flex-1 min-w-[140px] gap-3 py-4 px-6 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800"
           >
             <DollarSign className="w-5 h-5" />
-            <span className="text-sm">Billing & Services</span>
+            <span className="text-sm">Billing</span>
+          </TabsTrigger>
+          <TabsTrigger 
+            value="services" 
+            className="flex-1 min-w-[140px] gap-3 py-4 px-6 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800"
+          >
+            <Cloud className="w-5 h-5" />
+            <span className="text-sm">Services</span>
           </TabsTrigger>
           <TabsTrigger 
             value="licenses" 
