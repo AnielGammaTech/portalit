@@ -7,18 +7,21 @@ const DATTO_API_URL = Deno.env.get('DATTO_RMM_API_URL');
 async function getDattoAccessToken() {
   // Remove trailing slash from URL if present
   const baseUrl = DATTO_API_URL.replace(/\/$/, '');
-  // Datto RMM uses /public-api/v1/authenticate endpoint
-  const authUrl = `${baseUrl}/public-api/v1/authenticate`;
+  // Datto RMM OAuth2 token endpoint
+  const authUrl = `${baseUrl}/auth/oauth/token`;
+  
+  // Create URL-encoded body
+  const params = new URLSearchParams();
+  params.append('grant_type', 'password');
+  params.append('username', DATTO_API_KEY);
+  params.append('password', DATTO_API_SECRET);
   
   const response = await fetch(authUrl, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/x-www-form-urlencoded'
     },
-    body: JSON.stringify({
-      apiKey: DATTO_API_KEY,
-      secretKey: DATTO_API_SECRET
-    })
+    body: params.toString()
   });
 
   if (!response.ok) {
@@ -27,7 +30,7 @@ async function getDattoAccessToken() {
   }
 
   const data = await response.json();
-  return data.accessToken;
+  return data.access_token;
 }
 
 async function dattoApiCall(accessToken, endpoint) {
