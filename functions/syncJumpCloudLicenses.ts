@@ -291,18 +291,23 @@ Deno.serve(async (req) => {
         if (!email) continue;
 
         const fullName = [jcUser.firstname, jcUser.lastname].filter(Boolean).join(' ') || jcUser.username || email;
+        const jcStatus = jcUser.state || (jcUser.activated ? 'ACTIVATED' : 'STAGED');
         
         const existing = existingByEmail[email];
         if (existing) {
-          // Update if source is not jumpcloud or name changed
-          if (existing.source !== 'jumpcloud' || existing.full_name !== fullName) {
-            await base44.asServiceRole.entities.Contact.update(existing.id, {
-              full_name: fullName,
-              title: jcUser.jobTitle || existing.title,
-              source: 'jumpcloud'
-            });
-            usersUpdated++;
+          // Update with JumpCloud info, preserve source if already something else
+          const updateData = {
+            full_name: fullName,
+            jumpcloud_id: jcUser._id || jcUser.id,
+            jumpcloud_status: jcStatus
+          };
+          if (jcUser.jobTitle) updateData.title = jcUser.jobTitle;
+          // Only set source to jumpcloud if it was manual before
+          if (!existing.source || existing.source === 'manual') {
+            updateData.source = 'jumpcloud';
           }
+          await base44.asServiceRole.entities.Contact.update(existing.id, updateData);
+          usersUpdated++;
         } else {
           // Create new contact
           await base44.asServiceRole.entities.Contact.create({
@@ -310,7 +315,9 @@ Deno.serve(async (req) => {
             full_name: fullName,
             email: jcUser.email,
             title: jcUser.jobTitle || '',
-            source: 'jumpcloud'
+            source: 'jumpcloud',
+            jumpcloud_id: jcUser._id || jcUser.id,
+            jumpcloud_status: jcStatus
           });
           usersCreated++;
         }
