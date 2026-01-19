@@ -55,16 +55,27 @@ async function dattoApiCall(accessToken, endpoint) {
   return response.json();
 }
 
+// Helper to check if device data has changed
+function hasDeviceChanged(existing, newData) {
+  if (!existing) return true;
+  const fieldsToCheck = ['hostname', 'os', 'ip_address', 'status', 'last_seen', 'last_user', 'serial_number', 'manufacturer', 'model'];
+  return fieldsToCheck.some(field => existing[field] !== newData[field]);
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
     
-    if (user?.role !== 'admin') {
-      return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+    const body = await req.json();
+    const { action, customer_id, datto_site_id, scheduled } = body;
+    
+    // For scheduled runs, skip user auth check
+    if (!scheduled) {
+      const user = await base44.auth.me();
+      if (user?.role !== 'admin') {
+        return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+      }
     }
-
-    const { action, customer_id, datto_site_id } = await req.json();
 
     if (!DATTO_API_KEY || !DATTO_API_SECRET || !DATTO_API_URL) {
       return Response.json({ error: 'Datto RMM credentials not configured' }, { status: 400 });
