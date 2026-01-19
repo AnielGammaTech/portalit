@@ -210,8 +210,13 @@ Deno.serve(async (req) => {
     // Action: Full sync all mapped customers
     if (action === 'sync_all') {
       const allMappings = await base44.asServiceRole.entities.DattoSiteMapping.list();
-      console.log(`Found ${allMappings.length} mappings:`, JSON.stringify(allMappings));
+      
+      if (!allMappings || allMappings.length === 0) {
+        return Response.json({ success: true, recordsSynced: 0, message: 'No site mappings found' });
+      }
+      
       let totalSynced = 0;
+      const errors = [];
 
       for (const mapping of allMappings) {
         try {
