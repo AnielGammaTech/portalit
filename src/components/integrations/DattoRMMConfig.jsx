@@ -78,7 +78,8 @@ export default function DattoRMMConfig() {
       const response = await base44.functions.invoke('syncDattoRMMDevices', { action: 'list_sites' });
       if (response.data.success) {
         setDattoSites(response.data.sites);
-        setShowMappingDialog(true);
+        setShowMappingView(true);
+        setCurrentPage(1);
       } else {
         toast.error(response.data.error || 'Failed to load sites');
       }
@@ -89,28 +90,94 @@ export default function DattoRMMConfig() {
     }
   };
 
-  const createMapping = async () => {
-    if (!selectedCustomer || !selectedSite) {
-      toast.error('Please select both a customer and a Datto site');
-      return;
-    }
-
-    const site = dattoSites.find(s => s.id === selectedSite || s.uid === selectedSite);
+  const applyMapping = async (site, customerId) => {
+    if (!customerId) return;
     
     try {
       await base44.entities.DattoSiteMapping.create({
-        customer_id: selectedCustomer,
+        customer_id: customerId,
         datto_site_id: String(site.id || site.uid),
         datto_site_name: site.name
       });
-      toast.success('Site mapped successfully!');
+      toast.success(`Mapped ${site.name} successfully!`);
       refetchMappings();
-      setSelectedCustomer('');
-      setSelectedSite('');
+      setSiteSelections(prev => ({ ...prev, [site.id || site.uid]: '' }));
     } catch (error) {
       toast.error(error.message);
     }
   };
+
+  // Calculate suggested match for a site based on name similarity
+  const getSuggestedMatch = (siteName) => {
+    const siteNameLower = siteName.toLowerCase().trim();
+    let bestMatch = null;
+    let bestScore = 0;
+    
+    for (const customer of customers) {
+      const customerNameLower = customer.name.toLowerCase().trim();
+      
+      // Exact match
+      if (siteNameLower === customerNameLower) {
+        return { customer, score: 100 };
+      }
+      
+      // Contains match
+      if (siteNameLower.includes(customerNameLower) || customerNameLower.includes(siteNameLower)) {
+        const score = Math.round((Math.min(siteNameLower.length, customerNameLower.length) / Math.max(siteNameLower.length, customerNameLower.length)) * 100);
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = customer;
+        }
+      }
+      
+      // Word-based matching
+      const siteWords = siteNameLower.split(/[\s,.-]+/).filter(w => w.length > 2);
+      const customerWords = customerNameLower.split(/[\s,.-]+/).filter(w => w.length > 2);
+      const matchingWords = siteWords.filter(sw => customerWords.some(cw => cw.includes(sw) || sw.includes(cw)));
+      
+      if (matchingWords.length > 0) {
+        const score = Math.round((matchingWords.length / Math.max(siteWords.length, customerWords.length)) * 100);
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = customer;
+        }
+      }
+    }
+    
+    return bestMatch && bestScore >= 50 ? { customer: bestMatch, score: bestScore } : null;
+  };
+
+  // Filter and paginate sites
+  const getFilteredSites = () => {
+    let filtered = dattoSites;
+    
+    // Search filter
+    if (searchQuery) {
+      filtered = filtered.filter(site => 
+        site.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
+    // Tab filter
+    if (filterTab === 'mapped') {
+      filtered = filtered.filter(site => 
+        mappings.some(m => m.datto_site_id === String(site.id || site.uid))
+      );
+    } else if (filterTab === 'unmapped') {
+      filtered = filtered.filter(site => 
+        !mappings.some(m => m.datto_site_id === String(site.id || site.uid))
+      );
+    }
+    
+    return filtered;
+  };
+
+  const filteredSites = getFilteredSites();
+  const totalPages = Math.ceil(filteredSites.length / itemsPerPage);
+  const paginatedSites = filteredSites.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  
+  const mappedCount = dattoSites.filter(site => mappings.some(m => m.datto_site_id === String(site.id || site.uid))).length;
+  const unmappedCount = dattoSites.length - mappedCount;
 
   const deleteMapping = async (mappingId) => {
     try {
