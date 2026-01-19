@@ -35,6 +35,7 @@ import { cn } from "@/lib/utils";
 import { format, parseISO } from 'date-fns';
 import LicenseAssignmentModal from '../components/saas/LicenseAssignmentModal';
 import AddLicenseModal from '../components/saas/AddLicenseModal';
+import SpendAnomalyAlert from '../components/saas/SpendAnomalyAlert';
 
 export default function CustomerDetail() {
   const [isSyncing, setIsSyncing] = useState(false);
@@ -191,6 +192,7 @@ export default function CustomerDetail() {
                   const [saasFilter, setSaasFilter] = useState('all'); // 'all', 'underutilized', 'full', 'unassigned'
                   const [saasUserFilter, setSaasUserFilter] = useState(''); // filter by contact id
                   const [saasView, setSaasView] = useState('licenses'); // 'licenses', 'users', 'spend'
+                  const [saasCategoryFilter, setSaasCategoryFilter] = useState(''); // filter by category
 
   const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems || loadingContractItems || loadingContacts || loadingTickets || loadingInvoiceLineItems || loadingAssignments;
 
@@ -1145,16 +1147,34 @@ export default function CustomerDetail() {
             {/* View Switcher & Filters */}
             <div className="flex flex-wrap items-center gap-3">
               {saasView === 'licenses' && (
-                <select
-                  value={saasFilter}
-                  onChange={(e) => setSaasFilter(e.target.value)}
-                  className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white"
-                >
-                  <option value="all">All Licenses</option>
-                  <option value="underutilized">Underutilized (&lt;50%)</option>
-                  <option value="full">Fully Assigned</option>
-                  <option value="unassigned">Has Unused Seats</option>
-                </select>
+                <>
+                  <select
+                    value={saasFilter}
+                    onChange={(e) => setSaasFilter(e.target.value)}
+                    className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white"
+                  >
+                    <option value="all">All Licenses</option>
+                    <option value="underutilized">Underutilized (&lt;50%)</option>
+                    <option value="full">Fully Assigned</option>
+                    <option value="unassigned">Has Unused Seats</option>
+                  </select>
+                  <select
+                    value={saasCategoryFilter}
+                    onChange={(e) => setSaasCategoryFilter(e.target.value)}
+                    className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white"
+                  >
+                    <option value="">All Categories</option>
+                    <option value="productivity">📊 Productivity</option>
+                    <option value="security">🔒 Security</option>
+                    <option value="collaboration">💬 Collaboration</option>
+                    <option value="crm">🤝 CRM & Sales</option>
+                    <option value="finance">💰 Finance</option>
+                    <option value="hr">👥 HR & People</option>
+                    <option value="marketing">📣 Marketing</option>
+                    <option value="development">💻 Development</option>
+                    <option value="other">📦 Other</option>
+                  </select>
+                </>
               )}
               {saasView === 'users' && (
                 <select
@@ -1194,6 +1214,11 @@ export default function CustomerDetail() {
                   const filteredLicenses = licenses.filter(license => {
                     const assignedCount = licenseAssignments.filter(a => a.license_id === license.id && a.status === 'active').length;
                     const utilization = license.quantity > 0 ? assignedCount / license.quantity : 0;
+                    
+                    // Category filter
+                    if (saasCategoryFilter && license.category !== saasCategoryFilter) return false;
+                    
+                    // Utilization filter
                     if (saasFilter === 'underutilized') return utilization < 0.5 && license.quantity > 0;
                     if (saasFilter === 'full') return assignedCount >= (license.quantity || 0) && license.quantity > 0;
                     if (saasFilter === 'unassigned') return assignedCount < (license.quantity || 0);
@@ -1392,6 +1417,12 @@ export default function CustomerDetail() {
             {/* Spend Analysis View */}
             {saasView === 'spend' && (
               <div className="space-y-4">
+                {/* AI Anomaly Detection */}
+                <SpendAnomalyAlert 
+                  licenses={licenses} 
+                  licenseAssignments={licenseAssignments} 
+                />
+                
                 <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
                   <h3 className="font-semibold text-slate-900 mb-4">Spend Analysis</h3>
                   <div className="space-y-3">
