@@ -146,7 +146,27 @@ Deno.serve(async (req) => {
       });
     }
 
-    return Response.json({ error: 'Invalid action. Use: sync_customer' }, { status: 400 });
+    if (action === 'delete_customer_contacts') {
+      if (!customer_id) {
+        return Response.json({ error: 'customer_id is required' }, { status: 400 });
+      }
+
+      // Delete all contacts for this customer
+      const contacts = await base44.asServiceRole.entities.Contact.filter({ customer_id });
+      let deleted = 0;
+      for (const contact of contacts) {
+        await base44.asServiceRole.entities.Contact.delete(contact.id);
+        deleted++;
+      }
+
+      return Response.json({
+        success: true,
+        deleted,
+        message: `Deleted ${deleted} contacts`
+      });
+    }
+
+    return Response.json({ error: 'Invalid action. Use: sync_customer or delete_customer_contacts' }, { status: 400 });
   } catch (error) {
     console.log(`Error: ${error.message}`);
     return Response.json({ error: error.message }, { status: 500 });
