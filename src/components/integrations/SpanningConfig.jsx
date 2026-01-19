@@ -4,7 +4,6 @@ import { base44 } from '@/api/base44Client';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -17,10 +16,12 @@ import {
   CheckCircle2,
   Building2,
   Trash2,
-  Plus,
   Clock,
   Cloud,
-  Users
+  Users,
+  Search,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
@@ -33,13 +34,15 @@ export default function SpanningConfig() {
   const [syncingCustomerId, setSyncingCustomerId] = useState(null);
   const [syncingUsersCustomerId, setSyncingUsersCustomerId] = useState(null);
   
-  // New mapping form
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newMapping, setNewMapping] = useState({
-    customer_id: '',
-    api_token: '',
-    region: 'us'
-  });
+  // Domain mapping
+  const [loadingDomains, setLoadingDomains] = useState(false);
+  const [spanningDomains, setSpanningDomains] = useState([]);
+  const [showMappingView, setShowMappingView] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterTab, setFilterTab] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [domainSelections, setDomainSelections] = useState({});
+  const itemsPerPage = 10;
 
   const queryClient = useQueryClient();
 
@@ -54,21 +57,14 @@ export default function SpanningConfig() {
   });
 
   const testConnection = async () => {
-    if (!newMapping.api_token) {
-      toast.error('Please enter an API token');
-      return;
-    }
-    
     setTesting(true);
     try {
       const response = await base44.functions.invoke('syncSpanningBackup', { 
-        action: 'test_connection',
-        api_token: newMapping.api_token,
-        region: newMapping.region
+        action: 'test_connection'
       });
       if (response.data.success) {
-        setConnectionStatus({ success: true, tenant: response.data.tenant });
-        toast.success(`Connected to ${response.data.tenant.name}`);
+        setConnectionStatus({ success: true, totalCustomers: response.data.totalCustomers });
+        toast.success('Connected to Unitrends MSP!');
       } else {
         setConnectionStatus({ success: false, error: response.data.error });
         toast.error(response.data.error || 'Connection failed');
@@ -81,24 +77,36 @@ export default function SpanningConfig() {
     }
   };
 
-  const addMapping = async () => {
-    if (!newMapping.customer_id || !newMapping.api_token) {
-      toast.error('Please select a customer and enter an API token');
-      return;
+  const loadDomains = async () => {
+    setLoadingDomains(true);
+    try {
+      const response = await base44.functions.invoke('syncSpanningBackup', { action: 'list_domains' });
+      if (response.data.success) {
+        setSpanningDomains(response.data.domains);
+        setShowMappingView(true);
+        setCurrentPage(1);
+      } else {
+        toast.error(response.data.error || 'Failed to load domains');
+      }
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setLoadingDomains(false);
     }
+  };
 
+  const applyMapping = async (domain, customerId) => {
+    if (!customerId) return;
+    
     try {
       await base44.entities.SpanningMapping.create({
-        customer_id: newMapping.customer_id,
-        api_token: newMapping.api_token,
-        region: newMapping.region,
-        spanning_tenant_name: connectionStatus?.tenant?.name || ''
+        customer_id: customerId,
+        spanning_tenant_id: String(domain.id),
+        spanning_tenant_name: domain.name || domain.domainName
       });
-      toast.success('Mapping added successfully!');
+      toast.success(`Mapped ${domain.name || domain.domainName} successfully!`);
       refetchMappings();
-      setShowAddForm(false);
-      setNewMapping({ customer_id: '', api_token: '', region: 'us' });
-      setConnectionStatus(null);
+      setDomainSelections(prev => ({ ...prev, [domain.id]: '' }));
     } catch (error) {
       toast.error(error.message);
     }
@@ -179,21 +187,68 @@ export default function SpanningConfig() {
     return customer?.name || 'Unknown';
   };
 
+  // Filter and paginate domains
+  const getFilteredDomains = () => {
+    let filtered = spanningDomains;
+    
+    if (searchQuery) {
+      filtered = filtered.filter(domain => 
+        (domain.name || domain.domainName || '').toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
+    if (filterTab === 'mapped') {
+      filtered = filtered.filter(domain => 
+        mappings.some(m => m.spanning_tenant_id === String(domain.id))
+      );
+    } else if (filterTab === 'unmapped') {
+      filtered = filtered.filter(domain => 
+        !mappings.some(m => m.spanning_tenant_id === String(domain.id))
+      );
+    }
+    
+    return filtered;
+  };
+
+  const filteredDomains = getFilteredDomains();
+  const totalPages = Math.ceil(filteredDomains.length / itemsPerPage);
+  const paginatedDomains = filteredDomains.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  
+  const mappedCount = spanningDomains.filter(d => mappings.some(m => m.spanning_tenant_id === String(d.id))).length;
+  const unmappedCount = spanningDomains.length - mappedCount;
+
   return (
     <div className="space-y-5">
+      {/* Connection Status */}
+      {connectionStatus?.success && (
+        <div className="flex items-center gap-2 text-sm text-emerald-600 bg-emerald-50 px-3 py-2 rounded-lg">
+          <CheckCircle2 className="w-4 h-4" />
+          Connected to Unitrends MSP
+        </div>
+      )}
+
       {/* Info */}
       <div className="text-sm text-slate-500 bg-slate-50 rounded-lg p-3">
-        Connect Spanning Backup tenants to sync backup user data. Each customer needs their own API token from Spanning.
+        Unitrends MSP credentials are configured in app settings. Connect to sync Spanning Backup domains to your customers.
       </div>
 
       {/* Actions */}
       <div className="flex items-center gap-3">
         <Button
-          onClick={() => setShowAddForm(!showAddForm)}
+          onClick={testConnection}
+          disabled={testing}
           variant="outline"
         >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Mapping
+          <RefreshCw className={cn("w-4 h-4 mr-2", testing && "animate-spin")} />
+          Test Connection
+        </Button>
+        <Button
+          onClick={loadDomains}
+          disabled={loadingDomains}
+          variant="outline"
+        >
+          <RefreshCw className={cn("w-4 h-4 mr-2", loadingDomains && "animate-spin")} />
+          {showMappingView ? 'Refresh Domains' : 'Load Domains'}
         </Button>
         {mappings.length > 0 && (
           <Button
@@ -201,176 +256,232 @@ export default function SpanningConfig() {
             disabled={syncing}
             className="bg-slate-900 hover:bg-slate-800"
           >
-            <RefreshCw className={cn("w-4 h-4 mr-2", syncing && "animate-spin")} />
-            Sync All
+            <Cloud className={cn("w-4 h-4 mr-2", syncing && "animate-spin")} />
+            Sync All Licenses
           </Button>
         )}
       </div>
 
-      {/* Add Mapping Form */}
-      {showAddForm && (
-        <div className="border border-slate-200 rounded-lg p-4 bg-white space-y-4">
-          <h4 className="font-medium text-slate-900">Add New Spanning Mapping</h4>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Customer</Label>
-              <Select
-                value={newMapping.customer_id}
-                onValueChange={(val) => setNewMapping({ ...newMapping, customer_id: val })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select customer..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {customers.map(customer => (
-                    <SelectItem key={customer.id} value={customer.id}>
-                      {customer.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label>Region</Label>
-              <Select
-                value={newMapping.region}
-                onValueChange={(val) => setNewMapping({ ...newMapping, region: val })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="us">United States</SelectItem>
-                  <SelectItem value="eu">European Union</SelectItem>
-                  <SelectItem value="uk">United Kingdom</SelectItem>
-                  <SelectItem value="ca">Canada</SelectItem>
-                  <SelectItem value="ap">Australia</SelectItem>
-                  <SelectItem value="af">Africa</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <Label>API Token</Label>
-            <Input
-              type="password"
-              placeholder="Enter Spanning API token..."
-              value={newMapping.api_token}
-              onChange={(e) => setNewMapping({ ...newMapping, api_token: e.target.value })}
-            />
-            <p className="text-xs text-slate-500">
-              Get this from Spanning → Settings → API Token
-            </p>
-          </div>
-
-          {connectionStatus?.success && (
-            <div className="flex items-center gap-2 text-sm text-emerald-600 bg-emerald-50 px-3 py-2 rounded-lg">
-              <CheckCircle2 className="w-4 h-4" />
-              Connected to {connectionStatus.tenant?.name} ({connectionStatus.tenant?.users} users)
-            </div>
-          )}
-
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={testConnection}
-              disabled={testing || !newMapping.api_token}
-              variant="outline"
-            >
-              <RefreshCw className={cn("w-4 h-4 mr-2", testing && "animate-spin")} />
-              Test Connection
-            </Button>
-            <Button
-              onClick={addMapping}
-              disabled={!connectionStatus?.success || !newMapping.customer_id}
-              className="bg-purple-600 hover:bg-purple-700"
-            >
-              Add Mapping
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setShowAddForm(false);
-                setNewMapping({ customer_id: '', api_token: '', region: 'us' });
-                setConnectionStatus(null);
-              }}
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Mappings List */}
+      {/* Domain Mappings Section */}
       <div className="border-t border-slate-200 pt-5">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h4 className="font-medium text-slate-900">Tenant Mappings</h4>
-            <p className="text-sm text-slate-500">Map Spanning tenants to your customers</p>
+            <h4 className="font-medium text-slate-900">Domain Mappings</h4>
+            <p className="text-sm text-slate-500">Map Spanning domains to your customers</p>
           </div>
         </div>
 
-        {mappings.length === 0 ? (
-          <p className="text-sm text-slate-500 py-4 text-center">
-            No Spanning tenants mapped yet. Click "Add Mapping" to connect a tenant.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {mappings.map(mapping => (
-              <div 
-                key={mapping.id} 
-                className="flex items-center justify-between p-4 bg-slate-50 rounded-lg"
-              >
-                <div className="flex items-center gap-3">
-                  <Building2 className="w-4 h-4 text-slate-400" />
-                  <div>
-                    <p className="font-medium text-slate-900">{getCustomerName(mapping.customer_id)}</p>
-                    <div className="flex items-center gap-2 text-sm text-slate-500">
-                      <span>{mapping.spanning_tenant_name || 'Spanning Backup'}</span>
-                      <Badge variant="outline" className="text-xs uppercase">{mapping.region}</Badge>
+        {!showMappingView ? (
+          mappings.length === 0 ? (
+            <p className="text-sm text-slate-500 py-4 text-center">
+              No domains mapped yet. Click "Load Domains" to link Spanning tenants to customers.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {mappings.map(mapping => (
+                <div 
+                  key={mapping.id} 
+                  className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+                >
+                  <div className="flex items-center gap-3">
+                    <Building2 className="w-4 h-4 text-slate-400" />
+                    <div>
+                      <p className="font-medium text-slate-900">{getCustomerName(mapping.customer_id)}</p>
+                      <p className="text-sm text-slate-500">→ {mapping.spanning_tenant_name}</p>
                       {mapping.last_synced && (
-                        <span className="flex items-center gap-1 text-xs text-slate-400">
+                        <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
                           <Clock className="w-3 h-3" />
-                          {format(new Date(mapping.last_synced), 'MMM d, h:mm a')}
-                        </span>
+                          Last synced: {format(new Date(mapping.last_synced), 'MMM d, h:mm a')}
+                        </p>
                       )}
                     </div>
                   </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => syncCustomerUsers(mapping.customer_id)}
+                      disabled={syncingUsersCustomerId === mapping.customer_id}
+                      className="text-xs h-7"
+                    >
+                      <Users className={cn("w-3 h-3 mr-1", syncingUsersCustomerId === mapping.customer_id && "animate-spin")} />
+                      Sync Users
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => syncCustomerLicenses(mapping.customer_id)}
+                      disabled={syncingCustomerId === mapping.customer_id}
+                      className="text-xs h-7"
+                    >
+                      <Cloud className={cn("w-3 h-3 mr-1", syncingCustomerId === mapping.customer_id && "animate-spin")} />
+                      Sync Licenses
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => deleteMapping(mapping.id)}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50 h-7 w-7"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
+              ))}
+            </div>
+          )
+        ) : (
+          /* Domain Mapping View */
+          <div className="border border-slate-200 rounded-xl overflow-hidden">
+            {/* Header */}
+            <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    placeholder="Search domains..."
+                    value={searchQuery}
+                    onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                    className="pl-9 w-56 h-9 text-sm"
+                  />
+                </div>
+                <div className="flex items-center border border-slate-200 rounded-lg bg-white">
+                  <button
+                    onClick={() => { setFilterTab('all'); setCurrentPage(1); }}
+                    className={cn(
+                      "px-3 py-1.5 text-xs font-medium rounded-l-lg transition-colors",
+                      filterTab === 'all' ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+                    )}
+                  >
+                    All ({spanningDomains.length})
+                  </button>
+                  <button
+                    onClick={() => { setFilterTab('mapped'); setCurrentPage(1); }}
+                    className={cn(
+                      "px-3 py-1.5 text-xs font-medium border-x border-slate-200 transition-colors",
+                      filterTab === 'mapped' ? "bg-emerald-600 text-white" : "text-slate-600 hover:bg-slate-100"
+                    )}
+                  >
+                    Mapped ({mappedCount})
+                  </button>
+                  <button
+                    onClick={() => { setFilterTab('unmapped'); setCurrentPage(1); }}
+                    className={cn(
+                      "px-3 py-1.5 text-xs font-medium rounded-r-lg transition-colors",
+                      filterTab === 'unmapped' ? "bg-amber-600 text-white" : "text-slate-600 hover:bg-slate-100"
+                    )}
+                  >
+                    Unmapped ({unmappedCount})
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-1/3">Domain</th>
+                    <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-20">Users</th>
+                    <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-1/3">Customer</th>
+                    <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-20"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {paginatedDomains.map(domain => {
+                    const domainId = String(domain.id);
+                    const existingMapping = mappings.find(m => m.spanning_tenant_id === domainId);
+                    const selectedCustomerId = domainSelections[domainId] || '';
+                    
+                    return (
+                      <tr key={domainId} className="hover:bg-slate-50">
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-slate-900 text-sm">{domain.name || domain.domainName}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="text-sm text-slate-500">{domain.userCount || domain.licensedUserCount || 0}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          {existingMapping ? (
+                            <Badge className="bg-emerald-100 text-emerald-700 font-normal">
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              {getCustomerName(existingMapping.customer_id)}
+                            </Badge>
+                          ) : (
+                            <Select
+                              value={selectedCustomerId}
+                              onValueChange={(val) => setDomainSelections(prev => ({ ...prev, [domainId]: val }))}
+                            >
+                              <SelectTrigger className="h-8 text-sm text-slate-500 w-44">
+                                <SelectValue placeholder="Select customer..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {customers.map(customer => (
+                                  <SelectItem key={customer.id} value={customer.id}>
+                                    {customer.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {!existingMapping && selectedCustomerId ? (
+                            <Button
+                              size="sm"
+                              onClick={() => applyMapping(domain, selectedCustomerId)}
+                              className="bg-green-600 hover:bg-green-700 text-white text-xs h-7 px-3"
+                            >
+                              Apply
+                            </Button>
+                          ) : existingMapping ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => deleteMapping(existingMapping.id)}
+                              className="text-slate-400 hover:text-red-600 h-7"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          ) : null}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50">
+                <p className="text-xs text-slate-500">
+                  {((currentPage - 1) * itemsPerPage) + 1}–{Math.min(currentPage * itemsPerPage, filteredDomains.length)} of {filteredDomains.length}
+                </p>
+                <div className="flex items-center gap-1">
                   <Button
-                    variant="outline"
                     size="sm"
-                    onClick={() => syncCustomerUsers(mapping.customer_id)}
-                    disabled={syncingUsersCustomerId === mapping.customer_id}
-                    className="text-xs h-7"
-                  >
-                    <Users className={cn("w-3 h-3 mr-1", syncingUsersCustomerId === mapping.customer_id && "animate-spin")} />
-                    Sync Users
-                  </Button>
-                  <Button
                     variant="outline"
-                    size="sm"
-                    onClick={() => syncCustomerLicenses(mapping.customer_id)}
-                    disabled={syncingCustomerId === mapping.customer_id}
-                    className="text-xs h-7"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="h-7 px-2"
                   >
-                    <Cloud className={cn("w-3 h-3 mr-1", syncingCustomerId === mapping.customer_id && "animate-spin")} />
-                    Sync Licenses
+                    <ChevronLeft className="w-4 h-4" />
                   </Button>
+                  <span className="text-xs text-slate-600 px-2">{currentPage} / {totalPages}</span>
                   <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => deleteMapping(mapping.id)}
-                    className="text-red-500 hover:text-red-700 hover:bg-red-50 h-7 w-7"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="h-7 px-2"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <ChevronRight className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>
