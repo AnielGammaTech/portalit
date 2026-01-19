@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -12,11 +13,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { 
-  Monitor, 
   RefreshCw, 
-  CheckCircle2, 
-  AlertCircle,
-  Link2,
+  CheckCircle2,
   Building2,
   Trash2,
   Wand2,
@@ -36,9 +34,9 @@ export default function DattoRMMConfig() {
   const [syncing, setSyncing] = useState(false);
   const [automapping, setAutomapping] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterTab, setFilterTab] = useState('all'); // 'all', 'mapped', 'unmapped'
+  const [filterTab, setFilterTab] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [siteSelections, setSiteSelections] = useState({}); // siteId -> customerId
+  const [siteSelections, setSiteSelections] = useState({});
   const itemsPerPage = 10;
 
   const queryClient = useQueryClient();
