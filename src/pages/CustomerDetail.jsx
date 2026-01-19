@@ -195,6 +195,29 @@ export default function CustomerDetail() {
     enabled: !!customerId
   });
 
+  // Fetch JumpCloud mapping for this customer
+  const { data: jumpcloudMapping } = useQuery({
+    queryKey: ['jumpcloud-mapping', customerId],
+    queryFn: async () => {
+      const mappings = await base44.entities.JumpCloudMapping.filter({ customer_id: customerId });
+      return mappings[0] || null;
+    },
+    enabled: !!customerId
+  });
+
+  // Fetch Spanning mapping for this customer
+  const { data: spanningMapping } = useQuery({
+    queryKey: ['spanning-mapping', customerId],
+    queryFn: async () => {
+      const mappings = await base44.entities.SpanningMapping.filter({ customer_id: customerId });
+      return mappings[0] || null;
+    },
+    enabled: !!customerId
+  });
+
+  // Check if customer has any services mapped
+  const hasServicesMapped = !!jumpcloudMapping || !!spanningMapping || lineItems.length > 0;
+
   const [expandedBills, setExpandedBills] = useState({});
               const [expandedQuotes, setExpandedQuotes] = useState({});
               const [expandedContracts, setExpandedContracts] = useState({});
