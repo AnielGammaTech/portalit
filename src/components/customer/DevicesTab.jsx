@@ -15,11 +15,14 @@ import {
   Search,
   CheckCircle2,
   XCircle,
-  Clock
+  Clock,
+  User,
+  StickyNote
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
 import { format, parseISO } from 'date-fns';
+import DeviceDetailModal from './DeviceDetailModal';
 
 const deviceIcons = {
   desktop: Monitor,
@@ -41,6 +44,7 @@ export default function DevicesTab({ customerId, customerExternalId }) {
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [syncing, setSyncing] = useState(false);
+  const [selectedDevice, setSelectedDevice] = useState(null);
 
   const queryClient = useQueryClient();
 
@@ -236,7 +240,11 @@ export default function DevicesTab({ customerId, customerExternalId }) {
               const StatusIcon = status.icon;
 
               return (
-                <div key={device.id} className="p-4 hover:bg-slate-50 transition-colors">
+                <div 
+                  key={device.id} 
+                  className="p-4 hover:bg-slate-50 transition-colors cursor-pointer"
+                  onClick={() => setSelectedDevice(device)}
+                >
                   <div className="flex items-center gap-4">
                     <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", status.bg)}>
                       <DeviceIcon className={cn("w-6 h-6", status.color)} />
@@ -253,12 +261,21 @@ export default function DevicesTab({ customerId, customerExternalId }) {
                           <StatusIcon className="w-3 h-3 mr-1" />
                           {status.label}
                         </Badge>
+                        {device.notes && (
+                          <StickyNote className="w-3.5 h-3.5 text-amber-500" />
+                        )}
+                        {device.assigned_user_id && (
+                          <User className="w-3.5 h-3.5 text-purple-500" />
+                        )}
                       </div>
                       <div className="flex items-center gap-4 text-sm text-slate-500 mt-1">
                         {device.os && <span>{device.os}</span>}
                         {device.ip_address && <span>{device.ip_address}</span>}
-                        {device.manufacturer && device.model && (
-                          <span>{device.manufacturer} {device.model}</span>
+                        {device.last_user && (
+                          <span className="flex items-center gap-1">
+                            <User className="w-3 h-3" />
+                            {device.last_user}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -279,6 +296,13 @@ export default function DevicesTab({ customerId, customerExternalId }) {
           </div>
         )}
       </div>
+
+      <DeviceDetailModal
+        device={selectedDevice}
+        open={!!selectedDevice}
+        onClose={() => setSelectedDevice(null)}
+        customerId={customerId}
+      />
     </div>
   );
 }

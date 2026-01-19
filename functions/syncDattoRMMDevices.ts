@@ -254,10 +254,11 @@ Deno.serve(async (req) => {
               os: device.operatingSystem || '',
               manufacturer: device.manufacturer || '',
               model: device.model || '',
-              serial_number: device.serialNumber || '',
+              serial_number: device.serialNumber || device.bios?.serialNumber || '',
               ip_address: device.intIpAddress || device.extIpAddress || '',
               mac_address: device.macAddresses?.[0] || '',
               last_seen: lastSeenStr,
+              last_user: device.lastLoggedInUser || device.lastUser || '',
               status: device.online ? 'online' : 'offline',
               agent_version: device.agentVersion || ''
             };
