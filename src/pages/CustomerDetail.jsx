@@ -41,6 +41,7 @@ import SpendAnomalyAlert from '../components/saas/SpendAnomalyAlert';
 import AddContactModal from '../components/saas/AddContactModal';
 import CustomerAnalytics from '../components/customer/CustomerAnalytics';
 import DevicesTab from '../components/customer/DevicesTab';
+import CustomerServicesTab from '../components/customer/CustomerServicesTab';
 import { UserPlus } from 'lucide-react';
 
 export default function CustomerDetail() {
