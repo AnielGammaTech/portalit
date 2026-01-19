@@ -36,12 +36,15 @@ import { format, parseISO } from 'date-fns';
 import LicenseAssignmentModal from '../components/saas/LicenseAssignmentModal';
 import AddLicenseModal from '../components/saas/AddLicenseModal';
 import SpendAnomalyAlert from '../components/saas/SpendAnomalyAlert';
+import AddContactModal from '../components/saas/AddContactModal';
+import { UserPlus } from 'lucide-react';
 
 export default function CustomerDetail() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [user, setUser] = useState(null);
   const [selectedLicense, setSelectedLicense] = useState(null);
   const [showAddLicense, setShowAddLicense] = useState(false);
+  const [showAddContact, setShowAddContact] = useState(false);
   const queryClient = useQueryClient();
   const params = new URLSearchParams(window.location.search);
   let customerId = params.get('id');
@@ -233,6 +236,13 @@ export default function CustomerDetail() {
     queryClient.invalidateQueries({ queryKey: ['licenses', customerId] });
     setShowAddLicense(false);
     toast.success('License added!');
+  };
+
+  const handleAddContact = async (contactData) => {
+    await base44.entities.Contact.create(contactData);
+    queryClient.invalidateQueries({ queryKey: ['contacts', customerId] });
+    setShowAddContact(false);
+    toast.success('Team member added!');
   };
 
   const handleSyncCustomer = async () => {
@@ -537,36 +547,47 @@ export default function CustomerDetail() {
                                                   <h3 className="font-semibold text-slate-900">Your Team</h3>
                                                   <p className="text-sm text-slate-500">{contacts.length} members</p>
                                                 </div>
-                                                {customer?.source === 'halopsa' && (
+                                                <div className="flex items-center gap-2">
                                                   <Button 
                                                     size="sm"
                                                     variant="outline"
                                                     className="gap-2"
-                                                    onClick={async () => {
-                                                      try {
-                                                        setIsSyncing(true);
-                                                        const response = await base44.functions.invoke('syncHaloPSAContacts', { 
-                                                          action: 'sync_customer',
-                                                          customer_id: customer.external_id 
-                                                        });
-                                                        if (response.data.success) {
-                                                          toast.success(`Synced ${response.data.recordsSynced} users!`);
-                                                          queryClient.invalidateQueries({ queryKey: ['contacts', customerId] });
-                                                        } else {
-                                                          toast.error(response.data.error || 'Sync failed');
-                                                        }
-                                                      } catch (error) {
-                                                        toast.error(error.message || 'An error occurred during sync');
-                                                      } finally {
-                                                        setIsSyncing(false);
-                                                      }
-                                                    }}
-                                                    disabled={isSyncing}
+                                                    onClick={() => setShowAddContact(true)}
                                                   >
-                                                    <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
-                                                    Sync Users
+                                                    <UserPlus className="w-4 h-4" />
+                                                    Add Member
                                                   </Button>
-                                                )}
+                                                  {customer?.source === 'halopsa' && (
+                                                    <Button 
+                                                      size="sm"
+                                                      variant="outline"
+                                                      className="gap-2"
+                                                      onClick={async () => {
+                                                        try {
+                                                          setIsSyncing(true);
+                                                          const response = await base44.functions.invoke('syncHaloPSAContacts', { 
+                                                            action: 'sync_customer',
+                                                            customer_id: customer.external_id 
+                                                          });
+                                                          if (response.data.success) {
+                                                            toast.success(`Synced ${response.data.recordsSynced} users!`);
+                                                            queryClient.invalidateQueries({ queryKey: ['contacts', customerId] });
+                                                          } else {
+                                                            toast.error(response.data.error || 'Sync failed');
+                                                          }
+                                                        } catch (error) {
+                                                          toast.error(error.message || 'An error occurred during sync');
+                                                        } finally {
+                                                          setIsSyncing(false);
+                                                        }
+                                                      }}
+                                                      disabled={isSyncing}
+                                                    >
+                                                      <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
+                                                      Sync
+                                                    </Button>
+                                                  )}
+                                                </div>
                                               </div>
                                               {contacts.length === 0 ? (
                                                 <div className="py-8 text-center">
@@ -588,9 +609,16 @@ export default function CustomerDetail() {
                                                           <p className="font-medium text-slate-900 truncate">{contact.full_name}</p>
                                                           <p className="text-sm text-slate-500 truncate">{contact.email || contact.title || 'No email'}</p>
                                                         </div>
-                                                        {contact.is_primary && (
-                                                          <Badge className="bg-purple-100 text-purple-700 text-xs">Primary</Badge>
-                                                        )}
+                                                        <div className="flex items-center gap-1">
+                                                          {contact.source === 'halopsa' ? (
+                                                            <Badge className="bg-blue-100 text-blue-700 text-xs">Halo</Badge>
+                                                          ) : (
+                                                            <Badge className="bg-slate-200 text-slate-600 text-xs">Manual</Badge>
+                                                          )}
+                                                          {contact.is_primary && (
+                                                            <Badge className="bg-purple-100 text-purple-700 text-xs">Primary</Badge>
+                                                          )}
+                                                        </div>
                                                       </div>
                                                     ))}
                                                   </div>
@@ -1522,6 +1550,12 @@ export default function CustomerDetail() {
             open={showAddLicense}
             onClose={() => setShowAddLicense(false)}
             onSave={handleAddLicense}
+            customerId={customerId}
+          />
+          <AddContactModal
+            open={showAddContact}
+            onClose={() => setShowAddContact(false)}
+            onSave={handleAddContact}
             customerId={customerId}
           />
         </TabsContent>
