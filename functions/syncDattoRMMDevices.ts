@@ -152,41 +152,54 @@ Deno.serve(async (req) => {
 
       // Get the Datto site mapping for this customer
       const mappings = await base44.asServiceRole.entities.DattoSiteMapping.filter({ customer_id });
-      
+
       if (mappings.length === 0) {
         return Response.json({ error: 'No Datto site mapped to this customer' }, { status: 400 });
       }
 
       let totalSynced = 0;
-      
+
       for (const mapping of mappings) {
-        // Datto RMM API v2 uses /device endpoint with siteUid filter
-        const devicesData = await dattoApiCall(accessToken, `/device?siteUid=${mapping.datto_site_id}`);
-        const devices = devicesData.devices || devicesData || [];
+        const siteUid = mapping.datto_site_id;
+
+        // Datto RMM API: /site/{siteUid}/devices
+        const devicesData = await dattoApiCall(accessToken, `/site/${siteUid}/devices`);
+        const devices = devicesData.devices || [];
 
         // Get existing devices for this customer
         const existingDevices = await base44.asServiceRole.entities.Device.filter({ 
           customer_id,
-          datto_site_id: mapping.datto_site_id 
+          datto_site_id: siteUid 
         });
         const existingByDattoId = {};
         existingDevices.forEach(d => { existingByDattoId[d.datto_id] = d; });
 
         for (const device of devices) {
+          // Convert lastSeen timestamp to ISO string if it's a number
+          let lastSeenStr = null;
+          if (device.lastSeen) {
+            if (typeof device.lastSeen === 'number') {
+              lastSeenStr = new Date(device.lastSeen).toISOString();
+            } else {
+              lastSeenStr = device.lastSeen;
+            }
+          }
+
           const deviceData = {
             customer_id,
-            datto_id: String(device.id || device.uid),
-            datto_site_id: mapping.datto_site_id,
+            datto_id: String(device.uid || device.id),
+            datto_site_id: siteUid,
             hostname: device.hostname || device.name || 'Unknown',
             description: device.description || '',
             device_type: mapDeviceType(device.deviceType?.category),
             os: device.operatingSystem || '',
             manufacturer: device.manufacturer || '',
             model: device.model || '',
-            serial_number: device.serialNumber || '',
+            serial_number: device.serialNumber || device.bios?.serialNumber || '',
             ip_address: device.intIpAddress || device.extIpAddress || '',
             mac_address: device.macAddresses?.[0] || '',
-            last_seen: device.lastSeen || null,
+            last_seen: lastSeenStr,
+            last_user: device.lastLoggedInUser || device.lastUser || '',
             status: device.online ? 'online' : 'offline',
             agent_version: device.agentVersion || ''
           };
