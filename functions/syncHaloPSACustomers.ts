@@ -142,19 +142,21 @@ Deno.serve(async (req) => {
       const errors = [];
 
       try {
-        // Fetch all Clients with pagination
+        // Fetch all active Clients with pagination - use inactive=false filter
         let allClients = [];
         let pageNumber = 1;
-        const pageSize = 100;
+        const pageSize = 500;
         
         while (true) {
-          const clientsData = await fetchHaloPSA(haloPsaApi(`Client?page_number=${pageNumber}&page_size=${pageSize}`));
-          const clients = Array.isArray(clientsData) ? clientsData : clientsData.clients || clientsData.pageDetails?.pageResult || [];
+          const clientsData = await fetchHaloPSA(haloPsaApi(`Client?page_no=${pageNumber}&page_size=${pageSize}&inactive=false`));
+          const clients = Array.isArray(clientsData) ? clientsData : clientsData.clients || clientsData.records || [];
           
           if (!clients || clients.length === 0) break;
           allClients = allClients.concat(clients);
           
-          if (clients.length < pageSize) break;
+          // Check if we've fetched all records
+          const totalCount = clientsData.record_count || clientsData.totalCount || 0;
+          if (allClients.length >= totalCount || clients.length < pageSize) break;
           pageNumber++;
         }
 
