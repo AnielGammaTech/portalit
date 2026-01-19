@@ -69,10 +69,13 @@ export default function CustomerServicesTab({
     enabled: !!customerId && !!jumpcloudMapping
   });
 
-  // Fetch Spanning contacts for this customer
+  // Fetch Spanning contacts for this customer (any contact with spanning_status set)
   const { data: spanningContacts = [] } = useQuery({
     queryKey: ['spanning-contacts', customerId],
-    queryFn: () => base44.entities.Contact.filter({ customer_id: customerId, source: 'spanning' }),
+    queryFn: async () => {
+      const contacts = await base44.entities.Contact.filter({ customer_id: customerId });
+      return contacts.filter(c => c.spanning_status);
+    },
     enabled: !!customerId && !!spanningMapping
   });
 
