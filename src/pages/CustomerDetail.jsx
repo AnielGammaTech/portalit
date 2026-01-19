@@ -455,13 +455,7 @@ export default function CustomerDetail() {
             <DollarSign className="w-4 h-4" />
             <span className="text-sm">Billing</span>
           </TabsTrigger>
-          <TabsTrigger 
-            value="services" 
-            className="gap-2 py-2.5 px-4 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800 whitespace-nowrap"
-          >
-            <Cloud className="w-4 h-4" />
-            <span className="text-sm">Services</span>
-          </TabsTrigger>
+{/* Services tab only shows when customer has services mapped */}
           <TabsTrigger 
             value="licenses" 
             className="gap-2 py-2.5 px-4 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800 whitespace-nowrap"
@@ -1037,18 +1031,7 @@ export default function CustomerDetail() {
                         </div>
                       </TabsContent>
 
-        <TabsContent value="services">
-          <CustomerServicesTab 
-            customerId={customerId}
-            customer={customer}
-            lineItems={lineItems}
-            expandedBills={expandedBills}
-            setExpandedBills={setExpandedBills}
-            isSyncing={isSyncing}
-            setIsSyncing={setIsSyncing}
-            queryClient={queryClient}
-          />
-        </TabsContent>
+{/* Services tab content - rendered conditionally */}
 
         <TabsContent value="licenses">
           <div className="space-y-6">
