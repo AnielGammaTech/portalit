@@ -223,7 +223,7 @@ export default function SpanningConfig() {
       {connectionStatus?.success && (
         <div className="flex items-center gap-2 text-sm text-emerald-600 bg-emerald-50 px-3 py-2 rounded-lg">
           <CheckCircle2 className="w-4 h-4" />
-          Connected to Unitrends MSP
+          Connected to Unitrends ({connectionStatus.totalCustomers} customers)
         </div>
       )}
 
@@ -267,14 +267,14 @@ export default function SpanningConfig() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h4 className="font-medium text-slate-900">Domain Mappings</h4>
-            <p className="text-sm text-slate-500">Map Spanning domains to your customers</p>
+            <p className="text-sm text-slate-500">Map Unitrends domains to your customers</p>
           </div>
         </div>
 
         {!showMappingView ? (
           mappings.length === 0 ? (
             <p className="text-sm text-slate-500 py-4 text-center">
-              No domains mapped yet. Click "Load Domains" to link Spanning tenants to customers.
+              No domains mapped yet. Click "Load Domains" to link Unitrends tenants to customers.
             </p>
           ) : (
             <div className="space-y-2">
