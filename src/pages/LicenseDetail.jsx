@@ -100,6 +100,7 @@ export default function LicenseDetail() {
   };
 
   const isJumpCloudLicense = license?.source === 'jumpcloud' || license?.vendor?.toLowerCase() === 'jumpcloud';
+  const isSpanningLicense = license?.source === 'spanning' || license?.vendor?.toLowerCase().includes('spanning');
 
   const syncJumpCloudUsers = async () => {
     setSyncingUsers(true);
@@ -110,6 +111,26 @@ export default function LicenseDetail() {
       });
       if (response.data.success) {
         toast.success(`Synced ${response.data.totalJumpCloudUsers} users: ${response.data.created} new, ${response.data.matched} matched!`);
+        queryClient.invalidateQueries({ queryKey: ['contacts', license.customer_id] });
+      } else {
+        toast.error(response.data.error || 'User sync failed');
+      }
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setSyncingUsers(false);
+    }
+  };
+
+  const syncSpanningUsers = async () => {
+    setSyncingUsers(true);
+    try {
+      const response = await base44.functions.invoke('syncSpanningBackup', { 
+        action: 'sync_users', 
+        customer_id: license.customer_id 
+      });
+      if (response.data.success) {
+        toast.success(`Synced ${response.data.totalSpanningUsers} users: ${response.data.created} new, ${response.data.matched} matched!`);
         queryClient.invalidateQueries({ queryKey: ['contacts', license.customer_id] });
       } else {
         toast.error(response.data.error || 'User sync failed');
@@ -323,6 +344,18 @@ export default function LicenseDetail() {
                 Sync Users from JumpCloud
               </Button>
             )}
+            {isSpanningLicense && (
+              <Button 
+                size="sm" 
+                variant="outline"
+                className="gap-2"
+                onClick={syncSpanningUsers}
+                disabled={syncingUsers}
+              >
+                <RefreshCw className={cn("w-4 h-4", syncingUsers && "animate-spin")} />
+                Sync Users from Spanning
+              </Button>
+            )}
             <Button 
               size="sm" 
               className="gap-2 bg-purple-600 hover:bg-purple-700"
@@ -349,6 +382,16 @@ export default function LicenseDetail() {
                   Sync Users from JumpCloud
                 </Button>
               )}
+              {isSpanningLicense && (
+                <Button 
+                  variant="outline"
+                  onClick={syncSpanningUsers}
+                  disabled={syncingUsers}
+                >
+                  <RefreshCw className={cn("w-4 h-4 mr-2", syncingUsers && "animate-spin")} />
+                  Sync Users from Spanning
+                </Button>
+              )}
               <Button onClick={() => setShowAssignModal(true)} className="bg-purple-600 hover:bg-purple-700">
                 <Plus className="w-4 h-4 mr-2" />
                 Assign First User
@@ -373,6 +416,9 @@ export default function LicenseDetail() {
                         )}
                         {contact?.source === 'halopsa' && (
                           <Badge className="bg-amber-100 text-amber-700 text-xs">Halo</Badge>
+                        )}
+                        {contact?.source === 'spanning' && (
+                          <Badge className="bg-green-100 text-green-700 text-xs">Spanning</Badge>
                         )}
                         {contact?.source === 'manual' && (
                           <Badge variant="outline" className="text-xs">Manual</Badge>

@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import DattoRMMConfig from '../components/integrations/DattoRMMConfig';
 import JumpCloudConfig from '../components/integrations/JumpCloudConfig';
+import SpanningConfig from '../components/integrations/SpanningConfig';
 
 function IntegrationSection({ title, description, children }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -219,6 +220,13 @@ export default function Settings() {
               description="Connect JumpCloud to automatically sync SSO applications as SaaS licenses for your customers"
             >
               <JumpCloudConfig />
+            </IntegrationSection>
+
+            <IntegrationSection
+              title="Spanning Backup"
+              description="Connect Spanning Backup to sync backup licenses and users for your customers"
+            >
+              <SpanningConfig />
             </IntegrationSection>
           </div>
         </TabsContent>
