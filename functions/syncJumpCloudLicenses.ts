@@ -410,8 +410,10 @@ Deno.serve(async (req) => {
 
       return Response.json({
         success: true,
-        created,
-        updated,
+        licensesCreated: created,
+        licensesUpdated: updated,
+        usersCreated,
+        usersUpdated,
         totalUsers,
         ssoApps: applications?.length || 0
       });
