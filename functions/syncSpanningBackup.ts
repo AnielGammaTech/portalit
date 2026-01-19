@@ -219,8 +219,8 @@ Deno.serve(async (req) => {
       const customers = await base44.asServiceRole.entities.Customer.filter({ id: customer_id });
       const customer = customers[0];
 
-      // Sync users as contacts
-      const existingContacts = await base44.asServiceRole.entities.Contact.filter({ customer_id, source: 'spanning' });
+      // Sync users as contacts - match ALL existing contacts by email, not just spanning ones
+      const existingContacts = await base44.asServiceRole.entities.Contact.filter({ customer_id });
       const existingByEmail = {};
       existingContacts.forEach(c => { 
         if (c.email) existingByEmail[c.email.toLowerCase()] = c; 
