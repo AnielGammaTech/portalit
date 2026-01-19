@@ -265,13 +265,55 @@ Deno.serve(async (req) => {
       const mapping = mappings[0];
       const orgId = mapping.jumpcloud_org_id !== 'default' ? mapping.jumpcloud_org_id : null;
 
-      // Get user count for this organization
+      // Get users for this organization
       let totalUsers = 0;
+      let jcUsers = [];
       try {
         const usersResponse = await jumpcloudApiCall('/systemusers', orgId);
-        totalUsers = usersResponse.totalCount || usersResponse.results?.length || 0;
+        jcUsers = usersResponse.results || [];
+        totalUsers = usersResponse.totalCount || jcUsers.length || 0;
       } catch {
         // Fallback
+      }
+
+      // Sync users to contacts
+      let usersCreated = 0;
+      let usersUpdated = 0;
+      
+      const existingContacts = await base44.asServiceRole.entities.Contact.filter({ customer_id });
+      const existingByEmail = {};
+      existingContacts.forEach(c => { 
+        if (c.email) existingByEmail[c.email.toLowerCase()] = c; 
+      });
+
+      for (const jcUser of jcUsers) {
+        const email = jcUser.email?.toLowerCase();
+        if (!email) continue;
+
+        const fullName = [jcUser.firstname, jcUser.lastname].filter(Boolean).join(' ') || jcUser.username || email;
+        
+        const existing = existingByEmail[email];
+        if (existing) {
+          // Update if source is not jumpcloud or name changed
+          if (existing.source !== 'jumpcloud' || existing.full_name !== fullName) {
+            await base44.asServiceRole.entities.Contact.update(existing.id, {
+              full_name: fullName,
+              title: jcUser.jobTitle || existing.title,
+              source: 'jumpcloud'
+            });
+            usersUpdated++;
+          }
+        } else {
+          // Create new contact
+          await base44.asServiceRole.entities.Contact.create({
+            customer_id,
+            full_name: fullName,
+            email: jcUser.email,
+            title: jcUser.jobTitle || '',
+            source: 'jumpcloud'
+          });
+          usersCreated++;
+        }
       }
 
       // Get existing JumpCloud licenses for this customer
