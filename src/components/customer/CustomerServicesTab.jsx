@@ -32,6 +32,7 @@ export default function CustomerServicesTab({
 }) {
   const [syncingJumpCloud, setSyncingJumpCloud] = useState(false);
   const [syncingSpanning, setSyncingSpanning] = useState(false);
+  const [syncingAll, setSyncingAll] = useState(false);
   const [jcUsersPage, setJcUsersPage] = useState(0);
   const [spanningUsersPage, setSpanningUsersPage] = useState(0);
   const [selectedContact, setSelectedContact] = useState(null);
