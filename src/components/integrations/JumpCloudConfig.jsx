@@ -20,10 +20,12 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  Cloud
+  Cloud,
+  Clock
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
+import { format } from 'date-fns';
 
 export default function JumpCloudConfig() {
   const [testing, setTesting] = useState(false);
@@ -32,6 +34,7 @@ export default function JumpCloudConfig() {
   const [jumpcloudOrgs, setJumpcloudOrgs] = useState([]);
   const [showMappingView, setShowMappingView] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [syncingCustomerId, setSyncingCustomerId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTab, setFilterTab] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -121,6 +124,7 @@ export default function JumpCloudConfig() {
       if (response.data.success) {
         toast.success(`Synced ${response.data.created} new, ${response.data.updated} updated licenses!`);
         queryClient.invalidateQueries({ queryKey: ['licenses'] });
+        refetchMappings();
       } else {
         toast.error(response.data.error || 'Sync failed');
       }
@@ -128,6 +132,27 @@ export default function JumpCloudConfig() {
       toast.error(error.message);
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const syncCustomerLicenses = async (customerId) => {
+    setSyncingCustomerId(customerId);
+    try {
+      const response = await base44.functions.invoke('syncJumpCloudLicenses', { 
+        action: 'sync_licenses', 
+        customer_id: customerId 
+      });
+      if (response.data.success) {
+        toast.success(`Synced ${response.data.totalUsers} users, ${response.data.ssoApps} SSO apps!`);
+        queryClient.invalidateQueries({ queryKey: ['licenses'] });
+        refetchMappings();
+      } else {
+        toast.error(response.data.error || 'Sync failed');
+      }
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setSyncingCustomerId(null);
     }
   };
 
@@ -237,16 +262,34 @@ export default function JumpCloudConfig() {
                     <div>
                       <p className="font-medium text-slate-900">{getCustomerName(mapping.customer_id)}</p>
                       <p className="text-sm text-slate-500">→ {mapping.jumpcloud_org_name}</p>
+                      {mapping.last_synced && (
+                        <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                          <Clock className="w-3 h-3" />
+                          Last synced: {format(new Date(mapping.last_synced), 'MMM d, h:mm a')}
+                        </p>
+                      )}
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => deleteMapping(mapping.id)}
-                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => syncCustomerLicenses(mapping.customer_id)}
+                      disabled={syncingCustomerId === mapping.customer_id}
+                      className="text-xs h-7"
+                    >
+                      <RefreshCw className={cn("w-3 h-3 mr-1", syncingCustomerId === mapping.customer_id && "animate-spin")} />
+                      Sync
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => deleteMapping(mapping.id)}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50 h-7 w-7"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
