@@ -440,61 +440,61 @@ export default function CustomerDetail() {
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-6" id="customer-tabs">
-        <TabsList className="bg-white border border-gray-200 rounded-2xl p-2 flex flex-wrap gap-2 h-auto shadow-sm">
+        <TabsList className="bg-white border border-gray-200 rounded-2xl p-1.5 flex gap-1 h-auto shadow-sm overflow-x-auto">
           <TabsTrigger 
             value="overview" 
-            className="flex-1 min-w-[140px] gap-3 py-4 px-6 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800"
+            className="gap-2 py-2.5 px-4 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800 whitespace-nowrap"
           >
-            <Building2 className="w-5 h-5" />
+            <Building2 className="w-4 h-4" />
             <span className="text-sm">Overview</span>
           </TabsTrigger>
           <TabsTrigger 
             value="billing" 
-            className="flex-1 min-w-[140px] gap-3 py-4 px-6 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800"
+            className="gap-2 py-2.5 px-4 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800 whitespace-nowrap"
           >
-            <DollarSign className="w-5 h-5" />
+            <DollarSign className="w-4 h-4" />
             <span className="text-sm">Billing</span>
           </TabsTrigger>
           <TabsTrigger 
             value="services" 
-            className="flex-1 min-w-[140px] gap-3 py-4 px-6 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800"
+            className="gap-2 py-2.5 px-4 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800 whitespace-nowrap"
           >
-            <Cloud className="w-5 h-5" />
+            <Cloud className="w-4 h-4" />
             <span className="text-sm">Services</span>
           </TabsTrigger>
           <TabsTrigger 
             value="licenses" 
-            className="flex-1 min-w-[140px] gap-3 py-4 px-6 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800"
+            className="gap-2 py-2.5 px-4 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800 whitespace-nowrap"
           >
-            <Cloud className="w-5 h-5" />
+            <Cloud className="w-4 h-4" />
             <span className="text-sm">SaaS</span>
           </TabsTrigger>
           <TabsTrigger 
             value="quotes" 
-            className="flex-1 min-w-[140px] gap-3 py-4 px-6 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800"
+            className="gap-2 py-2.5 px-4 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800 whitespace-nowrap"
           >
-            <FileText className="w-5 h-5" />
+            <FileText className="w-4 h-4" />
             <span className="text-sm">Quotes</span>
           </TabsTrigger>
           <TabsTrigger 
             value="tickets" 
-            className="flex-1 min-w-[140px] gap-3 py-4 px-6 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800"
+            className="gap-2 py-2.5 px-4 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800 whitespace-nowrap"
           >
-            <HelpCircle className="w-5 h-5" />
+            <HelpCircle className="w-4 h-4" />
             <span className="text-sm">Support</span>
           </TabsTrigger>
           <TabsTrigger 
             value="analytics" 
-            className="flex-1 min-w-[140px] gap-3 py-4 px-6 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800"
+            className="gap-2 py-2.5 px-4 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800 whitespace-nowrap"
           >
-            <BarChart3 className="w-5 h-5" />
+            <BarChart3 className="w-4 h-4" />
             <span className="text-sm">Analytics</span>
           </TabsTrigger>
           <TabsTrigger 
             value="devices" 
-            className="flex-1 min-w-[140px] gap-3 py-4 px-6 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800"
+            className="gap-2 py-2.5 px-4 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800 whitespace-nowrap"
           >
-            <Monitor className="w-5 h-5" />
+            <Monitor className="w-4 h-4" />
             <span className="text-sm">Devices</span>
           </TabsTrigger>
         </TabsList>
