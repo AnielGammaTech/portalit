@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
+// Supports actions: sync_customer, delete_customer_contacts
 // Helper: Authenticate with HaloPSA
 async function authenticateWithHaloPSA(authUrl, clientId, clientSecret) {
   const tokenResponse = await fetch(authUrl, {
