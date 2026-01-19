@@ -39,6 +39,7 @@ import LicenseAssignmentModal from '../components/saas/LicenseAssignmentModal';
 import AddLicenseModal from '../components/saas/AddLicenseModal';
 import SpendAnomalyAlert from '../components/saas/SpendAnomalyAlert';
 import AddContactModal from '../components/saas/AddContactModal';
+import CustomerAnalytics from '../components/customer/CustomerAnalytics';
 import { UserPlus } from 'lucide-react';
 
 export default function CustomerDetail() {
@@ -1885,6 +1886,17 @@ export default function CustomerDetail() {
                                   </div>
                                   </div>
                                   </TabsContent>
+
+        <TabsContent value="analytics">
+          <CustomerAnalytics
+            contracts={contracts}
+            recurringBills={recurringBills}
+            tickets={tickets}
+            invoices={invoices}
+            licenses={licenses}
+            licenseAssignments={licenseAssignments}
+          />
+        </TabsContent>
                                   </Tabs>
                       </div>
                       );
