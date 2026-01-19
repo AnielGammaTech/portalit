@@ -32,8 +32,8 @@ const INTEGRATIONS = [
 export default function Integrations() {
   const [expandedIntegration, setExpandedIntegration] = useState(null);
   const [integrationStates, setIntegrationStates] = useState({
-    resend: { enabled: true },
-    halopsa: { enabled: false }
+    halopsa: { enabled: false },
+    dattormm: { enabled: false }
   });
 
   const handleToggle = (integrationId, checked) => {
