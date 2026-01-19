@@ -406,7 +406,7 @@ export default function CustomerDetail() {
               className="bg-white/10 backdrop-blur rounded-xl p-3 text-center hover:bg-white/20 transition-colors cursor-pointer"
             >
               <HelpCircle className="w-4 h-4 mx-auto text-amber-400 mb-1" />
-              <p className="text-xl font-bold">{tickets.filter(t => ['open', 'in_progress', 'new'].includes(t.status)).length}</p>
+              <p className="text-xl font-bold">{tickets.filter(t => !['closed', 'resolved'].includes(t.status)).length}</p>
               <p className="text-xs text-slate-400">Tickets</p>
             </button>
             <button 
