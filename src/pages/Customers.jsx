@@ -255,28 +255,28 @@ export default function Customers() {
           </p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {filteredCustomers.map((customer) => {
             const stats = getCustomerStats(customer.id);
             return (
               <div
                 key={customer.id}
                 onClick={() => navigate(createPageUrl(`CustomerDetail?id=${customer.id}`))}
-                className="flex items-center gap-4 bg-white rounded-xl border border-slate-200/50 p-4 hover:border-purple-200 hover:shadow-sm transition-all group cursor-pointer"
+                className="flex items-center gap-3 bg-white rounded-xl border border-slate-200/50 p-3 hover:border-purple-200 hover:shadow-sm transition-all group cursor-pointer"
               >
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-100 to-purple-50 flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-100 to-purple-50 flex items-center justify-center flex-shrink-0">
                   {customer.logo_url ? (
-                    <img src={customer.logo_url} alt={customer.name} className="w-7 h-7 rounded" />
+                    <img src={customer.logo_url} alt={customer.name} className="w-6 h-6 rounded" />
                   ) : (
-                    <Building2 className="w-6 h-6 text-purple-600" />
+                    <Building2 className="w-5 h-5 text-purple-600" />
                   )}
                 </div>
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="font-semibold text-slate-900 truncate">{customer.name}</p>
+                    <p className="font-medium text-slate-900 truncate text-sm">{customer.name}</p>
                     <Badge className={cn(
-                      'text-xs',
+                      'text-[10px] px-1.5 py-0',
                       customer.status === 'active' && 'bg-emerald-100 text-emerald-700',
                       customer.status === 'inactive' && 'bg-slate-100 text-slate-600',
                       customer.status === 'suspended' && 'bg-red-100 text-red-700'
@@ -284,29 +284,26 @@ export default function Customers() {
                       {customer.status || 'active'}
                     </Badge>
                   </div>
-                  {customer.email && (
-                    <p className="text-sm text-slate-500 truncate">{customer.email}</p>
-                  )}
                 </div>
 
-                <div className="hidden md:flex items-center gap-6">
-                  <div className="text-center">
-                    <p className="text-lg font-semibold text-slate-900">{stats.contracts}</p>
-                    <p className="text-xs text-slate-500">Contracts</p>
+                <div className="hidden sm:flex items-center gap-3 text-xs">
+                  <div className="text-center min-w-[40px]">
+                    <p className="font-semibold text-slate-900">{stats.contracts}</p>
+                    <p className="text-slate-400">Con</p>
                   </div>
-                  <div className="text-center">
-                    <p className="text-lg font-semibold text-slate-900">{stats.tickets}</p>
-                    <p className="text-xs text-slate-500">Open Tickets</p>
+                  <div className="text-center min-w-[40px]">
+                    <p className="font-semibold text-slate-900">{stats.tickets}</p>
+                    <p className="text-slate-400">Tix</p>
                   </div>
-                  <div className="text-center">
-                    <p className="text-lg font-semibold text-emerald-600">${stats.mrr.toLocaleString()}</p>
-                    <p className="text-xs text-slate-500">MRR</p>
+                  <div className="text-center min-w-[50px]">
+                    <p className="font-semibold text-emerald-600">${stats.mrr.toLocaleString()}</p>
+                    <p className="text-slate-400">MRR</p>
                   </div>
                 </div>
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0">
                       <MoreVertical className="w-4 h-4 text-slate-400" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -331,7 +328,7 @@ export default function Customers() {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-purple-600 flex-shrink-0" />
+                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-purple-600 flex-shrink-0" />
               </div>
             );
           })}
