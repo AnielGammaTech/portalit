@@ -17,7 +17,9 @@ import {
   Cloud,
   Shield,
   HardDrive,
-  Monitor
+  Monitor,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 
 export default function UserDetailModal({ contact, open, onClose, customerId }) {
@@ -100,6 +102,53 @@ export default function UserDetailModal({ contact, open, onClose, customerId }) 
                   <div className="flex items-center gap-2 text-sm text-slate-600">
                     <Phone className="w-4 h-4 text-slate-400" />
                     {contact.phone}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Service Integrations */}
+          <div>
+            <h4 className="font-medium text-slate-900 mb-3 flex items-center gap-2">
+              <Shield className="w-4 h-4" />
+              Service Integrations
+            </h4>
+            <div className="grid grid-cols-2 gap-3">
+              {/* JumpCloud Status */}
+              <div className={`p-3 rounded-lg border ${contact.jumpcloud_id ? 'bg-purple-50 border-purple-200' : 'bg-slate-50 border-slate-200'}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <Shield className={`w-4 h-4 ${contact.jumpcloud_id ? 'text-purple-600' : 'text-slate-400'}`} />
+                  <span className="font-medium text-sm">JumpCloud</span>
+                </div>
+                {contact.jumpcloud_id ? (
+                  <div className="flex items-center gap-1 text-xs">
+                    <CheckCircle2 className="w-3 h-3 text-green-500" />
+                    <span className="text-green-700">{contact.jumpcloud_status || 'Connected'}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-xs text-slate-500">
+                    <XCircle className="w-3 h-3" />
+                    <span>Not synced</span>
+                  </div>
+                )}
+              </div>
+              
+              {/* Spanning Backup Status */}
+              <div className={`p-3 rounded-lg border ${contact.spanning_status ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-200'}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <HardDrive className={`w-4 h-4 ${contact.spanning_status ? 'text-blue-600' : 'text-slate-400'}`} />
+                  <span className="font-medium text-sm">Spanning Backup</span>
+                </div>
+                {contact.spanning_status ? (
+                  <div className="flex items-center gap-1 text-xs">
+                    <CheckCircle2 className="w-3 h-3 text-green-500" />
+                    <span className="text-green-700">{contact.spanning_status}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-xs text-slate-500">
+                    <XCircle className="w-3 h-3" />
+                    <span>Not protected</span>
                   </div>
                 )}
               </div>
