@@ -30,6 +30,7 @@ export default function CustomerServicesTab({
 }) {
   const [syncingJumpCloud, setSyncingJumpCloud] = useState(false);
   const [syncingSpanning, setSyncingSpanning] = useState(false);
+  const [jcUsersPage, setJcUsersPage] = useState(0);
 
   // Fetch JumpCloud mapping for this customer
   const { data: jumpcloudMapping } = useQuery({
