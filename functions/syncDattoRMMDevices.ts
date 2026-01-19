@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
       return Response.json({
         success: true,
         sites: sites.map(site => ({
-          id: site.id,
+          id: site.uid, // Use uid as the primary identifier for API calls
           uid: site.uid,
           name: site.name,
           description: site.description,
