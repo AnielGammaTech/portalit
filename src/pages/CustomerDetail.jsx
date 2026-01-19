@@ -94,6 +94,12 @@ export default function CustomerDetail() {
     enabled: !!customerId
   });
 
+  const { data: devices = [], isLoading: loadingDevices } = useQuery({
+    queryKey: ['devices', customerId],
+    queryFn: () => base44.entities.Device.filter({ customer_id: customerId }),
+    enabled: !!customerId
+  });
+
   const { data: licenses = [], isLoading: loadingLicenses } = useQuery({
     queryKey: ['licenses', customerId],
     queryFn: () => base44.entities.SaaSLicense.filter({ customer_id: customerId }),
@@ -201,7 +207,7 @@ export default function CustomerDetail() {
                   const [saasView, setSaasView] = useState('licenses'); // 'licenses', 'users', 'spend'
                   const [saasCategoryFilter, setSaasCategoryFilter] = useState(''); // filter by category
 
-  const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems || loadingContractItems || loadingContacts || loadingTickets || loadingInvoiceLineItems || loadingAssignments;
+  const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems || loadingContractItems || loadingContacts || loadingTickets || loadingInvoiceLineItems || loadingAssignments || loadingDevices;
 
   const handleAssignLicense = async (contactId) => {
     await base44.entities.LicenseAssignment.create({
@@ -379,42 +385,60 @@ export default function CustomerDetail() {
 
           {/* Quick Stats Widgets */}
           <div className="grid grid-cols-6 gap-3 mt-4 md:mt-0">
-            <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
+            <button 
+              onClick={() => document.querySelector('[data-state="inactive"][value="overview"]')?.click() || document.querySelector('[value="overview"]')?.click()}
+              className="bg-white/10 backdrop-blur rounded-xl p-3 text-center hover:bg-white/20 transition-colors cursor-pointer"
+            >
               <Users className="w-4 h-4 mx-auto text-blue-400 mb-1" />
               <p className="text-xl font-bold">{contacts.length}</p>
               <p className="text-xs text-slate-400">Contacts</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
+            </button>
+            <button 
+              onClick={() => document.querySelector('[value="contracts"]')?.click()}
+              className="bg-white/10 backdrop-blur rounded-xl p-3 text-center hover:bg-white/20 transition-colors cursor-pointer"
+            >
               <FileText className="w-4 h-4 mx-auto text-orange-400 mb-1" />
               <p className="text-xl font-bold">{contracts.filter(c => c.status === 'active').length}</p>
               <p className="text-xs text-slate-400">Contracts</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
+            </button>
+            <button 
+              onClick={() => document.querySelector('[value="tickets"]')?.click()}
+              className="bg-white/10 backdrop-blur rounded-xl p-3 text-center hover:bg-white/20 transition-colors cursor-pointer"
+            >
               <HelpCircle className="w-4 h-4 mx-auto text-amber-400 mb-1" />
               <p className="text-xl font-bold">{tickets.filter(t => ['open', 'in_progress', 'new'].includes(t.status)).length}</p>
               <p className="text-xs text-slate-400">Tickets</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
+            </button>
+            <button 
+              onClick={() => document.querySelector('[value="quotes"]')?.click()}
+              className="bg-white/10 backdrop-blur rounded-xl p-3 text-center hover:bg-white/20 transition-colors cursor-pointer"
+            >
               <Receipt className="w-4 h-4 mx-auto text-emerald-400 mb-1" />
               <p className="text-xl font-bold">{quotes.length}</p>
               <p className="text-xs text-slate-400">Quotes</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
+            </button>
+            <button 
+              onClick={() => document.querySelector('[value="licenses"]')?.click()}
+              className="bg-white/10 backdrop-blur rounded-xl p-3 text-center hover:bg-white/20 transition-colors cursor-pointer"
+            >
               <Cloud className="w-4 h-4 mx-auto text-purple-400 mb-1" />
               <p className="text-xl font-bold">{licenses.length}</p>
               <p className="text-xs text-slate-400">SaaS</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
+            </button>
+            <button 
+              onClick={() => document.querySelector('[value="devices"]')?.click()}
+              className="bg-white/10 backdrop-blur rounded-xl p-3 text-center hover:bg-white/20 transition-colors cursor-pointer"
+            >
               <Monitor className="w-4 h-4 mx-auto text-cyan-400 mb-1" />
-              <p className="text-xl font-bold">{customer?.total_devices || 0}</p>
+              <p className="text-xl font-bold">{devices.length}</p>
               <p className="text-xs text-slate-400">Devices</p>
-            </div>
+            </button>
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="overview" className="space-y-6">
+      <Tabs defaultValue="overview" className="space-y-6" id="customer-tabs">
         <TabsList className="bg-white border border-gray-200 rounded-2xl p-2 flex flex-wrap gap-2 h-auto shadow-sm">
           <TabsTrigger 
             value="overview" 
