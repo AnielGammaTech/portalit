@@ -495,7 +495,7 @@ export default function DattoRMMConfig() {
               )}
             </div>
           )}
-      </div>
+        </div>
     </div>
   );
 }
