@@ -284,7 +284,7 @@ export default function DattoRMMConfig() {
           </div>
         </div>
 
-          {!showMappingView ? (
+        {!showMappingView ? (
             mappings.length === 0 ? (
               <p className="text-sm text-slate-500 py-4 text-center">
                 No sites mapped yet. Click "Client Mapping" to link Datto sites to customers.
