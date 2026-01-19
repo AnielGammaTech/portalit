@@ -191,8 +191,14 @@ Deno.serve(async (req) => {
       const mapping = mappings[0];
       const orgId = mapping.jumpcloud_org_id !== 'default' ? mapping.jumpcloud_org_id : null;
 
-      // Get applications
-      const applications = await jumpcloudV2ApiCall('/applications', orgId);
+      // Get user count for this organization
+      let totalUsers = 0;
+      try {
+        const usersResponse = await jumpcloudApiCall('/systemusers', orgId);
+        totalUsers = usersResponse.totalCount || usersResponse.results?.length || 0;
+      } catch {
+        // Fallback
+      }
 
       // Get existing JumpCloud licenses for this customer
       const existingLicenses = await base44.asServiceRole.entities.SaaSLicense.filter({ 
@@ -205,6 +211,41 @@ Deno.serve(async (req) => {
 
       let created = 0;
       let updated = 0;
+
+      // Always create/update the main JumpCloud license
+      const jumpcloudLicenseId = `jumpcloud-org-${mapping.jumpcloud_org_id}`;
+      const jumpcloudLicenseData = {
+        customer_id,
+        application_name: 'JumpCloud',
+        vendor: 'JumpCloud',
+        license_type: 'Directory Platform',
+        quantity: totalUsers,
+        assigned_users: totalUsers,
+        cost_per_license: 0,
+        total_cost: 0,
+        billing_cycle: 'monthly',
+        status: 'active',
+        external_id: jumpcloudLicenseId,
+        source: 'jumpcloud',
+        website_url: 'https://jumpcloud.com',
+        logo_url: 'https://logo.clearbit.com/jumpcloud.com',
+        category: 'security',
+        notes: `JumpCloud Directory - ${totalUsers} users synced from ${mapping.jumpcloud_org_name}`
+      };
+
+      const existingJumpcloud = existingByExternalId[jumpcloudLicenseId];
+      if (existingJumpcloud) {
+        if (existingJumpcloud.quantity !== totalUsers) {
+          await base44.asServiceRole.entities.SaaSLicense.update(existingJumpcloud.id, jumpcloudLicenseData);
+          updated++;
+        }
+      } else {
+        await base44.asServiceRole.entities.SaaSLicense.create(jumpcloudLicenseData);
+        created++;
+      }
+
+      // Get SSO applications
+      const applications = await jumpcloudV2ApiCall('/applications', orgId);
 
       for (const app of (applications || [])) {
         // Get users assigned to this application
@@ -223,7 +264,7 @@ Deno.serve(async (req) => {
           license_type: app.sso?.type || 'SSO Application',
           quantity: userCount,
           assigned_users: userCount,
-          cost_per_license: 0, // JumpCloud doesn't provide cost info
+          cost_per_license: 0,
           total_cost: 0,
           billing_cycle: 'monthly',
           status: 'active',
@@ -236,7 +277,6 @@ Deno.serve(async (req) => {
 
         const existing = existingByExternalId[app.id];
         if (existing) {
-          // Only update if something changed
           if (existing.quantity !== userCount || existing.application_name !== licenseData.application_name) {
             await base44.asServiceRole.entities.SaaSLicense.update(existing.id, licenseData);
             updated++;
@@ -251,7 +291,8 @@ Deno.serve(async (req) => {
         success: true,
         created,
         updated,
-        total: applications?.length || 0
+        totalUsers,
+        ssoApps: applications?.length || 0
       });
     }
 
