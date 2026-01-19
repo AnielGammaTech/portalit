@@ -228,7 +228,7 @@ Deno.serve(async (req) => {
         external_id: jumpcloudLicenseId,
         source: 'jumpcloud',
         website_url: 'https://jumpcloud.com',
-        logo_url: 'https://logo.clearbit.com/jumpcloud.com',
+        logo_url: 'https://cdn.brandfetch.io/idoUb6RCfq/w/400/h/400/theme/dark/icon.png',
         category: 'security',
         notes: `JumpCloud Directory - ${totalUsers} users synced from ${mapping.jumpcloud_org_name}`
       };
