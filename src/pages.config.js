@@ -7,6 +7,7 @@ import Settings from './pages/Settings';
 import SaaSReports from './pages/SaaSReports';
 import Adminland from './pages/Adminland';
 import Contracts from './pages/Contracts';
+import Analytics from './pages/Analytics';
 import __Layout from './Layout.jsx';
 
 
@@ -20,6 +21,7 @@ export const PAGES = {
     "SaaSReports": SaaSReports,
     "Adminland": Adminland,
     "Contracts": Contracts,
+    "Analytics": Analytics,
 }
 
 export const pagesConfig = {
