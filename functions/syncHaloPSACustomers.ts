@@ -142,23 +142,39 @@ Deno.serve(async (req) => {
       const errors = [];
 
       try {
-        // Fetch all active Clients with pagination - use inactive=false filter
+        // Fetch all active Clients with pagination
         let allClients = [];
         let pageNumber = 1;
-        const pageSize = 500;
+        const pageSize = 1000;
         
         while (true) {
-          const clientsData = await fetchHaloPSA(haloPsaApi(`Client?page_no=${pageNumber}&page_size=${pageSize}&inactive=false`));
-          const clients = Array.isArray(clientsData) ? clientsData : clientsData.clients || clientsData.records || [];
+          // HaloPSA uses pageinate, page_size, page_no params
+          const url = haloPsaApi(`Client?pageinate=true&page_size=${pageSize}&page_no=${pageNumber}&isactive=true`);
+          console.log(`Fetching page ${pageNumber}: ${url}`);
+          const clientsData = await fetchHaloPSA(url);
+          
+          // Handle different response formats
+          const clients = Array.isArray(clientsData) ? clientsData : 
+                          clientsData.clients || clientsData.records || clientsData.Clients || [];
+          
+          console.log(`Page ${pageNumber}: Got ${clients.length} clients`);
           
           if (!clients || clients.length === 0) break;
           allClients = allClients.concat(clients);
           
           // Check if we've fetched all records
-          const totalCount = clientsData.record_count || clientsData.totalCount || 0;
-          if (allClients.length >= totalCount || clients.length < pageSize) break;
+          const totalCount = clientsData.record_count || clientsData.recordCount || clientsData.total_count || 0;
+          console.log(`Total so far: ${allClients.length}, API total: ${totalCount}`);
+          
+          if (clients.length < pageSize) break;
+          if (totalCount > 0 && allClients.length >= totalCount) break;
           pageNumber++;
+          
+          // Safety limit
+          if (pageNumber > 20) break;
         }
+        
+        console.log(`Total clients fetched: ${allClients.length}`);
 
         for (const client of allClients) {
           if (excludedIds.includes(String(client.id))) continue;
