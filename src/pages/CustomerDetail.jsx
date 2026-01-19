@@ -25,7 +25,9 @@ import {
   ChevronDown,
   CheckCircle2,
   HelpCircle,
-  AlertCircle
+  AlertCircle,
+  BarChart3,
+  Receipt
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -364,22 +366,41 @@ export default function CustomerDetail() {
                   {customer.phone}
                 </div>
               )}
+              {customer.address && (
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  {customer.address}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Quick Stats */}
-          <div className="flex gap-6">
-            <div className="text-center">
-              <p className="text-2xl font-bold">{contacts.length}</p>
-              <p className="text-xs text-slate-400">Team</p>
+          {/* Quick Stats Widgets */}
+          <div className="grid grid-cols-5 gap-3 mt-4 md:mt-0">
+            <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
+              <Users className="w-4 h-4 mx-auto text-blue-400 mb-1" />
+              <p className="text-xl font-bold">{contacts.length}</p>
+              <p className="text-xs text-slate-400">Contacts</p>
             </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold">{contracts.filter(c => c.status === 'active').length}</p>
+            <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
+              <FileText className="w-4 h-4 mx-auto text-orange-400 mb-1" />
+              <p className="text-xl font-bold">{contracts.filter(c => c.status === 'active').length}</p>
               <p className="text-xs text-slate-400">Contracts</p>
             </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold">{tickets.filter(t => ['open', 'in_progress', 'new'].includes(t.status)).length}</p>
-              <p className="text-xs text-slate-400">Open Tickets</p>
+            <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
+              <HelpCircle className="w-4 h-4 mx-auto text-amber-400 mb-1" />
+              <p className="text-xl font-bold">{tickets.filter(t => ['open', 'in_progress', 'new'].includes(t.status)).length}</p>
+              <p className="text-xs text-slate-400">Tickets</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
+              <Receipt className="w-4 h-4 mx-auto text-emerald-400 mb-1" />
+              <p className="text-xl font-bold">{quotes.length}</p>
+              <p className="text-xs text-slate-400">Quotes</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
+              <Cloud className="w-4 h-4 mx-auto text-purple-400 mb-1" />
+              <p className="text-xl font-bold">{licenses.length}</p>
+              <p className="text-xs text-slate-400">SaaS</p>
             </div>
           </div>
         </div>
@@ -422,6 +443,13 @@ export default function CustomerDetail() {
           >
             <HelpCircle className="w-5 h-5" />
             <span className="text-sm">Support</span>
+          </TabsTrigger>
+          <TabsTrigger 
+            value="analytics" 
+            className="flex-1 min-w-[140px] gap-3 py-4 px-6 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800"
+          >
+            <BarChart3 className="w-5 h-5" />
+            <span className="text-sm">Analytics</span>
           </TabsTrigger>
         </TabsList>
 
