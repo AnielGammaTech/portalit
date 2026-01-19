@@ -234,6 +234,16 @@ Deno.serve(async (req) => {
           existingDevices.forEach(d => { existingByDattoId[d.datto_id] = d; });
 
           for (const device of devices) {
+            // Convert lastSeen timestamp to ISO string if it's a number
+            let lastSeenStr = null;
+            if (device.lastSeen) {
+              if (typeof device.lastSeen === 'number') {
+                lastSeenStr = new Date(device.lastSeen).toISOString();
+              } else {
+                lastSeenStr = device.lastSeen;
+              }
+            }
+            
             const deviceData = {
               customer_id: mapping.customer_id,
               datto_id: String(device.uid || device.id),
@@ -247,7 +257,7 @@ Deno.serve(async (req) => {
               serial_number: device.serialNumber || '',
               ip_address: device.intIpAddress || device.extIpAddress || '',
               mac_address: device.macAddresses?.[0] || '',
-              last_seen: device.lastSeen || null,
+              last_seen: lastSeenStr,
               status: device.online ? 'online' : 'offline',
               agent_version: device.agentVersion || ''
             };
