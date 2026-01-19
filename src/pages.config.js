@@ -8,6 +8,8 @@ import Integrations from './pages/Integrations';
 import LicenseDetail from './pages/LicenseDetail';
 import SaaSReports from './pages/SaaSReports';
 import Settings from './pages/Settings';
+import Services from './pages/Services';
+import Billing from './pages/Billing';
 import __Layout from './Layout.jsx';
 
 
@@ -22,6 +24,8 @@ export const PAGES = {
     "LicenseDetail": LicenseDetail,
     "SaaSReports": SaaSReports,
     "Settings": Settings,
+    "Services": Services,
+    "Billing": Billing,
 }
 
 export const pagesConfig = {

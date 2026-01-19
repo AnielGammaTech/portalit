@@ -13,7 +13,8 @@ import {
   LogOut,
   Bell,
   Users,
-  BarChart3
+  BarChart3,
+  Receipt
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import {
@@ -59,11 +60,12 @@ export default function Layout({ children, currentPageName }) {
 
   // Admin navigation (MSP view)
       const adminNavigation = [
-        { name: 'Dashboard', page: 'Dashboard', icon: LayoutDashboard },
-        { name: 'Customers', page: 'Customers', icon: Building2 },
-        { name: 'Analytics', page: 'Analytics', icon: BarChart3 },
-        { name: 'SaaS Reports', page: 'SaaSReports', icon: Cloud },
-      ];
+                { name: 'Dashboard', page: 'Dashboard', icon: LayoutDashboard },
+                { name: 'Customers', page: 'Customers', icon: Building2 },
+                { name: 'Services', page: 'Services', icon: Cloud },
+                { name: 'Billing', page: 'Billing', icon: FileText },
+                { name: 'Analytics', page: 'Analytics', icon: BarChart3 },
+              ];
 
   // Customer navigation (end-user view)
   const customerNavigation = [
