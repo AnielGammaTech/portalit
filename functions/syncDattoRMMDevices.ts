@@ -10,15 +10,20 @@ async function getDattoAccessToken() {
   // Datto RMM OAuth2 token endpoint
   const authUrl = `${baseUrl}/auth/oauth/token`;
   
-  // Create URL-encoded body
+  // Create URL-encoded body with password grant type
+  // API Key = username, API Secret = password
   const params = new URLSearchParams();
   params.append('grant_type', 'password');
   params.append('username', DATTO_API_KEY);
   params.append('password', DATTO_API_SECRET);
   
+  // Basic auth with public-client:public as per Datto docs
+  const basicAuth = btoa('public-client:public');
+  
   const response = await fetch(authUrl, {
     method: 'POST',
     headers: {
+      'Authorization': `Basic ${basicAuth}`,
       'Content-Type': 'application/x-www-form-urlencoded'
     },
     body: params.toString()
