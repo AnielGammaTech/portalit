@@ -287,6 +287,11 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Update last_synced timestamp on the mapping
+      await base44.asServiceRole.entities.JumpCloudMapping.update(mapping.id, {
+        last_synced: new Date().toISOString()
+      });
+
       return Response.json({
         success: true,
         created,
