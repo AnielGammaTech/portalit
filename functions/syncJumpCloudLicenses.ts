@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 const JUMPCLOUD_API_KEY = Deno.env.get('JUMPCLOUD_API_KEY');
+const JUMPCLOUD_PROVIDER_ID = Deno.env.get('JUMPCLOUD_PROVIDER_ID');
 const JUMPCLOUD_API_URL = 'https://console.jumpcloud.com/api';
 
 async function jumpcloudApiCall(endpoint, orgId = null) {
@@ -9,7 +10,12 @@ async function jumpcloudApiCall(endpoint, orgId = null) {
     'Content-Type': 'application/json'
   };
   
-  if (orgId) {
+  // For MTP, always include provider ID
+  if (JUMPCLOUD_PROVIDER_ID) {
+    headers['x-provider-id'] = JUMPCLOUD_PROVIDER_ID;
+  }
+  
+  if (orgId && orgId !== 'default') {
     headers['x-org-id'] = orgId;
   }
 
@@ -29,7 +35,12 @@ async function jumpcloudV2ApiCall(endpoint, orgId = null) {
     'Content-Type': 'application/json'
   };
   
-  if (orgId) {
+  // For MTP, always include provider ID
+  if (JUMPCLOUD_PROVIDER_ID) {
+    headers['x-provider-id'] = JUMPCLOUD_PROVIDER_ID;
+  }
+  
+  if (orgId && orgId !== 'default') {
     headers['x-org-id'] = orgId;
   }
 
@@ -59,6 +70,10 @@ Deno.serve(async (req) => {
 
     if (!JUMPCLOUD_API_KEY) {
       return Response.json({ error: 'JumpCloud API key not configured' }, { status: 400 });
+    }
+
+    if (!JUMPCLOUD_PROVIDER_ID) {
+      return Response.json({ error: 'JumpCloud Provider ID not configured (required for MTP)' }, { status: 400 });
     }
 
     // Action: Test connection
