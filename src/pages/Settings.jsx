@@ -170,9 +170,17 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="integrations">
-          <div className="space-y-6">
-            <DattoRMMConfig />
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Datto RMM</CardTitle>
+              <CardDescription>
+                Connect your Datto RMM account to sync devices
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <DattoRMMConfig />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="notifications">
