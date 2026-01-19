@@ -222,12 +222,9 @@ Deno.serve(async (req) => {
         try {
           const siteUid = mapping.datto_site_id;
           
-          // Fetch all devices and filter by site
-          const allDevicesData = await dattoApiCall(accessToken, `/device`);
-          const allDevices = Array.isArray(allDevicesData) ? allDevicesData : (allDevicesData.devices || []);
-          
-          // Filter devices for this specific site
-          const devices = allDevices.filter(d => d.siteUid === siteUid || d.site?.uid === siteUid);
+          // Datto RMM API: /account/sites/{siteUid}/devices
+          const devicesData = await dattoApiCall(accessToken, `/account/sites/${siteUid}/devices`);
+          const devices = devicesData.devices || [];
           
           const existingDevices = await base44.asServiceRole.entities.Device.filter({ 
             customer_id: mapping.customer_id,
