@@ -1,25 +1,58 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
-const REGION_ENDPOINTS = {
-  us: 'https://o365-api-us.spanningbackup.com',
-  eu: 'https://o365-api-eu.spanningbackup.com',
-  ap: 'https://o365-api-ap.spanningbackup.com',
-  ca: 'https://o365-api-ca.spanningbackup.com',
-  uk: 'https://o365-api-uk.spanningbackup.com',
-  af: 'https://o365-api-af.spanningbackup.com'
-};
+const UNITRENDS_API_BASE = 'https://public-api.backup.net';
+const UNITRENDS_AUTH_URL = 'https://auth.backup.net/connect/token';
 
-async function spanningApiCall(endpoint, apiToken, region = 'us') {
-  const baseUrl = REGION_ENDPOINTS[region] || REGION_ENDPOINTS.us;
-  const response = await fetch(`${baseUrl}${endpoint}`, {
+let cachedToken = null;
+let tokenExpiry = 0;
+
+async function getUnitrendsToken() {
+  const now = Date.now();
+  if (cachedToken && tokenExpiry > now) {
+    return cachedToken;
+  }
+
+  const clientId = Deno.env.get('UNITRENDS_CLIENT_ID');
+  const clientSecret = Deno.env.get('UNITRENDS_CLIENT_SECRET');
+
+  if (!clientId || !clientSecret) {
+    throw new Error('Unitrends credentials not configured');
+  }
+
+  const response = await fetch(UNITRENDS_AUTH_URL, {
+    method: 'POST',
     headers: {
-      'Authorization': `Bearer ${apiToken}`,
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: clientId,
+      client_secret: clientSecret,
+      scope: 'public_api'
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Auth failed: ${response.status} ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  cachedToken = data.access_token;
+  tokenExpiry = now + (data.expires_in - 60) * 1000; // Refresh 60s before expiry
+  return cachedToken;
+}
+
+async function unitrendsApiCall(endpoint) {
+  const token = await getUnitrendsToken();
+  const response = await fetch(`${UNITRENDS_API_BASE}${endpoint}`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
     }
   });
   
   if (!response.ok) {
-    throw new Error(`Spanning API error: ${response.status} ${response.statusText}`);
+    throw new Error(`Unitrends API error: ${response.status} ${response.statusText}`);
   }
   
   return response.json();
@@ -35,19 +68,24 @@ Deno.serve(async (req) => {
 
     // Test connection
     if (action === 'test_connection') {
-      if (!api_token) {
-        return Response.json({ error: 'API token is required' }, { status: 400 });
-      }
-      
       try {
-        const tenant = await spanningApiCall('/external/tenant', api_token, region || 'us');
+        const customers = await unitrendsApiCall('/v1/customers?take=5');
         return Response.json({ 
           success: true, 
-          tenant: {
-            name: tenant.companyName || tenant.name,
-            users: tenant.users,
-            assigned: tenant.assigned
-          }
+          totalCustomers: customers.totalCount || customers.length || 0
+        });
+      } catch (e) {
+        return Response.json({ success: false, error: e.message });
+      }
+    }
+
+    // List Spanning domains/tenants
+    if (action === 'list_domains') {
+      try {
+        const domains = await unitrendsApiCall('/v2/spanning/domains?take=500');
+        return Response.json({ 
+          success: true, 
+          domains: domains.items || domains || []
         });
       } catch (e) {
         return Response.json({ success: false, error: e.message });
@@ -66,12 +104,12 @@ Deno.serve(async (req) => {
       }
 
       const mapping = mappings[0];
-      const users = await spanningApiCall('/external/users', mapping.api_token, mapping.region);
+      const users = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?take=1000`);
       
       return Response.json({ 
         success: true, 
-        users: users.users || users,
-        total: users.total || (users.users ? users.users.length : 0)
+        users: users.items || users || [],
+        total: users.totalCount || (users.items ? users.items.length : 0)
       });
     }
 
@@ -87,8 +125,8 @@ Deno.serve(async (req) => {
       }
 
       const mapping = mappings[0];
-      const usersResponse = await spanningApiCall('/external/users', mapping.api_token, mapping.region);
-      const spanningUsers = usersResponse.users || usersResponse || [];
+      const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?take=1000`);
+      const spanningUsers = usersResponse.items || usersResponse || [];
 
       // Get existing contacts
       const existingContacts = await base44.asServiceRole.entities.Contact.filter({ customer_id });
@@ -153,12 +191,11 @@ Deno.serve(async (req) => {
       }
 
       const mapping = mappings[0];
-      const tenant = await spanningApiCall('/external/tenant', mapping.api_token, mapping.region);
-      const usersResponse = await spanningApiCall('/external/users', mapping.api_token, mapping.region);
-      const users = usersResponse.users || usersResponse || [];
+      const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?take=1000`);
+      const users = usersResponse.items || usersResponse || [];
       
-      const assignedUsers = users.filter(u => u.isAdmin || u.assigned === true).length || tenant.assigned || users.length;
-      const totalUsers = tenant.users || users.length;
+      const assignedUsers = users.filter(u => u.isLicensed === true || u.assigned === true).length || users.length;
+      const totalUsers = usersResponse.totalCount || users.length;
 
       // Get customer name
       const customers = await base44.asServiceRole.entities.Customer.filter({ id: customer_id });
@@ -174,17 +211,17 @@ Deno.serve(async (req) => {
         customer_id,
         customer_name: customer?.name,
         application_name: 'Spanning Backup',
-        vendor: 'Spanning (Kaseya)',
+        vendor: 'Unitrends',
         license_type: 'Microsoft 365 Backup',
         quantity: totalUsers,
         assigned_users: assignedUsers,
         status: 'active',
         external_id: licenseId,
         source: 'spanning',
-        website_url: 'https://spanning.com',
-        logo_url: 'https://cdn.brandfetch.io/idchmBoHEZ/w/400/h/400/theme/dark/icon.png',
+        website_url: 'https://www.unitrends.com',
+        logo_url: 'https://cdn.brandfetch.io/idBZmlTqXS/w/400/h/400/theme/dark/icon.png',
         category: 'backup',
-        notes: `Spanning Backup - ${assignedUsers} users backed up from ${tenant.companyName || customer?.name}`
+        notes: `Spanning Backup - ${assignedUsers} users backed up from ${mapping.spanning_tenant_name || customer?.name}`
       };
 
       if (existingLicenses.length > 0) {
@@ -202,7 +239,7 @@ Deno.serve(async (req) => {
         success: true,
         totalUsers,
         assignedUsers,
-        tenantName: tenant.companyName || tenant.name
+        tenantName: mapping.spanning_tenant_name
       });
     }
 
@@ -218,12 +255,11 @@ Deno.serve(async (req) => {
 
       for (const mapping of allMappings) {
         try {
-          const tenant = await spanningApiCall('/external/tenant', mapping.api_token, mapping.region);
-          const usersResponse = await spanningApiCall('/external/users', mapping.api_token, mapping.region);
-          const users = usersResponse.users || usersResponse || [];
+          const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?take=1000`);
+          const users = usersResponse.items || usersResponse || [];
           
-          const assignedUsers = users.filter(u => u.isAdmin || u.assigned === true).length || tenant.assigned || users.length;
-          const totalUsers = tenant.users || users.length;
+          const assignedUsers = users.filter(u => u.isLicensed === true || u.assigned === true).length || users.length;
+          const totalUsers = usersResponse.totalCount || users.length;
 
           const customers = await base44.asServiceRole.entities.Customer.filter({ id: mapping.customer_id });
           const customer = customers[0];
@@ -237,15 +273,15 @@ Deno.serve(async (req) => {
             customer_id: mapping.customer_id,
             customer_name: customer?.name,
             application_name: 'Spanning Backup',
-            vendor: 'Spanning (Kaseya)',
+            vendor: 'Unitrends',
             license_type: 'Microsoft 365 Backup',
             quantity: totalUsers,
             assigned_users: assignedUsers,
             status: 'active',
             external_id: `spanning-${mapping.customer_id}`,
             source: 'spanning',
-            website_url: 'https://spanning.com',
-            logo_url: 'https://cdn.brandfetch.io/idchmBoHEZ/w/400/h/400/theme/dark/icon.png',
+            website_url: 'https://www.unitrends.com',
+            logo_url: 'https://cdn.brandfetch.io/idBZmlTqXS/w/400/h/400/theme/dark/icon.png',
             category: 'backup',
             notes: `Spanning Backup - ${assignedUsers} users backed up`
           };
