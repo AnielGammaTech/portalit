@@ -321,31 +321,13 @@ Deno.serve(async (req) => {
         
         const existing = existingByEmail[email];
         if (existing) {
-          // Update with spanning info, preserve existing source if not spanning
-          const updateData = {
+          // Update existing contact with spanning info - NEVER change source, just add spanning_status
+          await base44.asServiceRole.entities.Contact.update(existing.id, {
             spanning_status: contactTitle
-          };
-          // Only update full_name if blank or if this was originally a spanning contact
-          if (!existing.full_name || existing.source === 'spanning') {
-            updateData.full_name = fullName;
-          }
-          // Only set source to spanning if it was manual or spanning before
-          if (!existing.source || existing.source === 'manual' || existing.source === 'spanning') {
-            updateData.source = 'spanning';
-          }
-          await base44.asServiceRole.entities.Contact.update(existing.id, updateData);
-          contactsUpdated++;
-          delete existingByEmail[email];
-        } else {
-          await base44.asServiceRole.entities.Contact.create({
-            customer_id,
-            full_name: fullName,
-            email: email,
-            spanning_status: contactTitle,
-            source: 'spanning'
           });
-          contactsCreated++;
+          contactsUpdated++;
         }
+        // NEVER create new contacts - Spanning only attaches to existing contacts from HaloPSA/JumpCloud
       }
 
       // Sync license record
