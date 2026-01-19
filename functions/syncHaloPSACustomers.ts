@@ -176,10 +176,19 @@ Deno.serve(async (req) => {
         
         console.log(`Total clients fetched: ${allClients.length}`);
 
+        // Get all existing customers in one call
+        const existingCustomers = await base44.asServiceRole.entities.Customer.filter({ source: 'halopsa' });
+        const existingByExternalId = {};
+        for (const c of existingCustomers) {
+          existingByExternalId[c.external_id] = c;
+        }
+
+        const toCreate = [];
+        const toUpdate = [];
+
         for (const client of allClients) {
           if (excludedIds.includes(String(client.id))) continue;
 
-          const existingCustomer = (await base44.asServiceRole.entities.Customer.filter({ external_id: String(client.id), source: 'halopsa' }))[0];
           // Build full address
           const addressParts = [
             client.address1 || client.Address1 || '',
@@ -203,11 +212,23 @@ Deno.serve(async (req) => {
             notes: client.notes || client.Notes || ''
           };
 
-          if (existingCustomer) {
-            await base44.asServiceRole.entities.Customer.update(existingCustomer.id, customerData);
+          const existing = existingByExternalId[String(client.id)];
+          if (existing) {
+            toUpdate.push({ id: existing.id, data: customerData });
           } else {
-            await base44.asServiceRole.entities.Customer.create(customerData);
+            toCreate.push(customerData);
           }
+        }
+
+        // Bulk create new customers
+        if (toCreate.length > 0) {
+          await base44.asServiceRole.entities.Customer.bulkCreate(toCreate);
+          recordsSynced += toCreate.length;
+        }
+
+        // Update existing customers (one by one as no bulk update)
+        for (const item of toUpdate) {
+          await base44.asServiceRole.entities.Customer.update(item.id, item.data);
           recordsSynced++;
         }
 
