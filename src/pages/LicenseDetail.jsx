@@ -15,12 +15,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { format, parseISO, differenceInDays } from 'date-fns';
 import LicenseAssignmentModal from '../components/saas/LicenseAssignmentModal';
+import EditLicenseModal from '../components/saas/EditLicenseModal';
 
 export default function LicenseDetail() {
   const params = new URLSearchParams(window.location.search);
   const licenseId = params.get('id');
   const queryClient = useQueryClient();
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const { data: license, isLoading: loadingLicense } = useQuery({
     queryKey: ['license', licenseId],
@@ -81,6 +83,19 @@ export default function LicenseDetail() {
       queryClient.invalidateQueries({ queryKey: ['license', licenseId] });
       toast.success('License revoked!');
     }
+  };
+
+  const handleEditSave = async (updatedData) => {
+    await base44.entities.SaaSLicense.update(licenseId, updatedData);
+    queryClient.invalidateQueries({ queryKey: ['license', licenseId] });
+    setShowEditModal(false);
+    toast.success('License updated!');
+  };
+
+  const handleDelete = async () => {
+    await base44.entities.SaaSLicense.delete(licenseId);
+    toast.success('License deleted!');
+    window.location.href = createPageUrl(`CustomerDetail?id=${license.customer_id}`);
   };
 
   if (loadingLicense) {
@@ -156,6 +171,15 @@ export default function LicenseDetail() {
               <p className="text-sm text-slate-600 mt-3 bg-slate-50 rounded-lg p-3">{license.notes}</p>
             )}
           </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="gap-2 flex-shrink-0"
+            onClick={() => setShowEditModal(true)}
+          >
+            <Edit2 className="w-4 h-4" />
+            Edit
+          </Button>
         </div>
       </div>
 
@@ -326,6 +350,15 @@ export default function LicenseDetail() {
         assignments={assignments}
         onAssign={handleAssign}
         onRevoke={handleRevoke}
+      />
+
+      {/* Edit Modal */}
+      <EditLicenseModal
+        open={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        license={license}
+        onSave={handleEditSave}
+        onDelete={handleDelete}
       />
     </div>
   );
