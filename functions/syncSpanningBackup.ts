@@ -260,11 +260,19 @@ Deno.serve(async (req) => {
         
         const existing = existingByEmail[email];
         if (existing) {
-          await base44.asServiceRole.entities.Contact.update(existing.id, {
-            full_name: fullName,
-            title: contactTitle,
-            source: 'spanning'
-          });
+          // Update with spanning info, preserve existing source if not spanning
+          const updateData = {
+            spanning_status: contactTitle
+          };
+          // Only update full_name if blank or if this was originally a spanning contact
+          if (!existing.full_name || existing.source === 'spanning') {
+            updateData.full_name = fullName;
+          }
+          // Only set source to spanning if it was manual or spanning before
+          if (!existing.source || existing.source === 'manual' || existing.source === 'spanning') {
+            updateData.source = 'spanning';
+          }
+          await base44.asServiceRole.entities.Contact.update(existing.id, updateData);
           contactsUpdated++;
           delete existingByEmail[email];
         } else {
@@ -272,7 +280,7 @@ Deno.serve(async (req) => {
             customer_id,
             full_name: fullName,
             email: email,
-            title: contactTitle,
+            spanning_status: contactTitle,
             source: 'spanning'
           });
           contactsCreated++;
