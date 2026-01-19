@@ -57,6 +57,10 @@ export default function DevicesTab({ customerId, customerExternalId }) {
   });
 
   const syncDevices = async () => {
+    if (mappings.length === 0) {
+      toast.error('No Datto RMM site mapped to this customer');
+      return;
+    }
     setSyncing(true);
     try {
       const response = await base44.functions.invoke('syncDattoRMMDevices', { 
@@ -64,7 +68,7 @@ export default function DevicesTab({ customerId, customerExternalId }) {
         customer_id: customerId
       });
       if (response.data.success) {
-        toast.success(`Synced ${response.data.recordsSynced} devices!`);
+        toast.success(`Synced ${response.data.recordsSynced} devices from Datto RMM`);
         queryClient.invalidateQueries({ queryKey: ['devices', customerId] });
       } else {
         toast.error(response.data.error || 'Sync failed');
