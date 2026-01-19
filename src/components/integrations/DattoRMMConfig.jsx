@@ -231,78 +231,58 @@ export default function DattoRMMConfig() {
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
-            <Monitor className="w-6 h-6 text-blue-600" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-slate-900">Datto RMM</h3>
-            <p className="text-sm text-slate-500">Sync devices and monitoring data</p>
-          </div>
+    <div className="space-y-5">
+      {/* Connection Status */}
+      {connectionStatus?.success && (
+        <div className="flex items-center gap-2 text-sm text-emerald-600 bg-emerald-50 px-3 py-2 rounded-lg">
+          <CheckCircle2 className="w-4 h-4" />
+          Connected to {connectionStatus.account?.name}
         </div>
-        {connectionStatus?.success && (
-          <Badge className="bg-emerald-100 text-emerald-700">
-            <CheckCircle2 className="w-3 h-3 mr-1" />
-            Connected
-          </Badge>
+      )}
+
+      {/* Info about API keys */}
+      <div className="text-sm text-slate-500 bg-slate-50 rounded-lg p-3">
+        API credentials are configured in the app settings. Use the buttons below to test the connection and manage site mappings.
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-3">
+        <Button
+          onClick={testConnection}
+          disabled={testing}
+          variant="outline"
+        >
+          <RefreshCw className={cn("w-4 h-4 mr-2", testing && "animate-spin")} />
+          Test Connection
+        </Button>
+        <Button
+          onClick={loadDattoSites}
+          disabled={loadingSites}
+          variant="outline"
+        >
+          <RefreshCw className={cn("w-4 h-4 mr-2", loadingSites && "animate-spin")} />
+          {showMappingView ? 'Refresh Sites' : 'Load Sites'}
+        </Button>
+        {mappings.length > 0 && (
+          <Button
+            onClick={syncAllDevices}
+            disabled={syncing}
+            className="bg-slate-900 hover:bg-slate-800"
+          >
+            <RefreshCw className={cn("w-4 h-4 mr-2", syncing && "animate-spin")} />
+            Sync All Devices
+          </Button>
         )}
       </div>
 
-      <div className="space-y-4">
-        {/* Test Connection */}
-        <div className="flex items-center gap-3">
-          <Button
-            onClick={testConnection}
-            disabled={testing}
-            variant="outline"
-            className="gap-2"
-          >
-            <RefreshCw className={cn("w-4 h-4", testing && "animate-spin")} />
-            Test Connection
-          </Button>
-          
-          {connectionStatus && (
-            <span className={cn(
-              "text-sm",
-              connectionStatus.success ? "text-emerald-600" : "text-red-600"
-            )}>
-              {connectionStatus.success 
-                ? `Connected to ${connectionStatus.account?.name}` 
-                : connectionStatus.error}
-            </span>
-          )}
-        </div>
-
-        {/* Site Mappings */}
-        <div className="border-t border-slate-100 pt-4">
-          <div className="flex items-center justify-between mb-3">
+      {/* Site Mappings Section */}
+      <div className="border-t border-slate-200 pt-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
             <h4 className="font-medium text-slate-900">Site Mappings</h4>
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={loadDattoSites}
-                disabled={loadingSites}
-                size="sm"
-                variant="outline"
-                className="gap-2"
-              >
-                <Link2 className={cn("w-4 h-4", loadingSites && "animate-spin")} />
-                {showMappingView ? 'Refresh Sites' : 'Client Mapping'}
-              </Button>
-              {mappings.length > 0 && (
-                <Button
-                  onClick={syncAllDevices}
-                  disabled={syncing}
-                  size="sm"
-                  className="gap-2 bg-blue-600 hover:bg-blue-700"
-                >
-                  <RefreshCw className={cn("w-4 h-4", syncing && "animate-spin")} />
-                  Sync All Devices
-                </Button>
-              )}
-            </div>
+            <p className="text-sm text-slate-500">Map Datto RMM sites to your customers</p>
           </div>
+        </div>
 
           {!showMappingView ? (
             mappings.length === 0 ? (
