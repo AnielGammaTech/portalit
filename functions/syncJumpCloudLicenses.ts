@@ -164,6 +164,17 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Action: Debug - get raw applications data
+    if (action === 'debug_applications') {
+      const { org_id } = body;
+      try {
+        const applications = await jumpcloudV2ApiCall('/applications', org_id !== 'default' ? org_id : null);
+        return Response.json({ success: true, raw: applications });
+      } catch (e) {
+        return Response.json({ success: false, error: e.message });
+      }
+    }
+
     // Action: Sync licenses for a specific customer
     if (action === 'sync_licenses') {
       if (!customer_id) {
