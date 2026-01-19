@@ -21,6 +21,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import DattoRMMConfig from '../components/integrations/DattoRMMConfig';
+import JumpCloudConfig from '../components/integrations/JumpCloudConfig';
 
 export default function Settings() {
   const [user, setUser] = useState(null);
@@ -170,17 +171,31 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="integrations">
-          <Card>
-            <CardHeader>
-              <CardTitle>Datto RMM</CardTitle>
-              <CardDescription>
-                Connect your Datto RMM account to sync devices
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <DattoRMMConfig />
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Datto RMM</CardTitle>
+                <CardDescription>
+                  Connect your Datto RMM account to sync devices
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <DattoRMMConfig />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>JumpCloud</CardTitle>
+                <CardDescription>
+                  Connect JumpCloud to automatically sync SSO applications as SaaS licenses for your customers
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <JumpCloudConfig />
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="notifications">
