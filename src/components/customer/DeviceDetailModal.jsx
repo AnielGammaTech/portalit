@@ -52,20 +52,21 @@ const statusConfig = {
 
 export default function DeviceDetailModal({ device, open, onClose, customerId }) {
   const [notes, setNotes] = useState('');
-  const [assignedUserId, setAssignedUserId] = useState('');
+  const [assignedContactId, setAssignedContactId] = useState('');
   const [saving, setSaving] = useState(false);
   
   const queryClient = useQueryClient();
 
-  const { data: users = [] } = useQuery({
-    queryKey: ['users'],
-    queryFn: () => base44.entities.User.list(),
+  const { data: contacts = [] } = useQuery({
+    queryKey: ['contacts', customerId],
+    queryFn: () => base44.entities.Contact.filter({ customer_id: customerId }),
+    enabled: !!customerId
   });
 
   useEffect(() => {
     if (device) {
       setNotes(device.notes || '');
-      setAssignedUserId(device.assigned_user_id || '');
+      setAssignedContactId(device.assigned_contact_id || '');
     }
   }, [device]);
 
@@ -80,7 +81,7 @@ export default function DeviceDetailModal({ device, open, onClose, customerId })
     try {
       await base44.entities.Device.update(device.id, {
         notes,
-        assigned_user_id: assignedUserId || null
+        assigned_contact_id: assignedContactId || null
       });
       toast.success('Device updated');
       queryClient.invalidateQueries({ queryKey: ['devices', customerId] });
@@ -92,7 +93,7 @@ export default function DeviceDetailModal({ device, open, onClose, customerId })
     }
   };
 
-  const assignedUser = users.find(u => u.id === assignedUserId);
+  const assignedContact = contacts.find(c => c.id === assignedContactId);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -167,18 +168,18 @@ export default function DeviceDetailModal({ device, open, onClose, customerId })
             </div>
           </div>
 
-          {/* Assign User */}
+          {/* Assign Contact */}
           <div className="space-y-2">
-            <Label>Assign to Team Member</Label>
-            <Select value={assignedUserId} onValueChange={setAssignedUserId}>
+            <Label>Assign to Contact</Label>
+            <Select value={assignedContactId} onValueChange={setAssignedContactId}>
               <SelectTrigger>
-                <SelectValue placeholder="Select a user..." />
+                <SelectValue placeholder="Select a contact..." />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={null}>Unassigned</SelectItem>
-                {users.map(user => (
-                  <SelectItem key={user.id} value={user.id}>
-                    {user.full_name} ({user.email})
+                {contacts.map(contact => (
+                  <SelectItem key={contact.id} value={contact.id}>
+                    {contact.full_name} {contact.email ? `(${contact.email})` : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
