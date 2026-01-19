@@ -724,7 +724,7 @@ export default function CustomerDetail() {
                         </div>
                       </TabsContent>
 
-        <TabsContent value="contracts">
+        <TabsContent value="billing">
                         <div className="space-y-6">
                           
                           {/* Clean Summary Cards */}
@@ -813,76 +813,6 @@ export default function CustomerDetail() {
                                 )}
                               </div>
                             </div>
-                          </div>
-
-                          {/* Services Section */}
-                          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                            <button
-                              onClick={() => setExpandedBills(prev => ({ ...prev, _section: !prev._section }))}
-                              className="w-full px-6 py-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
-                            >
-                              <div>
-                                <h3 className="font-semibold text-gray-900 text-left">Your Services</h3>
-                                <p className="text-sm text-gray-500 mt-0.5">{lineItems.length} items • ${lineItems.reduce((sum, item) => sum + (item.net_amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}/month</p>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                {customer?.source === 'halopsa' && (
-                                  <button
-                                    onClick={async (e) => {
-                                      e.stopPropagation();
-                                      try {
-                                        setIsSyncing(true);
-                                        const response = await base44.functions.invoke('syncHaloPSARecurringBills', { 
-                                          action: 'sync_customer',
-                                          customer_id: customer.external_id 
-                                        });
-                                        if (response.data.success) {
-                                          toast.success(`Synced!`);
-                                          queryClient.invalidateQueries({ queryKey: ['recurring_bills', customerId] });
-                                          queryClient.invalidateQueries({ queryKey: ['line_items', customerId] });
-                                        } else {
-                                          toast.error(response.data.error || 'Sync failed');
-                                        }
-                                      } catch (error) {
-                                        toast.error(error.message || 'An error occurred');
-                                      } finally {
-                                        setIsSyncing(false);
-                                      }
-                                    }}
-                                    disabled={isSyncing}
-                                    className="text-gray-400 hover:text-gray-600 p-2"
-                                  >
-                                    <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
-                                  </button>
-                                )}
-                                <ChevronDown className={cn(
-                                  "w-5 h-5 text-gray-400 transition-transform",
-                                  expandedBills._section && "rotate-180"
-                                )} />
-                              </div>
-                            </button>
-                            
-                            {expandedBills._section && (
-                              <div className="border-t border-gray-100">
-                                {lineItems.length === 0 ? (
-                                  <div className="py-12 text-center">
-                                    <p className="text-gray-500">No services found</p>
-                                  </div>
-                                ) : (
-                                  <div className="divide-y divide-gray-100">
-                                    {lineItems.map(item => (
-                                      <div key={item.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50">
-                                        <div className="flex-1 min-w-0">
-                                          <p className="font-medium text-gray-900">{item.description?.replace(/\s*\$recurringbillingdate\s*/gi, '').trim()}</p>
-                                          <p className="text-sm text-gray-500 mt-0.5">Qty: {item.quantity}</p>
-                                        </div>
-                                        <p className="font-semibold text-gray-900 text-lg">${(item.net_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            )}
                           </div>
 
                           {/* Invoices Section - Collapsible */}
@@ -1105,6 +1035,19 @@ export default function CustomerDetail() {
                           </div>
                         </div>
                       </TabsContent>
+
+        <TabsContent value="services">
+          <CustomerServicesTab 
+            customerId={customerId}
+            customer={customer}
+            lineItems={lineItems}
+            expandedBills={expandedBills}
+            setExpandedBills={setExpandedBills}
+            isSyncing={isSyncing}
+            setIsSyncing={setIsSyncing}
+            queryClient={queryClient}
+          />
+        </TabsContent>
 
         <TabsContent value="licenses">
           <div className="space-y-6">
