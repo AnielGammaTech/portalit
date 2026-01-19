@@ -155,6 +155,16 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Action: Debug single device to see all fields
+    if (action === 'debug_device') {
+      const { device_uid } = body;
+      if (!device_uid) {
+        return Response.json({ error: 'device_uid required' }, { status: 400 });
+      }
+      const deviceData = await dattoApiCall(accessToken, `/device/${device_uid}`);
+      return Response.json({ success: true, device: deviceData });
+    }
+
     // Action: Sync devices for a specific customer
     if (action === 'sync_devices') {
       if (!customer_id) {
