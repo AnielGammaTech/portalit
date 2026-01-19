@@ -12,7 +12,8 @@ import {
   ChevronDown,
   LogOut,
   Bell,
-  Users
+  Users,
+  BarChart3
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import {
@@ -60,6 +61,7 @@ export default function Layout({ children, currentPageName }) {
       const adminNavigation = [
         { name: 'Dashboard', page: 'Dashboard', icon: LayoutDashboard },
         { name: 'Customers', page: 'Customers', icon: Building2 },
+        { name: 'Analytics', page: 'Analytics', icon: BarChart3 },
         { name: 'SaaS Reports', page: 'SaaSReports', icon: Cloud },
       ];
 
