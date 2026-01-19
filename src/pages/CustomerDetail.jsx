@@ -378,7 +378,7 @@ export default function CustomerDetail() {
           </div>
 
           {/* Quick Stats Widgets */}
-          <div className="grid grid-cols-5 gap-3 mt-4 md:mt-0">
+          <div className="grid grid-cols-6 gap-3 mt-4 md:mt-0">
             <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
               <Users className="w-4 h-4 mx-auto text-blue-400 mb-1" />
               <p className="text-xl font-bold">{contacts.length}</p>
@@ -403,6 +403,11 @@ export default function CustomerDetail() {
               <Cloud className="w-4 h-4 mx-auto text-purple-400 mb-1" />
               <p className="text-xl font-bold">{licenses.length}</p>
               <p className="text-xs text-slate-400">SaaS</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
+              <Monitor className="w-4 h-4 mx-auto text-cyan-400 mb-1" />
+              <p className="text-xl font-bold">{customer?.total_devices || 0}</p>
+              <p className="text-xs text-slate-400">Devices</p>
             </div>
           </div>
         </div>
