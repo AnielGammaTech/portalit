@@ -292,11 +292,13 @@ Deno.serve(async (req) => {
         if (!email) continue;
 
         const fullName = spUser.displayName || spUser.name || email.split('@')[0];
-        const isActive = spUser.lastBackupStatusTotal === 'success' || spUser.assigned === true || spUser.isLicensed === true;
+        const isProtected = spUser.isAssigned === true || spUser.assigned === true || spUser.isLicensed === true;
+        const hasBackup = spUser.lastBackupStatusTotal === 'success';
         
-        // Calculate storage info from user data
-        const mailStorageBytes = spUser.mailStorageBytes || spUser.exchangeStorageBytes || 0;
-        const driveStorageBytes = spUser.driveStorageBytes || spUser.oneDriveStorageBytes || 0;
+        // Calculate storage info from user data - check nested storageInformation object
+        const storageInfo = spUser.storageInformation || {};
+        const mailStorageBytes = storageInfo.protectedMailBytes || spUser.mailStorageBytes || spUser.exchangeStorageBytes || 0;
+        const driveStorageBytes = storageInfo.protectedBytes || spUser.driveStorageBytes || spUser.oneDriveStorageBytes || 0;
         const totalStorageBytes = mailStorageBytes + driveStorageBytes;
         
         // Format storage as human readable
@@ -307,13 +309,14 @@ Deno.serve(async (req) => {
           return `${(bytes / 1024).toFixed(2)} KB`;
         };
         
-        const storageInfo = formatStorage(totalStorageBytes);
-        const backupStatus = spUser.lastBackupStatusTotal || (isActive ? 'success' : 'inactive');
+        const storageStr = formatStorage(totalStorageBytes);
+        const backupStatus = spUser.lastBackupStatusTotal || (isProtected ? 'protected' : 'not_protected');
         
-        // Build title with storage and status info
+        // Build spanning_status with storage, status, and protection flag
         const titleParts = [];
-        if (storageInfo) titleParts.push(storageInfo);
+        if (storageStr) titleParts.push(storageStr);
         titleParts.push(backupStatus);
+        if (isProtected || hasBackup) titleParts.push('PROTECTED');
         const contactTitle = titleParts.join(' | ');
         
         const existing = existingByEmail[email];
