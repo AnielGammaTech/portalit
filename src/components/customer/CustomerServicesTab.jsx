@@ -88,6 +88,86 @@ export default function CustomerServicesTab({
     enabled: !!customerId && !!spanningMapping
   });
 
+  // Fetch Datto site mapping for this customer
+  const { data: dattoMapping } = useQuery({
+    queryKey: ['datto-mapping', customerId],
+    queryFn: async () => {
+      const mappings = await base44.entities.DattoSiteMapping.filter({ customer_id: customerId });
+      return mappings[0] || null;
+    },
+    enabled: !!customerId
+  });
+
+  const handleSyncAll = async () => {
+    setSyncingAll(true);
+    const results = [];
+    
+    try {
+      // Sync HaloPSA contacts if customer is from HaloPSA
+      if (customer?.source === 'halopsa' && customer?.external_id) {
+        try {
+          await base44.functions.invoke('syncHaloPSAContacts', {
+            action: 'sync_customer',
+            customer_id: customer.external_id
+          });
+          results.push('HaloPSA');
+        } catch (e) {
+          console.error('HaloPSA sync failed:', e);
+        }
+      }
+
+      // Sync Datto RMM if mapped
+      if (dattoMapping) {
+        try {
+          await base44.functions.invoke('syncDattoRMMDevices', {
+            action: 'sync_site',
+            site_id: dattoMapping.datto_site_id
+          });
+          results.push('Datto RMM');
+        } catch (e) {
+          console.error('Datto sync failed:', e);
+        }
+      }
+
+      // Sync JumpCloud if mapped
+      if (jumpcloudMapping) {
+        try {
+          await base44.functions.invoke('syncJumpCloudLicenses', {
+            action: 'sync_licenses',
+            customer_id: customerId
+          });
+          results.push('JumpCloud');
+        } catch (e) {
+          console.error('JumpCloud sync failed:', e);
+        }
+      }
+
+      // Sync Spanning if mapped
+      if (spanningMapping) {
+        try {
+          await base44.functions.invoke('syncSpanningBackup', {
+            action: 'sync_licenses',
+            customer_id: customerId
+          });
+          results.push('Spanning');
+        } catch (e) {
+          console.error('Spanning sync failed:', e);
+        }
+      }
+
+      if (results.length > 0) {
+        toast.success(`Synced: ${results.join(', ')}`);
+        queryClient.invalidateQueries();
+      } else {
+        toast.info('No integrations to sync');
+      }
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setSyncingAll(false);
+    }
+  };
+
   const handleSyncJumpCloud = async () => {
     if (!jumpcloudMapping) return;
     setSyncingJumpCloud(true);
@@ -138,6 +218,18 @@ export default function CustomerServicesTab({
 
   return (
     <div className="space-y-6">
+      {/* Sync All Button */}
+      <div className="flex justify-end">
+        <Button
+          onClick={handleSyncAll}
+          disabled={syncingAll}
+          className="gap-2"
+        >
+          <RefreshCw className={cn("w-4 h-4", syncingAll && "animate-spin")} />
+          {syncingAll ? 'Syncing All...' : 'Sync All Services'}
+        </Button>
+      </div>
+
       <Tabs defaultValue={hasRecurringServices ? "recurring" : hasJumpCloud ? "jumpcloud" : "spanning"} className="space-y-4">
         <TabsList className="bg-white border border-slate-200">
           {hasRecurringServices && (
