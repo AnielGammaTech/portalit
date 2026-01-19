@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
       const mappedPairs = [];
 
       for (const site of sites) {
-        const siteId = String(site.id || site.uid);
+        const siteId = String(site.uid); // Always use uid for Datto API calls
         if (existingSiteIds.has(siteId)) continue;
 
         // Try to find a matching customer by name (case-insensitive, partial match)
