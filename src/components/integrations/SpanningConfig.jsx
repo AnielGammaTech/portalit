@@ -229,7 +229,7 @@ export default function SpanningConfig() {
 
       {/* Info */}
       <div className="text-sm text-slate-500 bg-slate-50 rounded-lg p-3">
-        Unitrends MSP credentials are configured in app settings. Connect to sync Spanning Backup domains to your customers.
+        Unitrends credentials are configured in app settings. Connect to sync backup domains to your customers.
       </div>
 
       {/* Actions */}

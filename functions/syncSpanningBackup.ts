@@ -1,7 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 const UNITRENDS_API_BASE = 'https://public-api.backup.net';
-const UNITRENDS_AUTH_URL = 'https://auth.backup.net/connect/token';
+const UNITRENDS_AUTH_URL = 'https://login.backup.net/connect/token';
 
 let cachedToken = null;
 let tokenExpiry = 0;
@@ -19,26 +19,27 @@ async function getUnitrendsToken() {
     throw new Error('Unitrends credentials not configured');
   }
 
+  // Basic auth with Base64 encoded client_id:client_secret
+  const basicAuth = btoa(`${clientId}:${clientSecret}`);
+
   const response = await fetch(UNITRENDS_AUTH_URL, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Authorization': `Basic ${basicAuth}`,
+      'Accept': '*/*'
     },
-    body: new URLSearchParams({
-      grant_type: 'client_credentials',
-      client_id: clientId,
-      client_secret: clientSecret,
-      scope: 'public_api'
-    })
+    body: 'grant_type=client_credentials'
   });
 
   if (!response.ok) {
-    throw new Error(`Auth failed: ${response.status} ${response.statusText}`);
+    const errorText = await response.text();
+    throw new Error(`Auth failed: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
   cachedToken = data.access_token;
-  tokenExpiry = now + (data.expires_in - 60) * 1000; // Refresh 60s before expiry
+  tokenExpiry = now + ((data.expires_in || 3600) - 60) * 1000;
   return cachedToken;
 }
 

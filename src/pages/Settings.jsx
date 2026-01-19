@@ -223,8 +223,8 @@ export default function Settings() {
             </IntegrationSection>
 
             <IntegrationSection
-              title="Unitrends / Spanning Backup"
-              description="Connect to Unitrends MSP to sync Spanning Backup domains and users"
+              title="Unitrends"
+              description="Connect to Unitrends MSP to sync backup data and users"
             >
               <SpanningConfig />
             </IntegrationSection>
