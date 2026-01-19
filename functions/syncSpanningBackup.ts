@@ -71,10 +71,10 @@ Deno.serve(async (req) => {
     // Test connection
     if (action === 'test_connection') {
       try {
-        const customers = await unitrendsApiCall('/v1/customers?take=5');
+        const customers = await unitrendsApiCall('/v1/customers?limit=5');
         return Response.json({ 
           success: true, 
-          totalCustomers: customers.totalCount || customers.length || 0
+          totalCustomers: customers.totalCount || customers.items?.length || 0
         });
       } catch (e) {
         return Response.json({ success: false, error: e.message });
@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
     // List Spanning domains/tenants
     if (action === 'list_domains') {
       try {
-        const domains = await unitrendsApiCall('/v2/spanning/domains?take=500');
+        const domains = await unitrendsApiCall('/v2/spanning/domains?limit=500');
         return Response.json({ 
           success: true, 
           domains: domains.items || domains || []
@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
       }
 
       const mapping = mappings[0];
-      const users = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?take=1000`);
+      const users = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?limit=1000`);
       
       return Response.json({ 
         success: true, 
@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
       }
 
       const mapping = mappings[0];
-      const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?take=1000`);
+      const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?limit=1000`);
       const spanningUsers = usersResponse.items || usersResponse || [];
 
       // Get existing contacts
@@ -193,7 +193,7 @@ Deno.serve(async (req) => {
       }
 
       const mapping = mappings[0];
-      const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?take=1000`);
+      const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?limit=1000`);
       const users = usersResponse.items || usersResponse || [];
       
       const assignedUsers = users.filter(u => u.isLicensed === true || u.assigned === true).length || users.length;
@@ -257,7 +257,7 @@ Deno.serve(async (req) => {
 
       for (const mapping of allMappings) {
         try {
-          const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?take=1000`);
+          const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?limit=1000`);
           const users = usersResponse.items || usersResponse || [];
           
           const assignedUsers = users.filter(u => u.isLicensed === true || u.assigned === true).length || users.length;
