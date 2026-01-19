@@ -32,11 +32,14 @@ export default function DattoRMMConfig() {
   const [connectionStatus, setConnectionStatus] = useState(null);
   const [loadingSites, setLoadingSites] = useState(false);
   const [dattoSites, setDattoSites] = useState([]);
-  const [showMappingDialog, setShowMappingDialog] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState('');
-  const [selectedSite, setSelectedSite] = useState('');
+  const [showMappingView, setShowMappingView] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [automapping, setAutomapping] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterTab, setFilterTab] = useState('all'); // 'all', 'mapped', 'unmapped'
+  const [currentPage, setCurrentPage] = useState(1);
+  const [siteSelections, setSiteSelections] = useState({}); // siteId -> customerId
+  const itemsPerPage = 10;
 
   const queryClient = useQueryClient();
 
