@@ -7,16 +7,18 @@ const DATTO_API_URL = Deno.env.get('DATTO_RMM_API_URL');
 async function getDattoAccessToken() {
   // Remove trailing slash from URL if present
   const baseUrl = DATTO_API_URL.replace(/\/$/, '');
-  const authUrl = `${baseUrl}/auth/oauth/token`;
-  const credentials = btoa(`${DATTO_API_KEY}:${DATTO_API_SECRET}`);
+  // Datto RMM uses /public-api/v1/authenticate endpoint
+  const authUrl = `${baseUrl}/public-api/v1/authenticate`;
   
   const response = await fetch(authUrl, {
     method: 'POST',
     headers: {
-      'Authorization': `Basic ${credentials}`,
-      'Content-Type': 'application/x-www-form-urlencoded'
+      'Content-Type': 'application/json'
     },
-    body: 'grant_type=client_credentials'
+    body: JSON.stringify({
+      apiKey: DATTO_API_KEY,
+      secretKey: DATTO_API_SECRET
+    })
   });
 
   if (!response.ok) {
@@ -25,12 +27,12 @@ async function getDattoAccessToken() {
   }
 
   const data = await response.json();
-  return data.access_token;
+  return data.accessToken;
 }
 
 async function dattoApiCall(accessToken, endpoint) {
   const baseUrl = DATTO_API_URL.replace(/\/$/, '');
-  const response = await fetch(`${baseUrl}/api/v2${endpoint}`, {
+  const response = await fetch(`${baseUrl}/public-api/v1${endpoint}`, {
     headers: {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json'
