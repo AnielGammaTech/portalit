@@ -283,16 +283,6 @@ export default function DattoRMMConfig() {
             <h4 className="font-medium text-slate-900">Site Mappings</h4>
             <div className="flex items-center gap-2">
               <Button
-                onClick={autoMapSites}
-                disabled={automapping}
-                size="sm"
-                variant="outline"
-                className="gap-2"
-              >
-                <Wand2 className={cn("w-4 h-4", automapping && "animate-spin")} />
-                Auto-Map
-              </Button>
-              <Button
                 onClick={loadDattoSites}
                 disabled={loadingSites}
                 size="sm"
@@ -300,7 +290,7 @@ export default function DattoRMMConfig() {
                 className="gap-2"
               >
                 <Link2 className={cn("w-4 h-4", loadingSites && "animate-spin")} />
-                Map Site
+                {showMappingView ? 'Refresh Sites' : 'Client Mapping'}
               </Button>
               {mappings.length > 0 && (
                 <Button
@@ -316,87 +306,263 @@ export default function DattoRMMConfig() {
             </div>
           </div>
 
-          {mappings.length === 0 ? (
-            <p className="text-sm text-slate-500 py-4 text-center">
-              No sites mapped yet. Click "Map Site" to link Datto sites to customers.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {mappings.map(mapping => (
-                <div 
-                  key={mapping.id} 
-                  className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
-                >
-                  <div className="flex items-center gap-3">
-                    <Building2 className="w-4 h-4 text-slate-400" />
-                    <div>
-                      <p className="font-medium text-slate-900">{getCustomerName(mapping.customer_id)}</p>
-                      <p className="text-sm text-slate-500">→ {mapping.datto_site_name}</p>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => deleteMapping(mapping.id)}
-                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+          {!showMappingView ? (
+            mappings.length === 0 ? (
+              <p className="text-sm text-slate-500 py-4 text-center">
+                No sites mapped yet. Click "Client Mapping" to link Datto sites to customers.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {mappings.map(mapping => (
+                  <div 
+                    key={mapping.id} 
+                    className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <div className="flex items-center gap-3">
+                      <Building2 className="w-4 h-4 text-slate-400" />
+                      <div>
+                        <p className="font-medium text-slate-900">{getCustomerName(mapping.customer_id)}</p>
+                        <p className="text-sm text-slate-500">→ {mapping.datto_site_name}</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => deleteMapping(mapping.id)}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )
+          ) : (
+            /* Client Mapping View */
+            <div className="bg-slate-900 rounded-xl p-4 text-white">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="font-semibold">Client Mapping</h4>
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={autoMapSites}
+                    disabled={automapping}
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 bg-transparent border-slate-600 text-white hover:bg-slate-800"
+                  >
+                    <Wand2 className={cn("w-4 h-4", automapping && "animate-spin")} />
+                    Apply 100% Matches
+                  </Button>
+                  <Button
+                    onClick={() => { setShowMappingView(false); loadDattoSites(); }}
+                    size="sm"
+                    variant="ghost"
+                    className="gap-2 text-slate-400 hover:text-white"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Refresh
                   </Button>
                 </div>
-              ))}
+              </div>
+
+              {/* Search and Filters */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    placeholder="Search clients..."
+                    value={searchQuery}
+                    onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                    className="pl-9 w-64 bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
+                  />
+                </div>
+                <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-1">
+                  <button
+                    onClick={() => { setFilterTab('all'); setCurrentPage(1); }}
+                    className={cn(
+                      "px-3 py-1.5 text-sm rounded-md transition-colors",
+                      filterTab === 'all' ? "bg-slate-700 text-white" : "text-slate-400 hover:text-white"
+                    )}
+                  >
+                    All ({dattoSites.length})
+                  </button>
+                  <button
+                    onClick={() => { setFilterTab('mapped'); setCurrentPage(1); }}
+                    className={cn(
+                      "px-3 py-1.5 text-sm rounded-md transition-colors",
+                      filterTab === 'mapped' ? "bg-slate-700 text-white" : "text-slate-400 hover:text-white"
+                    )}
+                  >
+                    Mapped ({mappedCount})
+                  </button>
+                  <button
+                    onClick={() => { setFilterTab('unmapped'); setCurrentPage(1); }}
+                    className={cn(
+                      "px-3 py-1.5 text-sm rounded-md transition-colors",
+                      filterTab === 'unmapped' ? "bg-slate-700 text-white" : "text-slate-400 hover:text-white"
+                    )}
+                  >
+                    Unmapped ({unmappedCount})
+                  </button>
+                </div>
+              </div>
+
+              {/* Table Header */}
+              <div className="grid grid-cols-12 gap-4 px-3 py-2 text-xs font-medium text-slate-400 uppercase tracking-wider border-b border-slate-700">
+                <div className="col-span-4">Datto Site</div>
+                <div className="col-span-3">Mapped To</div>
+                <div className="col-span-4">Suggested Mapping</div>
+                <div className="col-span-1"></div>
+              </div>
+
+              {/* Site Rows */}
+              <div className="divide-y divide-slate-800">
+                {paginatedSites.map(site => {
+                  const siteId = String(site.id || site.uid);
+                  const existingMapping = mappings.find(m => m.datto_site_id === siteId);
+                  const suggestedMatch = !existingMapping ? getSuggestedMatch(site.name) : null;
+                  const selectedCustomerId = siteSelections[siteId] || '';
+                  
+                  return (
+                    <div key={siteId} className="grid grid-cols-12 gap-4 px-3 py-3 items-center hover:bg-slate-800/50">
+                      {/* Site Name */}
+                      <div className="col-span-4">
+                        <p className="font-medium text-white">{site.name}</p>
+                        <p className="text-xs text-slate-500">{siteId}</p>
+                      </div>
+                      
+                      {/* Mapped To */}
+                      <div className="col-span-3">
+                        {existingMapping ? (
+                          <div className="flex items-center gap-2">
+                            <Select
+                              value={existingMapping.customer_id}
+                              onValueChange={async (newCustomerId) => {
+                                await deleteMapping(existingMapping.id);
+                                await applyMapping(site, newCustomerId);
+                              }}
+                            >
+                              <SelectTrigger className="bg-slate-800 border-slate-700 text-white text-sm">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="_none">No mapping</SelectItem>
+                                {customers.map(customer => (
+                                  <SelectItem key={customer.id} value={customer.id}>
+                                    {customer.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ) : (
+                          <Select
+                            value={selectedCustomerId}
+                            onValueChange={(val) => setSiteSelections(prev => ({ ...prev, [siteId]: val }))}
+                          >
+                            <SelectTrigger className="bg-slate-800 border-slate-700 text-slate-400 text-sm">
+                              <SelectValue placeholder="No mapping" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {customers.map(customer => (
+                                <SelectItem key={customer.id} value={customer.id}>
+                                  {customer.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                      
+                      {/* Suggested Mapping */}
+                      <div className="col-span-4">
+                        {!existingMapping && suggestedMatch ? (
+                          <Select
+                            value={selectedCustomerId || suggestedMatch.customer.id}
+                            onValueChange={(val) => setSiteSelections(prev => ({ ...prev, [siteId]: val }))}
+                          >
+                            <SelectTrigger className="bg-slate-800 border-slate-700 text-white text-sm">
+                              <SelectValue>
+                                {(selectedCustomerId ? customers.find(c => c.id === selectedCustomerId)?.name : suggestedMatch.customer.name)?.toUpperCase()} ({selectedCustomerId ? '—' : `${suggestedMatch.score}%`})
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {customers.map(customer => (
+                                <SelectItem key={customer.id} value={customer.id}>
+                                  {customer.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : !existingMapping ? (
+                          <span className="text-slate-500 text-sm">No suggestion</span>
+                        ) : (
+                          <span className="text-emerald-500 text-sm flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> Mapped
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* Apply Button */}
+                      <div className="col-span-1 flex justify-end">
+                        {!existingMapping && (selectedCustomerId || suggestedMatch) && (
+                          <Button
+                            size="sm"
+                            onClick={() => applyMapping(site, selectedCustomerId || suggestedMatch?.customer.id)}
+                            className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-3"
+                          >
+                            Apply
+                          </Button>
+                        )}
+                        {existingMapping && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => deleteMapping(existingMapping.id)}
+                            className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-700">
+                  <p className="text-sm text-slate-400">
+                    Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredSites.length)} of {filteredSites.length} clients
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="bg-transparent border-slate-600 text-white hover:bg-slate-800"
+                    >
+                      <ChevronLeft className="w-4 h-4" /> Previous
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="bg-transparent border-slate-600 text-white hover:bg-slate-800"
+                    >
+                      Next <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
-
-      {/* Mapping Dialog */}
-      <Dialog open={showMappingDialog} onOpenChange={setShowMappingDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Map Datto Site to Customer</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <label className="text-sm font-medium text-slate-700 mb-2 block">Customer</label>
-              <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a customer" />
-                </SelectTrigger>
-                <SelectContent>
-                  {customers.map(customer => (
-                    <SelectItem key={customer.id} value={customer.id}>
-                      {customer.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-700 mb-2 block">Datto Site</label>
-              <Select value={selectedSite} onValueChange={setSelectedSite}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a Datto site" />
-                </SelectTrigger>
-                <SelectContent>
-                  {dattoSites.map(site => (
-                    <SelectItem key={site.id || site.uid} value={String(site.id || site.uid)}>
-                      {site.name} ({site.deviceCount} devices)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex justify-end gap-3 pt-4">
-              <Button variant="outline" onClick={() => setShowMappingDialog(false)}>
-                Cancel
-              </Button>
-              <Button onClick={createMapping} className="bg-blue-600 hover:bg-blue-700">
-                Create Mapping
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
