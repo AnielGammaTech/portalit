@@ -220,17 +220,18 @@ Deno.serve(async (req) => {
 
       for (const mapping of allMappings) {
         try {
-          // Datto RMM API v2 uses /device endpoint with siteUid filter
           const siteUid = mapping.datto_site_id;
-          console.log(`Syncing site UID: ${siteUid} (${mapping.datto_site_name})`);
-          const devicesData = await dattoApiCall(accessToken, `/device?siteUid=${siteUid}`);
-          console.log(`Devices response:`, JSON.stringify(devicesData).substring(0, 500));
-          const devices = Array.isArray(devicesData) ? devicesData : (devicesData.devices || []);
-          console.log(`Found ${devices.length} devices`);
-
+          
+          // Fetch all devices and filter by site
+          const allDevicesData = await dattoApiCall(accessToken, `/device`);
+          const allDevices = Array.isArray(allDevicesData) ? allDevicesData : (allDevicesData.devices || []);
+          
+          // Filter devices for this specific site
+          const devices = allDevices.filter(d => d.siteUid === siteUid || d.site?.uid === siteUid);
+          
           const existingDevices = await base44.asServiceRole.entities.Device.filter({ 
             customer_id: mapping.customer_id,
-            datto_site_id: mapping.datto_site_id 
+            datto_site_id: siteUid 
           });
           const existingByDattoId = {};
           existingDevices.forEach(d => { existingByDattoId[d.datto_id] = d; });
@@ -238,8 +239,8 @@ Deno.serve(async (req) => {
           for (const device of devices) {
             const deviceData = {
               customer_id: mapping.customer_id,
-              datto_id: String(device.id || device.uid),
-              datto_site_id: mapping.datto_site_id,
+              datto_id: String(device.uid || device.id),
+              datto_site_id: siteUid,
               hostname: device.hostname || device.name || 'Unknown',
               description: device.description || '',
               device_type: mapDeviceType(device.deviceType?.category),
@@ -264,12 +265,14 @@ Deno.serve(async (req) => {
           }
         } catch (err) {
           console.error(`Error syncing site ${mapping.datto_site_id}:`, err.message);
+          errors.push({ site: mapping.datto_site_name, error: err.message });
         }
       }
 
       return Response.json({
         success: true,
-        recordsSynced: totalSynced
+        recordsSynced: totalSynced,
+        errors: errors.length > 0 ? errors : undefined
       });
     }
 
