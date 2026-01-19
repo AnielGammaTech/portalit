@@ -610,7 +610,7 @@ export default function CustomerDetail() {
                                                           <p className="text-sm text-slate-500 truncate">{contact.email || contact.title || 'No email'}</p>
                                                         </div>
                                                         <div className="flex items-center gap-1">
-                                                          {contact.source === 'halopsa' ? (
+                                                          {(contact.source === 'halopsa' || contact.halopsa_id) ? (
                                                             <Badge className="bg-blue-100 text-blue-700 text-xs">Halo</Badge>
                                                           ) : (
                                                             <Badge className="bg-slate-200 text-slate-600 text-xs">Manual</Badge>
