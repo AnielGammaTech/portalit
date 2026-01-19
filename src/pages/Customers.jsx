@@ -286,18 +286,18 @@ export default function Customers() {
                   </div>
                 </div>
 
-                <div className="hidden sm:flex items-center gap-3 text-xs">
-                  <div className="text-center min-w-[40px]">
-                    <p className="font-semibold text-slate-900">{stats.contracts}</p>
-                    <p className="text-slate-400">Con</p>
+                <div className="hidden sm:flex items-center gap-2 text-xs">
+                  <div className="flex items-center gap-1 px-2 py-1 bg-slate-100 rounded-md" title="Contracts">
+                    <FileText className="w-3 h-3 text-slate-500" />
+                    <span className="font-medium text-slate-700">{stats.contracts}</span>
                   </div>
-                  <div className="text-center min-w-[40px]">
-                    <p className="font-semibold text-slate-900">{stats.tickets}</p>
-                    <p className="text-slate-400">Tix</p>
+                  <div className="flex items-center gap-1 px-2 py-1 bg-slate-100 rounded-md" title="Open Tickets">
+                    <AlertCircle className="w-3 h-3 text-slate-500" />
+                    <span className="font-medium text-slate-700">{stats.tickets}</span>
                   </div>
-                  <div className="text-center min-w-[50px]">
-                    <p className="font-semibold text-emerald-600">${stats.mrr.toLocaleString()}</p>
-                    <p className="text-slate-400">MRR</p>
+                  <div className="flex items-center gap-1 px-2 py-1 bg-emerald-50 rounded-md" title="Monthly Revenue">
+                    <DollarSign className="w-3 h-3 text-emerald-600" />
+                    <span className="font-medium text-emerald-700">${stats.mrr.toLocaleString()}</span>
                   </div>
                 </div>
 
