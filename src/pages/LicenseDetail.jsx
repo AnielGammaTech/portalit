@@ -23,6 +23,7 @@ export default function LicenseDetail() {
   const queryClient = useQueryClient();
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [syncingUsers, setSyncingUsers] = useState(false);
 
   const { data: license, isLoading: loadingLicense } = useQuery({
     queryKey: ['license', licenseId],
@@ -96,6 +97,28 @@ export default function LicenseDetail() {
     await base44.entities.SaaSLicense.delete(licenseId);
     toast.success('License deleted!');
     window.location.href = createPageUrl(`CustomerDetail?id=${license.customer_id}`);
+  };
+
+  const isJumpCloudLicense = license?.source === 'jumpcloud' || license?.vendor?.toLowerCase() === 'jumpcloud';
+
+  const syncJumpCloudUsers = async () => {
+    setSyncingUsers(true);
+    try {
+      const response = await base44.functions.invoke('syncJumpCloudLicenses', { 
+        action: 'sync_users', 
+        customer_id: license.customer_id 
+      });
+      if (response.data.success) {
+        toast.success(`Synced ${response.data.totalJumpCloudUsers} users: ${response.data.created} new, ${response.data.matched} matched!`);
+        queryClient.invalidateQueries({ queryKey: ['contacts', license.customer_id] });
+      } else {
+        toast.error(response.data.error || 'User sync failed');
+      }
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setSyncingUsers(false);
+    }
   };
 
   if (loadingLicense) {
@@ -287,24 +310,50 @@ export default function LicenseDetail() {
             <h2 className="font-semibold text-slate-900">Assigned Users</h2>
             <p className="text-sm text-slate-500">{activeAssignments.length} of {license.quantity} seats used</p>
           </div>
-          <Button 
-            size="sm" 
-            className="gap-2 bg-purple-600 hover:bg-purple-700"
-            onClick={() => setShowAssignModal(true)}
-            disabled={unusedSeats <= 0}
-          >
-            <Plus className="w-4 h-4" />
-            Assign User
-          </Button>
+          <div className="flex items-center gap-2">
+            {isJumpCloudLicense && (
+              <Button 
+                size="sm" 
+                variant="outline"
+                className="gap-2"
+                onClick={syncJumpCloudUsers}
+                disabled={syncingUsers}
+              >
+                <RefreshCw className={cn("w-4 h-4", syncingUsers && "animate-spin")} />
+                Sync Users from JumpCloud
+              </Button>
+            )}
+            <Button 
+              size="sm" 
+              className="gap-2 bg-purple-600 hover:bg-purple-700"
+              onClick={() => setShowAssignModal(true)}
+              disabled={unusedSeats <= 0}
+            >
+              <Plus className="w-4 h-4" />
+              Assign User
+            </Button>
+          </div>
         </div>
         {activeAssignments.length === 0 ? (
           <div className="p-12 text-center">
             <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
             <p className="text-slate-500 mb-4">No users assigned to this license</p>
-            <Button onClick={() => setShowAssignModal(true)} className="bg-purple-600 hover:bg-purple-700">
-              <Plus className="w-4 h-4 mr-2" />
-              Assign First User
-            </Button>
+            <div className="flex items-center justify-center gap-3">
+              {isJumpCloudLicense && (
+                <Button 
+                  variant="outline"
+                  onClick={syncJumpCloudUsers}
+                  disabled={syncingUsers}
+                >
+                  <RefreshCw className={cn("w-4 h-4 mr-2", syncingUsers && "animate-spin")} />
+                  Sync Users from JumpCloud
+                </Button>
+              )}
+              <Button onClick={() => setShowAssignModal(true)} className="bg-purple-600 hover:bg-purple-700">
+                <Plus className="w-4 h-4 mr-2" />
+                Assign First User
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
