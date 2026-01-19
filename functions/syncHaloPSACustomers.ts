@@ -188,6 +188,8 @@ Deno.serve(async (req) => {
 
         for (const client of allClients) {
           if (excludedIds.includes(String(client.id))) continue;
+          // Skip inactive customers
+          if (client.inactive === true) continue;
 
           // Build full address
           const addressParts = [
