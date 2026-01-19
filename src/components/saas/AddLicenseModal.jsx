@@ -59,42 +59,83 @@ export default function AddLicenseModal({ open, onClose, onSave, customerId }) {
     }
   }, [open]);
 
-  const fetchLogoFromUrl = async (url) => {
-    if (!url) return;
+  const [isLoadingInfo, setIsLoadingInfo] = useState(false);
+
+  const fetchAppInfo = async (url) => {
+    if (!url || url.length < 5) return;
     setIsLoadingLogo(true);
+    setIsLoadingInfo(true);
+    
     try {
-      // Extract domain for favicon
+      // Extract domain
       let domain = url;
       if (url.includes('://')) {
         domain = url.split('://')[1];
       }
       domain = domain.split('/')[0];
       
-      // Use Google's favicon service or clearbit
-      const logoUrl = `https://logo.clearbit.com/${domain}`;
+      // Try to get logo from multiple sources
+      const clearbitLogo = `https://logo.clearbit.com/${domain}`;
+      const googleFavicon = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
       
-      // Test if logo exists
-      const response = await fetch(logoUrl, { method: 'HEAD' });
-      if (response.ok) {
-        setForm(prev => ({ ...prev, logo_url: logoUrl }));
-      } else {
-        // Fallback to Google favicon
-        setForm(prev => ({ ...prev, logo_url: `https://www.google.com/s2/favicons?domain=${domain}&sz=128` }));
+      // Test clearbit first
+      try {
+        const response = await fetch(clearbitLogo, { method: 'HEAD' });
+        if (response.ok) {
+          setForm(prev => ({ ...prev, logo_url: clearbitLogo }));
+        } else {
+          setForm(prev => ({ ...prev, logo_url: googleFavicon }));
+        }
+      } catch {
+        setForm(prev => ({ ...prev, logo_url: googleFavicon }));
+      }
+      setIsLoadingLogo(false);
+
+      // Use AI to get app info
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt: `Research this software/SaaS application website: ${domain}
+        
+Provide information about this application. If you don't know it, make reasonable assumptions based on the domain name.
+
+Return JSON with:
+- name: The official application name
+- vendor: The company that makes it
+- description: A brief 1-2 sentence description of what the app does
+- category: One of: productivity, security, collaboration, crm, finance, hr, marketing, development, other`,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            vendor: { type: "string" },
+            description: { type: "string" },
+            category: { type: "string" }
+          }
+        },
+        add_context_from_internet: true
+      });
+
+      if (result) {
+        setForm(prev => ({
+          ...prev,
+          application_name: prev.application_name || result.name || '',
+          vendor: prev.vendor || result.vendor || '',
+          notes: prev.notes || result.description || '',
+          category: result.category || prev.category
+        }));
       }
     } catch (error) {
-      console.log('Could not fetch logo');
+      console.log('Could not fetch app info:', error);
     } finally {
       setIsLoadingLogo(false);
+      setIsLoadingInfo(false);
     }
   };
 
-  const handleWebsiteChange = (e) => {
-    const url = e.target.value;
-    setForm(prev => ({ ...prev, website_url: url }));
-    
-    // Auto-fetch logo when URL looks complete
-    if (url.includes('.') && url.length > 5) {
-      fetchLogoFromUrl(url);
+  const handleWebsiteBlur = () => {
+    const url = form.website_url;
+    // Auto-fetch info when URL looks complete and we don't have app name yet
+    if (url && url.includes('.') && url.length > 5) {
+      fetchAppInfo(url);
     }
   };
 
@@ -204,14 +245,27 @@ export default function AddLicenseModal({ open, onClose, onSave, customerId }) {
             <Label className="flex items-center gap-2">
               <Globe className="w-3 h-3" />
               Website URL
-              <span className="text-xs text-gray-400 font-normal">(auto-fetches logo)</span>
+              <span className="text-xs text-gray-400 font-normal">(auto-fetches logo & info)</span>
             </Label>
-            <Input
-              value={form.website_url}
-              onChange={handleWebsiteChange}
-              placeholder="e.g., microsoft.com or https://slack.com"
-              className="mt-1"
-            />
+            <div className="relative mt-1">
+              <Input
+                value={form.website_url}
+                onChange={(e) => setForm(prev => ({ ...prev, website_url: e.target.value }))}
+                onBlur={handleWebsiteBlur}
+                placeholder="e.g., microsoft.com or https://slack.com"
+              />
+              {isLoadingInfo && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <Loader2 className="w-4 h-4 text-purple-500 animate-spin" />
+                </div>
+              )}
+            </div>
+            {isLoadingInfo && (
+              <p className="text-xs text-purple-600 mt-1 flex items-center gap-1">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Fetching app information...
+              </p>
+            )}
           </div>
           
           {/* Vendor & License Type */}
