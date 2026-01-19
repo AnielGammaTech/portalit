@@ -32,10 +32,18 @@ export default function CustomerServicesTab({
 }) {
   const [syncingJumpCloud, setSyncingJumpCloud] = useState(false);
   const [syncingSpanning, setSyncingSpanning] = useState(false);
+  const [syncingDatto, setSyncingDatto] = useState(false);
+  const [syncingHalo, setSyncingHalo] = useState(false);
   const [syncingAll, setSyncingAll] = useState(false);
   const [jcUsersPage, setJcUsersPage] = useState(0);
   const [spanningUsersPage, setSpanningUsersPage] = useState(0);
   const [selectedContact, setSelectedContact] = useState(null);
+  const [syncStatuses, setSyncStatuses] = useState({
+    halopsa: { status: 'idle', lastSync: null, error: null },
+    datto: { status: 'idle', lastSync: null, error: null },
+    jumpcloud: { status: 'idle', lastSync: null, error: null },
+    spanning: { status: 'idle', lastSync: null, error: null }
+  });
 
   // Fetch JumpCloud mapping for this customer
   const { data: jumpcloudMapping } = useQuery({
@@ -98,67 +106,165 @@ export default function CustomerServicesTab({
     enabled: !!customerId
   });
 
+  const updateSyncStatus = (service, status, error = null) => {
+    setSyncStatuses(prev => ({
+      ...prev,
+      [service]: {
+        status,
+        lastSync: status === 'success' ? new Date().toISOString() : prev[service].lastSync,
+        error: error
+      }
+    }));
+  };
+
+  const handleSyncHaloPSA = async () => {
+    if (!customer?.source === 'halopsa' || !customer?.external_id) return;
+    setSyncingHalo(true);
+    updateSyncStatus('halopsa', 'syncing');
+    try {
+      const response = await base44.functions.invoke('syncHaloPSAContacts', {
+        action: 'sync_customer',
+        customer_id: customer.external_id
+      });
+      if (response.data.success) {
+        updateSyncStatus('halopsa', 'success');
+        toast.success(`HaloPSA: Synced ${response.data.recordsSynced || 0} contacts`);
+        queryClient.invalidateQueries();
+      } else {
+        updateSyncStatus('halopsa', 'error', response.data.error);
+        toast.error(response.data.error || 'HaloPSA sync failed');
+      }
+    } catch (error) {
+      updateSyncStatus('halopsa', 'error', error.message);
+      toast.error(error.message);
+    } finally {
+      setSyncingHalo(false);
+    }
+  };
+
+  const handleSyncDatto = async () => {
+    if (!dattoMapping) return;
+    setSyncingDatto(true);
+    updateSyncStatus('datto', 'syncing');
+    try {
+      const response = await base44.functions.invoke('syncDattoRMMDevices', {
+        action: 'sync_site',
+        site_id: dattoMapping.datto_site_id
+      });
+      if (response.data.success) {
+        updateSyncStatus('datto', 'success');
+        toast.success(`Datto: Synced ${response.data.synced || 0} devices`);
+        queryClient.invalidateQueries();
+      } else {
+        updateSyncStatus('datto', 'error', response.data.error);
+        toast.error(response.data.error || 'Datto sync failed');
+      }
+    } catch (error) {
+      updateSyncStatus('datto', 'error', error.message);
+      toast.error(error.message);
+    } finally {
+      setSyncingDatto(false);
+    }
+  };
+
   const handleSyncAll = async () => {
     setSyncingAll(true);
     const results = [];
+    const errors = [];
     
     try {
       // Sync HaloPSA contacts if customer is from HaloPSA
       if (customer?.source === 'halopsa' && customer?.external_id) {
+        updateSyncStatus('halopsa', 'syncing');
         try {
-          await base44.functions.invoke('syncHaloPSAContacts', {
+          const res = await base44.functions.invoke('syncHaloPSAContacts', {
             action: 'sync_customer',
             customer_id: customer.external_id
           });
-          results.push('HaloPSA');
+          if (res.data.success) {
+            updateSyncStatus('halopsa', 'success');
+            results.push(`HaloPSA (${res.data.recordsSynced || 0} contacts)`);
+          } else {
+            updateSyncStatus('halopsa', 'error', res.data.error);
+            errors.push('HaloPSA');
+          }
         } catch (e) {
-          console.error('HaloPSA sync failed:', e);
+          updateSyncStatus('halopsa', 'error', e.message);
+          errors.push('HaloPSA');
         }
       }
 
       // Sync Datto RMM if mapped
       if (dattoMapping) {
+        updateSyncStatus('datto', 'syncing');
         try {
-          await base44.functions.invoke('syncDattoRMMDevices', {
+          const res = await base44.functions.invoke('syncDattoRMMDevices', {
             action: 'sync_site',
             site_id: dattoMapping.datto_site_id
           });
-          results.push('Datto RMM');
+          if (res.data.success) {
+            updateSyncStatus('datto', 'success');
+            results.push(`Datto (${res.data.synced || 0} devices)`);
+          } else {
+            updateSyncStatus('datto', 'error', res.data.error);
+            errors.push('Datto');
+          }
         } catch (e) {
-          console.error('Datto sync failed:', e);
+          updateSyncStatus('datto', 'error', e.message);
+          errors.push('Datto');
         }
       }
 
       // Sync JumpCloud if mapped
       if (jumpcloudMapping) {
+        updateSyncStatus('jumpcloud', 'syncing');
         try {
-          await base44.functions.invoke('syncJumpCloudLicenses', {
+          const res = await base44.functions.invoke('syncJumpCloudLicenses', {
             action: 'sync_licenses',
             customer_id: customerId
           });
-          results.push('JumpCloud');
+          if (res.data.success) {
+            updateSyncStatus('jumpcloud', 'success');
+            results.push(`JumpCloud (${res.data.contactsCreated + res.data.contactsUpdated || 0} users)`);
+          } else {
+            updateSyncStatus('jumpcloud', 'error', res.data.error);
+            errors.push('JumpCloud');
+          }
         } catch (e) {
-          console.error('JumpCloud sync failed:', e);
+          updateSyncStatus('jumpcloud', 'error', e.message);
+          errors.push('JumpCloud');
         }
       }
 
       // Sync Spanning if mapped
       if (spanningMapping) {
+        updateSyncStatus('spanning', 'syncing');
         try {
-          await base44.functions.invoke('syncSpanningBackup', {
+          const res = await base44.functions.invoke('syncSpanningBackup', {
             action: 'sync_licenses',
             customer_id: customerId
           });
-          results.push('Spanning');
+          if (res.data.success) {
+            updateSyncStatus('spanning', 'success');
+            results.push(`Spanning (${res.data.contactsUpdated || 0} users)`);
+          } else {
+            updateSyncStatus('spanning', 'error', res.data.error);
+            errors.push('Spanning');
+          }
         } catch (e) {
-          console.error('Spanning sync failed:', e);
+          updateSyncStatus('spanning', 'error', e.message);
+          errors.push('Spanning');
         }
       }
 
       if (results.length > 0) {
         toast.success(`Synced: ${results.join(', ')}`);
         queryClient.invalidateQueries();
-      } else {
+      }
+      if (errors.length > 0) {
+        toast.error(`Failed: ${errors.join(', ')}`);
+      }
+      if (results.length === 0 && errors.length === 0) {
         toast.info('No integrations to sync');
       }
     } catch (error) {
@@ -216,19 +322,120 @@ export default function CustomerServicesTab({
   const hasSpanning = !!spanningMapping;
   const hasRecurringServices = lineItems.length > 0;
 
+  const hasHaloPSA = customer?.source === 'halopsa' && customer?.external_id;
+  const hasDatto = !!dattoMapping;
+
+  const formatLastSync = (dateStr) => {
+    if (!dateStr) return 'Never';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return date.toLocaleDateString();
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'syncing': return <RefreshCw className="w-4 h-4 animate-spin text-blue-500" />;
+      case 'success': return <CheckCircle2 className="w-4 h-4 text-green-500" />;
+      case 'error': return <AlertCircle className="w-4 h-4 text-red-500" />;
+      default: return <div className="w-4 h-4 rounded-full bg-slate-200" />;
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'syncing': return <Badge className="bg-blue-100 text-blue-700">Syncing...</Badge>;
+      case 'success': return <Badge className="bg-green-100 text-green-700">Synced</Badge>;
+      case 'error': return <Badge className="bg-red-100 text-red-700">Error</Badge>;
+      default: return <Badge className="bg-slate-100 text-slate-500">Not synced</Badge>;
+    }
+  };
+
+  const integrations = [
+    { key: 'halopsa', name: 'HaloPSA', enabled: hasHaloPSA, icon: Users, color: 'purple', onSync: handleSyncHaloPSA, syncing: syncingHalo },
+    { key: 'datto', name: 'Datto RMM', enabled: hasDatto, icon: HardDrive, color: 'blue', onSync: handleSyncDatto, syncing: syncingDatto },
+    { key: 'jumpcloud', name: 'JumpCloud', enabled: hasJumpCloud, icon: Shield, color: 'indigo', onSync: handleSyncJumpCloud, syncing: syncingJumpCloud },
+    { key: 'spanning', name: 'Spanning', enabled: hasSpanning, icon: Cloud, color: 'cyan', onSync: handleSyncSpanning, syncing: syncingSpanning }
+  ].filter(i => i.enabled);
+
   return (
     <div className="space-y-6">
-      {/* Sync All Button */}
-      <div className="flex justify-end">
-        <Button
-          onClick={handleSyncAll}
-          disabled={syncingAll}
-          className="gap-2"
-        >
-          <RefreshCw className={cn("w-4 h-4", syncingAll && "animate-spin")} />
-          {syncingAll ? 'Syncing All...' : 'Sync All Services'}
-        </Button>
-      </div>
+      {/* Sync Status Panel */}
+      {integrations.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <div>
+              <CardTitle className="text-base">Integration Status</CardTitle>
+              <CardDescription>Sync status for connected services</CardDescription>
+            </div>
+            <Button
+              onClick={handleSyncAll}
+              disabled={syncingAll}
+              className="gap-2"
+            >
+              <RefreshCw className={cn("w-4 h-4", syncingAll && "animate-spin")} />
+              {syncingAll ? 'Syncing...' : 'Sync All'}
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              {integrations.map(integration => {
+                const status = syncStatuses[integration.key];
+                const IconComponent = integration.icon;
+                return (
+                  <div 
+                    key={integration.key}
+                    className={cn(
+                      "p-3 rounded-lg border transition-all",
+                      status.status === 'error' ? "border-red-200 bg-red-50" : "border-slate-200 bg-slate-50"
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className={cn(
+                          "p-1.5 rounded",
+                          `bg-${integration.color}-100`
+                        )}>
+                          <IconComponent className={cn("w-4 h-4", `text-${integration.color}-600`)} />
+                        </div>
+                        <span className="font-medium text-sm text-slate-900">{integration.name}</span>
+                      </div>
+                      {getStatusIcon(status.status)}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs text-slate-500">
+                        {status.status === 'syncing' ? (
+                          <span className="text-blue-600">Syncing data...</span>
+                        ) : status.status === 'error' ? (
+                          <span className="text-red-600 truncate max-w-[120px]" title={status.error}>
+                            {status.error?.substring(0, 20)}...
+                          </span>
+                        ) : (
+                          <span>Last: {formatLastSync(status.lastSync)}</span>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs"
+                        onClick={integration.onSync}
+                        disabled={integration.syncing || syncingAll}
+                      >
+                        <RefreshCw className={cn("w-3 h-3", integration.syncing && "animate-spin")} />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue={hasRecurringServices ? "recurring" : hasJumpCloud ? "jumpcloud" : "spanning"} className="space-y-4">
         <TabsList className="bg-white border border-slate-200">
