@@ -81,15 +81,27 @@ Deno.serve(async (req) => {
         const client = clientData;
 
         const existingCustomer = (await base44.asServiceRole.entities.Customer.filter({ external_id: String(client.id), source: 'halopsa' }))[0];
+        // Build full address
+        const addressParts = [
+          client.address1 || client.Address1 || '',
+          client.address2 || client.Address2 || '',
+          client.city || client.City || '',
+          client.state || client.State || '',
+          client.postcode || client.Postcode || '',
+          client.country || client.Country || ''
+        ].filter(Boolean);
+        const fullAddress = addressParts.join(', ');
+
         const customerData = {
           name: client.name || client.Name || `Customer ${client.id}`,
           external_id: String(client.id),
           source: 'halopsa',
           status: !client.inactive ? 'active' : 'inactive',
-          primary_contact: client.primary_contact_name || client.PrimaryContactName || '',
-          email: client.primary_contact_email || client.PrimaryContactEmail || '',
-          phone: client.primary_contact_phone || client.PrimaryContactPhone || '',
-          address: (client.address1 || client.Address1 || '') + (client.address2 || client.Address2 ? ` ${client.address2}` : '') + (client.postcode || client.Postcode ? ` ${client.postcode}` : '')
+          primary_contact: client.main_contact_name || client.primary_contact_name || client.PrimaryContactName || '',
+          email: client.main_email_address || client.primary_contact_email || client.PrimaryContactEmail || client.email || '',
+          phone: client.main_contact_phone || client.primary_contact_phone || client.PrimaryContactPhone || client.phonenumber || '',
+          address: fullAddress,
+          notes: client.notes || client.Notes || ''
         };
 
         if (existingCustomer) {
@@ -150,15 +162,27 @@ Deno.serve(async (req) => {
           if (excludedIds.includes(String(client.id))) continue;
 
           const existingCustomer = (await base44.asServiceRole.entities.Customer.filter({ external_id: String(client.id), source: 'halopsa' }))[0];
+          // Build full address
+          const addressParts = [
+            client.address1 || client.Address1 || '',
+            client.address2 || client.Address2 || '',
+            client.city || client.City || '',
+            client.state || client.State || '',
+            client.postcode || client.Postcode || '',
+            client.country || client.Country || ''
+          ].filter(Boolean);
+          const fullAddress = addressParts.join(', ');
+
           const customerData = {
             name: client.name || client.Name || `Customer ${client.id}`,
             external_id: String(client.id),
             source: 'halopsa',
             status: !client.inactive ? 'active' : 'inactive',
-            primary_contact: client.primary_contact_name || client.PrimaryContactName || '',
-            email: client.primary_contact_email || client.PrimaryContactEmail || '',
-            phone: client.primary_contact_phone || client.PrimaryContactPhone || '',
-            address: (client.address1 || client.Address1 || '') + (client.address2 || client.Address2 ? ` ${client.address2}` : '') + (client.postcode || client.Postcode ? ` ${client.postcode}` : '')
+            primary_contact: client.main_contact_name || client.primary_contact_name || client.PrimaryContactName || '',
+            email: client.main_email_address || client.primary_contact_email || client.PrimaryContactEmail || client.email || '',
+            phone: client.main_contact_phone || client.primary_contact_phone || client.PrimaryContactPhone || client.phonenumber || '',
+            address: fullAddress,
+            notes: client.notes || client.Notes || ''
           };
 
           if (existingCustomer) {
