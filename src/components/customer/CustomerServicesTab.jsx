@@ -453,12 +453,13 @@ export default function CustomerServicesTab({
                     ) : (
                       <div className="space-y-2">
                         {spanningContacts.map(contact => {
-                          // Parse title for storage and status info
-                          const titleParts = contact.title?.split(' | ') || [];
+                          // Parse spanning_status for storage and status info
+                          const statusField = contact.spanning_status || contact.title || '';
+                          const titleParts = statusField.split(' | ');
                           const hasStorage = titleParts.length > 1;
                           const storageInfo = hasStorage ? titleParts[0] : null;
-                          const backupStatus = hasStorage ? titleParts[1] : (contact.title || 'unknown');
-                          const isSuccess = backupStatus === 'success' || contact.title === 'active';
+                          const backupStatus = hasStorage ? titleParts[1] : statusField;
+                          const isSuccess = backupStatus === 'success' || statusField === 'active';
 
                           return (
                             <div key={contact.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
@@ -476,7 +477,7 @@ export default function CustomerServicesTab({
                                 </div>
                               )}
                               <Badge className={isSuccess ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}>
-                                {isSuccess ? 'Active' : backupStatus}
+                                {isSuccess ? 'Active' : (backupStatus || 'unknown')}
                               </Badge>
                             </div>
                           );
