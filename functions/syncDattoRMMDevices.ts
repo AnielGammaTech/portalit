@@ -258,33 +258,44 @@ Deno.serve(async (req) => {
           existingDevices.forEach(d => { existingByDattoId[d.datto_id] = d; });
 
           for (const device of devices) {
+            const deviceUid = device.uid || device.id;
+            
+            // Fetch full device details to get serial number and other info
+            let fullDevice = device;
+            try {
+              fullDevice = await dattoApiCall(accessToken, `/device/${deviceUid}`);
+            } catch (e) {
+              console.log(`Could not fetch details for device ${deviceUid}: ${e.message}`);
+            }
+            
             // Convert lastSeen timestamp to ISO string if it's a number
             let lastSeenStr = null;
-            if (device.lastSeen) {
-              if (typeof device.lastSeen === 'number') {
-                lastSeenStr = new Date(device.lastSeen).toISOString();
+            const lastSeen = fullDevice.lastSeen || device.lastSeen;
+            if (lastSeen) {
+              if (typeof lastSeen === 'number') {
+                lastSeenStr = new Date(lastSeen).toISOString();
               } else {
-                lastSeenStr = device.lastSeen;
+                lastSeenStr = lastSeen;
               }
             }
             
             const deviceData = {
               customer_id: mapping.customer_id,
-              datto_id: String(device.uid || device.id),
+              datto_id: String(deviceUid),
               datto_site_id: siteUid,
-              hostname: device.hostname || device.name || 'Unknown',
-              description: device.description || '',
-              device_type: mapDeviceType(device.deviceType?.category),
-              os: device.operatingSystem || '',
-              manufacturer: device.manufacturer || '',
-              model: device.model || '',
-              serial_number: device.serialNumber || device.bios?.serialNumber || '',
-              ip_address: device.intIpAddress || device.extIpAddress || '',
-              mac_address: device.macAddresses?.[0] || '',
+              hostname: fullDevice.hostname || device.hostname || device.name || 'Unknown',
+              description: fullDevice.description || device.description || '',
+              device_type: mapDeviceType(fullDevice.deviceType?.category || device.deviceType?.category),
+              os: fullDevice.operatingSystem || device.operatingSystem || '',
+              manufacturer: fullDevice.manufacturer || device.manufacturer || '',
+              model: fullDevice.model || device.model || '',
+              serial_number: fullDevice.serialNumber || fullDevice.bios?.serialNumber || '',
+              ip_address: fullDevice.intIpAddress || device.intIpAddress || fullDevice.extIpAddress || '',
+              mac_address: fullDevice.macAddresses?.[0] || device.macAddresses?.[0] || '',
               last_seen: lastSeenStr,
-              last_user: device.lastLoggedInUser || device.lastUser || '',
-              status: device.online ? 'online' : 'offline',
-              agent_version: device.agentVersion || ''
+              last_user: fullDevice.lastLoggedInUser || fullDevice.lastUser || '',
+              status: (fullDevice.online !== undefined ? fullDevice.online : device.online) ? 'online' : 'offline',
+              agent_version: fullDevice.agentVersion || device.agentVersion || ''
             };
 
             const existing = existingByDattoId[deviceData.datto_id];
