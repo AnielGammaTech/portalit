@@ -40,6 +40,7 @@ import AddLicenseModal from '../components/saas/AddLicenseModal';
 import SpendAnomalyAlert from '../components/saas/SpendAnomalyAlert';
 import AddContactModal from '../components/saas/AddContactModal';
 import CustomerAnalytics from '../components/customer/CustomerAnalytics';
+import DevicesTab from '../components/customer/DevicesTab';
 import { UserPlus } from 'lucide-react';
 
 export default function CustomerDetail() {
@@ -451,6 +452,13 @@ export default function CustomerDetail() {
           >
             <BarChart3 className="w-5 h-5" />
             <span className="text-sm">Analytics</span>
+          </TabsTrigger>
+          <TabsTrigger 
+            value="devices" 
+            className="flex-1 min-w-[140px] gap-3 py-4 px-6 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800"
+          >
+            <Monitor className="w-5 h-5" />
+            <span className="text-sm">Devices</span>
           </TabsTrigger>
         </TabsList>
 
@@ -1895,6 +1903,13 @@ export default function CustomerDetail() {
             invoices={invoices}
             licenses={licenses}
             licenseAssignments={licenseAssignments}
+          />
+        </TabsContent>
+
+        <TabsContent value="devices">
+          <DevicesTab 
+            customerId={customerId} 
+            customerExternalId={customer?.external_id}
           />
         </TabsContent>
                                   </Tabs>
