@@ -148,11 +148,11 @@ export default function CustomerServicesTab({
             </TabsTrigger>
           )}
           {hasSpanning && (
-            <TabsTrigger value="spanning" className="gap-2">
-              <Cloud className="w-4 h-4" />
-              Unitrends Backup
-            </TabsTrigger>
-          )}
+              <TabsTrigger value="spanning" className="gap-2">
+                <Cloud className="w-4 h-4" />
+                Spanning Backup
+              </TabsTrigger>
+            )}
         </TabsList>
 
         {/* Recurring Services Tab */}
@@ -382,7 +382,7 @@ export default function CustomerServicesTab({
           </TabsContent>
         )}
 
-        {/* Spanning/Unitrends Tab */}
+        {/* Spanning Backup Tab */}
         {hasSpanning && (
           <TabsContent value="spanning">
             <div className="space-y-4">
@@ -421,7 +421,7 @@ export default function CustomerServicesTab({
                         <CheckCircle2 className="w-5 h-5 text-green-600" />
                       </div>
                       <div>
-                        <p className="text-2xl font-bold">{spanningLicenses.reduce((sum, l) => sum + (l.assigned_users || 0), 0)}</p>
+                        <p className="text-2xl font-bold">{spanningContacts.filter(c => c.title === 'active').length}</p>
                         <p className="text-sm text-slate-500">Protected Users</p>
                       </div>
                     </div>
@@ -429,12 +429,12 @@ export default function CustomerServicesTab({
                 </Card>
               </div>
 
-              {/* Domain Info */}
+              {/* Backup Users */}
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <div>
-                    <CardTitle>Backup Domain</CardTitle>
-                    <CardDescription>{spanningMapping?.spanning_tenant_name || 'Connected domain'}</CardDescription>
+                    <CardTitle>Spanning Backup Users</CardTitle>
+                    <CardDescription>Users with Microsoft 365 backup protection ({spanningContacts.length} total)</CardDescription>
                   </div>
                   <Button 
                     variant="outline" 
@@ -446,6 +446,38 @@ export default function CustomerServicesTab({
                     <RefreshCw className={cn("w-4 h-4", syncingSpanning && "animate-spin")} />
                     Sync
                   </Button>
+                </CardHeader>
+                <CardContent>
+                  {spanningContacts.length === 0 ? (
+                    <p className="text-center text-slate-500 py-8">No Spanning users found. Click Sync to pull data.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {spanningContacts.map(contact => {
+                        const isActive = contact.title === 'active';
+                        return (
+                          <div key={contact.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-medium text-sm">
+                              {contact.full_name?.charAt(0) || '?'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-slate-900 truncate">{contact.full_name}</p>
+                              <p className="text-sm text-slate-500 truncate">{contact.email}</p>
+                            </div>
+                            <Badge className={isActive ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}>
+                              {isActive ? 'Protected' : 'Inactive'}
+                            </Badge>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Domain Info */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Domain Info</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl">
@@ -461,37 +493,6 @@ export default function CustomerServicesTab({
                   </div>
                 </CardContent>
               </Card>
-
-              {/* Backup Users */}
-              {spanningContacts.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Backup Users</CardTitle>
-                    <CardDescription>Users with Spanning backup protection</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {spanningContacts.slice(0, 10).map(contact => (
-                        <div key={contact.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-medium text-sm">
-                            {contact.full_name?.charAt(0) || '?'}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-slate-900 truncate">{contact.full_name}</p>
-                            <p className="text-sm text-slate-500 truncate">{contact.email}</p>
-                          </div>
-                          <Badge className="bg-green-100 text-green-700">Protected</Badge>
-                        </div>
-                      ))}
-                      {spanningContacts.length > 10 && (
-                        <p className="text-center text-sm text-slate-500 py-2">
-                          +{spanningContacts.length - 10} more users
-                        </p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
             </div>
           </TabsContent>
         )}
