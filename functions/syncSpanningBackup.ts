@@ -234,13 +234,35 @@ Deno.serve(async (req) => {
         if (!email) continue;
 
         const fullName = spUser.displayName || spUser.name || email.split('@')[0];
-        const isActive = spUser.lastBackupStatusTotal === 'success';
+        const isActive = spUser.lastBackupStatusTotal === 'success' || spUser.assigned === true || spUser.isLicensed === true;
+        
+        // Calculate storage info from user data
+        const mailStorageBytes = spUser.mailStorageBytes || spUser.exchangeStorageBytes || 0;
+        const driveStorageBytes = spUser.driveStorageBytes || spUser.oneDriveStorageBytes || 0;
+        const totalStorageBytes = mailStorageBytes + driveStorageBytes;
+        
+        // Format storage as human readable
+        const formatStorage = (bytes) => {
+          if (!bytes || bytes === 0) return null;
+          if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(2)} GB`;
+          if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(2)} MB`;
+          return `${(bytes / 1024).toFixed(2)} KB`;
+        };
+        
+        const storageInfo = formatStorage(totalStorageBytes);
+        const backupStatus = spUser.lastBackupStatusTotal || (isActive ? 'success' : 'inactive');
+        
+        // Build title with storage and status info
+        const titleParts = [];
+        if (storageInfo) titleParts.push(storageInfo);
+        titleParts.push(backupStatus);
+        const contactTitle = titleParts.join(' | ');
         
         const existing = existingByEmail[email];
         if (existing) {
           await base44.asServiceRole.entities.Contact.update(existing.id, {
             full_name: fullName,
-            title: isActive ? 'active' : 'inactive',
+            title: contactTitle,
             source: 'spanning'
           });
           contactsUpdated++;
@@ -250,7 +272,7 @@ Deno.serve(async (req) => {
             customer_id,
             full_name: fullName,
             email: email,
-            title: isActive ? 'active' : 'inactive',
+            title: contactTitle,
             source: 'spanning'
           });
           contactsCreated++;
