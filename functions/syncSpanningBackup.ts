@@ -181,7 +181,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Sync licenses
+    // Sync licenses (also syncs users/contacts)
     if (action === 'sync_licenses') {
       if (!customer_id) {
         return Response.json({ error: 'customer_id is required' }, { status: 400 });
@@ -203,6 +203,45 @@ Deno.serve(async (req) => {
       const customers = await base44.asServiceRole.entities.Customer.filter({ id: customer_id });
       const customer = customers[0];
 
+      // Sync users as contacts
+      const existingContacts = await base44.asServiceRole.entities.Contact.filter({ customer_id, source: 'spanning' });
+      const existingByEmail = {};
+      existingContacts.forEach(c => { 
+        if (c.email) existingByEmail[c.email.toLowerCase()] = c; 
+      });
+
+      let contactsCreated = 0;
+      let contactsUpdated = 0;
+
+      for (const spUser of users) {
+        const email = spUser.userPrincipalName?.toLowerCase() || spUser.email?.toLowerCase();
+        if (!email) continue;
+
+        const fullName = spUser.displayName || spUser.name || email.split('@')[0];
+        const isActive = spUser.isLicensed === true || spUser.assigned === true || spUser.status === 'active';
+        
+        const existing = existingByEmail[email];
+        if (existing) {
+          await base44.asServiceRole.entities.Contact.update(existing.id, {
+            full_name: fullName,
+            title: isActive ? 'active' : 'inactive',
+            source: 'spanning'
+          });
+          contactsUpdated++;
+          delete existingByEmail[email];
+        } else {
+          await base44.asServiceRole.entities.Contact.create({
+            customer_id,
+            full_name: fullName,
+            email: email,
+            title: isActive ? 'active' : 'inactive',
+            source: 'spanning'
+          });
+          contactsCreated++;
+        }
+      }
+
+      // Sync license record
       const licenseId = `spanning-${customer_id}`;
       const existingLicenses = await base44.asServiceRole.entities.SaaSLicense.filter({ 
         customer_id, 
@@ -241,6 +280,8 @@ Deno.serve(async (req) => {
         success: true,
         totalUsers,
         assignedUsers,
+        contactsCreated,
+        contactsUpdated,
         tenantName: mapping.spanning_tenant_name
       });
     }
