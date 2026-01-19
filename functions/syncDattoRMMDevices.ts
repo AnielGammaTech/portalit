@@ -210,13 +210,15 @@ Deno.serve(async (req) => {
     // Action: Full sync all mapped customers
     if (action === 'sync_all') {
       const allMappings = await base44.asServiceRole.entities.DattoSiteMapping.list();
+      console.log(`Found ${allMappings.length} mappings:`, JSON.stringify(allMappings));
       let totalSynced = 0;
 
       for (const mapping of allMappings) {
         try {
           // Datto RMM API v2 uses /device endpoint with siteUid filter
-          console.log(`Syncing site: ${mapping.datto_site_id} (${mapping.datto_site_name})`);
-          const devicesData = await dattoApiCall(accessToken, `/device?siteUid=${mapping.datto_site_id}`);
+          const siteUid = mapping.datto_site_id;
+          console.log(`Syncing site UID: ${siteUid} (${mapping.datto_site_name})`);
+          const devicesData = await dattoApiCall(accessToken, `/device?siteUid=${siteUid}`);
           console.log(`Devices response:`, JSON.stringify(devicesData).substring(0, 500));
           const devices = Array.isArray(devicesData) ? devicesData : (devicesData.devices || []);
           console.log(`Found ${devices.length} devices`);
