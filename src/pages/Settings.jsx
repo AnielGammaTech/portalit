@@ -9,7 +9,8 @@ import {
   Shield,
   Key,
   Save,
-  Mail
+  Mail,
+  Link2
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import DattoRMMConfig from '../components/integrations/DattoRMMConfig';
 
 export default function Settings() {
   const [user, setUser] = useState(null);
@@ -69,8 +71,8 @@ export default function Settings() {
             Profile
           </TabsTrigger>
           <TabsTrigger value="integrations" className="gap-2">
-            <Key className="w-4 h-4" />
-            API Keys
+            <Link2 className="w-4 h-4" />
+            Integrations
           </TabsTrigger>
           <TabsTrigger value="notifications" className="gap-2">
             <Bell className="w-4 h-4" />
@@ -168,68 +170,9 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="integrations">
-          <Card>
-            <CardHeader>
-              <CardTitle>API Credentials</CardTitle>
-              <CardDescription>
-                Configure your integration API keys
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 bg-indigo-100 rounded-lg">
-                      <Key className="w-4 h-4 text-indigo-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-slate-900">HaloPSA API</h4>
-                      <p className="text-sm text-slate-500">Connect to your HaloPSA instance</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>API URL</Label>
-                      <Input placeholder="https://your-instance.halopsa.com" disabled />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>API Key</Label>
-                      <Input type="password" placeholder="••••••••••••••••" disabled />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 bg-emerald-100 rounded-lg">
-                      <Shield className="w-4 h-4 text-emerald-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-slate-900">Datto RMM API</h4>
-                      <p className="text-sm text-slate-500">Connect to Datto RMM</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>API URL</Label>
-                      <Input placeholder="https://pinotage-api.centrastage.net" disabled />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>API Key</Label>
-                      <Input type="password" placeholder="••••••••••••••••" disabled />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
-                <p className="text-sm text-amber-800">
-                  <strong>Note:</strong> API integration configuration is coming soon. 
-                  Currently you can manually add data through the app interface.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            <DattoRMMConfig />
+          </div>
         </TabsContent>
 
         <TabsContent value="notifications">

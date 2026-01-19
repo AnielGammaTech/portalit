@@ -1,27 +1,27 @@
+import Adminland from './pages/Adminland';
+import Analytics from './pages/Analytics';
+import Contracts from './pages/Contracts';
 import CustomerDetail from './pages/CustomerDetail';
 import Customers from './pages/Customers';
 import Dashboard from './pages/Dashboard';
 import Integrations from './pages/Integrations';
 import LicenseDetail from './pages/LicenseDetail';
-import Settings from './pages/Settings';
 import SaaSReports from './pages/SaaSReports';
-import Adminland from './pages/Adminland';
-import Contracts from './pages/Contracts';
-import Analytics from './pages/Analytics';
+import Settings from './pages/Settings';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
+    "Adminland": Adminland,
+    "Analytics": Analytics,
+    "Contracts": Contracts,
     "CustomerDetail": CustomerDetail,
     "Customers": Customers,
     "Dashboard": Dashboard,
     "Integrations": Integrations,
     "LicenseDetail": LicenseDetail,
-    "Settings": Settings,
     "SaaSReports": SaaSReports,
-    "Adminland": Adminland,
-    "Contracts": Contracts,
-    "Analytics": Analytics,
+    "Settings": Settings,
 }
 
 export const pagesConfig = {
