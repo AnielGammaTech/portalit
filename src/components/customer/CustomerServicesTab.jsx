@@ -449,28 +449,40 @@ export default function CustomerServicesTab({
                 </CardHeader>
                 <CardContent>
                   {spanningContacts.length === 0 ? (
-                    <p className="text-center text-slate-500 py-8">No Spanning users found. Click Sync to pull data.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {spanningContacts.map(contact => {
-                        const isActive = contact.title === 'active';
-                        return (
-                          <div key={contact.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-medium text-sm">
-                              {contact.full_name?.charAt(0) || '?'}
+                      <p className="text-center text-slate-500 py-8">No Spanning users found. Click Sync to pull data.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {spanningContacts.map(contact => {
+                          // Parse title for storage and status info
+                          const titleParts = contact.title?.split(' | ') || [];
+                          const hasStorage = titleParts.length > 1;
+                          const storageInfo = hasStorage ? titleParts[0] : null;
+                          const backupStatus = hasStorage ? titleParts[1] : (contact.title || 'unknown');
+                          const isSuccess = backupStatus === 'success' || contact.title === 'active';
+
+                          return (
+                            <div key={contact.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-medium text-sm">
+                                {contact.full_name?.charAt(0) || '?'}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-slate-900 truncate">{contact.full_name}</p>
+                                <p className="text-sm text-slate-500 truncate">{contact.email}</p>
+                              </div>
+                              {storageInfo && (
+                                <div className="text-right mr-2">
+                                  <p className="text-sm font-medium text-slate-700">{storageInfo}</p>
+                                  <p className="text-xs text-slate-400">Protected</p>
+                                </div>
+                              )}
+                              <Badge className={isSuccess ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}>
+                                {isSuccess ? 'Active' : backupStatus}
+                              </Badge>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-slate-900 truncate">{contact.full_name}</p>
-                              <p className="text-sm text-slate-500 truncate">{contact.email}</p>
-                            </div>
-                            <Badge className={isActive ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}>
-                              {isActive ? 'Protected' : 'Inactive'}
-                            </Badge>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                          );
+                        })}
+                      </div>
+                    )}
                 </CardContent>
               </Card>
 
