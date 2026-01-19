@@ -33,6 +33,7 @@ export default function CustomerServicesTab({
   const [syncingJumpCloud, setSyncingJumpCloud] = useState(false);
   const [syncingSpanning, setSyncingSpanning] = useState(false);
   const [jcUsersPage, setJcUsersPage] = useState(0);
+  const [spanningUsersPage, setSpanningUsersPage] = useState(0);
   const [selectedContact, setSelectedContact] = useState(null);
 
   // Fetch JumpCloud mapping for this customer
@@ -455,7 +456,7 @@ export default function CustomerServicesTab({
                       <p className="text-center text-slate-500 py-8">No Spanning users found. Click Sync to pull data.</p>
                     ) : (
                       <div className="space-y-2">
-                        {spanningContacts.map(contact => {
+                        {spanningContacts.slice(spanningUsersPage * 10, (spanningUsersPage + 1) * 10).map(contact => {
                           // Parse spanning_status: "storage | status | PROTECTED"
                           const statusField = contact.spanning_status || '';
                           const parts = statusField.split(' | ');
@@ -488,6 +489,31 @@ export default function CustomerServicesTab({
                             </div>
                           );
                         })}
+                        {spanningContacts.length > 10 && (
+                          <div className="flex items-center justify-between pt-3 border-t mt-3">
+                            <p className="text-sm text-slate-500">
+                              Showing {spanningUsersPage * 10 + 1}-{Math.min((spanningUsersPage + 1) * 10, spanningContacts.length)} of {spanningContacts.length}
+                            </p>
+                            <div className="flex gap-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => setSpanningUsersPage(p => p - 1)}
+                                disabled={spanningUsersPage === 0}
+                              >
+                                Previous
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => setSpanningUsersPage(p => p + 1)}
+                                disabled={(spanningUsersPage + 1) * 10 >= spanningContacts.length}
+                              >
+                                Next
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                 </CardContent>
