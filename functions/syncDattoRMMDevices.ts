@@ -5,7 +5,9 @@ const DATTO_API_SECRET = Deno.env.get('DATTO_RMM_API_SECRET');
 const DATTO_API_URL = Deno.env.get('DATTO_RMM_API_URL');
 
 async function getDattoAccessToken() {
-  const authUrl = `${DATTO_API_URL}/auth/oauth/token`;
+  // Remove trailing slash from URL if present
+  const baseUrl = DATTO_API_URL.replace(/\/$/, '');
+  const authUrl = `${baseUrl}/auth/oauth/token`;
   const credentials = btoa(`${DATTO_API_KEY}:${DATTO_API_SECRET}`);
   
   const response = await fetch(authUrl, {
@@ -19,7 +21,7 @@ async function getDattoAccessToken() {
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`Failed to get Datto access token: ${error}`);
+    throw new Error(`Failed to get Datto access token: ${response.status} - ${error}`);
   }
 
   const data = await response.json();
@@ -27,7 +29,8 @@ async function getDattoAccessToken() {
 }
 
 async function dattoApiCall(accessToken, endpoint) {
-  const response = await fetch(`${DATTO_API_URL}/api/v2${endpoint}`, {
+  const baseUrl = DATTO_API_URL.replace(/\/$/, '');
+  const response = await fetch(`${baseUrl}/api/v2${endpoint}`, {
     headers: {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json'
@@ -36,7 +39,7 @@ async function dattoApiCall(accessToken, endpoint) {
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`Datto API error: ${error}`);
+    throw new Error(`Datto API error: ${response.status} - ${error}`);
   }
 
   return response.json();
@@ -73,6 +76,49 @@ Deno.serve(async (req) => {
           description: site.description,
           deviceCount: site.devicesStatus?.numberOfDevices || 0
         }))
+      });
+    }
+
+    // Action: Auto-map sites to customers by name matching
+    if (action === 'automap') {
+      const sitesData = await dattoApiCall(accessToken, '/account/sites');
+      const sites = sitesData.sites || [];
+      const customers = await base44.asServiceRole.entities.Customer.list();
+      const existingMappings = await base44.asServiceRole.entities.DattoSiteMapping.list();
+      
+      const existingSiteIds = new Set(existingMappings.map(m => m.datto_site_id));
+      let mappedCount = 0;
+      const mappedPairs = [];
+
+      for (const site of sites) {
+        const siteId = String(site.id || site.uid);
+        if (existingSiteIds.has(siteId)) continue;
+
+        // Try to find a matching customer by name (case-insensitive, partial match)
+        const siteName = (site.name || '').toLowerCase().trim();
+        const matchedCustomer = customers.find(c => {
+          const customerName = (c.name || '').toLowerCase().trim();
+          return customerName === siteName || 
+                 customerName.includes(siteName) || 
+                 siteName.includes(customerName);
+        });
+
+        if (matchedCustomer) {
+          await base44.asServiceRole.entities.DattoSiteMapping.create({
+            customer_id: matchedCustomer.id,
+            datto_site_id: siteId,
+            datto_site_name: site.name
+          });
+          mappedCount++;
+          mappedPairs.push({ site: site.name, customer: matchedCustomer.name });
+        }
+      }
+
+      return Response.json({
+        success: true,
+        mappedCount,
+        mappedPairs,
+        totalSites: sites.length
       });
     }
 

@@ -23,7 +23,8 @@ import {
   AlertCircle,
   Link2,
   Building2,
-  Trash2
+  Trash2,
+  Wand2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
@@ -37,6 +38,7 @@ export default function DattoRMMConfig() {
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [selectedSite, setSelectedSite] = useState('');
   const [syncing, setSyncing] = useState(false);
+  const [automapping, setAutomapping] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -119,6 +121,27 @@ export default function DattoRMMConfig() {
     }
   };
 
+  const autoMapSites = async () => {
+    setAutomapping(true);
+    try {
+      const response = await base44.functions.invoke('syncDattoRMMDevices', { action: 'automap' });
+      if (response.data.success) {
+        if (response.data.mappedCount > 0) {
+          toast.success(`Auto-mapped ${response.data.mappedCount} sites to customers!`);
+        } else {
+          toast.info('No new matches found. Sites may already be mapped or names don\'t match.');
+        }
+        refetchMappings();
+      } else {
+        toast.error(response.data.error || 'Auto-map failed');
+      }
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setAutomapping(false);
+    }
+  };
+
   const syncAllDevices = async () => {
     setSyncing(true);
     try {
@@ -191,6 +214,16 @@ export default function DattoRMMConfig() {
           <div className="flex items-center justify-between mb-3">
             <h4 className="font-medium text-slate-900">Site Mappings</h4>
             <div className="flex items-center gap-2">
+              <Button
+                onClick={autoMapSites}
+                disabled={automapping}
+                size="sm"
+                variant="outline"
+                className="gap-2"
+              >
+                <Wand2 className={cn("w-4 h-4", automapping && "animate-spin")} />
+                Auto-Map
+              </Button>
               <Button
                 onClick={loadDattoSites}
                 disabled={loadingSites}
