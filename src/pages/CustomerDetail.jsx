@@ -224,7 +224,6 @@ export default function CustomerDetail() {
               const [expandedContracts, setExpandedContracts] = useState({});
               const [expandedInvoices, setExpandedInvoices] = useState({});
               const [invoiceFilter, setInvoiceFilter] = useState('all');
-                  const [teamPage, setTeamPage] = useState(1);
                   const [ticketFilter, setTicketFilter] = useState('all');
                   const [ticketPage, setTicketPage] = useState(1);
                   const [saasFilter, setSaasFilter] = useState('all'); // 'all', 'underutilized', 'full', 'unassigned'
@@ -363,101 +362,79 @@ export default function CustomerDetail() {
        )}
       </div>
 
-      {/* Account Header */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-6 text-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl" />
-        <div className="relative flex flex-col md:flex-row md:items-center gap-6">
-          <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur flex items-center justify-center flex-shrink-0">
-            {customer.logo_url ? (
-              <img src={customer.logo_url} alt={customer.name} className="w-10 h-10 rounded-xl" />
-            ) : (
-              <Building2 className="w-8 h-8 text-white" />
-            )}
-          </div>
-          <div className="flex-1">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-3">
-              <h1 className="text-2xl font-bold">{customer.name}</h1>
-              <Badge className={cn(
-                "w-fit",
-                customer.status === 'active' && "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-                customer.status === 'inactive' && "bg-slate-500/20 text-slate-300",
-                customer.status === 'suspended' && "bg-red-500/20 text-red-300"
-              )}>
-                {customer.status || 'Active'}
-              </Badge>
+      {/* Account Header - Modern & Clean */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-6">
+          {/* Logo & Name */}
+          <div className="flex items-center gap-4 flex-1">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center flex-shrink-0 shadow-lg shadow-purple-500/20">
+              {customer.logo_url ? (
+                <img src={customer.logo_url} alt={customer.name} className="w-10 h-10 rounded-xl object-cover" />
+              ) : (
+                <Building2 className="w-7 h-7 text-white" />
+              )}
             </div>
-            <div className="flex flex-wrap gap-4 text-sm text-slate-300">
-              {customer.email && (
-                <div className="flex items-center gap-2">
-                  <Mail className="w-4 h-4" />
-                  {customer.email}
-                </div>
-              )}
-              {customer.phone && (
-                <div className="flex items-center gap-2">
-                  <Phone className="w-4 h-4" />
-                  {customer.phone}
-                </div>
-              )}
-              {customer.address && (
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4" />
-                  {customer.address}
-                </div>
-              )}
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold text-slate-900">{customer.name}</h1>
+                <Badge className={cn(
+                  "font-medium",
+                  customer.status === 'active' && "bg-emerald-100 text-emerald-700 border-emerald-200",
+                  customer.status === 'inactive' && "bg-slate-100 text-slate-600",
+                  customer.status === 'suspended' && "bg-red-100 text-red-700"
+                )}>
+                  {customer.status || 'Active'}
+                </Badge>
+              </div>
+              <div className="flex flex-wrap items-center gap-4 mt-1.5 text-sm text-slate-500">
+                {customer.email && (
+                  <a href={`mailto:${customer.email}`} className="flex items-center gap-1.5 hover:text-purple-600 transition-colors">
+                    <Mail className="w-3.5 h-3.5" />
+                    {customer.email}
+                  </a>
+                )}
+                {customer.phone && (
+                  <a href={`tel:${customer.phone}`} className="flex items-center gap-1.5 hover:text-purple-600 transition-colors">
+                    <Phone className="w-3.5 h-3.5" />
+                    {customer.phone}
+                  </a>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Quick Stats Widgets */}
-          <div className="grid grid-cols-6 gap-3 mt-4 md:mt-0">
-            <button 
-              onClick={() => document.querySelector('[data-state="inactive"][value="overview"]')?.click() || document.querySelector('[value="overview"]')?.click()}
-              className="bg-white/10 backdrop-blur rounded-xl p-3 text-center hover:bg-white/20 transition-colors cursor-pointer"
-            >
-              <Users className="w-4 h-4 mx-auto text-blue-400 mb-1" />
-              <p className="text-xl font-bold">{contacts.length}</p>
-              <p className="text-xs text-slate-400">Contacts</p>
-            </button>
-            <button 
-              onClick={() => document.querySelector('[value="contracts"]')?.click()}
-              className="bg-white/10 backdrop-blur rounded-xl p-3 text-center hover:bg-white/20 transition-colors cursor-pointer"
-            >
-              <FileText className="w-4 h-4 mx-auto text-orange-400 mb-1" />
-              <p className="text-xl font-bold">{contracts.filter(c => c.status === 'active').length}</p>
-              <p className="text-xs text-slate-400">Contracts</p>
-            </button>
-            <button 
-              onClick={() => document.querySelector('[value="tickets"]')?.click()}
-              className="bg-white/10 backdrop-blur rounded-xl p-3 text-center hover:bg-white/20 transition-colors cursor-pointer"
-            >
-              <HelpCircle className="w-4 h-4 mx-auto text-amber-400 mb-1" />
-              <p className="text-xl font-bold">{tickets.filter(t => !['closed', 'resolved'].includes(t.status)).length}</p>
-              <p className="text-xs text-slate-400">Tickets</p>
-            </button>
-            <button 
-              onClick={() => document.querySelector('[value="quotes"]')?.click()}
-              className="bg-white/10 backdrop-blur rounded-xl p-3 text-center hover:bg-white/20 transition-colors cursor-pointer"
-            >
-              <Receipt className="w-4 h-4 mx-auto text-emerald-400 mb-1" />
-              <p className="text-xl font-bold">{quotes.length}</p>
-              <p className="text-xs text-slate-400">Quotes</p>
-            </button>
-            <button 
-              onClick={() => document.querySelector('[value="licenses"]')?.click()}
-              className="bg-white/10 backdrop-blur rounded-xl p-3 text-center hover:bg-white/20 transition-colors cursor-pointer"
-            >
-              <Cloud className="w-4 h-4 mx-auto text-purple-400 mb-1" />
-              <p className="text-xl font-bold">{licenses.length}</p>
-              <p className="text-xs text-slate-400">SaaS</p>
-            </button>
-            <button 
-              onClick={() => document.querySelector('[value="devices"]')?.click()}
-              className="bg-white/10 backdrop-blur rounded-xl p-3 text-center hover:bg-white/20 transition-colors cursor-pointer"
-            >
-              <Monitor className="w-4 h-4 mx-auto text-cyan-400 mb-1" />
-              <p className="text-xl font-bold">{devices.length}</p>
-              <p className="text-xs text-slate-400">Devices</p>
-            </button>
+          {/* Quick Stats - Compact Pills */}
+          <div className="flex flex-wrap gap-2">
+            {[
+              { icon: Users, value: contacts.length, label: 'Team', color: 'blue' },
+              { icon: FileText, value: contracts.filter(c => c.status === 'active').length, label: 'Contracts', color: 'orange' },
+              { icon: HelpCircle, value: tickets.filter(t => !['closed', 'resolved'].includes(t.status)).length, label: 'Tickets', color: 'amber' },
+              { icon: Cloud, value: licenses.length, label: 'Apps', color: 'purple' },
+              { icon: Monitor, value: devices.length, label: 'Devices', color: 'cyan' },
+            ].map(stat => (
+              <div 
+                key={stat.label}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-2 rounded-xl border transition-all cursor-default",
+                  stat.color === 'blue' && "bg-blue-50 border-blue-100",
+                  stat.color === 'orange' && "bg-orange-50 border-orange-100",
+                  stat.color === 'amber' && "bg-amber-50 border-amber-100",
+                  stat.color === 'purple' && "bg-purple-50 border-purple-100",
+                  stat.color === 'cyan' && "bg-cyan-50 border-cyan-100"
+                )}
+              >
+                <stat.icon className={cn(
+                  "w-4 h-4",
+                  stat.color === 'blue' && "text-blue-600",
+                  stat.color === 'orange' && "text-orange-600",
+                  stat.color === 'amber' && "text-amber-600",
+                  stat.color === 'purple' && "text-purple-600",
+                  stat.color === 'cyan' && "text-cyan-600"
+                )} />
+                <span className="font-bold text-slate-900">{stat.value}</span>
+                <span className="text-xs text-slate-500">{stat.label}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
