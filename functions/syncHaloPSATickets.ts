@@ -157,6 +157,11 @@ Deno.serve(async (req) => {
         
         const tickets = Array.isArray(data) ? data : (data.tickets || data.records || []);
         console.log(`Found ${tickets.length} tickets for customer ${customer_id}`);
+        
+        // Log first ticket to see status field structure
+        if (tickets.length > 0) {
+          console.log('Sample ticket data:', JSON.stringify(tickets[0], null, 2));
+        }
 
         for (const haloTicket of tickets) {
           try {
