@@ -134,8 +134,8 @@ Deno.serve(async (req) => {
         const dbCustomer = allCustomers.find(c => c.external_id === String(customer_id) && c.source === 'halopsa');
         if (!dbCustomer) throw new Error(`Customer not found in database for external_id: ${customer_id}`);
 
-        // Fetch the last 50 tickets for this client using the external HaloPSA ID, ordered by date descending
-        const url = buildHaloPsaApiUrl(apiUrl, `Tickets?client_id=${customer_id}&page_size=50&order=dateoccurred&orderdesc=true`);
+        // Fetch all tickets for this client using the external HaloPSA ID (no page_size limit to get all including resolved)
+        const url = buildHaloPsaApiUrl(apiUrl, `Tickets?client_id=${customer_id}&page_size=200&order=dateoccurred&orderdesc=true`);
         const data = await fetchFromHaloPSA(url, accessToken, clientId);
         
         const tickets = Array.isArray(data) ? data : (data.tickets || data.records || []);
