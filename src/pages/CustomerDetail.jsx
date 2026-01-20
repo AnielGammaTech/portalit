@@ -1586,10 +1586,10 @@ export default function CustomerDetail() {
                                         </Badge>
                                         <Badge className={cn(
                                           'text-xs capitalize',
-                                          ticket.status === 'open' && 'bg-emerald-100 text-emerald-700',
+                                          ticket.status === 'open' && 'bg-yellow-100 text-yellow-700',
                                           ticket.status === 'in_progress' && 'bg-blue-100 text-blue-700',
-                                          ticket.status === 'waiting' && 'bg-yellow-100 text-yellow-700',
-                                          ticket.status === 'resolved' && 'bg-purple-100 text-purple-700',
+                                          ticket.status === 'waiting' && 'bg-orange-100 text-orange-700',
+                                          ticket.status === 'resolved' && 'bg-emerald-100 text-emerald-700',
                                           ticket.status === 'closed' && 'bg-slate-100 text-slate-700'
                                         )}>
                                           {ticket.status?.replace('_', ' ')}
