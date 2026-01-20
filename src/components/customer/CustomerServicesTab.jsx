@@ -365,94 +365,36 @@ export default function CustomerServicesTab({
 
   return (
     <div className="space-y-6">
-      {/* Sync Status Panel */}
+      {/* Sync All Button */}
       {integrations.length > 0 && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <div>
-              <CardTitle className="text-base">Integration Status</CardTitle>
-              <CardDescription>Sync status for connected services</CardDescription>
-            </div>
-            <Button
-              onClick={handleSyncAll}
-              disabled={syncingAll}
-              className="gap-2"
-            >
-              <RefreshCw className={cn("w-4 h-4", syncingAll && "animate-spin")} />
-              {syncingAll ? 'Syncing...' : 'Sync All'}
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-              {integrations.map(integration => {
-                const status = syncStatuses[integration.key];
-                const IconComponent = integration.icon;
-                return (
-                  <div 
-                    key={integration.key}
-                    className={cn(
-                      "p-3 rounded-lg border transition-all",
-                      status.status === 'error' ? "border-red-200 bg-red-50" : "border-slate-200 bg-slate-50"
-                    )}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className={cn(
-                          "p-1.5 rounded",
-                          `bg-${integration.color}-100`
-                        )}>
-                          <IconComponent className={cn("w-4 h-4", `text-${integration.color}-600`)} />
-                        </div>
-                        <span className="font-medium text-sm text-slate-900">{integration.name}</span>
-                      </div>
-                      {getStatusIcon(status.status)}
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="text-xs text-slate-500">
-                        {status.status === 'syncing' ? (
-                          <span className="text-blue-600">Syncing data...</span>
-                        ) : status.status === 'error' ? (
-                          <span className="text-red-600 truncate max-w-[120px]" title={status.error}>
-                            {status.error?.substring(0, 20)}...
-                          </span>
-                        ) : (
-                          <span>Last: {formatLastSync(status.lastSync)}</span>
-                        )}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2 text-xs"
-                        onClick={integration.onSync}
-                        disabled={integration.syncing || syncingAll}
-                      >
-                        <RefreshCw className={cn("w-3 h-3", integration.syncing && "animate-spin")} />
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
+        <div className="flex justify-end">
+          <Button
+            onClick={handleSyncAll}
+            disabled={syncingAll}
+            className="gap-2"
+          >
+            <RefreshCw className={cn("w-4 h-4", syncingAll && "animate-spin")} />
+            {syncingAll ? 'Syncing...' : 'Sync All Services'}
+          </Button>
+        </div>
       )}
 
       <Tabs defaultValue={hasRecurringServices ? "recurring" : hasJumpCloud ? "jumpcloud" : "spanning"} className="space-y-4">
-        <TabsList className="bg-white border border-slate-200">
+        <TabsList className="bg-white border border-slate-200 p-1 h-auto">
           {hasRecurringServices && (
-            <TabsTrigger value="recurring" className="gap-2">
+            <TabsTrigger value="recurring" className="gap-2 py-3 px-6 text-sm font-medium">
               <HardDrive className="w-4 h-4" />
               Recurring Services
             </TabsTrigger>
           )}
           {hasJumpCloud && (
-            <TabsTrigger value="jumpcloud" className="gap-2">
+            <TabsTrigger value="jumpcloud" className="gap-2 py-3 px-6 text-sm font-medium">
               <Shield className="w-4 h-4" />
               JumpCloud
             </TabsTrigger>
           )}
           {hasSpanning && (
-              <TabsTrigger value="spanning" className="gap-2">
+              <TabsTrigger value="spanning" className="gap-2 py-3 px-6 text-sm font-medium">
                 <Cloud className="w-4 h-4" />
                 Spanning Backup
               </TabsTrigger>
