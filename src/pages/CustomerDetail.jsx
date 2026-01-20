@@ -472,10 +472,6 @@ export default function CustomerDetail() {
             customerId={customerId}
             queryClient={queryClient}
             onAddContact={() => setShowAddContact(true)}
-            onContactClick={(contact) => {
-              // Could open a modal or navigate - for now just log
-              console.log('Contact clicked:', contact);
-            }}
           />
         </TabsContent>
 
