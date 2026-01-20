@@ -998,151 +998,132 @@ export default function CustomerDetail() {
 
             {/* Conditional Views */}
             {saasView === 'licenses' && (
-              <div className="bg-white rounded-2xl border border-slate-200/50 overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100">
-                  <h3 className="font-semibold text-slate-900">
-                    {saasFilter === 'all' && 'All SaaS Licenses'}
-                    {saasFilter === 'underutilized' && 'Underutilized Licenses'}
-                    {saasFilter === 'full' && 'Fully Assigned Licenses'}
-                    {saasFilter === 'unassigned' && 'Licenses with Unused Seats'}
-                  </h3>
-                </div>
+              <div className="space-y-6">
+                {/* SaaS Licenses (Manual) */}
                 {(() => {
-                  const filteredLicenses = licenses.filter(license => {
+                  const manualLicenses = licenses.filter(l => l.source !== 'jumpcloud');
+                  const filteredManual = manualLicenses.filter(license => {
                     const assignedCount = licenseAssignments.filter(a => a.license_id === license.id && a.status === 'active').length;
                     const utilization = license.quantity > 0 ? assignedCount / license.quantity : 0;
-                    
-                    // Category filter
                     if (saasCategoryFilter && license.category !== saasCategoryFilter) return false;
-                    
-                    // Utilization filter
                     if (saasFilter === 'underutilized') return utilization < 0.5 && license.quantity > 0;
                     if (saasFilter === 'full') return assignedCount >= (license.quantity || 0) && license.quantity > 0;
                     if (saasFilter === 'unassigned') return assignedCount < (license.quantity || 0);
                     return true;
                   });
-                  
-                  if (filteredLicenses.length === 0) {
-                    return (
-                      <div className="p-12 text-center">
-                        <Cloud className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                        <p className="text-slate-500">No licenses match this filter</p>
-                      </div>
-                    );
-                  }
-                  
+
                   return (
-                    <div className="divide-y divide-slate-100">
-                      {filteredLicenses.map((license) => {
-                        const assignedCount = licenseAssignments.filter(a => a.license_id === license.id && a.status === 'active').length;
-                        const utilizationPercent = license.quantity > 0 ? (assignedCount / license.quantity) * 100 : 0;
-                        const unusedSeats = (license.quantity || 0) - assignedCount;
-                        const wastedCost = license.quantity > 0 ? (unusedSeats / license.quantity) * (license.total_cost || 0) : 0;
-                        
-                        return (
-                          <Link 
-                          key={license.id} 
-                          to={createPageUrl(`LicenseDetail?id=${license.id}`)}
-                          className="block p-5 hover:bg-slate-50 transition-colors cursor-pointer"
-                        >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-4">
-                                <div className={cn(
-                                  "w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden",
-                                  !license.logo_url && (
-                                    utilizationPercent >= 90 ? "bg-emerald-100" :
-                                    utilizationPercent >= 50 ? "bg-amber-100" : "bg-red-100"
-                                  )
-                                )}>
-                                  {license.logo_url ? (
-                                    <img src={license.logo_url} alt={license.application_name} className="w-10 h-10 object-contain" />
-                                  ) : (
-                                    <Cloud className={cn(
-                                      "w-6 h-6",
-                                      utilizationPercent >= 90 ? "text-emerald-600" :
-                                      utilizationPercent >= 50 ? "text-amber-600" : "text-red-600"
-                                    )} />
-                                  )}
-                                </div>
-                                <div>
-                                  <h3 className="font-semibold text-slate-900">{license.application_name}</h3>
-                                  <div className="flex items-center gap-3 mt-1">
-                                    {license.vendor && <span className="text-sm text-slate-500">{license.vendor}</span>}
-                                    {license.license_type && <span className="text-sm text-slate-400">• {license.license_type}</span>}
-                                    {unusedSeats > 0 && wastedCost > 0 && (
-                                      <Badge className="bg-red-100 text-red-700 text-xs">
-                                        ${wastedCost.toFixed(0)} wasted
-                                      </Badge>
+                    <div className="bg-white rounded-2xl border border-slate-200/50 overflow-hidden">
+                      <div className="px-6 py-4 border-b border-slate-100">
+                        <h3 className="font-semibold text-slate-900">SaaS Licenses</h3>
+                        <p className="text-sm text-slate-500">{filteredManual.length} applications</p>
+                      </div>
+                      {filteredManual.length === 0 ? (
+                        <div className="p-12 text-center">
+                          <Cloud className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                          <p className="text-slate-500">No licenses match this filter</p>
+                        </div>
+                      ) : (
+                        <div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                          {filteredManual.map((license) => {
+                            const assignedCount = licenseAssignments.filter(a => a.license_id === license.id && a.status === 'active').length;
+                            const utilizationPercent = license.quantity > 0 ? (assignedCount / license.quantity) * 100 : 0;
+                            return (
+                              <Link 
+                                key={license.id} 
+                                to={createPageUrl(`LicenseDetail?id=${license.id}`)}
+                                className="group bg-slate-50 hover:bg-slate-100 rounded-xl p-3 transition-all hover:shadow-md cursor-pointer"
+                              >
+                                <div className="flex flex-col items-center text-center">
+                                  <div className={cn(
+                                    "w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden mb-2",
+                                    !license.logo_url && "bg-white border border-slate-200"
+                                  )}>
+                                    {license.logo_url ? (
+                                      <img src={license.logo_url} alt={license.application_name} className="w-10 h-10 object-contain" />
+                                    ) : (
+                                      <Cloud className="w-6 h-6 text-purple-600" />
                                     )}
                                   </div>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-6">
-                                <div className="text-right">
-                                  <p className="text-sm text-slate-500">Usage</p>
-                                  <p className="font-semibold text-slate-900">
-                                    {assignedCount} / {license.quantity || 0}
-                                  </p>
-                                </div>
-                                <div className="w-24">
-                                  <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                                    <div 
-                                      className={cn(
-                                        "h-full rounded-full transition-all",
-                                        utilizationPercent >= 90 ? "bg-emerald-500" :
-                                        utilizationPercent >= 50 ? "bg-amber-500" : "bg-red-500"
-                                      )}
-                                      style={{ width: `${Math.min(100, utilizationPercent)}%` }}
-                                    />
+                                  <p className="font-medium text-slate-900 text-sm truncate w-full">{license.application_name}</p>
+                                  <div className="flex items-center gap-1 mt-1">
+                                    <span className="text-xs text-slate-500">{assignedCount}/{license.quantity || 0}</span>
+                                    <div className={cn(
+                                      "w-2 h-2 rounded-full",
+                                      utilizationPercent >= 90 ? "bg-emerald-500" :
+                                      utilizationPercent >= 50 ? "bg-amber-500" : "bg-red-500"
+                                    )} />
                                   </div>
-                                  <p className="text-xs text-slate-500 text-center mt-1">{utilizationPercent.toFixed(0)}%</p>
-                                </div>
-                                <div className="text-right min-w-[80px]">
-                                  <p className="text-sm text-slate-500">Cost</p>
-                                  <p className="font-semibold text-slate-900">${(license.total_cost || 0).toLocaleString()}</p>
-                                </div>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                  onClick={(e) => { e.preventDefault(); setSelectedLicense(license); }}
-                                >
-                                  Assign
-                                </Button>
-                              </div>
-                            </div>
-                            
-                            {/* Assigned Users Preview */}
-                            {assignedCount > 0 && (
-                              <div className="mt-4 pt-4 border-t border-slate-100">
-                                <p className="text-xs text-slate-500 mb-2">Assigned to:</p>
-                                <div className="flex flex-wrap gap-2">
-                                  {licenseAssignments
-                                    .filter(a => a.license_id === license.id && a.status === 'active')
-                                    .slice(0, 5)
-                                    .map(assignment => {
-                                      const contact = contacts.find(c => c.id === assignment.contact_id);
-                                      return contact ? (
-                                        <div
-                                          key={assignment.id}
-                                          onClick={(e) => { e.preventDefault(); setSaasUserFilter(contact.id); setSaasView('users'); }}
-                                          className="flex items-center gap-2 px-2 py-1 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
-                                        >
-                                          <div className="w-6 h-6 rounded-full bg-purple-200 flex items-center justify-center text-xs font-medium text-purple-700">
-                                            {contact.full_name?.charAt(0)}
-                                          </div>
-                                          <span className="text-sm text-slate-700">{contact.full_name}</span>
-                                        </div>
-                                      ) : null;
-                                    })}
-                                  {assignedCount > 5 && (
-                                    <span className="text-sm text-slate-500 px-2 py-1">+{assignedCount - 5} more</span>
+                                  {license.total_cost > 0 && (
+                                    <p className="text-xs text-slate-400 mt-0.5">${license.total_cost}/mo</p>
                                   )}
                                 </div>
-                              </div>
-                            )}
-                        </Link>
-                        );
-                      })}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* JumpCloud SSO Apps */}
+                {(() => {
+                  const jumpcloudLicenses = licenses.filter(l => l.source === 'jumpcloud');
+                  const filteredJC = jumpcloudLicenses.filter(license => {
+                    const assignedCount = licenseAssignments.filter(a => a.license_id === license.id && a.status === 'active').length;
+                    const utilization = license.quantity > 0 ? assignedCount / license.quantity : 0;
+                    if (saasCategoryFilter && license.category !== saasCategoryFilter) return false;
+                    if (saasFilter === 'underutilized') return utilization < 0.5 && license.quantity > 0;
+                    if (saasFilter === 'full') return assignedCount >= (license.quantity || 0) && license.quantity > 0;
+                    if (saasFilter === 'unassigned') return assignedCount < (license.quantity || 0);
+                    return true;
+                  });
+
+                  if (jumpcloudLicenses.length === 0) return null;
+
+                  return (
+                    <div className="bg-white rounded-2xl border border-slate-200/50 overflow-hidden">
+                      <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                        <div>
+                          <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+                            JumpCloud SSO Apps
+                            <Badge className="bg-indigo-100 text-indigo-700 text-xs">Synced</Badge>
+                          </h3>
+                          <p className="text-sm text-slate-500">{filteredJC.length} applications from JumpCloud</p>
+                        </div>
+                      </div>
+                      {filteredJC.length === 0 ? (
+                        <div className="p-12 text-center">
+                          <Cloud className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                          <p className="text-slate-500">No JumpCloud apps match this filter</p>
+                        </div>
+                      ) : (
+                        <div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                          {filteredJC.map((license) => {
+                            const assignedCount = license.assigned_users || 0;
+                            return (
+                              <Link 
+                                key={license.id} 
+                                to={createPageUrl(`LicenseDetail?id=${license.id}`)}
+                                className="group bg-indigo-50/50 hover:bg-indigo-100/50 rounded-xl p-3 transition-all hover:shadow-md cursor-pointer border border-indigo-100"
+                              >
+                                <div className="flex flex-col items-center text-center">
+                                  <div className="w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden mb-2 bg-white border border-indigo-100">
+                                    {license.logo_url ? (
+                                      <img src={license.logo_url} alt={license.application_name} className="w-10 h-10 object-contain" />
+                                    ) : (
+                                      <Cloud className="w-6 h-6 text-indigo-600" />
+                                    )}
+                                  </div>
+                                  <p className="font-medium text-slate-900 text-sm truncate w-full">{license.application_name}</p>
+                                  <p className="text-xs text-indigo-600 mt-1">{assignedCount} users</p>
+                                </div>
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
