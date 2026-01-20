@@ -439,67 +439,28 @@ export default function CustomerDetail() {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs - Clean minimal design */}
       <Tabs defaultValue="overview" className="space-y-6" id="customer-tabs">
-        <TabsList className="bg-white border border-gray-200 rounded-2xl p-1.5 flex gap-1 h-auto shadow-sm overflow-x-auto">
-          <TabsTrigger 
-            value="overview" 
-            className="gap-2 py-2.5 px-4 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800 whitespace-nowrap"
-          >
-            <Building2 className="w-4 h-4" />
-            <span className="text-sm">Overview</span>
-          </TabsTrigger>
-          <TabsTrigger 
-            value="billing" 
-            className="gap-2 py-2.5 px-4 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800 whitespace-nowrap"
-          >
-            <DollarSign className="w-4 h-4" />
-            <span className="text-sm">Billing</span>
-          </TabsTrigger>
-          {hasServicesMapped && (
+        <TabsList className="bg-slate-100/80 border-0 rounded-xl p-1 flex gap-0.5 h-auto overflow-x-auto">
+          {[
+            { value: 'overview', icon: Building2, label: 'Overview' },
+            { value: 'billing', icon: DollarSign, label: 'Billing' },
+            ...(hasServicesMapped ? [{ value: 'services', icon: Cloud, label: 'Services' }] : []),
+            { value: 'licenses', icon: Cloud, label: 'SaaS' },
+            { value: 'quotes', icon: FileText, label: 'Quotes' },
+            { value: 'tickets', icon: HelpCircle, label: 'Support' },
+            { value: 'analytics', icon: BarChart3, label: 'Analytics' },
+            { value: 'devices', icon: Monitor, label: 'Devices' },
+          ].map(tab => (
             <TabsTrigger 
-              value="services" 
-              className="gap-2 py-2.5 px-4 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800 whitespace-nowrap"
+              key={tab.value}
+              value={tab.value} 
+              className="gap-2 py-2 px-4 rounded-lg text-slate-600 font-medium transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm hover:text-slate-900 whitespace-nowrap"
             >
-              <Cloud className="w-4 h-4" />
-              <span className="text-sm">Services</span>
+              <tab.icon className="w-4 h-4" />
+              <span className="text-sm">{tab.label}</span>
             </TabsTrigger>
-          )}
-          <TabsTrigger 
-            value="licenses" 
-            className="gap-2 py-2.5 px-4 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800 whitespace-nowrap"
-          >
-            <Cloud className="w-4 h-4" />
-            <span className="text-sm">SaaS</span>
-          </TabsTrigger>
-          <TabsTrigger 
-            value="quotes" 
-            className="gap-2 py-2.5 px-4 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800 whitespace-nowrap"
-          >
-            <FileText className="w-4 h-4" />
-            <span className="text-sm">Quotes</span>
-          </TabsTrigger>
-          <TabsTrigger 
-            value="tickets" 
-            className="gap-2 py-2.5 px-4 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800 whitespace-nowrap"
-          >
-            <HelpCircle className="w-4 h-4" />
-            <span className="text-sm">Support</span>
-          </TabsTrigger>
-          <TabsTrigger 
-            value="analytics" 
-            className="gap-2 py-2.5 px-4 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800 whitespace-nowrap"
-          >
-            <BarChart3 className="w-4 h-4" />
-            <span className="text-sm">Analytics</span>
-          </TabsTrigger>
-          <TabsTrigger 
-            value="devices" 
-            className="gap-2 py-2.5 px-4 rounded-xl text-gray-600 font-medium transition-all data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-lg hover:bg-gray-100 data-[state=active]:hover:bg-gray-800 whitespace-nowrap"
-          >
-            <Monitor className="w-4 h-4" />
-            <span className="text-sm">Devices</span>
-          </TabsTrigger>
+          ))}
         </TabsList>
 
         <TabsContent value="overview">
