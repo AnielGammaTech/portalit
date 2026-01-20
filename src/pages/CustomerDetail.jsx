@@ -1067,66 +1067,7 @@ export default function CustomerDetail() {
                   );
                 })()}
 
-                {/* JumpCloud SSO Apps */}
-                {(() => {
-                  const jumpcloudLicenses = licenses.filter(l => l.source === 'jumpcloud');
-                  const filteredJC = jumpcloudLicenses.filter(license => {
-                    const assignedCount = licenseAssignments.filter(a => a.license_id === license.id && a.status === 'active').length;
-                    const utilization = license.quantity > 0 ? assignedCount / license.quantity : 0;
-                    if (saasCategoryFilter && license.category !== saasCategoryFilter) return false;
-                    if (saasFilter === 'underutilized') return utilization < 0.5 && license.quantity > 0;
-                    if (saasFilter === 'full') return assignedCount >= (license.quantity || 0) && license.quantity > 0;
-                    if (saasFilter === 'unassigned') return assignedCount < (license.quantity || 0);
-                    return true;
-                  });
 
-                  if (jumpcloudLicenses.length === 0) return null;
-
-                  return (
-                    <div className="bg-white rounded-2xl border border-slate-200/50 overflow-hidden">
-                      <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                        <div>
-                          <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-                            JumpCloud SSO Apps
-                            <Badge className="bg-indigo-100 text-indigo-700 text-xs">Synced</Badge>
-                          </h3>
-                          <p className="text-sm text-slate-500">{filteredJC.length} applications from JumpCloud</p>
-                        </div>
-                      </div>
-                      {filteredJC.length === 0 ? (
-                        <div className="p-12 text-center">
-                          <Cloud className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                          <p className="text-slate-500">No JumpCloud apps match this filter</p>
-                        </div>
-                      ) : (
-                        <div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-                          {filteredJC.map((license) => {
-                            const assignedCount = license.assigned_users || 0;
-                            return (
-                              <Link 
-                                key={license.id} 
-                                to={createPageUrl(`LicenseDetail?id=${license.id}`)}
-                                className="group bg-indigo-50/50 hover:bg-indigo-100/50 rounded-xl p-3 transition-all hover:shadow-md cursor-pointer border border-indigo-100"
-                              >
-                                <div className="flex flex-col items-center text-center">
-                                  <div className="w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden mb-2 bg-white border border-indigo-100">
-                                    {license.logo_url ? (
-                                      <img src={license.logo_url} alt={license.application_name} className="w-10 h-10 object-contain" />
-                                    ) : (
-                                      <Cloud className="w-6 h-6 text-indigo-600" />
-                                    )}
-                                  </div>
-                                  <p className="font-medium text-slate-900 text-sm truncate w-full">{license.application_name}</p>
-                                  <p className="text-xs text-indigo-600 mt-1">{assignedCount} users</p>
-                                </div>
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
               </div>
             )}
 
