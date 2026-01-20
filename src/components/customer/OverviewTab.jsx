@@ -8,7 +8,6 @@ import {
   RefreshCw,
   ChevronRight,
   UserPlus,
-  Calendar,
   TrendingUp,
   Zap
 } from 'lucide-react';
@@ -18,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { format, parseISO } from 'date-fns';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
+import UserDetailModal from './UserDetailModal';
 
 const StatCard = ({ icon: Icon, label, value, subtext, color = 'purple', delay = 0 }) => (
   <motion.div
@@ -143,11 +143,11 @@ export default function OverviewTab({
   licenses,
   customerId,
   queryClient,
-  onAddContact,
-  onContactClick
+  onAddContact
 }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [teamPage, setTeamPage] = useState(1);
+  const [selectedContact, setSelectedContact] = useState(null);
   const itemsPerPage = 8;
 
   const handleSyncContacts = async () => {
@@ -304,7 +304,7 @@ export default function OverviewTab({
                       <TeamMemberCard 
                         key={contact.id} 
                         contact={contact} 
-                        onClick={() => onContactClick?.(contact)}
+                        onClick={() => setSelectedContact(contact)}
                       />
                     ))}
                   </AnimatePresence>
@@ -341,6 +341,14 @@ export default function OverviewTab({
           </div>
         </motion.div>
       </div>
+
+      {/* Contact Detail Modal */}
+      <UserDetailModal 
+        contact={selectedContact}
+        open={!!selectedContact}
+        onClose={() => setSelectedContact(null)}
+        customerId={customerId}
+      />
     </div>
   );
 }
