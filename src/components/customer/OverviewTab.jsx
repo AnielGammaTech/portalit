@@ -112,17 +112,18 @@ const ContractCard = ({ contract }) => {
   );
 };
 
-const TeamMemberCard = ({ contact }) => (
+const TeamMemberCard = ({ contact, onClick }) => (
   <motion.div
     initial={{ opacity: 0, scale: 0.95 }}
     animate={{ opacity: 1, scale: 1 }}
-    className="flex items-center gap-3 p-3 bg-slate-50/80 rounded-xl hover:bg-slate-100 transition-all duration-200 cursor-pointer group"
+    onClick={onClick}
+    className="flex items-center gap-3 p-4 bg-slate-50/80 rounded-xl hover:bg-slate-100 hover:shadow-sm transition-all duration-200 cursor-pointer group"
   >
-    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white font-medium shadow-sm">
+    <div className="w-11 h-11 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white font-medium shadow-sm text-lg">
       {contact.full_name?.charAt(0) || '?'}
     </div>
     <div className="flex-1 min-w-0">
-      <p className="font-medium text-slate-900 truncate group-hover:text-purple-700 transition-colors">
+      <p className="font-semibold text-slate-900 truncate group-hover:text-purple-700 transition-colors">
         {contact.full_name}
       </p>
       <p className="text-sm text-slate-500 truncate">{contact.email || contact.title || 'No email'}</p>
@@ -130,9 +131,7 @@ const TeamMemberCard = ({ contact }) => (
     {contact.is_primary && (
       <Badge className="bg-purple-100 text-purple-700 text-[10px] font-semibold">Primary</Badge>
     )}
-    {(contact.source === 'halopsa' || contact.halopsa_id) && (
-      <div className="w-2 h-2 rounded-full bg-blue-500" title="Synced from HaloPSA" />
-    )}
+    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-purple-500 transition-colors" />
   </motion.div>
 );
 
@@ -144,7 +143,8 @@ export default function OverviewTab({
   licenses,
   customerId,
   queryClient,
-  onAddContact
+  onAddContact,
+  onContactClick
 }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [teamPage, setTeamPage] = useState(1);
@@ -301,7 +301,11 @@ export default function OverviewTab({
                 <div className="grid grid-cols-1 gap-2">
                   <AnimatePresence mode="wait">
                     {paginatedContacts.map(contact => (
-                      <TeamMemberCard key={contact.id} contact={contact} />
+                      <TeamMemberCard 
+                        key={contact.id} 
+                        contact={contact} 
+                        onClick={() => onContactClick?.(contact)}
+                      />
                     ))}
                   </AnimatePresence>
                 </div>
