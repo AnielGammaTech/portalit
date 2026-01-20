@@ -42,6 +42,7 @@ import AddContactModal from '../components/saas/AddContactModal';
 import CustomerAnalytics from '../components/customer/CustomerAnalytics';
 import DevicesTab from '../components/customer/DevicesTab';
 import CustomerServicesTab from '../components/customer/CustomerServicesTab';
+import OverviewTab from '../components/customer/OverviewTab';
 import { UserPlus } from 'lucide-react';
 
 export default function CustomerDetail() {
@@ -525,230 +526,17 @@ export default function CustomerDetail() {
         </TabsList>
 
         <TabsContent value="overview">
-                        <div className="space-y-6">
-
-
-                          {/* Quick Stats Widgets */}
-                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                            <div className="bg-white rounded-xl border border-slate-200/50 p-4">
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                                  <Users className="w-5 h-5 text-blue-600" />
-                                </div>
-                                <div>
-                                  <p className="text-2xl font-bold text-slate-900">{contacts.length}</p>
-                                  <p className="text-xs text-slate-500">Team Members</p>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="bg-white rounded-xl border border-slate-200/50 p-4">
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                                  <DollarSign className="w-5 h-5 text-emerald-600" />
-                                </div>
-                                <div>
-                                  <p className="text-2xl font-bold text-slate-900">
-                                    ${recurringBills.reduce((sum, b) => sum + (b.amount || 0), 0).toLocaleString()}
-                                  </p>
-                                  <p className="text-xs text-slate-500">Monthly Spend</p>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="bg-white rounded-xl border border-slate-200/50 p-4">
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
-                                  <FileText className="w-5 h-5 text-orange-600" />
-                                </div>
-                                <div>
-                                  <p className="text-2xl font-bold text-slate-900">{contracts.length}</p>
-                                  <p className="text-xs text-slate-500">Active Contracts</p>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="bg-white rounded-xl border border-slate-200/50 p-4">
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                                  <Cloud className="w-5 h-5 text-purple-600" />
-                                </div>
-                                <div>
-                                  <p className="text-2xl font-bold text-slate-900">{licenses.length}</p>
-                                  <p className="text-xs text-slate-500">SaaS Licenses</p>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Active Contracts Widget */}
-                          {contracts.length > 0 && (
-                            <div className="bg-white rounded-2xl border border-slate-200/50 p-5">
-                              <div className="flex items-center justify-between mb-4">
-                                <h3 className="font-semibold text-slate-900">Active Contracts</h3>
-                                <FileText className="w-5 h-5 text-slate-400" />
-                              </div>
-                              <div className="space-y-3">
-                                {contracts
-                                  .sort((a, b) => (b.status === 'active' ? 1 : 0) - (a.status === 'active' ? 1 : 0))
-                                  .slice(0, 10)
-                                  .map(contract => {
-                                    const isActive = contract.status === 'active';
-                                    const renewalDate = contract.renewal_date || contract.end_date;
-                                    const daysUntil = renewalDate ? Math.ceil((new Date(renewalDate) - new Date()) / (1000 * 60 * 60 * 24)) : null;
-                                    return (
-                                      <div key={contract.id} className={cn(
-                                        "flex items-center justify-between p-4 rounded-xl border",
-                                        isActive ? 'bg-slate-50 border-slate-200' : 'bg-gray-50 border-gray-200'
-                                      )}>
-                                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                                          <div className={cn(
-                                            "w-2 h-2 rounded-full flex-shrink-0",
-                                            isActive ? "bg-emerald-500" : "bg-gray-400"
-                                          )} />
-                                          <div className="min-w-0">
-                                            <p className="font-semibold text-slate-900 truncate">{contract.name}</p>
-                                            <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
-                                              <span className="capitalize">{contract.type?.replace('_', ' ') || 'Contract'}</span>
-                                              {contract.billing_cycle && (
-                                                <span className="capitalize">{contract.billing_cycle}</span>
-                                              )}
-                                            </div>
-                                          </div>
-                                        </div>
-                                        <div className="flex items-center gap-4 flex-shrink-0">
-                                          {contract.value > 0 && (
-                                            <div className="text-right">
-                                              <p className="font-bold text-slate-900">${contract.value.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-                                              <p className="text-xs text-slate-500">/{contract.billing_cycle === 'annually' ? 'yr' : 'mo'}</p>
-                                            </div>
-                                          )}
-                                          {renewalDate && (
-                                            <div className={cn(
-                                              "text-center px-3 py-1.5 rounded-lg text-xs",
-                                              daysUntil && daysUntil <= 30 ? 'bg-red-100 text-red-700' :
-                                              daysUntil && daysUntil <= 90 ? 'bg-amber-100 text-amber-700' :
-                                              'bg-emerald-100 text-emerald-700'
-                                            )}>
-                                              <p className="font-medium">Renews</p>
-                                              <p className="font-bold">{format(parseISO(renewalDate), 'MMM d')}</p>
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Team Members / Users */}
-                                            <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
-                                              <div className="flex items-center justify-between mb-4">
-                                                <div>
-                                                  <h3 className="font-semibold text-slate-900">Your Team</h3>
-                                                  <p className="text-sm text-slate-500">{contacts.length} members</p>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                  <Button 
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="gap-2"
-                                                    onClick={() => setShowAddContact(true)}
-                                                  >
-                                                    <UserPlus className="w-4 h-4" />
-                                                    Add Member
-                                                  </Button>
-                                                  {customer?.source === 'halopsa' && (
-                                                    <Button 
-                                                      size="sm"
-                                                      variant="outline"
-                                                      className="gap-2"
-                                                      onClick={async () => {
-                                                        try {
-                                                          setIsSyncing(true);
-                                                          const response = await base44.functions.invoke('syncHaloPSAContacts', { 
-                                                            action: 'sync_customer',
-                                                            customer_id: customer.external_id 
-                                                          });
-                                                          if (response.data.success) {
-                                                            toast.success(`Synced ${response.data.recordsSynced} users!`);
-                                                            queryClient.invalidateQueries({ queryKey: ['contacts', customerId] });
-                                                          } else {
-                                                            toast.error(response.data.error || 'Sync failed');
-                                                          }
-                                                        } catch (error) {
-                                                          toast.error(error.message || 'An error occurred during sync');
-                                                        } finally {
-                                                          setIsSyncing(false);
-                                                        }
-                                                      }}
-                                                      disabled={isSyncing}
-                                                    >
-                                                      <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
-                                                      Sync
-                                                    </Button>
-                                                  )}
-                                                </div>
-                                              </div>
-                                              {contacts.length === 0 ? (
-                                                <div className="py-8 text-center">
-                                                  <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                                                  <p className="text-slate-500">No team members found</p>
-                                                  {customer?.source === 'halopsa' && (
-                                                    <p className="text-sm text-slate-400 mt-1">Click "Sync Users" to pull from HaloPSA</p>
-                                                  )}
-                                                </div>
-                                              ) : (
-                                                <>
-                                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                    {contacts.slice((teamPage - 1) * 10, teamPage * 10).map(contact => (
-                                                      <div key={contact.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                                                        <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-medium">
-                                                          {contact.full_name?.charAt(0) || '?'}
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                          <p className="font-medium text-slate-900 truncate">{contact.full_name}</p>
-                                                          <p className="text-sm text-slate-500 truncate">{contact.email || contact.title || 'No email'}</p>
-                                                        </div>
-                                                        <div className="flex items-center gap-1">
-                                                          {(contact.source === 'halopsa' || contact.halopsa_id) ? (
-                                                            <Badge className="bg-blue-100 text-blue-700 text-xs">Halo</Badge>
-                                                          ) : (
-                                                            <Badge className="bg-slate-200 text-slate-600 text-xs">Manual</Badge>
-                                                          )}
-                                                          {contact.is_primary && (
-                                                            <Badge className="bg-purple-100 text-purple-700 text-xs">Primary</Badge>
-                                                          )}
-                                                        </div>
-                                                      </div>
-                                                    ))}
-                                                  </div>
-                                                  {contacts.length > 10 && (
-                                                    <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t border-slate-100">
-                                                      <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => setTeamPage(p => Math.max(1, p - 1))}
-                                                        disabled={teamPage === 1}
-                                                      >
-                                                        Previous
-                                                      </Button>
-                                                      <span className="text-sm text-slate-600 px-3">
-                                                        Page {teamPage} of {Math.ceil(contacts.length / 10)}
-                                                      </span>
-                                                      <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => setTeamPage(p => Math.min(Math.ceil(contacts.length / 25), p + 1))}
-                                                        disabled={teamPage >= Math.ceil(contacts.length / 10)}
-                                                      >
-                                                        Next
-                                                      </Button>
-                                                    </div>
-                                                  )}
-                                                </>
-                                              )}
-                                            </div>
-                        </div>
-                      </TabsContent>
+          <OverviewTab
+            customer={customer}
+            contacts={contacts}
+            contracts={contracts}
+            recurringBills={recurringBills}
+            licenses={licenses}
+            customerId={customerId}
+            queryClient={queryClient}
+            onAddContact={() => setShowAddContact(true)}
+          />
+        </TabsContent>
 
         <TabsContent value="billing">
                         <div className="space-y-6">
