@@ -53,7 +53,9 @@ function transformTicket(haloTicket, customerId) {
     '3': 'in_progress',
     '4': 'waiting',
     '5': 'resolved',
-    '6': 'closed'
+    '6': 'closed',
+    '26': 'resolved', // Resolved status
+    '27': 'closed'    // Closed status
   };
 
   const priorityMap = {
@@ -63,13 +65,28 @@ function transformTicket(haloTicket, customerId) {
     '4': 'low'
   };
 
+  // Try to determine status from multiple fields
+  let status = 'open';
+  if (haloTicket.status_id) {
+    status = statusMap[String(haloTicket.status_id)] || 'open';
+  }
+  // Also check the status name directly
+  if (haloTicket.status && typeof haloTicket.status === 'string') {
+    const statusLower = haloTicket.status.toLowerCase();
+    if (statusLower.includes('resolved')) status = 'resolved';
+    else if (statusLower.includes('closed')) status = 'closed';
+    else if (statusLower.includes('waiting')) status = 'waiting';
+    else if (statusLower.includes('progress')) status = 'in_progress';
+    else if (statusLower.includes('new')) status = 'new';
+  }
+
   return {
     customer_id: customerId,
     halopsa_id: String(haloTicket.id),
     ticket_number: String(haloTicket.id || haloTicket.ticketnumber || ''),
     summary: haloTicket.summary || haloTicket.Summary || '',
     details: haloTicket.details || haloTicket.Details || '',
-    status: statusMap[String(haloTicket.status_id)] || haloTicket.status?.toLowerCase?.() || 'open',
+    status: status,
     priority: priorityMap[String(haloTicket.priority_id)] || haloTicket.priority?.toLowerCase?.() || 'medium',
     ticket_type: haloTicket.tickettype_name || haloTicket.tickettype || '',
     assigned_to: haloTicket.agent_name || haloTicket.agent || '',
