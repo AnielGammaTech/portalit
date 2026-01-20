@@ -67,9 +67,14 @@ function transformTicket(haloTicket, customerId) {
 
   // Try to determine status from multiple fields
   let status = 'open';
-  if (haloTicket.status_id) {
+  
+  // First check if ticket has a closed date - that means it's resolved/closed
+  if (haloTicket.dateclosed) {
+    status = 'resolved';
+  } else if (haloTicket.status_id) {
     status = statusMap[String(haloTicket.status_id)] || 'open';
   }
+  
   // Also check the status name directly
   if (haloTicket.status && typeof haloTicket.status === 'string') {
     const statusLower = haloTicket.status.toLowerCase();
@@ -78,6 +83,11 @@ function transformTicket(haloTicket, customerId) {
     else if (statusLower.includes('waiting')) status = 'waiting';
     else if (statusLower.includes('progress')) status = 'in_progress';
     else if (statusLower.includes('new')) status = 'new';
+  }
+  
+  // Final check: if date_closed exists, it's resolved
+  if (haloTicket.dateclosed) {
+    status = 'resolved';
   }
 
   return {
