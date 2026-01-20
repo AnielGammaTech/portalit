@@ -408,7 +408,7 @@ export default function CustomerDetail() {
             {[
               { icon: Users, value: contacts.length, label: 'Team', color: 'blue' },
               { icon: FileText, value: contracts.filter(c => c.status === 'active').length, label: 'Contracts', color: 'orange' },
-              { icon: HelpCircle, value: tickets.filter(t => !['closed', 'resolved'].includes(t.status)).length, label: 'Tickets', color: 'amber' },
+              { icon: HelpCircle, value: tickets.length, label: 'Tickets', color: 'amber' },
               { icon: Cloud, value: licenses.length, label: 'Apps', color: 'purple' },
               { icon: Monitor, value: devices.length, label: 'Devices', color: 'cyan' },
             ].map(stat => (
@@ -449,7 +449,6 @@ export default function CustomerDetail() {
             { value: 'licenses', icon: Cloud, label: 'SaaS' },
             { value: 'quotes', icon: FileText, label: 'Quotes' },
             { value: 'tickets', icon: HelpCircle, label: 'Support' },
-            { value: 'analytics', icon: BarChart3, label: 'Analytics' },
             { value: 'devices', icon: Monitor, label: 'Devices' },
           ].map(tab => (
             <TabsTrigger 
@@ -473,6 +472,10 @@ export default function CustomerDetail() {
             customerId={customerId}
             queryClient={queryClient}
             onAddContact={() => setShowAddContact(true)}
+            onContactClick={(contact) => {
+              // Could open a modal or navigate - for now just log
+              console.log('Contact clicked:', contact);
+            }}
           />
         </TabsContent>
 
@@ -1627,17 +1630,6 @@ export default function CustomerDetail() {
                                   </div>
                                   </div>
                                   </TabsContent>
-
-        <TabsContent value="analytics">
-          <CustomerAnalytics
-            contracts={contracts}
-            recurringBills={recurringBills}
-            tickets={tickets}
-            invoices={invoices}
-            licenses={licenses}
-            licenseAssignments={licenseAssignments}
-          />
-        </TabsContent>
 
         <TabsContent value="devices">
           <DevicesTab 
