@@ -455,9 +455,13 @@ export default function OverviewTab({
       {/* AI Support Assistant Modal */}
       <Dialog open={showAssistant} onOpenChange={setShowAssistant}>
         <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Support Assistant</DialogTitle>
+          </DialogHeader>
           <SupportAssistantChat 
             onCreateTicket={handleSkipToTicket}
             onClose={() => setShowAssistant(false)}
+            customerId={customerId}
           />
         </DialogContent>
       </Dialog>
