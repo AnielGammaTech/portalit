@@ -36,7 +36,6 @@ export default function SupportAssistantChat({
   const [isInitializing, setIsInitializing] = useState(true);
   const [attachedImages, setAttachedImages] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
-  const [ticketCreated, setTicketCreated] = useState(null);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -59,24 +58,6 @@ export default function SupportAssistantChat({
       // Subscribe to updates
       base44.agents.subscribeToConversation(conv.id, (data) => {
         setMessages(data.messages || []);
-        
-        // Check if a ticket was created by looking at tool calls
-        const lastMsg = data.messages?.[data.messages.length - 1];
-        if (lastMsg?.tool_calls) {
-          const ticketCreate = lastMsg.tool_calls.find(tc => 
-            tc.name?.includes('Ticket') && tc.name?.includes('create') && tc.status === 'completed'
-          );
-          if (ticketCreate?.results) {
-            try {
-              const result = typeof ticketCreate.results === 'string' 
-                ? JSON.parse(ticketCreate.results) 
-                : ticketCreate.results;
-              if (result?.id || result?.ticket_number) {
-                setTicketCreated(result);
-              }
-            } catch (e) {}
-          }
-        }
       });
 
       // Send initial greeting from assistant
@@ -185,8 +166,36 @@ export default function SupportAssistantChat({
     }).join('\n\n');
   };
 
-  const handleCreateTicketWithConversation = (prefillSummary = '') => {
-    onCreateTicket(prefillSummary, getConversationTranscript());
+  // Generate a summary from conversation for ticket prefill
+  const generateTicketSummary = () => {
+    const userMessages = messages.filter(m => m.role === 'user');
+    if (userMessages.length === 0) return '';
+    // Use first user message as summary basis
+    return userMessages[0]?.content?.slice(0, 100) || '';
+  };
+
+  // Generate details from full conversation
+  const generateTicketDetails = () => {
+    const transcript = getConversationTranscript();
+    const userMessages = messages.filter(m => m.role === 'user');
+    
+    // Build structured details
+    let details = '';
+    if (userMessages.length > 1) {
+      details = `Issue Description:\n${userMessages[0]?.content || ''}\n\n`;
+      details += `Additional Information from Troubleshooting:\n`;
+      userMessages.slice(1).forEach((msg, i) => {
+        details += `- ${msg.content}\n`;
+      });
+    } else if (userMessages.length === 1) {
+      details = userMessages[0]?.content || '';
+    }
+    
+    return details;
+  };
+
+  const handleCreateTicketWithConversation = () => {
+    onCreateTicket(generateTicketSummary(), generateTicketDetails(), getConversationTranscript());
   };
 
   return (
@@ -274,31 +283,6 @@ export default function SupportAssistantChat({
                 <div className="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
-          </div>
-        )}
-        
-        {/* Ticket Created Success */}
-        {ticketCreated && (
-          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mx-2">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <div>
-                <p className="font-semibold text-emerald-900">Ticket Created!</p>
-                <p className="text-sm text-emerald-700">#{ticketCreated.ticket_number || ticketCreated.id}</p>
-              </div>
-            </div>
-            <p className="text-sm text-emerald-700 mb-3">Thank you! Our team will reach out soon.</p>
-            <Button 
-              onClick={onClose} 
-              size="sm" 
-              className="w-full bg-emerald-600 hover:bg-emerald-700"
-            >
-              Done
-            </Button>
           </div>
         )}
         
