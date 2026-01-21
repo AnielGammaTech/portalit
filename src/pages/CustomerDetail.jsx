@@ -281,19 +281,71 @@ export default function CustomerDetail() {
 
   const handleSyncCustomer = async () => {
     if (!customer) return;
+    setIsSyncing(true);
+    const results = [];
+    const errors = [];
+
     try {
-      setIsSyncing(true);
-      const response = await base44.functions.invoke('syncHaloPSACustomers', { 
-        action: 'sync_customer',
-        customer_id: customer.external_id 
-      });
-      if (response.data.success) {
-        toast.success(`Customer synced successfully!`);
-        queryClient.invalidateQueries({ queryKey: ['customers'] });
-        queryClient.invalidateQueries({ queryKey: ['contracts', customerId] });
-        queryClient.invalidateQueries({ queryKey: ['licenses', customerId] });
-      } else {
-        toast.error(response.data.error || 'Sync failed');
+      // Sync HaloPSA if customer is from HaloPSA
+      if (customer?.source === 'halopsa' && customer?.external_id) {
+        try {
+          const res = await base44.functions.invoke('syncHaloPSACustomers', { 
+            action: 'sync_customer',
+            customer_id: customer.external_id 
+          });
+          if (res.data.success) results.push('HaloPSA');
+          else errors.push('HaloPSA');
+        } catch (e) { errors.push('HaloPSA'); }
+      }
+
+      // Sync JumpCloud if mapped
+      const jcMappings = await base44.entities.JumpCloudMapping.filter({ customer_id: customerId });
+      if (jcMappings.length > 0) {
+        try {
+          const res = await base44.functions.invoke('syncJumpCloudLicenses', {
+            action: 'sync_licenses',
+            customer_id: customerId
+          });
+          if (res.data.success) results.push('JumpCloud');
+          else errors.push('JumpCloud');
+        } catch (e) { errors.push('JumpCloud'); }
+      }
+
+      // Sync Spanning if mapped
+      const spanningMappings = await base44.entities.SpanningMapping.filter({ customer_id: customerId });
+      if (spanningMappings.length > 0) {
+        try {
+          const res = await base44.functions.invoke('syncSpanningBackup', {
+            action: 'sync_licenses',
+            customer_id: customerId
+          });
+          if (res.data.success) results.push('Spanning');
+          else errors.push('Spanning');
+        } catch (e) { errors.push('Spanning'); }
+      }
+
+      // Sync Datto if mapped
+      const dattoMappings = await base44.entities.DattoSiteMapping.filter({ customer_id: customerId });
+      if (dattoMappings.length > 0) {
+        try {
+          const res = await base44.functions.invoke('syncDattoRMMDevices', {
+            action: 'sync_site',
+            site_id: dattoMappings[0].datto_site_id
+          });
+          if (res.data.success) results.push('Datto');
+          else errors.push('Datto');
+        } catch (e) { errors.push('Datto'); }
+      }
+
+      if (results.length > 0) {
+        toast.success(`Synced: ${results.join(', ')}`);
+        queryClient.invalidateQueries();
+      }
+      if (errors.length > 0) {
+        toast.error(`Failed: ${errors.join(', ')}`);
+      }
+      if (results.length === 0 && errors.length === 0) {
+        toast.info('No integrations configured to sync');
       }
     } catch (error) {
       toast.error(error.message || 'An error occurred during sync');
