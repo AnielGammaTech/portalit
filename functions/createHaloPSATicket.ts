@@ -24,12 +24,8 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (user.role !== 'admin') {
-      return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
-    }
-
     const body = await req.json();
-    const { customer_id, summary, details, priority, ticket_type } = body;
+    const { customer_id, summary, details, priority } = body;
 
     if (!customer_id || !summary) {
       return Response.json({ error: 'customer_id and summary are required' }, { status: 400 });
@@ -54,13 +50,30 @@ Deno.serve(async (req) => {
     // Get HaloPSA token
     const token = await getHaloPSAToken(settings);
 
+    // Fetch ticket types to find "Gamma Default"
+    let ticketTypeId = 1; // fallback
+    try {
+      const typesResponse = await fetch(`${settings.halopsa_api_url}/TicketType`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (typesResponse.ok) {
+        const types = await typesResponse.json();
+        const gammaDefault = types.find(t => t.name?.toLowerCase().includes('gamma default'));
+        if (gammaDefault) {
+          ticketTypeId = gammaDefault.id;
+        }
+      }
+    } catch (e) {
+      console.log('Could not fetch ticket types, using default');
+    }
+
     // Create ticket in HaloPSA
     const ticketData = {
       client_id: parseInt(customer.external_id),
       summary: summary,
       details: details || '',
       priority_id: priority === 'critical' ? 1 : priority === 'high' ? 2 : priority === 'medium' ? 3 : 4,
-      tickettype_id: ticket_type || 1
+      tickettype_id: ticketTypeId
     };
 
     const response = await fetch(`${settings.halopsa_api_url}/Tickets`, {
@@ -90,7 +103,7 @@ Deno.serve(async (req) => {
       details: details || '',
       status: 'new',
       priority: priority || 'medium',
-      ticket_type: ticket_type ? String(ticket_type) : null,
+      ticket_type: 'Gamma Default',
       date_opened: new Date().toISOString()
     });
 
