@@ -11,7 +11,9 @@ import {
   TrendingUp,
   Zap,
   HelpCircle,
-  Send
+  Send,
+  Bot,
+  ArrowRight
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +37,7 @@ import { format, parseISO } from 'date-fns';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import UserDetailModal from './UserDetailModal';
+import SupportAssistantChat from './SupportAssistantChat';
 
 const StatCard = ({ icon: Icon, label, value, subtext, color = 'purple', delay = 0 }) => (
   <motion.div
@@ -166,6 +169,7 @@ export default function OverviewTab({
   const [teamPage, setTeamPage] = useState(1);
   const [selectedContact, setSelectedContact] = useState(null);
   const [showTicketModal, setShowTicketModal] = useState(false);
+  const [showAssistant, setShowAssistant] = useState(false);
   const [isCreatingTicket, setIsCreatingTicket] = useState(false);
   const [newTicket, setNewTicket] = useState({
     summary: '',
@@ -173,6 +177,16 @@ export default function OverviewTab({
     priority: 'medium'
   });
   const itemsPerPage = 8;
+
+  const handleOpenSupport = () => {
+    setShowAssistant(true);
+  };
+
+  const handleSkipToTicket = (prefillSummary = '') => {
+    setShowAssistant(false);
+    setNewTicket(prev => ({ ...prev, summary: prefillSummary }));
+    setShowTicketModal(true);
+  };
 
   const handleSyncContacts = async () => {
     if (!customer?.external_id) return;
@@ -233,23 +247,33 @@ export default function OverviewTab({
           animate={{ opacity: 1, y: 0 }}
           className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl border border-purple-100 p-5"
         >
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
                 <HelpCircle className="w-6 h-6 text-purple-600" />
               </div>
               <div>
                 <h3 className="font-semibold text-slate-900">Need Help?</h3>
-                <p className="text-sm text-slate-600">Submit a support request to our team</p>
+                <p className="text-sm text-slate-600">Chat with our AI assistant or submit a ticket</p>
               </div>
             </div>
-            <Button 
-              onClick={() => setShowTicketModal(true)}
-              className="gap-2 bg-purple-600 hover:bg-purple-700"
-            >
-              <Send className="w-4 h-4" />
-              Create Ticket
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                onClick={handleOpenSupport}
+                variant="outline"
+                className="gap-2 border-purple-200 text-purple-700 hover:bg-purple-50"
+              >
+                <Bot className="w-4 h-4" />
+                Chat with AI
+              </Button>
+              <Button 
+                onClick={() => setShowTicketModal(true)}
+                className="gap-2 bg-purple-600 hover:bg-purple-700"
+              >
+                <Send className="w-4 h-4" />
+                Submit Ticket
+              </Button>
+            </div>
           </div>
         </motion.div>
       )}
@@ -427,6 +451,16 @@ export default function OverviewTab({
         onClose={() => setSelectedContact(null)}
         customerId={customerId}
       />
+
+      {/* AI Support Assistant Modal */}
+      <Dialog open={showAssistant} onOpenChange={setShowAssistant}>
+        <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
+          <SupportAssistantChat 
+            onCreateTicket={handleSkipToTicket}
+            onClose={() => setShowAssistant(false)}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Create Ticket Modal */}
       <Dialog open={showTicketModal} onOpenChange={setShowTicketModal}>
