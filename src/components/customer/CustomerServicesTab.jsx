@@ -697,44 +697,39 @@ export default function CustomerServicesTab({
                   {spanningContacts.length === 0 ? (
                       <p className="text-center text-slate-500 py-8">No Spanning users found. Click Sync to pull data.</p>
                     ) : (
-                      <div className="space-y-2">
-                        {spanningContacts.slice(spanningUsersPage * 10, (spanningUsersPage + 1) * 10).map(contact => {
-                          // Parse spanning_status: "storage | status | PROTECTED"
-                          const statusField = contact.spanning_status || '';
-                          const parts = statusField.split(' | ');
-                          const isProtected = parts.includes('PROTECTED');
-                          const hasStorage = parts.length >= 2 && !parts[0].includes('success') && !parts[0].includes('protected');
-                          const storageInfo = hasStorage ? parts[0] : null;
-                          const backupStatus = hasStorage ? parts[1] : parts[0];
-                          const isSuccess = backupStatus === 'success';
+                      <div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                          {spanningContacts.slice(spanningUsersPage * 24, (spanningUsersPage + 1) * 24).map(contact => {
+                            const statusField = contact.spanning_status || '';
+                            const parts = statusField.split(' | ');
+                            const isProtected = parts.includes('PROTECTED');
+                            const hasStorage = parts.length >= 2 && !parts[0].includes('success') && !parts[0].includes('protected');
+                            const storageInfo = hasStorage ? parts[0] : null;
 
-                          return (
-                            <div key={contact.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-medium text-sm">
-                                {contact.full_name?.charAt(0) || '?'}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-slate-900 truncate">{contact.full_name}</p>
-                                <p className="text-sm text-slate-500 truncate">{contact.email}</p>
-                              </div>
-                              {storageInfo && (
-                                <div className="text-right mr-2">
-                                  <p className="text-sm font-medium text-slate-700">{storageInfo}</p>
-                                  <p className="text-xs text-slate-400">Backed up</p>
+                            return (
+                              <div key={contact.id} className="bg-slate-50 hover:bg-slate-100 rounded-xl p-3 transition-all text-center">
+                                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-medium text-sm mx-auto mb-2">
+                                  {contact.full_name?.charAt(0) || '?'}
                                 </div>
-                              )}
-                              {isProtected ? (
-                                <Badge className="bg-green-100 text-green-700">Protected</Badge>
-                              ) : (
-                                <Badge className="bg-slate-100 text-slate-500">Not Protected</Badge>
-                              )}
-                            </div>
-                          );
-                        })}
-                        {spanningContacts.length > 10 && (
-                          <div className="flex items-center justify-between pt-3 border-t mt-3">
+                                <p className="font-medium text-slate-900 text-sm truncate">{contact.full_name}</p>
+                                {storageInfo && (
+                                  <p className="text-xs text-slate-500 mt-0.5">{storageInfo}</p>
+                                )}
+                                <div className="mt-1">
+                                  {isProtected ? (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Protected</span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-200 text-slate-500">Not Protected</span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {spanningContacts.length > 24 && (
+                          <div className="flex items-center justify-between pt-4 mt-4 border-t">
                             <p className="text-sm text-slate-500">
-                              Showing {spanningUsersPage * 10 + 1}-{Math.min((spanningUsersPage + 1) * 10, spanningContacts.length)} of {spanningContacts.length}
+                              Showing {spanningUsersPage * 24 + 1}-{Math.min((spanningUsersPage + 1) * 24, spanningContacts.length)} of {spanningContacts.length}
                             </p>
                             <div className="flex gap-2">
                               <Button 
@@ -749,7 +744,7 @@ export default function CustomerServicesTab({
                                 variant="outline" 
                                 size="sm" 
                                 onClick={() => setSpanningUsersPage(p => p + 1)}
-                                disabled={(spanningUsersPage + 1) * 10 >= spanningContacts.length}
+                                disabled={(spanningUsersPage + 1) * 24 >= spanningContacts.length}
                               >
                                 Next
                               </Button>
