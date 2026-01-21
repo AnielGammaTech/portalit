@@ -146,26 +146,34 @@ function AdminDashboard() {
 
       {/* Alerts */}
       {(overdueAmount > 0 || expiringContracts.length > 0) && (
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {overdueAmount > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-4">
-              <div className="p-2 bg-red-100 rounded-lg">
-                <AlertCircle className="w-5 h-5 text-red-600" />
-              </div>
-              <div className="flex-1">
-                <p className="font-medium text-red-900">Overdue Invoices</p>
-                <p className="text-sm text-red-700">{overdueInvoices.length} invoices totaling ${overdueAmount.toLocaleString()}</p>
+            <div className="relative overflow-hidden bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-5 text-white shadow-lg shadow-red-500/20">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+              <div className="relative flex items-start gap-4">
+                <div className="p-3 bg-white/20 backdrop-blur rounded-xl">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-lg">Overdue Invoices</p>
+                  <p className="text-red-100 text-sm mt-1">{overdueInvoices.length} invoices totaling</p>
+                  <p className="text-2xl font-bold mt-1">${overdueAmount.toLocaleString()}</p>
+                </div>
               </div>
             </div>
           )}
           {expiringContracts.length > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-4">
-              <div className="p-2 bg-amber-100 rounded-lg">
-                <AlertTriangle className="w-5 h-5 text-amber-600" />
-              </div>
-              <div className="flex-1">
-                <p className="font-medium text-amber-900">Contracts Expiring Soon</p>
-                <p className="text-sm text-amber-700">{expiringContracts.length} contracts expiring in the next 30 days</p>
+            <div className="relative overflow-hidden bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl p-5 text-white shadow-lg shadow-amber-500/20">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+              <div className="relative flex items-start gap-4">
+                <div className="p-3 bg-white/20 backdrop-blur rounded-xl">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-lg">Contracts Expiring Soon</p>
+                  <p className="text-amber-100 text-sm mt-1">{expiringContracts.length} contracts expiring</p>
+                  <p className="text-2xl font-bold mt-1">Next 30 Days</p>
+                </div>
               </div>
             </div>
           )}

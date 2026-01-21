@@ -6,7 +6,9 @@ import {
   X, 
   Loader2,
   ArrowRight,
-  MessageSquare
+  MessageSquare,
+  Paperclip,
+  Image as ImageIcon
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +25,10 @@ export default function SupportAssistantChat({
   const [inputValue, setInputValue] = useState(initialMessage);
   const [isLoading, setIsLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [attachedImages, setAttachedImages] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
   const messagesEndRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     initConversation();
@@ -60,22 +65,77 @@ export default function SupportAssistantChat({
   };
 
   const handleSend = async () => {
-    if (!inputValue.trim() || !conversation || isLoading) return;
+    if ((!inputValue.trim() && attachedImages.length === 0) || !conversation || isLoading) return;
 
     const userMessage = inputValue.trim();
+    const images = [...attachedImages];
     setInputValue('');
+    setAttachedImages([]);
     setIsLoading(true);
 
     try {
-      await base44.agents.addMessage(conversation, {
+      const messagePayload = {
         role: 'user',
-        content: userMessage
-      });
+        content: userMessage || (images.length > 0 ? '[Image attached]' : '')
+      };
+      
+      if (images.length > 0) {
+        messagePayload.file_urls = images;
+      }
+
+      await base44.agents.addMessage(conversation, messagePayload);
     } catch (error) {
       console.error('Failed to send message:', error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleFileSelect = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    
+    setIsUploading(true);
+    try {
+      for (const file of files) {
+        if (!file.type.startsWith('image/')) continue;
+        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        setAttachedImages(prev => [...prev, file_url]);
+      }
+    } catch (error) {
+      console.error('Failed to upload file:', error);
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handlePaste = async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) continue;
+        
+        setIsUploading(true);
+        try {
+          const { file_url } = await base44.integrations.Core.UploadFile({ file });
+          setAttachedImages(prev => [...prev, file_url]);
+        } catch (error) {
+          console.error('Failed to upload pasted image:', error);
+        } finally {
+          setIsUploading(false);
+        }
+        break;
+      }
+    }
+  };
+
+  const removeImage = (index) => {
+    setAttachedImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleKeyPress = (e) => {
@@ -151,6 +211,18 @@ export default function SupportAssistantChat({
                   ? "bg-purple-600 text-white" 
                   : "bg-white border border-slate-200 shadow-sm"
               )}>
+                {msg.file_urls?.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {msg.file_urls.map((url, i) => (
+                      <img 
+                        key={i} 
+                        src={url} 
+                        alt="Attached" 
+                        className="max-w-[200px] max-h-[150px] object-contain rounded-lg"
+                      />
+                    ))}
+                  </div>
+                )}
                 {msg.role === 'user' ? (
                   <p className="text-sm">{msg.content}</p>
                 ) : (
@@ -181,18 +253,61 @@ export default function SupportAssistantChat({
 
       {/* Input */}
       <div className="p-4 border-t bg-white">
+        {/* Attached Images Preview */}
+        {attachedImages.length > 0 && (
+          <div className="flex gap-2 mb-3 flex-wrap">
+            {attachedImages.map((url, idx) => (
+              <div key={idx} className="relative group">
+                <img 
+                  src={url} 
+                  alt="Attached" 
+                  className="w-16 h-16 object-cover rounded-lg border border-slate-200"
+                />
+                <button
+                  onClick={() => removeImage(idx)}
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        
         <div className="flex gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isLoading || isInitializing || isUploading}
+            className="flex-shrink-0"
+          >
+            {isUploading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Paperclip className="w-4 h-4" />
+            )}
+          </Button>
           <Input
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Describe your issue..."
+            onPaste={handlePaste}
+            placeholder="Describe your issue... (paste images with Ctrl+V)"
             disabled={isLoading || isInitializing}
             className="flex-1"
           />
           <Button 
             onClick={handleSend}
-            disabled={!inputValue.trim() || isLoading || isInitializing}
+            disabled={(!inputValue.trim() && attachedImages.length === 0) || isLoading || isInitializing}
             size="icon"
             className="bg-purple-600 hover:bg-purple-700"
           >
