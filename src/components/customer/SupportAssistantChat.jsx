@@ -90,6 +90,17 @@ export default function SupportAssistantChat({
     return userMessages[userMessages.length - 1]?.content || '';
   };
 
+  const getConversationTranscript = () => {
+    return messages.map(m => {
+      const role = m.role === 'user' ? 'Customer' : 'AI Assistant';
+      return `${role}: ${m.content}`;
+    }).join('\n\n');
+  };
+
+  const handleCreateTicketWithConversation = (prefillSummary = '') => {
+    onCreateTicket(prefillSummary, getConversationTranscript());
+  };
+
   return (
     <div className="flex flex-col h-[500px]">
       {/* Header */}
@@ -106,7 +117,7 @@ export default function SupportAssistantChat({
         <Button 
           variant="ghost" 
           size="sm"
-          onClick={() => onCreateTicket(getLastUserMessage())}
+          onClick={() => handleCreateTicketWithConversation(getLastUserMessage())}
           className="text-purple-600 hover:text-purple-700 hover:bg-purple-50 gap-1 text-xs"
         >
           Skip to ticket
@@ -189,7 +200,7 @@ export default function SupportAssistantChat({
           </Button>
         </div>
         <p className="text-xs text-slate-400 mt-2 text-center">
-          Can't resolve it? <button onClick={() => onCreateTicket(getLastUserMessage())} className="text-purple-600 hover:underline">Submit a ticket instead</button>
+          Can't resolve it? <button onClick={() => handleCreateTicketWithConversation(getLastUserMessage())} className="text-purple-600 hover:underline">Submit a ticket instead</button>
         </p>
       </div>
     </div>

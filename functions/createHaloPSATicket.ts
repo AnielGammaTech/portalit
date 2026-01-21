@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { customer_id, summary, details, priority } = body;
+    const { customer_id, summary, details, priority, conversation_transcript } = body;
 
     if (!customer_id || !summary) {
       return Response.json({ error: 'customer_id and summary are required' }, { status: 400 });
@@ -107,6 +107,29 @@ Deno.serve(async (req) => {
     if (!createdTicket?.id) {
       console.error('No ticket ID in response:', result);
       return Response.json({ error: 'Ticket created but no ID returned' }, { status: 500 });
+    }
+
+    // Add private note with conversation transcript if provided
+    if (conversation_transcript) {
+      try {
+        const noteData = {
+          ticket_id: createdTicket.id,
+          note: `--- AI Support Assistant Conversation ---\n\n${conversation_transcript}\n\n--- End of Conversation ---`,
+          hiddenfromuser: true,
+          outcome: 'AI Pre-Ticket Troubleshooting'
+        };
+        
+        await fetch(`${settings.halopsa_api_url}/Actions`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify([noteData])
+        });
+      } catch (e) {
+        console.log('Could not add conversation note:', e.message);
+      }
     }
 
     // Also create in local database

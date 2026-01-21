@@ -182,9 +182,12 @@ export default function OverviewTab({
     setShowAssistant(true);
   };
 
-  const handleSkipToTicket = (prefillSummary = '') => {
+  const [conversationTranscript, setConversationTranscript] = useState('');
+
+  const handleSkipToTicket = (prefillSummary = '', transcript = '') => {
     setShowAssistant(false);
     setNewTicket(prev => ({ ...prev, summary: prefillSummary }));
+    setConversationTranscript(transcript);
     setShowTicketModal(true);
   };
 
@@ -218,12 +221,14 @@ export default function OverviewTab({
     try {
       const response = await base44.functions.invoke('createHaloPSATicket', {
         customer_id: customerId,
-        ...newTicket
+        ...newTicket,
+        conversation_transcript: conversationTranscript || null
       });
       if (response.data.success) {
         toast.success('Support ticket created!');
         setShowTicketModal(false);
         setNewTicket({ summary: '', details: '', priority: 'medium' });
+        setConversationTranscript('');
         queryClient.invalidateQueries({ queryKey: ['tickets', customerId] });
       } else {
         toast.error(response.data.error || 'Failed to create ticket');
