@@ -184,9 +184,13 @@ export default function OverviewTab({
 
   const [conversationTranscript, setConversationTranscript] = useState('');
 
-  const handleSkipToTicket = (prefillSummary = '', transcript = '') => {
+  const handleSkipToTicket = (prefillSummary = '', prefillDetails = '', transcript = '') => {
     setShowAssistant(false);
-    setNewTicket(prev => ({ ...prev, summary: prefillSummary }));
+    setNewTicket(prev => ({ 
+      ...prev, 
+      summary: prefillSummary,
+      details: prefillDetails || prev.details 
+    }));
     setConversationTranscript(transcript);
     setShowTicketModal(true);
   };
@@ -464,7 +468,7 @@ export default function OverviewTab({
             <DialogTitle>Support Assistant</DialogTitle>
           </DialogHeader>
           <SupportAssistantChat 
-            onCreateTicket={handleSkipToTicket}
+            onCreateTicket={(summary, details, transcript) => handleSkipToTicket(summary, details, transcript)}
             onClose={() => setShowAssistant(false)}
             customerId={customerId}
           />

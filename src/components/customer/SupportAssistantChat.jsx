@@ -214,7 +214,7 @@ export default function SupportAssistantChat({
         <Button 
           variant="ghost" 
           size="sm"
-          onClick={() => handleCreateTicketWithConversation(getLastUserMessage())}
+          onClick={handleCreateTicketWithConversation}
           className="text-purple-600 hover:text-purple-700 hover:bg-purple-50 gap-1 text-xs"
         >
           Skip to ticket
@@ -370,7 +370,7 @@ export default function SupportAssistantChat({
           </Button>
         </div>
         <p className="text-xs text-slate-400 mt-2 text-center">
-          Can't resolve it? <button onClick={() => handleCreateTicketWithConversation(getLastUserMessage())} className="text-purple-600 hover:underline">Submit a ticket instead</button>
+          Can't resolve it? <button onClick={handleCreateTicketWithConversation} className="text-purple-600 hover:underline">Submit a ticket instead</button>
         </p>
       </div>
     </div>
