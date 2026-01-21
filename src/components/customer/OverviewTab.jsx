@@ -9,10 +9,27 @@ import {
   ChevronRight,
   UserPlus,
   TrendingUp,
-  Zap
+  Zap,
+  HelpCircle,
+  Send
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from 'date-fns';
 import { base44 } from '@/api/base44Client';
@@ -148,6 +165,13 @@ export default function OverviewTab({
   const [isSyncing, setIsSyncing] = useState(false);
   const [teamPage, setTeamPage] = useState(1);
   const [selectedContact, setSelectedContact] = useState(null);
+  const [showTicketModal, setShowTicketModal] = useState(false);
+  const [isCreatingTicket, setIsCreatingTicket] = useState(false);
+  const [newTicket, setNewTicket] = useState({
+    summary: '',
+    details: '',
+    priority: 'medium'
+  });
   const itemsPerPage = 8;
 
   const handleSyncContacts = async () => {
@@ -171,11 +195,65 @@ export default function OverviewTab({
     }
   };
 
+  const handleCreateTicket = async () => {
+    if (!newTicket.summary) {
+      toast.error('Please enter a summary');
+      return;
+    }
+    setIsCreatingTicket(true);
+    try {
+      const response = await base44.functions.invoke('createHaloPSATicket', {
+        customer_id: customerId,
+        ...newTicket
+      });
+      if (response.data.success) {
+        toast.success('Support ticket created!');
+        setShowTicketModal(false);
+        setNewTicket({ summary: '', details: '', priority: 'medium' });
+        queryClient.invalidateQueries({ queryKey: ['tickets', customerId] });
+      } else {
+        toast.error(response.data.error || 'Failed to create ticket');
+      }
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setIsCreatingTicket(false);
+    }
+  };
+
   const totalPages = Math.ceil(contacts.length / itemsPerPage);
   const paginatedContacts = contacts.slice((teamPage - 1) * itemsPerPage, teamPage * itemsPerPage);
 
   return (
     <div className="space-y-8">
+      {/* Quick Action - Create Ticket */}
+      {customer?.source === 'halopsa' && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl border border-purple-100 p-5"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+                <HelpCircle className="w-6 h-6 text-purple-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-slate-900">Need Help?</h3>
+                <p className="text-sm text-slate-600">Submit a support request to our team</p>
+              </div>
+            </div>
+            <Button 
+              onClick={() => setShowTicketModal(true)}
+              className="gap-2 bg-purple-600 hover:bg-purple-700"
+            >
+              <Send className="w-4 h-4" />
+              Create Ticket
+            </Button>
+          </div>
+        </motion.div>
+      )}
+
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
@@ -349,6 +427,74 @@ export default function OverviewTab({
         onClose={() => setSelectedContact(null)}
         customerId={customerId}
       />
+
+      {/* Create Ticket Modal */}
+      <Dialog open={showTicketModal} onOpenChange={setShowTicketModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HelpCircle className="w-5 h-5 text-purple-600" />
+              Submit Support Request
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div>
+              <label className="text-sm font-medium text-slate-700 mb-1.5 block">Subject</label>
+              <Input
+                value={newTicket.summary}
+                onChange={(e) => setNewTicket(prev => ({ ...prev, summary: e.target.value }))}
+                placeholder="Brief description of your issue..."
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-slate-700 mb-1.5 block">Details</label>
+              <Textarea
+                value={newTicket.details}
+                onChange={(e) => setNewTicket(prev => ({ ...prev, details: e.target.value }))}
+                placeholder="Please provide more details about your request..."
+                rows={4}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-slate-700 mb-1.5 block">Priority</label>
+              <Select
+                value={newTicket.priority}
+                onValueChange={(value) => setNewTicket(prev => ({ ...prev, priority: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low - General question</SelectItem>
+                  <SelectItem value="medium">Medium - Issue affecting work</SelectItem>
+                  <SelectItem value="high">High - Significant impact</SelectItem>
+                  <SelectItem value="critical">Critical - System down</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button variant="outline" onClick={() => setShowTicketModal(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleCreateTicket}
+                disabled={isCreatingTicket}
+                className="gap-2 bg-purple-600 hover:bg-purple-700"
+              >
+                {isCreatingTicket ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+                Submit Request
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
