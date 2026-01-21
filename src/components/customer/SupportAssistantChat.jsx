@@ -99,7 +99,7 @@ export default function SupportAssistantChat({
             <Bot className="w-5 h-5 text-purple-600" />
           </div>
           <div>
-            <p className="font-semibold text-slate-900 text-sm">Support Assistant</p>
+            <h2 className="font-semibold text-slate-900 text-sm">Support Assistant</h2>
             <p className="text-xs text-slate-500">Let me help troubleshoot</p>
           </div>
         </div>
