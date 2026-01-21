@@ -76,6 +76,8 @@ Deno.serve(async (req) => {
       tickettype_id: ticketTypeId
     };
 
+    console.log('Creating ticket with data:', JSON.stringify(ticketData));
+    
     const response = await fetch(`${settings.halopsa_api_url}/Tickets`, {
       method: 'POST',
       headers: {
@@ -85,14 +87,27 @@ Deno.serve(async (req) => {
       body: JSON.stringify([ticketData])
     });
 
+    const responseText = await response.text();
+    console.log('HaloPSA response:', responseText);
+
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('HaloPSA API error:', errorText);
-      return Response.json({ error: 'Failed to create ticket in HaloPSA' }, { status: 500 });
+      console.error('HaloPSA API error:', responseText);
+      return Response.json({ error: 'Failed to create ticket in HaloPSA: ' + responseText }, { status: 500 });
     }
 
-    const result = await response.json();
-    const createdTicket = result[0];
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch (e) {
+      return Response.json({ error: 'Invalid response from HaloPSA' }, { status: 500 });
+    }
+    
+    const createdTicket = Array.isArray(result) ? result[0] : result;
+    
+    if (!createdTicket?.id) {
+      console.error('No ticket ID in response:', result);
+      return Response.json({ error: 'Ticket created but no ID returned' }, { status: 500 });
+    }
 
     // Also create in local database
     await base44.asServiceRole.entities.Ticket.create({
