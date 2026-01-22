@@ -35,6 +35,7 @@ export default function AddLicenseModal({ open, onClose, onSave, customerId }) {
     logo_url: '',
     category: 'other',
     renewal_date: '',
+    card_last_four: '',
     notes: ''
   });
   const [isLoadingLogo, setIsLoadingLogo] = useState(false);
@@ -56,6 +57,7 @@ export default function AddLicenseModal({ open, onClose, onSave, customerId }) {
         logo_url: '',
         category: 'other',
         renewal_date: '',
+        card_last_four: '',
         notes: ''
       });
     }
@@ -283,28 +285,34 @@ Return JSON with:
           {/* Management Type */}
           <div>
             <Label>Management Type *</Label>
-            <Select 
-              value={form.management_type} 
-              onValueChange={(v) => setForm({ ...form, management_type: v })}
-            >
-              <SelectTrigger className="mt-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="managed">
-                  <span className="flex flex-col">
-                    <span className="font-medium">🏢 Managed</span>
-                    <span className="text-xs text-gray-500">One admin account, centralized billing</span>
-                  </span>
-                </SelectItem>
-                <SelectItem value="per_user">
-                  <span className="flex flex-col">
-                    <span className="font-medium">👤 Per User</span>
-                    <span className="text-xs text-gray-500">Each user has their own account & payment</span>
-                  </span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="grid grid-cols-2 gap-3 mt-1">
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, management_type: 'managed' })}
+                className={cn(
+                  "p-3 rounded-lg border-2 text-left transition-all",
+                  form.management_type === 'managed' 
+                    ? "border-purple-500 bg-purple-50" 
+                    : "border-gray-200 hover:border-gray-300"
+                )}
+              >
+                <div className="font-medium text-sm">🏢 Managed</div>
+                <div className="text-xs text-gray-500 mt-0.5">Centralized billing</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, management_type: 'per_user' })}
+                className={cn(
+                  "p-3 rounded-lg border-2 text-left transition-all",
+                  form.management_type === 'per_user' 
+                    ? "border-purple-500 bg-purple-50" 
+                    : "border-gray-200 hover:border-gray-300"
+                )}
+              >
+                <div className="font-medium text-sm">👤 Per User</div>
+                <div className="text-xs text-gray-500 mt-0.5">Individual accounts</div>
+              </button>
+            </div>
           </div>
 
           {/* Category */}
@@ -365,33 +373,48 @@ Return JSON with:
             </div>
           )}
 
-          {/* Billing & Renewal */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Billing Cycle</Label>
-              <Select 
-                value={form.billing_cycle} 
-                onValueChange={(v) => setForm({ ...form, billing_cycle: v })}
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                  <SelectItem value="annually">Annually</SelectItem>
-                </SelectContent>
-              </Select>
+          {/* Billing & Renewal - Only for Managed */}
+          {form.management_type === 'managed' && (
+            <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="text-sm font-medium text-gray-700">Billing Information</div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Billing Cycle</Label>
+                  <Select 
+                    value={form.billing_cycle} 
+                    onValueChange={(v) => setForm({ ...form, billing_cycle: v })}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                      <SelectItem value="annually">Annually</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Renewal Date</Label>
+                  <Input
+                    type="date"
+                    value={form.renewal_date}
+                    onChange={(e) => setForm({ ...form, renewal_date: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label>Card on File (last 4 digits)</Label>
+                <Input
+                  value={form.card_last_four}
+                  onChange={(e) => setForm({ ...form, card_last_four: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+                  placeholder="1234"
+                  maxLength={4}
+                  className="mt-1 w-24"
+                />
+              </div>
             </div>
-            <div>
-              <Label>Renewal Date</Label>
-              <Input
-                type="date"
-                value={form.renewal_date}
-                onChange={(e) => setForm({ ...form, renewal_date: e.target.value })}
-                className="mt-1"
-              />
-            </div>
-          </div>
+          )}
 
           {/* Notes */}
           <div>
