@@ -816,8 +816,8 @@ export default function CustomerDetail() {
                                   })}
                               </div>
                             )}
-                            </div>
                           </div>
+                        </div>
                       </TabsContent>
 
         {hasServicesMapped && (
