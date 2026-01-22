@@ -110,13 +110,35 @@ export default function LicenseDetail() {
 
   const activeAssignments = assignments.filter(a => a.status === 'active');
   const isPerUser = license?.management_type === 'per_user';
-  const utilizationPercent = license?.quantity > 0 ? (activeAssignments.length / license.quantity) * 100 : 0;
-  const unusedSeats = isPerUser ? Infinity : ((license?.quantity || 0) - activeAssignments.length);
+  
+  // Check if we have both license types for this software
+  const hasBothTypes = !!managedLicense && !!individualLicense;
+  
+  // Managed license stats
+  const managedUtilizationPercent = managedLicense?.quantity > 0 
+    ? (managedAssignments.length / managedLicense.quantity) * 100 : 0;
+  const managedUnusedSeats = (managedLicense?.quantity || 0) - managedAssignments.length;
+  const managedWastedCost = managedLicense?.quantity > 0 
+    ? (managedUnusedSeats / managedLicense.quantity) * (managedLicense?.total_cost || 0) : 0;
+  const managedDaysUntilRenewal = managedLicense?.renewal_date 
+    ? differenceInDays(parseISO(managedLicense.renewal_date), new Date()) : null;
+  
+  // Individual license stats
+  const individualTotalCost = individualAssignments.reduce(
+    (sum, a) => sum + (a.cost_per_license || individualLicense?.cost_per_license || 0), 0
+  );
+  
+  // Legacy calculations for single license view
+  const utilizationPercent = license?.quantity > 0 ? (activeAssignments.filter(a => a.license_id === license.id).length / license.quantity) * 100 : 0;
+  const unusedSeats = isPerUser ? Infinity : ((license?.quantity || 0) - activeAssignments.filter(a => a.license_id === license.id).length);
   const wastedCost = !isPerUser && license?.quantity > 0 ? (unusedSeats / license.quantity) * (license?.total_cost || 0) : 0;
   const daysUntilRenewal = license?.renewal_date ? differenceInDays(parseISO(license.renewal_date), new Date()) : null;
   
   // For per-user licenses, calculate total from individual assignments
-  const perUserTotalCost = isPerUser ? activeAssignments.reduce((sum, a) => sum + (a.cost_per_license || license?.cost_per_license || 0), 0) : 0;
+  const perUserTotalCost = isPerUser ? activeAssignments.filter(a => a.license_id === license.id).reduce((sum, a) => sum + (a.cost_per_license || license?.cost_per_license || 0), 0) : 0;
+  
+  // Combined total cost
+  const combinedTotalCost = (managedLicense?.total_cost || 0) + individualTotalCost;
 
   const handleAssign = async (contactId) => {
     await base44.entities.LicenseAssignment.create({
