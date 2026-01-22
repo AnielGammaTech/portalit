@@ -95,10 +95,10 @@ Deno.serve(async (req) => {
         ticket_number: String(ticket.id),
         summary: ticket.summary,
         details: ticket.details,
-        status: ticket.status?.name || ticket.status_id,
-        priority: ticket.priority?.name || ticket.priority_id,
-        assigned_to: ticket.agent?.name || ticket.agent_id || 'Unassigned',
-        requested_by: ticket.user?.name || ticket.user_name,
+        status: ticket.status_name || ticket.status?.name || `Status ${ticket.status_id || ticket.status}`,
+        priority: ticket.priority_name || ticket.priority?.name || `Priority ${ticket.priority_id || ticket.priority}`,
+        assigned_to: ticket.agent_name || ticket.agent?.name || 'Unassigned',
+        requested_by: ticket.user_name || ticket.user?.name || 'Unknown',
         date_opened: ticket.dateoccurred || ticket.datecreated,
         last_updated: ticket.lastactiondate
       }
