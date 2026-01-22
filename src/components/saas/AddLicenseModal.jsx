@@ -148,10 +148,12 @@ Return JSON with:
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const isPerUser = form.management_type === 'per_user';
     onSave({
       ...form,
       customer_id: customerId,
-      total_cost: form.quantity * form.cost_per_license,
+      quantity: isPerUser ? 1 : form.quantity,
+      total_cost: isPerUser ? form.cost_per_license : (form.quantity * form.cost_per_license),
       assigned_users: 0,
       source: 'manual'
     });
@@ -340,39 +342,78 @@ Return JSON with:
             </Select>
           </div>
           
-          {/* Seats & Cost */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Total Seats *</Label>
-              <Input
-                type="number"
-                min="1"
-                value={form.quantity}
-                onChange={(e) => setForm({ ...form, quantity: parseInt(e.target.value) || 1 })}
-                required
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label>Cost per Seat ($/mo)</Label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.cost_per_license}
-                onChange={(e) => setForm({ ...form, cost_per_license: parseFloat(e.target.value) || 0 })}
-                placeholder="0.00"
-                className="mt-1"
-              />
-            </div>
-          </div>
-
-          {/* Total Cost Preview */}
-          {totalCost > 0 && (
-            <div className="bg-purple-50 rounded-lg p-3 flex items-center justify-between">
-              <span className="text-sm text-purple-700">Total Monthly Cost</span>
-              <span className="text-lg font-bold text-purple-900">${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-            </div>
+          {/* Seats & Cost - Different for Managed vs Per User */}
+          {form.management_type === 'managed' ? (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Total Seats *</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={form.quantity}
+                    onChange={(e) => setForm({ ...form, quantity: parseInt(e.target.value) || 1 })}
+                    required
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label>Cost per Seat ($/mo)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.cost_per_license}
+                    onChange={(e) => setForm({ ...form, cost_per_license: parseFloat(e.target.value) || 0 })}
+                    placeholder="0.00"
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+              {totalCost > 0 && (
+                <div className="bg-purple-50 rounded-lg p-3 flex items-center justify-between">
+                  <span className="text-sm text-purple-700">Total Monthly Cost</span>
+                  <span className="text-lg font-bold text-purple-900">${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div>
+                <Label>Monthly Cost</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.cost_per_license}
+                  onChange={(e) => setForm({ ...form, cost_per_license: parseFloat(e.target.value) || 0 })}
+                  placeholder="0.00"
+                  className="mt-1 w-32"
+                />
+              </div>
+              {/* Per User billing info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Renewal Date</Label>
+                  <Input
+                    type="date"
+                    value={form.renewal_date}
+                    onChange={(e) => setForm({ ...form, renewal_date: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label>Card (last 4 digits)</Label>
+                  <Input
+                    value={form.card_last_four}
+                    onChange={(e) => setForm({ ...form, card_last_four: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+                    placeholder="1234"
+                    maxLength={4}
+                    className="mt-1 w-24"
+                  />
+                </div>
+              </div>
+            </>
           )}
 
           {/* Billing & Renewal - Only for Managed */}
