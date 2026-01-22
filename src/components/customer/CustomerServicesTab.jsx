@@ -44,7 +44,6 @@ export default function CustomerServicesTab({
     jumpcloud: { status: 'idle', lastSync: null, error: null },
     spanning: { status: 'idle', lastSync: null, error: null }
   });
-  const [servicesExpanded, setServicesExpanded] = useState(true);
 
   // Fetch JumpCloud mapping for this customer
   const { data: jumpcloudMapping } = useQuery({
@@ -380,48 +379,41 @@ export default function CustomerServicesTab({
         </div>
       )}
 
-      <Tabs defaultValue={hasRecurringServices ? "recurring" : hasJumpCloud ? "jumpcloud" : "spanning"} className="space-y-6">
-        <div className="flex justify-center">
-          <TabsList className="bg-slate-100/80 border-0 p-1 h-auto rounded-xl">
-            {hasRecurringServices && (
-              <TabsTrigger value="recurring" className="gap-2 py-2.5 px-5 text-sm font-medium rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <HardDrive className="w-4 h-4" />
-                Recurring Services
-              </TabsTrigger>
-            )}
-            {hasJumpCloud && (
-              <TabsTrigger value="jumpcloud" className="gap-2 py-2.5 px-5 text-sm font-medium rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <Shield className="w-4 h-4" />
-                JumpCloud
-              </TabsTrigger>
-            )}
-            {hasSpanning && (
-              <TabsTrigger value="spanning" className="gap-2 py-2.5 px-5 text-sm font-medium rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
+      <Tabs defaultValue={hasRecurringServices ? "recurring" : hasJumpCloud ? "jumpcloud" : "spanning"} className="space-y-4">
+        <TabsList className="bg-white border border-slate-200 p-1 h-auto">
+          {hasRecurringServices && (
+            <TabsTrigger value="recurring" className="gap-2 py-3 px-6 text-sm font-medium">
+              <HardDrive className="w-4 h-4" />
+              Recurring Services
+            </TabsTrigger>
+          )}
+          {hasJumpCloud && (
+            <TabsTrigger value="jumpcloud" className="gap-2 py-3 px-6 text-sm font-medium">
+              <Shield className="w-4 h-4" />
+              JumpCloud
+            </TabsTrigger>
+          )}
+          {hasSpanning && (
+              <TabsTrigger value="spanning" className="gap-2 py-3 px-6 text-sm font-medium">
                 <Cloud className="w-4 h-4" />
                 Spanning Backup
               </TabsTrigger>
             )}
-          </TabsList>
-        </div>
+        </TabsList>
 
         {/* Recurring Services Tab */}
         {hasRecurringServices && (
           <TabsContent value="recurring">
-            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
               <button
-                onClick={() => setServicesExpanded(!servicesExpanded)}
-                className="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors"
+                onClick={() => setExpandedBills(prev => ({ ...prev, _section: !prev._section }))}
+                className="w-full px-6 py-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
               >
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
-                    <HardDrive className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="text-left">
-                    <h3 className="font-semibold text-slate-900">Your Services</h3>
-                    <p className="text-sm text-slate-500">{lineItems.length} items • <span className="font-medium text-slate-700">${lineItems.reduce((sum, item) => sum + (item.net_amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>/month</p>
-                  </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 text-left">Your Services</h3>
+                  <p className="text-sm text-gray-500 mt-0.5">{lineItems.length} items • ${lineItems.reduce((sum, item) => sum + (item.net_amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}/month</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   {customer?.source === 'halopsa' && (
                     <button
                       onClick={async (e) => {
@@ -446,41 +438,35 @@ export default function CustomerServicesTab({
                         }
                       }}
                       disabled={isSyncing}
-                      className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                      className="text-gray-400 hover:text-gray-600 p-2"
                     >
                       <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
                     </button>
                   )}
-                  <div className={cn(
-                    "w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center transition-transform",
-                    servicesExpanded && "rotate-180"
-                  )}>
-                    <ChevronDown className="w-4 h-4 text-slate-500" />
-                  </div>
+                  <ChevronDown className={cn(
+                    "w-5 h-5 text-gray-400 transition-transform",
+                    expandedBills._section && "rotate-180"
+                  )} />
                 </div>
               </button>
               
-              {servicesExpanded && (
-                <div className="border-t border-slate-100">
+              {expandedBills._section && (
+                <div className="border-t border-gray-100">
                   {lineItems.length === 0 ? (
                     <div className="py-12 text-center">
-                      <p className="text-slate-500">No services found</p>
+                      <p className="text-gray-500">No services found</p>
                     </div>
                   ) : (
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-gray-100">
                       {lineItems.map(item => (
-                        <div key={item.id} className="px-6 py-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                        <div key={item.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50">
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-slate-900">{item.description?.replace(/\s*\$recurringbillingdate\s*/gi, '').trim()}</p>
-                            <p className="text-sm text-slate-500 mt-0.5">Qty: {item.quantity}</p>
+                            <p className="font-medium text-gray-900">{item.description?.replace(/\s*\$recurringbillingdate\s*/gi, '').trim()}</p>
+                            <p className="text-sm text-gray-500 mt-0.5">Qty: {item.quantity}</p>
                           </div>
-                          <p className="font-semibold text-slate-900">${(item.net_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                          <p className="font-semibold text-gray-900 text-lg">${(item.net_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                         </div>
                       ))}
-                      <div className="px-6 py-4 bg-slate-50/50 flex items-center justify-between">
-                        <p className="font-semibold text-slate-700">Monthly Total</p>
-                        <p className="text-lg font-bold text-purple-600">${lineItems.reduce((sum, item) => sum + (item.net_amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-                      </div>
                     </div>
                   )}
                 </div>
