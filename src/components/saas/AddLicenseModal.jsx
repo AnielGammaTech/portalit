@@ -260,27 +260,29 @@ Return JSON with:
             )}
           </div>
           
-          {/* Vendor & License Type */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Vendor</Label>
-              <Input
-                value={form.vendor}
-                onChange={(e) => setForm({ ...form, vendor: e.target.value })}
-                placeholder="e.g., Microsoft"
-                className="mt-1"
-              />
-            </div>
+          {/* Vendor */}
+          <div>
+            <Label>Vendor</Label>
+            <Input
+              value={form.vendor}
+              onChange={(e) => setForm({ ...form, vendor: e.target.value })}
+              placeholder="e.g., Microsoft"
+              className="mt-1"
+            />
+          </div>
+
+          {/* License Type - Only for Managed */}
+          {form.management_type === 'managed' && (
             <div>
               <Label>License Type</Label>
               <Input
                 value={form.license_type}
                 onChange={(e) => setForm({ ...form, license_type: e.target.value })}
-                placeholder="e.g., Business Basic"
+                placeholder="e.g., Business Basic, E3, Pro"
                 className="mt-1"
               />
             </div>
-          </div>
+          )}
 
           {/* Management Type */}
           <div>
