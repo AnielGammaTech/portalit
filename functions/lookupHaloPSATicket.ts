@@ -46,7 +46,8 @@ Deno.serve(async (req) => {
     // Search for the ticket by ID/number
     const ticketId = ticket_number.replace(/^0+/, '') || ticket_number; // Remove leading zeros
     
-    const response = await fetch(`${settings.halopsa_api_url}/Tickets/${ticketId}`, {
+    // Include related data to get status/priority names
+    const response = await fetch(`${settings.halopsa_api_url}/Tickets/${ticketId}?includedetails=true`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
