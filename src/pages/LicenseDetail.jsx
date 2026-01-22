@@ -7,7 +7,7 @@ import { createPageUrl } from '../utils';
 import { 
   ArrowLeft, Cloud, Users, DollarSign, Calendar, 
   Edit2, Trash2, Plus, CheckCircle2, AlertCircle,
-  Globe, Building2, RefreshCw, CreditCard
+  Globe, Building2, RefreshCw, CreditCard, User
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
