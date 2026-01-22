@@ -1153,7 +1153,7 @@ export default function CustomerDetail() {
                       </div>
                     </div>
                   );
-                })()
+                })()}
 
 
               </div>
