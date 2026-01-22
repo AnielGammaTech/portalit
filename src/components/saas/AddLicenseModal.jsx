@@ -280,6 +280,33 @@ Return JSON with:
             </div>
           </div>
 
+          {/* Management Type */}
+          <div>
+            <Label>Management Type *</Label>
+            <Select 
+              value={form.management_type} 
+              onValueChange={(v) => setForm({ ...form, management_type: v })}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="managed">
+                  <span className="flex flex-col">
+                    <span className="font-medium">🏢 Managed</span>
+                    <span className="text-xs text-gray-500">One admin account, centralized billing</span>
+                  </span>
+                </SelectItem>
+                <SelectItem value="per_user">
+                  <span className="flex flex-col">
+                    <span className="font-medium">👤 Per User</span>
+                    <span className="text-xs text-gray-500">Each user has their own account & payment</span>
+                  </span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Category */}
           <div>
             <Label>Category</Label>
