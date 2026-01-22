@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
@@ -60,6 +60,17 @@ export default function LicenseDetail() {
     queryFn: () => base44.entities.LicenseAssignment.filter({ license_id: licenseId }),
     enabled: !!licenseId
   });
+
+  // Redirect to Customer detail if no license id or license not found
+  useEffect(() => {
+    if (!licenseId) {
+      window.location.href = createPageUrl('CustomerDetail');
+      return;
+    }
+    if (!loadingLicense && !license) {
+      window.location.href = createPageUrl('CustomerDetail');
+    }
+  }, [licenseId, loadingLicense, license]);
 
   const activeAssignments = assignments.filter(a => a.status === 'active');
   const isPerUser = license?.management_type === 'per_user';
