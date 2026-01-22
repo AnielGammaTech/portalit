@@ -15,6 +15,7 @@ export default function AddUserLicenseModal({ open, onClose, license, contacts =
   const [saving, setSaving] = useState(false);
 
   const isPerUser = license?.management_type === 'per_user';
+  const [assignMode, setAssignMode] = useState(isPerUser ? 'individual' : 'managed');
 
   const sortedContacts = useMemo(() => {
     return [...contacts].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
@@ -30,7 +31,7 @@ export default function AddUserLicenseModal({ open, onClose, license, contacts =
         updates.license_type = licenseType;
       }
 
-      if (!isPerUser) {
+      if (!isPerUser && assignMode === 'managed') {
         // Managed: optionally increase seat, then assign
         if (increaseSeat) {
           const newQuantity = (license.quantity || 0) + 1;
@@ -55,13 +56,38 @@ export default function AddUserLicenseModal({ open, onClose, license, contacts =
           assigned_users: (license.assigned_users || 0) + 1
         });
       } else {
-        // Per-user: create assignment with billing details
-        if (Object.keys(updates).length > 0) {
-          await base44.entities.SaaSLicense.update(license.id, updates);
+        // Individual (per-user): ensure a per-user license exists for this software, then assign with billing details
+        let perUserLicense = null;
+        const existing = await base44.entities.SaaSLicense.filter({
+          customer_id: license.customer_id,
+          application_name: license.application_name,
+          management_type: 'per_user'
+        });
+
+        if (existing && existing.length > 0) {
+          perUserLicense = existing[0];
+          // Update per-user license type if changed
+          if (licenseType && licenseType !== perUserLicense.license_type) {
+            await base44.entities.SaaSLicense.update(perUserLicense.id, { license_type: licenseType });
+          }
+        } else {
+          perUserLicense = await base44.entities.SaaSLicense.create({
+            customer_id: license.customer_id,
+            application_name: license.application_name,
+            vendor: license.vendor,
+            management_type: 'per_user',
+            status: 'active',
+            category: license.category,
+            website_url: license.website_url,
+            logo_url: license.logo_url,
+            license_type: licenseType || license.license_type
+          });
         }
 
+        const perUserId = perUserLicense.id || perUserLicense?.id;
+
         await base44.entities.LicenseAssignment.create({
-          license_id: license.id,
+          license_id: perUserId,
           contact_id: contactId,
           customer_id: license.customer_id,
           assigned_date: new Date().toISOString().split('T')[0],
@@ -71,8 +97,9 @@ export default function AddUserLicenseModal({ open, onClose, license, contacts =
           cost_per_license: costPerLicense ? Number(costPerLicense) : undefined
         });
 
-        await base44.entities.SaaSLicense.update(license.id, {
-          assigned_users: (license.assigned_users || 0) + 1
+        const currentAssigned = perUserLicense.assigned_users || 0;
+        await base44.entities.SaaSLicense.update(perUserId, {
+          assigned_users: currentAssigned + 1
         });
       }
 
@@ -121,8 +148,20 @@ export default function AddUserLicenseModal({ open, onClose, license, contacts =
             <Input value={licenseType} onChange={(e) => setLicenseType(e.target.value)} placeholder="e.g., E3, Business Basic" />
           </div>
 
+          {!isPerUser && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-slate-700">Assign as:</span>
+              <Button type="button" variant={assignMode === 'managed' ? 'default' : 'outline'} size="sm" onClick={() => setAssignMode('managed')}>
+                Managed seat
+              </Button>
+              <Button type="button" variant={assignMode === 'individual' ? 'default' : 'outline'} size="sm" onClick={() => setAssignMode('individual')}>
+                Individual (per user)
+              </Button>
+            </div>
+          )}
+
           {/* Per-user billing fields */}
-          {isPerUser && (
+          {(isPerUser || assignMode === 'individual') && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="text-sm font-medium text-slate-700 mb-1 block">Cost / month</label>
