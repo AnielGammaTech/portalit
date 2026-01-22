@@ -285,7 +285,7 @@ export default function LicenseDetail() {
 
       {/* Main Two-Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* LEFT COLUMN - App Info & License Details */}
+        {/* LEFT COLUMN - App Info & License Summary */}
         <div className="lg:col-span-1 space-y-6">
           {/* App Header Card */}
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
@@ -314,9 +314,6 @@ export default function LicenseDetail() {
                 license.status === 'cancelled' && "bg-red-100 text-red-700"
               )}>
                 {license.status}
-              </Badge>
-              <Badge variant="outline" className="capitalize">
-                {isPerUser ? 'Individual' : 'Managed'}
               </Badge>
               {license.category && (
                 <Badge variant="outline" className="capitalize">{license.category}</Badge>
@@ -357,55 +354,75 @@ export default function LicenseDetail() {
             )}
           </div>
 
-          {/* Managed License - Company Billing Info */}
-          {!isPerUser && (
+          {/* Combined Cost Summary - Always show if we have any licenses */}
+          <div className="bg-gradient-to-br from-purple-600 to-purple-800 rounded-2xl p-6 text-white">
+            <p className="text-xs text-purple-200 font-medium uppercase tracking-wide mb-1">Total Monthly Cost</p>
+            <p className="text-3xl font-bold">${combinedTotalCost.toLocaleString()}</p>
+            <div className="mt-3 space-y-1 text-sm text-purple-200">
+              {managedLicense && (
+                <p>Managed: ${(managedLicense.total_cost || 0).toLocaleString()}</p>
+              )}
+              {individualLicense && (
+                <p>Individual: ${individualTotalCost.toLocaleString()}</p>
+              )}
+            </div>
+            <div className="mt-4 pt-4 border-t border-purple-500">
+              <p className="text-sm">
+                {managedAssignments.length + individualAssignments.length} total users
+              </p>
+            </div>
+          </div>
+
+          {/* Managed License Card */}
+          {managedLicense && (
             <div className="bg-white rounded-2xl border border-slate-200 p-6">
               <div className="flex items-center gap-2 mb-4">
-                <Building2 className="w-5 h-5 text-purple-600" />
-                <h2 className="font-semibold text-slate-900">Company License</h2>
+                <Building2 className="w-5 h-5 text-blue-600" />
+                <h2 className="font-semibold text-slate-900">Managed License</h2>
+                <Badge className="bg-blue-100 text-blue-700 text-xs ml-auto">Company-Wide</Badge>
               </div>
               
               <div className="space-y-4">
-                <div className="bg-purple-50 rounded-xl p-4">
-                  <p className="text-xs text-purple-600 font-medium uppercase tracking-wide mb-1">Monthly Cost</p>
-                  <p className="text-2xl font-bold text-purple-900">${(license.total_cost || 0).toLocaleString()}</p>
-                  <p className="text-xs text-purple-600 mt-1">${license.cost_per_license || 0}/seat × {license.quantity || 0} seats</p>
+                <div className="bg-blue-50 rounded-xl p-4">
+                  <p className="text-xs text-blue-600 font-medium uppercase tracking-wide mb-1">Monthly Cost</p>
+                  <p className="text-2xl font-bold text-blue-900">${(managedLicense.total_cost || 0).toLocaleString()}</p>
+                  <p className="text-xs text-blue-600 mt-1">${managedLicense.cost_per_license || 0}/seat × {managedLicense.quantity || 0} seats</p>
                 </div>
 
                 <div className="space-y-3 text-sm">
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500">Total Seats</span>
-                    <span className="font-bold text-slate-900">{license.quantity || 0}</span>
+                    <span className="font-bold text-slate-900">{managedLicense.quantity || 0}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500">Assigned</span>
-                    <span className="font-medium text-emerald-600">{activeAssignments.length}</span>
+                    <span className="font-medium text-emerald-600">{managedAssignments.length}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500">Available</span>
-                    <span className={cn("font-medium", unusedSeats > 0 ? "text-amber-600" : "text-slate-900")}>{unusedSeats}</span>
+                    <span className={cn("font-medium", managedUnusedSeats > 0 ? "text-amber-600" : "text-slate-900")}>{managedUnusedSeats}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500">Billing Cycle</span>
-                    <span className="font-medium text-slate-900 capitalize">{license.billing_cycle || 'Monthly'}</span>
+                    <span className="font-medium text-slate-900 capitalize">{managedLicense.billing_cycle || 'Monthly'}</span>
                   </div>
-                  {license.renewal_date && (
+                  {managedLicense.renewal_date && (
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500">Renewal Date</span>
                       <span className={cn(
                         "font-medium",
-                        daysUntilRenewal !== null && daysUntilRenewal <= 30 ? "text-amber-600" : "text-slate-900"
+                        managedDaysUntilRenewal !== null && managedDaysUntilRenewal <= 30 ? "text-amber-600" : "text-slate-900"
                       )}>
-                        {format(parseISO(license.renewal_date), 'MMM d, yyyy')}
+                        {format(parseISO(managedLicense.renewal_date), 'MMM d, yyyy')}
                       </span>
                     </div>
                   )}
-                  {license.card_last_four && (
+                  {managedLicense.card_last_four && (
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500">Payment Card</span>
                       <span className="font-medium text-slate-900 flex items-center gap-1">
                         <CreditCard className="w-3 h-3" />
-                        •••• {license.card_last_four}
+                        •••• {managedLicense.card_last_four}
                       </span>
                     </div>
                   )}
@@ -417,43 +434,44 @@ export default function LicenseDetail() {
                     <span className="text-xs text-slate-500">Utilization</span>
                     <span className={cn(
                       "text-xs font-medium",
-                      utilizationPercent >= 90 ? "text-emerald-600" :
-                      utilizationPercent >= 50 ? "text-amber-600" : "text-red-600"
+                      managedUtilizationPercent >= 90 ? "text-emerald-600" :
+                      managedUtilizationPercent >= 50 ? "text-amber-600" : "text-red-600"
                     )}>
-                      {utilizationPercent.toFixed(0)}%
+                      {managedUtilizationPercent.toFixed(0)}%
                     </span>
                   </div>
                   <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
                     <div 
                       className={cn(
                         "h-full rounded-full transition-all",
-                        utilizationPercent >= 90 ? "bg-emerald-500" :
-                        utilizationPercent >= 50 ? "bg-amber-500" : "bg-red-500"
+                        managedUtilizationPercent >= 90 ? "bg-emerald-500" :
+                        managedUtilizationPercent >= 50 ? "bg-amber-500" : "bg-red-500"
                       )}
-                      style={{ width: `${Math.min(100, utilizationPercent)}%` }}
+                      style={{ width: `${Math.min(100, managedUtilizationPercent)}%` }}
                     />
                   </div>
-                  {wastedCost > 0 && (
-                    <p className="text-xs text-red-500 mt-2">~${wastedCost.toFixed(0)}/mo unused</p>
+                  {managedWastedCost > 0 && (
+                    <p className="text-xs text-red-500 mt-2">~${managedWastedCost.toFixed(0)}/mo unused</p>
                   )}
                 </div>
               </div>
             </div>
           )}
 
-          {/* Individual License - Summary */}
-          {isPerUser && (
+          {/* Individual Licenses Card */}
+          {individualLicense && (
             <div className="bg-white rounded-2xl border border-slate-200 p-6">
               <div className="flex items-center gap-2 mb-4">
-                <Users className="w-5 h-5 text-purple-600" />
+                <User className="w-5 h-5 text-emerald-600" />
                 <h2 className="font-semibold text-slate-900">Individual Licenses</h2>
+                <Badge className="bg-emerald-100 text-emerald-700 text-xs ml-auto">Per-User</Badge>
               </div>
               
               <div className="space-y-4">
-                <div className="bg-purple-50 rounded-xl p-4">
-                  <p className="text-xs text-purple-600 font-medium uppercase tracking-wide mb-1">Total Monthly Cost</p>
-                  <p className="text-2xl font-bold text-purple-900">${perUserTotalCost.toLocaleString()}</p>
-                  <p className="text-xs text-purple-600 mt-1">{activeAssignments.length} individual license{activeAssignments.length !== 1 ? 's' : ''}</p>
+                <div className="bg-emerald-50 rounded-xl p-4">
+                  <p className="text-xs text-emerald-600 font-medium uppercase tracking-wide mb-1">Total Monthly Cost</p>
+                  <p className="text-2xl font-bold text-emerald-900">${individualTotalCost.toLocaleString()}</p>
+                  <p className="text-xs text-emerald-600 mt-1">{individualAssignments.length} individual license{individualAssignments.length !== 1 ? 's' : ''}</p>
                 </div>
 
                 <p className="text-sm text-slate-500">
@@ -497,79 +515,142 @@ export default function LicenseDetail() {
           )}
         </div>
 
-        {/* RIGHT COLUMN - Users/Assignments */}
-        <div className="lg:col-span-2">
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden h-full">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <div>
-                <h2 className="font-semibold text-slate-900">
-                  {isPerUser ? 'License Holders' : 'Seat Assignments'}
-                </h2>
-                <p className="text-sm text-slate-500">
-                  {isPerUser 
-                    ? `${activeAssignments.length} individual license${activeAssignments.length !== 1 ? 's' : ''}`
-                    : `${activeAssignments.length} of ${license.quantity || 0} seats assigned`
-                  }
-                </p>
-              </div>
-              <Button 
-                size="sm" 
-                className="gap-2 bg-purple-600 hover:bg-purple-700"
-                onClick={() => (isPerUser ? setShowAddUserLicense(true) : setShowAssignModal(true))}
-                disabled={!isPerUser && unusedSeats <= 0}
-              >
-                <Plus className="w-4 h-4" />
-                {isPerUser ? 'Add License' : 'Assign Seat'}
-              </Button>
-            </div>
-            
-            {activeAssignments.length === 0 ? (
-              <div className="p-12 text-center">
-                <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                <p className="text-slate-500 mb-4">No users assigned yet</p>
+        {/* RIGHT COLUMN - Users/Assignments (Both Types) */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Managed Seats Section */}
+          {managedLicense && (
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-blue-50">
+                <div className="flex items-center gap-3">
+                  <Building2 className="w-5 h-5 text-blue-600" />
+                  <div>
+                    <h2 className="font-semibold text-slate-900">Managed Seats</h2>
+                    <p className="text-sm text-slate-500">
+                      {managedAssignments.length} of {managedLicense.quantity || 0} seats assigned
+                    </p>
+                  </div>
+                </div>
                 <Button 
-                  onClick={() => (isPerUser ? setShowAddUserLicense(true) : setShowAssignModal(true))} 
-                  className="bg-purple-600 hover:bg-purple-700"
+                  size="sm" 
+                  className="gap-2 bg-blue-600 hover:bg-blue-700"
+                  onClick={() => setShowAssignModal(true)}
+                  disabled={managedUnusedSeats <= 0}
                 >
-                  <Plus className="w-4 h-4 mr-2" />
-                  {isPerUser ? 'Add First License' : 'Assign First User'}
+                  <Plus className="w-4 h-4" />
+                  Assign Seat
                 </Button>
               </div>
-            ) : (
-              <div className="divide-y divide-slate-100 max-h-[600px] overflow-y-auto">
-                {activeAssignments.map(assignment => {
-                  const contact = contacts.find(c => c.id === assignment.contact_id);
-                  return (
-                    <div key={assignment.id} className="px-6 py-4 hover:bg-slate-50">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-medium flex-shrink-0">
+              
+              {managedAssignments.length === 0 ? (
+                <div className="p-8 text-center">
+                  <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                  <p className="text-slate-500 mb-3">No seats assigned</p>
+                  <Button 
+                    size="sm"
+                    onClick={() => setShowAssignModal(true)} 
+                    className="bg-blue-600 hover:bg-blue-700"
+                    disabled={managedUnusedSeats <= 0}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Assign First Seat
+                  </Button>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100 max-h-[300px] overflow-y-auto">
+                  {managedAssignments.map(assignment => {
+                    const contact = contacts.find(c => c.id === assignment.contact_id);
+                    return (
+                      <div key={assignment.id} className="px-6 py-3 hover:bg-slate-50 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-medium text-sm">
                             {contact?.full_name?.charAt(0) || '?'}
                           </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="font-medium text-slate-900">{contact?.full_name || 'Unknown User'}</p>
-                              {contact?.source && contact.source !== 'manual' && (
-                                <Badge className={cn(
-                                  "text-xs",
-                                  contact.source === 'jumpcloud' && "bg-blue-100 text-blue-700",
-                                  contact.source === 'halopsa' && "bg-amber-100 text-amber-700",
-                                  contact.source === 'spanning' && "bg-green-100 text-green-700"
-                                )}>
-                                  {contact.source}
-                                </Badge>
-                              )}
+                          <div>
+                            <p className="font-medium text-slate-900 text-sm">{contact?.full_name || 'Unknown'}</p>
+                            <p className="text-xs text-slate-500">{contact?.email || 'No email'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {assignment.assigned_date && (
+                            <span className="text-xs text-slate-400">
+                              {format(parseISO(assignment.assigned_date), 'MMM d, yyyy')}
+                            </span>
+                          )}
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 h-7 px-2"
+                            onClick={() => handleRevoke(assignment.contact_id)}
+                          >
+                            Revoke
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Individual Licenses Section */}
+          {individualLicense && (
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-emerald-50">
+                <div className="flex items-center gap-3">
+                  <User className="w-5 h-5 text-emerald-600" />
+                  <div>
+                    <h2 className="font-semibold text-slate-900">Individual Licenses</h2>
+                    <p className="text-sm text-slate-500">
+                      {individualAssignments.length} individual license{individualAssignments.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+                <Button 
+                  size="sm" 
+                  className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+                  onClick={() => setShowAddUserLicense(true)}
+                >
+                  <Plus className="w-4 h-4" />
+                  Add License
+                </Button>
+              </div>
+              
+              {individualAssignments.length === 0 ? (
+                <div className="p-8 text-center">
+                  <User className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                  <p className="text-slate-500 mb-3">No individual licenses</p>
+                  <Button 
+                    size="sm"
+                    onClick={() => setShowAddUserLicense(true)} 
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add First License
+                  </Button>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
+                  {individualAssignments.map(assignment => {
+                    const contact = contacts.find(c => c.id === assignment.contact_id);
+                    return (
+                      <div key={assignment.id} className="px-6 py-4 hover:bg-slate-50">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-medium flex-shrink-0">
+                              {contact?.full_name?.charAt(0) || '?'}
                             </div>
-                            <p className="text-sm text-slate-500">{contact?.email || 'No email'}</p>
-                            
-                            {/* Individual License Details */}
-                            {isPerUser && (
-                              <div className="mt-3 bg-slate-50 rounded-lg p-3 space-y-2">
+                            <div className="min-w-0">
+                              <p className="font-medium text-slate-900">{contact?.full_name || 'Unknown User'}</p>
+                              <p className="text-sm text-slate-500">{contact?.email || 'No email'}</p>
+                              
+                              {/* Individual License Details */}
+                              <div className="mt-3 bg-slate-50 rounded-lg p-3">
                                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                                   <div>
                                     <span className="text-slate-500">Cost</span>
                                     <p className="font-medium text-slate-900">
-                                      ${assignment.cost_per_license || license.cost_per_license || 0}/mo
+                                      ${assignment.cost_per_license || individualLicense.cost_per_license || 0}/mo
                                     </p>
                                   </div>
                                   <div>
@@ -605,34 +686,67 @@ export default function LicenseDetail() {
                                   </div>
                                 </div>
                                 {assignment.notes && (
-                                  <p className="text-xs text-slate-500 pt-2 border-t border-slate-200">{assignment.notes}</p>
+                                  <p className="text-xs text-slate-500 pt-2 mt-2 border-t border-slate-200">{assignment.notes}</p>
                                 )}
                               </div>
-                            )}
-                            
-                            {/* Managed License - Simple assigned date */}
-                            {!isPerUser && assignment.assigned_date && (
-                              <p className="text-xs text-slate-400 mt-1">
-                                Assigned {format(parseISO(assignment.assigned_date), 'MMM d, yyyy')}
-                              </p>
-                            )}
+                            </div>
                           </div>
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleRevoke(assignment.contact_id)}
+                          >
+                            Remove
+                          </Button>
                         </div>
-                        <Button 
-                          size="sm" 
-                          variant="ghost"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => handleRevoke(assignment.contact_id)}
-                        >
-                          {isPerUser ? 'Remove' : 'Revoke'}
-                        </Button>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* If only one type exists, show the original single view */}
+          {!hasBothTypes && !managedLicense && !individualLicense && (
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h2 className="font-semibold text-slate-900">
+                    {isPerUser ? 'License Holders' : 'Seat Assignments'}
+                  </h2>
+                  <p className="text-sm text-slate-500">
+                    {isPerUser 
+                      ? `${activeAssignments.filter(a => a.license_id === license.id).length} individual license${activeAssignments.filter(a => a.license_id === license.id).length !== 1 ? 's' : ''}`
+                      : `${activeAssignments.filter(a => a.license_id === license.id).length} of ${license.quantity || 0} seats assigned`
+                    }
+                  </p>
+                </div>
+                <Button 
+                  size="sm" 
+                  className="gap-2 bg-purple-600 hover:bg-purple-700"
+                  onClick={() => (isPerUser ? setShowAddUserLicense(true) : setShowAssignModal(true))}
+                  disabled={!isPerUser && unusedSeats <= 0}
+                >
+                  <Plus className="w-4 h-4" />
+                  {isPerUser ? 'Add License' : 'Assign Seat'}
+                </Button>
               </div>
-            )}
-          </div>
+              
+              <div className="p-12 text-center">
+                <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                <p className="text-slate-500 mb-4">No users assigned yet</p>
+                <Button 
+                  onClick={() => (isPerUser ? setShowAddUserLicense(true) : setShowAssignModal(true))} 
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  {isPerUser ? 'Add First License' : 'Assign First User'}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
