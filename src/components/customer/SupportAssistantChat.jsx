@@ -98,7 +98,7 @@ export default function SupportAssistantChat({
       // Send initial greeting from assistant
       setMessages([{
         role: 'assistant',
-        content: "Hi! I'm here to help. What's the issue?"
+        content: "Hi! I'm here to help with your IT issue. What's going on?"
       }]);
       
       setIsInitializing(false);
