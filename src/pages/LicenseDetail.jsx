@@ -75,6 +75,23 @@ export default function LicenseDetail() {
     toast.success('License assigned!');
   };
 
+  const handleAddIndividualLicense = async (data) => {
+    await base44.entities.LicenseAssignment.create({
+      license_id: licenseId,
+      contact_id: data.contact_id,
+      customer_id: license.customer_id,
+      assigned_date: new Date().toISOString().split('T')[0],
+      status: 'active',
+      renewal_date: data.renewal_date,
+      card_last_four: data.card_last_four,
+      cost_per_license: data.cost_per_license
+    });
+    await base44.entities.SaaSLicense.update(licenseId, { assigned_users: activeAssignments.length + 1 });
+    queryClient.invalidateQueries({ queryKey: ['license_assignments', licenseId] });
+    queryClient.invalidateQueries({ queryKey: ['license', licenseId] });
+    toast.success(`License added for ${data.contact_name}!`);
+  };
+
   const handleRevoke = async (contactId) => {
     const assignment = assignments.find(a => a.contact_id === contactId && a.status === 'active');
     if (assignment) {
@@ -456,6 +473,7 @@ export default function LicenseDetail() {
         assignments={assignments}
         onAssign={handleAssign}
         onRevoke={handleRevoke}
+        onAddIndividualLicense={handleAddIndividualLicense}
       />
 
       {/* Edit Modal */}
