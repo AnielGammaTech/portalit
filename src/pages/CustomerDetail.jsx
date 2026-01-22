@@ -532,90 +532,82 @@ export default function CustomerDetail() {
         <TabsContent value="billing">
                         <div className="space-y-6">
                           
-                          {/* Clean Summary Cards */}
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {/* Monthly Cost Card */}
-                            <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                              <p className="text-sm text-gray-500 mb-1">Monthly Cost</p>
-                              <p className="text-3xl font-bold text-gray-900">
-                                ${recurringBills.reduce((sum, b) => sum + (b.amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                              </p>
-                              <p className="text-xs text-gray-400 mt-2">{lineItems.length} services included</p>
-                            </div>
-                            
-                            {/* Contract Card */}
-                            <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                              <div className="flex items-center justify-between mb-3">
-                                <p className="text-sm text-gray-500">Your Contract</p>
-                                {customer?.source === 'halopsa' && (
-                                  <button
-                                    onClick={async () => {
-                                      try {
-                                        setIsSyncing(true);
-                                        const response = await base44.functions.invoke('syncHaloPSAContracts', { 
-                                          action: 'sync_customer',
-                                          customer_id: customer.external_id 
-                                        });
-                                        if (response.data.success) {
-                                          toast.success(`Synced contracts!`);
-                                          queryClient.invalidateQueries({ queryKey: ['contracts', customerId] });
-                                        } else {
-                                          toast.error(response.data.error || 'Sync failed');
-                                        }
-                                      } catch (error) {
-                                        toast.error(error.message || 'An error occurred');
-                                      } finally {
-                                        setIsSyncing(false);
-                                      }
-                                    }}
-                                    disabled={isSyncing}
-                                    className="text-gray-400 hover:text-gray-600"
-                                  >
-                                    <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
-                                  </button>
-                                )}
+                          {/* Compact Summary Row */}
+                          <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                            <div className="flex flex-wrap items-center gap-6 divide-x divide-gray-200">
+                              {/* Monthly Cost */}
+                              <div className="pr-6">
+                                <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Monthly Cost</p>
+                                <p className="text-2xl font-bold text-gray-900">
+                                  ${recurringBills.reduce((sum, b) => sum + (b.amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                </p>
                               </div>
-                              {contracts.length > 0 ? (
-                                <div>
-                                  {contracts.slice(0, 1).map(contract => (
-                                    <div key={contract.id}>
-                                      <p className="text-lg font-semibold text-gray-900">{contract.name}</p>
-                                      {contract.renewal_date && (
-                                        <p className="text-sm text-gray-500 mt-1">
-                                          Renews {format(parseISO(contract.renewal_date), 'MMM d, yyyy')}
-                                        </p>
-                                      )}
-                                    </div>
-                                  ))}
-                                  {contracts.length > 1 && (
-                                    <p className="text-xs text-gray-400 mt-2">+{contracts.length - 1} more contract{contracts.length > 2 ? 's' : ''}</p>
+                              
+                              {/* Contract */}
+                              <div className="pl-6 pr-6 flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <p className="text-xs text-gray-500 uppercase tracking-wide">Contract</p>
+                                  {customer?.source === 'halopsa' && (
+                                    <button
+                                      onClick={async () => {
+                                        try {
+                                          setIsSyncing(true);
+                                          const response = await base44.functions.invoke('syncHaloPSAContracts', { 
+                                            action: 'sync_customer',
+                                            customer_id: customer.external_id 
+                                          });
+                                          if (response.data.success) {
+                                            toast.success(`Synced contracts!`);
+                                            queryClient.invalidateQueries({ queryKey: ['contracts', customerId] });
+                                          } else {
+                                            toast.error(response.data.error || 'Sync failed');
+                                          }
+                                        } catch (error) {
+                                          toast.error(error.message || 'An error occurred');
+                                        } finally {
+                                          setIsSyncing(false);
+                                        }
+                                      }}
+                                      disabled={isSyncing}
+                                      className="text-gray-400 hover:text-gray-600"
+                                    >
+                                      <RefreshCw className={cn("w-3 h-3", isSyncing && "animate-spin")} />
+                                    </button>
                                   )}
                                 </div>
-                              ) : (
-                                <p className="text-gray-400">No active contract</p>
-                              )}
-                            </div>
-                            
-                            {/* Invoice Status Card */}
-                            <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                              <p className="text-sm text-gray-500 mb-3">Invoice Status</p>
-                              <div className="flex items-center gap-4">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                                  <span className="text-sm text-gray-600">{invoices.filter(i => i.status === 'paid').length} Paid</span>
+                                {contracts.length > 0 ? (
+                                  <div>
+                                    <p className="font-semibold text-gray-900 truncate">{contracts[0].name}</p>
+                                    {contracts[0].renewal_date && (
+                                      <p className="text-xs text-gray-500">Renews {format(parseISO(contracts[0].renewal_date), 'MMM d, yyyy')}</p>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <p className="text-gray-400 text-sm">No active contract</p>
+                                )}
+                              </div>
+                              
+                              {/* Invoice Status */}
+                              <div className="pl-6">
+                                <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Invoices</p>
+                                <div className="flex items-center gap-3">
+                                  <div className="flex items-center gap-1.5">
+                                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                                    <span className="text-sm font-medium text-gray-700">{invoices.filter(i => i.status === 'paid').length} Paid</span>
+                                  </div>
+                                  {invoices.filter(i => i.status === 'sent').length > 0 && (
+                                    <div className="flex items-center gap-1.5">
+                                      <div className="w-2 h-2 rounded-full bg-amber-400" />
+                                      <span className="text-sm font-medium text-gray-700">{invoices.filter(i => i.status === 'sent').length} Pending</span>
+                                    </div>
+                                  )}
+                                  {invoices.filter(i => i.status === 'overdue').length > 0 && (
+                                    <div className="flex items-center gap-1.5">
+                                      <div className="w-2 h-2 rounded-full bg-red-500" />
+                                      <span className="text-sm font-medium text-red-600">{invoices.filter(i => i.status === 'overdue').length} Overdue</span>
+                                    </div>
+                                  )}
                                 </div>
-                                {invoices.filter(i => i.status === 'sent').length > 0 && (
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-3 h-3 rounded-full bg-amber-400" />
-                                    <span className="text-sm text-gray-600">{invoices.filter(i => i.status === 'sent').length} Pending</span>
-                                  </div>
-                                )}
-                                {invoices.filter(i => i.status === 'overdue').length > 0 && (
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-3 h-3 rounded-full bg-red-500" />
-                                    <span className="text-sm text-gray-600">{invoices.filter(i => i.status === 'overdue').length} Overdue</span>
-                                  </div>
-                                )}
                               </div>
                             </div>
                           </div>
