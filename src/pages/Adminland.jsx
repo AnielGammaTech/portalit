@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
@@ -11,8 +10,6 @@ import {
   MessageSquare,
   Link2
 } from 'lucide-react';
-import { cn } from "@/lib/utils";
-import AdminTicketsPanel from '../components/admin/AdminTicketsPanel';
 
 const MENU_SECTIONS = [
   {
@@ -112,11 +109,6 @@ export default function Adminland() {
           <h1 className="text-2xl font-bold text-slate-900">Adminland</h1>
           <p className="text-sm text-slate-500">Manage your workspace settings</p>
         </div>
-      </div>
-
-      {/* Tickets Panel */}
-      <div className="mb-8">
-        <AdminTicketsPanel />
       </div>
 
       {/* Menu Grid - 2 columns */}
