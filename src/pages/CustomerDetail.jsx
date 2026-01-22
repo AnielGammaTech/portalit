@@ -1398,65 +1398,13 @@ export default function CustomerDetail() {
 
                       <TabsContent value="tickets">
                                       <div className="space-y-6">
-                                        {/* Ticket Stats Widgets */}
-                                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                                          <div className="bg-white rounded-xl border border-slate-200/50 p-4">
-                                            <div className="flex items-center gap-3">
-                                              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                                                <Monitor className="w-5 h-5 text-blue-600" />
-                                              </div>
-                                              <div>
-                                                <p className="text-2xl font-bold text-slate-900">{tickets.length}</p>
-                                                <p className="text-xs text-slate-500">Total Tickets</p>
-                                              </div>
-                                            </div>
-                                          </div>
-                                          <div className="bg-white rounded-xl border border-slate-200/50 p-4">
-                                            <div className="flex items-center gap-3">
-                                              <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                                                <Monitor className="w-5 h-5 text-emerald-600" />
-                                              </div>
-                                              <div>
-                                                <p className="text-2xl font-bold text-slate-900">
-                                                  {tickets.filter(t => ['open', 'in_progress', 'new'].includes(t.status)).length}
-                                                </p>
-                                                <p className="text-xs text-slate-500">Open Tickets</p>
-                                              </div>
-                                            </div>
-                                          </div>
-                                          <div className="bg-white rounded-xl border border-slate-200/50 p-4">
-                                            <div className="flex items-center gap-3">
-                                              <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
-                                                <Monitor className="w-5 h-5 text-red-600" />
-                                              </div>
-                                              <div>
-                                                <p className="text-2xl font-bold text-slate-900">
-                                                  {tickets.filter(t => ['critical', 'high'].includes(t.priority)).length}
-                                                </p>
-                                                <p className="text-xs text-slate-500">High Priority</p>
-                                              </div>
-                                            </div>
-                                          </div>
-                                          <div className="bg-white rounded-xl border border-slate-200/50 p-4">
-                                            <div className="flex items-center gap-3">
-                                              <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                                                <Monitor className="w-5 h-5 text-purple-600" />
-                                              </div>
-                                              <div>
-                                                <p className="text-2xl font-bold text-slate-900">
-                                                                            {tickets.filter(t => ['closed', 'resolved'].includes(t.status)).length}
-                                                                          </p>
-                                                                          <p className="text-xs text-slate-500">Resolved</p>
-                                              </div>
-                                            </div>
-                                          </div>
-                                        </div>
-
                                       <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
                           <div className="flex items-center justify-between mb-6">
                             <div>
                               <h3 className="text-lg font-semibold text-slate-900">Support Tickets</h3>
-                              <p className="text-sm text-slate-500">{tickets.length} tickets</p>
+                              <p className="text-sm text-slate-500">
+                                {tickets.filter(t => ['open', 'in_progress', 'new'].includes(t.status)).length} open • {tickets.filter(t => ['closed', 'resolved'].includes(t.status)).length} resolved
+                              </p>
                             </div>
                             <div className="flex items-center gap-3">
                               {customer?.source === 'halopsa' && (
@@ -1486,24 +1434,21 @@ export default function CustomerDetail() {
                                   disabled={isSyncing}
                                 >
                                   <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
-                                  Sync Tickets
+                                  Sync
                                 </Button>
                               )}
-                              <div className="flex items-center gap-2">
-                                <Filter className="w-4 h-4 text-slate-400" />
-                                <select
-                                  value={ticketFilter}
-                                  onChange={(e) => { setTicketFilter(e.target.value); setTicketPage(1); }}
-                                  className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                >
-                                  <option value="all">All</option>
-                                  <option value="open">Open</option>
-                                  <option value="in_progress">In Progress</option>
-                                  <option value="waiting">Waiting</option>
-                                  <option value="resolved">Resolved</option>
-                                  <option value="closed">Closed</option>
-                                </select>
-                              </div>
+                              <select
+                                value={ticketFilter}
+                                onChange={(e) => { setTicketFilter(e.target.value); setTicketPage(1); }}
+                                className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                              >
+                                <option value="all">All Tickets</option>
+                                <option value="open">Open</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="waiting">Waiting</option>
+                                <option value="resolved">Resolved</option>
+                                <option value="closed">Closed</option>
+                              </select>
                             </div>
                           </div>
 
@@ -1512,65 +1457,66 @@ export default function CustomerDetail() {
                               <Monitor className="w-12 h-12 text-slate-300 mx-auto mb-4" />
                               <p className="text-slate-500">No tickets found</p>
                               {customer?.source === 'halopsa' && (
-                                <p className="text-sm text-slate-400 mt-1">Click "Sync Tickets" to pull from HaloPSA</p>
+                                <p className="text-sm text-slate-400 mt-1">Click "Sync" to pull from HaloPSA</p>
                               )}
                             </div>
                           ) : (
                             <>
-                              <div className="space-y-3">
+                              <div className="space-y-2">
                                 {tickets
-                                                          .filter(t => ticketFilter === 'all' || t.status === ticketFilter)
-                                                          .sort((a, b) => new Date(b.date_opened || 0) - new Date(a.date_opened || 0))
-                                                          .slice((ticketPage - 1) * 10, ticketPage * 10)
+                                  .filter(t => ticketFilter === 'all' || t.status === ticketFilter)
+                                  .sort((a, b) => new Date(b.date_opened || 0) - new Date(a.date_opened || 0))
+                                  .slice((ticketPage - 1) * 10, ticketPage * 10)
                                   .map(ticket => (
-                                    <div key={ticket.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
-                                      <div className="flex items-center gap-4 flex-1 min-w-0">
-                                        <div className={cn(
-                                          "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",
-                                          ticket.priority === 'critical' && "bg-red-100",
-                                          ticket.priority === 'high' && "bg-orange-100",
-                                          ticket.priority === 'medium' && "bg-yellow-100",
-                                          ticket.priority === 'low' && "bg-blue-100"
-                                        )}>
-                                          <Monitor className={cn(
-                                            "w-5 h-5",
-                                            ticket.priority === 'critical' && "text-red-600",
-                                            ticket.priority === 'high' && "text-orange-600",
-                                            ticket.priority === 'medium' && "text-yellow-600",
-                                            ticket.priority === 'low' && "text-blue-600"
-                                          )} />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                          <p className="font-semibold text-slate-900 truncate">#{ticket.ticket_number} - {ticket.summary}</p>
-                                          <div className="flex items-center gap-3 text-sm text-slate-500">
-                                            {ticket.requested_by && <span>By: {ticket.requested_by}</span>}
-                                            {ticket.date_opened && (
-                                              <span>Opened: {format(parseISO(ticket.date_opened), 'MMM d, yyyy')}</span>
-                                            )}
-                                          </div>
+                                    <div key={ticket.id} className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
+                                      <div className={cn(
+                                        "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
+                                        ticket.priority === 'critical' && "bg-red-100",
+                                        ticket.priority === 'high' && "bg-orange-100",
+                                        ticket.priority === 'medium' && "bg-yellow-100",
+                                        ticket.priority === 'low' && "bg-blue-100",
+                                        !ticket.priority && "bg-slate-100"
+                                      )}>
+                                        <Monitor className={cn(
+                                          "w-5 h-5",
+                                          ticket.priority === 'critical' && "text-red-600",
+                                          ticket.priority === 'high' && "text-orange-600",
+                                          ticket.priority === 'medium' && "text-yellow-600",
+                                          ticket.priority === 'low' && "text-blue-600",
+                                          !ticket.priority && "text-slate-500"
+                                        )} />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="font-semibold text-slate-900 truncate">
+                                          #{ticket.ticket_number} - {ticket.summary}
+                                        </p>
+                                        <div className="flex items-center gap-2 mt-1 text-sm text-slate-500">
+                                          {ticket.requested_by && (
+                                            <span>By: {ticket.requested_by}</span>
+                                          )}
+                                          {ticket.requested_by && ticket.assigned_to && <span>•</span>}
+                                          {ticket.assigned_to && (
+                                            <span className="text-purple-600 font-medium">
+                                              Tech: {ticket.assigned_to}
+                                            </span>
+                                          )}
+                                          {(ticket.requested_by || ticket.assigned_to) && ticket.date_opened && <span>•</span>}
+                                          {ticket.date_opened && (
+                                            <span>{format(parseISO(ticket.date_opened), 'MMM d, yyyy')}</span>
+                                          )}
                                         </div>
                                       </div>
-                                      <div className="flex items-center gap-2 flex-shrink-0">
-                                        <Badge className={cn(
-                                          'text-xs capitalize',
-                                          ticket.priority === 'critical' && 'bg-red-100 text-red-700',
-                                          ticket.priority === 'high' && 'bg-orange-100 text-orange-700',
-                                          ticket.priority === 'medium' && 'bg-yellow-100 text-yellow-700',
-                                          ticket.priority === 'low' && 'bg-blue-100 text-blue-700'
-                                        )}>
-                                          {ticket.priority}
-                                        </Badge>
-                                        <Badge className={cn(
-                                          'text-xs capitalize',
-                                          ticket.status === 'open' && 'bg-yellow-100 text-yellow-700',
-                                          ticket.status === 'in_progress' && 'bg-blue-100 text-blue-700',
-                                          ticket.status === 'waiting' && 'bg-orange-100 text-orange-700',
-                                          ticket.status === 'resolved' && 'bg-emerald-100 text-emerald-700',
-                                          ticket.status === 'closed' && 'bg-slate-100 text-slate-700'
-                                        )}>
-                                          {ticket.status?.replace('_', ' ')}
-                                        </Badge>
-                                      </div>
+                                      <Badge className={cn(
+                                        'text-xs capitalize flex-shrink-0',
+                                        ticket.status === 'new' && 'bg-purple-100 text-purple-700',
+                                        ticket.status === 'open' && 'bg-yellow-100 text-yellow-700',
+                                        ticket.status === 'in_progress' && 'bg-blue-100 text-blue-700',
+                                        ticket.status === 'waiting' && 'bg-orange-100 text-orange-700',
+                                        ticket.status === 'resolved' && 'bg-emerald-100 text-emerald-700',
+                                        ticket.status === 'closed' && 'bg-slate-100 text-slate-700'
+                                      )}>
+                                        {ticket.status?.replace('_', ' ')}
+                                      </Badge>
                                     </div>
                                   ))}
                               </div>
