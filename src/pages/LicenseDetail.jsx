@@ -49,17 +49,53 @@ export default function LicenseDetail() {
     enabled: !!license?.customer_id
   });
 
+  // Fetch ALL licenses for same application (both managed and individual)
+  const { data: relatedLicenses = [] } = useQuery({
+    queryKey: ['related_licenses', license?.application_name, license?.customer_id],
+    queryFn: async () => {
+      const allLicenses = await base44.entities.SaaSLicense.filter({ 
+        customer_id: license.customer_id,
+        application_name: license.application_name 
+      });
+      return allLicenses;
+    },
+    enabled: !!license?.customer_id && !!license?.application_name
+  });
+
+  // Separate managed and individual licenses
+  const managedLicense = relatedLicenses.find(l => l.management_type === 'managed');
+  const individualLicense = relatedLicenses.find(l => l.management_type === 'per_user');
+
   const { data: contacts = [] } = useQuery({
     queryKey: ['contacts', license?.customer_id],
     queryFn: () => base44.entities.Contact.filter({ customer_id: license.customer_id }),
     enabled: !!license?.customer_id
   });
 
-  const { data: assignments = [] } = useQuery({
-    queryKey: ['license_assignments', licenseId],
-    queryFn: () => base44.entities.LicenseAssignment.filter({ license_id: licenseId }),
-    enabled: !!licenseId
+  // Fetch assignments for ALL related licenses (both managed and individual)
+  const { data: allAssignments = [] } = useQuery({
+    queryKey: ['all_license_assignments', license?.application_name, license?.customer_id],
+    queryFn: async () => {
+      const licenseIds = relatedLicenses.map(l => l.id);
+      const assignmentPromises = licenseIds.map(id => 
+        base44.entities.LicenseAssignment.filter({ license_id: id })
+      );
+      const results = await Promise.all(assignmentPromises);
+      return results.flat();
+    },
+    enabled: relatedLicenses.length > 0
   });
+
+  // Separate assignments by license type
+  const managedAssignments = allAssignments.filter(a => 
+    a.license_id === managedLicense?.id && a.status === 'active'
+  );
+  const individualAssignments = allAssignments.filter(a => 
+    a.license_id === individualLicense?.id && a.status === 'active'
+  );
+
+  // Keep backwards compatibility
+  const assignments = allAssignments;
 
   // Redirect to Customer detail if no license id or license not found
   useEffect(() => {
