@@ -83,7 +83,7 @@ export default function CustomerDetail() {
             c.email?.includes(emailDomain) || 
             c.name?.toLowerCase().includes(emailDomain?.split('.')[0])
           ) || customers[0];
-        })();
+        })()
       : null;
   
   // Update customerId if found through email matching
@@ -974,7 +974,7 @@ export default function CustomerDetail() {
                   </div>
                 </>
               );
-            })();}
+            })()}
 
             {/* View Switcher & Filters */}
             <div className="flex flex-wrap items-center gap-3">
@@ -1155,7 +1155,7 @@ export default function CustomerDetail() {
                       </div>
                     </div>
                   );
-                })();
+                })()
 
 
               </div>
@@ -1310,7 +1310,7 @@ export default function CustomerDetail() {
                           <p>• Review licenses before renewal to avoid auto-renewals on unused subscriptions</p>
                         </>
                       );
-                    })();}
+                    })()}
                   </div>
                 </div>
               </div>
