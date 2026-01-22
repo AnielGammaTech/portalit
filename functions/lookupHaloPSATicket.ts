@@ -89,6 +89,23 @@ Deno.serve(async (req) => {
 
     const ticket = await response.json();
     
+    // Map common HaloPSA status IDs to names
+    const statusMap = {
+      1: 'New',
+      2: 'Open', 
+      3: 'In Progress',
+      4: 'Waiting',
+      5: 'Waiting on Customer',
+      6: 'Waiting on Third Party',
+      7: 'On Hold',
+      8: 'Resolved',
+      9: 'Closed',
+      10: 'Cancelled'
+    };
+    
+    const statusId = ticket.status_id || ticket.status;
+    const statusName = ticket.status_name || ticket.status?.name || statusMap[statusId] || `Status ${statusId}`;
+    
     return Response.json({
       success: true,
       ticket: {
@@ -96,9 +113,9 @@ Deno.serve(async (req) => {
         ticket_number: String(ticket.id),
         summary: ticket.summary,
         details: ticket.details,
-        status: ticket.status_name || ticket.status?.name || `Status ${ticket.status_id || ticket.status}`,
-        priority: ticket.priority_name || ticket.priority?.name || `Priority ${ticket.priority_id || ticket.priority}`,
-        assigned_to: ticket.agent_name || ticket.agent?.name || 'Unassigned',
+        status: statusName,
+        priority: ticket.priority_name || ticket.priority?.name || ticket.priority || 'Unknown',
+        assigned_to: ticket.agent_name || ticket.agent?.name || (ticket.agent_id ? `Agent ${ticket.agent_id}` : 'Unassigned'),
         requested_by: ticket.user_name || ticket.user?.name || 'Unknown',
         date_opened: ticket.dateoccurred || ticket.datecreated,
         last_updated: ticket.lastactiondate
