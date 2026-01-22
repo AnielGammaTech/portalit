@@ -7,7 +7,7 @@ import { createPageUrl } from '../utils';
 import { 
   ArrowLeft, Cloud, Users, DollarSign, Calendar, 
   Edit2, Trash2, Plus, CheckCircle2, AlertCircle,
-  Globe, Building2, RefreshCw
+  Globe, Building2, RefreshCw, CreditCard
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -56,10 +56,14 @@ export default function LicenseDetail() {
   });
 
   const activeAssignments = assignments.filter(a => a.status === 'active');
+  const isPerUser = license?.management_type === 'per_user';
   const utilizationPercent = license?.quantity > 0 ? (activeAssignments.length / license.quantity) * 100 : 0;
-  const unusedSeats = (license?.quantity || 0) - activeAssignments.length;
-  const wastedCost = license?.quantity > 0 ? (unusedSeats / license.quantity) * (license?.total_cost || 0) : 0;
+  const unusedSeats = isPerUser ? Infinity : ((license?.quantity || 0) - activeAssignments.length);
+  const wastedCost = !isPerUser && license?.quantity > 0 ? (unusedSeats / license.quantity) * (license?.total_cost || 0) : 0;
   const daysUntilRenewal = license?.renewal_date ? differenceInDays(parseISO(license.renewal_date), new Date()) : null;
+  
+  // For per-user licenses, calculate total from individual assignments
+  const perUserTotalCost = isPerUser ? activeAssignments.reduce((sum, a) => sum + (a.cost_per_license || license?.cost_per_license || 0), 0) : 0;
 
   const handleAssign = async (contactId) => {
     await base44.entities.LicenseAssignment.create({
@@ -245,108 +249,120 @@ export default function LicenseDetail() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className={cn("grid gap-4", isPerUser ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-4")}>
         <div className="bg-white rounded-xl border border-slate-200 p-5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
               <DollarSign className="w-5 h-5 text-purple-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-slate-900">${(license.total_cost || 0).toLocaleString()}</p>
+              <p className="text-2xl font-bold text-slate-900">
+                ${(isPerUser ? perUserTotalCost : (license.total_cost || 0)).toLocaleString()}
+              </p>
               <p className="text-xs text-slate-500">Monthly Cost</p>
             </div>
           </div>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-5">
           <div className="flex items-center gap-3">
-            <div className={cn(
-              "w-10 h-10 rounded-lg flex items-center justify-center",
-              utilizationPercent >= 70 ? "bg-emerald-100" : "bg-amber-100"
-            )}>
-              <Users className={cn("w-5 h-5", utilizationPercent >= 70 ? "text-emerald-600" : "text-amber-600")} />
+            <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+              <Users className="w-5 h-5 text-purple-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-slate-900">{activeAssignments.length}/{license.quantity || 0}</p>
-              <p className="text-xs text-slate-500">Seats Used ({utilizationPercent.toFixed(0)}%)</p>
+              <p className="text-2xl font-bold text-slate-900">{activeAssignments.length}</p>
+              <p className="text-xs text-slate-500">{isPerUser ? 'Individual Licenses' : `of ${license.quantity || 0} Seats`}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <div className="flex items-center gap-3">
-            <div className={cn(
-              "w-10 h-10 rounded-lg flex items-center justify-center",
-              unusedSeats > 0 ? "bg-red-100" : "bg-emerald-100"
-            )}>
-              <AlertCircle className={cn("w-5 h-5", unusedSeats > 0 ? "text-red-600" : "text-emerald-600")} />
+        {!isPerUser && (
+          <>
+            <div className="bg-white rounded-xl border border-slate-200 p-5">
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "w-10 h-10 rounded-lg flex items-center justify-center",
+                  unusedSeats > 0 ? "bg-red-100" : "bg-emerald-100"
+                )}>
+                  <AlertCircle className={cn("w-5 h-5", unusedSeats > 0 ? "text-red-600" : "text-emerald-600")} />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-slate-900">{unusedSeats}</p>
+                  <p className="text-xs text-slate-500">Unused Seats</p>
+                  {wastedCost > 0 && <p className="text-xs text-red-500">${wastedCost.toFixed(0)} wasted</p>}
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-2xl font-bold text-slate-900">{unusedSeats}</p>
-              <p className="text-xs text-slate-500">Unused Seats</p>
-              {wastedCost > 0 && <p className="text-xs text-red-500">${wastedCost.toFixed(0)} wasted</p>}
+            <div className="bg-white rounded-xl border border-slate-200 p-5">
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "w-10 h-10 rounded-lg flex items-center justify-center",
+                  daysUntilRenewal !== null && daysUntilRenewal <= 30 ? "bg-amber-100" : "bg-blue-100"
+                )}>
+                  <Calendar className={cn(
+                    "w-5 h-5",
+                    daysUntilRenewal !== null && daysUntilRenewal <= 30 ? "text-amber-600" : "text-blue-600"
+                  )} />
+                </div>
+                <div>
+                  {license.renewal_date ? (
+                    <>
+                      <p className="text-lg font-bold text-slate-900">{format(parseISO(license.renewal_date), 'MMM d, yyyy')}</p>
+                      <p className="text-xs text-slate-500">
+                        {daysUntilRenewal > 0 ? `${daysUntilRenewal} days` : 'Overdue'}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-slate-500">No renewal date</p>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <div className="flex items-center gap-3">
-            <div className={cn(
-              "w-10 h-10 rounded-lg flex items-center justify-center",
-              daysUntilRenewal !== null && daysUntilRenewal <= 30 ? "bg-amber-100" : "bg-blue-100"
-            )}>
-              <Calendar className={cn(
-                "w-5 h-5",
-                daysUntilRenewal !== null && daysUntilRenewal <= 30 ? "text-amber-600" : "text-blue-600"
-              )} />
-            </div>
-            <div>
-              {license.renewal_date ? (
-                <>
-                  <p className="text-lg font-bold text-slate-900">{format(parseISO(license.renewal_date), 'MMM d, yyyy')}</p>
-                  <p className="text-xs text-slate-500">
-                    {daysUntilRenewal > 0 ? `${daysUntilRenewal} days` : 'Overdue'}
-                  </p>
-                </>
-              ) : (
-                <p className="text-sm text-slate-500">No renewal date</p>
-              )}
-            </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
-      {/* Utilization Bar */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-slate-900">License Utilization</h2>
-          <span className={cn(
-            "text-sm font-medium px-3 py-1 rounded-full",
-            utilizationPercent >= 90 ? "bg-emerald-100 text-emerald-700" :
-            utilizationPercent >= 50 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
-          )}>
-            {utilizationPercent.toFixed(0)}% utilized
-          </span>
+      {/* Utilization Bar - Only for Managed licenses */}
+      {!isPerUser && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-slate-900">License Utilization</h2>
+            <span className={cn(
+              "text-sm font-medium px-3 py-1 rounded-full",
+              utilizationPercent >= 90 ? "bg-emerald-100 text-emerald-700" :
+              utilizationPercent >= 50 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
+            )}>
+              {utilizationPercent.toFixed(0)}% utilized
+            </span>
+          </div>
+          <div className="h-4 bg-slate-200 rounded-full overflow-hidden">
+            <div 
+              className={cn(
+                "h-full rounded-full transition-all",
+                utilizationPercent >= 90 ? "bg-emerald-500" :
+                utilizationPercent >= 50 ? "bg-amber-500" : "bg-red-500"
+              )}
+              style={{ width: `${Math.min(100, utilizationPercent)}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-sm text-slate-500 mt-2">
+            <span>{activeAssignments.length} assigned</span>
+            <span>{unusedSeats} available</span>
+          </div>
         </div>
-        <div className="h-4 bg-slate-200 rounded-full overflow-hidden">
-          <div 
-            className={cn(
-              "h-full rounded-full transition-all",
-              utilizationPercent >= 90 ? "bg-emerald-500" :
-              utilizationPercent >= 50 ? "bg-amber-500" : "bg-red-500"
-            )}
-            style={{ width: `${Math.min(100, utilizationPercent)}%` }}
-          />
-        </div>
-        <div className="flex justify-between text-sm text-slate-500 mt-2">
-          <span>{activeAssignments.length} assigned</span>
-          <span>{unusedSeats} available</span>
-        </div>
-      </div>
+      )}
 
       {/* Assigned Users */}
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h2 className="font-semibold text-slate-900">Assigned Users</h2>
-            <p className="text-sm text-slate-500">{activeAssignments.length} of {license.quantity} seats used</p>
+            <h2 className="font-semibold text-slate-900">
+              {isPerUser ? 'Individual Licenses' : 'Assigned Users'}
+            </h2>
+            <p className="text-sm text-slate-500">
+              {isPerUser 
+                ? `${activeAssignments.length} individual license${activeAssignments.length !== 1 ? 's' : ''}`
+                : `${activeAssignments.length} of ${license.quantity} seats used`
+              }
+            </p>
           </div>
           <div className="flex items-center gap-2">
             {isJumpCloudLicense && (
@@ -377,10 +393,10 @@ export default function LicenseDetail() {
               size="sm" 
               className="gap-2 bg-purple-600 hover:bg-purple-700"
               onClick={() => setShowAssignModal(true)}
-              disabled={unusedSeats <= 0}
+              disabled={!isPerUser && unusedSeats <= 0}
             >
               <Plus className="w-4 h-4" />
-              Assign User
+              {isPerUser ? 'Add License' : 'Assign User'}
             </Button>
           </div>
         </div>
@@ -442,19 +458,44 @@ export default function LicenseDetail() {
                         )}
                       </div>
                       <p className="text-sm text-slate-500">{contact?.email || 'No email'}</p>
+                      {/* Per-user billing info */}
+                      {isPerUser && (
+                        <div className="flex gap-4 mt-1 text-xs text-slate-500">
+                          {assignment.cost_per_license > 0 && (
+                            <span className="flex items-center gap-1">
+                              <DollarSign className="w-3 h-3" />
+                              ${assignment.cost_per_license}/mo
+                            </span>
+                          )}
+                          {assignment.card_last_four && (
+                            <span className="flex items-center gap-1">
+                              <CreditCard className="w-3 h-3" />
+                              •••• {assignment.card_last_four}
+                            </span>
+                          )}
+                          {assignment.renewal_date && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              Renews {format(parseISO(assignment.renewal_date), 'MMM d, yyyy')}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm text-slate-500">
-                      Assigned {assignment.assigned_date ? format(parseISO(assignment.assigned_date), 'MMM d, yyyy') : ''}
-                    </span>
+                    {!isPerUser && (
+                      <span className="text-sm text-slate-500">
+                        Assigned {assignment.assigned_date ? format(parseISO(assignment.assigned_date), 'MMM d, yyyy') : ''}
+                      </span>
+                    )}
                     <Button 
                       size="sm" 
                       variant="outline"
                       className="text-red-600 border-red-200 hover:bg-red-50"
                       onClick={() => handleRevoke(assignment.contact_id)}
                     >
-                      Revoke
+                      {isPerUser ? 'Remove' : 'Revoke'}
                     </Button>
                   </div>
                 </div>
