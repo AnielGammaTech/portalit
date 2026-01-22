@@ -49,16 +49,33 @@ export default function SupportAssistantChat({
 
   const initConversation = async () => {
     try {
-      // Fetch customer-specific AI instructions if customerId provided
+      // Fetch customer-specific AI instructions and recent tickets
       let customerInstructions = '';
+      let recentTickets = [];
+      
       if (customerId) {
         try {
-          const customers = await base44.entities.Customer.filter({ id: customerId });
+          const [customers, tickets] = await Promise.all([
+            base44.entities.Customer.filter({ id: customerId }),
+            base44.entities.Ticket.filter({ customer_id: customerId })
+          ]);
+          
           if (customers.length > 0 && customers[0].ai_support_instructions) {
             customerInstructions = customers[0].ai_support_instructions;
           }
+          
+          // Get recent tickets for context
+          recentTickets = tickets
+            .sort((a, b) => new Date(b.date_opened || 0) - new Date(a.date_opened || 0))
+            .slice(0, 5)
+            .map(t => ({
+              ticket_number: t.ticket_number,
+              summary: t.summary,
+              status: t.status,
+              date: t.date_opened
+            }));
         } catch (e) {
-          console.error('Failed to fetch customer instructions:', e);
+          console.error('Failed to fetch customer data:', e);
         }
       }
 
@@ -67,7 +84,8 @@ export default function SupportAssistantChat({
         metadata: { 
           name: 'Support Chat',
           customer_id: customerId,
-          custom_instructions: customerInstructions
+          custom_instructions: customerInstructions,
+          recent_tickets: JSON.stringify(recentTickets)
         }
       });
       setConversation(conv);
