@@ -533,19 +533,19 @@ export default function CustomerDetail() {
                         <div className="space-y-6">
                           
                           {/* Compact Summary Row */}
-                          <div className="bg-white rounded-xl border border-gray-200 px-5 py-3">
-                            <div className="flex flex-wrap items-center gap-4 divide-x divide-gray-200">
+                          <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 max-w-3xl mx-auto shadow-sm">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 items-center text-center gap-3">
                               {/* Monthly Cost */}
-                              <div className="pr-4">
+                              <div className="sm:pr-4 sm:border-r sm:border-gray-200">
                                 <p className="text-[10px] text-gray-500 uppercase tracking-wide">Monthly Cost</p>
-                                <p className="text-lg font-bold text-gray-900">
+                                <p className="text-xl font-bold text-gray-900">
                                   ${recurringBills.reduce((sum, b) => sum + (b.amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                 </p>
                               </div>
                               
                               {/* Contract */}
-                              <div className="pl-4 pr-4">
-                                <div className="flex items-center gap-1.5">
+                              <div className="sm:px-4 sm:border-r sm:border-gray-200">
+                                <div className="flex items-center justify-center gap-1.5">
                                   <p className="text-[10px] text-gray-500 uppercase tracking-wide">Contract</p>
                                   {customer?.source === 'halopsa' && (
                                     <button
@@ -583,9 +583,9 @@ export default function CustomerDetail() {
                               </div>
                               
                               {/* Invoice Status */}
-                              <div className="pl-4">
+                              <div className="sm:pl-4">
                                 <p className="text-[10px] text-gray-500 uppercase tracking-wide">Invoices</p>
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center justify-center gap-3">
                                   <div className="flex items-center gap-1">
                                     <div className="w-2 h-2 rounded-full bg-emerald-500" />
                                     <span className="text-sm font-medium text-gray-700">{invoices.filter(i => i.status === 'paid').length} Paid</span>
