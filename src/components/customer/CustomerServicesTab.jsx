@@ -756,25 +756,6 @@ export default function CustomerServicesTab({
                 </CardContent>
               </Card>
 
-              {/* Domain Info */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Domain Info</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl">
-                    <div className="p-3 bg-blue-100 rounded-lg">
-                      <HardDrive className="w-6 h-6 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-slate-900">{spanningMapping?.spanning_tenant_name}</p>
-                      <p className="text-sm text-slate-500">
-                        Last synced: {spanningMapping?.last_synced ? new Date(spanningMapping.last_synced).toLocaleDateString() : 'Never'}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
             </div>
           </TabsContent>
         )}
