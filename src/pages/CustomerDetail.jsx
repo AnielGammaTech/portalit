@@ -533,20 +533,20 @@ export default function CustomerDetail() {
                         <div className="space-y-6">
                           
                           {/* Compact Summary Row */}
-                          <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                            <div className="flex flex-wrap items-center gap-6 divide-x divide-gray-200">
+                          <div className="bg-white rounded-xl border border-gray-200 px-5 py-3">
+                            <div className="flex flex-wrap items-center gap-4 divide-x divide-gray-200">
                               {/* Monthly Cost */}
-                              <div className="pr-6">
-                                <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Monthly Cost</p>
-                                <p className="text-2xl font-bold text-gray-900">
+                              <div className="pr-4">
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Monthly Cost</p>
+                                <p className="text-lg font-bold text-gray-900">
                                   ${recurringBills.reduce((sum, b) => sum + (b.amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                 </p>
                               </div>
                               
                               {/* Contract */}
-                              <div className="pl-6 pr-6 flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <p className="text-xs text-gray-500 uppercase tracking-wide">Contract</p>
+                              <div className="pl-4 pr-4">
+                                <div className="flex items-center gap-1.5">
+                                  <p className="text-[10px] text-gray-500 uppercase tracking-wide">Contract</p>
                                   {customer?.source === 'halopsa' && (
                                     <button
                                       onClick={async () => {
@@ -576,33 +576,22 @@ export default function CustomerDetail() {
                                   )}
                                 </div>
                                 {contracts.length > 0 ? (
-                                  <div>
-                                    <p className="font-semibold text-gray-900 truncate">{contracts[0].name}</p>
-                                    {contracts[0].renewal_date && (
-                                      <p className="text-xs text-gray-500">Renews {format(parseISO(contracts[0].renewal_date), 'MMM d, yyyy')}</p>
-                                    )}
-                                  </div>
+                                  <p className="font-semibold text-gray-900">{contracts[0].name}</p>
                                 ) : (
-                                  <p className="text-gray-400 text-sm">No active contract</p>
+                                  <p className="text-gray-400 text-sm">None</p>
                                 )}
                               </div>
                               
                               {/* Invoice Status */}
-                              <div className="pl-6">
-                                <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Invoices</p>
+                              <div className="pl-4">
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Invoices</p>
                                 <div className="flex items-center gap-3">
-                                  <div className="flex items-center gap-1.5">
+                                  <div className="flex items-center gap-1">
                                     <div className="w-2 h-2 rounded-full bg-emerald-500" />
                                     <span className="text-sm font-medium text-gray-700">{invoices.filter(i => i.status === 'paid').length} Paid</span>
                                   </div>
-                                  {invoices.filter(i => i.status === 'sent').length > 0 && (
-                                    <div className="flex items-center gap-1.5">
-                                      <div className="w-2 h-2 rounded-full bg-amber-400" />
-                                      <span className="text-sm font-medium text-gray-700">{invoices.filter(i => i.status === 'sent').length} Pending</span>
-                                    </div>
-                                  )}
                                   {invoices.filter(i => i.status === 'overdue').length > 0 && (
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-1">
                                       <div className="w-2 h-2 rounded-full bg-red-500" />
                                       <span className="text-sm font-medium text-red-600">{invoices.filter(i => i.status === 'overdue').length} Overdue</span>
                                     </div>
