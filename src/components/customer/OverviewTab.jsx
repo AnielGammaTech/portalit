@@ -336,24 +336,18 @@ export default function OverviewTab({
             </div>
             <Zap className="w-5 h-5 text-slate-300" />
           </div>
-          <div className="p-4 space-y-3 max-h-[400px] overflow-y-auto">
+          <div className="p-4 space-y-3">
             {contracts.length === 0 ? (
-              <div className="py-8 text-center">
-                <FileText className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-                <p className="text-slate-400">No contracts found</p>
+              <div className="py-6 text-center">
+                <FileText className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+                <p className="text-slate-400 text-sm">No contracts found</p>
               </div>
             ) : (
               contracts
                 .sort((a, b) => (b.status === 'active' ? 1 : 0) - (a.status === 'active' ? 1 : 0))
-                .slice(0, 5)
                 .map(contract => (
                   <ContractCard key={contract.id} contract={contract} />
                 ))
-            )}
-            {contracts.length > 5 && (
-              <button className="w-full py-2 text-sm text-purple-600 hover:text-purple-700 font-medium">
-                View all {contracts.length} contracts →
-              </button>
             )}
           </div>
         </motion.div>

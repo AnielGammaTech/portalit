@@ -49,9 +49,26 @@ export default function SupportAssistantChat({
 
   const initConversation = async () => {
     try {
+      // Fetch customer-specific AI instructions if customerId provided
+      let customerInstructions = '';
+      if (customerId) {
+        try {
+          const customers = await base44.entities.Customer.filter({ id: customerId });
+          if (customers.length > 0 && customers[0].ai_support_instructions) {
+            customerInstructions = customers[0].ai_support_instructions;
+          }
+        } catch (e) {
+          console.error('Failed to fetch customer instructions:', e);
+        }
+      }
+
       const conv = await base44.agents.createConversation({
         agent_name: 'support_assistant',
-        metadata: { name: 'Support Chat' }
+        metadata: { 
+          name: 'Support Chat',
+          customer_id: customerId,
+          custom_instructions: customerInstructions
+        }
       });
       setConversation(conv);
       
