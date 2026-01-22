@@ -216,7 +216,7 @@ export default function LicenseDetail() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6 max-w-7xl mx-auto">
       {/* Back Button */}
       <Link to={createPageUrl(`CustomerDetail?id=${license.customer_id}`)}>
         <Button variant="ghost" size="sm" className="gap-2">
@@ -225,19 +225,30 @@ export default function LicenseDetail() {
         </Button>
       </Link>
 
-      {/* Header */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6">
-        <div className="flex items-start gap-6">
-          <div className="w-20 h-20 rounded-2xl bg-purple-100 flex items-center justify-center overflow-hidden flex-shrink-0">
-            {license.logo_url ? (
-              <img src={license.logo_url} alt={license.application_name} className="w-16 h-16 object-contain" />
-            ) : (
-              <Cloud className="w-10 h-10 text-purple-600" />
-            )}
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-2xl font-bold text-slate-900">{license.application_name}</h1>
+      {/* Main Two-Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* LEFT COLUMN - App Info & License Details */}
+        <div className="lg:col-span-1 space-y-6">
+          {/* App Header Card */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-16 h-16 rounded-2xl bg-purple-100 flex items-center justify-center overflow-hidden">
+                {license.logo_url ? (
+                  <img src={license.logo_url} alt={license.application_name} className="w-14 h-14 object-contain" />
+                ) : (
+                  <Cloud className="w-8 h-8 text-purple-600" />
+                )}
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => setShowEditModal(true)}
+              >
+                <Edit2 className="w-4 h-4" />
+              </Button>
+            </div>
+            <h1 className="text-xl font-bold text-slate-900 mb-2">{license.application_name}</h1>
+            <div className="flex flex-wrap gap-2 mb-4">
               <Badge className={cn(
                 "capitalize",
                 license.status === 'active' && "bg-emerald-100 text-emerald-700",
@@ -246,304 +257,325 @@ export default function LicenseDetail() {
               )}>
                 {license.status}
               </Badge>
+              <Badge variant="outline" className="capitalize">
+                {isPerUser ? 'Individual' : 'Managed'}
+              </Badge>
               {license.category && (
                 <Badge variant="outline" className="capitalize">{license.category}</Badge>
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500">
-              {license.vendor && <span>{license.vendor}</span>}
-              {license.license_type && <span>• {license.license_type}</span>}
+            
+            <div className="space-y-3 text-sm">
+              {license.vendor && (
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Vendor</span>
+                  <span className="font-medium text-slate-900">{license.vendor}</span>
+                </div>
+              )}
+              {license.license_type && (
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">License Type</span>
+                  <span className="font-medium text-slate-900">{license.license_type}</span>
+                </div>
+              )}
               {license.website_url && (
-                <a href={license.website_url.startsWith('http') ? license.website_url : `https://${license.website_url}`} 
-                   target="_blank" rel="noopener noreferrer"
-                   className="flex items-center gap-1 text-purple-600 hover:underline">
-                  <Globe className="w-3 h-3" />
-                  Website
-                </a>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Website</span>
+                  <a href={license.website_url.startsWith('http') ? license.website_url : `https://${license.website_url}`} 
+                     target="_blank" rel="noopener noreferrer"
+                     className="flex items-center gap-1 text-purple-600 hover:underline font-medium">
+                    <Globe className="w-3 h-3" />
+                    Visit
+                  </a>
+                </div>
               )}
             </div>
+            
             {license.notes && (
-              <p className="text-sm text-slate-600 mt-3 bg-slate-50 rounded-lg p-3">{license.notes}</p>
+              <div className="mt-4 pt-4 border-t border-slate-100">
+                <p className="text-xs text-slate-500 mb-1">Notes</p>
+                <p className="text-sm text-slate-600">{license.notes}</p>
+              </div>
             )}
           </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="gap-2 flex-shrink-0"
-            onClick={() => setShowEditModal(true)}
-          >
-            <Edit2 className="w-4 h-4" />
-            Edit
-          </Button>
-        </div>
-      </div>
 
-      {/* Stats Cards */}
-      <div className={cn("grid gap-4", isPerUser ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-4")}>
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-              <DollarSign className="w-5 h-5 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-slate-900">
-                ${(isPerUser ? perUserTotalCost : (license.total_cost || 0)).toLocaleString()}
-              </p>
-              <p className="text-xs text-slate-500">Monthly Cost</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-              <Users className="w-5 h-5 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-slate-900">{activeAssignments.length}</p>
-              <p className="text-xs text-slate-500">{isPerUser ? 'Individual Licenses' : `of ${license.quantity || 0} Seats`}</p>
-            </div>
-          </div>
-        </div>
-        {!isPerUser && (
-          <>
-            <div className="bg-white rounded-xl border border-slate-200 p-5">
-              <div className="flex items-center gap-3">
-                <div className={cn(
-                  "w-10 h-10 rounded-lg flex items-center justify-center",
-                  unusedSeats > 0 ? "bg-red-100" : "bg-emerald-100"
-                )}>
-                  <AlertCircle className={cn("w-5 h-5", unusedSeats > 0 ? "text-red-600" : "text-emerald-600")} />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-slate-900">{unusedSeats}</p>
-                  <p className="text-xs text-slate-500">Unused Seats</p>
-                  {wastedCost > 0 && <p className="text-xs text-red-500">${wastedCost.toFixed(0)} wasted</p>}
-                </div>
+          {/* Managed License - Company Billing Info */}
+          {!isPerUser && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Building2 className="w-5 h-5 text-purple-600" />
+                <h2 className="font-semibold text-slate-900">Company License</h2>
               </div>
-            </div>
-            <div className="bg-white rounded-xl border border-slate-200 p-5">
-              <div className="flex items-center gap-3">
-                <div className={cn(
-                  "w-10 h-10 rounded-lg flex items-center justify-center",
-                  daysUntilRenewal !== null && daysUntilRenewal <= 30 ? "bg-amber-100" : "bg-blue-100"
-                )}>
-                  <Calendar className={cn(
-                    "w-5 h-5",
-                    daysUntilRenewal !== null && daysUntilRenewal <= 30 ? "text-amber-600" : "text-blue-600"
-                  )} />
+              
+              <div className="space-y-4">
+                <div className="bg-purple-50 rounded-xl p-4">
+                  <p className="text-xs text-purple-600 font-medium uppercase tracking-wide mb-1">Monthly Cost</p>
+                  <p className="text-2xl font-bold text-purple-900">${(license.total_cost || 0).toLocaleString()}</p>
+                  <p className="text-xs text-purple-600 mt-1">${license.cost_per_license || 0}/seat × {license.quantity || 0} seats</p>
                 </div>
-                <div>
-                  {license.renewal_date ? (
-                    <>
-                      <p className="text-lg font-bold text-slate-900">{format(parseISO(license.renewal_date), 'MMM d, yyyy')}</p>
-                      <p className="text-xs text-slate-500">
-                        {daysUntilRenewal > 0 ? `${daysUntilRenewal} days` : 'Overdue'}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="text-sm text-slate-500">No renewal date</p>
+
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Total Seats</span>
+                    <span className="font-bold text-slate-900">{license.quantity || 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Assigned</span>
+                    <span className="font-medium text-emerald-600">{activeAssignments.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Available</span>
+                    <span className={cn("font-medium", unusedSeats > 0 ? "text-amber-600" : "text-slate-900")}>{unusedSeats}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Billing Cycle</span>
+                    <span className="font-medium text-slate-900 capitalize">{license.billing_cycle || 'Monthly'}</span>
+                  </div>
+                  {license.renewal_date && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Renewal Date</span>
+                      <span className={cn(
+                        "font-medium",
+                        daysUntilRenewal !== null && daysUntilRenewal <= 30 ? "text-amber-600" : "text-slate-900"
+                      )}>
+                        {format(parseISO(license.renewal_date), 'MMM d, yyyy')}
+                      </span>
+                    </div>
+                  )}
+                  {license.card_last_four && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Payment Card</span>
+                      <span className="font-medium text-slate-900 flex items-center gap-1">
+                        <CreditCard className="w-3 h-3" />
+                        •••• {license.card_last_four}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Utilization Bar */}
+                <div className="pt-3 border-t border-slate-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-slate-500">Utilization</span>
+                    <span className={cn(
+                      "text-xs font-medium",
+                      utilizationPercent >= 90 ? "text-emerald-600" :
+                      utilizationPercent >= 50 ? "text-amber-600" : "text-red-600"
+                    )}>
+                      {utilizationPercent.toFixed(0)}%
+                    </span>
+                  </div>
+                  <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                    <div 
+                      className={cn(
+                        "h-full rounded-full transition-all",
+                        utilizationPercent >= 90 ? "bg-emerald-500" :
+                        utilizationPercent >= 50 ? "bg-amber-500" : "bg-red-500"
+                      )}
+                      style={{ width: `${Math.min(100, utilizationPercent)}%` }}
+                    />
+                  </div>
+                  {wastedCost > 0 && (
+                    <p className="text-xs text-red-500 mt-2">~${wastedCost.toFixed(0)}/mo unused</p>
                   )}
                 </div>
               </div>
             </div>
-          </>
-        )}
-      </div>
+          )}
 
-      {/* Utilization Bar - Only for Managed licenses */}
-      {!isPerUser && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-slate-900">License Utilization</h2>
-            <span className={cn(
-              "text-sm font-medium px-3 py-1 rounded-full",
-              utilizationPercent >= 90 ? "bg-emerald-100 text-emerald-700" :
-              utilizationPercent >= 50 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
-            )}>
-              {utilizationPercent.toFixed(0)}% utilized
-            </span>
-          </div>
-          <div className="h-4 bg-slate-200 rounded-full overflow-hidden">
-            <div 
-              className={cn(
-                "h-full rounded-full transition-all",
-                utilizationPercent >= 90 ? "bg-emerald-500" :
-                utilizationPercent >= 50 ? "bg-amber-500" : "bg-red-500"
-              )}
-              style={{ width: `${Math.min(100, utilizationPercent)}%` }}
-            />
-          </div>
-          <div className="flex justify-between text-sm text-slate-500 mt-2">
-            <span>{activeAssignments.length} assigned</span>
-            <span>{unusedSeats} available</span>
-          </div>
+          {/* Individual License - Summary */}
+          {isPerUser && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Users className="w-5 h-5 text-purple-600" />
+                <h2 className="font-semibold text-slate-900">Individual Licenses</h2>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="bg-purple-50 rounded-xl p-4">
+                  <p className="text-xs text-purple-600 font-medium uppercase tracking-wide mb-1">Total Monthly Cost</p>
+                  <p className="text-2xl font-bold text-purple-900">${perUserTotalCost.toLocaleString()}</p>
+                  <p className="text-xs text-purple-600 mt-1">{activeAssignments.length} individual license{activeAssignments.length !== 1 ? 's' : ''}</p>
+                </div>
+
+                <p className="text-sm text-slate-500">
+                  Each user has their own license with individual billing, renewal dates, and payment methods.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Sync Options */}
+          {(isJumpCloudLicense || isSpanningLicense) && (
+            <div className="bg-slate-50 rounded-xl p-4">
+              <p className="text-xs text-slate-500 font-medium mb-3">SYNC OPTIONS</p>
+              <div className="space-y-2">
+                {isJumpCloudLicense && (
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    className="w-full gap-2"
+                    onClick={syncJumpCloudUsers}
+                    disabled={syncingUsers}
+                  >
+                    <RefreshCw className={cn("w-4 h-4", syncingUsers && "animate-spin")} />
+                    Sync from JumpCloud
+                  </Button>
+                )}
+                {isSpanningLicense && (
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    className="w-full gap-2"
+                    onClick={syncSpanningUsers}
+                    disabled={syncingUsers}
+                  >
+                    <RefreshCw className={cn("w-4 h-4", syncingUsers && "animate-spin")} />
+                    Sync from Spanning
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
-      )}
 
-      {/* Assigned Users */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-          <div>
-            <h2 className="font-semibold text-slate-900">
-              {isPerUser ? 'Individual Licenses' : 'Assigned Users'}
-            </h2>
-            <p className="text-sm text-slate-500">
-              {isPerUser 
-                ? `${activeAssignments.length} individual license${activeAssignments.length !== 1 ? 's' : ''}`
-                : `${activeAssignments.length} of ${license.quantity} seats used`
-              }
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {isJumpCloudLicense && (
+        {/* RIGHT COLUMN - Users/Assignments */}
+        <div className="lg:col-span-2">
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden h-full">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold text-slate-900">
+                  {isPerUser ? 'License Holders' : 'Seat Assignments'}
+                </h2>
+                <p className="text-sm text-slate-500">
+                  {isPerUser 
+                    ? `${activeAssignments.length} individual license${activeAssignments.length !== 1 ? 's' : ''}`
+                    : `${activeAssignments.length} of ${license.quantity || 0} seats assigned`
+                  }
+                </p>
+              </div>
               <Button 
                 size="sm" 
-                variant="outline"
-                className="gap-2"
-                onClick={syncJumpCloudUsers}
-                disabled={syncingUsers}
-              >
-                <RefreshCw className={cn("w-4 h-4", syncingUsers && "animate-spin")} />
-                Sync Users from JumpCloud
-              </Button>
-            )}
-            {isSpanningLicense && (
-              <Button 
-                size="sm" 
-                variant="outline"
-                className="gap-2"
-                onClick={syncSpanningUsers}
-                disabled={syncingUsers}
-              >
-                <RefreshCw className={cn("w-4 h-4", syncingUsers && "animate-spin")} />
-                Sync Users from Spanning
-              </Button>
-            )}
-            {!isPerUser && (
-              <Button 
-                size="sm" 
-                variant="outline"
-                className="gap-2"
-                onClick={() => setShowAddUserLicense(true)}
+                className="gap-2 bg-purple-600 hover:bg-purple-700"
+                onClick={() => (isPerUser ? setShowAddUserLicense(true) : setShowAssignModal(true))}
+                disabled={!isPerUser && unusedSeats <= 0}
               >
                 <Plus className="w-4 h-4" />
-                Add User License
-              </Button>
-            )}
-            <Button 
-              size="sm" 
-              className="gap-2 bg-purple-600 hover:bg-purple-700"
-              onClick={() => (isPerUser ? setShowAddUserLicense(true) : setShowAssignModal(true))}
-              disabled={!isPerUser && unusedSeats <= 0}
-            >
-              <Plus className="w-4 h-4" />
-              {isPerUser ? 'Add License' : 'Assign User'}
-            </Button>
-          </div>
-        </div>
-        {activeAssignments.length === 0 ? (
-          <div className="p-12 text-center">
-            <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <p className="text-slate-500 mb-4">No users assigned to this license</p>
-            <div className="flex items-center justify-center gap-3">
-              {isJumpCloudLicense && (
-                <Button 
-                  variant="outline"
-                  onClick={syncJumpCloudUsers}
-                  disabled={syncingUsers}
-                >
-                  <RefreshCw className={cn("w-4 h-4 mr-2", syncingUsers && "animate-spin")} />
-                  Sync Users from JumpCloud
-                </Button>
-              )}
-              {isSpanningLicense && (
-                <Button 
-                  variant="outline"
-                  onClick={syncSpanningUsers}
-                  disabled={syncingUsers}
-                >
-                  <RefreshCw className={cn("w-4 h-4 mr-2", syncingUsers && "animate-spin")} />
-                  Sync Users from Spanning
-                </Button>
-              )}
-              <Button onClick={() => (isPerUser ? setShowAddUserLicense(true) : setShowAssignModal(true))} className="bg-purple-600 hover:bg-purple-700">
-                <Plus className="w-4 h-4 mr-2" />
-                {isPerUser ? 'Add First License' : 'Assign First User'}
+                {isPerUser ? 'Add License' : 'Assign Seat'}
               </Button>
             </div>
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {activeAssignments.map(assignment => {
-              const contact = contacts.find(c => c.id === assignment.contact_id);
-              return (
-                <div key={assignment.id} className="px-6 py-4 flex items-center justify-between hover:bg-slate-50">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-medium">
-                      {contact?.full_name?.charAt(0) || '?'}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-slate-900">{contact?.full_name || 'Unknown User'}</p>
-                        {contact?.source === 'jumpcloud' && (
-                          <Badge className="bg-blue-100 text-blue-700 text-xs">JumpCloud</Badge>
-                        )}
-                        {contact?.source === 'halopsa' && (
-                          <Badge className="bg-amber-100 text-amber-700 text-xs">Halo</Badge>
-                        )}
-                        {contact?.source === 'spanning' && (
-                          <Badge className="bg-green-100 text-green-700 text-xs">Spanning</Badge>
-                        )}
-                        {contact?.source === 'manual' && (
-                          <Badge variant="outline" className="text-xs">Manual</Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-slate-500">{contact?.email || 'No email'}</p>
-                      {/* Per-user billing info */}
-                      {isPerUser && (
-                        <div className="flex gap-4 mt-1 text-xs text-slate-500">
-                          {assignment.cost_per_license > 0 && (
-                            <span className="flex items-center gap-1">
-                              <DollarSign className="w-3 h-3" />
-                              ${assignment.cost_per_license}/mo
-                            </span>
-                          )}
-                          {assignment.card_last_four && (
-                            <span className="flex items-center gap-1">
-                              <CreditCard className="w-3 h-3" />
-                              •••• {assignment.card_last_four}
-                            </span>
-                          )}
-                          {assignment.renewal_date && (
-                            <span className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              Renews {format(parseISO(assignment.renewal_date), 'MMM d, yyyy')}
-                            </span>
-                          )}
+            
+            {activeAssignments.length === 0 ? (
+              <div className="p-12 text-center">
+                <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                <p className="text-slate-500 mb-4">No users assigned yet</p>
+                <Button 
+                  onClick={() => (isPerUser ? setShowAddUserLicense(true) : setShowAssignModal(true))} 
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  {isPerUser ? 'Add First License' : 'Assign First User'}
+                </Button>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 max-h-[600px] overflow-y-auto">
+                {activeAssignments.map(assignment => {
+                  const contact = contacts.find(c => c.id === assignment.contact_id);
+                  return (
+                    <div key={assignment.id} className="px-6 py-4 hover:bg-slate-50">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-medium flex-shrink-0">
+                            {contact?.full_name?.charAt(0) || '?'}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-medium text-slate-900">{contact?.full_name || 'Unknown User'}</p>
+                              {contact?.source && contact.source !== 'manual' && (
+                                <Badge className={cn(
+                                  "text-xs",
+                                  contact.source === 'jumpcloud' && "bg-blue-100 text-blue-700",
+                                  contact.source === 'halopsa' && "bg-amber-100 text-amber-700",
+                                  contact.source === 'spanning' && "bg-green-100 text-green-700"
+                                )}>
+                                  {contact.source}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-slate-500">{contact?.email || 'No email'}</p>
+                            
+                            {/* Individual License Details */}
+                            {isPerUser && (
+                              <div className="mt-3 bg-slate-50 rounded-lg p-3 space-y-2">
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                  <div>
+                                    <span className="text-slate-500">Cost</span>
+                                    <p className="font-medium text-slate-900">
+                                      ${assignment.cost_per_license || license.cost_per_license || 0}/mo
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-500">Renewal</span>
+                                    <p className="font-medium text-slate-900">
+                                      {assignment.renewal_date 
+                                        ? format(parseISO(assignment.renewal_date), 'MMM d, yyyy')
+                                        : 'Not set'
+                                      }
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-500">Payment</span>
+                                    <p className="font-medium text-slate-900 flex items-center gap-1">
+                                      {assignment.card_last_four ? (
+                                        <>
+                                          <CreditCard className="w-3 h-3" />
+                                          •••• {assignment.card_last_four}
+                                        </>
+                                      ) : (
+                                        'Not set'
+                                      )}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-500">Since</span>
+                                    <p className="font-medium text-slate-900">
+                                      {assignment.assigned_date 
+                                        ? format(parseISO(assignment.assigned_date), 'MMM d, yyyy')
+                                        : 'Unknown'
+                                      }
+                                    </p>
+                                  </div>
+                                </div>
+                                {assignment.notes && (
+                                  <p className="text-xs text-slate-500 pt-2 border-t border-slate-200">{assignment.notes}</p>
+                                )}
+                              </div>
+                            )}
+                            
+                            {/* Managed License - Simple assigned date */}
+                            {!isPerUser && assignment.assigned_date && (
+                              <p className="text-xs text-slate-400 mt-1">
+                                Assigned {format(parseISO(assignment.assigned_date), 'MMM d, yyyy')}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      )}
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleRevoke(assignment.contact_id)}
+                        >
+                          {isPerUser ? 'Remove' : 'Revoke'}
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {!isPerUser && (
-                      <span className="text-sm text-slate-500">
-                        Assigned {assignment.assigned_date ? format(parseISO(assignment.assigned_date), 'MMM d, yyyy') : ''}
-                      </span>
-                    )}
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      className="text-red-600 border-red-200 hover:bg-red-50"
-                      onClick={() => handleRevoke(assignment.contact_id)}
-                    >
-                      {isPerUser ? 'Remove' : 'Revoke'}
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {/* Assignment Modal */}
