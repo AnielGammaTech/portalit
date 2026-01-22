@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
         details: ticket.details,
         status: statusName,
         priority: ticket.priority_name || ticket.priority?.name || ticket.priority || 'Unknown',
-        assigned_to: ticket.agent_name || ticket.agent?.name || (ticket.agent_id ? `Agent ${ticket.agent_id}` : 'Unassigned'),
+        assigned_to: ticket.agent_name || ticket.agent?.name || (!ticket.agent_id || ticket.agent_id === 0 ? 'Unassigned' : `Agent ID ${ticket.agent_id}`),
         requested_by: ticket.user_name || ticket.user?.name || 'Unknown',
         date_opened: ticket.dateoccurred || ticket.datecreated,
         last_updated: ticket.lastactiondate
