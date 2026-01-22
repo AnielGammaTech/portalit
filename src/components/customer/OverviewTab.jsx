@@ -41,33 +41,37 @@ import SupportAssistantChat from './SupportAssistantChat';
 
 const StatCard = ({ icon: Icon, label, value, subtext, color = 'purple', delay = 0 }) => (
   <motion.div
-    initial={{ opacity: 0, y: 20 }}
+    initial={{ opacity: 0, y: 10 }}
     animate={{ opacity: 1, y: 0 }}
-    transition={{ delay, duration: 0.3 }}
-    className="bg-white rounded-2xl border border-slate-100 p-5 hover:shadow-lg hover:border-slate-200 transition-all duration-300"
+    transition={{ delay, duration: 0.2 }}
+    className={cn(
+      "rounded-xl p-4 transition-all duration-200 hover:shadow-md",
+      color === 'blue' && "bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-100",
+      color === 'green' && "bg-gradient-to-br from-emerald-50 to-emerald-100/50 border border-emerald-100",
+      color === 'orange' && "bg-gradient-to-br from-orange-50 to-amber-100/50 border border-orange-100",
+      color === 'purple' && "bg-gradient-to-br from-purple-50 to-purple-100/50 border border-purple-100"
+    )}
   >
-    <div className="flex items-start justify-between">
+    <div className="flex items-center gap-3">
       <div className={cn(
-        "w-11 h-11 rounded-xl flex items-center justify-center",
-        color === 'blue' && "bg-blue-50",
-        color === 'green' && "bg-emerald-50",
-        color === 'orange' && "bg-orange-50",
-        color === 'purple' && "bg-purple-50"
+        "w-9 h-9 rounded-lg flex items-center justify-center",
+        color === 'blue' && "bg-blue-500/10",
+        color === 'green' && "bg-emerald-500/10",
+        color === 'orange' && "bg-orange-500/10",
+        color === 'purple' && "bg-purple-500/10"
       )}>
         <Icon className={cn(
-          "w-5 h-5",
+          "w-4 h-4",
           color === 'blue' && "text-blue-600",
           color === 'green' && "text-emerald-600",
           color === 'orange' && "text-orange-600",
           color === 'purple' && "text-purple-600"
         )} />
       </div>
-      <TrendingUp className="w-4 h-4 text-emerald-500" />
-    </div>
-    <div className="mt-4">
-      <p className="text-3xl font-bold text-slate-900 tracking-tight">{value}</p>
-      <p className="text-sm text-slate-500 mt-1">{label}</p>
-      {subtext && <p className="text-xs text-slate-400 mt-0.5">{subtext}</p>}
+      <div className="flex-1 min-w-0">
+        <p className="text-xl font-bold text-slate-900">{value}</p>
+        <p className="text-xs text-slate-500 truncate">{label}{subtext && ` · ${subtext}`}</p>
+      </div>
     </div>
   </motion.div>
 );
