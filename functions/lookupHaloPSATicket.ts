@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
+// Lookup ticket info from HaloPSA by ticket number
 async function getHaloPSAToken(settings) {
   const response = await fetch(settings.halopsa_auth_url, {
     method: 'POST',
