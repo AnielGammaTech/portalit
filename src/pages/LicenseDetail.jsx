@@ -422,7 +422,7 @@ export default function LicenseDetail() {
             <Button 
               size="sm" 
               className="gap-2 bg-purple-600 hover:bg-purple-700"
-              onClick={() => setShowAssignModal(true)}
+              onClick={() => (isPerUser ? setShowAddUserLicense(true) : setShowAssignModal(true))}
               disabled={!isPerUser && unusedSeats <= 0}
             >
               <Plus className="w-4 h-4" />
@@ -455,9 +455,9 @@ export default function LicenseDetail() {
                   Sync Users from Spanning
                 </Button>
               )}
-              <Button onClick={() => setShowAssignModal(true)} className="bg-purple-600 hover:bg-purple-700">
+              <Button onClick={() => (isPerUser ? setShowAddUserLicense(true) : setShowAssignModal(true))} className="bg-purple-600 hover:bg-purple-700">
                 <Plus className="w-4 h-4 mr-2" />
-                Assign First User
+                {isPerUser ? 'Add First License' : 'Assign First User'}
               </Button>
             </div>
           </div>
