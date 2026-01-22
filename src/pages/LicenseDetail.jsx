@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import AddUserLicenseModal from '../components/saas/AddUserLicenseModal';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,6 +29,7 @@ export default function LicenseDetail() {
   const [syncingUsers, setSyncingUsers] = useState(false);
   const [showAddSeatsModal, setShowAddSeatsModal] = useState(false);
   const [additionalSeats, setAdditionalSeats] = useState(1);
+  const [showAddUserLicense, setShowAddUserLicense] = useState(false);
 
   const { data: license, isLoading: loadingLicense } = useQuery({
     queryKey: ['license', licenseId],
@@ -411,7 +413,7 @@ export default function LicenseDetail() {
                 size="sm" 
                 variant="outline"
                 className="gap-2"
-                onClick={() => setShowAddSeatsModal(true)}
+                onClick={() => setShowAddUserLicense(true)}
               >
                 <Plus className="w-4 h-4" />
                 Add User License
@@ -554,62 +556,17 @@ export default function LicenseDetail() {
         onDelete={handleDelete}
       />
 
-      {/* Add Seats Modal */}
-      <Dialog open={showAddSeatsModal} onOpenChange={setShowAddSeatsModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add User Licenses</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-4">
-            <p className="text-sm text-slate-600">
-              How many additional user licenses would you like to add to this subscription?
-            </p>
-            <div>
-              <label className="text-sm font-medium text-slate-700 mb-2 block">Number of Seats</label>
-              <Input
-                type="number"
-                min="1"
-                value={additionalSeats}
-                onChange={(e) => setAdditionalSeats(parseInt(e.target.value) || 1)}
-                className="w-32"
-              />
-            </div>
-            <div className="bg-slate-50 rounded-lg p-4 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate-600">Current seats:</span>
-                <span className="font-medium">{license.quantity || 0}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-600">Adding:</span>
-                <span className="font-medium text-purple-600">+{additionalSeats}</span>
-              </div>
-              <div className="border-t border-slate-200 pt-2 flex justify-between">
-                <span className="text-slate-900 font-medium">New total:</span>
-                <span className="font-bold">{(license.quantity || 0) + additionalSeats} seats</span>
-              </div>
-              {license.cost_per_license > 0 && (
-                <div className="flex justify-between text-slate-600">
-                  <span>Monthly cost:</span>
-                  <span className="font-medium">
-                    ${(((license.quantity || 0) + additionalSeats) * license.cost_per_license).toFixed(2)}
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="flex justify-end gap-3 pt-2">
-              <Button variant="outline" onClick={() => setShowAddSeatsModal(false)}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleAddSeats}
-                className="bg-purple-600 hover:bg-purple-700"
-              >
-                Add Licenses
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Add User License Wizard */}
+      <AddUserLicenseModal
+        open={showAddUserLicense}
+        onClose={() => setShowAddUserLicense(false)}
+        license={license}
+        contacts={contacts}
+        onComplete={() => {
+          queryClient.invalidateQueries({ queryKey: ['license_assignments', licenseId] });
+          queryClient.invalidateQueries({ queryKey: ['license', licenseId] });
+        }}
+      />
     </div>
   );
 }
