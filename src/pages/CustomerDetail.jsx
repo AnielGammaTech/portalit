@@ -43,7 +43,8 @@ import CustomerAnalytics from '../components/customer/CustomerAnalytics';
 import DevicesTab from '../components/customer/DevicesTab';
 import CustomerServicesTab from '../components/customer/CustomerServicesTab';
 import OverviewTab from '../components/customer/OverviewTab';
-import { UserPlus } from 'lucide-react';
+import AISettingsPanel from '../components/customer/AISettingsPanel';
+import { UserPlus, Settings } from 'lucide-react';
 
 export default function CustomerDetail() {
   const [isSyncing, setIsSyncing] = useState(false);
@@ -502,6 +503,7 @@ export default function CustomerDetail() {
             { value: 'quotes', icon: FileText, label: 'Quotes' },
             { value: 'tickets', icon: HelpCircle, label: 'Support' },
             { value: 'devices', icon: Monitor, label: 'Devices' },
+            { value: 'settings', icon: Settings, label: 'Settings' },
           ].map(tab => (
             <TabsTrigger 
               key={tab.value}
@@ -1606,6 +1608,15 @@ export default function CustomerDetail() {
             customerId={customerId} 
             customerExternalId={customer?.external_id}
           />
+        </TabsContent>
+
+        <TabsContent value="settings">
+          <div className="space-y-6">
+            <AISettingsPanel 
+              customer={customer} 
+              onUpdate={() => queryClient.invalidateQueries({ queryKey: ['customers'] })}
+            />
+          </div>
         </TabsContent>
                                   </Tabs>
                       </div>
