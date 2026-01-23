@@ -455,26 +455,26 @@ export default function OverviewTab({
           className="bg-white rounded-xl border border-slate-200 overflow-hidden cursor-pointer hover:border-purple-200 transition-colors"
           onClick={() => document.querySelector('[value="devices"]')?.click()}
         >
-          <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="font-semibold text-slate-900 text-xs">Devices</h3>
-            <Badge variant="outline" className="text-[9px]">{devices.length}</Badge>
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="font-semibold text-slate-900 text-sm">Devices</h3>
+            <Badge variant="outline" className="text-xs">{devices.length}</Badge>
           </div>
-          <div className="p-2">
-            <div className="grid grid-cols-2 gap-1.5 mb-2">
-              <div className="bg-emerald-50 rounded p-1.5 text-center">
-                <p className="text-sm font-bold text-emerald-700">{devices.filter(d => d.status === 'online').length}</p>
-                <p className="text-[8px] text-emerald-600">Online</p>
+          <div className="p-4">
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <div className="bg-emerald-50 rounded-lg p-3 text-center">
+                <p className="text-lg font-bold text-emerald-700">{devices.filter(d => d.status === 'online').length}</p>
+                <p className="text-xs text-emerald-600">Online</p>
               </div>
-              <div className="bg-slate-100 rounded p-1.5 text-center">
-                <p className="text-sm font-bold text-slate-600">{devices.filter(d => d.status !== 'online').length}</p>
-                <p className="text-[8px] text-slate-500">Offline</p>
+              <div className="bg-slate-100 rounded-lg p-3 text-center">
+                <p className="text-lg font-bold text-slate-600">{devices.filter(d => d.status !== 'online').length}</p>
+                <p className="text-xs text-slate-500">Offline</p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-1">
+            <div className="grid grid-cols-2 gap-2">
               {devices.slice(0, 4).map(device => (
-                <div key={device.id} className="flex items-center gap-1 px-1">
-                  <div className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", device.status === 'online' ? "bg-emerald-500" : "bg-slate-300")} />
-                  <p className="text-[9px] text-slate-700 truncate">{device.hostname}</p>
+                <div key={device.id} className="flex items-center gap-1.5 px-1">
+                  <div className={cn("w-2 h-2 rounded-full flex-shrink-0", device.status === 'online' ? "bg-emerald-500" : "bg-slate-300")} />
+                  <p className="text-xs text-slate-700 truncate">{device.hostname}</p>
                 </div>
               ))}
             </div>
