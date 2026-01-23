@@ -544,7 +544,7 @@ export default function OverviewTab({
                       <p className={cn("text-xs", utilizationRate >= 70 ? "text-emerald-600" : "text-amber-600")}>Used</p>
                     </div>
                   </div>
-                  <p className="text-xs text-slate-500 text-center">{assignedSeats}/{totalSeats} seats</p>
+                  <p className="text-xs text-slate-500 text-center">{assignedSeats}/{totalSeats} seats • {licenses.length} apps</p>
                 </div>
               );
             })()}
