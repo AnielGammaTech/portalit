@@ -426,23 +426,23 @@ export default function OverviewTab({
           transition={{ delay: 0.3 }}
           className="bg-white rounded-xl border border-slate-200 overflow-hidden"
         >
-          <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="font-semibold text-slate-900 text-xs">Tickets</h3>
-            <Badge variant="outline" className="text-[9px]">{tickets.length}</Badge>
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="font-semibold text-slate-900 text-sm">Tickets</h3>
+            <Badge variant="outline" className="text-xs">{tickets.length}</Badge>
           </div>
-          <div className="p-2">
-            <div className="grid grid-cols-2 gap-1.5 mb-2">
-              <div className="bg-amber-50 rounded p-1.5 text-center">
-                <p className="text-sm font-bold text-amber-700">{tickets.filter(t => ['open', 'in_progress', 'new'].includes(t.status)).length}</p>
-                <p className="text-[8px] text-amber-600">Open</p>
+          <div className="p-4">
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <div className="bg-amber-50 rounded-lg p-3 text-center">
+                <p className="text-lg font-bold text-amber-700">{tickets.filter(t => ['open', 'in_progress', 'new'].includes(t.status)).length}</p>
+                <p className="text-xs text-amber-600">Open</p>
               </div>
-              <div className="bg-emerald-50 rounded p-1.5 text-center">
-                <p className="text-sm font-bold text-emerald-700">{tickets.filter(t => ['resolved', 'closed'].includes(t.status)).length}</p>
-                <p className="text-[8px] text-emerald-600">Resolved</p>
+              <div className="bg-emerald-50 rounded-lg p-3 text-center">
+                <p className="text-lg font-bold text-emerald-700">{tickets.filter(t => ['resolved', 'closed'].includes(t.status)).length}</p>
+                <p className="text-xs text-emerald-600">Resolved</p>
               </div>
             </div>
             {tickets.slice(0, 2).map(ticket => (
-              <p key={ticket.id} className="text-[10px] text-slate-600 truncate px-1">#{ticket.ticket_number} - {ticket.summary}</p>
+              <p key={ticket.id} className="text-xs text-slate-600 truncate px-1 py-0.5">#{ticket.ticket_number} - {ticket.summary}</p>
             ))}
           </div>
         </motion.div>
