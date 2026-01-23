@@ -1193,18 +1193,18 @@ export default function CustomerDetail() {
                           {userLicenses.length > 0 ? (
                             <div className="flex flex-wrap gap-2">
                               {userLicenses.map(license => (
-                                <button
+                                <Link
                                   key={license.id}
-                                  onClick={() => setSelectedLicense(license)}
-                                  className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+                                  to={createPageUrl(`LicenseDetail?id=${license.id}`)}
+                                  className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg hover:bg-purple-100 hover:text-purple-700 transition-colors"
                                 >
                                   {license.logo_url ? (
                                     <img src={license.logo_url} alt="" className="w-4 h-4 object-contain" />
                                   ) : (
                                     <Cloud className="w-4 h-4 text-purple-600" />
                                   )}
-                                  <span className="text-sm text-slate-700">{license.application_name}</span>
-                                </button>
+                                  <span className="text-sm">{license.application_name}</span>
+                                </Link>
                               ))}
                             </div>
                           ) : (
