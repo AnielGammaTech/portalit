@@ -534,7 +534,6 @@ export default function CustomerDetail() {
             { value: 'quotes', icon: FileText, label: 'Quotes' },
             { value: 'tickets', icon: HelpCircle, label: 'Support' },
             { value: 'devices', icon: Monitor, label: 'Devices' },
-            ...(user?.role === 'admin' ? [{ value: 'settings', icon: Settings, label: 'Settings' }] : []),
           ].map(tab => (
             <TabsTrigger 
               key={tab.value}
@@ -1586,14 +1585,7 @@ export default function CustomerDetail() {
           />
         </TabsContent>
 
-        <TabsContent value="settings">
-          <div className="space-y-6">
-            <AISettingsPanel 
-              customer={customer} 
-              onUpdate={() => queryClient.invalidateQueries({ queryKey: ['customers'] })}
-            />
-          </div>
-        </TabsContent>
+
                                   </Tabs>
                       </div>
                       );
