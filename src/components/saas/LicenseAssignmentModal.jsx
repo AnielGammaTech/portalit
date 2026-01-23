@@ -91,8 +91,13 @@ export default function LicenseAssignmentModal({
                 )}
               </div>
               {!isPerUser && availableSeats <= 0 && (
+                <div className="mt-3 px-3 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium">
+                  ⚠️ All seats are assigned. Revoke a license to assign to someone else.
+                </div>
+              )}
+              {!isPerUser && availableSeats > 0 && availableSeats <= 2 && (
                 <div className="mt-3 px-3 py-2 bg-amber-100 text-amber-700 rounded-lg text-sm">
-                  All seats are assigned. Revoke a license to assign to someone else.
+                  Only {availableSeats} seat{availableSeats > 1 ? 's' : ''} available
                 </div>
               )}
             </div>
