@@ -8,7 +8,7 @@ import {
   ArrowLeft, Cloud, Users, DollarSign, Calendar, 
   Edit2, Trash2, Plus, CheckCircle2, AlertCircle,
   Globe, Building2, RefreshCw, CreditCard, User,
-  ChevronDown, ChevronUp
+  ChevronDown, ChevronUp, MoreVertical
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,23 @@ import LicenseAssignmentModal from '../components/saas/LicenseAssignmentModal';
 import EditLicenseModal from '../components/saas/EditLicenseModal';
 import EditIndividualLicenseModal from '../components/saas/EditIndividualLicenseModal';
 import UserDetailModal from '../components/customer/UserDetailModal';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function LicenseDetail() {
   const params = new URLSearchParams(window.location.search);
@@ -43,6 +60,8 @@ export default function LicenseDetail() {
   const [individualExpanded, setIndividualExpanded] = useState(true);
   const [managedSectionExpanded, setManagedSectionExpanded] = useState(true);
   const [individualSectionExpanded, setIndividualSectionExpanded] = useState(true);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { data: license, isLoading: loadingLicense } = useQuery({
     queryKey: ['license', licenseId],
@@ -337,22 +356,28 @@ export default function LicenseDetail() {
     toast.success('License updated!');
   };
 
-  const handleDelete = async () => {
-    // Delete ALL related licenses and their assignments for this software
-    const allLicenseIds = relatedLicenses.map(l => l.id);
-    
-    // Delete all assignments for all related licenses
-    for (const assignment of allAssignments) {
-      await base44.entities.LicenseAssignment.delete(assignment.id);
+  const handleDeleteApp = async () => {
+    setIsDeleting(true);
+    try {
+      // Delete ALL related licenses and their assignments for this software
+      const allLicenseIds = relatedLicenses.map(l => l.id);
+      
+      // Delete all assignments for all related licenses
+      for (const assignment of allAssignments) {
+        await base44.entities.LicenseAssignment.delete(assignment.id);
+      }
+      
+      // Delete all related licenses (managed and individual)
+      for (const licId of allLicenseIds) {
+        await base44.entities.SaaSLicense.delete(licId);
+      }
+      
+      toast.success('Application and all licenses deleted!');
+      window.location.href = createPageUrl(`CustomerDetail?id=${license.customer_id}`);
+    } catch (error) {
+      toast.error('Failed to delete application');
+      setIsDeleting(false);
     }
-    
-    // Delete all related licenses (managed and individual)
-    for (const licId of allLicenseIds) {
-      await base44.entities.SaaSLicense.delete(licId);
-    }
-    
-    toast.success('Software and all licenses deleted!');
-    window.location.href = createPageUrl(`CustomerDetail?id=${license.customer_id}`);
   };
 
       const handleUpdateAssignment = async (assignmentId, data) => {
@@ -468,14 +493,31 @@ export default function LicenseDetail() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
                   <h1 className="text-lg font-bold text-slate-900 truncate">{license.application_name}</h1>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    className="h-7 w-7 -mt-1"
-                    onClick={() => setShowEditModal(true)}
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        className="h-7 w-7 -mt-1"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setShowEditModal(true)}>
+                        <Edit2 className="w-4 h-4 mr-2" />
+                        Edit Details
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={() => setShowDeleteConfirm(true)}
+                        className="text-red-600 focus:text-red-600"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete Application
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   <Badge className={cn(
@@ -1133,8 +1175,44 @@ export default function LicenseDetail() {
         onClose={() => setShowEditModal(false)}
         license={license}
         onSave={handleEditSave}
-        onDelete={handleDelete}
+        onDelete={() => setShowDeleteConfirm(true)}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {license?.application_name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this application and all associated data:
+              <ul className="list-disc ml-5 mt-2 space-y-1">
+                {managedLicenses.length > 0 && (
+                  <li>{managedLicenses.length} managed license{managedLicenses.length !== 1 ? 's' : ''} ({managedAssignments.length} seat assignment{managedAssignments.length !== 1 ? 's' : ''})</li>
+                )}
+                {individualLicenses.length > 0 && (
+                  <li>{individualLicenses.length} individual license{individualLicenses.length !== 1 ? 's' : ''} ({individualAssignments.length} assignment{individualAssignments.length !== 1 ? 's' : ''})</li>
+                )}
+              </ul>
+              <p className="mt-2 font-medium">This action cannot be undone.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteApp}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? (
+                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4 mr-2" />
+              )}
+              Delete Application
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Add User License Wizard */}
       <AddUserLicenseModal
