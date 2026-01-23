@@ -429,17 +429,41 @@ export default function LicenseDetail() {
             )}
           </div>
 
-          {/* Combined Cost Summary - Compact */}
+          {/* Combined Cost Summary - Enhanced */}
           <div className="bg-gradient-to-br from-slate-700 to-slate-800 rounded-xl p-4 text-white">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs text-slate-300 font-medium uppercase tracking-wide">Monthly Cost</p>
                 <p className="text-2xl font-bold">${combinedTotalCost.toLocaleString()}</p>
               </div>
               <div className="text-right text-xs text-slate-300">
-                <p>{managedAssignments.length + individualAssignments.length} users</p>
+                <p className="font-medium text-white">{managedAssignments.length + individualAssignments.length} users</p>
                 {managedLicense && <p>Managed: ${(managedLicense.total_cost || 0).toLocaleString()}</p>}
                 {individualLicense && <p>Individual: ${individualTotalCost.toLocaleString()}</p>}
+              </div>
+            </div>
+
+            {/* Cost per user & utilization */}
+            <div className="pt-3 border-t border-slate-600 grid grid-cols-3 gap-3 text-center">
+              <div>
+                <p className="text-lg font-semibold">
+                  ${(managedAssignments.length + individualAssignments.length) > 0 
+                    ? (combinedTotalCost / (managedAssignments.length + individualAssignments.length)).toFixed(0) 
+                    : '0'}
+                </p>
+                <p className="text-xs text-slate-400">Avg/User</p>
+              </div>
+              <div>
+                <p className="text-lg font-semibold">
+                  {managedLicense ? `${managedUtilizationPercent.toFixed(0)}%` : '—'}
+                </p>
+                <p className="text-xs text-slate-400">Utilization</p>
+              </div>
+              <div>
+                <p className="text-lg font-semibold text-amber-400">
+                  {managedWastedCost > 0 ? `$${managedWastedCost.toFixed(0)}` : '$0'}
+                </p>
+                <p className="text-xs text-slate-400">Unused</p>
               </div>
             </div>
           </div>
@@ -534,8 +558,30 @@ export default function LicenseDetail() {
               </button>
               
               {individualExpanded && (
-                <div className="px-4 pb-4 pt-2 border-t border-slate-100">
-                  <p className="text-xs text-slate-500">Each user has their own license with individual billing and renewal dates.</p>
+                <div className="px-4 pb-4 pt-2 border-t border-slate-100 space-y-3">
+                  <div className="grid grid-cols-3 gap-3 text-xs">
+                    <div className="bg-slate-50 rounded-lg p-2 text-center">
+                      <p className="font-semibold text-slate-900">
+                        ${individualAssignments.length > 0 
+                          ? (individualTotalCost / individualAssignments.length).toFixed(0) 
+                          : '0'}
+                      </p>
+                      <p className="text-slate-500">Avg Cost</p>
+                    </div>
+                    <div className="bg-slate-50 rounded-lg p-2 text-center">
+                      <p className="font-semibold text-slate-900">
+                        {individualAssignments.filter(a => a.renewal_date).length}
+                      </p>
+                      <p className="text-slate-500">With Renewal</p>
+                    </div>
+                    <div className="bg-slate-50 rounded-lg p-2 text-center">
+                      <p className="font-semibold text-slate-900">
+                        {individualAssignments.filter(a => a.card_last_four).length}
+                      </p>
+                      <p className="text-slate-500">With Payment</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-400">Each user has their own license with individual billing and renewal dates.</p>
                 </div>
               )}
             </div>
