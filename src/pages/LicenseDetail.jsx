@@ -7,7 +7,8 @@ import { createPageUrl } from '../utils';
 import { 
   ArrowLeft, Cloud, Users, DollarSign, Calendar, 
   Edit2, Trash2, Plus, CheckCircle2, AlertCircle,
-  Globe, Building2, RefreshCw, CreditCard, User
+  Globe, Building2, RefreshCw, CreditCard, User,
+  ChevronDown, ChevronUp
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,8 @@ export default function LicenseDetail() {
   const [showAddManagedLicense, setShowAddManagedLicense] = useState(false);
   const [showAddIndividualLicense, setShowAddIndividualLicense] = useState(false);
   const [selectedContact, setSelectedContact] = useState(null);
+  const [managedExpanded, setManagedExpanded] = useState(false);
+  const [individualExpanded, setIndividualExpanded] = useState(false);
 
   const { data: license, isLoading: loadingLicense } = useQuery({
     queryKey: ['license', licenseId],
@@ -426,165 +429,125 @@ export default function LicenseDetail() {
             )}
           </div>
 
-          {/* Combined Cost Summary - Always show if we have any licenses */}
-          <div className="bg-gradient-to-br from-purple-600 to-purple-800 rounded-2xl p-6 text-white">
-            <p className="text-xs text-purple-200 font-medium uppercase tracking-wide mb-1">Total Monthly Cost</p>
-            <p className="text-3xl font-bold">${combinedTotalCost.toLocaleString()}</p>
-            <div className="mt-3 space-y-1 text-sm text-purple-200">
-              {managedLicense && (
-                <p>Managed: ${(managedLicense.total_cost || 0).toLocaleString()}</p>
-              )}
-              {individualLicense && (
-                <p>Individual: ${individualTotalCost.toLocaleString()}</p>
-              )}
-            </div>
-            <div className="mt-4 pt-4 border-t border-purple-500">
-              <p className="text-sm">
-                {managedAssignments.length + individualAssignments.length} total users
-              </p>
+          {/* Combined Cost Summary - Compact */}
+          <div className="bg-gradient-to-br from-slate-700 to-slate-800 rounded-xl p-4 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-slate-300 font-medium uppercase tracking-wide">Monthly Cost</p>
+                <p className="text-2xl font-bold">${combinedTotalCost.toLocaleString()}</p>
+              </div>
+              <div className="text-right text-xs text-slate-300">
+                <p>{managedAssignments.length + individualAssignments.length} users</p>
+                {managedLicense && <p>Managed: ${(managedLicense.total_cost || 0).toLocaleString()}</p>}
+                {individualLicense && <p>Individual: ${individualTotalCost.toLocaleString()}</p>}
+              </div>
             </div>
           </div>
 
-          {/* Managed License Card - Show always with option to add */}
+          {/* Managed License Card - Collapsible */}
           {managedLicense ? (
-            <div className="bg-white rounded-2xl border border-slate-200 p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Building2 className="w-5 h-5 text-blue-600" />
-                <h2 className="font-semibold text-slate-900">Managed License</h2>
-                <Badge className="bg-blue-100 text-blue-700 text-xs ml-auto">Company-Wide</Badge>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="bg-blue-50 rounded-xl p-4">
-                  <p className="text-xs text-blue-600 font-medium uppercase tracking-wide mb-1">Monthly Cost</p>
-                  <p className="text-2xl font-bold text-blue-900">${(managedLicense.total_cost || 0).toLocaleString()}</p>
-                  <p className="text-xs text-blue-600 mt-1">${managedLicense.cost_per_license || 0}/seat × {managedLicense.quantity || 0} seats</p>
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <button 
+                onClick={() => setManagedExpanded(!managedExpanded)}
+                className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <Building2 className="w-4 h-4 text-blue-600" />
+                  <div className="text-left">
+                    <p className="font-medium text-slate-900 text-sm">Managed License</p>
+                    <p className="text-xs text-slate-500">{managedAssignments.length}/{managedLicense.quantity || 0} seats • ${(managedLicense.total_cost || 0).toLocaleString()}/mo</p>
+                  </div>
                 </div>
-
-                <div className="space-y-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Total Seats</span>
-                    <span className="font-bold text-slate-900">{managedLicense.quantity || 0}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Assigned</span>
-                    <span className="font-medium text-emerald-600">{managedAssignments.length}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Available</span>
-                    <span className={cn("font-medium", managedUnusedSeats > 0 ? "text-amber-600" : "text-slate-900")}>{managedUnusedSeats}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Billing Cycle</span>
-                    <span className="font-medium text-slate-900 capitalize">{managedLicense.billing_cycle || 'Monthly'}</span>
-                  </div>
-                  {managedLicense.renewal_date && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Renewal Date</span>
-                      <span className={cn(
-                        "font-medium",
-                        managedDaysUntilRenewal !== null && managedDaysUntilRenewal <= 30 ? "text-amber-600" : "text-slate-900"
-                      )}>
-                        {format(parseISO(managedLicense.renewal_date), 'MMM d, yyyy')}
-                      </span>
-                    </div>
-                  )}
-                  {managedLicense.card_last_four && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Payment Card</span>
-                      <span className="font-medium text-slate-900 flex items-center gap-1">
-                        <CreditCard className="w-3 h-3" />
-                        •••• {managedLicense.card_last_four}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Utilization Bar */}
-                <div className="pt-3 border-t border-slate-100">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-slate-500">Utilization</span>
-                    <span className={cn(
-                      "text-xs font-medium",
-                      managedUtilizationPercent >= 90 ? "text-emerald-600" :
-                      managedUtilizationPercent >= 50 ? "text-amber-600" : "text-red-600"
-                    )}>
-                      {managedUtilizationPercent.toFixed(0)}%
-                    </span>
-                  </div>
-                  <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                <div className="flex items-center gap-2">
+                  <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
                     <div 
                       className={cn(
-                        "h-full rounded-full transition-all",
+                        "h-full rounded-full",
                         managedUtilizationPercent >= 90 ? "bg-emerald-500" :
                         managedUtilizationPercent >= 50 ? "bg-amber-500" : "bg-red-500"
                       )}
                       style={{ width: `${Math.min(100, managedUtilizationPercent)}%` }}
                     />
                   </div>
+                  {managedExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                </div>
+              </button>
+              
+              {managedExpanded && (
+                <div className="px-4 pb-4 pt-2 border-t border-slate-100 space-y-3">
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Available</span>
+                      <span className={cn("font-medium", managedUnusedSeats > 0 ? "text-amber-600" : "text-slate-900")}>{managedUnusedSeats}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Billing</span>
+                      <span className="font-medium text-slate-900 capitalize">{managedLicense.billing_cycle || 'Monthly'}</span>
+                    </div>
+                    {managedLicense.renewal_date && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Renewal</span>
+                        <span className={cn("font-medium", managedDaysUntilRenewal !== null && managedDaysUntilRenewal <= 30 ? "text-amber-600" : "text-slate-900")}>
+                          {format(parseISO(managedLicense.renewal_date), 'MMM d, yyyy')}
+                        </span>
+                      </div>
+                    )}
+                    {managedLicense.card_last_four && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Card</span>
+                        <span className="font-medium text-slate-900">•••• {managedLicense.card_last_four}</span>
+                      </div>
+                    )}
+                  </div>
                   {managedWastedCost > 0 && (
-                    <p className="text-xs text-red-500 mt-2">~${managedWastedCost.toFixed(0)}/mo unused</p>
+                    <p className="text-xs text-red-500">~${managedWastedCost.toFixed(0)}/mo unused</p>
                   )}
                 </div>
-              </div>
+              )}
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-6">
-              <div className="flex items-center gap-2 mb-3">
-                <Building2 className="w-5 h-5 text-slate-400" />
-                <h2 className="font-semibold text-slate-500">Managed License</h2>
-              </div>
-              <p className="text-sm text-slate-400 mb-4">No managed license configured for this software.</p>
-              <Button 
-                size="sm"
-                variant="outline"
-                onClick={() => setShowAddManagedLicense(true)}
-                className="gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add Managed License
-              </Button>
-            </div>
+            <button 
+              onClick={() => setShowAddManagedLicense(true)}
+              className="w-full bg-white rounded-xl border border-dashed border-slate-300 p-4 flex items-center gap-3 hover:bg-slate-50 transition-colors"
+            >
+              <Building2 className="w-4 h-4 text-slate-400" />
+              <span className="text-sm text-slate-500">Add Managed License</span>
+              <Plus className="w-4 h-4 text-slate-400 ml-auto" />
+            </button>
           )}
 
-          {/* Individual Licenses Card - Show always with option to add */}
+          {/* Individual Licenses Card - Collapsible */}
           {individualLicense ? (
-            <div className="bg-white rounded-2xl border border-slate-200 p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <User className="w-5 h-5 text-emerald-600" />
-                <h2 className="font-semibold text-slate-900">Individual Licenses</h2>
-                <Badge className="bg-emerald-100 text-emerald-700 text-xs ml-auto">Per-User</Badge>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="bg-emerald-50 rounded-xl p-4">
-                  <p className="text-xs text-emerald-600 font-medium uppercase tracking-wide mb-1">Total Monthly Cost</p>
-                  <p className="text-2xl font-bold text-emerald-900">${individualTotalCost.toLocaleString()}</p>
-                  <p className="text-xs text-emerald-600 mt-1">{individualAssignments.length} individual license{individualAssignments.length !== 1 ? 's' : ''}</p>
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <button 
+                onClick={() => setIndividualExpanded(!individualExpanded)}
+                className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <User className="w-4 h-4 text-teal-600" />
+                  <div className="text-left">
+                    <p className="font-medium text-slate-900 text-sm">Individual Licenses</p>
+                    <p className="text-xs text-slate-500">{individualAssignments.length} license{individualAssignments.length !== 1 ? 's' : ''} • ${individualTotalCost.toLocaleString()}/mo</p>
+                  </div>
                 </div>
-
-                <p className="text-sm text-slate-500">
-                  Each user has their own license with individual billing, renewal dates, and payment methods.
-                </p>
-              </div>
+                {individualExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+              </button>
+              
+              {individualExpanded && (
+                <div className="px-4 pb-4 pt-2 border-t border-slate-100">
+                  <p className="text-xs text-slate-500">Each user has their own license with individual billing and renewal dates.</p>
+                </div>
+              )}
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-6">
-              <div className="flex items-center gap-2 mb-3">
-                <User className="w-5 h-5 text-slate-400" />
-                <h2 className="font-semibold text-slate-500">Individual Licenses</h2>
-              </div>
-              <p className="text-sm text-slate-400 mb-4">No individual licenses for this software.</p>
-              <Button 
-                size="sm"
-                variant="outline"
-                onClick={() => setShowAddIndividualLicense(true)}
-                className="gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add Individual License
-              </Button>
-            </div>
+            <button 
+              onClick={() => setShowAddIndividualLicense(true)}
+              className="w-full bg-white rounded-xl border border-dashed border-slate-300 p-4 flex items-center gap-3 hover:bg-slate-50 transition-colors"
+            >
+              <User className="w-4 h-4 text-slate-400" />
+              <span className="text-sm text-slate-500">Add Individual License</span>
+              <Plus className="w-4 h-4 text-slate-400 ml-auto" />
+            </button>
           )}
 
           {/* Sync Options */}
