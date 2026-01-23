@@ -9,7 +9,7 @@ import { Building2 } from 'lucide-react';
 export default function AddManagedLicenseModal({ open, onClose, onSave, softwareName }) {
   const [form, setForm] = useState({
     license_type: '',
-    quantity: 1,
+    quantity: 0,
     cost_per_license: 0,
     billing_cycle: 'monthly',
     renewal_date: '',
