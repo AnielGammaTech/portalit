@@ -159,20 +159,84 @@ export default function LicenseDetail() {
   };
 
   const handleAddIndividualLicense = async (data) => {
+    // First, find or create per_user license for this software
+    let perUserLicense = individualLicense;
+    
+    if (!perUserLicense) {
+      // Create a new per_user license record for this software
+      perUserLicense = await base44.entities.SaaSLicense.create({
+        customer_id: license.customer_id,
+        application_name: license.application_name,
+        vendor: license.vendor,
+        logo_url: license.logo_url,
+        website_url: license.website_url,
+        category: license.category,
+        management_type: 'per_user',
+        status: 'active',
+        source: 'manual'
+      });
+    }
+    
     await base44.entities.LicenseAssignment.create({
-      license_id: licenseId,
+      license_id: perUserLicense.id,
       contact_id: data.contact_id,
       customer_id: license.customer_id,
       assigned_date: new Date().toISOString().split('T')[0],
       status: 'active',
       renewal_date: data.renewal_date,
       card_last_four: data.card_last_four,
-      cost_per_license: data.cost_per_license
+      cost_per_license: data.cost_per_license,
+      license_type: data.license_type
     });
-    await base44.entities.SaaSLicense.update(licenseId, { assigned_users: activeAssignments.length + 1 });
-    queryClient.invalidateQueries({ queryKey: ['license_assignments', licenseId] });
+    
+    queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
+    queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
     queryClient.invalidateQueries({ queryKey: ['license', licenseId] });
+    setShowAddIndividualLicense(false);
     toast.success(`License added for ${data.contact_name}!`);
+  };
+
+  const handleAddManagedLicense = async (data) => {
+    // First, find or create managed license for this software
+    let newManagedLicense = managedLicense;
+    
+    if (!newManagedLicense) {
+      // Create a new managed license record for this software
+      newManagedLicense = await base44.entities.SaaSLicense.create({
+        customer_id: license.customer_id,
+        application_name: license.application_name,
+        vendor: license.vendor,
+        logo_url: license.logo_url,
+        website_url: license.website_url,
+        category: license.category,
+        management_type: 'managed',
+        license_type: data.license_type,
+        quantity: data.quantity,
+        cost_per_license: data.cost_per_license,
+        total_cost: data.total_cost,
+        billing_cycle: data.billing_cycle,
+        renewal_date: data.renewal_date,
+        card_last_four: data.card_last_four,
+        status: 'active',
+        source: 'manual'
+      });
+    } else {
+      // Update existing managed license
+      await base44.entities.SaaSLicense.update(newManagedLicense.id, {
+        license_type: data.license_type,
+        quantity: data.quantity,
+        cost_per_license: data.cost_per_license,
+        total_cost: data.total_cost,
+        billing_cycle: data.billing_cycle,
+        renewal_date: data.renewal_date,
+        card_last_four: data.card_last_four
+      });
+    }
+    
+    queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
+    queryClient.invalidateQueries({ queryKey: ['license', licenseId] });
+    setShowAddManagedLicense(false);
+    toast.success('Managed license added!');
   };
 
   const handleRevoke = async (contactId) => {
