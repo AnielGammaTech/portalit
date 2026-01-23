@@ -327,8 +327,8 @@ export default function OverviewTab({
         />
       </div>
 
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Three Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Contracts */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -336,22 +336,23 @@ export default function OverviewTab({
           transition={{ delay: 0.2 }}
           className="bg-white rounded-2xl border border-slate-200 overflow-hidden"
         >
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
             <div>
-              <h3 className="font-semibold text-slate-900">Contracts</h3>
-              <p className="text-sm text-slate-500">{contracts.filter(c => c.status === 'active').length} active</p>
+              <h3 className="font-semibold text-slate-900 text-sm">Contracts</h3>
+              <p className="text-xs text-slate-500">{contracts.filter(c => c.status === 'active').length} active</p>
             </div>
-            <Zap className="w-5 h-5 text-slate-300" />
+            <Zap className="w-4 h-4 text-slate-300" />
           </div>
-          <div className="p-4 space-y-3">
+          <div className="p-3 space-y-2 max-h-[280px] overflow-y-auto">
             {contracts.length === 0 ? (
               <div className="py-6 text-center">
-                <FileText className="w-8 h-8 text-slate-200 mx-auto mb-2" />
-                <p className="text-slate-400 text-sm">No contracts found</p>
+                <FileText className="w-6 h-6 text-slate-200 mx-auto mb-2" />
+                <p className="text-slate-400 text-xs">No contracts</p>
               </div>
             ) : (
               contracts
                 .sort((a, b) => (b.status === 'active' ? 1 : 0) - (a.status === 'active' ? 1 : 0))
+                .slice(0, 4)
                 .map(contract => (
                   <ContractCard key={contract.id} contract={contract} />
                 ))
@@ -366,89 +367,207 @@ export default function OverviewTab({
           transition={{ delay: 0.3 }}
           className="bg-white rounded-2xl border border-slate-200 overflow-hidden"
         >
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
             <div>
-              <h3 className="font-semibold text-slate-900">Team</h3>
-              <p className="text-sm text-slate-500">{contacts.length} members</p>
+              <h3 className="font-semibold text-slate-900 text-sm">Team</h3>
+              <p className="text-xs text-slate-500">{contacts.length} members</p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <Button 
                 size="sm" 
                 variant="ghost" 
-                className="h-8 px-3 text-slate-600"
+                className="h-7 w-7 p-0 text-slate-500"
                 onClick={onAddContact}
               >
-                <UserPlus className="w-4 h-4" />
+                <UserPlus className="w-3.5 h-3.5" />
               </Button>
               {customer?.source === 'halopsa' && (
                 <Button 
                   size="sm" 
                   variant="ghost" 
-                  className="h-8 px-3 text-slate-600"
+                  className="h-7 w-7 p-0 text-slate-500"
                   onClick={handleSyncContacts}
                   disabled={isSyncing}
                 >
-                  <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
+                  <RefreshCw className={cn("w-3.5 h-3.5", isSyncing && "animate-spin")} />
                 </Button>
               )}
             </div>
           </div>
-          <div className="p-4">
+          <div className="p-3 max-h-[280px] overflow-y-auto">
             {contacts.length === 0 ? (
-              <div className="py-8 text-center">
-                <Users className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-                <p className="text-slate-400">No team members yet</p>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="mt-3"
-                  onClick={onAddContact}
-                >
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Add Member
-                </Button>
+              <div className="py-6 text-center">
+                <Users className="w-6 h-6 text-slate-200 mx-auto mb-2" />
+                <p className="text-slate-400 text-xs">No team members</p>
               </div>
             ) : (
-              <>
-                <div className="grid grid-cols-1 gap-2">
-                  <AnimatePresence mode="wait">
-                    {paginatedContacts.map(contact => (
-                      <TeamMemberCard 
-                        key={contact.id} 
-                        contact={contact} 
-                        onClick={() => setSelectedContact(contact)}
-                      />
-                    ))}
-                  </AnimatePresence>
-                </div>
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-100">
-                    <p className="text-sm text-slate-500">
-                      {(teamPage - 1) * itemsPerPage + 1}-{Math.min(teamPage * itemsPerPage, contacts.length)} of {contacts.length}
-                    </p>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 px-3"
-                        onClick={() => setTeamPage(p => Math.max(1, p - 1))}
-                        disabled={teamPage === 1}
-                      >
-                        ←
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 px-3"
-                        onClick={() => setTeamPage(p => Math.min(totalPages, p + 1))}
-                        disabled={teamPage >= totalPages}
-                      >
-                        →
-                      </Button>
+              <div className="space-y-1.5">
+                {contacts.slice(0, 6).map(contact => (
+                  <div 
+                    key={contact.id}
+                    onClick={() => setSelectedContact(contact)}
+                    className="flex items-center gap-2.5 p-2.5 bg-slate-50/80 rounded-lg hover:bg-slate-100 cursor-pointer transition-colors"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white font-medium text-sm">
+                      {contact.full_name?.charAt(0) || '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-slate-900 text-sm truncate">{contact.full_name}</p>
+                      <p className="text-xs text-slate-500 truncate">{contact.email}</p>
                     </div>
                   </div>
+                ))}
+                {contacts.length > 6 && (
+                  <p className="text-xs text-slate-400 text-center pt-2">+{contacts.length - 6} more</p>
                 )}
-              </>
+              </div>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Recent Tickets */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="bg-white rounded-2xl border border-slate-200 overflow-hidden"
+        >
+          <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-slate-900 text-sm">Recent Tickets</h3>
+              <p className="text-xs text-slate-500">{tickets.filter(t => ['open', 'in_progress', 'new'].includes(t.status)).length} open</p>
+            </div>
+            <HelpCircle className="w-4 h-4 text-slate-300" />
+          </div>
+          <div className="p-3 max-h-[280px] overflow-y-auto">
+            {tickets.length === 0 ? (
+              <div className="py-6 text-center">
+                <HelpCircle className="w-6 h-6 text-slate-200 mx-auto mb-2" />
+                <p className="text-slate-400 text-xs">No tickets</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {tickets.slice(0, 5).map(ticket => (
+                  <div key={ticket.id} className="p-2.5 bg-slate-50 rounded-lg">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium text-slate-900 truncate flex-1">
+                        #{ticket.ticket_number}
+                      </p>
+                      <Badge className={cn(
+                        "text-[10px] px-1.5 py-0",
+                        ticket.status === 'new' && 'bg-purple-100 text-purple-700',
+                        ticket.status === 'open' && 'bg-yellow-100 text-yellow-700',
+                        ticket.status === 'in_progress' && 'bg-blue-100 text-blue-700',
+                        ticket.status === 'resolved' && 'bg-emerald-100 text-emerald-700',
+                        ticket.status === 'closed' && 'bg-slate-100 text-slate-600'
+                      )}>
+                        {ticket.status?.replace('_', ' ')}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-slate-600 mt-1 line-clamp-1">{ticket.summary}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Second Row - Software & Devices */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top Software */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="bg-white rounded-2xl border border-slate-200 overflow-hidden"
+        >
+          <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-slate-900 text-sm">Software & Licenses</h3>
+              <p className="text-xs text-slate-500">{licenses.length} applications</p>
+            </div>
+            <Cloud className="w-4 h-4 text-slate-300" />
+          </div>
+          <div className="p-3">
+            {licenses.length === 0 ? (
+              <div className="py-6 text-center">
+                <Cloud className="w-6 h-6 text-slate-200 mx-auto mb-2" />
+                <p className="text-slate-400 text-xs">No software tracked</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {licenses.slice(0, 6).map(license => {
+                  const assignedCount = licenseAssignments.filter(a => a.license_id === license.id && a.status === 'active').length;
+                  const utilization = license.quantity > 0 ? (assignedCount / license.quantity) * 100 : 0;
+                  return (
+                    <div key={license.id} className="flex items-center gap-2.5 p-2.5 bg-slate-50 rounded-lg">
+                      <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                        {license.logo_url ? (
+                          <img src={license.logo_url} alt="" className="w-6 h-6 object-contain" />
+                        ) : (
+                          <Cloud className="w-4 h-4 text-purple-600" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-900 truncate">{license.application_name}</p>
+                        <p className="text-[10px] text-slate-500">
+                          {license.quantity > 0 ? `${assignedCount}/${license.quantity} seats` : 'Per user'}
+                          {license.total_cost > 0 && ` · $${license.total_cost}/mo`}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {licenses.length > 6 && (
+              <p className="text-xs text-slate-400 text-center pt-3">+{licenses.length - 6} more applications</p>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Devices */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          className="bg-white rounded-2xl border border-slate-200 overflow-hidden"
+        >
+          <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-slate-900 text-sm">Devices</h3>
+              <p className="text-xs text-slate-500">{devices.filter(d => d.status === 'online').length} online · {devices.length} total</p>
+            </div>
+            <TrendingUp className="w-4 h-4 text-slate-300" />
+          </div>
+          <div className="p-3">
+            {devices.length === 0 ? (
+              <div className="py-6 text-center">
+                <TrendingUp className="w-6 h-6 text-slate-200 mx-auto mb-2" />
+                <p className="text-slate-400 text-xs">No devices tracked</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {devices.slice(0, 5).map(device => (
+                  <div key={device.id} className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-lg">
+                    <div className={cn(
+                      "w-2 h-2 rounded-full flex-shrink-0",
+                      device.status === 'online' ? "bg-emerald-500" : "bg-slate-300"
+                    )} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">{device.hostname}</p>
+                      <p className="text-[10px] text-slate-500">{device.os} · {device.device_type}</p>
+                    </div>
+                    {device.last_user && (
+                      <p className="text-xs text-slate-400 truncate max-w-[100px]">{device.last_user}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {devices.length > 5 && (
+              <p className="text-xs text-slate-400 text-center pt-3">+{devices.length - 5} more devices</p>
             )}
           </div>
         </motion.div>
