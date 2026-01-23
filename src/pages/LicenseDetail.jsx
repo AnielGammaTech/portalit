@@ -100,16 +100,17 @@ export default function LicenseDetail() {
   // Real-time subscription for license assignments
   useEffect(() => {
     if (!license?.customer_id) return;
-    
+
     const unsubscribe = base44.entities.LicenseAssignment.subscribe((event) => {
       if (event.data?.customer_id === license.customer_id) {
-        refetchAssignments();
+        // Immediately update local cache for faster UI
+        queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
         queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
       }
     });
-    
+
     return () => unsubscribe();
-  }, [license?.customer_id, refetchAssignments, queryClient]);
+  }, [license?.customer_id, queryClient]);
 
   // Separate assignments by license type
   const managedAssignments = allAssignments.filter(a => 
@@ -166,25 +167,63 @@ export default function LicenseDetail() {
   const combinedTotalCost = (managedLicense?.total_cost || 0) + individualTotalCost;
 
   const handleAssign = async (contactId) => {
+    // Optimistic update - add to cache immediately
+    const newAssignment = {
+      id: `temp-${Date.now()}`,
+      license_id: managedLicense?.id || licenseId,
+      contact_id: contactId,
+      customer_id: license.customer_id,
+      assigned_date: new Date().toISOString().split('T')[0],
+      status: 'active'
+    };
+    
+    queryClient.setQueryData(['all_license_assignments', license?.application_name, license?.customer_id], (old) => 
+      old ? [...old, newAssignment] : [newAssignment]
+    );
+    
+    toast.success('License assigned!');
+    setShowAssignModal(false);
+    
+    // Then persist to database
     await base44.entities.LicenseAssignment.create({
-      license_id: licenseId,
+      license_id: managedLicense?.id || licenseId,
       contact_id: contactId,
       customer_id: license.customer_id,
       assigned_date: new Date().toISOString().split('T')[0],
       status: 'active'
     });
-    await base44.entities.SaaSLicense.update(licenseId, { assigned_users: activeAssignments.length + 1 });
-    queryClient.invalidateQueries({ queryKey: ['license_assignments', licenseId] });
-    queryClient.invalidateQueries({ queryKey: ['license', licenseId] });
-    toast.success('License assigned!');
+    
+    // Refresh to get real IDs
+    queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
   };
 
   const handleAddIndividualLicense = async (data) => {
+    // Optimistic update
+    const contact = contacts.find(c => c.id === data.contact_id);
+    const newAssignment = {
+      id: `temp-${Date.now()}`,
+      license_id: individualLicense?.id || `temp-license-${Date.now()}`,
+      contact_id: data.contact_id,
+      customer_id: license.customer_id,
+      assigned_date: new Date().toISOString().split('T')[0],
+      status: 'active',
+      renewal_date: data.renewal_date,
+      card_last_four: data.card_last_four,
+      cost_per_license: data.cost_per_license,
+      license_type: data.license_type
+    };
+    
+    queryClient.setQueryData(['all_license_assignments', license?.application_name, license?.customer_id], (old) => 
+      old ? [...old, newAssignment] : [newAssignment]
+    );
+    
+    setShowAddIndividualLicense(false);
+    toast.success(`License added for ${contact?.full_name || 'user'}!`);
+    
     // First, find or create per_user license for this software
     let perUserLicense = individualLicense;
     
     if (!perUserLicense) {
-      // Create a new per_user license record for this software
       perUserLicense = await base44.entities.SaaSLicense.create({
         customer_id: license.customer_id,
         application_name: license.application_name,
@@ -196,6 +235,7 @@ export default function LicenseDetail() {
         status: 'active',
         source: 'manual'
       });
+      queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
     }
     
     await base44.entities.LicenseAssignment.create({
@@ -211,10 +251,6 @@ export default function LicenseDetail() {
     });
     
     queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
-    queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
-    queryClient.invalidateQueries({ queryKey: ['license', licenseId] });
-    setShowAddIndividualLicense(false);
-    toast.success(`License added for ${data.contact_name}!`);
   };
 
   const handleAddManagedLicense = async (data) => {
@@ -261,13 +297,18 @@ export default function LicenseDetail() {
   };
 
   const handleRevoke = async (contactId) => {
-    const assignment = assignments.find(a => a.contact_id === contactId && a.status === 'active');
+    const assignment = allAssignments.find(a => a.contact_id === contactId && a.status === 'active');
     if (assignment) {
-      await base44.entities.LicenseAssignment.update(assignment.id, { status: 'revoked' });
-      await base44.entities.SaaSLicense.update(licenseId, { assigned_users: Math.max(0, activeAssignments.length - 1) });
-      queryClient.invalidateQueries({ queryKey: ['license_assignments', licenseId] });
-      queryClient.invalidateQueries({ queryKey: ['license', licenseId] });
+      // Optimistic update - remove from cache immediately
+      queryClient.setQueryData(['all_license_assignments', license?.application_name, license?.customer_id], (old) => 
+        old ? old.filter(a => a.id !== assignment.id) : []
+      );
+      
       toast.success('License revoked!');
+      
+      // Then persist to database
+      await base44.entities.LicenseAssignment.update(assignment.id, { status: 'revoked' });
+      queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
     }
   };
 
