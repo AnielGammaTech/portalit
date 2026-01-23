@@ -627,7 +627,7 @@ export default function CustomerServicesTab({
         )}
 
         {/* Spanning Backup Tab */}
-        {hasSpanning && (
+        {spanningMapping && (
           <TabsContent value="spanning">
             <div className="space-y-4">
               {/* Stats */}
