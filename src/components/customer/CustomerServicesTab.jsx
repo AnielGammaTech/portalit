@@ -403,75 +403,97 @@ export default function CustomerServicesTab({
 
         {/* Recurring Services Tab - Always show */}
         <TabsContent value="recurring">
-            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-              <button
-                onClick={() => setExpandedBills(prev => ({ ...prev, _section: !prev._section }))}
-                className="w-full px-6 py-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
-              >
+          <div className="space-y-4">
+            {/* Summary Card */}
+            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl border border-purple-100 p-6">
+              <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-semibold text-gray-900 text-left">Your Services</h3>
-                  <p className="text-sm text-gray-500 mt-0.5">{lineItems.length} items • ${lineItems.reduce((sum, item) => sum + (item.net_amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}/month</p>
+                  <p className="text-sm font-medium text-purple-600 uppercase tracking-wide">Monthly Recurring</p>
+                  <p className="text-3xl font-bold text-slate-900 mt-1">
+                    ${lineItems.reduce((sum, item) => sum + (item.net_amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-sm text-slate-500 mt-1">{lineItems.length} services</p>
                 </div>
-                <div className="flex items-center gap-3">
-                  {customer?.source === 'halopsa' && (
-                    <button
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        try {
-                          setIsSyncing(true);
-                          const response = await base44.functions.invoke('syncHaloPSARecurringBills', { 
-                            action: 'sync_customer',
-                            customer_id: customer.external_id 
-                          });
-                          if (response.data.success) {
-                            toast.success(`Synced!`);
-                            queryClient.invalidateQueries({ queryKey: ['recurring_bills', customerId] });
-                            queryClient.invalidateQueries({ queryKey: ['line_items', customerId] });
-                          } else {
-                            toast.error(response.data.error || 'Sync failed');
-                          }
-                        } catch (error) {
-                          toast.error(error.message || 'An error occurred');
-                        } finally {
-                          setIsSyncing(false);
+                {customer?.source === 'halopsa' && (
+                  <Button
+                    onClick={async () => {
+                      try {
+                        setIsSyncing(true);
+                        const response = await base44.functions.invoke('syncHaloPSARecurringBills', { 
+                          action: 'sync_customer',
+                          customer_id: customer.external_id 
+                        });
+                        if (response.data.success) {
+                          toast.success(`Synced!`);
+                          queryClient.invalidateQueries({ queryKey: ['recurring_bills', customerId] });
+                          queryClient.invalidateQueries({ queryKey: ['line_items', customerId] });
+                        } else {
+                          toast.error(response.data.error || 'Sync failed');
                         }
-                      }}
-                      disabled={isSyncing}
-                      className="text-gray-400 hover:text-gray-600 p-2"
-                    >
-                      <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
-                    </button>
+                      } catch (error) {
+                        toast.error(error.message || 'An error occurred');
+                      } finally {
+                        setIsSyncing(false);
+                      }
+                    }}
+                    disabled={isSyncing}
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                  >
+                    <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
+                    Sync
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Services List */}
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100">
+                <h3 className="font-semibold text-slate-900">Active Services</h3>
+              </div>
+              {lineItems.length === 0 ? (
+                <div className="py-16 text-center">
+                  <HardDrive className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                  <p className="text-slate-500">No recurring services found</p>
+                  {customer?.source === 'halopsa' && (
+                    <p className="text-sm text-slate-400 mt-1">Click "Sync" to pull from HaloPSA</p>
                   )}
-                  <ChevronDown className={cn(
-                    "w-5 h-5 text-gray-400 transition-transform",
-                    expandedBills._section && "rotate-180"
-                  )} />
                 </div>
-              </button>
-              
-              {expandedBills._section && (
-                <div className="border-t border-gray-100">
-                  {lineItems.length === 0 ? (
-                    <div className="py-12 text-center">
-                      <p className="text-gray-500">No services found</p>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {lineItems.map((item, index) => (
+                    <div 
+                      key={item.id} 
+                      className="px-6 py-4 flex items-center gap-4 hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
+                        <HardDrive className="w-5 h-5 text-purple-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-slate-900">{item.description?.replace(/\s*\$recurringbillingdate\s*/gi, '').trim()}</p>
+                        <p className="text-sm text-slate-500 mt-0.5">Quantity: {item.quantity}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-slate-900">${(item.net_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                        <p className="text-xs text-slate-400">/month</p>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="divide-y divide-gray-100">
-                      {lineItems.map(item => (
-                        <div key={item.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-gray-900">{item.description?.replace(/\s*\$recurringbillingdate\s*/gi, '').trim()}</p>
-                            <p className="text-sm text-gray-500 mt-0.5">Qty: {item.quantity}</p>
-                          </div>
-                          <p className="font-semibold text-gray-900 text-lg">${(item.net_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  ))}
+                </div>
+              )}
+              {lineItems.length > 0 && (
+                <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+                  <p className="text-sm font-medium text-slate-600">Total Monthly</p>
+                  <p className="text-lg font-bold text-slate-900">
+                    ${lineItems.reduce((sum, item) => sum + (item.net_amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </p>
                 </div>
               )}
             </div>
-          </TabsContent>
+          </div>
+        </TabsContent>
 
         {/* JumpCloud Tab */}
         {jumpcloudMapping && (

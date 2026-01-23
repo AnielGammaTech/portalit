@@ -225,7 +225,7 @@ export default function CustomerDetail() {
   const hasSpanningMapping = !loadingSpanning && spanningMapping !== null && spanningMapping !== undefined;
   const hasServicesMapped = lineItems.length > 0 || hasJumpcloudMapping || hasSpanningMapping;
 
-  const [expandedBills, setExpandedBills] = useState({});
+  const [expandedBills, setExpandedBills] = useState({ _section: true });
               const [expandedQuotes, setExpandedQuotes] = useState({});
               const [expandedContracts, setExpandedContracts] = useState({});
               const [expandedInvoices, setExpandedInvoices] = useState({});
