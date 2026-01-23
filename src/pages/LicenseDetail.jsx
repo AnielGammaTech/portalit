@@ -749,60 +749,55 @@ export default function LicenseDetail() {
                   {individualAssignments.map(assignment => {
                     const contact = contacts.find(c => c.id === assignment.contact_id);
                     return (
-                      <div key={assignment.id} className="px-6 py-4 hover:bg-slate-50">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-medium flex-shrink-0">
+                      <div key={assignment.id} className="px-6 py-3 hover:bg-slate-50">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3 flex-1">
+                            <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-medium flex-shrink-0 text-sm">
                               {contact?.full_name?.charAt(0) || '?'}
                             </div>
-                            <div className="min-w-0">
-                              <p className="font-medium text-slate-900">{contact?.full_name || 'Unknown User'}</p>
-                              <p className="text-sm text-slate-500">{contact?.email || 'No email'}</p>
-                              
-                              {/* Individual License Details */}
-                              <div className="mt-3 bg-slate-50 rounded-lg p-3">
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                                  <div>
-                                    <span className="text-slate-500">Cost</span>
-                                    <p className="font-medium text-slate-900">
-                                      ${assignment.cost_per_license || individualLicense.cost_per_license || 0}/mo
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <span className="text-slate-500">Renewal</span>
-                                    <p className="font-medium text-slate-900">
-                                      {assignment.renewal_date 
-                                        ? format(parseISO(assignment.renewal_date), 'MMM d, yyyy')
-                                        : 'Not set'
-                                      }
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <span className="text-slate-500">Payment</span>
-                                    <p className="font-medium text-slate-900 flex items-center gap-1">
-                                      {assignment.card_last_four ? (
-                                        <>
-                                          <CreditCard className="w-3 h-3" />
-                                          •••• {assignment.card_last_four}
-                                        </>
-                                      ) : (
-                                        'Not set'
-                                      )}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <span className="text-slate-500">Since</span>
-                                    <p className="font-medium text-slate-900">
-                                      {assignment.assigned_date 
-                                        ? format(parseISO(assignment.assigned_date), 'MMM d, yyyy')
-                                        : 'Unknown'
-                                      }
-                                    </p>
-                                  </div>
-                                </div>
-                                {assignment.notes && (
-                                  <p className="text-xs text-slate-500 pt-2 mt-2 border-t border-slate-200">{assignment.notes}</p>
-                                )}
+                            <div className="min-w-0 flex-shrink-0">
+                              <p className="font-medium text-slate-900 text-sm">{contact?.full_name || 'Unknown User'}</p>
+                              <p className="text-xs text-slate-500">{contact?.email || 'No email'}</p>
+                            </div>
+                            
+                            {/* Individual License Details - Inline */}
+                            <div className="flex items-center gap-6 ml-auto text-xs">
+                              <div>
+                                <span className="text-slate-400">Cost</span>
+                                <p className="font-medium text-slate-900">
+                                  ${assignment.cost_per_license || individualLicense?.cost_per_license || 0}/mo
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-slate-400">Renewal</span>
+                                <p className="font-medium text-slate-900">
+                                  {assignment.renewal_date 
+                                    ? format(parseISO(assignment.renewal_date), 'MMM d, yyyy')
+                                    : 'Not set'
+                                  }
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-slate-400">Payment</span>
+                                <p className="font-medium text-slate-900 flex items-center gap-1">
+                                  {assignment.card_last_four ? (
+                                    <>
+                                      <CreditCard className="w-3 h-3" />
+                                      •••• {assignment.card_last_four}
+                                    </>
+                                  ) : (
+                                    '—'
+                                  )}
+                                </p>
+                              </div>
+                              <div className="hidden sm:block">
+                                <span className="text-slate-400">Since</span>
+                                <p className="font-medium text-slate-900">
+                                  {assignment.assigned_date 
+                                    ? format(parseISO(assignment.assigned_date), 'MMM d, yyyy')
+                                    : '—'
+                                  }
+                                </p>
                               </div>
                             </div>
                           </div>
