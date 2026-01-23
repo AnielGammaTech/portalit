@@ -141,7 +141,7 @@ export default function AddManagedLicenseModal({ open, onClose, onSave, software
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-blue-600 hover:bg-blue-700 gap-2">
+            <Button type="submit" disabled={!form.quantity || form.quantity < 1} className="bg-blue-600 hover:bg-blue-700 gap-2">
               <Building2 className="w-4 h-4" />
               Add Managed License
             </Button>
