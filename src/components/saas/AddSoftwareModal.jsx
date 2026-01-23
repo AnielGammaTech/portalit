@@ -135,11 +135,7 @@ Return JSON with:
       notes: form.notes,
       customer_id: customerId,
       source: 'manual',
-      status: 'active',
-      management_type: 'managed',
-      quantity: 0,
-      cost_per_license: 0,
-      total_cost: 0
+      status: 'active'
     };
     onSave(softwareData);
   };
