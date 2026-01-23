@@ -311,6 +311,7 @@ function IntegrationCard({ icon: Icon, iconBg, title, description, status, child
 
 export default function Settings() {
   const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [companySettings, setCompanySettings] = useState({
     company_name: '',
     company_email: '',
@@ -334,6 +335,7 @@ export default function Settings() {
           company_address: currentUser.company_address || ''
         });
       }
+      setIsLoading(false);
     };
     loadUser();
   }, []);
@@ -342,6 +344,30 @@ export default function Settings() {
     await base44.auth.updateMe(companySettings);
     toast.success('Company settings saved');
   };
+
+  const isAdmin = user?.role === 'admin';
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+      </div>
+    );
+  }
+
+  // Non-admin users should not access this page at all
+  if (!isAdmin) {
+    return (
+      <div className="space-y-6 max-w-4xl">
+        <Breadcrumbs items={[{ label: 'Settings' }]} />
+        <div className="text-center py-12">
+          <Shield className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-slate-900 mb-2">Access Restricted</h2>
+          <p className="text-slate-500">This page is only available to administrators.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-4xl">
