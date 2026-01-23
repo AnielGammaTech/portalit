@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '../utils';
+import Breadcrumbs from '../components/ui/breadcrumbs';
 import { 
   Building2, 
   Plus, 
@@ -186,6 +187,8 @@ export default function Customers() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumbs items={[{ label: 'Customers' }]} />
+      
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

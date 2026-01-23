@@ -4,6 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
+import Breadcrumbs from '../components/ui/breadcrumbs';
 import { 
   Building2, 
   ArrowLeft,
@@ -432,14 +433,13 @@ export default function CustomerDetail() {
 
   return (
     <div className="space-y-6">
-      {/* Header with Back Button and Sync */}
-      <div className="flex items-center justify-between">
-       <Link to={createPageUrl('Dashboard')}>
-         <Button variant="ghost" size="sm" className="gap-2">
-           <ArrowLeft className="w-4 h-4" />
-           Back to Dashboard
-         </Button>
-       </Link>
+      <Breadcrumbs items={[
+        { label: 'Customers', href: createPageUrl('Customers') },
+        { label: customer?.name || 'Customer' }
+      ]} />
+      
+      {/* Header with Sync */}
+      <div className="flex items-center justify-end">
        {customer?.source === 'halopsa' && (
          <Button 
            onClick={handleSyncCustomer}

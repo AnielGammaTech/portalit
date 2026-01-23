@@ -4,6 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
+import Breadcrumbs from '../components/ui/breadcrumbs';
 import { 
   ArrowLeft, Cloud, Users, DollarSign, Calendar, 
   Edit2, Trash2, Plus, CheckCircle2, AlertCircle,
@@ -487,13 +488,11 @@ export default function LicenseDetail() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Back Button */}
-      <Link to={createPageUrl(`CustomerDetail?id=${license.customer_id}`)}>
-        <Button variant="ghost" size="sm" className="gap-2">
-          <ArrowLeft className="w-4 h-4" />
-          Back to {customer?.name || 'Customer'}
-        </Button>
-      </Link>
+      <Breadcrumbs items={[
+        { label: 'Customers', href: createPageUrl('Customers') },
+        { label: customer?.name || 'Customer', href: createPageUrl(`CustomerDetail?id=${license.customer_id}`) },
+        { label: license.application_name }
+      ]} />
 
       {/* Main Two-Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

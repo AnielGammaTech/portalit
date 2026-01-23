@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
+import Breadcrumbs from '../components/ui/breadcrumbs';
 import { 
   DollarSign, 
   FileText, 
@@ -480,6 +481,8 @@ function ContractsTab() {
 export default function Billing() {
   return (
     <div className="space-y-6">
+      <Breadcrumbs items={[{ label: 'Billing' }]} />
+      
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Billing</h1>
         <p className="text-slate-500 mt-1">Manage invoices, recurring bills, and contracts</p>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
+import Breadcrumbs from '../components/ui/breadcrumbs';
 import {
   Shield,
   Users,
@@ -100,6 +101,8 @@ export default function Adminland() {
 
   return (
     <div className="max-w-4xl mx-auto py-8">
+      <Breadcrumbs items={[{ label: 'Adminland' }]} />
+      
       {/* Header */}
       <div className="flex items-center gap-4 mb-8">
         <div className="w-12 h-12 rounded-2xl bg-blue-500 flex items-center justify-center">

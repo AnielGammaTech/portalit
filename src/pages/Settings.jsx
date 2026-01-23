@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
+import Breadcrumbs from '../components/ui/breadcrumbs';
 import { 
   Settings as SettingsIcon,
   User,
@@ -91,6 +92,8 @@ export default function Settings() {
 
   return (
     <div className="space-y-6 max-w-4xl">
+      <Breadcrumbs items={[{ label: 'Settings' }]} />
+      
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Settings</h1>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
+import Breadcrumbs from '../components/ui/breadcrumbs';
 import { 
   Cloud, 
   Users, 
@@ -598,6 +599,8 @@ function DattoTab() {
 export default function Services() {
   return (
     <div className="space-y-6">
+      <Breadcrumbs items={[{ label: 'Services' }]} />
+      
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Services</h1>
         <p className="text-slate-500 mt-1">View all integrated service data across your customers</p>

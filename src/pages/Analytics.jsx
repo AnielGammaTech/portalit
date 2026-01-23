@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
+import Breadcrumbs from '../components/ui/breadcrumbs';
 import {
-  ArrowLeft,
   TrendingUp,
   DollarSign,
   FileText,
@@ -15,7 +15,7 @@ import {
   PieChart as PieChartIcon,
   Users
 } from 'lucide-react';
-import { Button } from "@/components/ui/button";
+
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -242,19 +242,13 @@ export default function Analytics() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumbs items={[{ label: 'Analytics' }]} />
+      
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Link to={createPageUrl('Dashboard')}>
-            <Button variant="ghost" size="sm" className="gap-2">
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Analytics & Reports</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Analytics & Reports</h1>
             <p className="text-sm text-slate-500">Track your business performance</p>
-          </div>
         </div>
         
         <div className="flex items-center gap-3">
