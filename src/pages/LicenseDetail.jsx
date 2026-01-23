@@ -12,6 +12,8 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import AddUserLicenseModal from '../components/saas/AddUserLicenseModal';
+import AddManagedLicenseModal from '../components/saas/AddManagedLicenseModal';
+import AddIndividualLicenseModal from '../components/saas/AddIndividualLicenseModal';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
