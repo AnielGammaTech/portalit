@@ -21,7 +21,8 @@ import {
   Users,
   Search,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Wand2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
@@ -42,6 +43,7 @@ export default function SpanningConfig() {
   const [filterTab, setFilterTab] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [domainSelections, setDomainSelections] = useState({});
+  const [autoMatching, setAutoMatching] = useState(false);
   const itemsPerPage = 10;
 
   const queryClient = useQueryClient();
@@ -217,6 +219,53 @@ export default function SpanningConfig() {
   const mappedCount = spanningDomains.filter(d => mappings.some(m => m.spanning_tenant_id === String(d.id))).length;
   const unmappedCount = spanningDomains.length - mappedCount;
 
+  // Auto-match domains to customers by name similarity
+  const autoMatchDomains = async () => {
+    setAutoMatching(true);
+    let matched = 0;
+    
+    try {
+      for (const domain of spanningDomains) {
+        const domainId = String(domain.id);
+        const domainName = (domain.name || domain.domainName || '').toLowerCase();
+        
+        // Skip if already mapped
+        if (mappings.some(m => m.spanning_tenant_id === domainId)) continue;
+        
+        // Find matching customer by name similarity
+        const matchedCustomer = customers.find(customer => {
+          const customerName = customer.name.toLowerCase();
+          // Check if domain name contains customer name or vice versa
+          return customerName.includes(domainName) || 
+                 domainName.includes(customerName) ||
+                 // Also check for partial matches (first word, etc.)
+                 customerName.split(' ')[0] === domainName.split(' ')[0] ||
+                 customerName.split(',')[0].trim() === domainName.split(',')[0].trim();
+        });
+        
+        if (matchedCustomer) {
+          await base44.entities.SpanningMapping.create({
+            customer_id: matchedCustomer.id,
+            spanning_tenant_id: domainId,
+            spanning_tenant_name: domain.name || domain.domainName
+          });
+          matched++;
+        }
+      }
+      
+      if (matched > 0) {
+        toast.success(`Auto-matched ${matched} domains!`);
+        refetchMappings();
+      } else {
+        toast.info('No new matches found');
+      }
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setAutoMatching(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       {/* Connection Status */}
@@ -334,47 +383,58 @@ export default function SpanningConfig() {
           /* Domain Mapping View */
           <div className="border border-slate-200 rounded-xl overflow-hidden">
             {/* Header */}
-            <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <Input
-                    placeholder="Search domains..."
-                    value={searchQuery}
-                    onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                    className="pl-9 w-56 h-9 text-sm"
-                  />
-                </div>
-                <div className="flex items-center border border-slate-200 rounded-lg bg-white">
-                  <button
-                    onClick={() => { setFilterTab('all'); setCurrentPage(1); }}
-                    className={cn(
-                      "px-3 py-1.5 text-xs font-medium rounded-l-lg transition-colors",
-                      filterTab === 'all' ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
-                    )}
-                  >
-                    All ({spanningDomains.length})
-                  </button>
-                  <button
-                    onClick={() => { setFilterTab('mapped'); setCurrentPage(1); }}
-                    className={cn(
-                      "px-3 py-1.5 text-xs font-medium border-x border-slate-200 transition-colors",
-                      filterTab === 'mapped' ? "bg-emerald-600 text-white" : "text-slate-600 hover:bg-slate-100"
-                    )}
-                  >
-                    Mapped ({mappedCount})
-                  </button>
-                  <button
-                    onClick={() => { setFilterTab('unmapped'); setCurrentPage(1); }}
-                    className={cn(
-                      "px-3 py-1.5 text-xs font-medium rounded-r-lg transition-colors",
-                      filterTab === 'unmapped' ? "bg-amber-600 text-white" : "text-slate-600 hover:bg-slate-100"
-                    )}
-                  >
-                    Unmapped ({unmappedCount})
-                  </button>
-                </div>
+            <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Input
+                  placeholder="Search domains..."
+                  value={searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                  className="pl-9 w-56 h-9 text-sm"
+                />
               </div>
+              <div className="flex items-center border border-slate-200 rounded-lg bg-white">
+                <button
+                  onClick={() => { setFilterTab('all'); setCurrentPage(1); }}
+                  className={cn(
+                    "px-3 py-1.5 text-xs font-medium rounded-l-lg transition-colors",
+                    filterTab === 'all' ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+                  )}
+                >
+                  All ({spanningDomains.length})
+                </button>
+                <button
+                  onClick={() => { setFilterTab('mapped'); setCurrentPage(1); }}
+                  className={cn(
+                    "px-3 py-1.5 text-xs font-medium border-x border-slate-200 transition-colors",
+                    filterTab === 'mapped' ? "bg-emerald-600 text-white" : "text-slate-600 hover:bg-slate-100"
+                  )}
+                >
+                  Mapped ({mappedCount})
+                </button>
+                <button
+                  onClick={() => { setFilterTab('unmapped'); setCurrentPage(1); }}
+                  className={cn(
+                    "px-3 py-1.5 text-xs font-medium rounded-r-lg transition-colors",
+                    filterTab === 'unmapped' ? "bg-amber-600 text-white" : "text-slate-600 hover:bg-slate-100"
+                  )}
+                >
+                  Unmapped ({unmappedCount})
+                </button>
+              </div>
+            </div>
+            {unmappedCount > 0 && (
+              <Button
+                onClick={autoMatchDomains}
+                disabled={autoMatching}
+                size="sm"
+                className="bg-purple-600 hover:bg-purple-700 gap-2"
+              >
+                <Wand2 className={cn("w-4 h-4", autoMatching && "animate-spin")} />
+                {autoMatching ? 'Matching...' : 'Auto-Match'}
+              </Button>
+            )}
             </div>
 
             {/* Table */}
@@ -413,15 +473,17 @@ export default function SpanningConfig() {
                               value={selectedCustomerId}
                               onValueChange={(val) => setDomainSelections(prev => ({ ...prev, [domainId]: val }))}
                             >
-                              <SelectTrigger className="h-8 text-sm text-slate-500 w-44">
+                              <SelectTrigger className="h-8 text-sm text-slate-500 w-48">
                                 <SelectValue placeholder="Select customer..." />
                               </SelectTrigger>
-                              <SelectContent>
-                                {customers.map(customer => (
-                                  <SelectItem key={customer.id} value={customer.id}>
-                                    {customer.name}
-                                  </SelectItem>
-                                ))}
+                              <SelectContent position="popper" className="z-[9999] max-h-60" sideOffset={4}>
+                                {customers
+                                  .sort((a, b) => a.name.localeCompare(b.name))
+                                  .map(customer => (
+                                    <SelectItem key={customer.id} value={customer.id}>
+                                      {customer.name}
+                                    </SelectItem>
+                                  ))}
                               </SelectContent>
                             </Select>
                           )}
