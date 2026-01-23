@@ -223,6 +223,27 @@ export default function LicenseDetail() {
   const handleAssign = async (contactId, targetLicenseId = null) => {
     const licenseToAssign = targetLicenseId || selectedManagedLicenseId || managedLicense?.id || licenseId;
     
+    // Check if user is already assigned to this license
+    const existingAssignment = allAssignments.find(a => 
+      a.license_id === licenseToAssign && 
+      a.contact_id === contactId && 
+      a.status === 'active'
+    );
+    if (existingAssignment) {
+      toast.error('This user is already assigned to this license');
+      return;
+    }
+    
+    // Check if seats are available (for managed licenses)
+    const targetLicense = relatedLicenses.find(l => l.id === licenseToAssign);
+    if (targetLicense?.management_type === 'managed') {
+      const currentAssignments = allAssignments.filter(a => a.license_id === licenseToAssign && a.status === 'active').length;
+      if (currentAssignments >= (targetLicense.quantity || 0)) {
+        toast.error('No seats available. Please add more seats or revoke an existing assignment.');
+        return;
+      }
+    }
+    
     // Optimistic update - add to cache immediately
     const newAssignment = {
       id: `temp-${Date.now()}`,
