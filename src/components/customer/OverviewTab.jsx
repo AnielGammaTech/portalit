@@ -396,19 +396,19 @@ export default function OverviewTab({
           transition={{ delay: 0.25 }}
           className="bg-white rounded-xl border border-slate-200 overflow-hidden"
         >
-          <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="font-semibold text-slate-900 text-xs">Quotes</h3>
-            <Badge variant="outline" className="text-[9px]">{quotes.length}</Badge>
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="font-semibold text-slate-900 text-sm">Quotes</h3>
+            <Badge variant="outline" className="text-xs">{quotes.length}</Badge>
           </div>
-          <div className="p-2 space-y-1.5">
+          <div className="p-4 space-y-2">
             {quotes.length === 0 ? (
-              <p className="text-slate-400 text-[10px] text-center py-3">No quotes</p>
+              <p className="text-slate-400 text-sm text-center py-4">No quotes</p>
             ) : (
               quotes.slice(0, 3).map(quote => (
                 <div key={quote.id} className="flex items-center justify-between px-1">
-                  <p className="text-[10px] font-medium text-slate-900 truncate flex-1">{quote.quote_number}</p>
+                  <p className="text-sm font-medium text-slate-900 truncate flex-1">{quote.quote_number}</p>
                   <Badge className={cn(
-                    "text-[8px] px-1 py-0 ml-1",
+                    "text-xs px-2 py-0.5 ml-2",
                     quote.status === 'accepted' && 'bg-emerald-100 text-emerald-700',
                     quote.status === 'sent' && 'bg-blue-100 text-blue-700',
                     quote.status === 'draft' && 'bg-slate-100 text-slate-600'
