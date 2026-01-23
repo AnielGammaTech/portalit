@@ -53,6 +53,7 @@ import {
 export default function LicenseDetail() {
   const params = new URLSearchParams(window.location.search);
   const licenseId = params.get('id');
+  const appId = params.get('appId'); // For catalog-only entries
   const queryClient = useQueryClient();
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -76,6 +77,17 @@ export default function LicenseDetail() {
   const [renewalBillingCycle, setRenewalBillingCycle] = useState('annually');
   const [renewalDate, setRenewalDate] = useState('');
 
+  // Fetch Application catalog entry (for catalog-only software)
+  const { data: application, isLoading: loadingApplication } = useQuery({
+    queryKey: ['application', appId],
+    queryFn: async () => {
+      const apps = await base44.entities.Application.filter({ id: appId });
+      return apps[0];
+    },
+    enabled: !!appId && !licenseId,
+    staleTime: 1000 * 60
+  });
+
   const { data: license, isLoading: loadingLicense } = useQuery({
     queryKey: ['license', licenseId],
     queryFn: async () => {
@@ -86,30 +98,44 @@ export default function LicenseDetail() {
     staleTime: 1000 * 60 // Cache for 1 minute
   });
 
+  // Create a unified "software" object from either license or application
+  const software = license || (application ? {
+    id: application.id,
+    application_name: application.name,
+    vendor: application.vendor,
+    logo_url: application.logo_url,
+    website_url: application.website_url,
+    category: application.category,
+    notes: application.notes,
+    customer_id: application.customer_id,
+    status: application.status || 'active',
+    _isApplication: true // Flag to identify this is a catalog entry
+  } : null);
+
   const { data: customer } = useQuery({
-    queryKey: ['customer', license?.customer_id],
+    queryKey: ['customer', software?.customer_id],
     queryFn: async () => {
-      const customers = await base44.entities.Customer.filter({ id: license.customer_id });
+      const customers = await base44.entities.Customer.filter({ id: software.customer_id });
       return customers[0];
     },
-    enabled: !!license?.customer_id,
+    enabled: !!software?.customer_id,
     staleTime: 1000 * 60 * 5 // Cache customer for 5 minutes
   });
 
   // Fetch ALL licenses for same application (both managed and individual)
   const { data: relatedLicenses = [] } = useQuery({
-    queryKey: ['related_licenses', license?.application_name, license?.customer_id],
+    queryKey: ['related_licenses', software?.application_name, software?.customer_id],
     queryFn: async () => {
       const allLicenses = await base44.entities.SaaSLicense.filter({ 
-        customer_id: license.customer_id,
-        application_name: license.application_name 
+        customer_id: software.customer_id,
+        application_name: software.application_name 
       });
       return allLicenses;
     },
-    enabled: !!license?.customer_id && !!license?.application_name,
+    enabled: !!software?.customer_id && !!software?.application_name,
     staleTime: 1000 * 60,
-    // Use the single license as initial data if we have it
-    initialData: license ? [license] : undefined
+    // Use the single license as initial data if we have it (only for actual licenses)
+    initialData: license && !software?._isApplication ? [license] : undefined
   });
 
   // Separate managed and individual licenses - support multiple of each type
@@ -121,17 +147,18 @@ export default function LicenseDetail() {
   const individualLicense = individualLicenses[0];
 
   const { data: contacts = [] } = useQuery({
-    queryKey: ['contacts', license?.customer_id],
-    queryFn: () => base44.entities.Contact.filter({ customer_id: license.customer_id }),
-    enabled: !!license?.customer_id,
+    queryKey: ['contacts', software?.customer_id],
+    queryFn: () => base44.entities.Contact.filter({ customer_id: software.customer_id }),
+    enabled: !!software?.customer_id,
     staleTime: 1000 * 60 * 5 // Cache contacts for 5 minutes
   });
 
   // Fetch assignments for ALL related licenses (both managed and individual)
   const { data: allAssignments = [], refetch: refetchAssignments } = useQuery({
-    queryKey: ['all_license_assignments', license?.application_name, license?.customer_id],
+    queryKey: ['all_license_assignments', software?.application_name, software?.customer_id],
     queryFn: async () => {
       const licenseIds = relatedLicenses.map(l => l.id);
+      if (licenseIds.length === 0) return [];
       const assignmentPromises = licenseIds.map(id => 
         base44.entities.LicenseAssignment.filter({ license_id: id })
       );
@@ -144,10 +171,10 @@ export default function LicenseDetail() {
 
   // Real-time subscription for license assignments
   useEffect(() => {
-    if (!license?.customer_id) return;
+    if (!software?.customer_id) return;
 
     const unsubscribe = base44.entities.LicenseAssignment.subscribe((event) => {
-      if (event.data?.customer_id === license.customer_id) {
+      if (event.data?.customer_id === software.customer_id) {
         // Immediately update local cache for faster UI
         queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
         queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
@@ -155,7 +182,7 @@ export default function LicenseDetail() {
     });
 
     return () => unsubscribe();
-  }, [license?.customer_id, queryClient]);
+  }, [software?.customer_id, queryClient]);
 
   // Separate assignments by license type - support multiple licenses
   const managedAssignments = allAssignments.filter(a => 
@@ -172,19 +199,21 @@ export default function LicenseDetail() {
   // Keep backwards compatibility
   const assignments = allAssignments;
 
-  // Redirect to Customer detail if no license id or license not found
+  // Redirect to Customer detail if no license/app id or not found
   useEffect(() => {
-    if (!licenseId) {
+    if (!licenseId && !appId) {
       window.location.href = createPageUrl('CustomerDetail');
       return;
     }
-    if (!loadingLicense && !license) {
+    const isLoading = licenseId ? loadingLicense : loadingApplication;
+    if (!isLoading && !software) {
       window.location.href = createPageUrl('CustomerDetail');
     }
-  }, [licenseId, loadingLicense, license]);
+  }, [licenseId, appId, loadingLicense, loadingApplication, software]);
 
   const activeAssignments = assignments.filter(a => a.status === 'active');
   const isPerUser = license?.management_type === 'per_user';
+  const isCatalogOnly = software?._isApplication && relatedLicenses.length === 0;
   
   // Check if we have both license types for this software
   const hasBothTypes = !!managedLicense && !!individualLicense;
