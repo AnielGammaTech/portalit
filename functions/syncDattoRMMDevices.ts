@@ -183,9 +183,24 @@ Deno.serve(async (req) => {
       for (const mapping of mappings) {
         const siteUid = mapping.datto_site_id;
 
-        // Datto RMM API: /site/{siteUid}/devices
-        const devicesData = await dattoApiCall(accessToken, `/site/${siteUid}/devices`);
-        const devices = devicesData.devices || [];
+        // Datto RMM API: /site/{siteUid}/devices - with pagination
+        let allDevices = [];
+        let page = 1;
+        const pageSize = 250;
+        
+        while (true) {
+          const devicesData = await dattoApiCall(accessToken, `/site/${siteUid}/devices?max=${pageSize}&page=${page}`);
+          const pageDevices = devicesData.devices || [];
+          
+          if (!pageDevices || pageDevices.length === 0) break;
+          allDevices = allDevices.concat(pageDevices);
+          
+          if (pageDevices.length < pageSize) break;
+          page++;
+          if (page > 50) break; // Safety limit
+        }
+        
+        const devices = allDevices;
 
         // Get existing devices for this customer
         const existingDevices = await base44.asServiceRole.entities.Device.filter({ 
@@ -268,9 +283,24 @@ Deno.serve(async (req) => {
         try {
           const siteUid = mapping.datto_site_id;
           
-          // Datto RMM API: /site/{siteUid}/devices
-          const devicesData = await dattoApiCall(accessToken, `/site/${siteUid}/devices`);
-          const devices = devicesData.devices || [];
+          // Datto RMM API: /site/{siteUid}/devices - with pagination
+          let allDevices = [];
+          let page = 1;
+          const pageSize = 250;
+          
+          while (true) {
+            const devicesData = await dattoApiCall(accessToken, `/site/${siteUid}/devices?max=${pageSize}&page=${page}`);
+            const pageDevices = devicesData.devices || [];
+            
+            if (!pageDevices || pageDevices.length === 0) break;
+            allDevices = allDevices.concat(pageDevices);
+            
+            if (pageDevices.length < pageSize) break;
+            page++;
+            if (page > 50) break; // Safety limit
+          }
+          
+          const devices = allDevices;
           
           const existingDevices = await base44.asServiceRole.entities.Device.filter({ 
             customer_id: mapping.customer_id,

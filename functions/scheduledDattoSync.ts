@@ -92,9 +92,24 @@ Deno.serve(async (req) => {
       try {
         const siteUid = mapping.datto_site_id;
 
-        // Get devices for this site
-        const devicesData = await dattoApiCall(accessToken, `/site/${siteUid}/devices`);
-        const devices = devicesData.devices || [];
+        // Get ALL devices for this site with pagination
+        let allDevices = [];
+        let page = 1;
+        const pageSize = 250;
+        
+        while (true) {
+          const devicesData = await dattoApiCall(accessToken, `/site/${siteUid}/devices?max=${pageSize}&page=${page}`);
+          const devices = devicesData.devices || [];
+          
+          if (!devices || devices.length === 0) break;
+          allDevices = allDevices.concat(devices);
+          
+          if (devices.length < pageSize) break;
+          page++;
+          if (page > 50) break; // Safety limit
+        }
+        
+        const devices = allDevices;
 
         // Get existing devices
         const existingDevices = await base44.asServiceRole.entities.Device.filter({ 
