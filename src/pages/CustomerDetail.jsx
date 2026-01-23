@@ -77,17 +77,11 @@ export default function CustomerDetail() {
     queryFn: () => base44.entities.Customer.list(),
   });
 
-  // If no customerId, find customer by user email
+  // If no customerId in URL, use the user's assigned customer_id
   const customer = customerId 
     ? customers.find(c => c.id === customerId)
-    : customers.length > 0 
-      ? (() => {
-          const emailDomain = user?.email?.split('@')[1];
-          return customers.find(c => 
-            c.email?.includes(emailDomain) || 
-            c.name?.toLowerCase().includes(emailDomain?.split('.')[0])
-          ) || customers[0];
-        })()
+    : user?.customer_id
+      ? customers.find(c => c.id === user.customer_id)
       : null;
   
   // Update customerId if found through email matching

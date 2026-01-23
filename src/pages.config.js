@@ -1,5 +1,6 @@
 import Adminland from './pages/Adminland';
 import Analytics from './pages/Analytics';
+import AwaitingAccess from './pages/AwaitingAccess';
 import Billing from './pages/Billing';
 import Contracts from './pages/Contracts';
 import CustomerDetail from './pages/CustomerDetail';
@@ -10,13 +11,13 @@ import LicenseDetail from './pages/LicenseDetail';
 import SaaSReports from './pages/SaaSReports';
 import Services from './pages/Services';
 import Settings from './pages/Settings';
-import AwaitingAccess from './pages/AwaitingAccess';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
     "Adminland": Adminland,
     "Analytics": Analytics,
+    "AwaitingAccess": AwaitingAccess,
     "Billing": Billing,
     "Contracts": Contracts,
     "CustomerDetail": CustomerDetail,
@@ -27,7 +28,6 @@ export const PAGES = {
     "SaaSReports": SaaSReports,
     "Services": Services,
     "Settings": Settings,
-    "AwaitingAccess": AwaitingAccess,
 }
 
 export const pagesConfig = {
