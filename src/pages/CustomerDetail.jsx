@@ -885,12 +885,16 @@ export default function CustomerDetail() {
             {/* Stats Widgets Row */}
             {(() => {
               const totalSpend = licenses.reduce((sum, l) => sum + (l.total_cost || 0), 0);
-              const totalSeats = licenses.reduce((sum, l) => sum + (l.quantity || 0), 0);
-              const assignedSeats = licenseAssignments.filter(a => a.status === 'active').length;
+              // Only count seats from managed licenses (not per_user)
+              const managedLicenses = licenses.filter(l => l.management_type === 'managed');
+              const totalSeats = managedLicenses.reduce((sum, l) => sum + (l.quantity || 0), 0);
+              // Only count assignments for managed licenses
+              const managedLicenseIds = managedLicenses.map(l => l.id);
+              const assignedSeats = licenseAssignments.filter(a => a.status === 'active' && managedLicenseIds.includes(a.license_id)).length;
               const unusedSeats = totalSeats - assignedSeats;
-              const utilizationRate = totalSeats > 0 ? (assignedSeats / totalSeats) * 100 : 0;
+              const utilizationRate = totalSeats > 0 ? Math.min(100, (assignedSeats / totalSeats) * 100) : 0;
               const wastedSpend = totalSeats > 0 ? (unusedSeats / totalSeats) * totalSpend : 0;
-              const underutilizedLicenses = licenses.filter(l => {
+              const underutilizedLicenses = managedLicenses.filter(l => {
                 const assigned = licenseAssignments.filter(a => a.license_id === l.id && a.status === 'active').length;
                 return l.quantity > 0 && (assigned / l.quantity) < 0.5;
               });
