@@ -474,7 +474,7 @@ export default function CustomerServicesTab({
           </TabsContent>
 
         {/* JumpCloud Tab */}
-        {hasJumpCloud && (
+        {jumpcloudMapping && (
           <TabsContent value="jumpcloud">
             <div className="space-y-4">
               {/* Stats */}
