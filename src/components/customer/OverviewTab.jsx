@@ -527,10 +527,13 @@ export default function OverviewTab({
           </div>
           <div className="p-4">
             {(() => {
-              const totalSeats = licenses.reduce((sum, l) => sum + (l.quantity || 0), 0);
-              const assignedSeats = licenseAssignments.filter(a => a.status === 'active').length;
+              // Exclude JumpCloud licenses from SaaS metrics
+              const nonJcLicenses = licenses.filter(l => l.source !== 'jumpcloud' && l.vendor?.toLowerCase() !== 'jumpcloud');
+              const nonJcLicenseIds = nonJcLicenses.map(l => l.id);
+              const totalSeats = nonJcLicenses.reduce((sum, l) => sum + (l.quantity || 0), 0);
+              const assignedSeats = licenseAssignments.filter(a => a.status === 'active' && nonJcLicenseIds.includes(a.license_id)).length;
               const utilizationRate = totalSeats > 0 ? (assignedSeats / totalSeats) * 100 : 0;
-              const totalCost = licenses.reduce((sum, l) => sum + (l.total_cost || 0), 0);
+              const totalCost = nonJcLicenses.reduce((sum, l) => sum + (l.total_cost || 0), 0);
               
               return (
                 <div className="space-y-2">
