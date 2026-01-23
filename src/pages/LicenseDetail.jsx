@@ -1252,12 +1252,14 @@ export default function LicenseDetail() {
       <LicenseAssignmentModal
         open={showAssignModal}
         onClose={() => setShowAssignModal(false)}
-        license={license}
+        license={selectedManagedLicenseId ? relatedLicenses.find(l => l.id === selectedManagedLicenseId) : license}
         contacts={contacts}
         assignments={assignments}
         onAssign={handleAssign}
         onRevoke={handleRevoke}
         onAddIndividualLicense={handleAddIndividualLicense}
+        allLicenseAssignments={allAssignments}
+        individualLicenseId={individualLicense?.id}
       />
 
       {/* Edit Modal */}
