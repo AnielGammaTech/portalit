@@ -329,6 +329,7 @@ Deno.serve(async (req) => {
         application_name: 'Spanning Backup',
         vendor: 'Unitrends',
         license_type: 'Microsoft 365 Backup',
+        management_type: 'per_user',
         quantity: totalUsers,
         assigned_users: assignedUsers,
         status: 'active',
@@ -340,10 +341,61 @@ Deno.serve(async (req) => {
         notes: `Spanning Backup - ${assignedUsers} users backed up from ${mapping.spanning_tenant_name || customer?.name}`
       };
 
+      let spanningLicense;
       if (existingLicenses.length > 0) {
         await base44.asServiceRole.entities.SaaSLicense.update(existingLicenses[0].id, licenseData);
+        spanningLicense = existingLicenses[0];
       } else {
-        await base44.asServiceRole.entities.SaaSLicense.create(licenseData);
+        spanningLicense = await base44.asServiceRole.entities.SaaSLicense.create(licenseData);
+      }
+
+      // Auto-assign licenses to protected users
+      let assignmentsCreated = 0;
+      let assignmentsUpdated = 0;
+      
+      // Get existing assignments for this license
+      const existingAssignments = await base44.asServiceRole.entities.LicenseAssignment.filter({
+        license_id: spanningLicense.id
+      });
+      const assignmentsByContactId = {};
+      existingAssignments.forEach(a => {
+        assignmentsByContactId[a.contact_id] = a;
+      });
+
+      // Create/update assignments for protected users
+      for (const spUser of users) {
+        const email = spUser.email?.toLowerCase() || spUser.userPrincipalName?.toLowerCase();
+        if (!email) continue;
+
+        const isProtected = spUser.isAssigned === true || spUser.assigned === true || spUser.isLicensed === true || spUser.lastBackupStatusTotal === 'success';
+        if (!isProtected) continue;
+
+        // Find the contact by email
+        const contact = existingByEmail[email];
+        if (!contact) continue;
+
+        const existingAssignment = assignmentsByContactId[contact.id];
+        
+        if (existingAssignment) {
+          // Update if status changed
+          if (existingAssignment.status !== 'active') {
+            await base44.asServiceRole.entities.LicenseAssignment.update(existingAssignment.id, {
+              status: 'active'
+            });
+            assignmentsUpdated++;
+          }
+        } else {
+          // Create new assignment
+          await base44.asServiceRole.entities.LicenseAssignment.create({
+            license_id: spanningLicense.id,
+            contact_id: contact.id,
+            customer_id,
+            assigned_date: new Date().toISOString().split('T')[0],
+            status: 'active',
+            notes: 'Auto-assigned from Spanning sync'
+          });
+          assignmentsCreated++;
+        }
       }
 
       // Update last_synced
@@ -357,6 +409,8 @@ Deno.serve(async (req) => {
         assignedUsers,
         contactsCreated,
         contactsUpdated,
+        assignmentsCreated,
+        assignmentsUpdated,
         tenantName: mapping.spanning_tenant_name
       });
     }
