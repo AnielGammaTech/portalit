@@ -83,15 +83,20 @@ export default function UserAssignmentPanel() {
     }
   });
 
-  const handleOrganizationChange = (user, customerId) => {
+  const handleOrganizationChange = async (user, customerId) => {
     const customer = customers.find(c => c.id === customerId);
-    updateUserMutation.mutate({
-      userId: user.id,
-      data: {
+    console.log('Updating user', user.id, 'to customer', customerId, customer?.name);
+    try {
+      await base44.entities.User.update(user.id, {
         customer_id: customerId === 'none' ? null : customerId,
         customer_name: customerId === 'none' ? null : customer?.name
-      }
-    });
+      });
+      toast.success('User updated');
+      queryClient.invalidateQueries({ queryKey: ['all-users'] });
+    } catch (error) {
+      console.error('Failed to update user:', error);
+      toast.error('Failed to update user: ' + error.message);
+    }
   };
 
   const handleRoleChange = (user, newRole) => {
