@@ -104,7 +104,7 @@ export default function LicenseAssignmentModal({
               )}
             </div>
 
-            {/* Per User: Add Individual License Form */}
+            {/* Per User: Add Individual License Form - Only show for per_user licenses */}
             {isPerUser && showAddForm && (
               <div className="bg-purple-50 rounded-xl p-4 space-y-3 border border-purple-200">
                 <div className="font-medium text-sm text-purple-900">Add Individual License</div>
