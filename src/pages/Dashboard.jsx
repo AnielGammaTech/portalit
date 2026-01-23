@@ -630,11 +630,11 @@ export default function Dashboard() {
         setUser(currentUser);
         
         // For non-admin users, use their assigned customer_id ONLY
-        if (currentUser?.role !== 'admin' && customers.length > 0) {
-          if (currentUser?.customer_id) {
+        if (currentUser?.role !== 'admin') {
+          if (currentUser?.customer_id && customers.length > 0) {
             const matched = customers.find(c => c.id === currentUser.customer_id);
             setCustomer(matched || null);
-          } else {
+          } else if (!currentUser?.customer_id) {
             setCustomer(null); // No customer_id = no customer
           }
         }
