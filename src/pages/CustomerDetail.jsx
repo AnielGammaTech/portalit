@@ -1136,61 +1136,35 @@ export default function CustomerDetail() {
                   })()}
                 </div>
 
-                {/* JumpCloud SSO Applications - Only if customer has JumpCloud mapping */}
+                {/* JumpCloud SSO Applications - Minimized */}
                 {jumpcloudMapping && (() => {
                   const jumpcloudApps = Object.entries(groupedSoftware).filter(([_, data]) => 
                     data.software.source === 'jumpcloud' || data.software.vendor?.toLowerCase() === 'jumpcloud'
                   );
                   if (jumpcloudApps.length === 0) return null;
                   
+                  const totalUsers = jumpcloudApps.reduce((sum, [_, data]) => {
+                    const managedAssignments = data.managedLicense 
+                      ? licenseAssignments.filter(a => a.license_id === data.managedLicense.id && a.status === 'active').length
+                      : 0;
+                    const individualAssignments = data.individualLicenses.reduce((s, l) => 
+                      s + licenseAssignments.filter(a => a.license_id === l.id && a.status === 'active').length, 0);
+                    return sum + managedAssignments + individualAssignments;
+                  }, 0);
+                  
                   return (
-                    <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl border border-emerald-200 overflow-hidden">
-                      <div className="px-6 py-4 border-b border-emerald-100 flex items-center justify-between">
+                    <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-200 px-4 py-3">
+                      <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
-                            <Cloud className="w-4 h-4 text-emerald-600" />
+                            <Shield className="w-4 h-4 text-emerald-600" />
                           </div>
                           <div>
-                            <h3 className="font-semibold text-slate-900">JumpCloud SSO Applications</h3>
-                            <p className="text-sm text-emerald-700">{jumpcloudApps.length} applications synced from JumpCloud</p>
+                            <p className="font-medium text-slate-900">JumpCloud SSO Applications</p>
+                            <p className="text-xs text-emerald-700">{jumpcloudApps.length} apps • {totalUsers} total assignments</p>
                           </div>
                         </div>
-                        <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Auto-synced</Badge>
-                      </div>
-                      <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                        {jumpcloudApps.map(([appName, data]) => {
-                          const managedAssignments = data.managedLicense 
-                            ? licenseAssignments.filter(a => a.license_id === data.managedLicense.id && a.status === 'active')
-                            : [];
-                          const individualAssignments = data.individualLicenses.flatMap(l => 
-                            licenseAssignments.filter(a => a.license_id === l.id && a.status === 'active')
-                          );
-                          const totalUsers = managedAssignments.length + individualAssignments.length;
-                          
-                          return (
-                            <Link 
-                              key={appName}
-                              to={createPageUrl(`LicenseDetail?id=${data.software.id}`)}
-                              className="flex items-center gap-3 p-3 bg-white rounded-xl border border-emerald-100 hover:border-emerald-300 hover:shadow-md transition-all group"
-                            >
-                              <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center overflow-hidden flex-shrink-0">
-                                {data.software.logo_url ? (
-                                  <img src={data.software.logo_url} alt={appName} className="w-8 h-8 object-contain" />
-                                ) : (
-                                  <Cloud className="w-5 h-5 text-emerald-600" />
-                                )}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-slate-900 truncate group-hover:text-emerald-700 transition-colors">{appName}</p>
-                                <p className="text-xs text-slate-500">JumpCloud SSO</p>
-                              </div>
-                              <Badge variant="outline" className="text-[10px] border-emerald-200 text-emerald-700 flex-shrink-0">
-                                <Users className="w-3 h-3 mr-1" />
-                                {totalUsers} users
-                              </Badge>
-                            </Link>
-                          );
-                        })}
+                        <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-xs">Auto-synced</Badge>
                       </div>
                     </div>
                   );

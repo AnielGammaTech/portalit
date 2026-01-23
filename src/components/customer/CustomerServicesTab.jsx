@@ -611,39 +611,7 @@ export default function CustomerServicesTab({
                 </CardContent>
               </Card>
 
-              {/* SSO Apps */}
-              {jumpcloudLicenses.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>SSO Applications</CardTitle>
-                    <CardDescription>Applications connected via JumpCloud SSO</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {jumpcloudLicenses.map(license => (
-                        <div key={license.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            {license.logo_url ? (
-                              <img src={license.logo_url} alt="" className="w-8 h-8 rounded object-contain" />
-                            ) : (
-                              <div className="w-8 h-8 rounded bg-blue-100 flex items-center justify-center">
-                                <Cloud className="w-4 h-4 text-blue-600" />
-                              </div>
-                            )}
-                            <div>
-                              <p className="font-medium text-slate-900">{license.application_name}</p>
-                              <p className="text-sm text-slate-500">{license.license_type || 'SSO'}</p>
-                            </div>
-                          </div>
-                          <Badge className="bg-purple-100 text-purple-700">
-                            {license.assigned_users || 0} users
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+
             </div>
           </TabsContent>
         )}
