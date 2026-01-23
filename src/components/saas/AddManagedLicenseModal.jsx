@@ -109,6 +109,7 @@ export default function AddManagedLicenseModal({ open, onClose, onSave, software
                   <SelectContent>
                     <SelectItem value="monthly">Monthly</SelectItem>
                     <SelectItem value="annually">Annually</SelectItem>
+                    <SelectItem value="lifetime">Lifetime</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
