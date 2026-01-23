@@ -220,8 +220,9 @@ export default function CustomerDetail() {
     enabled: !!customerId
   });
 
-  // Check if customer has any services mapped
-  const hasServicesMapped = !!jumpcloudMapping || !!spanningMapping || lineItems.length > 0;
+  // Check if customer has any services mapped - always show if there are line items (recurring services)
+  // For JumpCloud/Spanning, we need actual mapping records
+  const hasServicesMapped = lineItems.length > 0 || (jumpcloudMapping !== undefined && jumpcloudMapping !== null) || (spanningMapping !== undefined && spanningMapping !== null);
 
   const [expandedBills, setExpandedBills] = useState({});
               const [expandedQuotes, setExpandedQuotes] = useState({});
