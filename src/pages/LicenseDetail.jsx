@@ -1086,6 +1086,10 @@ export default function LicenseDetail() {
                       <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
                         {individualAssignments.map(assignment => {
                           const contact = contacts.find(c => c.id === assignment.contact_id);
+                          const assignmentDaysUntilRenewal = assignment.renewal_date 
+                            ? differenceInDays(parseISO(assignment.renewal_date), new Date()) : null;
+                          const assignmentRenewalPassed = assignmentDaysUntilRenewal !== null && assignmentDaysUntilRenewal < 0;
+                          
                           return (
                             <div key={assignment.id} className="px-6 py-3 hover:bg-slate-50">
                               <div className="flex items-center justify-between gap-4">
@@ -1101,11 +1105,54 @@ export default function LicenseDetail() {
                                     <p className="text-xs text-slate-500">{contact?.email || 'No email'}</p>
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-4 text-xs text-slate-500">
+                                <div className="flex items-center gap-3 text-xs">
                                   {assignment.license_type && <span className="text-emerald-600 font-medium">{assignment.license_type}</span>}
-                                  <span>${assignment.cost_per_license || individualLicense?.cost_per_license || 0}/mo</span>
-                                  <span>{assignment.renewal_date ? format(parseISO(assignment.renewal_date), 'MMM d, yyyy') : '—'}</span>
-                                  {assignment.card_last_four && <span>•••• {assignment.card_last_four}</span>}
+                                  <span className="text-slate-500">${assignment.cost_per_license || individualLicense?.cost_per_license || 0}/mo</span>
+                                  {assignment.renewal_date && (
+                                    <div className={cn(
+                                      "flex items-center gap-1.5 px-2 py-1 rounded-md",
+                                      assignmentRenewalPassed ? "bg-red-100 text-red-700" :
+                                      assignmentDaysUntilRenewal !== null && assignmentDaysUntilRenewal <= 30 ? "bg-amber-100 text-amber-700" :
+                                      assignmentDaysUntilRenewal !== null && assignmentDaysUntilRenewal <= 60 ? "bg-yellow-100 text-yellow-700" :
+                                      "bg-slate-100 text-slate-600"
+                                    )}>
+                                      <Calendar className="w-3 h-3" />
+                                      <span>
+                                        {assignmentRenewalPassed 
+                                          ? `Passed ${format(parseISO(assignment.renewal_date), 'MMM d')}` 
+                                          : format(parseISO(assignment.renewal_date), 'MMM d, yyyy')}
+                                      </span>
+                                      {assignmentDaysUntilRenewal !== null && assignmentDaysUntilRenewal > 0 && assignmentDaysUntilRenewal <= 30 && (
+                                        <span className="font-medium">({assignmentDaysUntilRenewal}d)</span>
+                                      )}
+                                    </div>
+                                  )}
+                                  {assignment.card_last_four && (
+                                    <div className="flex items-center gap-1 text-slate-500">
+                                      <CreditCard className="w-3 h-3" />
+                                      <span>•••• {assignment.card_last_four}</span>
+                                    </div>
+                                  )}
+                                  {assignmentRenewalPassed && (
+                                    <label className="flex items-center gap-1.5 cursor-pointer" onClick={e => e.stopPropagation()}>
+                                      <input 
+                                        type="checkbox" 
+                                        className="w-3.5 h-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                                        onChange={async (e) => {
+                                          if (e.target.checked) {
+                                            const newDate = new Date();
+                                            newDate.setFullYear(newDate.getFullYear() + 1);
+                                            await base44.entities.LicenseAssignment.update(assignment.id, {
+                                              renewal_date: newDate.toISOString().split('T')[0]
+                                            });
+                                            queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
+                                            toast.success('Renewal date updated!');
+                                          }
+                                        }}
+                                      />
+                                      <span className="text-emerald-600 font-medium">Renewed?</span>
+                                    </label>
+                                  )}
                                 </div>
                                 <div className="flex items-center gap-1">
                                   <Button size="sm" variant="ghost" className="text-slate-600 hover:text-slate-700 hover:bg-slate-100" onClick={() => setEditingAssignment(assignment)}>Edit</Button>
