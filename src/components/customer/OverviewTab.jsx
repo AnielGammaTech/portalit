@@ -540,11 +540,11 @@ export default function OverviewTab({
           className="bg-white rounded-xl border border-slate-200 overflow-hidden cursor-pointer hover:border-purple-200 transition-colors"
           onClick={() => document.querySelector('[value="licenses"]')?.click()}
         >
-          <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="font-semibold text-slate-900 text-xs">SaaS</h3>
-            <Badge variant="outline" className="text-[9px]">{licenses.length} apps</Badge>
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="font-semibold text-slate-900 text-sm">SaaS</h3>
+            <Badge variant="outline" className="text-xs">{licenses.length} apps</Badge>
           </div>
-          <div className="p-2">
+          <div className="p-4">
             {(() => {
               const totalSeats = licenses.reduce((sum, l) => sum + (l.quantity || 0), 0);
               const assignedSeats = licenseAssignments.filter(a => a.status === 'active').length;
@@ -552,18 +552,18 @@ export default function OverviewTab({
               const totalCost = licenses.reduce((sum, l) => sum + (l.total_cost || 0), 0);
               
               return (
-                <div className="space-y-1.5">
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <div className="bg-purple-50 rounded p-1.5 text-center">
-                      <p className="text-sm font-bold text-purple-700">${totalCost.toLocaleString()}</p>
-                      <p className="text-[8px] text-purple-600">Spend</p>
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-purple-50 rounded-lg p-3 text-center">
+                      <p className="text-lg font-bold text-purple-700">${totalCost.toLocaleString()}</p>
+                      <p className="text-xs text-purple-600">Spend</p>
                     </div>
-                    <div className={cn("rounded p-1.5 text-center", utilizationRate >= 70 ? "bg-emerald-50" : "bg-amber-50")}>
-                      <p className={cn("text-sm font-bold", utilizationRate >= 70 ? "text-emerald-700" : "text-amber-700")}>{utilizationRate.toFixed(0)}%</p>
-                      <p className={cn("text-[8px]", utilizationRate >= 70 ? "text-emerald-600" : "text-amber-600")}>Used</p>
+                    <div className={cn("rounded-lg p-3 text-center", utilizationRate >= 70 ? "bg-emerald-50" : "bg-amber-50")}>
+                      <p className={cn("text-lg font-bold", utilizationRate >= 70 ? "text-emerald-700" : "text-amber-700")}>{utilizationRate.toFixed(0)}%</p>
+                      <p className={cn("text-xs", utilizationRate >= 70 ? "text-emerald-600" : "text-amber-600")}>Used</p>
                     </div>
                   </div>
-                  <p className="text-[9px] text-slate-500 text-center">{assignedSeats}/{totalSeats} seats</p>
+                  <p className="text-xs text-slate-500 text-center">{assignedSeats}/{totalSeats} seats</p>
                 </div>
               );
             })()}
