@@ -1010,7 +1010,9 @@ export default function CustomerDetail() {
                         </div>
                         <span className="text-xs text-slate-500">Apps</span>
                       </div>
-                      <p className="text-xl font-bold text-slate-900">{Object.keys(groupedSoftware).length}</p>
+                      <p className="text-xl font-bold text-slate-900">{Object.entries(groupedSoftware).filter(([_, data]) => 
+                        data.software.source !== 'jumpcloud' && data.software.vendor?.toLowerCase() !== 'jumpcloud'
+                      ).length}</p>
                       <p className="text-[10px] text-slate-400 mt-0.5">applications</p>
                     </div>
                   </div>
