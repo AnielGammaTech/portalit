@@ -71,7 +71,7 @@ export default function AddManagedLicenseModal({ open, onClose, onSave, software
               />
             </div>
             <div>
-              <Label>Cost per Seat ($/mo)</Label>
+              <Label>Cost per Seat ({form.billing_cycle === 'monthly' ? '$/mo' : form.billing_cycle === 'annually' ? '$/yr' : '$'})</Label>
               <Input
                 type="number"
                 min="0"
@@ -86,7 +86,9 @@ export default function AddManagedLicenseModal({ open, onClose, onSave, software
 
           {totalCost > 0 && (
             <div className="bg-blue-50 rounded-lg p-3 flex items-center justify-between">
-              <span className="text-sm text-blue-700">Total Monthly Cost</span>
+              <span className="text-sm text-blue-700">
+                {form.billing_cycle === 'monthly' ? 'Total Monthly Cost' : form.billing_cycle === 'annually' ? 'Total Annual Cost' : 'Total Cost (Lifetime)'}
+              </span>
               <span className="text-lg font-bold text-blue-900">${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
             </div>
           )}
