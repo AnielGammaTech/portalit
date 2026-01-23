@@ -20,8 +20,11 @@ import {
   Monitor,
   CheckCircle2,
   XCircle,
-  Users
+  Users,
+  ChevronRight
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '../../utils';
 
 export default function UserDetailModal({ contact, open, onClose, customerId }) {
   // Fetch license assignments for this contact
