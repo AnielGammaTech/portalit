@@ -201,7 +201,7 @@ export default function CustomerDetail() {
   });
 
   // Fetch JumpCloud mapping for this customer
-  const { data: jumpcloudMapping } = useQuery({
+  const { data: jumpcloudMapping, isLoading: loadingJumpcloud } = useQuery({
     queryKey: ['jumpcloud-mapping', customerId],
     queryFn: async () => {
       const mappings = await base44.entities.JumpCloudMapping.filter({ customer_id: customerId });
@@ -211,7 +211,7 @@ export default function CustomerDetail() {
   });
 
   // Fetch Spanning mapping for this customer
-  const { data: spanningMapping } = useQuery({
+  const { data: spanningMapping, isLoading: loadingSpanning } = useQuery({
     queryKey: ['spanning-mapping', customerId],
     queryFn: async () => {
       const mappings = await base44.entities.SpanningMapping.filter({ customer_id: customerId });
