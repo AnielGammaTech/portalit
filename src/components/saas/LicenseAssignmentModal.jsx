@@ -236,10 +236,10 @@ export default function LicenseAssignmentModal({
                       >
                         Revoke
                       </Button>
-                    ) : !isPerUser && (
+                    ) : (
                       <Button 
                         size="sm"
-                        disabled={availableSeats <= 0}
+                        disabled={!isPerUser && availableSeats <= 0}
                         onClick={() => onAssign(contact.id)}
                         className="bg-emerald-600 hover:bg-emerald-700"
                       >
