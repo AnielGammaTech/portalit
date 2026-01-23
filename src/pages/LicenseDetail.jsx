@@ -635,18 +635,19 @@ export default function LicenseDetail() {
           {/* Managed Seats Section */}
           {managedLicense && (
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-blue-50">
-                <div className="flex items-center gap-3">
-                  <Building2 className="w-5 h-5 text-blue-600" />
-                  <div>
-                    <h2 className="font-semibold text-slate-900">Managed Seats</h2>
-                    <p className="text-sm text-slate-500">
-                      {managedAssignments.length} of {managedLicense.quantity || 0} seats assigned
-                    </p>
+              <div className="px-6 py-4 border-b border-slate-100 bg-blue-50">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <Building2 className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <h2 className="font-semibold text-slate-900">Managed Seats</h2>
+                      <p className="text-sm text-slate-500">
+                        {managedAssignments.length} of {managedLicense.quantity || 0} seats assigned
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button 
+                  <div className="flex gap-2">
+                    <Button 
                       size="sm" 
                       variant="outline"
                       className="gap-2"
@@ -655,15 +656,40 @@ export default function LicenseDetail() {
                       <Edit2 className="w-4 h-4" />
                       Modify Seats
                     </Button>
-                  <Button 
-                    size="sm" 
-                    className="gap-2 bg-blue-600 hover:bg-blue-700"
-                    onClick={() => setShowAssignModal(true)}
-                    disabled={managedUnusedSeats <= 0}
-                  >
-                    <Plus className="w-4 h-4" />
-                    Assign Seat
-                  </Button>
+                    <Button 
+                      size="sm" 
+                      className="gap-2 bg-blue-600 hover:bg-blue-700"
+                      onClick={() => setShowAssignModal(true)}
+                      disabled={managedUnusedSeats <= 0}
+                    >
+                      <Plus className="w-4 h-4" />
+                      Assign Seat
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Cost metrics row - only for managed */}
+                <div className="grid grid-cols-4 gap-3 text-center bg-white/60 rounded-lg p-2">
+                  <div>
+                    <p className="text-lg font-semibold text-slate-900">${(managedLicense.total_cost || 0).toLocaleString()}</p>
+                    <p className="text-xs text-slate-500">Monthly</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-semibold text-slate-900">${managedLicense.cost_per_license || 0}</p>
+                    <p className="text-xs text-slate-500">Per Seat</p>
+                  </div>
+                  <div>
+                    <p className={cn("text-lg font-semibold", managedUtilizationPercent >= 80 ? "text-emerald-600" : managedUtilizationPercent >= 50 ? "text-amber-600" : "text-red-600")}>
+                      {managedUtilizationPercent.toFixed(0)}%
+                    </p>
+                    <p className="text-xs text-slate-500">Utilization</p>
+                  </div>
+                  <div>
+                    <p className={cn("text-lg font-semibold", managedWastedCost > 0 ? "text-amber-600" : "text-slate-900")}>
+                      ${managedWastedCost.toFixed(0)}
+                    </p>
+                    <p className="text-xs text-slate-500">Unused</p>
+                  </div>
                 </div>
               </div>
               
