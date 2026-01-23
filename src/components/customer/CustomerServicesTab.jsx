@@ -472,7 +472,6 @@ export default function CustomerServicesTab({
               )}
             </div>
           </TabsContent>
-        )}
 
         {/* JumpCloud Tab */}
         {hasJumpCloud && (
