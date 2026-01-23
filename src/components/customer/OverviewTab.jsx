@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '../../utils';
 import { 
   Users, 
   DollarSign, 
@@ -13,7 +15,12 @@ import {
   HelpCircle,
   Send,
   Bot,
-  ArrowRight
+  ArrowRight,
+  Monitor,
+  Receipt,
+  CheckCircle2,
+  AlertCircle,
+  Clock
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
