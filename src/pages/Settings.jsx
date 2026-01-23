@@ -16,7 +16,10 @@ import {
   ChevronRight,
   Monitor,
   Cloud,
-  Database
+  Database,
+  Copy,
+  RefreshCw,
+  Zap
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +34,170 @@ import { cn } from "@/lib/utils";
 import DattoRMMConfig from '../components/integrations/DattoRMMConfig';
 import JumpCloudConfig from '../components/integrations/JumpCloudConfig';
 import SpanningConfig from '../components/integrations/SpanningConfig';
+
+function GammaStackITPanel() {
+  const [apiKey, setApiKey] = useState('');
+  const [generating, setGenerating] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
+
+  // Load existing API key from user data
+  useEffect(() => {
+    const loadApiKey = async () => {
+      const user = await base44.auth.me();
+      if (user?.gammastack_api_key) {
+        setApiKey(user.gammastack_api_key);
+      }
+    };
+    loadApiKey();
+  }, []);
+
+  const generateApiKey = async () => {
+    setGenerating(true);
+    try {
+      // Generate a random API key
+      const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+      let key = 'gs_';
+      for (let i = 0; i < 32; i++) {
+        key += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      
+      // Save to user data
+      await base44.auth.updateMe({ gammastack_api_key: key });
+      setApiKey(key);
+      toast.success('New API key generated!');
+    } catch (error) {
+      toast.error('Failed to generate API key');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Copied to clipboard!');
+  };
+
+  const appBaseUrl = window.location.origin;
+  const fullEndpoint = `${appBaseUrl}/api/functions/getCustomerData`;
+
+  return (
+    <div className="space-y-4">
+      {/* External API Access Card */}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full text-left px-5 py-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center">
+              <Zap className="w-5 h-5 text-orange-500" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-medium text-slate-900">External API Access</h3>
+                <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", isExpanded && "rotate-180")} />
+              </div>
+              <p className="text-sm text-slate-500">Generate a key to allow other apps (like ProjectIT) to access data from this application</p>
+            </div>
+          </div>
+        </button>
+
+        {isExpanded && (
+          <div className="px-5 pb-5 pt-2 border-t border-slate-100 space-y-6">
+            {/* API Key Section */}
+            <div>
+              <Label className="text-sm font-medium text-slate-700 mb-2 block">This Application's API Key</Label>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 relative">
+                  <Input
+                    value={apiKey || 'No API key generated yet'}
+                    readOnly
+                    className="pr-10 font-mono text-sm bg-slate-50"
+                  />
+                  {apiKey && (
+                    <button
+                      onClick={() => copyToClipboard(apiKey)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 hover:bg-slate-200 rounded transition-colors"
+                    >
+                      <Copy className="w-4 h-4 text-slate-500" />
+                    </button>
+                  )}
+                </div>
+                <Button
+                  onClick={generateApiKey}
+                  disabled={generating}
+                  className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
+                >
+                  <RefreshCw className={cn("w-4 h-4", generating && "animate-spin")} />
+                  Generate New Key
+                </Button>
+              </div>
+            </div>
+
+            {/* Endpoint Info */}
+            {apiKey && (
+              <div className="bg-slate-50 rounded-xl p-4 space-y-4">
+                <h4 className="font-medium text-slate-900">Get Customer Data</h4>
+                
+                <div>
+                  <p className="text-xs font-medium text-orange-600 uppercase tracking-wide mb-1">App Base URL</p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
+                      <span className="text-orange-600 font-mono text-sm">{appBaseUrl}</span>
+                    </div>
+                    <button
+                      onClick={() => copyToClipboard(appBaseUrl)}
+                      className="p-2 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200"
+                    >
+                      <Copy className="w-4 h-4 text-slate-500" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">👈 Use this for "PortalIT Base44 App URL" in ProjectIT</p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-px bg-slate-200" />
+                  <span className="text-xs text-slate-400 uppercase">or full endpoint</span>
+                  <div className="flex-1 h-px bg-slate-200" />
+                </div>
+
+                <div>
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Full Endpoint URL</p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2 overflow-hidden">
+                      <span className="text-slate-600 font-mono text-sm truncate block">{fullEndpoint}</span>
+                    </div>
+                    <button
+                      onClick={() => copyToClipboard(fullEndpoint)}
+                      className="p-2 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200"
+                    >
+                      <Copy className="w-4 h-4 text-slate-500" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-6 text-sm">
+                  <div>
+                    <span className="text-slate-500 uppercase text-xs font-medium">Method</span>
+                    <p className="font-semibold text-slate-900">GET</p>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 uppercase text-xs font-medium">Auth Header</span>
+                    <p className="font-mono text-slate-900">x-gammastack-key</p>
+                  </div>
+                </div>
+
+                <p className="text-sm text-slate-500">
+                  Authentication: Include header <code className="bg-slate-200 px-1.5 py-0.5 rounded text-slate-700">x-gammastack-key: YOUR_KEY</code>
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function IntegrationsPanel() {
   const { data: dattoMappings = [] } = useQuery({
@@ -204,6 +371,10 @@ export default function Settings() {
             <Bell className="w-4 h-4" />
             Notifications
           </TabsTrigger>
+          <TabsTrigger value="gammastack" className="gap-2">
+            <Zap className="w-4 h-4" />
+            GammaStackIT
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="company">
@@ -297,6 +468,10 @@ export default function Settings() {
 
         <TabsContent value="integrations">
           <IntegrationsPanel />
+        </TabsContent>
+
+        <TabsContent value="gammastack">
+          <GammaStackITPanel />
         </TabsContent>
 
         <TabsContent value="notifications">
