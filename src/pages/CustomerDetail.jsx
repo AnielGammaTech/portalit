@@ -245,6 +245,7 @@ export default function CustomerDetail() {
                   const [saasUserFilter, setSaasUserFilter] = useState(''); // filter by contact id
                   const [saasView, setSaasView] = useState('licenses'); // 'licenses', 'users', 'spend'
                   const [saasCategoryFilter, setSaasCategoryFilter] = useState(''); // filter by category
+                  const [jumpcloudSsoExpanded, setJumpcloudSsoExpanded] = useState(false); // collapsible JumpCloud SSO section
 
   const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingApplications || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems || loadingContractItems || loadingContacts || loadingTickets || loadingInvoiceLineItems || loadingAssignments || loadingDevices || loadingJumpcloud || loadingSpanning;
 
