@@ -177,7 +177,9 @@ export default function OverviewTab({
   onAddContact,
   tickets = [],
   devices = [],
-  licenseAssignments = []
+  licenseAssignments = [],
+  invoices = [],
+  quotes = []
 }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [teamPage, setTeamPage] = useState(1);
