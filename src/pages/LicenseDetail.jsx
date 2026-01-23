@@ -371,68 +371,66 @@ export default function LicenseDetail() {
         {/* LEFT COLUMN - App Info & License Summary */}
         <div className="lg:col-span-1 space-y-6">
           {/* App Header Card */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-16 h-16 rounded-2xl bg-purple-100 flex items-center justify-center overflow-hidden">
+          <div className="bg-white rounded-2xl border border-slate-200 p-4">
+            <div className="flex items-start gap-3 mb-3">
+              <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                 {license.logo_url ? (
-                  <img src={license.logo_url} alt={license.application_name} className="w-14 h-14 object-contain" />
+                  <img src={license.logo_url} alt={license.application_name} className="w-10 h-10 object-contain" />
                 ) : (
-                  <Cloud className="w-8 h-8 text-purple-600" />
+                  <Cloud className="w-6 h-6 text-purple-600" />
                 )}
               </div>
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={() => setShowEditModal(true)}
-              >
-                <Edit2 className="w-4 h-4" />
-              </Button>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2">
+                  <h1 className="text-lg font-bold text-slate-900 truncate">{license.application_name}</h1>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className="h-7 w-7 -mt-1"
+                    onClick={() => setShowEditModal(true)}
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  <Badge className={cn(
+                    "capitalize text-xs",
+                    license.status === 'active' && "bg-emerald-100 text-emerald-700",
+                    license.status === 'suspended' && "bg-amber-100 text-amber-700",
+                    license.status === 'cancelled' && "bg-red-100 text-red-700"
+                  )}>
+                    {license.status}
+                  </Badge>
+                  {license.category && (
+                    <Badge variant="outline" className="capitalize text-xs">{license.category}</Badge>
+                  )}
+                </div>
+              </div>
             </div>
-            <h1 className="text-xl font-bold text-slate-900 mb-2">{license.application_name}</h1>
-            <div className="flex flex-wrap gap-2 mb-4">
-              <Badge className={cn(
-                "capitalize",
-                license.status === 'active' && "bg-emerald-100 text-emerald-700",
-                license.status === 'suspended' && "bg-amber-100 text-amber-700",
-                license.status === 'cancelled' && "bg-red-100 text-red-700"
-              )}>
-                {license.status}
-              </Badge>
-              {license.category && (
-                <Badge variant="outline" className="capitalize">{license.category}</Badge>
-              )}
-            </div>
-            
-            <div className="space-y-3 text-sm">
+
+            <div className="space-y-2 text-sm">
               {license.vendor && (
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Vendor</span>
-                  <span className="font-medium text-slate-900">{license.vendor}</span>
-                </div>
-              )}
-              {license.license_type && (
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500">License Type</span>
-                  <span className="font-medium text-slate-900">{license.license_type}</span>
+                  <span className="text-slate-500 text-xs">Vendor</span>
+                  <span className="font-medium text-slate-900 text-xs">{license.vendor}</span>
                 </div>
               )}
               {license.website_url && (
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Website</span>
+                  <span className="text-slate-500 text-xs">Website</span>
                   <a href={license.website_url.startsWith('http') ? license.website_url : `https://${license.website_url}`} 
                      target="_blank" rel="noopener noreferrer"
-                     className="flex items-center gap-1 text-purple-600 hover:underline font-medium">
+                     className="flex items-center gap-1 text-purple-600 hover:underline font-medium text-xs">
                     <Globe className="w-3 h-3" />
                     Visit
                   </a>
                 </div>
               )}
             </div>
-            
+
             {license.notes && (
-              <div className="mt-4 pt-4 border-t border-slate-100">
-                <p className="text-xs text-slate-500 mb-1">Notes</p>
-                <p className="text-sm text-slate-600">{license.notes}</p>
+              <div className="mt-3 pt-3 border-t border-slate-100">
+                <p className="text-xs text-slate-600 line-clamp-2">{license.notes}</p>
               </div>
             )}
           </div>
