@@ -332,41 +332,25 @@ export default function LicenseDetail() {
   };
 
   const handleAddManagedLicense = async (data) => {
-    // First, find or create managed license for this software
-    let newManagedLicense = managedLicense;
-    
-    if (!newManagedLicense) {
-      // Create a new managed license record for this software
-      newManagedLicense = await base44.entities.SaaSLicense.create({
-        customer_id: license.customer_id,
-        application_name: license.application_name,
-        vendor: license.vendor,
-        logo_url: license.logo_url,
-        website_url: license.website_url,
-        category: license.category,
-        management_type: 'managed',
-        license_type: data.license_type,
-        quantity: data.quantity,
-        cost_per_license: data.cost_per_license,
-        total_cost: data.total_cost,
-        billing_cycle: data.billing_cycle,
-        renewal_date: data.renewal_date,
-        card_last_four: data.card_last_four,
-        status: 'active',
-        source: 'manual'
-      });
-    } else {
-      // Update existing managed license
-      await base44.entities.SaaSLicense.update(newManagedLicense.id, {
-        license_type: data.license_type,
-        quantity: data.quantity,
-        cost_per_license: data.cost_per_license,
-        total_cost: data.total_cost,
-        billing_cycle: data.billing_cycle,
-        renewal_date: data.renewal_date,
-        card_last_four: data.card_last_four
-      });
-    }
+    // Always create a NEW managed license record (supports multiple license types per software)
+    await base44.entities.SaaSLicense.create({
+      customer_id: license.customer_id,
+      application_name: license.application_name,
+      vendor: license.vendor,
+      logo_url: license.logo_url,
+      website_url: license.website_url,
+      category: license.category,
+      management_type: 'managed',
+      license_type: data.license_type || null, // Don't default to anything
+      quantity: data.quantity,
+      cost_per_license: data.cost_per_license,
+      total_cost: data.total_cost,
+      billing_cycle: data.billing_cycle,
+      renewal_date: data.renewal_date || null,
+      card_last_four: data.card_last_four || null,
+      status: 'active',
+      source: 'manual'
+    });
     
     queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
     queryClient.invalidateQueries({ queryKey: ['license', licenseId] });
