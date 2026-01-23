@@ -13,7 +13,10 @@ import {
   Mail,
   Link2,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Monitor,
+  Cloud,
+  Database
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,41 +25,120 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import DattoRMMConfig from '../components/integrations/DattoRMMConfig';
 import JumpCloudConfig from '../components/integrations/JumpCloudConfig';
 import SpanningConfig from '../components/integrations/SpanningConfig';
 
-function IntegrationSection({ title, description, children }) {
+function IntegrationsPanel() {
+  const { data: dattoMappings = [] } = useQuery({
+    queryKey: ['datto_mappings'],
+    queryFn: () => base44.entities.DattoSiteMapping.list(),
+  });
+  
+  const { data: jumpcloudMappings = [] } = useQuery({
+    queryKey: ['jumpcloud_mappings'],
+    queryFn: () => base44.entities.JumpCloudMapping.list(),
+  });
+  
+  const { data: spanningMappings = [] } = useQuery({
+    queryKey: ['spanning_mappings'],
+    queryFn: () => base44.entities.SpanningMapping.list(),
+  });
+
+  const dattoMapped = dattoMappings.length;
+  const jumpcloudMapped = jumpcloudMappings.length;
+  const spanningMapped = spanningMappings.length;
+
+  return (
+    <div className="space-y-4">
+      {/* Datto RMM */}
+      <IntegrationCard
+        icon={Monitor}
+        iconBg="bg-blue-50"
+        title="Datto RMM"
+        description="Sync devices and map Datto sites to customers"
+        status={
+          dattoMapped > 0 ? (
+            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">{dattoMapped} mapped</Badge>
+          ) : (
+            <Badge variant="outline" className="text-slate-500">Not configured</Badge>
+          )
+        }
+      >
+        <DattoRMMConfig />
+      </IntegrationCard>
+
+      {/* JumpCloud */}
+      <IntegrationCard
+        icon={Cloud}
+        iconBg="bg-green-50"
+        title="JumpCloud"
+        description="Sync SSO applications and users from JumpCloud"
+        status={
+          jumpcloudMapped > 0 ? (
+            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">{jumpcloudMapped} mapped</Badge>
+          ) : (
+            <Badge variant="outline" className="text-slate-500">Not configured</Badge>
+          )
+        }
+      >
+        <JumpCloudConfig />
+      </IntegrationCard>
+
+      {/* Unitrends */}
+      <IntegrationCard
+        icon={Database}
+        iconBg="bg-purple-50"
+        title="Unitrends"
+        description="Sync backup data and users from Unitrends MSP"
+        status={
+          spanningMapped > 0 ? (
+            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">{spanningMapped} mapped</Badge>
+          ) : (
+            <Badge variant="outline" className="text-slate-500">Not configured</Badge>
+          )
+        }
+      >
+        <SpanningConfig />
+      </IntegrationCard>
+    </div>
+  );
+}
+
+function IntegrationCard({ icon: Icon, iconBg, title, description, status, children }) {
   const [isOpen, setIsOpen] = useState(false);
   
   return (
-    <Card>
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full text-left"
+        className="w-full text-left px-5 py-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors"
       >
-        <CardHeader className="flex flex-row items-center justify-between py-4">
-          <div>
-            <CardTitle className="text-base">{title}</CardTitle>
-            <CardDescription className="text-sm mt-1">
-              {description}
-            </CardDescription>
+        <div className="flex items-center gap-4">
+          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", iconBg || "bg-slate-100")}>
+            <Icon className="w-5 h-5 text-slate-600" />
           </div>
-          {isOpen ? (
-            <ChevronDown className="w-5 h-5 text-slate-400" />
-          ) : (
-            <ChevronRight className="w-5 h-5 text-slate-400" />
-          )}
-        </CardHeader>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-medium text-slate-900">{title}</h3>
+              <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", isOpen && "rotate-180")} />
+            </div>
+            <p className="text-sm text-slate-500">{description}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+          {status}
+        </div>
       </button>
       {isOpen && (
-        <CardContent className="pt-0 border-t border-slate-100">
+        <div className="px-5 pb-5 pt-2 border-t border-slate-100">
           {children}
-        </CardContent>
+        </div>
       )}
-    </Card>
+    </div>
   );
 }
 
@@ -214,28 +296,7 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="integrations">
-          <div className="space-y-4">
-            <IntegrationSection
-              title="Datto RMM"
-              description="Connect your Datto RMM account to sync devices"
-            >
-              <DattoRMMConfig />
-            </IntegrationSection>
-
-            <IntegrationSection
-              title="JumpCloud"
-              description="Connect JumpCloud to automatically sync SSO applications as SaaS licenses for your customers"
-            >
-              <JumpCloudConfig />
-            </IntegrationSection>
-
-            <IntegrationSection
-              title="Unitrends"
-              description="Connect to Unitrends MSP to sync backup data and users"
-            >
-              <SpanningConfig />
-            </IntegrationSection>
-          </div>
+          <IntegrationsPanel />
         </TabsContent>
 
         <TabsContent value="notifications">
