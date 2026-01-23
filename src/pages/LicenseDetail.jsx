@@ -712,71 +712,28 @@ export default function LicenseDetail() {
                   {managedAssignments.map(assignment => {
                     const contact = contacts.find(c => c.id === assignment.contact_id);
                     return (
-                      <div key={assignment.id} className="px-6 py-3 hover:bg-slate-50">
-                        <div className="flex items-center justify-between gap-4">
-                          <div 
-                            className="flex items-center gap-3 cursor-pointer flex-shrink-0"
-                            onClick={() => setSelectedContact(contact)}
-                          >
-                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-medium text-sm">
-                              {contact?.full_name?.charAt(0) || '?'}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="font-medium text-slate-900 text-sm hover:text-blue-600">{contact?.full_name || 'Unknown'}</p>
-                              <p className="text-xs text-slate-500">{contact?.email || 'No email'}</p>
-                            </div>
+                      <div key={assignment.id} className="px-6 py-3 hover:bg-slate-50 flex items-center justify-between">
+                        <div 
+                          className="flex items-center gap-3 cursor-pointer"
+                          onClick={() => setSelectedContact(contact)}
+                        >
+                          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-medium text-sm">
+                            {contact?.full_name?.charAt(0) || '?'}
                           </div>
-
-                          {/* Inline metrics - same as individual licenses */}
-                          <div className="flex items-center gap-6 text-xs">
-                            <div>
-                              <span className="text-slate-400">Cost</span>
-                              <p className="font-medium text-slate-900">
-                                ${managedLicense?.cost_per_license || 0}/mo
-                              </p>
-                            </div>
-                            <div>
-                              <span className="text-slate-400">Renewal</span>
-                              <p className="font-medium text-slate-900">
-                                {managedLicense?.renewal_date 
-                                  ? format(parseISO(managedLicense.renewal_date), 'MMM d, yyyy')
-                                  : 'Not set'
-                                }
-                              </p>
-                            </div>
-                            <div>
-                              <span className="text-slate-400">Payment</span>
-                              <p className="font-medium text-slate-900 flex items-center gap-1">
-                                {managedLicense?.card_last_four ? (
-                                  <>
-                                    <CreditCard className="w-3 h-3" />
-                                    •••• {managedLicense.card_last_four}
-                                  </>
-                                ) : (
-                                  '—'
-                                )}
-                              </p>
-                            </div>
-                            <div className="hidden sm:block">
-                              <span className="text-slate-400">Since</span>
-                              <p className="font-medium text-slate-900">
-                                {assignment.assigned_date 
-                                  ? format(parseISO(assignment.assigned_date), 'MMM d, yyyy')
-                                  : '—'
-                                }
-                              </p>
-                            </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-slate-900 text-sm hover:text-blue-600">{contact?.full_name || 'Unknown'}</p>
+                            <p className="text-xs text-slate-500">{contact?.email || 'No email'}</p>
                           </div>
-
-                          <Button 
-                            size="sm" 
-                            variant="ghost"
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50 h-7 px-2"
-                            onClick={() => handleRevoke(assignment.contact_id)}
-                          >
-                            Revoke
-                          </Button>
                         </div>
+
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 h-7 px-2"
+                          onClick={() => handleRevoke(assignment.contact_id)}
+                        >
+                          Revoke
+                        </Button>
                       </div>
                     );
                   })}
