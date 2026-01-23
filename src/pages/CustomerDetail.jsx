@@ -1127,6 +1127,7 @@ export default function CustomerDetail() {
                                 individualLicenses={data.individualLicenses}
                                 managedAssignments={managedAssignments}
                                 individualAssignments={individualAssignments}
+                                isCatalogOnly={data.isCatalogOnly}
                               />
                             );
                           })}
