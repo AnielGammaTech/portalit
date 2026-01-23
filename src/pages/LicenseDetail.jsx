@@ -845,25 +845,43 @@ export default function LicenseDetail() {
                                 </div>
                               </div>
                               <div className="flex gap-2">
-                                <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                  className="h-7 text-xs"
-                                  onClick={() => { setSelectedManagedLicenseId(ml.id); setShowModifySeatsModal(true); }}
-                                >
-                                  <Edit2 className="w-3 h-3 mr-1" />
-                                  Modify
-                                </Button>
-                                <Button 
-                                  size="sm" 
-                                  className="h-7 text-xs bg-blue-600 hover:bg-blue-700"
-                                  onClick={() => { setSelectedManagedLicenseId(ml.id); setShowAssignModal(true); }}
-                                  disabled={mlUnusedSeats <= 0}
-                                >
-                                  <Plus className="w-3 h-3 mr-1" />
-                                  Assign
-                                </Button>
-                              </div>
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline"
+                                      className="h-7 text-xs"
+                                      onClick={() => { setSelectedManagedLicenseId(ml.id); setShowModifySeatsModal(true); }}
+                                    >
+                                      <Edit2 className="w-3 h-3 mr-1" />
+                                      Modify
+                                    </Button>
+                                    <Button 
+                                      size="sm" 
+                                      className="h-7 text-xs bg-blue-600 hover:bg-blue-700"
+                                      onClick={() => { setSelectedManagedLicenseId(ml.id); setShowAssignModal(true); }}
+                                      disabled={mlUnusedSeats <= 0}
+                                    >
+                                      <Plus className="w-3 h-3 mr-1" />
+                                      Assign
+                                    </Button>
+                                    <Button 
+                                      size="sm" 
+                                      variant="ghost"
+                                      className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                      onClick={async () => {
+                                        if (confirm(`Delete this ${ml.license_type || 'Standard'} license? This will also remove ${mlAssignments.length} assignment(s).`)) {
+                                          for (const a of mlAssignments) {
+                                            await base44.entities.LicenseAssignment.delete(a.id);
+                                          }
+                                          await base44.entities.SaaSLicense.delete(ml.id);
+                                          queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
+                                          queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
+                                          toast.success('License deleted!');
+                                        }
+                                      }}
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </Button>
+                                  </div>
                             </div>
                             {/* Billing info row */}
                             <div className="flex items-center gap-4 text-xs">
