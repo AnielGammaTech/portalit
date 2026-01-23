@@ -372,13 +372,13 @@ export default function CustomerServicesTab({
               <HardDrive className="w-4 h-4" />
               Recurring Services
             </TabsTrigger>
-            {hasJumpCloud && (
+            {jumpcloudMapping && (
               <TabsTrigger value="jumpcloud" className="gap-2 py-2 px-4 text-sm font-medium">
                 <Shield className="w-4 h-4" />
                 JumpCloud
               </TabsTrigger>
             )}
-            {hasSpanning && (
+            {spanningMapping && (
               <TabsTrigger value="spanning" className="gap-2 py-2 px-4 text-sm font-medium">
                 <Cloud className="w-4 h-4" />
                 Spanning Backup
