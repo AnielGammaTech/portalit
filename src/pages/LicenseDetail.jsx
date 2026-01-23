@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { format, parseISO, differenceInDays } from 'date-fns';
 import LicenseAssignmentModal from '../components/saas/LicenseAssignmentModal';
 import EditLicenseModal from '../components/saas/EditLicenseModal';
+import EditIndividualLicenseModal from '../components/saas/EditIndividualLicenseModal';
 import UserDetailModal from '../components/customer/UserDetailModal';
 
 export default function LicenseDetail() {
@@ -37,6 +38,7 @@ export default function LicenseDetail() {
   const [showAddManagedLicense, setShowAddManagedLicense] = useState(false);
   const [showAddIndividualLicense, setShowAddIndividualLicense] = useState(false);
   const [selectedContact, setSelectedContact] = useState(null);
+  const [editingAssignment, setEditingAssignment] = useState(null);
   const [managedExpanded, setManagedExpanded] = useState(false);
   const [individualExpanded, setIndividualExpanded] = useState(false);
 
@@ -263,10 +265,16 @@ export default function LicenseDetail() {
   };
 
   const handleDelete = async () => {
-    await base44.entities.SaaSLicense.delete(licenseId);
-    toast.success('License deleted!');
-    window.location.href = createPageUrl(`CustomerDetail?id=${license.customer_id}`);
-  };
+        await base44.entities.SaaSLicense.delete(licenseId);
+        toast.success('License deleted!');
+        window.location.href = createPageUrl(`CustomerDetail?id=${license.customer_id}`);
+      };
+
+      const handleUpdateAssignment = async (assignmentId, data) => {
+        await base44.entities.LicenseAssignment.update(assignmentId, data);
+        queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
+        toast.success('License updated!');
+      };
 
   const handleModifySeats = async () => {
         if (!managedLicense || seatChange === 0) return;
@@ -805,14 +813,24 @@ export default function LicenseDetail() {
                             {assignment.card_last_four && <span>•••• {assignment.card_last_four}</span>}
                           </div>
 
-                          <Button 
-                            size="sm" 
-                            variant="ghost"
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => handleRevoke(assignment.contact_id)}
-                          >
-                            Remove
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button 
+                              size="sm" 
+                              variant="ghost"
+                              className="text-slate-600 hover:text-slate-700 hover:bg-slate-100"
+                              onClick={() => setEditingAssignment(assignment)}
+                            >
+                              Edit
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => handleRevoke(assignment.contact_id)}
+                            >
+                              Remove
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -822,8 +840,17 @@ export default function LicenseDetail() {
             </div>
           )}
 
-          {/* User Detail Modal */}
-          <UserDetailModal
+          {/* Edit Individual License Modal */}
+                          <EditIndividualLicenseModal
+                            open={!!editingAssignment}
+                            onClose={() => setEditingAssignment(null)}
+                            assignment={editingAssignment}
+                            contact={contacts.find(c => c.id === editingAssignment?.contact_id)}
+                            onSave={handleUpdateAssignment}
+                          />
+
+                          {/* User Detail Modal */}
+                          <UserDetailModal
             contact={selectedContact}
             open={!!selectedContact}
             onClose={() => setSelectedContact(null)}
