@@ -534,7 +534,7 @@ export default function CustomerDetail() {
             { value: 'quotes', icon: FileText, label: 'Quotes' },
             { value: 'tickets', icon: HelpCircle, label: 'Support' },
             { value: 'devices', icon: Monitor, label: 'Devices' },
-            { value: 'settings', icon: Settings, label: 'Settings' },
+            ...(user?.role === 'admin' ? [{ value: 'settings', icon: Settings, label: 'Settings' }] : []),
           ].map(tab => (
             <TabsTrigger 
               key={tab.value}
