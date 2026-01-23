@@ -335,7 +335,7 @@ Deno.serve(async (req) => {
         status: 'active',
         external_id: licenseId,
         source: 'spanning',
-        website_url: 'https://www.unitrends.com',
+        website_url: 'https://spanning.com',
         logo_url: 'https://cdn.brandfetch.io/idBZmlTqXS/w/400/h/400/theme/dark/icon.png',
         category: 'backup',
         notes: `Spanning Backup - ${assignedUsers} users backed up from ${mapping.spanning_tenant_name || customer?.name}`
@@ -452,7 +452,7 @@ Deno.serve(async (req) => {
             status: 'active',
             external_id: `spanning-${mapping.customer_id}`,
             source: 'spanning',
-            website_url: 'https://www.unitrends.com',
+            website_url: 'https://spanning.com',
             logo_url: 'https://cdn.brandfetch.io/idBZmlTqXS/w/400/h/400/theme/dark/icon.png',
             category: 'backup',
             notes: `Spanning Backup - ${assignedUsers} users backed up`
