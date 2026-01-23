@@ -75,9 +75,13 @@ export default function LicenseDetail() {
     enabled: !!license?.customer_id && !!license?.application_name
   });
 
-  // Separate managed and individual licenses
-  const managedLicense = relatedLicenses.find(l => l.management_type === 'managed');
-  const individualLicense = relatedLicenses.find(l => l.management_type === 'per_user');
+  // Separate managed and individual licenses - support multiple of each type
+  const managedLicenses = relatedLicenses.filter(l => l.management_type === 'managed');
+  const individualLicenses = relatedLicenses.filter(l => l.management_type === 'per_user');
+  
+  // For backwards compatibility
+  const managedLicense = managedLicenses[0];
+  const individualLicense = individualLicenses[0];
 
   const { data: contacts = [] } = useQuery({
     queryKey: ['contacts', license?.customer_id],
@@ -114,13 +118,17 @@ export default function LicenseDetail() {
     return () => unsubscribe();
   }, [license?.customer_id, queryClient]);
 
-  // Separate assignments by license type
+  // Separate assignments by license type - support multiple licenses
   const managedAssignments = allAssignments.filter(a => 
-    a.license_id === managedLicense?.id && a.status === 'active'
+    managedLicenses.some(l => l.id === a.license_id) && a.status === 'active'
   );
   const individualAssignments = allAssignments.filter(a => 
-    a.license_id === individualLicense?.id && a.status === 'active'
+    individualLicenses.some(l => l.id === a.license_id) && a.status === 'active'
   );
+  
+  // Group assignments by license for display
+  const getAssignmentsForLicense = (licenseId) => 
+    allAssignments.filter(a => a.license_id === licenseId && a.status === 'active');
 
   // Keep backwards compatibility
   const assignments = allAssignments;
@@ -142,12 +150,14 @@ export default function LicenseDetail() {
   // Check if we have both license types for this software
   const hasBothTypes = !!managedLicense && !!individualLicense;
   
-  // Managed license stats
-  const managedUtilizationPercent = managedLicense?.quantity > 0 
-    ? (managedAssignments.length / managedLicense.quantity) * 100 : 0;
-  const managedUnusedSeats = (managedLicense?.quantity || 0) - managedAssignments.length;
-  const managedWastedCost = managedLicense?.quantity > 0 
-    ? (managedUnusedSeats / managedLicense.quantity) * (managedLicense?.total_cost || 0) : 0;
+  // Managed license stats - aggregate across all managed licenses
+  const totalManagedSeats = managedLicenses.reduce((sum, l) => sum + (l.quantity || 0), 0);
+  const totalManagedCost = managedLicenses.reduce((sum, l) => sum + (l.total_cost || 0), 0);
+  const managedUtilizationPercent = totalManagedSeats > 0 
+    ? (managedAssignments.length / totalManagedSeats) * 100 : 0;
+  const managedUnusedSeats = totalManagedSeats - managedAssignments.length;
+  const managedWastedCost = totalManagedSeats > 0 
+    ? (managedUnusedSeats / totalManagedSeats) * totalManagedCost : 0;
   const managedDaysUntilRenewal = managedLicense?.renewal_date 
     ? differenceInDays(parseISO(managedLicense.renewal_date), new Date()) : null;
   
@@ -166,13 +176,18 @@ export default function LicenseDetail() {
   const perUserTotalCost = isPerUser ? activeAssignments.filter(a => a.license_id === license.id).reduce((sum, a) => sum + (a.cost_per_license || license?.cost_per_license || 0), 0) : 0;
   
   // Combined total cost
-  const combinedTotalCost = (managedLicense?.total_cost || 0) + individualTotalCost;
+  const combinedTotalCost = totalManagedCost + individualTotalCost;
+  
+  // State for which managed license to assign to
+  const [selectedManagedLicenseId, setSelectedManagedLicenseId] = useState(null);
 
-  const handleAssign = async (contactId) => {
+  const handleAssign = async (contactId, targetLicenseId = null) => {
+    const licenseToAssign = targetLicenseId || selectedManagedLicenseId || managedLicense?.id || licenseId;
+    
     // Optimistic update - add to cache immediately
     const newAssignment = {
       id: `temp-${Date.now()}`,
-      license_id: managedLicense?.id || licenseId,
+      license_id: licenseToAssign,
       contact_id: contactId,
       customer_id: license.customer_id,
       assigned_date: new Date().toISOString().split('T')[0],
@@ -185,10 +200,11 @@ export default function LicenseDetail() {
     
     toast.success('License assigned!');
     setShowAssignModal(false);
+    setSelectedManagedLicenseId(null);
     
     // Then persist to database
     await base44.entities.LicenseAssignment.create({
-      license_id: managedLicense?.id || licenseId,
+      license_id: licenseToAssign,
       contact_id: contactId,
       customer_id: license.customer_id,
       assigned_date: new Date().toISOString().split('T')[0],
@@ -727,15 +743,13 @@ export default function LicenseDetail() {
                   <div className="text-left">
                     <h2 className="font-semibold text-slate-900">Managed Seats</h2>
                     <p className="text-sm text-slate-500">
-                      {managedAssignments.length} of {managedLicense?.quantity || 0} seats assigned
-                      {managedLicense?.license_type && <span className="ml-2 text-blue-600">• {managedLicense.license_type}</span>}
+                      {managedAssignments.length} of {totalManagedSeats} seats assigned
+                      {managedLicenses.length > 1 && <span className="ml-2 text-blue-600">• {managedLicenses.length} license types</span>}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  {managedLicense && (
-                    <span className="text-sm font-semibold text-blue-700">${(managedLicense.total_cost || 0).toLocaleString()}/mo</span>
-                  )}
+                  <span className="text-sm font-semibold text-blue-700">${totalManagedCost.toLocaleString()}/mo</span>
                   {managedSectionExpanded ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
                 </div>
               </div>
@@ -745,10 +759,8 @@ export default function LicenseDetail() {
               <>
                 {/* Action buttons */}
                 <div className="px-6 py-3 bg-blue-50/50 border-b border-slate-100 flex items-center justify-between">
-                  {/* Cost metrics row - only if managed license exists */}
-                  {managedLicense && (
+                  {managedLicenses.length > 0 && (
                     <div className="flex items-center gap-6 text-xs">
-                      <span className="text-slate-500">${managedLicense.cost_per_license || 0}/seat</span>
                       <span className={cn(managedUtilizationPercent >= 80 ? "text-emerald-600" : managedUtilizationPercent >= 50 ? "text-amber-600" : "text-red-600")}>
                         {managedUtilizationPercent.toFixed(0)}% utilized
                       </span>
@@ -757,43 +769,21 @@ export default function LicenseDetail() {
                       )}
                     </div>
                   )}
-                  {!managedLicense && <div />}
+                  {managedLicenses.length === 0 && <div />}
                   <div className="flex gap-2" onClick={e => e.stopPropagation()}>
-                    {managedLicense ? (
-                      <>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          className="gap-2"
-                          onClick={() => setShowModifySeatsModal(true)}
-                        >
-                          <Edit2 className="w-4 h-4" />
-                          Modify Seats
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          className="gap-2 bg-blue-600 hover:bg-blue-700"
-                          onClick={() => setShowAssignModal(true)}
-                          disabled={managedUnusedSeats <= 0}
-                        >
-                          <Plus className="w-4 h-4" />
-                          Assign Seat
-                        </Button>
-                      </>
-                    ) : (
-                      <Button 
-                        size="sm" 
-                        className="gap-2 bg-blue-600 hover:bg-blue-700"
-                        onClick={() => setShowAddManagedLicense(true)}
-                      >
-                        <Plus className="w-4 h-4" />
-                        Add License
-                      </Button>
-                    )}
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      className="gap-2"
+                      onClick={() => setShowAddManagedLicense(true)}
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add License
+                    </Button>
                   </div>
                 </div>
                 
-                {!managedLicense ? (
+                {managedLicenses.length === 0 ? (
                   <div className="p-8 text-center">
                     <Building2 className="w-10 h-10 text-slate-300 mx-auto mb-3" />
                     <p className="text-slate-500 mb-3">No managed license configured</p>
@@ -806,47 +796,91 @@ export default function LicenseDetail() {
                       Add Managed License
                     </Button>
                   </div>
-                ) : managedAssignments.length === 0 ? (
-                  <div className="p-8 text-center">
-                    <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-500 mb-3">No seats assigned</p>
-                    <Button 
-                      size="sm"
-                      onClick={() => setShowAssignModal(true)} 
-                      className="bg-blue-600 hover:bg-blue-700"
-                      disabled={managedUnusedSeats <= 0}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Assign First Seat
-                    </Button>
-                  </div>
                 ) : (
-                  <div className="divide-y divide-slate-100 max-h-[300px] overflow-y-auto">
-                    {managedAssignments.map(assignment => {
-                      const contact = contacts.find(c => c.id === assignment.contact_id);
+                  <div className="divide-y divide-slate-200">
+                    {managedLicenses.map(ml => {
+                      const mlAssignments = getAssignmentsForLicense(ml.id);
+                      const mlUnusedSeats = (ml.quantity || 0) - mlAssignments.length;
+                      const mlUtilization = ml.quantity > 0 ? (mlAssignments.length / ml.quantity) * 100 : 0;
+                      
                       return (
-                        <div key={assignment.id} className="px-6 py-3 hover:bg-slate-50 flex items-center justify-between">
-                          <div 
-                            className="flex items-center gap-3 cursor-pointer"
-                            onClick={() => setSelectedContact(contact)}
-                          >
-                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-medium text-sm">
-                              {contact?.full_name?.charAt(0) || '?'}
+                        <div key={ml.id} className="bg-white">
+                          {/* License Type Header */}
+                          <div className="px-6 py-3 bg-slate-50 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <Badge className="bg-blue-100 text-blue-700">{ml.license_type || 'Standard'}</Badge>
+                              <span className="text-xs text-slate-500">
+                                {mlAssignments.length}/{ml.quantity || 0} seats • ${ml.cost_per_license || 0}/seat • ${(ml.total_cost || 0).toLocaleString()}/mo
+                              </span>
+                              <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                <div 
+                                  className={cn(
+                                    "h-full rounded-full",
+                                    mlUtilization >= 90 ? "bg-emerald-500" :
+                                    mlUtilization >= 50 ? "bg-amber-500" : "bg-red-500"
+                                  )}
+                                  style={{ width: `${Math.min(100, mlUtilization)}%` }}
+                                />
+                              </div>
                             </div>
-                            <div className="min-w-0">
-                              <p className="font-medium text-slate-900 text-sm hover:text-blue-600">{contact?.full_name || 'Unknown'}</p>
-                              <p className="text-xs text-slate-500">{contact?.email || 'No email'}</p>
+                            <div className="flex gap-2">
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={() => { setSelectedManagedLicenseId(ml.id); setShowModifySeatsModal(true); }}
+                              >
+                                <Edit2 className="w-3 h-3 mr-1" />
+                                Modify
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                className="h-7 text-xs bg-blue-600 hover:bg-blue-700"
+                                onClick={() => { setSelectedManagedLicenseId(ml.id); setShowAssignModal(true); }}
+                                disabled={mlUnusedSeats <= 0}
+                              >
+                                <Plus className="w-3 h-3 mr-1" />
+                                Assign
+                              </Button>
                             </div>
                           </div>
-
-                          <Button 
-                            size="sm" 
-                            variant="ghost"
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50 h-7 px-2"
-                            onClick={() => handleRevoke(assignment.contact_id)}
-                          >
-                            Revoke
-                          </Button>
+                          
+                          {/* Assignments for this license */}
+                          {mlAssignments.length === 0 ? (
+                            <div className="px-6 py-4 text-center text-sm text-slate-400">
+                              No seats assigned to this license type
+                            </div>
+                          ) : (
+                            <div className="divide-y divide-slate-100 max-h-[200px] overflow-y-auto">
+                              {mlAssignments.map(assignment => {
+                                const contact = contacts.find(c => c.id === assignment.contact_id);
+                                return (
+                                  <div key={assignment.id} className="px-6 py-2 hover:bg-slate-50 flex items-center justify-between">
+                                    <div 
+                                      className="flex items-center gap-3 cursor-pointer"
+                                      onClick={() => setSelectedContact(contact)}
+                                    >
+                                      <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-medium text-xs">
+                                        {contact?.full_name?.charAt(0) || '?'}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="font-medium text-slate-900 text-sm hover:text-blue-600">{contact?.full_name || 'Unknown'}</p>
+                                        <p className="text-xs text-slate-500">{contact?.email || 'No email'}</p>
+                                      </div>
+                                    </div>
+                                    <Button 
+                                      size="sm" 
+                                      variant="ghost"
+                                      className="text-red-600 hover:text-red-700 hover:bg-red-50 h-6 px-2 text-xs"
+                                      onClick={() => handleRevoke(assignment.contact_id)}
+                                    >
+                                      Revoke
+                                    </Button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -869,6 +903,7 @@ export default function LicenseDetail() {
                     <h2 className="font-semibold text-slate-900">Individual Licenses</h2>
                     <p className="text-sm text-slate-500">
                       {individualAssignments.length} individual license{individualAssignments.length !== 1 ? 's' : ''}
+                      {individualLicenses.length > 1 && <span className="ml-2 text-emerald-600">• {individualLicenses.length} types</span>}
                     </p>
                   </div>
                 </div>
@@ -907,55 +942,88 @@ export default function LicenseDetail() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
-                    {individualAssignments.map(assignment => {
-                      const contact = contacts.find(c => c.id === assignment.contact_id);
-                      return (
-                        <div key={assignment.id} className="px-6 py-3 hover:bg-slate-50">
-                          <div className="flex items-center justify-between gap-4">
-                            <div 
-                              className="flex items-center gap-3 cursor-pointer flex-1"
-                              onClick={() => setSelectedContact(contact)}
-                            >
-                              <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-medium flex-shrink-0 text-sm">
-                                {contact?.full_name?.charAt(0) || '?'}
-                              </div>
-                              <div className="min-w-0">
-                                <p className="font-medium text-slate-900 text-sm hover:text-emerald-600">{contact?.full_name || 'Unknown User'}</p>
-                                <p className="text-xs text-slate-500">{contact?.email || 'No email'}</p>
-                              </div>
+                  <div className="divide-y divide-slate-200">
+                    {/* Group by license type if multiple */}
+                    {individualLicenses.length > 1 ? (
+                      individualLicenses.map(il => {
+                        const ilAssignments = getAssignmentsForLicense(il.id);
+                        if (ilAssignments.length === 0) return null;
+                        
+                        return (
+                          <div key={il.id}>
+                            <div className="px-6 py-2 bg-slate-50 flex items-center gap-2">
+                              <Badge className="bg-emerald-100 text-emerald-700">{il.license_type || 'Standard'}</Badge>
+                              <span className="text-xs text-slate-500">{ilAssignments.length} license{ilAssignments.length !== 1 ? 's' : ''}</span>
                             </div>
-
-                            {/* Individual License Details - Compact inline */}
-                            <div className="flex items-center gap-4 text-xs text-slate-500">
-                              {assignment.license_type && <span className="text-emerald-600 font-medium">{assignment.license_type}</span>}
-                              <span>${assignment.cost_per_license || individualLicense?.cost_per_license || 0}/mo</span>
-                              <span>{assignment.renewal_date ? format(parseISO(assignment.renewal_date), 'MMM d, yyyy') : '—'}</span>
-                              {assignment.card_last_four && <span>•••• {assignment.card_last_four}</span>}
-                            </div>
-
-                            <div className="flex items-center gap-1">
-                              <Button 
-                                size="sm" 
-                                variant="ghost"
-                                className="text-slate-600 hover:text-slate-700 hover:bg-slate-100"
-                                onClick={() => setEditingAssignment(assignment)}
-                              >
-                                Edit
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="ghost"
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                onClick={() => handleRevoke(assignment.contact_id)}
-                              >
-                                Remove
-                              </Button>
+                            <div className="divide-y divide-slate-100">
+                              {ilAssignments.map(assignment => {
+                                const contact = contacts.find(c => c.id === assignment.contact_id);
+                                return (
+                                  <div key={assignment.id} className="px-6 py-2 hover:bg-slate-50">
+                                    <div className="flex items-center justify-between gap-4">
+                                      <div 
+                                        className="flex items-center gap-3 cursor-pointer flex-1"
+                                        onClick={() => setSelectedContact(contact)}
+                                      >
+                                        <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-medium flex-shrink-0 text-xs">
+                                          {contact?.full_name?.charAt(0) || '?'}
+                                        </div>
+                                        <div className="min-w-0">
+                                          <p className="font-medium text-slate-900 text-sm hover:text-emerald-600">{contact?.full_name || 'Unknown User'}</p>
+                                          <p className="text-xs text-slate-500">{contact?.email || 'No email'}</p>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-4 text-xs text-slate-500">
+                                        <span>${assignment.cost_per_license || il.cost_per_license || 0}/mo</span>
+                                        <span>{assignment.renewal_date ? format(parseISO(assignment.renewal_date), 'MMM d') : '—'}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => setEditingAssignment(assignment)}>Edit</Button>
+                                        <Button size="sm" variant="ghost" className="text-red-600 h-6 px-2 text-xs" onClick={() => handleRevoke(assignment.contact_id)}>Remove</Button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })
+                    ) : (
+                      <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
+                        {individualAssignments.map(assignment => {
+                          const contact = contacts.find(c => c.id === assignment.contact_id);
+                          return (
+                            <div key={assignment.id} className="px-6 py-3 hover:bg-slate-50">
+                              <div className="flex items-center justify-between gap-4">
+                                <div 
+                                  className="flex items-center gap-3 cursor-pointer flex-1"
+                                  onClick={() => setSelectedContact(contact)}
+                                >
+                                  <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-medium flex-shrink-0 text-sm">
+                                    {contact?.full_name?.charAt(0) || '?'}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-medium text-slate-900 text-sm hover:text-emerald-600">{contact?.full_name || 'Unknown User'}</p>
+                                    <p className="text-xs text-slate-500">{contact?.email || 'No email'}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-4 text-xs text-slate-500">
+                                  {assignment.license_type && <span className="text-emerald-600 font-medium">{assignment.license_type}</span>}
+                                  <span>${assignment.cost_per_license || individualLicense?.cost_per_license || 0}/mo</span>
+                                  <span>{assignment.renewal_date ? format(parseISO(assignment.renewal_date), 'MMM d, yyyy') : '—'}</span>
+                                  {assignment.card_last_four && <span>•••• {assignment.card_last_four}</span>}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Button size="sm" variant="ghost" className="text-slate-600 hover:text-slate-700 hover:bg-slate-100" onClick={() => setEditingAssignment(assignment)}>Edit</Button>
+                                  <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleRevoke(assignment.contact_id)}>Remove</Button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
               </>
