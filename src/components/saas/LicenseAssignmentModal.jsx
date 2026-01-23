@@ -193,6 +193,11 @@ export default function LicenseAssignmentModal({
                 const isAssigned = assignedContactIds.includes(contact.id);
                 const assignment = assignments.find(a => a.contact_id === contact.id && a.license_id === license?.id && a.status === 'active');
                 
+                // Check if this user has an individual license for the same software
+                const hasIndividualLicense = individualLicenseId && allLicenseAssignments.some(
+                  a => a.contact_id === contact.id && a.license_id === individualLicenseId && a.status === 'active'
+                );
+                
                 return (
                   <div 
                     key={contact.id} 
@@ -227,16 +232,22 @@ export default function LicenseAssignmentModal({
                             )}
                           </div>
                         )}
+                        {!isPerUser && hasIndividualLicense && !isAssigned && (
+                          <p className="text-xs text-amber-600 mt-1">
+                            💡 Has individual license - potential savings if moved to managed seat
+                          </p>
+                        )}
                       </div>
                     </div>
                     {isAssigned ? (
                       <Button 
                         size="sm" 
                         variant="outline"
-                        className="text-red-600 border-red-200 hover:bg-red-50"
-                        onClick={() => onRevoke(contact.id)}
+                        className="text-emerald-600 border-emerald-200 bg-emerald-50 cursor-default"
+                        disabled
                       >
-                        Revoke
+                        <Check className="w-4 h-4 mr-1" />
+                        Assigned
                       </Button>
                     ) : (
                       <Button 
