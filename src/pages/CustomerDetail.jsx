@@ -279,11 +279,18 @@ export default function CustomerDetail() {
   };
 
   const handleAddSoftware = async (softwareData) => {
-    const newSoftware = await base44.entities.SaaSLicense.create(softwareData);
-    queryClient.invalidateQueries({ queryKey: ['licenses', customerId] });
     setShowAddSoftware(false);
     toast.success('Software added!');
-    // Navigate to the license detail page to add licenses
+    
+    // Create the software and navigate immediately
+    const newSoftware = await base44.entities.SaaSLicense.create(softwareData);
+    
+    // Pre-populate the query cache with the new software for instant load
+    queryClient.setQueryData(['license', newSoftware.id], newSoftware);
+    queryClient.setQueryData(['related_licenses', softwareData.application_name, customerId], [newSoftware]);
+    queryClient.setQueryData(['all_license_assignments', softwareData.application_name, customerId], []);
+    
+    // Navigate to the license detail page
     window.location.href = createPageUrl(`LicenseDetail?id=${newSoftware.id}`);
   };
 

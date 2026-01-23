@@ -69,7 +69,8 @@ export default function LicenseDetail() {
       const licenses = await base44.entities.SaaSLicense.filter({ id: licenseId });
       return licenses[0];
     },
-    enabled: !!licenseId
+    enabled: !!licenseId,
+    staleTime: 1000 * 60 // Cache for 1 minute
   });
 
   const { data: customer } = useQuery({
@@ -78,7 +79,8 @@ export default function LicenseDetail() {
       const customers = await base44.entities.Customer.filter({ id: license.customer_id });
       return customers[0];
     },
-    enabled: !!license?.customer_id
+    enabled: !!license?.customer_id,
+    staleTime: 1000 * 60 * 5 // Cache customer for 5 minutes
   });
 
   // Fetch ALL licenses for same application (both managed and individual)
@@ -91,7 +93,10 @@ export default function LicenseDetail() {
       });
       return allLicenses;
     },
-    enabled: !!license?.customer_id && !!license?.application_name
+    enabled: !!license?.customer_id && !!license?.application_name,
+    staleTime: 1000 * 60,
+    // Use the single license as initial data if we have it
+    initialData: license ? [license] : undefined
   });
 
   // Separate managed and individual licenses - support multiple of each type
@@ -105,7 +110,8 @@ export default function LicenseDetail() {
   const { data: contacts = [] } = useQuery({
     queryKey: ['contacts', license?.customer_id],
     queryFn: () => base44.entities.Contact.filter({ customer_id: license.customer_id }),
-    enabled: !!license?.customer_id
+    enabled: !!license?.customer_id,
+    staleTime: 1000 * 60 * 5 // Cache contacts for 5 minutes
   });
 
   // Fetch assignments for ALL related licenses (both managed and individual)
@@ -119,7 +125,8 @@ export default function LicenseDetail() {
       const results = await Promise.all(assignmentPromises);
       return results.flat();
     },
-    enabled: relatedLicenses.length > 0
+    enabled: relatedLicenses.length > 0,
+    staleTime: 1000 * 30 // Cache for 30 seconds
   });
 
   // Real-time subscription for license assignments
