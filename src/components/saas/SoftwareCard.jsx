@@ -10,10 +10,12 @@ export default function SoftwareCard({
   managedLicense, 
   individualLicenses = [],
   managedAssignments = [],
-  individualAssignments = []
+  individualAssignments = [],
+  isCatalogOnly = false
 }) {
   const hasManagedLicense = !!managedLicense;
   const hasIndividualLicenses = individualLicenses.length > 0;
+  const hasAnyLicense = hasManagedLicense || hasIndividualLicenses;
   
   // Managed stats
   const managedSeats = managedLicense?.quantity || 0;
@@ -32,12 +34,15 @@ export default function SoftwareCard({
   const totalCost = managedCost + individualTotalCost;
   const totalUsers = managedUsed + individualCount;
 
-  // Link to first license for detail view
+  // Link to first license for detail view, or to app if catalog-only
   const detailLicenseId = managedLicense?.id || individualLicenses[0]?.id;
+  const detailUrl = software?._isApplication && !detailLicenseId
+    ? createPageUrl(`LicenseDetail?appId=${software.id}`)
+    : createPageUrl(`LicenseDetail?id=${detailLicenseId}`);
 
   return (
     <Link 
-      to={createPageUrl(`LicenseDetail?id=${detailLicenseId}`)}
+      to={detailUrl}
       className="group bg-white hover:bg-slate-50 rounded-xl border border-slate-200 p-4 transition-all hover:shadow-md cursor-pointer block"
     >
       <div className="flex items-start gap-3">
@@ -68,6 +73,14 @@ export default function SoftwareCard({
           
           {/* License Type Pills */}
           <div className="flex flex-wrap gap-2 mt-2">
+            {/* Catalog Only - No licenses yet */}
+            {!hasAnyLicense && (
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 rounded-lg border border-slate-200">
+                <Cloud className="w-3 h-3 text-slate-400" />
+                <span className="text-xs font-medium text-slate-500">No licenses</span>
+              </div>
+            )}
+            
             {/* Managed License Pill */}
             {hasManagedLicense && (
               <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 rounded-lg border border-blue-100">
