@@ -202,6 +202,7 @@ export default function UserDetailModal({ contact, open, onClose, customerId }) 
                     <Link 
                       key={license.id} 
                       to={createPageUrl(`LicenseDetail?id=${license.id}`)}
+                      onClick={onClose}
                       className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer group"
                     >
                       {license.logo_url ? (
