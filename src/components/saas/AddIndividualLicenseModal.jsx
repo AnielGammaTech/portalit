@@ -11,6 +11,7 @@ export default function AddIndividualLicenseModal({ open, onClose, onSave, softw
     contact_id: '',
     license_type: '',
     cost_per_license: 0,
+    billing_cycle: 'monthly',
     renewal_date: '',
     card_last_four: '',
     notes: ''
@@ -28,6 +29,7 @@ export default function AddIndividualLicenseModal({ open, onClose, onSave, softw
       contact_id: '',
       license_type: '',
       cost_per_license: 0,
+      billing_cycle: 'monthly',
       renewal_date: '',
       card_last_four: '',
       notes: ''
@@ -83,18 +85,35 @@ export default function AddIndividualLicenseModal({ open, onClose, onSave, softw
             />
           </div>
 
-          {/* Cost */}
-          <div>
-            <Label>Monthly Cost ($)</Label>
-            <Input
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.cost_per_license}
-              onChange={(e) => setForm({ ...form, cost_per_license: parseFloat(e.target.value) || 0 })}
-              placeholder="0.00"
-              className="mt-1 w-32"
-            />
+          {/* Billing Cycle & Cost */}
+          <div className="flex gap-4">
+            <div>
+              <Label>Billing Cycle</Label>
+              <Select 
+                value={form.billing_cycle} 
+                onValueChange={(v) => setForm({ ...form, billing_cycle: v })}
+              >
+                <SelectTrigger className="mt-1 w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                  <SelectItem value="annually">Yearly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>{form.billing_cycle === 'monthly' ? 'Monthly' : 'Yearly'} Cost ($)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.cost_per_license}
+                onChange={(e) => setForm({ ...form, cost_per_license: parseFloat(e.target.value) || 0 })}
+                placeholder="0.00"
+                className="mt-1 w-32"
+              />
+            </div>
           </div>
 
           {/* Billing Info */}
