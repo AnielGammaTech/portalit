@@ -479,110 +479,90 @@ export default function OverviewTab({
         </motion.div>
       </div>
 
-      {/* Second Row - Team (with pagination) + SaaS Metrics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Team Members with Pagination */}
+      {/* Second Row - All 4 columns like first row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Team Members */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="bg-white rounded-xl border border-slate-200 overflow-hidden"
+          className="bg-white rounded-xl border border-slate-200 overflow-hidden cursor-pointer hover:border-purple-200 transition-colors"
+          onClick={() => setSelectedContact(contacts[0])}
         >
-          <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+          <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-slate-900 text-sm">Team</h3>
-              <Badge variant="outline" className="text-[10px]">{contacts.length}</Badge>
+              <h3 className="font-semibold text-slate-900 text-xs">Team</h3>
+              <Badge variant="outline" className="text-[9px]">{contacts.length}</Badge>
             </div>
-            <div className="flex items-center gap-1">
-              <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={onAddContact}>
-                <UserPlus className="w-3 h-3" />
+            <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+              <Button size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={onAddContact}>
+                <UserPlus className="w-2.5 h-2.5" />
               </Button>
               {customer?.source === 'halopsa' && (
-                <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={handleSyncContacts} disabled={isSyncing}>
-                  <RefreshCw className={cn("w-3 h-3", isSyncing && "animate-spin")} />
+                <Button size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={handleSyncContacts} disabled={isSyncing}>
+                  <RefreshCw className={cn("w-2.5 h-2.5", isSyncing && "animate-spin")} />
                 </Button>
               )}
             </div>
           </div>
-          <div className="p-2.5">
-            <div className="space-y-1">
-              {paginatedContacts.map(contact => (
-                <div 
-                  key={contact.id}
-                  onClick={() => setSelectedContact(contact)}
-                  className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg hover:bg-slate-100 cursor-pointer"
-                >
-                  <div className="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs font-medium">
-                    {contact.full_name?.charAt(0)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-slate-900 truncate">{contact.full_name}</p>
-                    <p className="text-[10px] text-slate-500 truncate">{contact.email}</p>
-                  </div>
+          <div className="p-2 space-y-1">
+            {contacts.slice(0, 3).map(contact => (
+              <div 
+                key={contact.id}
+                onClick={(e) => { e.stopPropagation(); setSelectedContact(contact); }}
+                className="flex items-center gap-1.5 p-1.5 bg-slate-50 rounded hover:bg-slate-100"
+              >
+                <div className="w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center text-white text-[10px] font-medium">
+                  {contact.full_name?.charAt(0)}
                 </div>
-              ))}
-            </div>
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100">
-                <p className="text-[10px] text-slate-500">{(teamPage - 1) * itemsPerPage + 1}-{Math.min(teamPage * itemsPerPage, contacts.length)} of {contacts.length}</p>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setTeamPage(p => Math.max(1, p - 1))} disabled={teamPage === 1}>
-                    <ChevronRight className="w-3 h-3 rotate-180" />
-                  </Button>
-                  <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setTeamPage(p => Math.min(totalPages, p + 1))} disabled={teamPage >= totalPages}>
-                    <ChevronRight className="w-3 h-3" />
-                  </Button>
-                </div>
+                <p className="text-[10px] text-slate-700 truncate flex-1">{contact.full_name}</p>
               </div>
-            )}
+            ))}
+            {contacts.length > 3 && <p className="text-[9px] text-slate-400 text-center">+{contacts.length - 3} more</p>}
           </div>
         </motion.div>
 
-        {/* SaaS Metrics */}
+        {/* SaaS Metrics - Compact */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.45 }}
-          className="bg-white rounded-xl border border-slate-200 overflow-hidden"
+          className="bg-white rounded-xl border border-slate-200 overflow-hidden cursor-pointer hover:border-purple-200 transition-colors"
+          onClick={() => document.querySelector('[value="licenses"]')?.click()}
         >
-          <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-slate-900 text-sm">SaaS Overview</h3>
-              <Badge variant="outline" className="text-[10px]">{licenses.length} apps</Badge>
-            </div>
-            <Cloud className="w-4 h-4 text-slate-400" />
+          <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="font-semibold text-slate-900 text-xs">SaaS</h3>
+            <Badge variant="outline" className="text-[9px]">{licenses.length} apps</Badge>
           </div>
-          <div className="p-3">
+          <div className="p-2">
             {(() => {
               const totalSeats = licenses.reduce((sum, l) => sum + (l.quantity || 0), 0);
               const assignedSeats = licenseAssignments.filter(a => a.status === 'active').length;
               const utilizationRate = totalSeats > 0 ? (assignedSeats / totalSeats) * 100 : 0;
               const totalCost = licenses.reduce((sum, l) => sum + (l.total_cost || 0), 0);
-              const unusedCost = totalSeats > 0 ? ((totalSeats - assignedSeats) / totalSeats) * totalCost : 0;
               
               return (
-                <div className="grid grid-cols-4 gap-3">
-                  <div className="bg-purple-50 rounded-lg p-3 text-center">
-                    <p className="text-xl font-bold text-purple-700">${totalCost.toLocaleString()}</p>
-                    <p className="text-[10px] text-purple-600">Monthly Spend</p>
+                <div className="space-y-1.5">
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <div className="bg-purple-50 rounded p-1.5 text-center">
+                      <p className="text-sm font-bold text-purple-700">${totalCost.toLocaleString()}</p>
+                      <p className="text-[8px] text-purple-600">Spend</p>
+                    </div>
+                    <div className={cn("rounded p-1.5 text-center", utilizationRate >= 70 ? "bg-emerald-50" : "bg-amber-50")}>
+                      <p className={cn("text-sm font-bold", utilizationRate >= 70 ? "text-emerald-700" : "text-amber-700")}>{utilizationRate.toFixed(0)}%</p>
+                      <p className={cn("text-[8px]", utilizationRate >= 70 ? "text-emerald-600" : "text-amber-600")}>Used</p>
+                    </div>
                   </div>
-                  <div className={cn("rounded-lg p-3 text-center", utilizationRate >= 70 ? "bg-emerald-50" : "bg-amber-50")}>
-                    <p className={cn("text-xl font-bold", utilizationRate >= 70 ? "text-emerald-700" : "text-amber-700")}>{utilizationRate.toFixed(0)}%</p>
-                    <p className={cn("text-[10px]", utilizationRate >= 70 ? "text-emerald-600" : "text-amber-600")}>Utilization</p>
-                  </div>
-                  <div className="bg-blue-50 rounded-lg p-3 text-center">
-                    <p className="text-xl font-bold text-blue-700">{assignedSeats}/{totalSeats}</p>
-                    <p className="text-[10px] text-blue-600">Seats Used</p>
-                  </div>
-                  <div className={cn("rounded-lg p-3 text-center", unusedCost > 0 ? "bg-red-50" : "bg-slate-50")}>
-                    <p className={cn("text-xl font-bold", unusedCost > 0 ? "text-red-600" : "text-slate-600")}>${unusedCost.toFixed(0)}</p>
-                    <p className={cn("text-[10px]", unusedCost > 0 ? "text-red-500" : "text-slate-500")}>Unused</p>
-                  </div>
+                  <p className="text-[9px] text-slate-500 text-center">{assignedSeats}/{totalSeats} seats</p>
                 </div>
               );
             })()}
           </div>
         </motion.div>
+
+        {/* Empty slots or additional widgets can go here */}
+        <div className="hidden lg:block" />
+        <div className="hidden lg:block" />
       </div>
 
       {/* Contact Detail Modal */}
