@@ -759,16 +759,7 @@ export default function CustomerServicesTab({
         )}
       </Tabs>
 
-      {/* Empty state if no services connected */}
-      {!hasJumpCloud && !hasSpanning && !hasRecurringServices && (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Cloud className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <p className="text-slate-500">No services connected for this customer.</p>
-            <p className="text-sm text-slate-400 mt-1">Configure integrations in Settings to sync service data.</p>
-          </CardContent>
-        </Card>
-      )}
+
 
       {/* User Detail Modal */}
       <UserDetailModal 
