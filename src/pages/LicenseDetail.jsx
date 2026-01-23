@@ -853,7 +853,7 @@ export default function LicenseDetail() {
                           <div className="px-6 py-3 bg-slate-50">
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-3">
-                                <Badge className="bg-blue-100 text-blue-700">{ml.license_type || 'Standard'}</Badge>
+                                <Badge className="bg-blue-100 text-blue-700">{ml.license_type || '-'}</Badge>
                                 <span className="text-xs text-slate-500">
                                   {mlAssignments.length}/{ml.quantity || 0} seats • ${ml.cost_per_license || 0}/seat • ${(ml.total_cost || 0).toLocaleString()}/mo
                                 </span>
@@ -892,7 +892,7 @@ export default function LicenseDetail() {
                                       variant="ghost"
                                       className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
                                       onClick={async () => {
-                                        if (confirm(`Delete this ${ml.license_type || 'Standard'} license? This will also remove ${mlAssignments.length} assignment(s).`)) {
+                                        if (confirm(`Delete this ${ml.license_type || ''} license? This will also remove ${mlAssignments.length} assignment(s).`)) {
                                           for (const a of mlAssignments) {
                                             await base44.entities.LicenseAssignment.delete(a.id);
                                           }
