@@ -238,7 +238,7 @@ export default function CustomerDetail() {
                   const [saasView, setSaasView] = useState('licenses'); // 'licenses', 'users', 'spend'
                   const [saasCategoryFilter, setSaasCategoryFilter] = useState(''); // filter by category
 
-  const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems || loadingContractItems || loadingContacts || loadingTickets || loadingInvoiceLineItems || loadingAssignments || loadingDevices;
+  const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems || loadingContractItems || loadingContacts || loadingTickets || loadingInvoiceLineItems || loadingAssignments || loadingDevices || loadingJumpcloud || loadingSpanning;
 
   const handleAssignLicense = async (contactId) => {
     await base44.entities.LicenseAssignment.create({
