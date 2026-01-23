@@ -884,6 +884,23 @@ export default function LicenseDetail() {
           queryClient.invalidateQueries({ queryKey: ['license', licenseId] });
         }}
       />
+
+      {/* Add Managed License Modal */}
+      <AddManagedLicenseModal
+        open={showAddManagedLicense}
+        onClose={() => setShowAddManagedLicense(false)}
+        onSave={handleAddManagedLicense}
+        softwareName={license?.application_name}
+      />
+
+      {/* Add Individual License Modal */}
+      <AddIndividualLicenseModal
+        open={showAddIndividualLicense}
+        onClose={() => setShowAddIndividualLicense(false)}
+        onSave={handleAddIndividualLicense}
+        softwareName={license?.application_name}
+        contacts={contacts}
+      />
     </div>
   );
 }
