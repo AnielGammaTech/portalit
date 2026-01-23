@@ -1140,45 +1140,7 @@ export default function LicenseDetail() {
             customerId={license?.customer_id}
           />
 
-          {/* If only one type exists, show the original single view */}
-          {!hasBothTypes && !managedLicense && !individualLicense && (
-            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                  <h2 className="font-semibold text-slate-900">
-                    {isPerUser ? 'License Holders' : 'Seat Assignments'}
-                  </h2>
-                  <p className="text-sm text-slate-500">
-                    {isPerUser 
-                      ? `${activeAssignments.filter(a => a.license_id === license.id).length} individual license${activeAssignments.filter(a => a.license_id === license.id).length !== 1 ? 's' : ''}`
-                      : `${activeAssignments.filter(a => a.license_id === license.id).length} of ${license.quantity || 0} seats assigned`
-                    }
-                  </p>
-                </div>
-                <Button 
-                  size="sm" 
-                  className="gap-2 bg-purple-600 hover:bg-purple-700"
-                  onClick={() => (isPerUser ? setShowAddUserLicense(true) : setShowAssignModal(true))}
-                  disabled={!isPerUser && unusedSeats <= 0}
-                >
-                  <Plus className="w-4 h-4" />
-                  {isPerUser ? 'Add License' : 'Assign Seat'}
-                </Button>
-              </div>
-              
-              <div className="p-12 text-center">
-                <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                <p className="text-slate-500 mb-4">No users assigned yet</p>
-                <Button 
-                  onClick={() => (isPerUser ? setShowAddUserLicense(true) : setShowAssignModal(true))} 
-                  className="bg-purple-600 hover:bg-purple-700"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  {isPerUser ? 'Add First License' : 'Assign First User'}
-                </Button>
-              </div>
-            </div>
-          )}
+
         </div>
       </div>
 
