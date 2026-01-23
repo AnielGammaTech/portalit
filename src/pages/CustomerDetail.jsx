@@ -1295,6 +1295,12 @@ export default function CustomerDetail() {
             onSave={handleAddLicense}
             customerId={customerId}
           />
+          <AddSoftwareModal
+            open={showAddSoftware}
+            onClose={() => setShowAddSoftware(false)}
+            onSave={handleAddSoftware}
+            customerId={customerId}
+          />
           <AddContactModal
             open={showAddContact}
             onClose={() => setShowAddContact(false)}
