@@ -1211,7 +1211,14 @@ export default function CustomerDetail() {
                     .map(contact => {
                       const userAssignments = licenseAssignments.filter(a => a.contact_id === contact.id && a.status === 'active');
                       const userLicenses = userAssignments.map(a => licenses.find(l => l.id === a.license_id)).filter(Boolean);
-                      const totalCost = userLicenses.reduce((sum, l) => {
+                      // Deduplicate by application name
+                      const uniqueApps = userLicenses.reduce((acc, license) => {
+                        if (!acc.find(l => l.application_name === license.application_name)) {
+                          acc.push(license);
+                        }
+                        return acc;
+                      }, []);
+                      const totalCost = uniqueApps.reduce((sum, l) => {
                         const perSeatCost = l.quantity > 0 ? (l.total_cost || 0) / l.quantity : 0;
                         return sum + perSeatCost;
                       }, 0);
@@ -1229,13 +1236,13 @@ export default function CustomerDetail() {
                               </div>
                             </div>
                             <div className="text-right">
-                              <p className="font-semibold text-slate-900">{userAssignments.length} licenses</p>
+                              <p className="font-semibold text-slate-900">{uniqueApps.length} licenses</p>
                               <p className="text-sm text-slate-500">${totalCost.toFixed(2)}/mo</p>
                             </div>
                           </div>
-                          {userLicenses.length > 0 ? (
+                          {uniqueApps.length > 0 ? (
                             <div className="flex flex-wrap gap-2">
-                              {userLicenses.map(license => (
+                              {uniqueApps.map(license => (
                                 <Link
                                   key={license.id}
                                   to={createPageUrl(`LicenseDetail?id=${license.id}`)}
