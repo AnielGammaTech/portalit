@@ -1015,63 +1015,137 @@ export default function CustomerDetail() {
             {/* Conditional Views */}
             {saasView === 'licenses' && (
               <div className="space-y-6">
-                {/* Software Cards - Grouped View */}
-                <div className="bg-white rounded-2xl border border-slate-200/50 overflow-hidden">
-                  <div className="px-6 py-4 border-b border-slate-100">
-                    <h3 className="font-semibold text-slate-900">Software & Licenses</h3>
-                    <p className="text-sm text-slate-500">{Object.keys(groupedSoftware).length} applications</p>
-                  </div>
-                  {Object.keys(groupedSoftware).length === 0 ? (
-                    <div className="p-12 text-center">
-                      <Cloud className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                      <p className="text-slate-500 mb-3">No software added yet</p>
-                      <Button 
-                        onClick={() => setShowAddSoftware(true)}
-                        className="bg-purple-600 hover:bg-purple-700"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Software
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {Object.entries(groupedSoftware)
-                        .filter(([_, data]) => {
-                          // Apply category filter
-                          if (saasCategoryFilter && data.software.category !== saasCategoryFilter) return false;
-                          
-                          // Apply utilization filters
-                          if (saasFilter !== 'all' && data.managedLicense) {
-                            const assignedCount = licenseAssignments.filter(a => a.license_id === data.managedLicense.id && a.status === 'active').length;
-                            const utilization = data.managedLicense.quantity > 0 ? assignedCount / data.managedLicense.quantity : 0;
-                            
-                            if (saasFilter === 'underutilized') return utilization < 0.5 && data.managedLicense.quantity > 0;
-                            if (saasFilter === 'full') return assignedCount >= (data.managedLicense.quantity || 0) && data.managedLicense.quantity > 0;
-                            if (saasFilter === 'unassigned') return assignedCount < (data.managedLicense.quantity || 0);
-                          }
-                          return true;
-                        })
-                        .map(([appName, data]) => {
+                {/* JumpCloud SSO Applications - Only if customer has JumpCloud mapping */}
+                {jumpcloudMapping && (() => {
+                  const jumpcloudApps = Object.entries(groupedSoftware).filter(([_, data]) => 
+                    data.software.source === 'jumpcloud' || data.software.vendor?.toLowerCase() === 'jumpcloud'
+                  );
+                  if (jumpcloudApps.length === 0) return null;
+                  
+                  return (
+                    <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl border border-emerald-200 overflow-hidden">
+                      <div className="px-6 py-4 border-b border-emerald-100 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+                            <Cloud className="w-4 h-4 text-emerald-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-slate-900">JumpCloud SSO Applications</h3>
+                            <p className="text-sm text-emerald-700">{jumpcloudApps.length} applications synced from JumpCloud</p>
+                          </div>
+                        </div>
+                        <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Auto-synced</Badge>
+                      </div>
+                      <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                        {jumpcloudApps.map(([appName, data]) => {
                           const managedAssignments = data.managedLicense 
                             ? licenseAssignments.filter(a => a.license_id === data.managedLicense.id && a.status === 'active')
                             : [];
                           const individualAssignments = data.individualLicenses.flatMap(l => 
                             licenseAssignments.filter(a => a.license_id === l.id && a.status === 'active')
                           );
+                          const totalUsers = managedAssignments.length + individualAssignments.length;
                           
                           return (
-                            <SoftwareCard 
+                            <Link 
                               key={appName}
-                              software={data.software}
-                              managedLicense={data.managedLicense}
-                              individualLicenses={data.individualLicenses}
-                              managedAssignments={managedAssignments}
-                              individualAssignments={individualAssignments}
-                            />
+                              to={createPageUrl(`LicenseDetail?id=${data.software.id}`)}
+                              className="flex items-center gap-3 p-3 bg-white rounded-xl border border-emerald-100 hover:border-emerald-300 hover:shadow-md transition-all group"
+                            >
+                              <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                {data.software.logo_url ? (
+                                  <img src={data.software.logo_url} alt={appName} className="w-8 h-8 object-contain" />
+                                ) : (
+                                  <Cloud className="w-5 h-5 text-emerald-600" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-slate-900 truncate group-hover:text-emerald-700 transition-colors">{appName}</p>
+                                <p className="text-xs text-slate-500">JumpCloud SSO</p>
+                              </div>
+                              <Badge variant="outline" className="text-[10px] border-emerald-200 text-emerald-700 flex-shrink-0">
+                                <Users className="w-3 h-3 mr-1" />
+                                {totalUsers} users
+                              </Badge>
+                            </Link>
                           );
                         })}
+                      </div>
                     </div>
-                  )}
+                  );
+                })()}
+
+                {/* Software Cards - Grouped View (excluding JumpCloud apps if they have their own section) */}
+                <div className="bg-white rounded-2xl border border-slate-200/50 overflow-hidden">
+                  <div className="px-6 py-4 border-b border-slate-100">
+                    <h3 className="font-semibold text-slate-900">Software & Licenses</h3>
+                    <p className="text-sm text-slate-500">
+                      {Object.entries(groupedSoftware).filter(([_, data]) => 
+                        !jumpcloudMapping || (data.software.source !== 'jumpcloud' && data.software.vendor?.toLowerCase() !== 'jumpcloud')
+                      ).length} applications
+                    </p>
+                  </div>
+                  {(() => {
+                    const nonJumpcloudApps = Object.entries(groupedSoftware).filter(([_, data]) => 
+                      !jumpcloudMapping || (data.software.source !== 'jumpcloud' && data.software.vendor?.toLowerCase() !== 'jumpcloud')
+                    );
+                    
+                    if (nonJumpcloudApps.length === 0) {
+                      return (
+                        <div className="p-12 text-center">
+                          <Cloud className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                          <p className="text-slate-500 mb-3">No software added yet</p>
+                          <Button 
+                            onClick={() => setShowAddSoftware(true)}
+                            className="bg-purple-600 hover:bg-purple-700"
+                          >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add Software
+                          </Button>
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {nonJumpcloudApps
+                          .filter(([_, data]) => {
+                            // Apply category filter
+                            if (saasCategoryFilter && data.software.category !== saasCategoryFilter) return false;
+                            
+                            // Apply utilization filters
+                            if (saasFilter !== 'all' && data.managedLicense) {
+                              const assignedCount = licenseAssignments.filter(a => a.license_id === data.managedLicense.id && a.status === 'active').length;
+                              const utilization = data.managedLicense.quantity > 0 ? assignedCount / data.managedLicense.quantity : 0;
+                              
+                              if (saasFilter === 'underutilized') return utilization < 0.5 && data.managedLicense.quantity > 0;
+                              if (saasFilter === 'full') return assignedCount >= (data.managedLicense.quantity || 0) && data.managedLicense.quantity > 0;
+                              if (saasFilter === 'unassigned') return assignedCount < (data.managedLicense.quantity || 0);
+                            }
+                            return true;
+                          })
+                          .map(([appName, data]) => {
+                            const managedAssignments = data.managedLicense 
+                              ? licenseAssignments.filter(a => a.license_id === data.managedLicense.id && a.status === 'active')
+                              : [];
+                            const individualAssignments = data.individualLicenses.flatMap(l => 
+                              licenseAssignments.filter(a => a.license_id === l.id && a.status === 'active')
+                            );
+                            
+                            return (
+                              <SoftwareCard 
+                                key={appName}
+                                software={data.software}
+                                managedLicense={data.managedLicense}
+                                individualLicenses={data.individualLicenses}
+                                managedAssignments={managedAssignments}
+                                individualAssignments={individualAssignments}
+                              />
+                            );
+                          })}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             )}
