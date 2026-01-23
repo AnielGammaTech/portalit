@@ -69,6 +69,10 @@ export default function Settings() {
     company_address: ''
   });
 
+  // Get tab from URL params
+  const urlParams = new URLSearchParams(window.location.search);
+  const defaultTab = urlParams.get('tab') || 'company';
+
   useEffect(() => {
     const loadUser = async () => {
       const currentUser = await base44.auth.me();
@@ -100,7 +104,7 @@ export default function Settings() {
         <p className="text-slate-500 mt-1">Manage your account and application settings</p>
       </div>
 
-      <Tabs defaultValue="company" className="space-y-6">
+      <Tabs defaultValue={defaultTab} className="space-y-6">
         <TabsList className="bg-white border border-slate-200/50">
           <TabsTrigger value="company" className="gap-2">
             <Building2 className="w-4 h-4" />

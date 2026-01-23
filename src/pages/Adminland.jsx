@@ -17,38 +17,41 @@ const MENU_SECTIONS = [
     title: 'People',
     items: [
       {
-        name: 'People & Teams',
-        description: 'Team members, groups, and admins',
+        name: 'Customers',
+        description: 'Manage all customer accounts',
         icon: Users,
         page: 'Customers'
-      },
-      {
-        name: 'Roles & Permissions',
-        description: 'Access control',
-        icon: Shield,
-        page: 'Settings'
       }
     ]
   },
   {
-    title: 'Quotes',
+    title: 'Company',
     items: [
       {
         name: 'Company Settings',
-        description: 'Branding & defaults',
+        description: 'Branding & company details',
         icon: FileText,
-        page: 'Settings'
+        page: 'Settings',
+        tab: 'company'
+      },
+      {
+        name: 'Profile Settings',
+        description: 'Your personal account',
+        icon: Shield,
+        page: 'Settings',
+        tab: 'profile'
       }
     ]
   },
   {
-    title: 'Email & Notifications',
+    title: 'Notifications',
     items: [
       {
-        name: 'Email Templates',
-        description: 'Notification templates',
+        name: 'Notification Preferences',
+        description: 'Email & alert settings',
         icon: Mail,
-        page: 'Settings'
+        page: 'Settings',
+        tab: 'notifications'
       }
     ]
   },
@@ -57,20 +60,10 @@ const MENU_SECTIONS = [
     items: [
       {
         name: 'Integrations',
-        description: 'External services & webhooks',
+        description: 'Datto, JumpCloud, Unitrends',
         icon: Link2,
-        page: 'Settings'
-      }
-    ]
-  },
-  {
-    title: 'Support',
-    items: [
-      {
-        name: 'User Feedback',
-        description: 'View feedback from users',
-        icon: MessageSquare,
-        page: 'Settings'
+        page: 'Settings',
+        tab: 'integrations'
       }
     ]
   }
@@ -130,7 +123,7 @@ export default function Adminland() {
                 return (
                   <Link
                     key={item.name}
-                    to={createPageUrl(item.page)}
+                    to={createPageUrl(item.page) + (item.tab ? `?tab=${item.tab}` : '')}
                     className="flex items-center gap-3 p-3 -mx-3 rounded-xl hover:bg-slate-50 transition-colors"
                   >
                     <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
