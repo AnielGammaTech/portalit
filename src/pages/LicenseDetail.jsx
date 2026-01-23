@@ -12,6 +12,13 @@ import {
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import AddUserLicenseModal from '../components/saas/AddUserLicenseModal';
 import AddManagedLicenseModal from '../components/saas/AddManagedLicenseModal';
 import AddIndividualLicenseModal from '../components/saas/AddIndividualLicenseModal';
@@ -62,6 +69,11 @@ export default function LicenseDetail() {
   const [individualSectionExpanded, setIndividualSectionExpanded] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showRenewalModal, setShowRenewalModal] = useState(false);
+  const [renewalLicense, setRenewalLicense] = useState(null);
+  const [renewalAssignment, setRenewalAssignment] = useState(null);
+  const [renewalBillingCycle, setRenewalBillingCycle] = useState('annually');
+  const [renewalDate, setRenewalDate] = useState('');
 
   const { data: license, isLoading: loadingLicense } = useQuery({
     queryKey: ['license', licenseId],
@@ -911,29 +923,20 @@ export default function LicenseDetail() {
                                 </div>
                               )}
                               {renewalPassed && (
-                                <label className="flex items-center gap-1.5 cursor-pointer ml-auto">
-                                  <input 
-                                    type="checkbox" 
-                                    className="w-3.5 h-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                                    onChange={async (e) => {
-                                      if (e.target.checked) {
-                                        // Set renewal date to 1 year from now (or 1 month based on billing cycle)
-                                        const newDate = new Date();
-                                        if (ml.billing_cycle === 'annually') {
-                                          newDate.setFullYear(newDate.getFullYear() + 1);
-                                        } else {
-                                          newDate.setMonth(newDate.getMonth() + 1);
-                                        }
-                                        await base44.entities.SaaSLicense.update(ml.id, {
-                                          renewal_date: newDate.toISOString().split('T')[0]
-                                        });
-                                        queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
-                                        toast.success('Renewal date updated!');
-                                      }
-                                    }}
-                                  />
-                                  <span className="text-emerald-600 font-medium">Renewed?</span>
-                                </label>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="ml-auto h-6 text-xs bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setRenewalLicense(ml);
+                                    setRenewalAssignment(null);
+                                    setShowRenewalModal(true);
+                                  }}
+                                >
+                                  <RefreshCw className="w-3 h-3 mr-1" />
+                                  Renew
+                                </Button>
                               )}
                             </div>
                           </div>
@@ -1092,24 +1095,20 @@ export default function LicenseDetail() {
                                           </div>
                                         )}
                                         {ilRenewalPassed && (
-                                          <label className="flex items-center gap-1.5 cursor-pointer" onClick={e => e.stopPropagation()}>
-                                            <input 
-                                              type="checkbox" 
-                                              className="w-3.5 h-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                                              onChange={async (e) => {
-                                                if (e.target.checked) {
-                                                  const newDate = new Date();
-                                                  newDate.setFullYear(newDate.getFullYear() + 1);
-                                                  await base44.entities.LicenseAssignment.update(assignment.id, {
-                                                    renewal_date: newDate.toISOString().split('T')[0]
-                                                  });
-                                                  queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
-                                                  toast.success('Renewal date updated!');
-                                                }
-                                              }}
-                                            />
-                                            <span className="text-emerald-600 font-medium">Renewed?</span>
-                                          </label>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-6 text-xs bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setRenewalAssignment(assignment);
+                                              setRenewalLicense(null);
+                                              setShowRenewalModal(true);
+                                            }}
+                                          >
+                                            <RefreshCw className="w-3 h-3 mr-1" />
+                                            Renew
+                                          </Button>
                                         )}
                                       </div>
                                       <div className="flex items-center gap-1">
@@ -1176,24 +1175,20 @@ export default function LicenseDetail() {
                                     </div>
                                   )}
                                   {assignmentRenewalPassed && (
-                                    <label className="flex items-center gap-1.5 cursor-pointer" onClick={e => e.stopPropagation()}>
-                                      <input 
-                                        type="checkbox" 
-                                        className="w-3.5 h-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                                        onChange={async (e) => {
-                                          if (e.target.checked) {
-                                            const newDate = new Date();
-                                            newDate.setFullYear(newDate.getFullYear() + 1);
-                                            await base44.entities.LicenseAssignment.update(assignment.id, {
-                                              renewal_date: newDate.toISOString().split('T')[0]
-                                            });
-                                            queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
-                                            toast.success('Renewal date updated!');
-                                          }
-                                        }}
-                                      />
-                                      <span className="text-emerald-600 font-medium">Renewed?</span>
-                                    </label>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-6 text-xs bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setRenewalAssignment(assignment);
+                                        setRenewalLicense(null);
+                                        setShowRenewalModal(true);
+                                      }}
+                                    >
+                                      <RefreshCw className="w-3 h-3 mr-1" />
+                                      Renew
+                                    </Button>
                                   )}
                                 </div>
                                 <div className="flex items-center gap-1">
@@ -1318,6 +1313,115 @@ export default function LicenseDetail() {
         softwareName={license?.application_name}
         contacts={contacts}
       />
+
+      {/* Renewal Confirmation Modal */}
+      <Dialog open={showRenewalModal} onOpenChange={(open) => {
+        setShowRenewalModal(open);
+        if (!open) {
+          setRenewalLicense(null);
+          setRenewalAssignment(null);
+          setRenewalDate('');
+          setRenewalBillingCycle('annually');
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw className="w-5 h-5 text-emerald-600" />
+              Confirm Renewal
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-slate-600">
+              {renewalLicense 
+                ? `Renewing ${renewalLicense.license_type || 'Standard'} license for ${license?.application_name}`
+                : renewalAssignment 
+                  ? `Renewing individual license for ${contacts.find(c => c.id === renewalAssignment.contact_id)?.full_name || 'user'}`
+                  : 'Confirm renewal details'}
+            </p>
+            
+            <div>
+              <label className="text-sm font-medium text-slate-700 mb-2 block">Billing Cycle</label>
+              <Select
+                value={renewalBillingCycle}
+                onValueChange={(value) => {
+                  setRenewalBillingCycle(value);
+                  // Auto-update renewal date based on selection
+                  const newDate = new Date();
+                  if (value === 'annually') {
+                    newDate.setFullYear(newDate.getFullYear() + 1);
+                  } else if (value === 'monthly') {
+                    newDate.setMonth(newDate.getMonth() + 1);
+                  }
+                  setRenewalDate(newDate.toISOString().split('T')[0]);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="annually">Annual (1 year)</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-slate-700 mb-2 block">New Renewal Date</label>
+              <Input
+                type="date"
+                value={renewalDate || (() => {
+                  const d = new Date();
+                  d.setFullYear(d.getFullYear() + 1);
+                  return d.toISOString().split('T')[0];
+                })()}
+                onChange={(e) => setRenewalDate(e.target.value)}
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                {renewalBillingCycle === 'annually' ? 'Typically 1 year from today' : 'Typically 1 month from today'}
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowRenewalModal(false)}>Cancel</Button>
+            <Button 
+              className="bg-emerald-600 hover:bg-emerald-700"
+              onClick={async () => {
+                const finalDate = renewalDate || (() => {
+                  const d = new Date();
+                  if (renewalBillingCycle === 'annually') {
+                    d.setFullYear(d.getFullYear() + 1);
+                  } else {
+                    d.setMonth(d.getMonth() + 1);
+                  }
+                  return d.toISOString().split('T')[0];
+                })();
+                
+                if (renewalLicense) {
+                  await base44.entities.SaaSLicense.update(renewalLicense.id, {
+                    renewal_date: finalDate,
+                    billing_cycle: renewalBillingCycle
+                  });
+                  queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
+                } else if (renewalAssignment) {
+                  await base44.entities.LicenseAssignment.update(renewalAssignment.id, {
+                    renewal_date: finalDate
+                  });
+                  queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
+                }
+                
+                toast.success('Renewal confirmed!');
+                setShowRenewalModal(false);
+                setRenewalLicense(null);
+                setRenewalAssignment(null);
+                setRenewalDate('');
+              }}
+            >
+              Confirm Renewal
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Modify Seats Modal */}
       <Dialog open={showModifySeatsModal} onOpenChange={setShowModifySeatsModal}>
