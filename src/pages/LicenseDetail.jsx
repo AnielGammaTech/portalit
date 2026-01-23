@@ -523,11 +523,28 @@ export default function LicenseDetail() {
                   )}
                 </div>
               </div>
-            </div>
-          )}
+              </div>
+              ) : (
+              <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Building2 className="w-5 h-5 text-slate-400" />
+                <h2 className="font-semibold text-slate-500">Managed License</h2>
+              </div>
+              <p className="text-sm text-slate-400 mb-4">No managed license configured for this software.</p>
+              <Button 
+                size="sm"
+                variant="outline"
+                onClick={() => setShowAddManagedLicense(true)}
+                className="gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Add Managed License
+              </Button>
+              </div>
+              )}
 
-          {/* Individual Licenses Card */}
-          {individualLicense && (
+              {/* Individual Licenses Card - Show always with option to add */}
+              {individualLicense ? (
             <div className="bg-white rounded-2xl border border-slate-200 p-6">
               <div className="flex items-center gap-2 mb-4">
                 <User className="w-5 h-5 text-emerald-600" />
