@@ -276,6 +276,31 @@ export default function CustomerDetail() {
     toast.success('License added!');
   };
 
+  const handleAddSoftware = async (softwareData) => {
+    await base44.entities.SaaSLicense.create(softwareData);
+    queryClient.invalidateQueries({ queryKey: ['licenses', customerId] });
+    setShowAddSoftware(false);
+    toast.success('Software added! Click on it to add licenses.');
+  };
+
+  // Group licenses by application name for the new UI
+  const groupedSoftware = licenses.reduce((acc, license) => {
+    const key = license.application_name;
+    if (!acc[key]) {
+      acc[key] = {
+        software: license, // Use the first one as the base software info
+        managedLicense: null,
+        individualLicenses: []
+      };
+    }
+    if (license.management_type === 'managed') {
+      acc[key].managedLicense = license;
+    } else {
+      acc[key].individualLicenses.push(license);
+    }
+    return acc;
+  }, {});
+
   const handleAddContact = async (contactData) => {
     await base44.entities.Contact.create(contactData);
     queryClient.invalidateQueries({ queryKey: ['contacts', customerId] });
