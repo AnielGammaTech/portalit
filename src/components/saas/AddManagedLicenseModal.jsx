@@ -24,7 +24,7 @@ export default function AddManagedLicenseModal({ open, onClose, onSave, software
     });
     setForm({
       license_type: '',
-      quantity: 1,
+      quantity: 0,
       cost_per_license: 0,
       billing_cycle: 'monthly',
       renewal_date: '',
