@@ -228,7 +228,7 @@ export default function CustomerDetail() {
   const [expandedBills, setExpandedBills] = useState({ _section: true });
               const [expandedQuotes, setExpandedQuotes] = useState({});
               const [expandedContracts, setExpandedContracts] = useState({});
-              const [expandedInvoices, setExpandedInvoices] = useState({});
+              const [expandedInvoices, setExpandedInvoices] = useState({ _section: true });
               const [invoiceFilter, setInvoiceFilter] = useState('all');
                   const [ticketFilter, setTicketFilter] = useState('all');
                   const [ticketPage, setTicketPage] = useState(1);
