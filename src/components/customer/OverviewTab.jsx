@@ -330,7 +330,7 @@ export default function OverviewTab({
         <StatCard
           icon={Cloud}
           label="SaaS Licenses"
-          value={licenses.length}
+          value={licenses.filter(l => l.source !== 'jumpcloud' && l.vendor?.toLowerCase() !== 'jumpcloud').length}
           color="purple"
           delay={0.3}
         />
