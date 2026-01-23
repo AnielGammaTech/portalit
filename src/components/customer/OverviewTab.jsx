@@ -518,7 +518,14 @@ export default function OverviewTab({
                 <p className="text-[10px] text-slate-700 truncate flex-1">{contact.full_name}</p>
               </div>
             ))}
-            {contacts.length > 3 && <p className="text-[9px] text-slate-400 text-center">+{contacts.length - 3} more</p>}
+            {contacts.length > 3 && (
+              <p 
+                className="text-[9px] text-slate-400 text-center hover:text-purple-500 cursor-pointer"
+                onClick={(e) => { e.stopPropagation(); document.querySelector('[value="contacts"]')?.click(); }}
+              >
+                +{contacts.length - 3} more
+              </p>
+            )}
           </div>
         </motion.div>
 
