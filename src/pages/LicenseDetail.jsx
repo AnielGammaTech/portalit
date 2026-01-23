@@ -278,12 +278,12 @@ export default function LicenseDetail() {
       id: `temp-${Date.now()}`,
       license_id: licenseToAssign,
       contact_id: contactId,
-      customer_id: license.customer_id,
+      customer_id: software.customer_id,
       assigned_date: new Date().toISOString().split('T')[0],
       status: 'active'
     };
     
-    queryClient.setQueryData(['all_license_assignments', license?.application_name, license?.customer_id], (old) => 
+    queryClient.setQueryData(['all_license_assignments', software?.application_name, software?.customer_id], (old) => 
       old ? [...old, newAssignment] : [newAssignment]
     );
     
@@ -295,7 +295,7 @@ export default function LicenseDetail() {
     await base44.entities.LicenseAssignment.create({
       license_id: licenseToAssign,
       contact_id: contactId,
-      customer_id: license.customer_id,
+      customer_id: software.customer_id,
       assigned_date: new Date().toISOString().split('T')[0],
       status: 'active'
     });
@@ -311,7 +311,7 @@ export default function LicenseDetail() {
       id: `temp-${Date.now()}`,
       license_id: individualLicense?.id || `temp-license-${Date.now()}`,
       contact_id: data.contact_id,
-      customer_id: license.customer_id,
+      customer_id: software.customer_id,
       assigned_date: new Date().toISOString().split('T')[0],
       status: 'active',
       renewal_date: data.renewal_date,
@@ -320,7 +320,7 @@ export default function LicenseDetail() {
       license_type: data.license_type
     };
     
-    queryClient.setQueryData(['all_license_assignments', license?.application_name, license?.customer_id], (old) => 
+    queryClient.setQueryData(['all_license_assignments', software?.application_name, software?.customer_id], (old) => 
       old ? [...old, newAssignment] : [newAssignment]
     );
     
@@ -332,12 +332,12 @@ export default function LicenseDetail() {
     
     if (!perUserLicense) {
       perUserLicense = await base44.entities.SaaSLicense.create({
-        customer_id: license.customer_id,
-        application_name: license.application_name,
-        vendor: license.vendor,
-        logo_url: license.logo_url,
-        website_url: license.website_url,
-        category: license.category,
+        customer_id: software.customer_id,
+        application_name: software.application_name,
+        vendor: software.vendor,
+        logo_url: software.logo_url,
+        website_url: software.website_url,
+        category: software.category,
         management_type: 'per_user',
         status: 'active',
         source: 'manual'
@@ -348,7 +348,7 @@ export default function LicenseDetail() {
     await base44.entities.LicenseAssignment.create({
       license_id: perUserLicense.id,
       contact_id: data.contact_id,
-      customer_id: license.customer_id,
+      customer_id: software.customer_id,
       assigned_date: new Date().toISOString().split('T')[0],
       status: 'active',
       renewal_date: data.renewal_date,
@@ -363,12 +363,12 @@ export default function LicenseDetail() {
   const handleAddManagedLicense = async (data) => {
     // Always create a NEW managed license record (supports multiple license types per software)
     await base44.entities.SaaSLicense.create({
-      customer_id: license.customer_id,
-      application_name: license.application_name,
-      vendor: license.vendor,
-      logo_url: license.logo_url,
-      website_url: license.website_url,
-      category: license.category,
+      customer_id: software.customer_id,
+      application_name: software.application_name,
+      vendor: software.vendor,
+      logo_url: software.logo_url,
+      website_url: software.website_url,
+      category: software.category,
       management_type: 'managed',
       license_type: data.license_type || null, // Don't default to anything
       quantity: data.quantity,
@@ -391,7 +391,7 @@ export default function LicenseDetail() {
     const assignment = allAssignments.find(a => a.contact_id === contactId && a.status === 'active');
     if (assignment) {
       // Optimistic update - remove from cache immediately
-      queryClient.setQueryData(['all_license_assignments', license?.application_name, license?.customer_id], (old) => 
+      queryClient.setQueryData(['all_license_assignments', software?.application_name, software?.customer_id], (old) => 
         old ? old.filter(a => a.id !== assignment.id) : []
       );
       
@@ -426,8 +426,13 @@ export default function LicenseDetail() {
         await base44.entities.SaaSLicense.delete(licId);
       }
       
+      // If this is a catalog-only entry, delete the Application record too
+      if (software?._isApplication && appId) {
+        await base44.entities.Application.delete(appId);
+      }
+      
       toast.success('Application and all licenses deleted!');
-      window.location.href = createPageUrl(`CustomerDetail?id=${license.customer_id}`);
+      window.location.href = createPageUrl(`CustomerDetail?id=${software.customer_id}`);
     } catch (error) {
       toast.error('Failed to delete application');
       setIsDeleting(false);
@@ -455,19 +460,19 @@ export default function LicenseDetail() {
         toast.success(`Seats updated to ${newQuantity}!`);
       };
 
-  const isJumpCloudLicense = license?.source === 'jumpcloud' || license?.vendor?.toLowerCase() === 'jumpcloud';
-  const isSpanningLicense = license?.source === 'spanning' || license?.vendor?.toLowerCase().includes('spanning');
+  const isJumpCloudLicense = license?.source === 'jumpcloud' || software?.vendor?.toLowerCase() === 'jumpcloud';
+  const isSpanningLicense = license?.source === 'spanning' || software?.vendor?.toLowerCase()?.includes('spanning');
 
   const syncJumpCloudUsers = async () => {
     setSyncingUsers(true);
     try {
       const response = await base44.functions.invoke('syncJumpCloudLicenses', { 
         action: 'sync_users', 
-        customer_id: license.customer_id 
+        customer_id: software.customer_id 
       });
       if (response.data.success) {
         toast.success(`Synced ${response.data.totalJumpCloudUsers} users: ${response.data.created} new, ${response.data.matched} matched!`);
-        queryClient.invalidateQueries({ queryKey: ['contacts', license.customer_id] });
+        queryClient.invalidateQueries({ queryKey: ['contacts', software.customer_id] });
       } else {
         toast.error(response.data.error || 'User sync failed');
       }
@@ -483,11 +488,11 @@ export default function LicenseDetail() {
     try {
       const response = await base44.functions.invoke('syncSpanningBackup', { 
         action: 'sync_users', 
-        customer_id: license.customer_id 
+        customer_id: software.customer_id 
       });
       if (response.data.success) {
         toast.success(`Synced ${response.data.totalSpanningUsers} users: ${response.data.created} new, ${response.data.matched} matched!`);
-        queryClient.invalidateQueries({ queryKey: ['contacts', license.customer_id] });
+        queryClient.invalidateQueries({ queryKey: ['contacts', software.customer_id] });
       } else {
         toast.error(response.data.error || 'User sync failed');
       }
@@ -498,7 +503,7 @@ export default function LicenseDetail() {
     }
   };
 
-  if (loadingLicense) {
+  if (loadingLicense || loadingApplication) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-8 w-32" />
@@ -508,11 +513,11 @@ export default function LicenseDetail() {
     );
   }
 
-  if (!license) {
+  if (!software) {
     return (
       <div className="text-center py-12">
         <Cloud className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-        <h2 className="text-xl font-semibold text-slate-900 mb-2">License Not Found</h2>
+        <h2 className="text-xl font-semibold text-slate-900 mb-2">Software Not Found</h2>
         <Link to={createPageUrl('Dashboard')}>
           <Button><ArrowLeft className="w-4 h-4 mr-2" />Back</Button>
         </Link>
@@ -524,8 +529,8 @@ export default function LicenseDetail() {
     <div className="space-y-6 max-w-7xl mx-auto">
       <Breadcrumbs items={[
         { label: 'Customers', href: createPageUrl('Customers') },
-        { label: customer?.name || 'Customer', href: createPageUrl(`CustomerDetail?id=${license.customer_id}`) },
-        { label: license.application_name }
+        { label: customer?.name || 'Customer', href: createPageUrl(`CustomerDetail?id=${software.customer_id}`) },
+        { label: software.application_name }
       ]} />
 
       {/* Main Two-Column Layout */}
@@ -536,15 +541,15 @@ export default function LicenseDetail() {
           <div className="bg-white rounded-2xl border border-slate-200 p-4">
             <div className="flex items-start gap-3 mb-3">
               <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center overflow-hidden flex-shrink-0">
-                {license.logo_url ? (
-                  <img src={license.logo_url} alt={license.application_name} className="w-10 h-10 object-contain" />
+                {software.logo_url ? (
+                  <img src={software.logo_url} alt={software.application_name} className="w-10 h-10 object-contain" />
                 ) : (
                   <Cloud className="w-6 h-6 text-purple-600" />
                 )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
-                  <h1 className="text-lg font-bold text-slate-900 truncate">{license.application_name}</h1>
+                  <h1 className="text-lg font-bold text-slate-900 truncate">{software.application_name}</h1>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button 
@@ -574,30 +579,34 @@ export default function LicenseDetail() {
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   <Badge className={cn(
                     "capitalize text-xs",
-                    license.status === 'active' && "bg-emerald-100 text-emerald-700",
-                    license.status === 'suspended' && "bg-amber-100 text-amber-700",
-                    license.status === 'cancelled' && "bg-red-100 text-red-700"
+                    software.status === 'active' && "bg-emerald-100 text-emerald-700",
+                    software.status === 'suspended' && "bg-amber-100 text-amber-700",
+                    software.status === 'cancelled' && "bg-red-100 text-red-700",
+                    software.status === 'inactive' && "bg-slate-100 text-slate-700"
                   )}>
-                    {license.status}
+                    {software.status}
                   </Badge>
-                  {license.category && (
-                    <Badge variant="outline" className="capitalize text-xs">{license.category}</Badge>
+                  {isCatalogOnly && (
+                    <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">Catalog Only</Badge>
+                  )}
+                  {software.category && (
+                    <Badge variant="outline" className="capitalize text-xs">{software.category}</Badge>
                   )}
                 </div>
               </div>
             </div>
 
             <div className="space-y-2 text-sm">
-              {license.vendor && (
+              {software.vendor && (
                 <div className="flex items-center justify-between">
                   <span className="text-slate-500 text-xs">Vendor</span>
-                  <span className="font-medium text-slate-900 text-xs">{license.vendor}</span>
+                  <span className="font-medium text-slate-900 text-xs">{software.vendor}</span>
                 </div>
               )}
-              {license.website_url && (
+              {software.website_url && (
                 <div className="flex items-center justify-between">
                   <span className="text-slate-500 text-xs">Website</span>
-                  <a href={license.website_url.startsWith('http') ? license.website_url : `https://${license.website_url}`} 
+                  <a href={software.website_url.startsWith('http') ? software.website_url : `https://${software.website_url}`} 
                      target="_blank" rel="noopener noreferrer"
                      className="flex items-center gap-1 text-purple-600 hover:underline font-medium text-xs">
                     <Globe className="w-3 h-3" />
@@ -607,9 +616,9 @@ export default function LicenseDetail() {
               )}
             </div>
 
-            {license.notes && (
+            {software.notes && (
               <div className="mt-3 pt-3 border-t border-slate-100">
-                <p className="text-xs text-slate-600 line-clamp-2">{license.notes}</p>
+                <p className="text-xs text-slate-600 line-clamp-2">{software.notes}</p>
               </div>
             )}
           </div>
@@ -1287,7 +1296,7 @@ export default function LicenseDetail() {
       <EditLicenseModal
         open={showEditModal}
         onClose={() => setShowEditModal(false)}
-        license={license}
+        license={software}
         onSave={handleEditSave}
         onDelete={() => setShowDeleteConfirm(true)}
       />
@@ -1296,7 +1305,7 @@ export default function LicenseDetail() {
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {license?.application_name}?</AlertDialogTitle>
+            <AlertDialogTitle>Delete {software?.application_name}?</AlertDialogTitle>
             <AlertDialogDescription>
               This will permanently delete this application and all associated data:
               <ul className="list-disc ml-5 mt-2 space-y-1">
@@ -1332,7 +1341,7 @@ export default function LicenseDetail() {
       <AddUserLicenseModal
         open={showAddUserLicense}
         onClose={() => setShowAddUserLicense(false)}
-        license={license}
+        license={software}
         contacts={contacts}
         onComplete={() => {
           queryClient.invalidateQueries({ queryKey: ['license_assignments', licenseId] });
@@ -1345,7 +1354,7 @@ export default function LicenseDetail() {
         open={showAddManagedLicense}
         onClose={() => setShowAddManagedLicense(false)}
         onSave={handleAddManagedLicense}
-        softwareName={license?.application_name}
+        softwareName={software?.application_name}
       />
 
       {/* Add Individual License Modal */}
@@ -1353,7 +1362,7 @@ export default function LicenseDetail() {
         open={showAddIndividualLicense}
         onClose={() => setShowAddIndividualLicense(false)}
         onSave={handleAddIndividualLicense}
-        softwareName={license?.application_name}
+        softwareName={software?.application_name}
         contacts={contacts}
       />
 
@@ -1377,7 +1386,7 @@ export default function LicenseDetail() {
           <div className="space-y-4 py-4">
             <p className="text-sm text-slate-600">
               {renewalLicense 
-                ? `Renewing ${renewalLicense.license_type || ''} license for ${license?.application_name}`
+                ? `Renewing ${renewalLicense.license_type || ''} license for ${software?.application_name}`
                 : renewalAssignment 
                   ? `Renewing individual license for ${contacts.find(c => c.id === renewalAssignment.contact_id)?.full_name || 'user'}`
                   : 'Confirm renewal details'}
