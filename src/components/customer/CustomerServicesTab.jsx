@@ -365,15 +365,13 @@ export default function CustomerServicesTab({
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue={hasRecurringServices ? "recurring" : hasJumpCloud ? "jumpcloud" : "spanning"} className="space-y-4">
+      <Tabs defaultValue="recurring" className="space-y-4">
         <div className="flex items-center justify-between">
           <TabsList className="bg-white border border-slate-200 p-1 h-auto mx-auto">
-            {hasRecurringServices && (
-              <TabsTrigger value="recurring" className="gap-2 py-2 px-4 text-sm font-medium">
-                <HardDrive className="w-4 h-4" />
-                Recurring Services
-              </TabsTrigger>
-            )}
+            <TabsTrigger value="recurring" className="gap-2 py-2 px-4 text-sm font-medium">
+              <HardDrive className="w-4 h-4" />
+              Recurring Services
+            </TabsTrigger>
             {hasJumpCloud && (
               <TabsTrigger value="jumpcloud" className="gap-2 py-2 px-4 text-sm font-medium">
                 <Shield className="w-4 h-4" />
