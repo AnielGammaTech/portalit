@@ -629,10 +629,14 @@ export default function Dashboard() {
         const currentUser = await base44.auth.me();
         setUser(currentUser);
         
-        // For non-admin users, use their assigned customer_id
-        if (currentUser?.role !== 'admin' && currentUser?.customer_id && customers.length > 0) {
-          const matched = customers.find(c => c.id === currentUser.customer_id);
-          setCustomer(matched || null);
+        // For non-admin users, use their assigned customer_id ONLY
+        if (currentUser?.role !== 'admin' && customers.length > 0) {
+          if (currentUser?.customer_id) {
+            const matched = customers.find(c => c.id === currentUser.customer_id);
+            setCustomer(matched || null);
+          } else {
+            setCustomer(null); // No customer_id = no customer
+          }
         }
         setIsLoading(false);
       } catch (error) {
