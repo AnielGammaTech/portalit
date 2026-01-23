@@ -557,6 +557,8 @@ export default function CustomerDetail() {
             tickets={tickets}
             devices={devices}
             licenseAssignments={licenseAssignments}
+            invoices={invoices}
+            quotes={quotes}
           />
         </TabsContent>
 
