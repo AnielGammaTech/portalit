@@ -867,7 +867,7 @@ export default function CustomerDetail() {
 
         <TabsContent value="licenses">
           <div className="space-y-6">
-            {/* Compact Header with Stats & Actions */}
+            {/* Stats Widgets Row */}
             {(() => {
               const totalSpend = licenses.reduce((sum, l) => sum + (l.total_cost || 0), 0);
               const totalSeats = licenses.reduce((sum, l) => sum + (l.quantity || 0), 0);
@@ -881,102 +881,131 @@ export default function CustomerDetail() {
               });
               
               return (
-                <div className="bg-white rounded-xl border border-slate-200 p-4">
-                  <div className="flex flex-wrap items-center gap-6">
-                    {/* Key Stats - Inline */}
-                    <div className="flex items-center gap-6 flex-wrap">
-                      <button
-                        onClick={() => setSaasView('spend')}
-                        className={cn(
-                          "text-left px-3 py-1.5 rounded-lg transition-colors",
-                          saasView === 'spend' ? "bg-purple-100" : "hover:bg-slate-50"
-                        )}
-                      >
-                        <p className="text-xs text-slate-500">Monthly</p>
-                        <p className="text-lg font-bold text-slate-900">${totalSpend.toLocaleString()}</p>
-                        {wastedSpend > 0 && <p className="text-[10px] text-red-500">~${wastedSpend.toFixed(0)} unused</p>}
-                      </button>
-                      
-                      <button
-                        onClick={() => { setSaasFilter('all'); setSaasView('licenses'); }}
-                        className={cn(
-                          "text-left px-3 py-1.5 rounded-lg transition-colors",
-                          saasFilter === 'all' && saasView === 'licenses' ? "bg-purple-100" : "hover:bg-slate-50"
-                        )}
-                      >
-                        <p className="text-xs text-slate-500">Utilization</p>
-                        <p className="text-lg font-bold text-slate-900">{utilizationRate.toFixed(0)}%</p>
-                        <p className="text-[10px] text-slate-400">{assignedSeats}/{totalSeats} seats</p>
-                      </button>
-
-                      <button
-                        onClick={() => { setSaasFilter('underutilized'); setSaasView('licenses'); }}
-                        className={cn(
-                          "text-left px-3 py-1.5 rounded-lg transition-colors",
-                          saasFilter === 'underutilized' ? "bg-amber-100" : "hover:bg-slate-50"
-                        )}
-                      >
-                        <p className="text-xs text-slate-500">Low Usage</p>
-                        <p className={cn("text-lg font-bold", underutilizedLicenses.length > 0 ? "text-amber-600" : "text-slate-900")}>{underutilizedLicenses.length}</p>
-                      </button>
-
-                      <button
-                        onClick={() => setSaasView('users')}
-                        className={cn(
-                          "text-left px-3 py-1.5 rounded-lg transition-colors",
-                          saasView === 'users' ? "bg-purple-100" : "hover:bg-slate-50"
-                        )}
-                      >
-                        <p className="text-xs text-slate-500">Users</p>
-                        <p className="text-lg font-bold text-slate-900">{contacts.length}</p>
-                      </button>
-
-                      <div className="text-left px-3 py-1.5">
-                        <p className="text-xs text-slate-500">Apps</p>
-                        <p className="text-lg font-bold text-slate-900">{Object.keys(groupedSoftware).length}</p>
+                <>
+                  {/* Stat Cards Row */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                    {/* Monthly Spend */}
+                    <button
+                      onClick={() => setSaasView('spend')}
+                      className={cn(
+                        "bg-white rounded-xl border-2 p-4 text-left transition-all hover:shadow-md group",
+                        saasView === 'spend' ? "border-purple-500 shadow-md" : "border-slate-200 hover:border-purple-300"
+                      )}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center", saasView === 'spend' ? "bg-purple-100" : "bg-slate-100 group-hover:bg-purple-50")}>
+                          <DollarSign className={cn("w-4 h-4", saasView === 'spend' ? "text-purple-600" : "text-slate-500 group-hover:text-purple-500")} />
+                        </div>
+                        <span className="text-xs text-slate-500">Monthly</span>
                       </div>
-                    </div>
-
-                    {/* Spacer */}
-                    <div className="flex-1" />
-
-                    {/* Filters & Actions - Compact */}
-                    <div className="flex items-center gap-2">
-                      {saasView === 'licenses' && (
-                        <select
-                          value={saasFilter}
-                          onChange={(e) => setSaasFilter(e.target.value)}
-                          className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white h-8"
-                        >
-                          <option value="all">All</option>
-                          <option value="underutilized">&lt;50% used</option>
-                          <option value="full">Full</option>
-                          <option value="unassigned">Unused</option>
-                        </select>
+                      <p className="text-xl font-bold text-slate-900">${totalSpend.toLocaleString()}</p>
+                      {wastedSpend > 0 && <p className="text-[10px] text-red-500 mt-0.5">~${wastedSpend.toFixed(0)} unused</p>}
+                    </button>
+                    
+                    {/* Utilization */}
+                    <button
+                      onClick={() => { setSaasFilter('all'); setSaasView('licenses'); }}
+                      className={cn(
+                        "bg-white rounded-xl border-2 p-4 text-left transition-all hover:shadow-md group",
+                        saasFilter === 'all' && saasView === 'licenses' ? "border-purple-500 shadow-md" : "border-slate-200 hover:border-purple-300"
                       )}
-                      {saasView === 'users' && (
-                        <select
-                          value={saasUserFilter}
-                          onChange={(e) => setSaasUserFilter(e.target.value)}
-                          className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white h-8 min-w-[140px]"
-                        >
-                          <option value="">All Users</option>
-                          {contacts.map(c => (
-                            <option key={c.id} value={c.id}>{c.full_name}</option>
-                          ))}
-                        </select>
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center", saasFilter === 'all' && saasView === 'licenses' ? "bg-blue-100" : "bg-slate-100 group-hover:bg-blue-50")}>
+                          <Monitor className={cn("w-4 h-4", saasFilter === 'all' && saasView === 'licenses' ? "text-blue-600" : "text-slate-500 group-hover:text-blue-500")} />
+                        </div>
+                        <span className="text-xs text-slate-500">Utilization</span>
+                      </div>
+                      <p className="text-xl font-bold text-slate-900">{utilizationRate.toFixed(0)}%</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">{assignedSeats}/{totalSeats} seats</p>
+                    </button>
+
+                    {/* Low Usage */}
+                    <button
+                      onClick={() => { setSaasFilter('underutilized'); setSaasView('licenses'); }}
+                      className={cn(
+                        "bg-white rounded-xl border-2 p-4 text-left transition-all hover:shadow-md group",
+                        saasFilter === 'underutilized' ? "border-amber-500 shadow-md" : "border-slate-200 hover:border-amber-300"
                       )}
-                      <Button 
-                        size="sm" 
-                        className="gap-1.5 bg-purple-600 hover:bg-purple-700 h-8 text-xs"
-                        onClick={() => setShowAddSoftware(true)}
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        Add Software
-                      </Button>
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center", saasFilter === 'underutilized' ? "bg-amber-100" : "bg-slate-100 group-hover:bg-amber-50")}>
+                          <AlertCircle className={cn("w-4 h-4", saasFilter === 'underutilized' ? "text-amber-600" : "text-slate-500 group-hover:text-amber-500")} />
+                        </div>
+                        <span className="text-xs text-slate-500">Low Usage</span>
+                      </div>
+                      <p className={cn("text-xl font-bold", underutilizedLicenses.length > 0 ? "text-amber-600" : "text-slate-900")}>{underutilizedLicenses.length}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">&lt;50% utilized</p>
+                    </button>
+
+                    {/* By User */}
+                    <button
+                      onClick={() => setSaasView('users')}
+                      className={cn(
+                        "bg-white rounded-xl border-2 p-4 text-left transition-all hover:shadow-md group",
+                        saasView === 'users' ? "border-purple-500 shadow-md" : "border-slate-200 hover:border-purple-300"
+                      )}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center", saasView === 'users' ? "bg-emerald-100" : "bg-slate-100 group-hover:bg-emerald-50")}>
+                          <Users className={cn("w-4 h-4", saasView === 'users' ? "text-emerald-600" : "text-slate-500 group-hover:text-emerald-500")} />
+                        </div>
+                        <span className="text-xs text-slate-500">By User</span>
+                      </div>
+                      <p className="text-xl font-bold text-slate-900">{contacts.length}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">team members</p>
+                    </button>
+
+                    {/* Applications */}
+                    <div className="bg-white rounded-xl border-2 border-slate-200 p-4 text-left">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
+                          <Cloud className="w-4 h-4 text-slate-500" />
+                        </div>
+                        <span className="text-xs text-slate-500">Apps</span>
+                      </div>
+                      <p className="text-xl font-bold text-slate-900">{Object.keys(groupedSoftware).length}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">applications</p>
                     </div>
                   </div>
-                </div>
+
+                  {/* Filters & Add Button Row */}
+                  <div className="flex items-center gap-3">
+                    {saasView === 'licenses' && (
+                      <select
+                        value={saasFilter}
+                        onChange={(e) => setSaasFilter(e.target.value)}
+                        className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white"
+                      >
+                        <option value="all">All Licenses</option>
+                        <option value="underutilized">&lt;50% utilized</option>
+                        <option value="full">Fully Assigned</option>
+                        <option value="unassigned">Has Unused</option>
+                      </select>
+                    )}
+                    {saasView === 'users' && (
+                      <select
+                        value={saasUserFilter}
+                        onChange={(e) => setSaasUserFilter(e.target.value)}
+                        className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white min-w-[180px]"
+                      >
+                        <option value="">All Team Members</option>
+                        {contacts.map(c => (
+                          <option key={c.id} value={c.id}>{c.full_name}</option>
+                        ))}
+                      </select>
+                    )}
+                    <div className="flex-1" />
+                    <Button 
+                      size="sm" 
+                      className="gap-2 bg-purple-600 hover:bg-purple-700"
+                      onClick={() => setShowAddSoftware(true)}
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Software
+                    </Button>
+                  </div>
+                </>
               );
             })()}
 
