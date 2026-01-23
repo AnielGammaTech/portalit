@@ -84,7 +84,7 @@ export default function LicenseDetail() {
   });
 
   // Fetch assignments for ALL related licenses (both managed and individual)
-  const { data: allAssignments = [] } = useQuery({
+  const { data: allAssignments = [], refetch: refetchAssignments } = useQuery({
     queryKey: ['all_license_assignments', license?.application_name, license?.customer_id],
     queryFn: async () => {
       const licenseIds = relatedLicenses.map(l => l.id);
@@ -96,6 +96,20 @@ export default function LicenseDetail() {
     },
     enabled: relatedLicenses.length > 0
   });
+
+  // Real-time subscription for license assignments
+  useEffect(() => {
+    if (!license?.customer_id) return;
+    
+    const unsubscribe = base44.entities.LicenseAssignment.subscribe((event) => {
+      if (event.data?.customer_id === license.customer_id) {
+        refetchAssignments();
+        queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
+      }
+    });
+    
+    return () => unsubscribe();
+  }, [license?.customer_id, refetchAssignments, queryClient]);
 
   // Separate assignments by license type
   const managedAssignments = allAssignments.filter(a => 
