@@ -345,27 +345,27 @@ export default function OverviewTab({
           transition={{ delay: 0.2 }}
           className="bg-white rounded-xl border border-slate-200 overflow-hidden"
         >
-          <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="font-semibold text-slate-900 text-xs">Billing</h3>
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="font-semibold text-slate-900 text-sm">Billing</h3>
             <div className="flex gap-1">
-              <Badge variant="outline" className="text-[9px]">{contracts.filter(c => c.status === 'active').length} contracts</Badge>
+              <Badge variant="outline" className="text-xs">{contracts.filter(c => c.status === 'active').length} contracts</Badge>
             </div>
           </div>
-          <div className="p-2 space-y-2">
+          <div className="p-4 space-y-3">
             {/* Contract summary */}
             {contracts.length > 0 && (
-              <div className="p-2 bg-blue-50 rounded-lg">
-                <div className="flex items-center gap-1.5">
-                  <div className={cn("w-1.5 h-1.5 rounded-full", contracts[0].status === 'active' ? "bg-emerald-500" : "bg-slate-300")} />
-                  <p className="text-[11px] font-medium text-slate-900 truncate">{contracts[0].name}</p>
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <div className={cn("w-2 h-2 rounded-full", contracts[0].status === 'active' ? "bg-emerald-500" : "bg-slate-300")} />
+                  <p className="text-sm font-medium text-slate-900 truncate">{contracts[0].name}</p>
                 </div>
                 {contracts[0].renewal_date && (
-                  <p className="text-[9px] text-blue-600 mt-0.5 ml-3">Renews {format(parseISO(contracts[0].renewal_date), 'MMM d')}</p>
+                  <p className="text-xs text-blue-600 mt-1 ml-4">Renews {format(parseISO(contracts[0].renewal_date), 'MMM d')}</p>
                 )}
               </div>
             )}
             {/* Invoice stats */}
-            <div className="flex items-center justify-between text-[10px] px-1">
+            <div className="flex items-center justify-between text-xs px-1">
               <span className="text-emerald-600 font-medium">{invoices.filter(i => i.status === 'paid').length} paid</span>
               {invoices.filter(i => i.status === 'overdue').length > 0 && (
                 <span className="text-red-600 font-medium">{invoices.filter(i => i.status === 'overdue').length} overdue</span>
@@ -373,17 +373,17 @@ export default function OverviewTab({
             </div>
             {invoices.slice(0, 2).map(invoice => (
               <div key={invoice.id} className="flex items-center justify-between px-1">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                   {invoice.status === 'paid' ? (
-                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                   ) : invoice.status === 'overdue' ? (
-                    <AlertCircle className="w-2.5 h-2.5 text-red-500" />
+                    <AlertCircle className="w-3.5 h-3.5 text-red-500" />
                   ) : (
-                    <Clock className="w-2.5 h-2.5 text-amber-500" />
+                    <Clock className="w-3.5 h-3.5 text-amber-500" />
                   )}
-                  <p className="text-[10px] text-slate-700">{invoice.invoice_number}</p>
+                  <p className="text-xs text-slate-700">{invoice.invoice_number}</p>
                 </div>
-                <p className="text-[10px] text-slate-600">${(invoice.total || 0).toLocaleString()}</p>
+                <p className="text-xs font-medium text-slate-600">${(invoice.total || 0).toLocaleString()}</p>
               </div>
             ))}
           </div>
