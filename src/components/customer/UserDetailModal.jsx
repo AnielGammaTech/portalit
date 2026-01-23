@@ -50,6 +50,23 @@ export default function UserDetailModal({ contact, open, onClose, customerId }) 
     enabled: !!contact?.id
   });
 
+  // Check if company has JumpCloud or Spanning configured
+  const { data: jumpcloudMapping } = useQuery({
+    queryKey: ['jumpcloud-mapping', customerId],
+    queryFn: () => base44.entities.JumpCloudMapping.filter({ customer_id: customerId }),
+    enabled: !!customerId
+  });
+
+  const { data: spanningMapping } = useQuery({
+    queryKey: ['spanning-mapping', customerId],
+    queryFn: () => base44.entities.SpanningMapping.filter({ customer_id: customerId }),
+    enabled: !!customerId
+  });
+
+  const hasJumpCloud = jumpcloudMapping?.length > 0;
+  const hasSpanning = spanningMapping?.length > 0;
+  const hasAnyIntegration = hasJumpCloud || hasSpanning;
+
   if (!contact) return null;
 
   const sourceColors = {
