@@ -531,7 +531,7 @@ export default function CustomerDetail() {
             ...(hasServicesMapped ? [{ value: 'services', icon: Cloud, label: 'Services' }] : []),
             { value: 'licenses', icon: Cloud, label: 'SaaS' },
             { value: 'quotes', icon: FileText, label: 'Quotes' },
-            { value: 'tickets', icon: HelpCircle, label: 'Support' },
+            { value: 'tickets', icon: HelpCircle, label: 'Tickets' },
             { value: 'devices', icon: Monitor, label: 'Devices' },
           ].map(tab => (
             <TabsTrigger 
