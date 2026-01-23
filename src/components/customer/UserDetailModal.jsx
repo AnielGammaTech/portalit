@@ -184,56 +184,71 @@ export default function UserDetailModal({ contact, open, onClose, customerId }) 
 
           {/* Assigned Applications */}
           <div>
-            <h4 className="font-medium text-slate-900 mb-3 flex items-center gap-2">
-              <Cloud className="w-4 h-4" />
-              Assigned Applications ({licenses.length})
-            </h4>
-            {licenses.length === 0 ? (
-              <Card>
-                <CardContent className="py-6 text-center text-slate-500">
-                  No applications assigned to this user
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-2">
-                {licenses.map(license => {
-                  const isManaged = license.management_type === 'managed';
-                  return (
-                    <Link 
-                      key={license.id} 
-                      to={createPageUrl(`LicenseDetail?id=${license.id}`)}
-                      onClick={onClose}
-                      className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer group"
-                    >
-                      {license.logo_url ? (
-                        <img src={license.logo_url} alt="" className="w-8 h-8 rounded object-contain" />
-                      ) : (
-                        <div className="w-8 h-8 rounded bg-blue-100 flex items-center justify-center">
-                          <Cloud className="w-4 h-4 text-blue-600" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-900 group-hover:text-purple-600 transition-colors">{license.application_name}</p>
-                        <p className="text-sm text-slate-500">{license.vendor || license.license_type || 'SaaS'}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge 
-                          variant="outline" 
-                          className={isManaged ? "text-blue-600 border-blue-200 bg-blue-50" : "text-emerald-600 border-emerald-200 bg-emerald-50"}
-                        >
-                          {isManaged ? <Building2 className="w-3 h-3 mr-1" /> : <User className="w-3 h-3 mr-1" />}
-                          {isManaged ? 'Managed' : 'Individual'}
-                        </Badge>
-                        <Badge variant="outline" className="text-green-600 border-green-200">
-                          Active
-                        </Badge>
-                        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-purple-600 transition-colors" />
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
+            {(() => {
+              // Deduplicate licenses by application name, keeping one per app
+              const uniqueApps = licenses.reduce((acc, license) => {
+                const existing = acc.find(l => l.application_name === license.application_name);
+                if (!existing) {
+                  acc.push(license);
+                }
+                return acc;
+              }, []);
+              
+              return (
+                <>
+                  <h4 className="font-medium text-slate-900 mb-3 flex items-center gap-2">
+                    <Cloud className="w-4 h-4" />
+                    Assigned Applications ({uniqueApps.length})
+                  </h4>
+                  {uniqueApps.length === 0 ? (
+                    <Card>
+                      <CardContent className="py-6 text-center text-slate-500">
+                        No applications assigned to this user
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="space-y-2">
+                      {uniqueApps.map(license => {
+                        const isManaged = license.management_type === 'managed';
+                        return (
+                          <Link 
+                            key={license.id} 
+                            to={createPageUrl(`LicenseDetail?id=${license.id}`)}
+                            onClick={onClose}
+                            className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer group"
+                          >
+                            {license.logo_url ? (
+                              <img src={license.logo_url} alt="" className="w-8 h-8 rounded object-contain" />
+                            ) : (
+                              <div className="w-8 h-8 rounded bg-blue-100 flex items-center justify-center">
+                                <Cloud className="w-4 h-4 text-blue-600" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-slate-900 group-hover:text-purple-600 transition-colors">{license.application_name}</p>
+                              <p className="text-sm text-slate-500">{license.vendor || license.license_type || 'SaaS'}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge 
+                                variant="outline" 
+                                className={isManaged ? "text-blue-600 border-blue-200 bg-blue-50" : "text-emerald-600 border-emerald-200 bg-emerald-50"}
+                              >
+                                {isManaged ? <Building2 className="w-3 h-3 mr-1" /> : <User className="w-3 h-3 mr-1" />}
+                                {isManaged ? 'Managed' : 'Individual'}
+                              </Badge>
+                              <Badge variant="outline" className="text-green-600 border-green-200">
+                                Active
+                              </Badge>
+                              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-purple-600 transition-colors" />
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           {/* Assigned Devices */}
