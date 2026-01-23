@@ -62,7 +62,7 @@ export default function LicenseAssignmentModal({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            {isPerUser ? 'Manage Individual Licenses' : 'Manage License Assignments'}
+            {isPerUser ? 'Manage Individual Licenses' : 'Assign Managed Seats'}
           </DialogTitle>
         </DialogHeader>
         
