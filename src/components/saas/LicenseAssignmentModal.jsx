@@ -86,9 +86,13 @@ export default function LicenseAssignmentModal({
                     <p className="text-xs text-slate-500">seats used</p>
                   </div>
                 )}
-                {isPerUser && (
+                {isPerUser ? (
                   <Badge variant="outline" className="text-purple-600 border-purple-200">
                     Per User
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-blue-600 border-blue-200">
+                    Managed
                   </Badge>
                 )}
               </div>
