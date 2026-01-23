@@ -1138,12 +1138,6 @@ export default function CustomerDetail() {
             {/* Spend Analysis View */}
             {saasView === 'spend' && (
               <div className="space-y-4">
-                {/* AI Anomaly Detection */}
-                <SpendAnomalyAlert 
-                  licenses={licenses} 
-                  licenseAssignments={licenseAssignments} 
-                />
-                
                 <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
                   <h3 className="font-semibold text-slate-900 mb-4">Spend Analysis</h3>
                   <div className="space-y-3">
