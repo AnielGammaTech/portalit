@@ -112,6 +112,13 @@ export default function CustomerDetail() {
     enabled: !!customerId
   });
 
+  // Fetch Application catalog entries (software without licenses yet)
+  const { data: applications = [], isLoading: loadingApplications } = useQuery({
+    queryKey: ['applications', customerId],
+    queryFn: () => base44.entities.Application.filter({ customer_id: customerId }),
+    enabled: !!customerId
+  });
+
   const { data: recurringBills = [], isLoading: loadingBills } = useQuery({
     queryKey: ['recurring_bills', customerId],
     queryFn: () => base44.entities.RecurringBill.filter({ customer_id: customerId }),
@@ -238,7 +245,7 @@ export default function CustomerDetail() {
                   const [saasView, setSaasView] = useState('licenses'); // 'licenses', 'users', 'spend'
                   const [saasCategoryFilter, setSaasCategoryFilter] = useState(''); // filter by category
 
-  const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems || loadingContractItems || loadingContacts || loadingTickets || loadingInvoiceLineItems || loadingAssignments || loadingDevices || loadingJumpcloud || loadingSpanning;
+  const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingApplications || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems || loadingContractItems || loadingContacts || loadingTickets || loadingInvoiceLineItems || loadingAssignments || loadingDevices || loadingJumpcloud || loadingSpanning;
 
   const handleAssignLicense = async (contactId) => {
     await base44.entities.LicenseAssignment.create({
@@ -302,7 +309,8 @@ export default function CustomerDetail() {
       acc[key] = {
         software: license, // Use the first one as the base software info
         managedLicense: null,
-        individualLicenses: []
+        individualLicenses: [],
+        isCatalogOnly: false
       };
     }
     if (license.management_type === 'managed') {
@@ -312,6 +320,29 @@ export default function CustomerDetail() {
     }
     return acc;
   }, {});
+
+  // Add Application catalog entries that don't have licenses yet
+  applications.forEach(app => {
+    if (!groupedSoftware[app.name]) {
+      groupedSoftware[app.name] = {
+        software: {
+          id: app.id,
+          application_name: app.name,
+          vendor: app.vendor,
+          logo_url: app.logo_url,
+          website_url: app.website_url,
+          category: app.category,
+          notes: app.notes,
+          customer_id: app.customer_id,
+          status: app.status || 'active',
+          _isApplication: true
+        },
+        managedLicense: null,
+        individualLicenses: [],
+        isCatalogOnly: true
+      };
+    }
+  });
 
   const handleAddContact = async (contactData) => {
     await base44.entities.Contact.create(contactData);
