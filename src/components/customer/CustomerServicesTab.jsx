@@ -365,41 +365,43 @@ export default function CustomerServicesTab({
 
   return (
     <div className="space-y-6">
-      {/* Sync All Button */}
-      {integrations.length > 0 && (
-        <div className="flex justify-end">
-          <Button
-            onClick={handleSyncAll}
-            disabled={syncingAll}
-            className="gap-2"
-          >
-            <RefreshCw className={cn("w-4 h-4", syncingAll && "animate-spin")} />
-            {syncingAll ? 'Syncing...' : 'Sync All Services'}
-          </Button>
-        </div>
-      )}
-
       <Tabs defaultValue={hasRecurringServices ? "recurring" : hasJumpCloud ? "jumpcloud" : "spanning"} className="space-y-4">
-        <TabsList className="bg-white border border-slate-200 p-1 h-auto">
-          {hasRecurringServices && (
-            <TabsTrigger value="recurring" className="gap-2 py-3 px-6 text-sm font-medium">
-              <HardDrive className="w-4 h-4" />
-              Recurring Services
-            </TabsTrigger>
-          )}
-          {hasJumpCloud && (
-            <TabsTrigger value="jumpcloud" className="gap-2 py-3 px-6 text-sm font-medium">
-              <Shield className="w-4 h-4" />
-              JumpCloud
-            </TabsTrigger>
-          )}
-          {hasSpanning && (
-              <TabsTrigger value="spanning" className="gap-2 py-3 px-6 text-sm font-medium">
+        <div className="flex items-center justify-between">
+          <TabsList className="bg-white border border-slate-200 p-1 h-auto mx-auto">
+            {hasRecurringServices && (
+              <TabsTrigger value="recurring" className="gap-2 py-2 px-4 text-sm font-medium">
+                <HardDrive className="w-4 h-4" />
+                Recurring Services
+              </TabsTrigger>
+            )}
+            {hasJumpCloud && (
+              <TabsTrigger value="jumpcloud" className="gap-2 py-2 px-4 text-sm font-medium">
+                <Shield className="w-4 h-4" />
+                JumpCloud
+              </TabsTrigger>
+            )}
+            {hasSpanning && (
+              <TabsTrigger value="spanning" className="gap-2 py-2 px-4 text-sm font-medium">
                 <Cloud className="w-4 h-4" />
                 Spanning Backup
               </TabsTrigger>
             )}
-        </TabsList>
+          </TabsList>
+          
+          {/* Sync All Button - Smaller & Sleeker */}
+          {integrations.length > 0 && (
+            <Button
+              onClick={handleSyncAll}
+              disabled={syncingAll}
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs h-8"
+            >
+              <RefreshCw className={cn("w-3.5 h-3.5", syncingAll && "animate-spin")} />
+              {syncingAll ? 'Syncing...' : 'Sync All'}
+            </Button>
+          )}
+        </div>
 
         {/* Recurring Services Tab */}
         {hasRecurringServices && (
