@@ -32,6 +32,8 @@ export default function LicenseDetail() {
   const [showAddSeatsModal, setShowAddSeatsModal] = useState(false);
   const [additionalSeats, setAdditionalSeats] = useState(1);
   const [showAddUserLicense, setShowAddUserLicense] = useState(false);
+  const [showAddManagedLicense, setShowAddManagedLicense] = useState(false);
+  const [showAddIndividualLicense, setShowAddIndividualLicense] = useState(false);
 
   const { data: license, isLoading: loadingLicense } = useQuery({
     queryKey: ['license', licenseId],
