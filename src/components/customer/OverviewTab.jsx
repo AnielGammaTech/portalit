@@ -452,7 +452,8 @@ export default function OverviewTab({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.35 }}
-          className="bg-white rounded-xl border border-slate-200 overflow-hidden"
+          className="bg-white rounded-xl border border-slate-200 overflow-hidden cursor-pointer hover:border-purple-200 transition-colors"
+          onClick={() => document.querySelector('[value="devices"]')?.click()}
         >
           <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
             <h3 className="font-semibold text-slate-900 text-xs">Devices</h3>
@@ -469,12 +470,14 @@ export default function OverviewTab({
                 <p className="text-[8px] text-slate-500">Offline</p>
               </div>
             </div>
-            {devices.slice(0, 2).map(device => (
-              <div key={device.id} className="flex items-center gap-1.5 px-1">
-                <div className={cn("w-1.5 h-1.5 rounded-full", device.status === 'online' ? "bg-emerald-500" : "bg-slate-300")} />
-                <p className="text-[10px] text-slate-700 truncate">{device.hostname}</p>
-              </div>
-            ))}
+            <div className="grid grid-cols-2 gap-1">
+              {devices.slice(0, 4).map(device => (
+                <div key={device.id} className="flex items-center gap-1 px-1">
+                  <div className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", device.status === 'online' ? "bg-emerald-500" : "bg-slate-300")} />
+                  <p className="text-[9px] text-slate-700 truncate">{device.hostname}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </motion.div>
       </div>
