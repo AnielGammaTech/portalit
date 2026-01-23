@@ -554,6 +554,9 @@ export default function CustomerDetail() {
             customerId={customerId}
             queryClient={queryClient}
             onAddContact={() => setShowAddContact(true)}
+            tickets={tickets}
+            devices={devices}
+            licenseAssignments={licenseAssignments}
           />
         </TabsContent>
 
