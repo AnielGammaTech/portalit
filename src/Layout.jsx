@@ -43,9 +43,10 @@ export default function Layout({ children, currentPageName }) {
         
         // For non-admin users, use customer_id from user profile
         if (currentUser?.role !== 'admin' && currentUser?.customer_id) {
-          const customers = await base44.entities.Customer.filter({ id: currentUser.customer_id });
-          if (customers.length > 0) {
-            setCustomer(customers[0]);
+          const allCustomers = await base44.entities.Customer.list();
+          const userCustomer = allCustomers.find(c => c.id === currentUser.customer_id);
+          if (userCustomer) {
+            setCustomer(userCustomer);
           }
         }
       } catch (error) {
