@@ -705,31 +705,7 @@ export default function LicenseDetail() {
 
         {/* RIGHT COLUMN - Users/Assignments (Both Types) */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Quick Add Buttons - Always visible at top */}
-          {(!managedLicense || !individualLicense) && (
-            <div className="flex gap-3">
-              {!managedLicense && (
-                <Button 
-                  onClick={() => setShowAddManagedLicense(true)}
-                  variant="outline"
-                  className="flex-1 gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 h-12"
-                >
-                  <Building2 className="w-4 h-4" />
-                  Add Managed License
-                </Button>
-              )}
-              {!individualLicense && (
-                <Button 
-                  onClick={() => setShowAddIndividualLicense(true)}
-                  variant="outline"
-                  className="flex-1 gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50 h-12"
-                >
-                  <User className="w-4 h-4" />
-                  Add Individual License
-                </Button>
-              )}
-            </div>
-          )}
+
 
           {/* Managed Seats Section - Always show, Collapsible */}
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
