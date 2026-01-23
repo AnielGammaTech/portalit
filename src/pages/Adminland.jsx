@@ -49,6 +49,7 @@ const MENU_SECTIONS = [
 
 export default function Adminland() {
   const [user, setUser] = useState(null);
+  const [activePanel, setActivePanel] = useState(null);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -69,8 +70,6 @@ export default function Adminland() {
   if (user?.role !== 'admin') {
     return null;
   }
-
-  const [activePanel, setActivePanel] = useState(null);
 
   if (activePanel === 'user-access') {
     return (
