@@ -401,9 +401,8 @@ export default function CustomerServicesTab({
           )}
         </div>
 
-        {/* Recurring Services Tab */}
-        {hasRecurringServices && (
-          <TabsContent value="recurring">
+        {/* Recurring Services Tab - Always show */}
+        <TabsContent value="recurring">
             <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
               <button
                 onClick={() => setExpandedBills(prev => ({ ...prev, _section: !prev._section }))}
