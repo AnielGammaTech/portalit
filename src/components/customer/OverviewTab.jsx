@@ -336,77 +336,56 @@ export default function OverviewTab({
         />
       </div>
 
-      {/* Main Grid - 4 columns on large screens */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Contracts */}
+      {/* Main Grid - 4 columns */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Contracts + Invoices Combined */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
           className="bg-white rounded-xl border border-slate-200 overflow-hidden"
         >
-          <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="font-semibold text-slate-900 text-sm">Contracts</h3>
-            <Badge variant="outline" className="text-[10px]">{contracts.filter(c => c.status === 'active').length} active</Badge>
+          <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="font-semibold text-slate-900 text-xs">Billing</h3>
+            <div className="flex gap-1">
+              <Badge variant="outline" className="text-[9px]">{contracts.filter(c => c.status === 'active').length} contracts</Badge>
+            </div>
           </div>
-          <div className="p-2.5 space-y-1.5 max-h-[200px] overflow-y-auto">
-            {contracts.length === 0 ? (
-              <p className="text-slate-400 text-xs text-center py-4">No contracts</p>
-            ) : (
-              contracts.slice(0, 3).map(contract => (
-                <div key={contract.id} className="p-2 bg-slate-50 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <div className={cn("w-1.5 h-1.5 rounded-full", contract.status === 'active' ? "bg-emerald-500" : "bg-slate-300")} />
-                    <p className="text-xs font-medium text-slate-900 truncate flex-1">{contract.name}</p>
-                  </div>
-                  {contract.renewal_date && (
-                    <p className="text-[10px] text-slate-500 mt-1 ml-3.5">Renews {format(parseISO(contract.renewal_date), 'MMM d')}</p>
-                  )}
+          <div className="p-2 space-y-2">
+            {/* Contract summary */}
+            {contracts.length > 0 && (
+              <div className="p-2 bg-blue-50 rounded-lg">
+                <div className="flex items-center gap-1.5">
+                  <div className={cn("w-1.5 h-1.5 rounded-full", contracts[0].status === 'active' ? "bg-emerald-500" : "bg-slate-300")} />
+                  <p className="text-[11px] font-medium text-slate-900 truncate">{contracts[0].name}</p>
                 </div>
-              ))
+                {contracts[0].renewal_date && (
+                  <p className="text-[9px] text-blue-600 mt-0.5 ml-3">Renews {format(parseISO(contracts[0].renewal_date), 'MMM d')}</p>
+                )}
+              </div>
             )}
-          </div>
-        </motion.div>
-
-        {/* Invoices */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25 }}
-          className="bg-white rounded-xl border border-slate-200 overflow-hidden"
-        >
-          <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="font-semibold text-slate-900 text-sm">Invoices</h3>
-            <Badge variant="outline" className="text-[10px]">{invoices.length} total</Badge>
-          </div>
-          <div className="p-2.5 space-y-1.5 max-h-[200px] overflow-y-auto">
-            {invoices.length === 0 ? (
-              <p className="text-slate-400 text-xs text-center py-4">No invoices</p>
-            ) : (
-              <>
-                <div className="flex items-center justify-between text-xs px-1 mb-2">
-                  <span className="text-emerald-600 font-medium">{invoices.filter(i => i.status === 'paid').length} paid</span>
-                  {invoices.filter(i => i.status === 'overdue').length > 0 && (
-                    <span className="text-red-600 font-medium">{invoices.filter(i => i.status === 'overdue').length} overdue</span>
+            {/* Invoice stats */}
+            <div className="flex items-center justify-between text-[10px] px-1">
+              <span className="text-emerald-600 font-medium">{invoices.filter(i => i.status === 'paid').length} paid</span>
+              {invoices.filter(i => i.status === 'overdue').length > 0 && (
+                <span className="text-red-600 font-medium">{invoices.filter(i => i.status === 'overdue').length} overdue</span>
+              )}
+            </div>
+            {invoices.slice(0, 2).map(invoice => (
+              <div key={invoice.id} className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-1.5">
+                  {invoice.status === 'paid' ? (
+                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500" />
+                  ) : invoice.status === 'overdue' ? (
+                    <AlertCircle className="w-2.5 h-2.5 text-red-500" />
+                  ) : (
+                    <Clock className="w-2.5 h-2.5 text-amber-500" />
                   )}
+                  <p className="text-[10px] text-slate-700">{invoice.invoice_number}</p>
                 </div>
-                {invoices.slice(0, 3).map(invoice => (
-                  <div key={invoice.id} className="p-2 bg-slate-50 rounded-lg flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {invoice.status === 'paid' ? (
-                        <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                      ) : invoice.status === 'overdue' ? (
-                        <AlertCircle className="w-3 h-3 text-red-500" />
-                      ) : (
-                        <Clock className="w-3 h-3 text-amber-500" />
-                      )}
-                      <p className="text-xs font-medium text-slate-900">{invoice.invoice_number}</p>
-                    </div>
-                    <p className="text-xs text-slate-600">${(invoice.total || 0).toLocaleString()}</p>
-                  </div>
-                ))}
-              </>
-            )}
+                <p className="text-[10px] text-slate-600">${(invoice.total || 0).toLocaleString()}</p>
+              </div>
+            ))}
           </div>
         </motion.div>
 
@@ -414,76 +393,95 @@ export default function OverviewTab({
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
+          transition={{ delay: 0.25 }}
           className="bg-white rounded-xl border border-slate-200 overflow-hidden"
         >
-          <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="font-semibold text-slate-900 text-sm">Quotes</h3>
-            <Badge variant="outline" className="text-[10px]">{quotes.length} total</Badge>
+          <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="font-semibold text-slate-900 text-xs">Quotes</h3>
+            <Badge variant="outline" className="text-[9px]">{quotes.length}</Badge>
           </div>
-          <div className="p-2.5 space-y-1.5 max-h-[200px] overflow-y-auto">
+          <div className="p-2 space-y-1.5">
             {quotes.length === 0 ? (
-              <p className="text-slate-400 text-xs text-center py-4">No quotes</p>
+              <p className="text-slate-400 text-[10px] text-center py-3">No quotes</p>
             ) : (
               quotes.slice(0, 3).map(quote => (
-                <div key={quote.id} className="p-2 bg-slate-50 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-medium text-slate-900 truncate">{quote.quote_number}</p>
-                    <Badge className={cn(
-                      "text-[9px] px-1.5 py-0",
-                      quote.status === 'accepted' && 'bg-emerald-100 text-emerald-700',
-                      quote.status === 'sent' && 'bg-blue-100 text-blue-700',
-                      quote.status === 'draft' && 'bg-slate-100 text-slate-600'
-                    )}>{quote.status}</Badge>
-                  </div>
-                  <p className="text-[10px] text-slate-500 mt-0.5">${(quote.total || 0).toLocaleString()}</p>
+                <div key={quote.id} className="flex items-center justify-between px-1">
+                  <p className="text-[10px] font-medium text-slate-900 truncate flex-1">{quote.quote_number}</p>
+                  <Badge className={cn(
+                    "text-[8px] px-1 py-0 ml-1",
+                    quote.status === 'accepted' && 'bg-emerald-100 text-emerald-700',
+                    quote.status === 'sent' && 'bg-blue-100 text-blue-700',
+                    quote.status === 'draft' && 'bg-slate-100 text-slate-600'
+                  )}>{quote.status}</Badge>
                 </div>
               ))
             )}
           </div>
         </motion.div>
 
-        {/* Tickets Summary */}
+        {/* Tickets */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-white rounded-xl border border-slate-200 overflow-hidden"
+        >
+          <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="font-semibold text-slate-900 text-xs">Tickets</h3>
+            <Badge variant="outline" className="text-[9px]">{tickets.length}</Badge>
+          </div>
+          <div className="p-2">
+            <div className="grid grid-cols-2 gap-1.5 mb-2">
+              <div className="bg-amber-50 rounded p-1.5 text-center">
+                <p className="text-sm font-bold text-amber-700">{tickets.filter(t => ['open', 'in_progress', 'new'].includes(t.status)).length}</p>
+                <p className="text-[8px] text-amber-600">Open</p>
+              </div>
+              <div className="bg-emerald-50 rounded p-1.5 text-center">
+                <p className="text-sm font-bold text-emerald-700">{tickets.filter(t => ['resolved', 'closed'].includes(t.status)).length}</p>
+                <p className="text-[8px] text-emerald-600">Resolved</p>
+              </div>
+            </div>
+            {tickets.slice(0, 2).map(ticket => (
+              <p key={ticket.id} className="text-[10px] text-slate-600 truncate px-1">#{ticket.ticket_number} - {ticket.summary}</p>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Devices */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.35 }}
           className="bg-white rounded-xl border border-slate-200 overflow-hidden"
         >
-          <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="font-semibold text-slate-900 text-sm">Tickets</h3>
-            <Badge variant="outline" className="text-[10px]">{tickets.length} total</Badge>
+          <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="font-semibold text-slate-900 text-xs">Devices</h3>
+            <Badge variant="outline" className="text-[9px]">{devices.length}</Badge>
           </div>
-          <div className="p-2.5 space-y-1.5 max-h-[200px] overflow-y-auto">
-            {tickets.length === 0 ? (
-              <p className="text-slate-400 text-xs text-center py-4">No tickets</p>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-2 mb-2">
-                  <div className="bg-amber-50 rounded-lg p-2 text-center">
-                    <p className="text-lg font-bold text-amber-700">{tickets.filter(t => ['open', 'in_progress', 'new'].includes(t.status)).length}</p>
-                    <p className="text-[10px] text-amber-600">Open</p>
-                  </div>
-                  <div className="bg-emerald-50 rounded-lg p-2 text-center">
-                    <p className="text-lg font-bold text-emerald-700">{tickets.filter(t => ['resolved', 'closed'].includes(t.status)).length}</p>
-                    <p className="text-[10px] text-emerald-600">Resolved</p>
-                  </div>
-                </div>
-                {tickets.slice(0, 2).map(ticket => (
-                  <div key={ticket.id} className="p-2 bg-slate-50 rounded-lg">
-                    <p className="text-xs font-medium text-slate-900 truncate">#{ticket.ticket_number}</p>
-                    <p className="text-[10px] text-slate-500 truncate">{ticket.summary}</p>
-                  </div>
-                ))}
-              </>
-            )}
+          <div className="p-2">
+            <div className="grid grid-cols-2 gap-1.5 mb-2">
+              <div className="bg-emerald-50 rounded p-1.5 text-center">
+                <p className="text-sm font-bold text-emerald-700">{devices.filter(d => d.status === 'online').length}</p>
+                <p className="text-[8px] text-emerald-600">Online</p>
+              </div>
+              <div className="bg-slate-100 rounded p-1.5 text-center">
+                <p className="text-sm font-bold text-slate-600">{devices.filter(d => d.status !== 'online').length}</p>
+                <p className="text-[8px] text-slate-500">Offline</p>
+              </div>
+            </div>
+            {devices.slice(0, 2).map(device => (
+              <div key={device.id} className="flex items-center gap-1.5 px-1">
+                <div className={cn("w-1.5 h-1.5 rounded-full", device.status === 'online' ? "bg-emerald-500" : "bg-slate-300")} />
+                <p className="text-[10px] text-slate-700 truncate">{device.hostname}</p>
+              </div>
+            ))}
           </div>
         </motion.div>
       </div>
 
-      {/* Second Row - Team, SaaS Usage, Devices */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Team Members */}
+      {/* Second Row - Team (with pagination) + SaaS Metrics */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Team Members with Pagination */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -506,9 +504,9 @@ export default function OverviewTab({
               )}
             </div>
           </div>
-          <div className="p-2.5 max-h-[180px] overflow-y-auto">
+          <div className="p-2.5">
             <div className="space-y-1">
-              {contacts.slice(0, 5).map(contact => (
+              {paginatedContacts.map(contact => (
                 <div 
                   key={contact.id}
                   onClick={() => setSelectedContact(contact)}
@@ -524,11 +522,23 @@ export default function OverviewTab({
                 </div>
               ))}
             </div>
-            {contacts.length > 5 && <p className="text-[10px] text-slate-400 text-center pt-2">+{contacts.length - 5} more</p>}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100">
+                <p className="text-[10px] text-slate-500">{(teamPage - 1) * itemsPerPage + 1}-{Math.min(teamPage * itemsPerPage, contacts.length)} of {contacts.length}</p>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setTeamPage(p => Math.max(1, p - 1))} disabled={teamPage === 1}>
+                    <ChevronRight className="w-3 h-3 rotate-180" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setTeamPage(p => Math.min(totalPages, p + 1))} disabled={teamPage >= totalPages}>
+                    <ChevronRight className="w-3 h-3" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </motion.div>
 
-        {/* SaaS Usage Widget */}
+        {/* SaaS Metrics */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -537,12 +547,10 @@ export default function OverviewTab({
         >
           <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-slate-900 text-sm">SaaS</h3>
+              <h3 className="font-semibold text-slate-900 text-sm">SaaS Overview</h3>
               <Badge variant="outline" className="text-[10px]">{licenses.length} apps</Badge>
             </div>
-            <Link to={createPageUrl(`CustomerDetail?id=${customerId}`)} onClick={() => document.querySelector('[value="licenses"]')?.click()}>
-              <Cloud className="w-4 h-4 text-slate-400 hover:text-purple-500" />
-            </Link>
+            <Cloud className="w-4 h-4 text-slate-400" />
           </div>
           <div className="p-3">
             {(() => {
@@ -550,72 +558,29 @@ export default function OverviewTab({
               const assignedSeats = licenseAssignments.filter(a => a.status === 'active').length;
               const utilizationRate = totalSeats > 0 ? (assignedSeats / totalSeats) * 100 : 0;
               const totalCost = licenses.reduce((sum, l) => sum + (l.total_cost || 0), 0);
+              const unusedCost = totalSeats > 0 ? ((totalSeats - assignedSeats) / totalSeats) * totalCost : 0;
               
               return (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-purple-50 rounded-lg p-2.5 text-center">
-                      <p className="text-lg font-bold text-purple-700">${totalCost.toLocaleString()}</p>
-                      <p className="text-[10px] text-purple-600">Monthly Spend</p>
-                    </div>
-                    <div className={cn("rounded-lg p-2.5 text-center", utilizationRate >= 70 ? "bg-emerald-50" : "bg-amber-50")}>
-                      <p className={cn("text-lg font-bold", utilizationRate >= 70 ? "text-emerald-700" : "text-amber-700")}>{utilizationRate.toFixed(0)}%</p>
-                      <p className={cn("text-[10px]", utilizationRate >= 70 ? "text-emerald-600" : "text-amber-600")}>Utilization</p>
-                    </div>
+                <div className="grid grid-cols-4 gap-3">
+                  <div className="bg-purple-50 rounded-lg p-3 text-center">
+                    <p className="text-xl font-bold text-purple-700">${totalCost.toLocaleString()}</p>
+                    <p className="text-[10px] text-purple-600">Monthly Spend</p>
                   </div>
-                  <div className="flex items-center justify-between text-xs text-slate-600 px-1">
-                    <span>{assignedSeats}/{totalSeats} seats used</span>
-                    <span>{licenses.length} applications</span>
+                  <div className={cn("rounded-lg p-3 text-center", utilizationRate >= 70 ? "bg-emerald-50" : "bg-amber-50")}>
+                    <p className={cn("text-xl font-bold", utilizationRate >= 70 ? "text-emerald-700" : "text-amber-700")}>{utilizationRate.toFixed(0)}%</p>
+                    <p className={cn("text-[10px]", utilizationRate >= 70 ? "text-emerald-600" : "text-amber-600")}>Utilization</p>
                   </div>
-                  <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                    <div className={cn("h-full rounded-full", utilizationRate >= 70 ? "bg-emerald-500" : "bg-amber-500")} style={{ width: `${utilizationRate}%` }} />
+                  <div className="bg-blue-50 rounded-lg p-3 text-center">
+                    <p className="text-xl font-bold text-blue-700">{assignedSeats}/{totalSeats}</p>
+                    <p className="text-[10px] text-blue-600">Seats Used</p>
+                  </div>
+                  <div className={cn("rounded-lg p-3 text-center", unusedCost > 0 ? "bg-red-50" : "bg-slate-50")}>
+                    <p className={cn("text-xl font-bold", unusedCost > 0 ? "text-red-600" : "text-slate-600")}>${unusedCost.toFixed(0)}</p>
+                    <p className={cn("text-[10px]", unusedCost > 0 ? "text-red-500" : "text-slate-500")}>Unused</p>
                   </div>
                 </div>
               );
             })()}
-          </div>
-        </motion.div>
-
-        {/* Devices Widget */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="bg-white rounded-xl border border-slate-200 overflow-hidden"
-        >
-          <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-slate-900 text-sm">Devices</h3>
-              <Badge variant="outline" className="text-[10px]">{devices.length} total</Badge>
-            </div>
-            <Monitor className="w-4 h-4 text-slate-400" />
-          </div>
-          <div className="p-3">
-            {devices.length === 0 ? (
-              <p className="text-slate-400 text-xs text-center py-4">No devices</p>
-            ) : (
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-emerald-50 rounded-lg p-2.5 text-center">
-                    <p className="text-lg font-bold text-emerald-700">{devices.filter(d => d.status === 'online').length}</p>
-                    <p className="text-[10px] text-emerald-600">Online</p>
-                  </div>
-                  <div className="bg-slate-100 rounded-lg p-2.5 text-center">
-                    <p className="text-lg font-bold text-slate-700">{devices.filter(d => d.status !== 'online').length}</p>
-                    <p className="text-[10px] text-slate-600">Offline</p>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  {devices.slice(0, 2).map(device => (
-                    <div key={device.id} className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
-                      <div className={cn("w-1.5 h-1.5 rounded-full", device.status === 'online' ? "bg-emerald-500" : "bg-slate-300")} />
-                      <p className="text-xs text-slate-700 truncate flex-1">{device.hostname}</p>
-                      <p className="text-[10px] text-slate-400">{device.device_type}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </motion.div>
       </div>
