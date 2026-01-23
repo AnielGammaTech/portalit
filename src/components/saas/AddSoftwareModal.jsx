@@ -133,12 +133,22 @@ Return JSON with:
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave({
-      ...form,
+    const softwareData = {
+      application_name: form.application_name,
+      vendor: form.vendor,
+      website_url: form.website_url,
+      logo_url: form.logo_url,
+      category: form.category,
+      notes: form.notes,
       customer_id: customerId,
       source: 'manual',
-      status: 'active'
-    });
+      status: 'active',
+      management_type: form.is_managed ? 'managed' : 'per_user',
+      quantity: form.is_managed ? form.quantity : 0,
+      cost_per_license: form.cost_per_license,
+      total_cost: form.is_managed ? form.quantity * form.cost_per_license : 0
+    };
+    onSave(softwareData);
   };
 
   return (
