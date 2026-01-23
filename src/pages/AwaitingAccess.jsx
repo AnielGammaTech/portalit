@@ -51,7 +51,7 @@ export default function AwaitingAccess({ user }) {
             
             <div className="space-y-3">
               <a 
-                href="mailto:support@yourcompany.com" 
+                href="mailto:help@gamma.tech" 
                 className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-medium transition-colors"
               >
                 <Mail className="w-4 h-4" />
@@ -59,7 +59,7 @@ export default function AwaitingAccess({ user }) {
               </a>
               
               <a 
-                href="tel:+15551234567" 
+                href="tel:+12393304939" 
                 className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium transition-colors"
               >
                 <Phone className="w-4 h-4" />
