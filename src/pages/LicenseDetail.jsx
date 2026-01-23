@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { format, parseISO, differenceInDays } from 'date-fns';
 import LicenseAssignmentModal from '../components/saas/LicenseAssignmentModal';
 import EditLicenseModal from '../components/saas/EditLicenseModal';
+import UserDetailModal from '../components/customer/UserDetailModal';
 
 export default function LicenseDetail() {
   const params = new URLSearchParams(window.location.search);
@@ -34,6 +35,7 @@ export default function LicenseDetail() {
   const [showAddUserLicense, setShowAddUserLicense] = useState(false);
   const [showAddManagedLicense, setShowAddManagedLicense] = useState(false);
   const [showAddIndividualLicense, setShowAddIndividualLicense] = useState(false);
+  const [selectedContact, setSelectedContact] = useState(null);
 
   const { data: license, isLoading: loadingLicense } = useQuery({
     queryKey: ['license', licenseId],
@@ -676,12 +678,15 @@ export default function LicenseDetail() {
                     const contact = contacts.find(c => c.id === assignment.contact_id);
                     return (
                       <div key={assignment.id} className="px-6 py-3 hover:bg-slate-50 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
+                        <div 
+                          className="flex items-center gap-3 cursor-pointer"
+                          onClick={() => setSelectedContact(contact)}
+                        >
                           <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-medium text-sm">
                             {contact?.full_name?.charAt(0) || '?'}
                           </div>
                           <div>
-                            <p className="font-medium text-slate-900 text-sm">{contact?.full_name || 'Unknown'}</p>
+                            <p className="font-medium text-slate-900 text-sm hover:text-blue-600">{contact?.full_name || 'Unknown'}</p>
                             <p className="text-xs text-slate-500">{contact?.email || 'No email'}</p>
                           </div>
                         </div>
@@ -752,12 +757,17 @@ export default function LicenseDetail() {
                       <div key={assignment.id} className="px-6 py-3 hover:bg-slate-50">
                         <div className="flex items-center justify-between gap-4">
                           <div className="flex items-center gap-3 flex-1">
-                            <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-medium flex-shrink-0 text-sm">
-                              {contact?.full_name?.charAt(0) || '?'}
-                            </div>
-                            <div className="min-w-0 flex-shrink-0">
-                              <p className="font-medium text-slate-900 text-sm">{contact?.full_name || 'Unknown User'}</p>
-                              <p className="text-xs text-slate-500">{contact?.email || 'No email'}</p>
+                            <div 
+                              className="flex items-center gap-3 cursor-pointer"
+                              onClick={() => setSelectedContact(contact)}
+                            >
+                              <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-medium flex-shrink-0 text-sm">
+                                {contact?.full_name?.charAt(0) || '?'}
+                              </div>
+                              <div className="min-w-0 flex-shrink-0">
+                                <p className="font-medium text-slate-900 text-sm hover:text-emerald-600">{contact?.full_name || 'Unknown User'}</p>
+                                <p className="text-xs text-slate-500">{contact?.email || 'No email'}</p>
+                              </div>
                             </div>
                             
                             {/* Individual License Details - Inline */}
@@ -817,6 +827,14 @@ export default function LicenseDetail() {
               )}
             </div>
           )}
+
+          {/* User Detail Modal */}
+          <UserDetailModal
+            contact={selectedContact}
+            open={!!selectedContact}
+            onClose={() => setSelectedContact(null)}
+            customerId={license?.customer_id}
+          />
 
           {/* If only one type exists, show the original single view */}
           {!hasBothTypes && !managedLicense && !individualLicense && (
