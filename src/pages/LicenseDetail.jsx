@@ -264,12 +264,14 @@ export default function LicenseDetail() {
   };
 
   const handleAddSeats = async () => {
-    const newQuantity = (license.quantity || 0) + additionalSeats;
-    const newTotalCost = newQuantity * (license.cost_per_license || 0);
-    await base44.entities.SaaSLicense.update(licenseId, { 
+    if (!managedLicense) return;
+    const newQuantity = (managedLicense.quantity || 0) + additionalSeats;
+    const newTotalCost = newQuantity * (managedLicense.cost_per_license || 0);
+    await base44.entities.SaaSLicense.update(managedLicense.id, { 
       quantity: newQuantity,
       total_cost: newTotalCost
     });
+    queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
     queryClient.invalidateQueries({ queryKey: ['license', licenseId] });
     setShowAddSeatsModal(false);
     setAdditionalSeats(1);
@@ -632,15 +634,26 @@ export default function LicenseDetail() {
                     </p>
                   </div>
                 </div>
-                <Button 
-                  size="sm" 
-                  className="gap-2 bg-blue-600 hover:bg-blue-700"
-                  onClick={() => setShowAssignModal(true)}
-                  disabled={managedUnusedSeats <= 0}
-                >
-                  <Plus className="w-4 h-4" />
-                  Assign Seat
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() => setShowAddSeatsModal(true)}
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Seats
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    className="gap-2 bg-blue-600 hover:bg-blue-700"
+                    onClick={() => setShowAssignModal(true)}
+                    disabled={managedUnusedSeats <= 0}
+                  >
+                    <Plus className="w-4 h-4" />
+                    Assign Seat
+                  </Button>
+                </div>
               </div>
               
               {managedAssignments.length === 0 ? (
@@ -711,7 +724,7 @@ export default function LicenseDetail() {
                 <Button 
                   size="sm" 
                   className="gap-2 bg-emerald-600 hover:bg-emerald-700"
-                  onClick={() => setShowAddUserLicense(true)}
+                  onClick={() => setShowAddIndividualLicense(true)}
                 >
                   <Plus className="w-4 h-4" />
                   Add License
@@ -724,7 +737,7 @@ export default function LicenseDetail() {
                   <p className="text-slate-500 mb-3">No individual licenses</p>
                   <Button 
                     size="sm"
-                    onClick={() => setShowAddUserLicense(true)} 
+                    onClick={() => setShowAddIndividualLicense(true)} 
                     className="bg-emerald-600 hover:bg-emerald-700"
                   >
                     <Plus className="w-4 h-4 mr-2" />
@@ -901,6 +914,46 @@ export default function LicenseDetail() {
         softwareName={license?.application_name}
         contacts={contacts}
       />
+
+      {/* Add Seats Modal */}
+      <Dialog open={showAddSeatsModal} onOpenChange={setShowAddSeatsModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Seats to Managed License</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-500">Current Seats</span>
+              <span className="font-medium">{managedLicense?.quantity || 0}</span>
+            </div>
+            <div>
+              <label className="text-sm text-slate-500 block mb-2">Additional Seats</label>
+              <Input
+                type="number"
+                min="1"
+                value={additionalSeats}
+                onChange={(e) => setAdditionalSeats(parseInt(e.target.value) || 1)}
+              />
+            </div>
+            <div className="flex items-center justify-between text-sm pt-2 border-t">
+              <span className="text-slate-500">New Total</span>
+              <span className="font-bold text-lg">{(managedLicense?.quantity || 0) + additionalSeats}</span>
+            </div>
+            {managedLicense?.cost_per_license > 0 && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-500">New Monthly Cost</span>
+                <span className="font-medium text-purple-600">
+                  ${(((managedLicense?.quantity || 0) + additionalSeats) * managedLicense.cost_per_license).toLocaleString()}/mo
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowAddSeatsModal(false)}>Cancel</Button>
+            <Button onClick={handleAddSeats} className="bg-blue-600 hover:bg-blue-700">Add Seats</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
