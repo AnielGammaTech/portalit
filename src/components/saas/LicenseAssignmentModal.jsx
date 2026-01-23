@@ -15,7 +15,9 @@ export default function LicenseAssignmentModal({
   assignments,
   onAssign,
   onRevoke,
-  onAddIndividualLicense
+  onAddIndividualLicense,
+  allLicenseAssignments = [], // All assignments across managed and individual licenses
+  individualLicenseId = null  // ID of the individual license for this software
 }) {
   const [search, setSearch] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
