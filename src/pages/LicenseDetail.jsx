@@ -760,17 +760,9 @@ export default function LicenseDetail() {
                 </div>
                 
                 {managedLicenses.length === 0 ? (
-                  <div className="p-8 text-center">
-                    <Building2 className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-500 mb-3">No managed license configured</p>
-                    <Button 
-                      size="sm"
-                      onClick={() => setShowAddManagedLicense(true)} 
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Managed License
-                    </Button>
+                  <div className="p-6 text-center">
+                    <Building2 className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                    <p className="text-slate-400 text-sm">No managed licenses</p>
                   </div>
                 ) : (
                   <div className="divide-y divide-slate-200">
