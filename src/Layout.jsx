@@ -26,11 +26,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import FloatingAdminland from './components/admin/FloatingAdminland';
+import AwaitingAccess from './pages/AwaitingAccess';
 
 export default function Layout({ children, currentPageName }) {
   const [user, setUser] = useState(null);
   const [customer, setCustomer] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
@@ -39,24 +41,35 @@ export default function Layout({ children, currentPageName }) {
         setUser(currentUser);
         setIsAdmin(currentUser?.role === 'admin');
         
-        // For non-admin users, find their linked customer
-        if (currentUser?.role !== 'admin') {
-          const customers = await base44.entities.Customer.list('-created_date', 500);
+        // For non-admin users, use customer_id from user profile
+        if (currentUser?.role !== 'admin' && currentUser?.customer_id) {
+          const customers = await base44.entities.Customer.filter({ id: currentUser.customer_id });
           if (customers.length > 0) {
-            const emailDomain = currentUser.email?.split('@')[1];
-            const matched = customers.find(c => 
-              c.email?.includes(emailDomain) || 
-              c.name?.toLowerCase().includes(emailDomain?.split('.')[0])
-            );
-            setCustomer(matched || customers[0]);
+            setCustomer(customers[0]);
           }
         }
       } catch (error) {
         console.error('Failed to load data', error);
+      } finally {
+        setIsLoading(false);
       }
     };
     loadData();
   }, []);
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+      </div>
+    );
+  }
+
+  // Block access for non-admin users without customer_id
+  if (user && !isAdmin && !user.customer_id) {
+    return <AwaitingAccess user={user} />;
+  }
 
   // Admin navigation (MSP view)
       const adminNavigation = [
