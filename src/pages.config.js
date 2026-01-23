@@ -10,6 +10,7 @@ import LicenseDetail from './pages/LicenseDetail';
 import SaaSReports from './pages/SaaSReports';
 import Services from './pages/Services';
 import Settings from './pages/Settings';
+import AwaitingAccess from './pages/AwaitingAccess';
 import __Layout from './Layout.jsx';
 
 
@@ -26,6 +27,7 @@ export const PAGES = {
     "SaaSReports": SaaSReports,
     "Services": Services,
     "Settings": Settings,
+    "AwaitingAccess": AwaitingAccess,
 }
 
 export const pagesConfig = {
