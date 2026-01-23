@@ -279,10 +279,12 @@ export default function CustomerDetail() {
   };
 
   const handleAddSoftware = async (softwareData) => {
-    await base44.entities.SaaSLicense.create(softwareData);
+    const newSoftware = await base44.entities.SaaSLicense.create(softwareData);
     queryClient.invalidateQueries({ queryKey: ['licenses', customerId] });
     setShowAddSoftware(false);
-    toast.success('Software added! Click on it to add licenses.');
+    toast.success('Software added!');
+    // Navigate to the license detail page to add licenses
+    window.location.href = createPageUrl(`LicenseDetail?id=${newSoftware.id}`);
   };
 
   // Group licenses by application name for the new UI

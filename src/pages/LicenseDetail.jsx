@@ -279,10 +279,22 @@ export default function LicenseDetail() {
   };
 
   const handleDelete = async () => {
-        await base44.entities.SaaSLicense.delete(licenseId);
-        toast.success('License deleted!');
-        window.location.href = createPageUrl(`CustomerDetail?id=${license.customer_id}`);
-      };
+    // Delete ALL related licenses and their assignments for this software
+    const allLicenseIds = relatedLicenses.map(l => l.id);
+    
+    // Delete all assignments for all related licenses
+    for (const assignment of allAssignments) {
+      await base44.entities.LicenseAssignment.delete(assignment.id);
+    }
+    
+    // Delete all related licenses (managed and individual)
+    for (const licId of allLicenseIds) {
+      await base44.entities.SaaSLicense.delete(licId);
+    }
+    
+    toast.success('Software and all licenses deleted!');
+    window.location.href = createPageUrl(`CustomerDetail?id=${license.customer_id}`);
+  };
 
       const handleUpdateAssignment = async (assignmentId, data) => {
         await base44.entities.LicenseAssignment.update(assignmentId, data);
