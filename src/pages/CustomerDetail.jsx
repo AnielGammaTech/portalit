@@ -1052,10 +1052,10 @@ export default function CustomerDetail() {
               <Button 
                 size="sm" 
                 className="gap-2 bg-purple-600 hover:bg-purple-700"
-                onClick={() => setShowAddLicense(true)}
+                onClick={() => setShowAddSoftware(true)}
               >
                 <Plus className="w-4 h-4" />
-                Add License
+                Add Software
               </Button>
             </div>
 
