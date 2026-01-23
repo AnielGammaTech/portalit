@@ -53,6 +53,7 @@ export default function CustomerDetail() {
   const [user, setUser] = useState(null);
   const [selectedLicense, setSelectedLicense] = useState(null);
   const [showAddLicense, setShowAddLicense] = useState(false);
+  const [showAddSoftware, setShowAddSoftware] = useState(false);
   const [showAddContact, setShowAddContact] = useState(false);
   const queryClient = useQueryClient();
   const params = new URLSearchParams(window.location.search);
