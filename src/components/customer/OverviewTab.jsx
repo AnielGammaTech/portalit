@@ -338,54 +338,42 @@ export default function OverviewTab({
 
       {/* Main Grid - 2 columns */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Contracts + Invoices Combined */}
+        {/* Billing Summary */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white rounded-xl border border-slate-200 overflow-hidden"
+          className="bg-white rounded-xl border border-slate-200 overflow-hidden cursor-pointer hover:border-purple-200 transition-colors"
+          onClick={() => document.querySelector('[value="billing"]')?.click()}
         >
           <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
             <h3 className="font-semibold text-slate-900 text-sm">Billing</h3>
-            <div className="flex gap-1">
-              <Badge variant="outline" className="text-xs">{contracts.filter(c => c.status === 'active').length} contracts</Badge>
-            </div>
+            <ChevronRight className="w-4 h-4 text-slate-300" />
           </div>
-          <div className="p-4 space-y-3">
-            {/* Contract summary */}
-            {contracts.length > 0 && (
-              <div className="p-3 bg-blue-50 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <div className={cn("w-2 h-2 rounded-full", contracts[0].status === 'active' ? "bg-emerald-500" : "bg-slate-300")} />
-                  <p className="text-sm font-medium text-slate-900 truncate">{contracts[0].name}</p>
-                </div>
-                {contracts[0].renewal_date && (
-                  <p className="text-xs text-blue-600 mt-1 ml-4">Renews {format(parseISO(contracts[0].renewal_date), 'MMM d')}</p>
-                )}
+          <div className="p-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-emerald-50 rounded-lg p-3 text-center">
+                <p className="text-lg font-bold text-emerald-700">{invoices.filter(i => i.status === 'paid').length}</p>
+                <p className="text-xs text-emerald-600">Paid</p>
               </div>
-            )}
-            {/* Invoice stats */}
-            <div className="flex items-center justify-between text-xs px-1">
-              <span className="text-emerald-600 font-medium">{invoices.filter(i => i.status === 'paid').length} paid</span>
-              {invoices.filter(i => i.status === 'overdue').length > 0 && (
-                <span className="text-red-600 font-medium">{invoices.filter(i => i.status === 'overdue').length} overdue</span>
-              )}
+              <div className={cn(
+                "rounded-lg p-3 text-center",
+                invoices.filter(i => i.status === 'overdue').length > 0 ? "bg-red-50" : "bg-slate-50"
+              )}>
+                <p className={cn(
+                  "text-lg font-bold",
+                  invoices.filter(i => i.status === 'overdue').length > 0 ? "text-red-700" : "text-slate-600"
+                )}>{invoices.filter(i => i.status === 'overdue').length}</p>
+                <p className={cn(
+                  "text-xs",
+                  invoices.filter(i => i.status === 'overdue').length > 0 ? "text-red-600" : "text-slate-500"
+                )}>Overdue</p>
+              </div>
             </div>
-            {invoices.slice(0, 2).map(invoice => (
-              <div key={invoice.id} className="flex items-center justify-between px-1">
-                <div className="flex items-center gap-2">
-                  {invoice.status === 'paid' ? (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                  ) : invoice.status === 'overdue' ? (
-                    <AlertCircle className="w-3.5 h-3.5 text-red-500" />
-                  ) : (
-                    <Clock className="w-3.5 h-3.5 text-amber-500" />
-                  )}
-                  <p className="text-xs text-slate-700">{invoice.invoice_number}</p>
-                </div>
-                <p className="text-xs font-medium text-slate-600">${(invoice.total || 0).toLocaleString()}</p>
-              </div>
-            ))}
+            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+              <span className="text-xs text-slate-500">{contracts.filter(c => c.status === 'active').length} active contracts</span>
+              <span className="text-sm font-semibold text-slate-900">${invoices.reduce((sum, i) => sum + (i.total || 0), 0).toLocaleString()}</span>
+            </div>
           </div>
         </motion.div>
 
@@ -394,28 +382,29 @@ export default function OverviewTab({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
-          className="bg-white rounded-xl border border-slate-200 overflow-hidden"
+          className="bg-white rounded-xl border border-slate-200 overflow-hidden cursor-pointer hover:border-purple-200 transition-colors"
+          onClick={() => document.querySelector('[value="billing"]')?.click()}
         >
           <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
             <h3 className="font-semibold text-slate-900 text-sm">Quotes</h3>
-            <Badge variant="outline" className="text-xs">{quotes.length}</Badge>
+            <ChevronRight className="w-4 h-4 text-slate-300" />
           </div>
-          <div className="p-4 space-y-2">
-            {quotes.length === 0 ? (
-              <p className="text-slate-400 text-sm text-center py-4">No quotes</p>
-            ) : (
-              quotes.slice(0, 3).map(quote => (
-                <div key={quote.id} className="flex items-center justify-between px-1">
-                  <p className="text-sm font-medium text-slate-900 truncate flex-1">{quote.quote_number}</p>
-                  <Badge className={cn(
-                    "text-xs px-2 py-0.5 ml-2",
-                    quote.status === 'accepted' && 'bg-emerald-100 text-emerald-700',
-                    quote.status === 'sent' && 'bg-blue-100 text-blue-700',
-                    quote.status === 'draft' && 'bg-slate-100 text-slate-600'
-                  )}>{quote.status}</Badge>
-                </div>
-              ))
-            )}
+          <div className="p-4">
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              <div className="bg-blue-50 rounded-lg p-2 text-center">
+                <p className="text-lg font-bold text-blue-700">{quotes.filter(q => q.status === 'sent').length}</p>
+                <p className="text-xs text-blue-600">Sent</p>
+              </div>
+              <div className="bg-emerald-50 rounded-lg p-2 text-center">
+                <p className="text-lg font-bold text-emerald-700">{quotes.filter(q => q.status === 'accepted').length}</p>
+                <p className="text-xs text-emerald-600">Accepted</p>
+              </div>
+              <div className="bg-slate-50 rounded-lg p-2 text-center">
+                <p className="text-lg font-bold text-slate-600">{quotes.filter(q => q.status === 'draft').length}</p>
+                <p className="text-xs text-slate-500">Draft</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 text-center">{quotes.length} total quotes</p>
           </div>
         </motion.div>
 
@@ -424,11 +413,12 @@ export default function OverviewTab({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white rounded-xl border border-slate-200 overflow-hidden"
+          className="bg-white rounded-xl border border-slate-200 overflow-hidden cursor-pointer hover:border-purple-200 transition-colors"
+          onClick={() => document.querySelector('[value="tickets"]')?.click()}
         >
           <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
             <h3 className="font-semibold text-slate-900 text-sm">Tickets</h3>
-            <Badge variant="outline" className="text-xs">{tickets.length}</Badge>
+            <ChevronRight className="w-4 h-4 text-slate-300" />
           </div>
           <div className="p-4">
             <div className="grid grid-cols-2 gap-2 mb-3">
@@ -441,9 +431,7 @@ export default function OverviewTab({
                 <p className="text-xs text-emerald-600">Resolved</p>
               </div>
             </div>
-            {tickets.slice(0, 2).map(ticket => (
-              <p key={ticket.id} className="text-xs text-slate-600 truncate px-1 py-0.5">#{ticket.ticket_number} - {ticket.summary}</p>
-            ))}
+            <p className="text-xs text-slate-500 text-center">{tickets.length} total tickets</p>
           </div>
         </motion.div>
 
@@ -457,7 +445,7 @@ export default function OverviewTab({
         >
           <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
             <h3 className="font-semibold text-slate-900 text-sm">Devices</h3>
-            <Badge variant="outline" className="text-xs">{devices.length}</Badge>
+            <ChevronRight className="w-4 h-4 text-slate-300" />
           </div>
           <div className="p-4">
             <div className="grid grid-cols-2 gap-2 mb-3">
@@ -470,14 +458,7 @@ export default function OverviewTab({
                 <p className="text-xs text-slate-500">Offline</p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              {devices.slice(0, 4).map(device => (
-                <div key={device.id} className="flex items-center gap-1.5 px-1">
-                  <div className={cn("w-2 h-2 rounded-full flex-shrink-0", device.status === 'online' ? "bg-emerald-500" : "bg-slate-300")} />
-                  <p className="text-xs text-slate-700 truncate">{device.hostname}</p>
-                </div>
-              ))}
-            </div>
+            <p className="text-xs text-slate-500 text-center">{devices.length} total devices</p>
           </div>
         </motion.div>
       </div>
@@ -542,7 +523,7 @@ export default function OverviewTab({
         >
           <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
             <h3 className="font-semibold text-slate-900 text-sm">SaaS</h3>
-            <Badge variant="outline" className="text-xs">{licenses.length} apps</Badge>
+            <ChevronRight className="w-4 h-4 text-slate-300" />
           </div>
           <div className="p-4">
             {(() => {
