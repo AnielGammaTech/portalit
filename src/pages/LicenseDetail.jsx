@@ -1348,7 +1348,7 @@ export default function LicenseDetail() {
           <div className="space-y-4 py-4">
             <p className="text-sm text-slate-600">
               {renewalLicense 
-                ? `Renewing ${renewalLicense.license_type || 'Standard'} license for ${license?.application_name}`
+                ? `Renewing ${renewalLicense.license_type || ''} license for ${license?.application_name}`
                 : renewalAssignment 
                   ? `Renewing individual license for ${contacts.find(c => c.id === renewalAssignment.contact_id)?.full_name || 'user'}`
                   : 'Confirm renewal details'}
