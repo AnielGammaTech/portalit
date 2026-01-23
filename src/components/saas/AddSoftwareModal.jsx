@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { base44 } from '@/api/base44Client';
-import { Cloud, Upload, Globe, Loader2, X, Image } from 'lucide-react';
+import { Cloud, Upload, Globe, Loader2, X, Image, Building2 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 const CATEGORIES = [
@@ -28,7 +29,10 @@ export default function AddSoftwareModal({ open, onClose, onSave, customerId }) 
     website_url: '',
     logo_url: '',
     category: 'other',
-    notes: ''
+    notes: '',
+    is_managed: false,
+    quantity: 1,
+    cost_per_license: 0
   });
   const [isLoadingLogo, setIsLoadingLogo] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -42,7 +46,10 @@ export default function AddSoftwareModal({ open, onClose, onSave, customerId }) 
         website_url: '',
         logo_url: '',
         category: 'other',
-        notes: ''
+        notes: '',
+        is_managed: false,
+        quantity: 1,
+        cost_per_license: 0
       });
     }
   }, [open]);
@@ -261,6 +268,52 @@ Return JSON with:
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Managed License Option */}
+          <div className="border border-slate-200 rounded-lg p-4 space-y-4">
+            <div className="flex items-center gap-3">
+              <Checkbox 
+                id="is_managed" 
+                checked={form.is_managed}
+                onCheckedChange={(checked) => setForm({ ...form, is_managed: checked })}
+              />
+              <Label htmlFor="is_managed" className="flex items-center gap-2 cursor-pointer">
+                <Building2 className="w-4 h-4 text-blue-600" />
+                Managed License (company-wide with seats)
+              </Label>
+            </div>
+            
+            {form.is_managed && (
+              <div className="grid grid-cols-2 gap-4 pt-2">
+                <div>
+                  <Label className="text-xs">Number of Seats *</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={form.quantity}
+                    onChange={(e) => setForm({ ...form, quantity: parseInt(e.target.value) || 1 })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Cost per Seat $/mo</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.cost_per_license}
+                    onChange={(e) => setForm({ ...form, cost_per_license: parseFloat(e.target.value) || 0 })}
+                    className="mt-1"
+                  />
+                </div>
+                {form.quantity > 0 && form.cost_per_license > 0 && (
+                  <div className="col-span-2 text-sm text-slate-600 bg-slate-50 rounded-lg p-2">
+                    Total: <span className="font-semibold">${(form.quantity * form.cost_per_license).toFixed(2)}/mo</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Notes */}
