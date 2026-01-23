@@ -31,8 +31,8 @@ export default function LicenseDetail() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [syncingUsers, setSyncingUsers] = useState(false);
-  const [showAddSeatsModal, setShowAddSeatsModal] = useState(false);
-  const [additionalSeats, setAdditionalSeats] = useState(1);
+  const [showModifySeatsModal, setShowModifySeatsModal] = useState(false);
+  const [seatChange, setSeatChange] = useState(0);
   const [showAddUserLicense, setShowAddUserLicense] = useState(false);
   const [showAddManagedLicense, setShowAddManagedLicense] = useState(false);
   const [showAddIndividualLicense, setShowAddIndividualLicense] = useState(false);
@@ -268,20 +268,20 @@ export default function LicenseDetail() {
     window.location.href = createPageUrl(`CustomerDetail?id=${license.customer_id}`);
   };
 
-  const handleAddSeats = async () => {
-    if (!managedLicense) return;
-    const newQuantity = (managedLicense.quantity || 0) + additionalSeats;
-    const newTotalCost = newQuantity * (managedLicense.cost_per_license || 0);
-    await base44.entities.SaaSLicense.update(managedLicense.id, { 
-      quantity: newQuantity,
-      total_cost: newTotalCost
-    });
-    queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
-    queryClient.invalidateQueries({ queryKey: ['license', licenseId] });
-    setShowAddSeatsModal(false);
-    setAdditionalSeats(1);
-    toast.success(`Added ${additionalSeats} seat${additionalSeats > 1 ? 's' : ''}!`);
-  };
+  const handleModifySeats = async () => {
+        if (!managedLicense || seatChange === 0) return;
+        const newQuantity = Math.max(managedAssignments.length, (managedLicense.quantity || 0) + seatChange);
+        const newTotalCost = newQuantity * (managedLicense.cost_per_license || 0);
+        await base44.entities.SaaSLicense.update(managedLicense.id, { 
+          quantity: newQuantity,
+          total_cost: newTotalCost
+        });
+        queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
+        queryClient.invalidateQueries({ queryKey: ['license', licenseId] });
+        setShowModifySeatsModal(false);
+        setSeatChange(0);
+        toast.success(`Seats updated to ${newQuantity}!`);
+      };
 
   const isJumpCloudLicense = license?.source === 'jumpcloud' || license?.vendor?.toLowerCase() === 'jumpcloud';
   const isSpanningLicense = license?.source === 'spanning' || license?.vendor?.toLowerCase().includes('spanning');
@@ -647,14 +647,14 @@ export default function LicenseDetail() {
                 </div>
                 <div className="flex gap-2">
                   <Button 
-                    size="sm" 
-                    variant="outline"
-                    className="gap-2"
-                    onClick={() => setShowAddSeatsModal(true)}
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Seats
-                  </Button>
+                      size="sm" 
+                      variant="outline"
+                      className="gap-2"
+                      onClick={() => setShowModifySeatsModal(true)}
+                    >
+                      <Edit2 className="w-4 h-4" />
+                      Modify Seats
+                    </Button>
                   <Button 
                     size="sm" 
                     className="gap-2 bg-blue-600 hover:bg-blue-700"
@@ -802,61 +802,26 @@ export default function LicenseDetail() {
                     return (
                       <div key={assignment.id} className="px-6 py-3 hover:bg-slate-50">
                         <div className="flex items-center justify-between gap-4">
-                          <div className="flex items-center gap-3 flex-1">
-                            <div 
-                              className="flex items-center gap-3 cursor-pointer"
-                              onClick={() => setSelectedContact(contact)}
-                            >
-                              <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-medium flex-shrink-0 text-sm">
-                                {contact?.full_name?.charAt(0) || '?'}
-                              </div>
-                              <div className="min-w-0 flex-shrink-0">
-                                <p className="font-medium text-slate-900 text-sm hover:text-emerald-600">{contact?.full_name || 'Unknown User'}</p>
-                                <p className="text-xs text-slate-500">{contact?.email || 'No email'}</p>
-                              </div>
+                          <div 
+                            className="flex items-center gap-3 cursor-pointer flex-1"
+                            onClick={() => setSelectedContact(contact)}
+                          >
+                            <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-medium flex-shrink-0 text-sm">
+                              {contact?.full_name?.charAt(0) || '?'}
                             </div>
-                            
-                            {/* Individual License Details - Inline */}
-                            <div className="flex items-center gap-6 ml-auto text-xs">
-                              <div>
-                                <span className="text-slate-400">Cost</span>
-                                <p className="font-medium text-slate-900">
-                                  ${assignment.cost_per_license || individualLicense?.cost_per_license || 0}/mo
-                                </p>
-                              </div>
-                              <div>
-                                <span className="text-slate-400">Renewal</span>
-                                <p className="font-medium text-slate-900">
-                                  {assignment.renewal_date 
-                                    ? format(parseISO(assignment.renewal_date), 'MMM d, yyyy')
-                                    : 'Not set'
-                                  }
-                                </p>
-                              </div>
-                              <div>
-                                <span className="text-slate-400">Payment</span>
-                                <p className="font-medium text-slate-900 flex items-center gap-1">
-                                  {assignment.card_last_four ? (
-                                    <>
-                                      <CreditCard className="w-3 h-3" />
-                                      •••• {assignment.card_last_four}
-                                    </>
-                                  ) : (
-                                    '—'
-                                  )}
-                                </p>
-                              </div>
-                              <div className="hidden sm:block">
-                                <span className="text-slate-400">Since</span>
-                                <p className="font-medium text-slate-900">
-                                  {assignment.assigned_date 
-                                    ? format(parseISO(assignment.assigned_date), 'MMM d, yyyy')
-                                    : '—'
-                                  }
-                                </p>
-                              </div>
+                            <div className="min-w-0">
+                              <p className="font-medium text-slate-900 text-sm hover:text-emerald-600">{contact?.full_name || 'Unknown User'}</p>
+                              <p className="text-xs text-slate-500">{contact?.email || 'No email'}</p>
                             </div>
                           </div>
+
+                          {/* Individual License Details - Compact inline */}
+                          <div className="flex items-center gap-4 text-xs text-slate-500">
+                            <span>${assignment.cost_per_license || individualLicense?.cost_per_license || 0}/mo</span>
+                            <span>{assignment.renewal_date ? format(parseISO(assignment.renewal_date), 'MMM d, yyyy') : '—'}</span>
+                            {assignment.card_last_four && <span>•••• {assignment.card_last_four}</span>}
+                          </div>
+
                           <Button 
                             size="sm" 
                             variant="ghost"
@@ -974,42 +939,72 @@ export default function LicenseDetail() {
         contacts={contacts}
       />
 
-      {/* Add Seats Modal */}
-      <Dialog open={showAddSeatsModal} onOpenChange={setShowAddSeatsModal}>
+      {/* Modify Seats Modal */}
+      <Dialog open={showModifySeatsModal} onOpenChange={setShowModifySeatsModal}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Add Seats to Managed License</DialogTitle>
+            <DialogTitle>Modify Managed License Seats</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-500">Current Seats</span>
               <span className="font-medium">{managedLicense?.quantity || 0}</span>
             </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-500">Assigned</span>
+              <span className="font-medium text-blue-600">{managedAssignments.length}</span>
+            </div>
             <div>
-              <label className="text-sm text-slate-500 block mb-2">Additional Seats</label>
-              <Input
-                type="number"
-                min="1"
-                value={additionalSeats}
-                onChange={(e) => setAdditionalSeats(parseInt(e.target.value) || 1)}
-              />
+              <label className="text-sm text-slate-500 block mb-2">Adjust Seats</label>
+              <div className="flex items-center gap-3">
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={() => setSeatChange(prev => prev - 1)}
+                  disabled={(managedLicense?.quantity || 0) + seatChange <= managedAssignments.length}
+                >
+                  -
+                </Button>
+                <Input
+                  type="number"
+                  value={seatChange}
+                  onChange={(e) => setSeatChange(parseInt(e.target.value) || 0)}
+                  className="text-center w-20"
+                />
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={() => setSeatChange(prev => prev + 1)}
+                >
+                  +
+                </Button>
+              </div>
+              {seatChange < 0 && (managedLicense?.quantity || 0) + seatChange < managedAssignments.length && (
+                <p className="text-xs text-red-500 mt-2">Cannot reduce below assigned seats ({managedAssignments.length})</p>
+              )}
             </div>
             <div className="flex items-center justify-between text-sm pt-2 border-t">
               <span className="text-slate-500">New Total</span>
-              <span className="font-bold text-lg">{(managedLicense?.quantity || 0) + additionalSeats}</span>
+              <span className="font-bold text-lg">{Math.max(managedAssignments.length, (managedLicense?.quantity || 0) + seatChange)}</span>
             </div>
             {managedLicense?.cost_per_license > 0 && (
               <div className="flex items-center justify-between text-sm">
                 <span className="text-slate-500">New Monthly Cost</span>
-                <span className="font-medium text-purple-600">
-                  ${(((managedLicense?.quantity || 0) + additionalSeats) * managedLicense.cost_per_license).toLocaleString()}/mo
+                <span className={cn("font-medium", seatChange < 0 ? "text-green-600" : "text-blue-600")}>
+                  ${(Math.max(managedAssignments.length, (managedLicense?.quantity || 0) + seatChange) * managedLicense.cost_per_license).toLocaleString()}/mo
                 </span>
               </div>
             )}
           </div>
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowAddSeatsModal(false)}>Cancel</Button>
-            <Button onClick={handleAddSeats} className="bg-blue-600 hover:bg-blue-700">Add Seats</Button>
+            <Button variant="outline" onClick={() => { setShowModifySeatsModal(false); setSeatChange(0); }}>Cancel</Button>
+            <Button 
+              onClick={handleModifySeats} 
+              disabled={seatChange === 0}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {seatChange > 0 ? `Add ${seatChange} Seat${seatChange > 1 ? 's' : ''}` : seatChange < 0 ? `Remove ${Math.abs(seatChange)} Seat${Math.abs(seatChange) > 1 ? 's' : ''}` : 'Update'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
