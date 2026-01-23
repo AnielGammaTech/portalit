@@ -19,7 +19,8 @@ import {
   HardDrive,
   Monitor,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Users
 } from 'lucide-react';
 
 export default function UserDetailModal({ contact, open, onClose, customerId }) {
@@ -169,27 +170,39 @@ export default function UserDetailModal({ contact, open, onClose, customerId }) 
               </Card>
             ) : (
               <div className="space-y-2">
-                {licenses.map(license => (
-                  <div 
-                    key={license.id} 
-                    className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg"
-                  >
-                    {license.logo_url ? (
-                      <img src={license.logo_url} alt="" className="w-8 h-8 rounded object-contain" />
-                    ) : (
-                      <div className="w-8 h-8 rounded bg-blue-100 flex items-center justify-center">
-                        <Cloud className="w-4 h-4 text-blue-600" />
+                {licenses.map(license => {
+                  const isManaged = license.management_type === 'managed';
+                  return (
+                    <div 
+                      key={license.id} 
+                      className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg"
+                    >
+                      {license.logo_url ? (
+                        <img src={license.logo_url} alt="" className="w-8 h-8 rounded object-contain" />
+                      ) : (
+                        <div className="w-8 h-8 rounded bg-blue-100 flex items-center justify-center">
+                          <Cloud className="w-4 h-4 text-blue-600" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-slate-900">{license.application_name}</p>
+                        <p className="text-sm text-slate-500">{license.vendor || license.license_type || 'SaaS'}</p>
                       </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-slate-900">{license.application_name}</p>
-                      <p className="text-sm text-slate-500">{license.vendor || license.license_type || 'SaaS'}</p>
+                      <div className="flex items-center gap-2">
+                        <Badge 
+                          variant="outline" 
+                          className={isManaged ? "text-blue-600 border-blue-200 bg-blue-50" : "text-emerald-600 border-emerald-200 bg-emerald-50"}
+                        >
+                          {isManaged ? <Building2 className="w-3 h-3 mr-1" /> : <User className="w-3 h-3 mr-1" />}
+                          {isManaged ? 'Managed' : 'Individual'}
+                        </Badge>
+                        <Badge variant="outline" className="text-green-600 border-green-200">
+                          Active
+                        </Badge>
+                      </div>
                     </div>
-                    <Badge variant="outline" className="text-green-600 border-green-200">
-                      Active
-                    </Badge>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
