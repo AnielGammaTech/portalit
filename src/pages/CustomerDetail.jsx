@@ -45,8 +45,7 @@ import CustomerAnalytics from '../components/customer/CustomerAnalytics';
 import DevicesTab from '../components/customer/DevicesTab';
 import CustomerServicesTab from '../components/customer/CustomerServicesTab';
 import OverviewTab from '../components/customer/OverviewTab';
-import AISettingsPanel from '../components/customer/AISettingsPanel';
-import { UserPlus, Settings } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
 
 export default function CustomerDetail() {
   const [isSyncing, setIsSyncing] = useState(false);
