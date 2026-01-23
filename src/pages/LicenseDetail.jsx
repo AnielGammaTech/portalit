@@ -39,8 +39,10 @@ export default function LicenseDetail() {
   const [showAddIndividualLicense, setShowAddIndividualLicense] = useState(false);
   const [selectedContact, setSelectedContact] = useState(null);
   const [editingAssignment, setEditingAssignment] = useState(null);
-  const [managedExpanded, setManagedExpanded] = useState(false);
-  const [individualExpanded, setIndividualExpanded] = useState(false);
+  const [managedExpanded, setManagedExpanded] = useState(true);
+  const [individualExpanded, setIndividualExpanded] = useState(true);
+  const [managedSectionExpanded, setManagedSectionExpanded] = useState(true);
+  const [individualSectionExpanded, setIndividualSectionExpanded] = useState(true);
 
   const { data: license, isLoading: loadingLicense } = useQuery({
     queryKey: ['license', licenseId],
@@ -713,13 +715,16 @@ export default function LicenseDetail() {
             </div>
           )}
 
-          {/* Managed Seats Section - Always show */}
+          {/* Managed Seats Section - Always show, Collapsible */}
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 bg-blue-50">
-              <div className="flex items-center justify-between mb-3">
+            <button 
+              onClick={() => setManagedSectionExpanded(!managedSectionExpanded)}
+              className="w-full px-6 py-4 border-b border-slate-100 bg-blue-50 hover:bg-blue-100/50 transition-colors"
+            >
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Building2 className="w-5 h-5 text-blue-600" />
-                  <div>
+                  <div className="text-left">
                     <h2 className="font-semibold text-slate-900">Managed Seats</h2>
                     <p className="text-sm text-slate-500">
                       {managedAssignments.length} of {managedLicense?.quantity || 0} seats assigned
@@ -727,215 +732,233 @@ export default function LicenseDetail() {
                     </p>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  {managedLicense ? (
-                    <>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        className="gap-2"
-                        onClick={() => setShowModifySeatsModal(true)}
-                      >
-                        <Edit2 className="w-4 h-4" />
-                        Modify Seats
-                      </Button>
+                <div className="flex items-center gap-3">
+                  {managedLicense && (
+                    <span className="text-sm font-semibold text-blue-700">${(managedLicense.total_cost || 0).toLocaleString()}/mo</span>
+                  )}
+                  {managedSectionExpanded ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+                </div>
+              </div>
+            </button>
+            
+            {managedSectionExpanded && (
+              <>
+                {/* Action buttons */}
+                <div className="px-6 py-3 bg-blue-50/50 border-b border-slate-100 flex items-center justify-between">
+                  {/* Cost metrics row - only if managed license exists */}
+                  {managedLicense && (
+                    <div className="flex items-center gap-6 text-xs">
+                      <span className="text-slate-500">${managedLicense.cost_per_license || 0}/seat</span>
+                      <span className={cn(managedUtilizationPercent >= 80 ? "text-emerald-600" : managedUtilizationPercent >= 50 ? "text-amber-600" : "text-red-600")}>
+                        {managedUtilizationPercent.toFixed(0)}% utilized
+                      </span>
+                      {managedWastedCost > 0 && (
+                        <span className="text-amber-600">${managedWastedCost.toFixed(0)} unused</span>
+                      )}
+                    </div>
+                  )}
+                  {!managedLicense && <div />}
+                  <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                    {managedLicense ? (
+                      <>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          className="gap-2"
+                          onClick={() => setShowModifySeatsModal(true)}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                          Modify Seats
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          className="gap-2 bg-blue-600 hover:bg-blue-700"
+                          onClick={() => setShowAssignModal(true)}
+                          disabled={managedUnusedSeats <= 0}
+                        >
+                          <Plus className="w-4 h-4" />
+                          Assign Seat
+                        </Button>
+                      </>
+                    ) : (
                       <Button 
                         size="sm" 
                         className="gap-2 bg-blue-600 hover:bg-blue-700"
-                        onClick={() => setShowAssignModal(true)}
-                        disabled={managedUnusedSeats <= 0}
+                        onClick={() => setShowAddManagedLicense(true)}
                       >
                         <Plus className="w-4 h-4" />
-                        Assign Seat
+                        Add License
                       </Button>
-                    </>
-                  ) : (
+                    )}
+                  </div>
+                </div>
+                
+                {!managedLicense ? (
+                  <div className="p-8 text-center">
+                    <Building2 className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-500 mb-3">No managed license configured</p>
                     <Button 
-                      size="sm" 
-                      className="gap-2 bg-blue-600 hover:bg-blue-700"
-                      onClick={() => setShowAddManagedLicense(true)}
+                      size="sm"
+                      onClick={() => setShowAddManagedLicense(true)} 
+                      className="bg-blue-600 hover:bg-blue-700"
                     >
-                      <Plus className="w-4 h-4" />
-                      Add License
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Managed License
                     </Button>
-                  )}
-                </div>
-              </div>
+                  </div>
+                ) : managedAssignments.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-500 mb-3">No seats assigned</p>
+                    <Button 
+                      size="sm"
+                      onClick={() => setShowAssignModal(true)} 
+                      className="bg-blue-600 hover:bg-blue-700"
+                      disabled={managedUnusedSeats <= 0}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Assign First Seat
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100 max-h-[300px] overflow-y-auto">
+                    {managedAssignments.map(assignment => {
+                      const contact = contacts.find(c => c.id === assignment.contact_id);
+                      return (
+                        <div key={assignment.id} className="px-6 py-3 hover:bg-slate-50 flex items-center justify-between">
+                          <div 
+                            className="flex items-center gap-3 cursor-pointer"
+                            onClick={() => setSelectedContact(contact)}
+                          >
+                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-medium text-sm">
+                              {contact?.full_name?.charAt(0) || '?'}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium text-slate-900 text-sm hover:text-blue-600">{contact?.full_name || 'Unknown'}</p>
+                              <p className="text-xs text-slate-500">{contact?.email || 'No email'}</p>
+                            </div>
+                          </div>
 
-              {/* Cost metrics row - only if managed license exists */}
-              {managedLicense && (
-                <div className="grid grid-cols-4 gap-3 text-center bg-white/60 rounded-lg p-2">
-                  <div>
-                    <p className="text-lg font-semibold text-slate-900">${(managedLicense.total_cost || 0).toLocaleString()}</p>
-                    <p className="text-xs text-slate-500">Monthly</p>
-                  </div>
-                  <div>
-                    <p className="text-lg font-semibold text-slate-900">${managedLicense.cost_per_license || 0}</p>
-                    <p className="text-xs text-slate-500">Per Seat</p>
-                  </div>
-                  <div>
-                    <p className={cn("text-lg font-semibold", managedUtilizationPercent >= 80 ? "text-emerald-600" : managedUtilizationPercent >= 50 ? "text-amber-600" : "text-red-600")}>
-                      {managedUtilizationPercent.toFixed(0)}%
-                    </p>
-                    <p className="text-xs text-slate-500">Utilization</p>
-                  </div>
-                  <div>
-                    <p className={cn("text-lg font-semibold", managedWastedCost > 0 ? "text-amber-600" : "text-slate-900")}>
-                      ${managedWastedCost.toFixed(0)}
-                    </p>
-                    <p className="text-xs text-slate-500">Unused</p>
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            {!managedLicense ? (
-              <div className="p-8 text-center">
-                <Building2 className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-500 mb-3">No managed license configured</p>
-                <Button 
-                  size="sm"
-                  onClick={() => setShowAddManagedLicense(true)} 
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Managed License
-                </Button>
-              </div>
-            ) : managedAssignments.length === 0 ? (
-              <div className="p-8 text-center">
-                <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-500 mb-3">No seats assigned</p>
-                <Button 
-                  size="sm"
-                  onClick={() => setShowAssignModal(true)} 
-                  className="bg-blue-600 hover:bg-blue-700"
-                  disabled={managedUnusedSeats <= 0}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Assign First Seat
-                </Button>
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100 max-h-[300px] overflow-y-auto">
-                {managedAssignments.map(assignment => {
-                  const contact = contacts.find(c => c.id === assignment.contact_id);
-                  return (
-                    <div key={assignment.id} className="px-6 py-3 hover:bg-slate-50 flex items-center justify-between">
-                      <div 
-                        className="flex items-center gap-3 cursor-pointer"
-                        onClick={() => setSelectedContact(contact)}
-                      >
-                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-medium text-sm">
-                          {contact?.full_name?.charAt(0) || '?'}
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 h-7 px-2"
+                            onClick={() => handleRevoke(assignment.contact_id)}
+                          >
+                            Revoke
+                          </Button>
                         </div>
-                        <div className="min-w-0">
-                          <p className="font-medium text-slate-900 text-sm hover:text-blue-600">{contact?.full_name || 'Unknown'}</p>
-                          <p className="text-xs text-slate-500">{contact?.email || 'No email'}</p>
-                        </div>
-                      </div>
-
-                      <Button 
-                        size="sm" 
-                        variant="ghost"
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 h-7 px-2"
-                        onClick={() => handleRevoke(assignment.contact_id)}
-                      >
-                        Revoke
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
           </div>
 
-          {/* Individual Licenses Section - Always show */}
+          {/* Individual Licenses Section - Always show, Collapsible */}
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-emerald-50">
-              <div className="flex items-center gap-3">
-                <User className="w-5 h-5 text-emerald-600" />
-                <div>
-                  <h2 className="font-semibold text-slate-900">Individual Licenses</h2>
-                  <p className="text-sm text-slate-500">
-                    {individualAssignments.length} individual license{individualAssignments.length !== 1 ? 's' : ''}
-                  </p>
+            <button 
+              onClick={() => setIndividualSectionExpanded(!individualSectionExpanded)}
+              className="w-full px-6 py-4 border-b border-slate-100 bg-emerald-50 hover:bg-emerald-100/50 transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <User className="w-5 h-5 text-emerald-600" />
+                  <div className="text-left">
+                    <h2 className="font-semibold text-slate-900">Individual Licenses</h2>
+                    <p className="text-sm text-slate-500">
+                      {individualAssignments.length} individual license{individualAssignments.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-semibold text-emerald-700">${individualTotalCost.toLocaleString()}/mo</span>
+                  {individualSectionExpanded ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
                 </div>
               </div>
-              <Button 
-                size="sm" 
-                className="gap-2 bg-emerald-600 hover:bg-emerald-700"
-                onClick={() => setShowAddIndividualLicense(true)}
-              >
-                <Plus className="w-4 h-4" />
-                Add License
-              </Button>
-            </div>
+            </button>
             
-            {individualAssignments.length === 0 ? (
-              <div className="p-8 text-center">
-                <User className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-500 mb-3">No individual licenses</p>
-                <Button 
-                  size="sm"
-                  onClick={() => setShowAddIndividualLicense(true)} 
-                  className="bg-emerald-600 hover:bg-emerald-700"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add First License
-                </Button>
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
-                {individualAssignments.map(assignment => {
-                  const contact = contacts.find(c => c.id === assignment.contact_id);
-                  return (
-                    <div key={assignment.id} className="px-6 py-3 hover:bg-slate-50">
-                      <div className="flex items-center justify-between gap-4">
-                        <div 
-                          className="flex items-center gap-3 cursor-pointer flex-1"
-                          onClick={() => setSelectedContact(contact)}
-                        >
-                          <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-medium flex-shrink-0 text-sm">
-                            {contact?.full_name?.charAt(0) || '?'}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-medium text-slate-900 text-sm hover:text-emerald-600">{contact?.full_name || 'Unknown User'}</p>
-                            <p className="text-xs text-slate-500">{contact?.email || 'No email'}</p>
-                          </div>
-                        </div>
+            {individualSectionExpanded && (
+              <>
+                {/* Action button row */}
+                <div className="px-6 py-3 bg-emerald-50/50 border-b border-slate-100 flex items-center justify-end" onClick={e => e.stopPropagation()}>
+                  <Button 
+                    size="sm" 
+                    className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+                    onClick={() => setShowAddIndividualLicense(true)}
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add License
+                  </Button>
+                </div>
+                
+                {individualAssignments.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <User className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-500 mb-3">No individual licenses</p>
+                    <Button 
+                      size="sm"
+                      onClick={() => setShowAddIndividualLicense(true)} 
+                      className="bg-emerald-600 hover:bg-emerald-700"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add First License
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
+                    {individualAssignments.map(assignment => {
+                      const contact = contacts.find(c => c.id === assignment.contact_id);
+                      return (
+                        <div key={assignment.id} className="px-6 py-3 hover:bg-slate-50">
+                          <div className="flex items-center justify-between gap-4">
+                            <div 
+                              className="flex items-center gap-3 cursor-pointer flex-1"
+                              onClick={() => setSelectedContact(contact)}
+                            >
+                              <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-medium flex-shrink-0 text-sm">
+                                {contact?.full_name?.charAt(0) || '?'}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-medium text-slate-900 text-sm hover:text-emerald-600">{contact?.full_name || 'Unknown User'}</p>
+                                <p className="text-xs text-slate-500">{contact?.email || 'No email'}</p>
+                              </div>
+                            </div>
 
-                        {/* Individual License Details - Compact inline */}
-                        <div className="flex items-center gap-4 text-xs text-slate-500">
-                          {assignment.license_type && <span className="text-emerald-600 font-medium">{assignment.license_type}</span>}
-                          <span>${assignment.cost_per_license || individualLicense?.cost_per_license || 0}/mo</span>
-                          <span>{assignment.renewal_date ? format(parseISO(assignment.renewal_date), 'MMM d, yyyy') : '—'}</span>
-                          {assignment.card_last_four && <span>•••• {assignment.card_last_four}</span>}
-                        </div>
+                            {/* Individual License Details - Compact inline */}
+                            <div className="flex items-center gap-4 text-xs text-slate-500">
+                              {assignment.license_type && <span className="text-emerald-600 font-medium">{assignment.license_type}</span>}
+                              <span>${assignment.cost_per_license || individualLicense?.cost_per_license || 0}/mo</span>
+                              <span>{assignment.renewal_date ? format(parseISO(assignment.renewal_date), 'MMM d, yyyy') : '—'}</span>
+                              {assignment.card_last_four && <span>•••• {assignment.card_last_four}</span>}
+                            </div>
 
-                        <div className="flex items-center gap-1">
-                          <Button 
-                            size="sm" 
-                            variant="ghost"
-                            className="text-slate-600 hover:text-slate-700 hover:bg-slate-100"
-                            onClick={() => setEditingAssignment(assignment)}
-                          >
-                            Edit
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="ghost"
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => handleRevoke(assignment.contact_id)}
-                          >
-                            Remove
-                          </Button>
+                            <div className="flex items-center gap-1">
+                              <Button 
+                                size="sm" 
+                                variant="ghost"
+                                className="text-slate-600 hover:text-slate-700 hover:bg-slate-100"
+                                onClick={() => setEditingAssignment(assignment)}
+                              >
+                                Edit
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="ghost"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => handleRevoke(assignment.contact_id)}
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
           </div>
 
