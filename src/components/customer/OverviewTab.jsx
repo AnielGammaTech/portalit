@@ -336,8 +336,8 @@ export default function OverviewTab({
         />
       </div>
 
-      {/* Main Grid - 4 columns */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* Main Grid - 2 columns */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Contracts + Invoices Combined */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -482,8 +482,8 @@ export default function OverviewTab({
         </motion.div>
       </div>
 
-      {/* Second Row - All 4 columns like first row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* Second Row - 2 columns */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Team Members */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -570,9 +570,7 @@ export default function OverviewTab({
           </div>
         </motion.div>
 
-        {/* Empty slots or additional widgets can go here */}
-        <div className="hidden lg:block" />
-        <div className="hidden lg:block" />
+
       </div>
 
       {/* Contact Detail Modal */}
