@@ -64,9 +64,10 @@ export default function AddManagedLicenseModal({ open, onClose, onSave, software
               <Input
                 type="number"
                 min="1"
-                value={form.quantity}
-                onChange={(e) => setForm({ ...form, quantity: parseInt(e.target.value) || 1 })}
+                value={form.quantity || ''}
+                onChange={(e) => setForm({ ...form, quantity: parseInt(e.target.value) || 0 })}
                 required
+                placeholder="0"
                 className="mt-1"
               />
             </div>
