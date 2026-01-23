@@ -564,10 +564,27 @@ export default function LicenseDetail() {
                 </p>
               </div>
             </div>
-          )}
+            ) : (
+            <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-6">
+              <div className="flex items-center gap-2 mb-3">
+                <User className="w-5 h-5 text-slate-400" />
+                <h2 className="font-semibold text-slate-500">Individual Licenses</h2>
+              </div>
+              <p className="text-sm text-slate-400 mb-4">No individual licenses for this software.</p>
+              <Button 
+                size="sm"
+                variant="outline"
+                onClick={() => setShowAddIndividualLicense(true)}
+                className="gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Add Individual License
+              </Button>
+            </div>
+            )}
 
-          {/* Sync Options */}
-          {(isJumpCloudLicense || isSpanningLicense) && (
+            {/* Sync Options */}
+            {(isJumpCloudLicense || isSpanningLicense) && (
             <div className="bg-slate-50 rounded-xl p-4">
               <p className="text-xs text-slate-500 font-medium mb-3">SYNC OPTIONS</p>
               <div className="space-y-2">
