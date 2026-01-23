@@ -283,16 +283,16 @@ export default function CustomerDetail() {
     setShowAddSoftware(false);
     toast.success('Software added!');
     
-    // Create the software and navigate immediately
-    const newSoftware = await base44.entities.SaaSLicense.create(softwareData);
+    // Create the software in the Application catalog
+    const newApp = await base44.entities.Application.create(softwareData);
     
-    // Pre-populate the query cache with the new software for instant load
-    queryClient.setQueryData(['license', newSoftware.id], newSoftware);
-    queryClient.setQueryData(['related_licenses', softwareData.application_name, customerId], [newSoftware]);
-    queryClient.setQueryData(['all_license_assignments', softwareData.application_name, customerId], []);
+    // Pre-populate the query cache for instant load
+    queryClient.setQueryData(['application', newApp.id], newApp);
+    queryClient.setQueryData(['related_licenses', softwareData.name, customerId], []);
+    queryClient.setQueryData(['all_license_assignments', softwareData.name, customerId], []);
     
-    // Navigate to the license detail page
-    window.location.href = createPageUrl(`LicenseDetail?id=${newSoftware.id}`);
+    // Navigate to the software detail page
+    window.location.href = createPageUrl(`LicenseDetail?appId=${newApp.id}`);
   };
 
   // Group licenses by application name for the new UI

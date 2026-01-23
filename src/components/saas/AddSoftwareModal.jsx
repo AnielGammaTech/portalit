@@ -127,14 +127,13 @@ Return JSON with:
   const handleSubmit = (e) => {
     e.preventDefault();
     const softwareData = {
-      application_name: form.application_name,
+      name: form.application_name,
       vendor: form.vendor,
       website_url: form.website_url,
       logo_url: form.logo_url,
       category: form.category,
       notes: form.notes,
       customer_id: customerId,
-      source: 'manual',
       status: 'active'
     };
     onSave(softwareData);
