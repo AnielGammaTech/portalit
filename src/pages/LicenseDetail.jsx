@@ -1248,13 +1248,13 @@ export default function LicenseDetail() {
         </div>
       </div>
 
-      {/* Assignment Modal */}
+      {/* Assignment Modal - Only for managed licenses */}
       <LicenseAssignmentModal
         open={showAssignModal}
-        onClose={() => setShowAssignModal(false)}
-        license={selectedManagedLicenseId ? relatedLicenses.find(l => l.id === selectedManagedLicenseId) : license}
+        onClose={() => { setShowAssignModal(false); setSelectedManagedLicenseId(null); }}
+        license={selectedManagedLicenseId ? relatedLicenses.find(l => l.id === selectedManagedLicenseId) : managedLicense}
         contacts={contacts}
-        assignments={assignments}
+        assignments={allAssignments}
         onAssign={handleAssign}
         onRevoke={handleRevoke}
         onAddIndividualLicense={handleAddIndividualLicense}
