@@ -199,9 +199,10 @@ export default function UserDetailModal({ contact, open, onClose, customerId }) 
                 {licenses.map(license => {
                   const isManaged = license.management_type === 'managed';
                   return (
-                    <div 
+                    <Link 
                       key={license.id} 
-                      className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg"
+                      to={createPageUrl(`LicenseDetail?id=${license.id}`)}
+                      className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer group"
                     >
                       {license.logo_url ? (
                         <img src={license.logo_url} alt="" className="w-8 h-8 rounded object-contain" />
@@ -211,7 +212,7 @@ export default function UserDetailModal({ contact, open, onClose, customerId }) 
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-900">{license.application_name}</p>
+                        <p className="font-medium text-slate-900 group-hover:text-purple-600 transition-colors">{license.application_name}</p>
                         <p className="text-sm text-slate-500">{license.vendor || license.license_type || 'SaaS'}</p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -225,8 +226,9 @@ export default function UserDetailModal({ contact, open, onClose, customerId }) 
                         <Badge variant="outline" className="text-green-600 border-green-200">
                           Active
                         </Badge>
+                        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-purple-600 transition-colors" />
                       </div>
-                    </div>
+                    </Link>
                   );
                 })}
               </div>
