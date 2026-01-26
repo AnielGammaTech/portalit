@@ -447,15 +447,14 @@ Deno.serve(async (req) => {
           const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?page_size=1000`);
           const rawUsers = usersResponse || [];
           
-          // Count users with successful backups as the license count
+          // Count only licensed/assigned users (matches Spanning "Backup Users")
           const users = rawUsers.filter(u => 
-            u.lastBackupStatusTotal === 'success' || 
             u.isAssigned === true || 
             u.assigned === true || 
             u.isLicensed === true
           );
           
-          const assignedUsers = users.filter(u => u.lastBackupStatusTotal === 'success').length || users.length;
+          const assignedUsers = users.length;
           const totalUsers = users.length;
 
           const customers = await base44.asServiceRole.entities.Customer.filter({ id: mapping.customer_id });
