@@ -116,21 +116,37 @@ export default function BullPhishIDConfig() {
       // Upload the file first
       const { file_url } = await base44.integrations.Core.UploadFile({ file: selectedFile });
       
-      // Extract data from the PDF
-      const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
-        file_url,
-        json_schema: {
+      // Use AI to inspect and extract data from the PDF
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt: `Analyze this BullPhish ID phishing simulation report PDF and extract the following data. 
+        
+Look carefully for these specific fields in the Campaign Results section:
+- Campaign Name (e.g. "Campaign Gamma Tech 2025")
+- Start Date (the campaign start date, e.g. "November 8th, 2025")
+- Close Date (the campaign end/close date, e.g. "December 11th, 2025") 
+- Report Date (when report was generated)
+- Number of Targets (total emails sent)
+
+Also look for statistics like:
+- Phish-prone percentage
+- Open rate, click rate, report rate
+- Number of users who opened, clicked, reported
+- Individual user names/emails who clicked or opened
+
+Convert all dates to YYYY-MM-DD format.`,
+        file_urls: [file_url],
+        response_json_schema: {
           type: "object",
           properties: {
-            customer_name: { type: "string", description: "Customer/organization name from the report" },
-            campaign_name: { type: "string", description: "Campaign name from the report" },
-            report_period_start: { type: "string", description: "Campaign Start Date in YYYY-MM-DD format (look for 'Start Date' field)" },
-            report_period_end: { type: "string", description: "Campaign Close Date in YYYY-MM-DD format (look for 'Close Date' field)" },
-            report_date: { type: "string", description: "Report Date in YYYY-MM-DD format" },
-            total_campaigns: { type: "number", description: "Total number of phishing campaigns" },
-            total_emails_sent: { type: "number", description: "Total phishing emails sent" },
+            customer_name: { type: "string", description: "Customer/organization name from the report or campaign name" },
+            campaign_name: { type: "string", description: "Campaign Name field value" },
+            report_period_start: { type: "string", description: "Start Date converted to YYYY-MM-DD format" },
+            report_period_end: { type: "string", description: "Close Date converted to YYYY-MM-DD format" },
+            report_date: { type: "string", description: "Report Date converted to YYYY-MM-DD format" },
+            total_campaigns: { type: "number", description: "Total number of phishing campaigns (usually 1)" },
+            total_emails_sent: { type: "number", description: "Number of Targets or total emails sent" },
             total_opened: { type: "number", description: "Total emails opened by recipients" },
-            total_clicked: { type: "number", description: "Total links clicked (users who failed the test)" },
+            total_clicked: { type: "number", description: "Total links clicked (users who failed)" },
             total_reported: { type: "number", description: "Total phishing emails reported by users" },
             total_submitted_data: { type: "number", description: "Total users who submitted data/credentials" },
             phish_prone_percentage: { type: "number", description: "Overall phish-prone percentage" },
@@ -146,8 +162,7 @@ export default function BullPhishIDConfig() {
                   name: { type: "string" },
                   email: { type: "string" }
                 }
-              },
-              description: "List of users who opened the phishing emails" 
+              }
             },
             users_who_clicked: { 
               type: "array", 
@@ -158,8 +173,7 @@ export default function BullPhishIDConfig() {
                   email: { type: "string" },
                   clicks: { type: "number" }
                 }
-              },
-              description: "Users who clicked on phishing links" 
+              }
             },
             users_who_reported: { 
               type: "array", 
@@ -169,8 +183,7 @@ export default function BullPhishIDConfig() {
                   name: { type: "string" },
                   email: { type: "string" }
                 }
-              },
-              description: "Users who correctly reported the phishing email" 
+              }
             },
             campaigns: {
               type: "array",
@@ -179,22 +192,21 @@ export default function BullPhishIDConfig() {
                 properties: {
                   name: { type: "string" },
                   template: { type: "string" },
-                  date: { type: "string" },
+                  start_date: { type: "string" },
+                  close_date: { type: "string" },
                   emails_sent: { type: "number" },
                   opened: { type: "number" },
                   clicked: { type: "number" },
-                  reported: { type: "number" },
-                  submitted_data: { type: "number" }
+                  reported: { type: "number" }
                 }
-              },
-              description: "Individual campaign results"
+              }
             }
           }
         }
       });
 
-      if (result.status === 'success') {
-        const data = result.output;
+      if (result) {
+        const data = result;
         setExtractedData({ ...data, pdf_url: file_url });
         
         // Auto-fill customer from extracted name if not already selected
@@ -222,9 +234,6 @@ export default function BullPhishIDConfig() {
         }
         
         toast.success('Data extracted from PDF');
-      } else {
-        toast.error(result.details || 'Failed to extract data');
-      }
     } catch (error) {
       toast.error(error.message);
     } finally {
