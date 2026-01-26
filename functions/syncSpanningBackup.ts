@@ -133,7 +133,6 @@ Deno.serve(async (req) => {
       
       return Response.json({ 
         success: true, 
-        users: users,
         total: users.length,
         // Domain-level license counts (matches Spanning portal)
         numberOfStandardLicensesTotal: domainInfo?.numberOfStandardLicensesTotal || 0,
@@ -141,7 +140,8 @@ Deno.serve(async (req) => {
         numberOfArchivedLicensesTotal: domainInfo?.numberOfArchivedLicensesTotal || 0,
         numberOfProtectedArchivedUsers: domainInfo?.numberOfProtectedArchivedUsers || 0,
         numberOfUsers: domainInfo?.numberOfUsers || 0,
-        numberOfProtectedUsers: domainInfo?.numberOfProtectedUsers || 0
+        numberOfProtectedUsers: domainInfo?.numberOfProtectedUsers || 0,
+        domainName: domainInfo?.name || 'unknown'
       });
     }
 
