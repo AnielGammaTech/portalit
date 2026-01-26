@@ -127,11 +127,9 @@ Deno.serve(async (req) => {
         }
       }
       
-      // Also get domain-level info which has the license counts
-      const domainResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}`);
-      
-      // Extract license counts from domain info
-      const domainInfo = Array.isArray(domainResponse) ? domainResponse[0] : domainResponse;
+      // Get all domains and find this one by ID
+      const allDomains = await unitrendsApiCall('/v2/spanning/domains?page_size=500');
+      const domainInfo = allDomains.find(d => d.id === mapping.spanning_tenant_id);
       
       return Response.json({ 
         success: true, 
