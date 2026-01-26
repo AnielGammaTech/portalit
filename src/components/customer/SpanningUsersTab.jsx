@@ -275,152 +275,16 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
         </Card>
       </div>
 
-      {/* Summary Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <HardDrive className="w-5 h-5 text-blue-600" />
-            License Summary
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {/* Standard Users */}
-            <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
-              <div className="flex items-center gap-3">
-                <Users className="w-5 h-5 text-purple-600" />
-                <div>
-                  <p className="font-medium text-slate-900">Standard User Licenses</p>
-                  <p className="text-sm text-slate-500">Regular M365 user backups</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-bold text-purple-700">{protectedStandard} / {standardLicenses}</p>
-                <p className="text-xs text-slate-500">protected / total</p>
-              </div>
-            </div>
-
-            {/* Archived Users */}
-            <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
-              <div className="flex items-center gap-3">
-                <Archive className="w-5 h-5 text-amber-600" />
-                <div>
-                  <p className="font-medium text-slate-900">Archived User Licenses</p>
-                  <p className="text-sm text-slate-500">Departed user data retention</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-bold text-amber-700">{protectedArchived} / {archivedLicenses}</p>
-                <p className="text-xs text-slate-500">protected / total</p>
-              </div>
-            </div>
-
-            {/* Shared Mailboxes */}
-            <div className="flex items-center justify-between p-3 bg-cyan-50 rounded-lg">
-              <div className="flex items-center gap-3">
-                <Mail className="w-5 h-5 text-cyan-600" />
-                <div>
-                  <p className="font-medium text-slate-900">Shared Mailboxes</p>
-                  <p className="text-sm text-slate-500">Shared/resource mailbox backups</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-bold text-cyan-700">{protectedShared} / {sharedMailboxes}</p>
-                <p className="text-xs text-slate-500">protected / total</p>
-              </div>
-            </div>
-
-            {/* Total */}
-            <div className="flex items-center justify-between p-4 bg-slate-100 rounded-lg border-2 border-slate-200">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="w-6 h-6 text-green-600" />
-                <div>
-                  <p className="font-semibold text-slate-900">Total Protection</p>
-                  <p className="text-sm text-slate-500">All backup types combined</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-2xl font-bold text-green-700">{totalProtected}</p>
-                <p className="text-xs text-slate-500">protected entities</p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Category Detail Modal */}
-      <Dialog open={!!selectedCategory} onOpenChange={() => setSelectedCategory(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {selectedCategory && (() => {
-                const config = categoryConfig[selectedCategory];
-                const Icon = config.icon;
-                return (
-                  <>
-                    <Icon className={cn("w-5 h-5", {
-                      'text-purple-600': selectedCategory === 'standard',
-                      'text-amber-600': selectedCategory === 'archived',
-                      'text-cyan-600': selectedCategory === 'shared'
-                    })} />
-                    {config.title}
-                  </>
-                );
-              })()}
-            </DialogTitle>
-          </DialogHeader>
-          
-          {selectedCategory && (() => {
-            const config = categoryConfig[selectedCategory];
-            return (
-              <div className="space-y-4">
-                <p className="text-sm text-slate-500">{config.description}</p>
-                
-                <div className={cn("p-4 rounded-lg", {
-                  'bg-purple-50': selectedCategory === 'standard',
-                  'bg-amber-50': selectedCategory === 'archived',
-                  'bg-cyan-50': selectedCategory === 'shared'
-                })}>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-slate-500">Protected</p>
-                      <p className="text-3xl font-bold">{config.count}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-slate-500">Total Licenses</p>
-                      <p className="text-3xl font-bold">{config.total}</p>
-                    </div>
-                  </div>
-                  
-                  {config.total > 0 && (
-                    <div className="mt-4">
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>Utilization</span>
-                        <span>{Math.round((config.count / config.total) * 100)}%</span>
-                      </div>
-                      <div className="h-2 bg-white/50 rounded-full overflow-hidden">
-                        <div 
-                          className={cn("h-full rounded-full", {
-                            'bg-purple-500': selectedCategory === 'standard',
-                            'bg-amber-500': selectedCategory === 'archived',
-                            'bg-cyan-500': selectedCategory === 'shared'
-                          })}
-                          style={{ width: `${Math.round((config.count / config.total) * 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="text-sm text-slate-500">
-                  <p>• Individual user details are synced to Contacts</p>
-                  <p>• View users in the Team tab for this customer</p>
-                </div>
-              </div>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
+      {/* Sync Notice */}
+      {spanningLicenses.length === 0 && (
+        <Card className="bg-amber-50 border-amber-200">
+          <CardContent className="py-4">
+            <p className="text-sm text-amber-700">
+              <strong>Note:</strong> Click "Sync" above to create licenses in SaaS tracking. Once synced, you can click on each category to view assigned users.
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
