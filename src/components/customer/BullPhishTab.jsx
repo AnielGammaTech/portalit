@@ -209,8 +209,11 @@ export default function BullPhishTab({ customerId }) {
               </CardContent>
             </Card>
 
-            {/* Clicked (Failed) */}
-            <Card className="border-2 border-red-100">
+            {/* Clicked (Failed) - Clickable */}
+            <Card 
+              className="border-2 border-red-100 cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => openUserList('clicked', latestReport)}
+            >
               <CardContent className="pt-4">
                 <div className="flex items-start justify-between">
                   <div>
@@ -224,7 +227,10 @@ export default function BullPhishTab({ customerId }) {
                         : 0}% click rate
                     </p>
                   </div>
-                  <MousePointer className="w-5 h-5 text-red-500" />
+                  <div className="flex flex-col items-center gap-1">
+                    <MousePointer className="w-5 h-5 text-red-500" />
+                    <ChevronRight className="w-3 h-3 text-slate-400" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
