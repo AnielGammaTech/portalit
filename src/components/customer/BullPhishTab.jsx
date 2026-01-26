@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -14,10 +14,20 @@ import {
   TrendingDown,
   TrendingUp,
   Eye,
-  Calendar
+  Calendar,
+  Users,
+  X,
+  ChevronRight,
+  Flag
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { format } from 'date-fns';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function BullPhishTab({ customerId }) {
   const { data: reports = [], isLoading } = useQuery({
