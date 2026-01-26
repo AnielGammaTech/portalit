@@ -316,88 +316,200 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
       )}
 
       {/* Users List */}
-      {stats.users && stats.users.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-blue-600" />
-                Spanning Users ({stats.users.length})
-              </CardTitle>
-              <div className="relative w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                  placeholder="Search users..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
-                />
+      {stats.users && stats.users.length > 0 && (() => {
+        const filteredUsers = stats.users
+          .filter(u => 
+            u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            u.displayName?.toLowerCase().includes(searchTerm.toLowerCase())
+          )
+          .sort((a, b) => b.totalStorageBytes - a.totalStorageBytes);
+        
+        const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
+        const paginatedUsers = filteredUsers.slice(
+          (currentPage - 1) * ITEMS_PER_PAGE,
+          currentPage * ITEMS_PER_PAGE
+        );
+
+        return (
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-5 h-5 text-blue-600" />
+                  Spanning Users ({filteredUsers.length})
+                </CardTitle>
+                <div className="relative w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input
+                    placeholder="Search users..."
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="pl-9"
+                  />
+                </div>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50">
-                    <TableHead>User</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Mail Storage</TableHead>
-                    <TableHead className="text-right">Drive Storage</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {stats.users
-                    .filter(u => 
-                      u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                      u.displayName?.toLowerCase().includes(searchTerm.toLowerCase())
-                    )
-                    .sort((a, b) => b.totalStorageBytes - a.totalStorageBytes)
-                    .slice(0, 50)
-                    .map((user, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium text-slate-900">{user.displayName}</p>
-                            <p className="text-xs text-slate-500">{user.email}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {user.isProtected ? (
+            </CardHeader>
+            <CardContent>
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-slate-50">
+                      <TableHead>User</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Mail</TableHead>
+                      <TableHead className="text-right">Drive</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedUsers.map((user, idx) => {
+                      const matchedContact = contactsByEmail[user.email?.toLowerCase()];
+                      return (
+                        <TableRow 
+                          key={idx} 
+                          className="cursor-pointer hover:bg-slate-50"
+                          onClick={() => setSelectedUser({ ...user, contact: matchedContact })}
+                        >
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-medium text-sm">
+                                {user.displayName?.charAt(0)?.toUpperCase() || '?'}
+                              </div>
+                              <div>
+                                <p className="font-medium text-slate-900">{user.displayName}</p>
+                                <p className="text-xs text-slate-500">{user.email}</p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
                             <Badge className="bg-green-100 text-green-700 gap-1">
                               <Shield className="w-3 h-3" />
                               Protected
                             </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-slate-500 gap-1">
-                              <ShieldOff className="w-3 h-3" />
-                              Not Protected
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {user.mailStorage}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {user.driveStorage}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm font-medium">
-                          {user.totalStorage}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span className="font-mono text-sm text-slate-700">{user.mailStorage}</span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span className="font-mono text-sm text-slate-700">{user.driveStorage}</span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span className="font-mono text-sm font-semibold text-slate-900">{user.totalStorage}</span>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                  <p className="text-sm text-slate-500">
+                    Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredUsers.length)} of {filteredUsers.length}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <span className="text-sm text-slate-600">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
+
+      {/* User Detail Modal */}
+      <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Spanning User Details</DialogTitle>
+          </DialogHeader>
+          
+          {selectedUser && (
+            <div className="space-y-4">
+              {/* User Header */}
+              <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg">
+                <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold text-lg">
+                  {selectedUser.displayName?.charAt(0)?.toUpperCase() || '?'}
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-900">{selectedUser.displayName}</p>
+                  <p className="text-sm text-slate-500">{selectedUser.email}</p>
+                </div>
+              </div>
+
+              {/* Storage Breakdown */}
+              <div className="space-y-3">
+                <h4 className="font-medium text-slate-900">Storage Usage</h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="p-3 bg-blue-50 rounded-lg text-center">
+                    <Mail className="w-5 h-5 text-blue-600 mx-auto mb-1" />
+                    <p className="text-lg font-bold text-blue-900">{selectedUser.mailStorage}</p>
+                    <p className="text-xs text-blue-600">Mail</p>
+                  </div>
+                  <div className="p-3 bg-purple-50 rounded-lg text-center">
+                    <HardDrive className="w-5 h-5 text-purple-600 mx-auto mb-1" />
+                    <p className="text-lg font-bold text-purple-900">{selectedUser.driveStorage}</p>
+                    <p className="text-xs text-purple-600">Drive</p>
+                  </div>
+                  <div className="p-3 bg-green-50 rounded-lg text-center">
+                    <CheckCircle2 className="w-5 h-5 text-green-600 mx-auto mb-1" />
+                    <p className="text-lg font-bold text-green-900">{selectedUser.totalStorage}</p>
+                    <p className="text-xs text-green-600">Total</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status */}
+              <div className="p-3 bg-green-50 rounded-lg flex items-center gap-2">
+                <Shield className="w-5 h-5 text-green-600" />
+                <span className="text-green-700 font-medium">Protected by Spanning Backup</span>
+              </div>
+
+              {/* HaloPSA Match */}
+              {selectedUser.contact ? (
+                <div className="p-4 border border-blue-200 bg-blue-50 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                    <span className="font-medium text-blue-900">Matched to HaloPSA Contact</span>
+                  </div>
+                  <div className="text-sm text-blue-700 space-y-1">
+                    <p><strong>Name:</strong> {selectedUser.contact.full_name}</p>
+                    {selectedUser.contact.title && <p><strong>Title:</strong> {selectedUser.contact.title}</p>}
+                    {selectedUser.contact.phone && <p><strong>Phone:</strong> {selectedUser.contact.phone}</p>}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 border border-slate-200 bg-slate-50 rounded-lg">
+                  <p className="text-sm text-slate-500">No matching contact found in HaloPSA</p>
+                </div>
+              )}
             </div>
-            {stats.users.length > 50 && (
-              <p className="text-sm text-slate-500 mt-2 text-center">
-                Showing top 50 users by storage. Use search to find specific users.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
