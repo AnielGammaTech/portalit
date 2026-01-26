@@ -280,7 +280,7 @@ Deno.serve(async (req) => {
       let contactsCreated = 0;
       let contactsUpdated = 0;
 
-      for (const spUser of protectedUsers) {
+      for (const spUser of users) {
         const email = spUser.email?.toLowerCase() || spUser.userPrincipalName?.toLowerCase();
         if (!email) continue;
 
