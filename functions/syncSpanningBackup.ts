@@ -85,9 +85,12 @@ Deno.serve(async (req) => {
     if (action === 'list_domains') {
       try {
         const domains = await unitrendsApiCall('/v2/spanning/domains?page_size=500');
+        // Get full details for each domain to see license info
+        const domainsWithDetails = domains || [];
         return Response.json({ 
           success: true, 
-          domains: domains || []
+          domains: domainsWithDetails,
+          sampleDomain: domainsWithDetails[0] || null
         });
       } catch (e) {
         return Response.json({ success: false, error: e.message });
