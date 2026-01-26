@@ -124,18 +124,17 @@ Deno.serve(async (req) => {
         }
       }
       
-      // Count licensed/assigned users (Spanning "Backup Users")
-      const licensedUsers = users.filter(u => 
-        u.isAssigned === true || 
-        u.assigned === true || 
-        u.isLicensed === true
-      );
+      // Debug: Log first user's fields to understand API structure
+      const sampleUser = users[0] || {};
+      const userFields = Object.keys(sampleUser);
       
+      // Return debug info to understand how to count licensed users
       return Response.json({ 
         success: true, 
         users: users,
         total: users.length,
-        licensedUsers: licensedUsers.length
+        sampleUserFields: userFields,
+        sampleUser: sampleUser
       });
     }
 
