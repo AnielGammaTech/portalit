@@ -330,6 +330,8 @@ Deno.serve(async (req) => {
         source: 'spanning' 
       });
 
+      // For Spanning, the license count IS the number of users with backups
+      // Since these are all actively backed up users, quantity = assigned
       const licenseData = {
         customer_id,
         customer_name: customer?.name,
