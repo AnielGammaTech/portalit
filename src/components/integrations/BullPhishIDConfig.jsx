@@ -123,8 +123,10 @@ export default function BullPhishIDConfig() {
           type: "object",
           properties: {
             customer_name: { type: "string", description: "Customer/organization name from the report" },
-            report_period_start: { type: "string", description: "Report period start date in YYYY-MM-DD format" },
-            report_period_end: { type: "string", description: "Report period end date in YYYY-MM-DD format" },
+            campaign_name: { type: "string", description: "Campaign name from the report" },
+            report_period_start: { type: "string", description: "Campaign Start Date in YYYY-MM-DD format (look for 'Start Date' field)" },
+            report_period_end: { type: "string", description: "Campaign Close Date in YYYY-MM-DD format (look for 'Close Date' field)" },
+            report_date: { type: "string", description: "Report Date in YYYY-MM-DD format" },
             total_campaigns: { type: "number", description: "Total number of phishing campaigns" },
             total_emails_sent: { type: "number", description: "Total phishing emails sent" },
             total_opened: { type: "number", description: "Total emails opened by recipients" },
@@ -209,11 +211,14 @@ export default function BullPhishIDConfig() {
         }
         
         // Auto-fill dates from extracted data
-        if (data.report_period_start && !periodStart) {
+        if (data.report_period_start) {
           setPeriodStart(data.report_period_start);
         }
-        if (data.report_period_end && !periodEnd) {
+        if (data.report_period_end) {
           setPeriodEnd(data.report_period_end);
+        }
+        if (data.report_date && !reportDate) {
+          setReportDate(data.report_date);
         }
         
         toast.success('Data extracted from PDF');
