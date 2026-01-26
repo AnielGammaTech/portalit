@@ -34,6 +34,8 @@ import { cn } from "@/lib/utils";
 import DattoRMMConfig from '../components/integrations/DattoRMMConfig';
 import JumpCloudConfig from '../components/integrations/JumpCloudConfig';
 import SpanningConfig from '../components/integrations/SpanningConfig';
+import DarkWebIDConfig from '../components/integrations/DarkWebIDConfig';
+import { AlertTriangle } from 'lucide-react';
 
 function GammaStackITPanel() {
   const [apiKey, setApiKey] = useState('');
@@ -270,6 +272,17 @@ function IntegrationsPanel() {
         }
       >
         <SpanningConfig />
+      </IntegrationCard>
+
+      {/* Dark Web ID */}
+      <IntegrationCard
+        icon={AlertTriangle}
+        iconBg="bg-red-50"
+        title="Dark Web ID"
+        description="Monitor dark web compromises for your customers"
+        status={<Badge variant="outline" className="text-slate-500">Configure</Badge>}
+      >
+        <DarkWebIDConfig />
       </IntegrationCard>
     </div>
   );
