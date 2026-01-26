@@ -516,6 +516,7 @@ Deno.serve(async (req) => {
         sharedMailboxes,
         protectedShared,
         contactsUpdated,
+        assignmentsCreated,
         tenantName: mapping.spanning_tenant_name
       });
     }
