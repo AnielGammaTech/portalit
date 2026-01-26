@@ -124,14 +124,18 @@ Deno.serve(async (req) => {
         }
       }
       
-      // Count users with successful backups (this is what we bill for)
-      const usersWithBackups = users.filter(u => u.lastBackupStatusTotal === 'success');
+      // Count licensed/assigned users (Spanning "Backup Users")
+      const licensedUsers = users.filter(u => 
+        u.isAssigned === true || 
+        u.assigned === true || 
+        u.isLicensed === true
+      );
       
       return Response.json({ 
         success: true, 
         users: users,
         total: users.length,
-        usersWithBackups: usersWithBackups.length
+        licensedUsers: licensedUsers.length
       });
     }
 
