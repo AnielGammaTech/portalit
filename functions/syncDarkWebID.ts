@@ -83,10 +83,13 @@ Deno.serve(async (req) => {
             outgoing_ip: outgoingIP
           });
         } catch (parseError) {
+          // Include first 500 chars of response to help debug
+          const preview = text.substring(0, 500);
           return Response.json({ 
             success: false, 
             error: 'Received HTML instead of JSON - likely not authenticated',
             outgoing_ip: outgoingIP,
+            response_preview: preview,
             hint: 'Make sure this IP is whitelisted in Dark Web ID settings and API access is enabled for your user'
           });
         }

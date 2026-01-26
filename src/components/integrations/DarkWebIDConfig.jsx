@@ -61,27 +61,23 @@ export default function DarkWebIDConfig() {
   const mappedCustomerIds = new Set(mappings.map(m => m.customer_id));
   const unmappedCustomers = customers.filter(c => !mappedCustomerIds.has(c.id));
 
+  const [connectionResult, setConnectionResult] = useState(null);
+
   const handleTestConnection = async () => {
     setIsTesting(true);
+    setConnectionResult(null);
     try {
       const response = await base44.functions.invoke('syncDarkWebID', { 
         action: 'test_connection' 
       });
+      setConnectionResult(response.data);
       if (response.data.success) {
         toast.success('Connected to Dark Web ID successfully!');
       } else {
-        const ip = response.data.outgoing_ip;
-        const hint = response.data.hint;
-        toast.error(
-          <div>
-            <p className="font-medium">{response.data.error || 'Connection failed'}</p>
-            {ip && <p className="text-sm mt-1">Base44 Outgoing IP: <code className="bg-slate-200 px-1 rounded">{ip}</code></p>}
-            {hint && <p className="text-xs mt-1 text-slate-500">{hint}</p>}
-          </div>,
-          { duration: 10000 }
-        );
+        toast.error(response.data.error || 'Connection failed');
       }
     } catch (error) {
+      setConnectionResult({ success: false, error: error.message });
       toast.error(error.message);
     } finally {
       setIsTesting(false);
@@ -197,6 +193,49 @@ export default function DarkWebIDConfig() {
           </Button>
         </div>
       </div>
+
+      {/* Connection Result */}
+      {connectionResult && !connectionResult.success && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-500 mt-0.5" />
+            <div className="flex-1">
+              <h4 className="font-medium text-red-800">{connectionResult.error}</h4>
+              {connectionResult.outgoing_ip && (
+                <p className="text-sm text-red-700 mt-1">
+                  Base44 Outgoing IP: <code className="bg-red-100 px-1.5 py-0.5 rounded font-mono">{connectionResult.outgoing_ip}</code>
+                </p>
+              )}
+              {connectionResult.hint && (
+                <p className="text-sm text-red-600 mt-2">{connectionResult.hint}</p>
+              )}
+              {connectionResult.response_preview && (
+                <details className="mt-3">
+                  <summary className="text-xs text-red-600 cursor-pointer">Show response preview</summary>
+                  <pre className="mt-2 text-xs bg-red-100 p-2 rounded overflow-x-auto max-h-32">
+                    {connectionResult.response_preview}
+                  </pre>
+                </details>
+              )}
+              <p className="text-xs text-red-500 mt-3">
+                Note: Base44 uses multiple outgoing IPs. You may need to whitelist: 34.102.44.165, 34.186.176.2, 34.102.96.46
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {connectionResult && connectionResult.success && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-green-500" />
+            <div>
+              <h4 className="font-medium text-green-800">Connected successfully!</h4>
+              <p className="text-sm text-green-700">Found {connectionResult.organizations?.length || 0} organizations</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mappings Table */}
       <div className="bg-white rounded-xl border border-slate-200">
