@@ -437,9 +437,19 @@ Deno.serve(async (req) => {
       for (const mapping of allMappings) {
         try {
           const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?page_size=1000`);
-          const users = usersResponse || [];
+          const rawUsers = usersResponse || [];
           
-          const assignedUsers = users.filter(u => u.isLicensed === true || u.assigned === true).length || users.length;
+          // Only count users who are actually licensed (filter out shared mailboxes, service accounts, etc.)
+          const users = rawUsers.filter(u => 
+            (u.isAssigned === true || u.assigned === true || u.isLicensed === true) &&
+            u.userType !== 'guest' && 
+            u.userType !== 'shared' &&
+            !u.email?.toLowerCase()?.includes('noreply') &&
+            !u.email?.toLowerCase()?.includes('admin@') &&
+            !u.email?.toLowerCase()?.includes('system@')
+          );
+          
+          const assignedUsers = users.filter(u => u.lastBackupStatusTotal === 'success').length || users.length;
           const totalUsers = users.length;
 
           const customers = await base44.asServiceRole.entities.Customer.filter({ id: mapping.customer_id });
