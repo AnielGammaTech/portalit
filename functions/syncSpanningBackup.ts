@@ -124,10 +124,14 @@ Deno.serve(async (req) => {
         }
       }
       
+      // Count users with successful backups (this is what we bill for)
+      const usersWithBackups = users.filter(u => u.lastBackupStatusTotal === 'success');
+      
       return Response.json({ 
         success: true, 
         users: users,
-        total: users.length
+        total: users.length,
+        usersWithBackups: usersWithBackups.length
       });
     }
 
