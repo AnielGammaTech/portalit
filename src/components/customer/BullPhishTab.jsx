@@ -30,6 +30,9 @@ import {
 } from "@/components/ui/dialog";
 
 export default function BullPhishTab({ customerId }) {
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [userListModal, setUserListModal] = useState({ open: false, type: null, users: [] });
+
   const { data: reports = [], isLoading } = useQuery({
     queryKey: ['bullphishid-reports', customerId],
     queryFn: () => base44.entities.BullPhishIDReport.filter({ customer_id: customerId }),
@@ -43,6 +46,34 @@ export default function BullPhishTab({ customerId }) {
 
   const latestReport = sortedReports[0];
   const previousReport = sortedReports[1];
+
+  // Parse JSON user arrays
+  const parseUserList = (jsonString) => {
+    if (!jsonString) return [];
+    try {
+      return JSON.parse(jsonString);
+    } catch {
+      return [];
+    }
+  };
+
+  const openUserList = (type, report) => {
+    let users = [];
+    let title = '';
+    
+    if (type === 'opened') {
+      users = parseUserList(report.users_who_opened);
+      title = 'Users Who Opened';
+    } else if (type === 'clicked') {
+      users = parseUserList(report.users_who_clicked);
+      title = 'Users Who Clicked';
+    } else if (type === 'reported') {
+      users = parseUserList(report.users_who_reported);
+      title = 'Users Who Reported';
+    }
+    
+    setUserListModal({ open: true, type, title, users, report });
+  };
 
   // Calculate trend
   const getTrend = (current, previous, lowerIsBetter = false) => {
