@@ -369,8 +369,8 @@ Deno.serve(async (req) => {
         assignmentsByContactId[a.contact_id] = a;
       });
 
-      // Create/update assignments for protected users (only those who are actually licensed)
-      for (const spUser of protectedUsers) {
+      // Create/update assignments for protected users (only those who have backups)
+      for (const spUser of users) {
         const email = spUser.email?.toLowerCase() || spUser.userPrincipalName?.toLowerCase();
         if (!email) continue;
 
