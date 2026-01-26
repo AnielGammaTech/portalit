@@ -55,15 +55,6 @@ Deno.serve(async (req) => {
         // ignore
       }
 
-      // If just getting outgoing IP
-      if (!username || !password) {
-        return Response.json({ 
-          success: false, 
-          error: 'Missing credentials',
-          outgoing_ip: outgoingIP
-        });
-      }
-
       // Test the API connection
       try {
         const response = await fetch(`${DARKWEB_BASE_URL}/api/organizations.json`, {
