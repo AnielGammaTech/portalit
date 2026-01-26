@@ -73,14 +73,32 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
   const protectedShared = stats.numberOfProtectedSharedMailboxes || 0;
   const totalUsers = stats.numberOfUsers || 0;
   const totalProtected = stats.numberOfProtectedUsers || 0;
-  const totalFromApi = stats.total || 0;
 
-  // Filter counts for display
-  const filterCounts = {
-    all: totalFromApi,
-    standard: protectedStandard,
-    archived: protectedArchived,
-    shared: protectedShared
+  const categoryConfig = {
+    standard: { 
+      title: 'Standard Users', 
+      count: protectedStandard, 
+      total: standardLicenses,
+      icon: Users, 
+      color: 'purple',
+      description: 'Regular M365 user backups'
+    },
+    archived: { 
+      title: 'Archived Users', 
+      count: protectedArchived, 
+      total: archivedLicenses,
+      icon: Archive, 
+      color: 'amber',
+      description: 'Departed user data retention'
+    },
+    shared: { 
+      title: 'Shared Mailboxes', 
+      count: protectedShared, 
+      total: sharedMailboxes,
+      icon: Mail, 
+      color: 'cyan',
+      description: 'Shared/resource mailbox backups'
+    }
   };
 
   return (
