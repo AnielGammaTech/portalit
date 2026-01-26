@@ -252,9 +252,9 @@ Deno.serve(async (req) => {
 
       const mapping = mappings[0];
       
-      // Get domain-level info which has the accurate license counts
-      const domainResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}`);
-      const domainInfo = Array.isArray(domainResponse) ? domainResponse[0] : domainResponse;
+      // Get all domains and find this one by ID for accurate license counts
+      const allDomains = await unitrendsApiCall('/v2/spanning/domains?page_size=500');
+      const domainInfo = allDomains.find(d => d.id === mapping.spanning_tenant_id);
       
       // Use domain-level counts - these match the Spanning portal exactly
       // numberOfProtectedStandardUsers = "Backup Users" in the portal
