@@ -131,9 +131,37 @@ Deno.serve(async (req) => {
       const allDomains = await unitrendsApiCall('/v2/spanning/domains?page_size=500');
       const domainInfo = allDomains.find(d => d.id === mapping.spanning_tenant_id);
       
+      // Format users with storage info
+      const formatStorage = (bytes) => {
+        if (!bytes || bytes === 0) return '0 B';
+        if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(2)} GB`;
+        if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(2)} MB`;
+        return `${(bytes / 1024).toFixed(2)} KB`;
+      };
+      
+      const formattedUsers = users.map(u => {
+        const storageInfo = u.storageInformation || {};
+        const mailBytes = storageInfo.protectedMailBytes || u.mailStorageBytes || u.exchangeStorageBytes || 0;
+        const driveBytes = storageInfo.protectedBytes || u.driveStorageBytes || u.oneDriveStorageBytes || 0;
+        const totalBytes = mailBytes + driveBytes;
+        
+        return {
+          email: u.email || u.userPrincipalName || 'Unknown',
+          displayName: u.displayName || u.email || 'Unknown',
+          isProtected: u.isAssigned === true || u.assigned === true || u.isLicensed === true,
+          backupStatus: u.lastBackupStatusTotal || 'unknown',
+          mailStorage: formatStorage(mailBytes),
+          driveStorage: formatStorage(driveBytes),
+          totalStorage: formatStorage(totalBytes),
+          totalStorageBytes: totalBytes,
+          userType: u.userType || 'standard'
+        };
+      });
+      
       return Response.json({ 
         success: true, 
         total: users.length,
+        users: formattedUsers,
         // Domain-level license counts (matches Spanning portal)
         numberOfStandardLicensesTotal: domainInfo?.numberOfStandardLicensesTotal || 0,
         numberOfProtectedStandardUsers: domainInfo?.numberOfProtectedStandardUsers || 0,
