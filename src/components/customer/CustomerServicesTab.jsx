@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import UserDetailModal from './UserDetailModal';
 import DarkWebTab from './DarkWebTab';
 import BullPhishTab from './BullPhishTab';
+import SpanningUsersTab from './SpanningUsersTab';
 
 export default function CustomerServicesTab({ 
   customerId, 
