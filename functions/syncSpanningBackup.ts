@@ -127,30 +127,23 @@ Deno.serve(async (req) => {
         }
       }
       
-      // Analyze users by backup status to understand the data
-      const byBackupStatus = {};
-      users.forEach(u => {
-        const status = u.lastBackupStatusTotal || 'none';
-        byBackupStatus[status] = (byBackupStatus[status] || 0) + 1;
-      });
+      // Also get domain-level info which has the license counts
+      const domainResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}`);
       
-      // Sample a few users to understand the data structure
-      const sampleUsers = users.slice(0, 3).map(u => ({
-        email: u.email,
-        lastBackupStatusTotal: u.lastBackupStatusTotal,
-        isAssigned: u.isAssigned,
-        assigned: u.assigned,
-        isLicensed: u.isLicensed,
-        userType: u.userType,
-        licenseType: u.licenseType,
-        allFields: Object.keys(u)
-      }));
+      // Extract license counts from domain info
+      const domainInfo = Array.isArray(domainResponse) ? domainResponse[0] : domainResponse;
       
       return Response.json({ 
         success: true, 
+        users: users,
         total: users.length,
-        byBackupStatus,
-        sampleUsers
+        // Domain-level license counts (matches Spanning portal)
+        numberOfStandardLicensesTotal: domainInfo?.numberOfStandardLicensesTotal || 0,
+        numberOfProtectedStandardUsers: domainInfo?.numberOfProtectedStandardUsers || 0,
+        numberOfArchivedLicensesTotal: domainInfo?.numberOfArchivedLicensesTotal || 0,
+        numberOfProtectedArchivedUsers: domainInfo?.numberOfProtectedArchivedUsers || 0,
+        numberOfUsers: domainInfo?.numberOfUsers || 0,
+        numberOfProtectedUsers: domainInfo?.numberOfProtectedUsers || 0
       });
     }
 
