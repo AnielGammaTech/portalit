@@ -437,14 +437,12 @@ Deno.serve(async (req) => {
           const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?page_size=1000`);
           const rawUsers = usersResponse || [];
           
-          // Only count users who are actually licensed (filter out shared mailboxes, service accounts, etc.)
+          // Count users with successful backups as the license count
           const users = rawUsers.filter(u => 
-            (u.isAssigned === true || u.assigned === true || u.isLicensed === true) &&
-            u.userType !== 'guest' && 
-            u.userType !== 'shared' &&
-            !u.email?.toLowerCase()?.includes('noreply') &&
-            !u.email?.toLowerCase()?.includes('admin@') &&
-            !u.email?.toLowerCase()?.includes('system@')
+            u.lastBackupStatusTotal === 'success' || 
+            u.isAssigned === true || 
+            u.assigned === true || 
+            u.isLicensed === true
           );
           
           const assignedUsers = users.filter(u => u.lastBackupStatusTotal === 'success').length || users.length;
