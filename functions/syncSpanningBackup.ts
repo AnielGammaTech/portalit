@@ -260,15 +260,15 @@ Deno.serve(async (req) => {
         }
       }
       
-      // Count users who have successful backups (this is the license count)
+      // Count only licensed/assigned users (not just those with historical backups)
+      // Spanning portal shows "Backup Users" as users with active licenses
       const protectedUsers = users.filter(u => 
-        u.lastBackupStatusTotal === 'success' || 
         u.isAssigned === true || 
         u.assigned === true || 
         u.isLicensed === true
       );
       const totalUsers = protectedUsers.length;
-      const assignedUsers = protectedUsers.filter(u => u.lastBackupStatusTotal === 'success').length || totalUsers;
+      const assignedUsers = totalUsers;
 
       // Get customer name
       const customers = await base44.asServiceRole.entities.Customer.filter({ id: customer_id });
