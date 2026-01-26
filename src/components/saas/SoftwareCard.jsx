@@ -120,8 +120,8 @@ export default function SoftwareCard({
             )}
           </div>
           
-          {/* Unused seats warning */}
-          {hasManagedLicense && managedUnused > 0 && managedUtilization < 50 && (
+          {/* Unused seats warning - only show for non-auto-synced licenses with actual unused seats */}
+          {hasManagedLicense && !isAutoSynced && managedUnused > 0 && managedUtilization < 50 && (
             <p className="text-xs text-red-500 mt-1.5">
               {managedUnused} unused seat{managedUnused !== 1 ? 's' : ''} (~${((managedUnused / managedSeats) * managedCost).toFixed(0)}/mo wasted)
             </p>
