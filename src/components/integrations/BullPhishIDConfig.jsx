@@ -122,14 +122,32 @@ export default function BullPhishIDConfig() {
         json_schema: {
           type: "object",
           properties: {
+            customer_name: { type: "string", description: "Customer/organization name from the report" },
+            report_period_start: { type: "string", description: "Report period start date in YYYY-MM-DD format" },
+            report_period_end: { type: "string", description: "Report period end date in YYYY-MM-DD format" },
             total_campaigns: { type: "number", description: "Total number of phishing campaigns" },
             total_emails_sent: { type: "number", description: "Total phishing emails sent" },
-            total_opened: { type: "number", description: "Total emails opened" },
-            total_clicked: { type: "number", description: "Total links clicked (users who failed)" },
+            total_opened: { type: "number", description: "Total emails opened by recipients" },
+            total_clicked: { type: "number", description: "Total links clicked (users who failed the test)" },
             total_reported: { type: "number", description: "Total phishing emails reported by users" },
+            total_submitted_data: { type: "number", description: "Total users who submitted data/credentials" },
             phish_prone_percentage: { type: "number", description: "Overall phish-prone percentage" },
             training_completion_rate: { type: "number", description: "Training completion percentage" },
-            top_clickers: { 
+            open_rate: { type: "number", description: "Email open rate percentage" },
+            click_rate: { type: "number", description: "Click rate percentage" },
+            report_rate: { type: "number", description: "Report rate percentage" },
+            users_who_opened: { 
+              type: "array", 
+              items: { 
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  email: { type: "string" }
+                }
+              },
+              description: "List of users who opened the phishing emails" 
+            },
+            users_who_clicked: { 
               type: "array", 
               items: { 
                 type: "object",
@@ -141,17 +159,30 @@ export default function BullPhishIDConfig() {
               },
               description: "Users who clicked on phishing links" 
             },
+            users_who_reported: { 
+              type: "array", 
+              items: { 
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  email: { type: "string" }
+                }
+              },
+              description: "Users who correctly reported the phishing email" 
+            },
             campaigns: {
               type: "array",
               items: {
                 type: "object",
                 properties: {
                   name: { type: "string" },
+                  template: { type: "string" },
                   date: { type: "string" },
                   emails_sent: { type: "number" },
                   opened: { type: "number" },
                   clicked: { type: "number" },
-                  reported: { type: "number" }
+                  reported: { type: "number" },
+                  submitted_data: { type: "number" }
                 }
               },
               description: "Individual campaign results"
@@ -161,7 +192,30 @@ export default function BullPhishIDConfig() {
       });
 
       if (result.status === 'success') {
-        setExtractedData({ ...result.output, pdf_url: file_url });
+        const data = result.output;
+        setExtractedData({ ...data, pdf_url: file_url });
+        
+        // Auto-fill customer from extracted name if not already selected
+        if (data.customer_name && !selectedCustomer) {
+          const matchedCustomer = customers.find(c => {
+            const normalizedCustomerName = c.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const normalizedExtracted = data.customer_name.toLowerCase().replace(/[^a-z0-9]/g, '');
+            return normalizedCustomerName.includes(normalizedExtracted) || 
+                   normalizedExtracted.includes(normalizedCustomerName);
+          });
+          if (matchedCustomer) {
+            setSelectedCustomer(matchedCustomer.id);
+          }
+        }
+        
+        // Auto-fill dates from extracted data
+        if (data.report_period_start && !periodStart) {
+          setPeriodStart(data.report_period_start);
+        }
+        if (data.report_period_end && !periodEnd) {
+          setPeriodEnd(data.report_period_end);
+        }
+        
         toast.success('Data extracted from PDF');
       } else {
         toast.error(result.details || 'Failed to extract data');
