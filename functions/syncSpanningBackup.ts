@@ -145,16 +145,25 @@ Deno.serve(async (req) => {
         const driveBytes = storageInfo.protectedBytes || u.driveStorageBytes || u.oneDriveStorageBytes || 0;
         const totalBytes = mailBytes + driveBytes;
         
+        // User is protected if they have backup data or are assigned/licensed
+        const hasBackupData = totalBytes > 0;
+        const isAssigned = u.isAssigned === true || u.assigned === true || u.isLicensed === true;
+        const hasSuccessBackup = u.lastBackupStatusTotal === 'success';
+        const isProtected = hasBackupData || isAssigned || hasSuccessBackup;
+        
         return {
           email: u.email || u.userPrincipalName || 'Unknown',
           displayName: u.displayName || u.email || 'Unknown',
-          isProtected: u.isAssigned === true || u.assigned === true || u.isLicensed === true,
+          isProtected,
           backupStatus: u.lastBackupStatusTotal || 'unknown',
           mailStorage: formatStorage(mailBytes),
           driveStorage: formatStorage(driveBytes),
           totalStorage: formatStorage(totalBytes),
           totalStorageBytes: totalBytes,
-          userType: u.userType || 'standard'
+          mailStorageBytes: mailBytes,
+          driveStorageBytes: driveBytes,
+          userType: u.userType || 'standard',
+          lastBackupDate: u.lastBackupDate || null
         };
       });
       
