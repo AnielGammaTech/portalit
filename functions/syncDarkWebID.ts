@@ -45,6 +45,16 @@ Deno.serve(async (req) => {
     const authHeader = await getDarkWebIDAuth();
     
     if (action === 'test_connection') {
+      // First get our outgoing IP
+      let outgoingIP = 'unknown';
+      try {
+        const ipResponse = await fetch('https://api.ipify.org?format=json');
+        const ipData = await ipResponse.json();
+        outgoingIP = ipData.ip;
+      } catch (e) {
+        // ignore
+      }
+
       // Test the API connection
       try {
         const response = await fetch(`${DARKWEB_BASE_URL}/api/organizations.json`, {
@@ -59,7 +69,9 @@ Deno.serve(async (req) => {
         if (!response.ok) {
           return Response.json({ 
             success: false, 
-            error: `API returned ${response.status}: ${text.substring(0, 200)}` 
+            error: `API returned ${response.status}`,
+            outgoing_ip: outgoingIP,
+            hint: 'Make sure this IP is whitelisted in Dark Web ID settings'
           });
         }
         
@@ -67,18 +79,22 @@ Deno.serve(async (req) => {
           const data = JSON.parse(text);
           return Response.json({ 
             success: true, 
-            organizations: data 
+            organizations: data,
+            outgoing_ip: outgoingIP
           });
         } catch (parseError) {
           return Response.json({ 
             success: false, 
-            error: `Invalid JSON response: ${text.substring(0, 200)}` 
+            error: 'Received HTML instead of JSON - likely not authenticated',
+            outgoing_ip: outgoingIP,
+            hint: 'Make sure this IP is whitelisted in Dark Web ID settings and API access is enabled for your user'
           });
         }
       } catch (error) {
         return Response.json({ 
           success: false, 
-          error: error.message 
+          error: error.message,
+          outgoing_ip: outgoingIP
         });
       }
     }

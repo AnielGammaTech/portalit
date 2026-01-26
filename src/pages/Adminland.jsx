@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import Breadcrumbs from '../components/ui/breadcrumbs';
 import UserAssignmentPanel from '../components/admin/UserAssignmentPanel';
-import DarkWebIDConfig from '../components/integrations/DarkWebIDConfig';
+
 import {
   Shield,
   Users,
@@ -40,16 +40,10 @@ const MENU_SECTIONS = [
     items: [
       {
         name: 'Integrations',
-        description: 'Datto, JumpCloud, Unitrends',
+        description: 'Datto, JumpCloud, Unitrends, Dark Web ID',
         icon: Link2,
         page: 'Settings',
         tab: 'integrations'
-      },
-      {
-        name: 'Dark Web ID',
-        description: 'Monitor dark web compromises',
-        icon: AlertTriangle,
-        panel: 'darkwebid'
       }
     ]
   }
@@ -105,31 +99,7 @@ export default function Adminland() {
     );
   }
 
-  if (activePanel === 'darkwebid') {
-    return (
-      <div className="max-w-5xl mx-auto py-8">
-        <Breadcrumbs items={[
-          { label: 'Adminland', href: createPageUrl('Adminland') },
-          { label: 'Dark Web ID' }
-        ]} />
-        
-        <div className="flex items-center gap-4 mb-8">
-          <button 
-            onClick={() => setActivePanel(null)}
-            className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
-          >
-            <ChevronRight className="w-5 h-5 text-slate-600 rotate-180" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Dark Web ID</h1>
-            <p className="text-sm text-slate-500">Monitor dark web compromises for your customers</p>
-          </div>
-        </div>
 
-        <DarkWebIDConfig />
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-4xl mx-auto py-8">
