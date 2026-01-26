@@ -256,9 +256,15 @@ export default function BullPhishIDConfig() {
         total_opened: extractedData?.total_opened || 0,
         total_clicked: extractedData?.total_clicked || 0,
         total_reported: extractedData?.total_reported || 0,
+        total_submitted_data: extractedData?.total_submitted_data || 0,
         phish_prone_percentage: extractedData?.phish_prone_percentage || 0,
         training_completion_rate: extractedData?.training_completion_rate || 0,
-        top_clickers: extractedData?.top_clickers ? JSON.stringify(extractedData.top_clickers) : null,
+        open_rate: extractedData?.open_rate || 0,
+        click_rate: extractedData?.click_rate || 0,
+        report_rate: extractedData?.report_rate || 0,
+        users_who_opened: extractedData?.users_who_opened ? JSON.stringify(extractedData.users_who_opened) : null,
+        users_who_clicked: extractedData?.users_who_clicked ? JSON.stringify(extractedData.users_who_clicked) : null,
+        users_who_reported: extractedData?.users_who_reported ? JSON.stringify(extractedData.users_who_reported) : null,
         campaign_details: extractedData?.campaigns ? JSON.stringify(extractedData.campaigns) : null
       });
 
@@ -529,16 +535,27 @@ export default function BullPhishIDConfig() {
             )}
 
             {extractedData && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 max-h-48 overflow-y-auto">
                 <p className="text-sm font-medium text-green-800 mb-2">Extracted Data:</p>
-                <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-xs">
                   <div>Campaigns: <strong>{extractedData.total_campaigns || 0}</strong></div>
                   <div>Emails Sent: <strong>{extractedData.total_emails_sent || 0}</strong></div>
+                  <div>Opened: <strong>{extractedData.total_opened || 0}</strong></div>
                   <div>Clicked: <strong className="text-red-600">{extractedData.total_clicked || 0}</strong></div>
-                  <div>Phish-Prone: <strong>{extractedData.phish_prone_percentage || 0}%</strong></div>
-                  <div>Training: <strong>{extractedData.training_completion_rate || 0}%</strong></div>
                   <div>Reported: <strong className="text-green-600">{extractedData.total_reported || 0}</strong></div>
+                  <div>Submitted Data: <strong className="text-red-600">{extractedData.total_submitted_data || 0}</strong></div>
+                  <div>Phish-Prone: <strong>{extractedData.phish_prone_percentage || 0}%</strong></div>
+                  <div>Open Rate: <strong>{extractedData.open_rate || 0}%</strong></div>
+                  <div>Click Rate: <strong>{extractedData.click_rate || 0}%</strong></div>
                 </div>
+                {extractedData.users_who_clicked?.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-green-200">
+                    <p className="text-xs text-green-700 font-medium">Users who clicked: {extractedData.users_who_clicked.length}</p>
+                  </div>
+                )}
+                {extractedData.users_who_opened?.length > 0 && (
+                  <p className="text-xs text-green-700">Users who opened: {extractedData.users_who_opened.length}</p>
+                )}
               </div>
             )}
 
