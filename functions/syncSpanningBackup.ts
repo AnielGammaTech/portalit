@@ -256,8 +256,17 @@ Deno.serve(async (req) => {
         }
       }
       
-      const totalUsers = users.length;
-      const assignedUsers = users.filter(u => u.lastBackupStatusTotal === 'success').length || totalUsers;
+      // Only count users who are actually licensed/assigned (not shared mailboxes, service accounts, etc.)
+      const protectedUsers = users.filter(u => 
+        (u.isAssigned === true || u.assigned === true || u.isLicensed === true) &&
+        u.userType !== 'guest' && 
+        u.userType !== 'shared' &&
+        !u.email?.toLowerCase()?.includes('noreply') &&
+        !u.email?.toLowerCase()?.includes('admin@') &&
+        !u.email?.toLowerCase()?.includes('system@')
+      );
+      const totalUsers = protectedUsers.length;
+      const assignedUsers = protectedUsers.filter(u => u.lastBackupStatusTotal === 'success').length || totalUsers;
 
       // Get customer name
       const customers = await base44.asServiceRole.entities.Customer.filter({ id: customer_id });
