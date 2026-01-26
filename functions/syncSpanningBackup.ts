@@ -124,17 +124,30 @@ Deno.serve(async (req) => {
         }
       }
       
-      // Debug: Log first user's fields to understand API structure
-      const sampleUser = users[0] || {};
-      const userFields = Object.keys(sampleUser);
+      // Analyze users by backup status to understand the data
+      const byBackupStatus = {};
+      users.forEach(u => {
+        const status = u.lastBackupStatusTotal || 'none';
+        byBackupStatus[status] = (byBackupStatus[status] || 0) + 1;
+      });
       
-      // Return debug info to understand how to count licensed users
+      // Sample a few users to understand the data structure
+      const sampleUsers = users.slice(0, 3).map(u => ({
+        email: u.email,
+        lastBackupStatusTotal: u.lastBackupStatusTotal,
+        isAssigned: u.isAssigned,
+        assigned: u.assigned,
+        isLicensed: u.isLicensed,
+        userType: u.userType,
+        licenseType: u.licenseType,
+        allFields: Object.keys(u)
+      }));
+      
       return Response.json({ 
         success: true, 
-        users: users,
         total: users.length,
-        sampleUserFields: userFields,
-        sampleUser: sampleUser
+        byBackupStatus,
+        sampleUsers
       });
     }
 
