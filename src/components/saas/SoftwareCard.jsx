@@ -19,7 +19,10 @@ export default function SoftwareCard({
   
   // Managed stats
   const managedSeats = managedLicense?.quantity || 0;
-  const managedUsed = managedAssignments.length;
+  // For auto-synced licenses (spanning, jumpcloud), use assigned_users from the license itself
+  // since not all users may have matching contacts in HaloPSA
+  const isAutoSynced = ['spanning', 'jumpcloud'].includes(managedLicense?.source);
+  const managedUsed = isAutoSynced ? (managedLicense?.assigned_users || managedAssignments.length) : managedAssignments.length;
   const managedUnused = managedSeats - managedUsed;
   const managedUtilization = managedSeats > 0 ? (managedUsed / managedSeats) * 100 : 0;
   const managedCost = managedLicense?.total_cost || 0;
