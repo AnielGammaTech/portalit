@@ -28,6 +28,9 @@ import { cn } from "@/lib/utils";
 export default function SpanningUsersTab({ customerId, spanningMapping, queryClient }) {
   const [syncingSpanning, setSyncingSpanning] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const ITEMS_PER_PAGE = 15;
 
   // Fetch live Spanning data from API
   const { data: spanningData, isLoading, refetch } = useQuery({
