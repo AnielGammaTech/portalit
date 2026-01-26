@@ -234,6 +234,7 @@ Convert all dates to YYYY-MM-DD format.`,
         }
         
         toast.success('Data extracted from PDF');
+      }
     } catch (error) {
       toast.error(error.message);
     } finally {
