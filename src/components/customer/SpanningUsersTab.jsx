@@ -88,6 +88,11 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
   const totalUsers = stats.numberOfUsers || 0;
   const totalProtected = stats.numberOfProtectedUsers || 0;
 
+  // Find license IDs for each type
+  const standardLicense = spanningLicenses.find(l => l.license_type === 'Standard Users');
+  const archivedLicense = spanningLicenses.find(l => l.license_type === 'Archived Users');
+  const sharedLicense = spanningLicenses.find(l => l.license_type === 'Shared Mailboxes');
+
   const categoryConfig = {
     standard: { 
       title: 'Standard Users', 
@@ -95,7 +100,8 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
       total: standardLicenses,
       icon: Users, 
       color: 'purple',
-      description: 'Regular M365 user backups'
+      description: 'Regular M365 user backups',
+      licenseId: standardLicense?.id
     },
     archived: { 
       title: 'Archived Users', 
@@ -103,7 +109,8 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
       total: archivedLicenses,
       icon: Archive, 
       color: 'amber',
-      description: 'Departed user data retention'
+      description: 'Departed user data retention',
+      licenseId: archivedLicense?.id
     },
     shared: { 
       title: 'Shared Mailboxes', 
@@ -111,7 +118,8 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
       total: sharedMailboxes,
       icon: Mail, 
       color: 'cyan',
-      description: 'Shared/resource mailbox backups'
+      description: 'Shared/resource mailbox backups',
+      licenseId: sharedLicense?.id
     }
   };
 
