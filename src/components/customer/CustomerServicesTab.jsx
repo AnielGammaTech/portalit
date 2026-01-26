@@ -11,7 +11,8 @@ import {
   ChevronDown,
   CheckCircle2,
   AlertCircle,
-  ChevronRight
+  ChevronRight,
+  AlertTriangle
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -19,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import UserDetailModal from './UserDetailModal';
+import DarkWebTab from './DarkWebTab';
 
 export default function CustomerServicesTab({ 
   customerId, 
@@ -101,6 +103,16 @@ export default function CustomerServicesTab({
     queryKey: ['datto-mapping', customerId],
     queryFn: async () => {
       const mappings = await base44.entities.DattoSiteMapping.filter({ customer_id: customerId });
+      return mappings[0] || null;
+    },
+    enabled: !!customerId
+  });
+
+  // Fetch Dark Web ID mapping for this customer
+  const { data: darkwebMapping } = useQuery({
+    queryKey: ['darkwebid-mapping', customerId],
+    queryFn: async () => {
+      const mappings = await base44.entities.DarkWebIDMapping.filter({ customer_id: customerId });
       return mappings[0] || null;
     },
     enabled: !!customerId
@@ -324,6 +336,7 @@ export default function CustomerServicesTab({
 
   const hasHaloPSA = customer?.source === 'halopsa' && customer?.external_id;
   const hasDatto = !!dattoMapping;
+  const hasDarkWeb = !!darkwebMapping;
 
   const formatLastSync = (dateStr) => {
     if (!dateStr) return 'Never';
@@ -382,6 +395,12 @@ export default function CustomerServicesTab({
               <TabsTrigger value="spanning" className="gap-2 py-2 px-4 text-sm font-medium">
                 <Cloud className="w-4 h-4" />
                 Spanning Backup
+              </TabsTrigger>
+            )}
+            {darkwebMapping && (
+              <TabsTrigger value="darkweb" className="gap-2 py-2 px-4 text-sm font-medium">
+                <AlertTriangle className="w-4 h-4" />
+                Dark Web
               </TabsTrigger>
             )}
           </TabsList>
@@ -745,6 +764,13 @@ export default function CustomerServicesTab({
               </Card>
 
             </div>
+          </TabsContent>
+        )}
+
+        {/* Dark Web ID Tab */}
+        {darkwebMapping && (
+          <TabsContent value="darkweb">
+            <DarkWebTab customerId={customerId} />
           </TabsContent>
         )}
       </Tabs>
