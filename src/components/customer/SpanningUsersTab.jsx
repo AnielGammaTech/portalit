@@ -278,32 +278,79 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
         </CardContent>
       </Card>
 
-      {/* API Response Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium text-slate-500">API Response Details</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div className="p-3 bg-slate-50 rounded-lg">
-              <p className="text-slate-500">Total from API</p>
-              <p className="text-lg font-bold text-slate-900">{totalFromApi}</p>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-lg">
-              <p className="text-slate-500">numberOfUsers</p>
-              <p className="text-lg font-bold text-slate-900">{totalUsers}</p>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-lg">
-              <p className="text-slate-500">numberOfProtectedUsers</p>
-              <p className="text-lg font-bold text-slate-900">{totalProtected}</p>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-lg">
-              <p className="text-slate-500">Standard Licenses</p>
-              <p className="text-lg font-bold text-slate-900">{standardLicenses}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Category Detail Modal */}
+      <Dialog open={!!selectedCategory} onOpenChange={() => setSelectedCategory(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {selectedCategory && (() => {
+                const config = categoryConfig[selectedCategory];
+                const Icon = config.icon;
+                return (
+                  <>
+                    <Icon className={cn("w-5 h-5", {
+                      'text-purple-600': selectedCategory === 'standard',
+                      'text-amber-600': selectedCategory === 'archived',
+                      'text-cyan-600': selectedCategory === 'shared'
+                    })} />
+                    {config.title}
+                  </>
+                );
+              })()}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedCategory && (() => {
+            const config = categoryConfig[selectedCategory];
+            return (
+              <div className="space-y-4">
+                <p className="text-sm text-slate-500">{config.description}</p>
+                
+                <div className={cn("p-4 rounded-lg", {
+                  'bg-purple-50': selectedCategory === 'standard',
+                  'bg-amber-50': selectedCategory === 'archived',
+                  'bg-cyan-50': selectedCategory === 'shared'
+                })}>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-slate-500">Protected</p>
+                      <p className="text-3xl font-bold">{config.count}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-500">Total Licenses</p>
+                      <p className="text-3xl font-bold">{config.total}</p>
+                    </div>
+                  </div>
+                  
+                  {config.total > 0 && (
+                    <div className="mt-4">
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Utilization</span>
+                        <span>{Math.round((config.count / config.total) * 100)}%</span>
+                      </div>
+                      <div className="h-2 bg-white/50 rounded-full overflow-hidden">
+                        <div 
+                          className={cn("h-full rounded-full", {
+                            'bg-purple-500': selectedCategory === 'standard',
+                            'bg-amber-500': selectedCategory === 'archived',
+                            'bg-cyan-500': selectedCategory === 'shared'
+                          })}
+                          style={{ width: `${Math.round((config.count / config.total) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="text-sm text-slate-500">
+                  <p>• Individual user details are synced to Contacts</p>
+                  <p>• View users in the Team tab for this customer</p>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
