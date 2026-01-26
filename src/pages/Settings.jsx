@@ -35,7 +35,8 @@ import DattoRMMConfig from '../components/integrations/DattoRMMConfig';
 import JumpCloudConfig from '../components/integrations/JumpCloudConfig';
 import SpanningConfig from '../components/integrations/SpanningConfig';
 import DarkWebIDConfig from '../components/integrations/DarkWebIDConfig';
-import { AlertTriangle } from 'lucide-react';
+import BullPhishIDConfig from '../components/integrations/BullPhishIDConfig';
+import { AlertTriangle, Fish } from 'lucide-react';
 
 function GammaStackITPanel() {
   const [apiKey, setApiKey] = useState('');
@@ -283,6 +284,17 @@ function IntegrationsPanel() {
         status={<Badge variant="outline" className="text-slate-500">Configure</Badge>}
       >
         <DarkWebIDConfig />
+      </IntegrationCard>
+
+      {/* BullPhish ID */}
+      <IntegrationCard
+        icon={Fish}
+        iconBg="bg-orange-50"
+        title="BullPhish ID"
+        description="Upload phishing simulation reports for QBR tracking"
+        status={<Badge variant="outline" className="text-slate-500">Upload Reports</Badge>}
+      >
+        <BullPhishIDConfig />
       </IntegrationCard>
     </div>
   );
