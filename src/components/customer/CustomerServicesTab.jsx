@@ -12,7 +12,8 @@ import {
   CheckCircle2,
   AlertCircle,
   ChevronRight,
-  AlertTriangle
+  AlertTriangle,
+  Fish
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -21,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import UserDetailModal from './UserDetailModal';
 import DarkWebTab from './DarkWebTab';
+import BullPhishTab from './BullPhishTab';
 
 export default function CustomerServicesTab({ 
   customerId, 
@@ -117,6 +119,15 @@ export default function CustomerServicesTab({
     },
     enabled: !!customerId
   });
+
+  // Fetch BullPhish ID reports for this customer
+  const { data: bullphishReports = [] } = useQuery({
+    queryKey: ['bullphishid-reports', customerId],
+    queryFn: () => base44.entities.BullPhishIDReport.filter({ customer_id: customerId }),
+    enabled: !!customerId
+  });
+
+  const hasBullPhish = bullphishReports.length > 0;
 
   const updateSyncStatus = (service, status, error = null) => {
     setSyncStatuses(prev => ({
@@ -401,6 +412,12 @@ export default function CustomerServicesTab({
               <TabsTrigger value="darkweb" className="gap-2 py-2 px-4 text-sm font-medium">
                 <AlertTriangle className="w-4 h-4" />
                 Dark Web
+              </TabsTrigger>
+            )}
+            {hasBullPhish && (
+              <TabsTrigger value="bullphish" className="gap-2 py-2 px-4 text-sm font-medium">
+                <Fish className="w-4 h-4" />
+                BullPhish ID
               </TabsTrigger>
             )}
           </TabsList>
@@ -771,6 +788,13 @@ export default function CustomerServicesTab({
         {darkwebMapping && (
           <TabsContent value="darkweb">
             <DarkWebTab customerId={customerId} />
+          </TabsContent>
+        )}
+
+        {/* BullPhish ID Tab */}
+        {hasBullPhish && (
+          <TabsContent value="bullphish">
+            <BullPhishTab customerId={customerId} />
           </TabsContent>
         )}
       </Tabs>

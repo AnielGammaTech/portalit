@@ -67,6 +67,42 @@ export default function BullPhishIDConfig() {
     if (file && file.type === 'application/pdf') {
       setSelectedFile(file);
       setExtractedData(null);
+      
+      // Try to auto-fill from filename
+      // Example: CURRAN_YOUNG_CONSTRUCTION,_LLC_Campaign_Gamma_Tech-2025_2026-01-26T10_15_37-05_00.pdf
+      const filename = file.name.replace('.pdf', '');
+      
+      // Try to extract customer name (before _Campaign or before date pattern)
+      const campaignMatch = filename.match(/^(.+?)_Campaign/i);
+      const dateMatch = filename.match(/(\d{4}[-_]\d{2}[-_]\d{2})/);
+      
+      if (campaignMatch) {
+        const customerNameFromFile = campaignMatch[1]
+          .replace(/_/g, ' ')
+          .replace(/,\s*/g, ', ')
+          .trim();
+        
+        // Try to find matching customer
+        const matchedCustomer = customers.find(c => {
+          const normalizedCustomerName = c.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const normalizedFileName = customerNameFromFile.toLowerCase().replace(/[^a-z0-9]/g, '');
+          return normalizedCustomerName.includes(normalizedFileName) || 
+                 normalizedFileName.includes(normalizedCustomerName);
+        });
+        
+        if (matchedCustomer) {
+          setSelectedCustomer(matchedCustomer.id);
+        }
+      }
+      
+      // Try to extract date from filename
+      if (dateMatch) {
+        const dateStr = dateMatch[1].replace(/_/g, '-');
+        setReportDate(dateStr);
+      } else {
+        // Default to today
+        setReportDate(new Date().toISOString().split('T')[0]);
+      }
     } else {
       toast.error('Please select a PDF file');
     }
