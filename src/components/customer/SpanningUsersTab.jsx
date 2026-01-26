@@ -19,8 +19,7 @@ import { cn } from "@/lib/utils";
 
 export default function SpanningUsersTab({ customerId, spanningMapping, queryClient }) {
   const [syncingSpanning, setSyncingSpanning] = useState(false);
-  const [usersPage, setUsersPage] = useState(0);
-  const [activeFilter, setActiveFilter] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState(null); // 'standard', 'archived', 'shared'
 
   // Fetch live Spanning data from API
   const { data: spanningData, isLoading, refetch } = useQuery({
