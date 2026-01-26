@@ -454,18 +454,13 @@ Deno.serve(async (req) => {
 
       for (const mapping of allMappings) {
         try {
-          const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?page_size=1000`);
-          const rawUsers = usersResponse || [];
+          // Get domain-level info which has the accurate license counts
+          const domainResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}`);
+          const domainInfo = Array.isArray(domainResponse) ? domainResponse[0] : domainResponse;
           
-          // Count only licensed/assigned users (matches Spanning "Backup Users")
-          const users = rawUsers.filter(u => 
-            u.isAssigned === true || 
-            u.assigned === true || 
-            u.isLicensed === true
-          );
-          
-          const assignedUsers = users.length;
-          const totalUsers = users.length;
+          // Use domain-level counts - these match the Spanning portal exactly
+          const assignedUsers = domainInfo?.numberOfProtectedStandardUsers || domainInfo?.numberOfProtectedUsers || 0;
+          const totalUsers = assignedUsers;
 
           const customers = await base44.asServiceRole.entities.Customer.filter({ id: mapping.customer_id });
           const customer = customers[0];
