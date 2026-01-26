@@ -256,14 +256,12 @@ Deno.serve(async (req) => {
         }
       }
       
-      // Only count users who are actually licensed/assigned (not shared mailboxes, service accounts, etc.)
+      // Count users who have successful backups (this is the license count)
       const protectedUsers = users.filter(u => 
-        (u.isAssigned === true || u.assigned === true || u.isLicensed === true) &&
-        u.userType !== 'guest' && 
-        u.userType !== 'shared' &&
-        !u.email?.toLowerCase()?.includes('noreply') &&
-        !u.email?.toLowerCase()?.includes('admin@') &&
-        !u.email?.toLowerCase()?.includes('system@')
+        u.lastBackupStatusTotal === 'success' || 
+        u.isAssigned === true || 
+        u.assigned === true || 
+        u.isLicensed === true
       );
       const totalUsers = protectedUsers.length;
       const assignedUsers = protectedUsers.filter(u => u.lastBackupStatusTotal === 'success').length || totalUsers;
