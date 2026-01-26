@@ -253,6 +253,18 @@ Deno.serve(async (req) => {
       }
 
       const mapping = mappings[0];
+      
+      // Get domain-level info which has the accurate license counts
+      const domainResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}`);
+      const domainInfo = Array.isArray(domainResponse) ? domainResponse[0] : domainResponse;
+      
+      // Use domain-level counts - these match the Spanning portal exactly
+      // numberOfProtectedStandardUsers = "Backup Users" in the portal
+      // numberOfProtectedUsers = total protected (users + shared mailboxes potentially)
+      const assignedUsers = domainInfo?.numberOfProtectedStandardUsers || domainInfo?.numberOfProtectedUsers || 0;
+      const totalUsers = assignedUsers;
+      
+      // Also get user list for contact syncing
       const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?page_size=1000`);
       
       // Handle nested response structure - API returns { users: [{ users: [...] }] } or similar
@@ -271,16 +283,6 @@ Deno.serve(async (req) => {
           users = usersResponse.users;
         }
       }
-      
-      // Count only licensed/assigned users (not just those with historical backups)
-      // Spanning portal shows "Backup Users" as users with active licenses
-      const protectedUsers = users.filter(u => 
-        u.isAssigned === true || 
-        u.assigned === true || 
-        u.isLicensed === true
-      );
-      const totalUsers = protectedUsers.length;
-      const assignedUsers = totalUsers;
 
       // Get customer name
       const customers = await base44.asServiceRole.entities.Customer.filter({ id: customer_id });
