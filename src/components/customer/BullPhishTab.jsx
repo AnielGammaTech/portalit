@@ -293,14 +293,26 @@ export default function BullPhishTab({ customerId }) {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
+                  <button 
+                    className="flex items-center justify-between w-full hover:bg-slate-50 p-2 -m-2 rounded-lg transition-colors"
+                    onClick={() => openUserList('opened', latestReport)}
+                  >
                     <span className="text-sm text-slate-500">Emails Opened</span>
-                    <span className="font-semibold text-slate-900">{latestReport.total_opened || 0}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-slate-900">{latestReport.total_opened || 0}</span>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </div>
+                  </button>
+                  <button 
+                    className="flex items-center justify-between w-full hover:bg-slate-50 p-2 -m-2 rounded-lg transition-colors"
+                    onClick={() => openUserList('reported', latestReport)}
+                  >
                     <span className="text-sm text-slate-500">Users Who Reported</span>
-                    <span className="font-semibold text-green-600">{latestReport.total_reported || 0}</span>
-                  </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-green-600">{latestReport.total_reported || 0}</span>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </div>
+                  </button>
                   {latestReport.report_period_start && latestReport.report_period_end && (
                     <div className="flex items-center justify-between pt-2 border-t">
                       <span className="text-sm text-slate-500">Report Period</span>
