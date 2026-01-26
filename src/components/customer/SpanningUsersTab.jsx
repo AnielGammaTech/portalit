@@ -59,6 +59,25 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
     enabled: !!customerId
   });
 
+  // Fetch contacts for this customer to match with Spanning users
+  const { data: contacts = [] } = useQuery({
+    queryKey: ['customer-contacts', customerId],
+    queryFn: async () => {
+      const contactsList = await base44.entities.Contact.filter({ customer_id: customerId });
+      return contactsList;
+    },
+    enabled: !!customerId
+  });
+
+  // Create email-to-contact map
+  const contactsByEmail = useMemo(() => {
+    const map = {};
+    contacts.forEach(c => {
+      if (c.email) map[c.email.toLowerCase()] = c;
+    });
+    return map;
+  }, [contacts]);
+
   const handleSyncSpanning = async () => {
     setSyncingSpanning(true);
     try {
