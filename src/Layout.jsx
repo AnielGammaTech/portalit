@@ -83,7 +83,6 @@ export default function Layout({ children, currentPageName }) {
 
   // Customer navigation (end-user view) - uses customer_id from user profile
   const customerNavigation = [
-    { name: 'Dashboard', page: 'Dashboard', icon: LayoutDashboard },
     { name: 'My Account', page: 'CustomerDetail', icon: FileText, query: user?.customer_id ? `?id=${user.customer_id}` : '' },
   ];
 
