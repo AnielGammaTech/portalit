@@ -70,7 +70,16 @@ export default function DarkWebIDConfig() {
       if (response.data.success) {
         toast.success('Connected to Dark Web ID successfully!');
       } else {
-        toast.error(response.data.error || 'Connection failed');
+        const ip = response.data.outgoing_ip;
+        const hint = response.data.hint;
+        toast.error(
+          <div>
+            <p className="font-medium">{response.data.error || 'Connection failed'}</p>
+            {ip && <p className="text-sm mt-1">Base44 Outgoing IP: <code className="bg-slate-200 px-1 rounded">{ip}</code></p>}
+            {hint && <p className="text-xs mt-1 text-slate-500">{hint}</p>}
+          </div>,
+          { duration: 10000 }
+        );
       }
     } catch (error) {
       toast.error(error.message);
