@@ -141,7 +141,10 @@ Deno.serve(async (req) => {
         numberOfProtectedArchivedUsers: domainInfo?.numberOfProtectedArchivedUsers || 0,
         numberOfUsers: domainInfo?.numberOfUsers || 0,
         numberOfProtectedUsers: domainInfo?.numberOfProtectedUsers || 0,
-        domainName: domainInfo?.name || 'unknown'
+        numberOfSharedMailboxesTotal: domainInfo?.numberOfSharedMailboxesTotal || 0,
+        numberOfProtectedSharedMailboxes: domainInfo?.numberOfProtectedSharedMailboxes || 0,
+        domainName: domainInfo?.name || 'unknown',
+        domainId: domainInfo?.id || 'unknown'
       });
     }
 
