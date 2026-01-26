@@ -424,7 +424,7 @@ export default function BullPhishIDConfig() {
 
       {/* Upload Modal */}
       <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg z-[100]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Upload className="w-5 h-5 text-orange-600" />
@@ -438,7 +438,7 @@ export default function BullPhishIDConfig() {
                 <SelectTrigger className="mt-1.5">
                   <SelectValue placeholder="Select customer..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[200]">
                   {customers.map(customer => (
                     <SelectItem key={customer.id} value={customer.id}>
                       {customer.name}
