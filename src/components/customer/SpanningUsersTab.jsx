@@ -36,6 +36,19 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
     staleTime: 5 * 60 * 1000 // Cache for 5 minutes
   });
 
+  // Fetch Spanning licenses for this customer
+  const { data: spanningLicenses = [] } = useQuery({
+    queryKey: ['spanning-licenses', customerId],
+    queryFn: async () => {
+      const licenses = await base44.entities.SaaSLicense.filter({ 
+        customer_id: customerId,
+        source: 'spanning'
+      });
+      return licenses;
+    },
+    enabled: !!customerId
+  });
+
   const handleSyncSpanning = async () => {
     setSyncingSpanning(true);
     try {
