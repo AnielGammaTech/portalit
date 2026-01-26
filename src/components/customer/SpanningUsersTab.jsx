@@ -146,14 +146,31 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
         </div>
       </div>
 
-      {/* Clickable Stats Grid */}
+      {/* Clickable Stats Grid - Link to License Details */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card 
-          className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => setSelectedCategory('standard')}
-        >
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
+        {standardLicense ? (
+          <Link to={createPageUrl(`LicenseDetail?id=${standardLicense.id}`)}>
+            <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 cursor-pointer hover:shadow-md transition-shadow h-full">
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-200 rounded-lg">
+                      <Users className="w-5 h-5 text-purple-700" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-purple-900">{protectedStandard}</p>
+                      <p className="text-sm text-purple-600">Standard Users</p>
+                      <p className="text-xs text-purple-500">{standardLicenses} licenses</p>
+                    </div>
+                  </div>
+                  <ExternalLink className="w-4 h-4 text-purple-400" />
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        ) : (
+          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+            <CardContent className="pt-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-purple-200 rounded-lg">
                   <Users className="w-5 h-5 text-purple-700" />
@@ -164,17 +181,33 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
                   <p className="text-xs text-purple-500">{standardLicenses} licenses</p>
                 </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-purple-400" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
-        <Card 
-          className="bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200 cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => setSelectedCategory('archived')}
-        >
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
+        {archivedLicense ? (
+          <Link to={createPageUrl(`LicenseDetail?id=${archivedLicense.id}`)}>
+            <Card className="bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200 cursor-pointer hover:shadow-md transition-shadow h-full">
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-amber-200 rounded-lg">
+                      <Archive className="w-5 h-5 text-amber-700" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-amber-900">{protectedArchived}</p>
+                      <p className="text-sm text-amber-600">Archived Users</p>
+                      <p className="text-xs text-amber-500">{archivedLicenses} licenses</p>
+                    </div>
+                  </div>
+                  <ExternalLink className="w-4 h-4 text-amber-400" />
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        ) : (
+          <Card className="bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200">
+            <CardContent className="pt-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-amber-200 rounded-lg">
                   <Archive className="w-5 h-5 text-amber-700" />
@@ -185,17 +218,33 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
                   <p className="text-xs text-amber-500">{archivedLicenses} licenses</p>
                 </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-amber-400" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
-        <Card 
-          className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-cyan-200 cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => setSelectedCategory('shared')}
-        >
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
+        {sharedLicense ? (
+          <Link to={createPageUrl(`LicenseDetail?id=${sharedLicense.id}`)}>
+            <Card className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-cyan-200 cursor-pointer hover:shadow-md transition-shadow h-full">
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-cyan-200 rounded-lg">
+                      <Mail className="w-5 h-5 text-cyan-700" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-cyan-900">{protectedShared}</p>
+                      <p className="text-sm text-cyan-600">Shared Mailboxes</p>
+                      <p className="text-xs text-cyan-500">{sharedMailboxes} total</p>
+                    </div>
+                  </div>
+                  <ExternalLink className="w-4 h-4 text-cyan-400" />
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        ) : (
+          <Card className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-cyan-200">
+            <CardContent className="pt-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-cyan-200 rounded-lg">
                   <Mail className="w-5 h-5 text-cyan-700" />
@@ -206,10 +255,9 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
                   <p className="text-xs text-cyan-500">{sharedMailboxes} total</p>
                 </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-cyan-400" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
           <CardContent className="pt-4">
