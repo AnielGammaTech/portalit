@@ -333,12 +333,13 @@ export default function BullPhishTab({ customerId }) {
               <CardContent>
                 <div className="space-y-2">
                   {sortedReports.slice(0, 4).map((report, idx) => (
-                    <div 
+                    <button 
                       key={report.id} 
                       className={cn(
-                        "flex items-center justify-between p-2 rounded-lg",
-                        idx === 0 ? "bg-orange-50" : "bg-slate-50"
+                        "flex items-center justify-between p-2 rounded-lg w-full text-left hover:shadow-sm transition-all",
+                        idx === 0 ? "bg-orange-50 hover:bg-orange-100" : "bg-slate-50 hover:bg-slate-100"
                       )}
+                      onClick={() => setSelectedReport(report)}
                     >
                       <div className="flex items-center gap-2">
                         <Calendar className="w-3.5 h-3.5 text-slate-400" />
@@ -351,10 +352,13 @@ export default function BullPhishTab({ customerId }) {
                           </Badge>
                         )}
                       </div>
-                      <Badge variant={report.phish_prone_percentage > 20 ? "destructive" : "outline"}>
-                        {report.phish_prone_percentage}%
-                      </Badge>
-                    </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={report.phish_prone_percentage > 20 ? "destructive" : "outline"}>
+                          {report.phish_prone_percentage}%
+                        </Badge>
+                        <ChevronRight className="w-4 h-4 text-slate-400" />
+                      </div>
+                    </button>
                   ))}
                 </div>
               </CardContent>
@@ -362,6 +366,142 @@ export default function BullPhishTab({ customerId }) {
           </div>
         </>
       )}
+
+      {/* User List Modal */}
+      <Dialog open={userListModal.open} onOpenChange={(open) => !open && setUserListModal({ ...userListModal, open: false })}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {userListModal.type === 'opened' && <Eye className="w-5 h-5 text-blue-500" />}
+              {userListModal.type === 'clicked' && <MousePointer className="w-5 h-5 text-red-500" />}
+              {userListModal.type === 'reported' && <Flag className="w-5 h-5 text-green-500" />}
+              {userListModal.title}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="max-h-96 overflow-y-auto">
+            {userListModal.users.length === 0 ? (
+              <div className="text-center py-8 text-slate-500">
+                <Users className="w-12 h-12 mx-auto mb-2 text-slate-300" />
+                <p>No users in this list</p>
+              </div>
+            ) : (
+              <div className="divide-y">
+                {userListModal.users.map((user, idx) => (
+                  <div key={idx} className="py-3 px-2 hover:bg-slate-50 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-slate-900">{user.name || 'Unknown'}</p>
+                        <p className="text-sm text-slate-500">{user.email}</p>
+                      </div>
+                      {userListModal.type === 'clicked' && user.clicks && (
+                        <Badge variant="destructive" className="text-xs">
+                          {user.clicks} click{user.clicks > 1 ? 's' : ''}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Report Detail Modal */}
+      <Dialog open={!!selectedReport} onOpenChange={(open) => !open && setSelectedReport(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Fish className="w-5 h-5 text-orange-500" />
+              Report Details - {selectedReport && format(new Date(selectedReport.report_date), 'MMMM d, yyyy')}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedReport && (
+            <div className="space-y-6">
+              {/* Period */}
+              {selectedReport.report_period_start && selectedReport.report_period_end && (
+                <div className="text-sm text-slate-500 bg-slate-50 p-3 rounded-lg">
+                  Report Period: {format(new Date(selectedReport.report_period_start), 'MMM d, yyyy')} - {format(new Date(selectedReport.report_period_end), 'MMM d, yyyy')}
+                </div>
+              )}
+
+              {/* Metrics Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-slate-50 p-3 rounded-lg text-center">
+                  <p className="text-2xl font-bold text-slate-900">{selectedReport.phish_prone_percentage}%</p>
+                  <p className="text-xs text-slate-500">Phish-Prone</p>
+                </div>
+                <div className="bg-slate-50 p-3 rounded-lg text-center">
+                  <p className="text-2xl font-bold text-slate-900">{selectedReport.total_emails_sent || 0}</p>
+                  <p className="text-xs text-slate-500">Emails Sent</p>
+                </div>
+                <div className="bg-red-50 p-3 rounded-lg text-center cursor-pointer hover:bg-red-100 transition-colors" onClick={() => { setSelectedReport(null); openUserList('clicked', selectedReport); }}>
+                  <p className="text-2xl font-bold text-red-600">{selectedReport.total_clicked || 0}</p>
+                  <p className="text-xs text-slate-500">Clicked</p>
+                </div>
+                <div className="bg-green-50 p-3 rounded-lg text-center">
+                  <p className="text-2xl font-bold text-green-600">{selectedReport.training_completion_rate || 0}%</p>
+                  <p className="text-xs text-slate-500">Training</p>
+                </div>
+              </div>
+
+              {/* Clickable User Lists */}
+              <div className="space-y-2">
+                <button 
+                  className="w-full flex items-center justify-between p-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                  onClick={() => { setSelectedReport(null); openUserList('opened', selectedReport); }}
+                >
+                  <div className="flex items-center gap-2">
+                    <Eye className="w-4 h-4 text-blue-500" />
+                    <span className="text-sm font-medium text-slate-700">Users Who Opened</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">{selectedReport.total_opened || 0}</Badge>
+                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                  </div>
+                </button>
+                <button 
+                  className="w-full flex items-center justify-between p-3 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                  onClick={() => { setSelectedReport(null); openUserList('clicked', selectedReport); }}
+                >
+                  <div className="flex items-center gap-2">
+                    <MousePointer className="w-4 h-4 text-red-500" />
+                    <span className="text-sm font-medium text-slate-700">Users Who Clicked</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="destructive">{selectedReport.total_clicked || 0}</Badge>
+                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                  </div>
+                </button>
+                <button 
+                  className="w-full flex items-center justify-between p-3 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
+                  onClick={() => { setSelectedReport(null); openUserList('reported', selectedReport); }}
+                >
+                  <div className="flex items-center gap-2">
+                    <Flag className="w-4 h-4 text-green-500" />
+                    <span className="text-sm font-medium text-slate-700">Users Who Reported</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-green-100 text-green-700">{selectedReport.total_reported || 0}</Badge>
+                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                  </div>
+                </button>
+              </div>
+
+              {/* View PDF */}
+              {selectedReport.pdf_url && (
+                <Button 
+                  className="w-full"
+                  onClick={() => window.open(selectedReport.pdf_url, '_blank')}
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  View Full PDF Report
+                </Button>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
