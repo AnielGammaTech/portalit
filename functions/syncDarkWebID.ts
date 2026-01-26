@@ -54,18 +54,27 @@ Deno.serve(async (req) => {
           }
         });
         
+        const text = await response.text();
+        
         if (!response.ok) {
           return Response.json({ 
             success: false, 
-            error: `API returned ${response.status}` 
+            error: `API returned ${response.status}: ${text.substring(0, 200)}` 
           });
         }
         
-        const data = await response.json();
-        return Response.json({ 
-          success: true, 
-          organizations: data 
-        });
+        try {
+          const data = JSON.parse(text);
+          return Response.json({ 
+            success: true, 
+            organizations: data 
+          });
+        } catch (parseError) {
+          return Response.json({ 
+            success: false, 
+            error: `Invalid JSON response: ${text.substring(0, 200)}` 
+          });
+        }
       } catch (error) {
         return Response.json({ 
           success: false, 
