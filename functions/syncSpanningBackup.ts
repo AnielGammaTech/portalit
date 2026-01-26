@@ -450,11 +450,13 @@ Deno.serve(async (req) => {
       let synced = 0;
       let errors = 0;
 
+      // Get all domains upfront for efficiency
+      const allDomains = await unitrendsApiCall('/v2/spanning/domains?page_size=500');
+      
       for (const mapping of allMappings) {
         try {
-          // Get domain-level info which has the accurate license counts
-          const domainResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}`);
-          const domainInfo = Array.isArray(domainResponse) ? domainResponse[0] : domainResponse;
+          // Find domain info by ID for accurate license counts
+          const domainInfo = allDomains.find(d => d.id === mapping.spanning_tenant_id);
           
           // Use domain-level counts - these match the Spanning portal exactly
           const assignedUsers = domainInfo?.numberOfProtectedStandardUsers || domainInfo?.numberOfProtectedUsers || 0;
