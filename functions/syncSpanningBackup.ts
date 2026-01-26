@@ -259,19 +259,20 @@ Deno.serve(async (req) => {
       const allDomains = await unitrendsApiCall('/v2/spanning/domains?page_size=500');
       const domainInfo = allDomains.find(d => d.id === mapping.spanning_tenant_id);
       
-      // Use domain-level counts - these match the Spanning portal exactly
-      // numberOfProtectedStandardUsers = "Backup Users" in the portal
-      // numberOfProtectedUsers = total protected (users + shared mailboxes potentially)
-      const assignedUsers = domainInfo?.numberOfProtectedStandardUsers || domainInfo?.numberOfProtectedUsers || 0;
-      const totalUsers = assignedUsers;
+      // Extract counts for each license type
+      const standardLicenses = domainInfo?.numberOfStandardLicensesTotal || 0;
+      const protectedStandard = domainInfo?.numberOfProtectedStandardUsers || 0;
+      const archivedLicenses = domainInfo?.numberOfArchivedLicensesTotal || 0;
+      const protectedArchived = domainInfo?.numberOfProtectedArchivedUsers || 0;
+      const sharedMailboxes = domainInfo?.numberOfSharedMailboxesTotal || 0;
+      const protectedShared = domainInfo?.numberOfProtectedSharedMailboxes || 0;
       
       // Also get user list for contact syncing
       const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?page_size=1000`);
       
-      // Handle nested response structure - API returns { users: [{ users: [...] }] } or similar
+      // Handle nested response structure
       let users = [];
       if (Array.isArray(usersResponse)) {
-        // Check if first element has nested users array
         if (usersResponse[0]?.users) {
           users = usersResponse[0].users;
         } else {
@@ -289,31 +290,27 @@ Deno.serve(async (req) => {
       const customers = await base44.asServiceRole.entities.Customer.filter({ id: customer_id });
       const customer = customers[0];
 
-      // Sync users as contacts - match ALL existing contacts by email, not just spanning ones
+      // Sync users as contacts
       const existingContacts = await base44.asServiceRole.entities.Contact.filter({ customer_id });
       const existingByEmail = {};
       existingContacts.forEach(c => { 
         if (c.email) existingByEmail[c.email.toLowerCase()] = c; 
       });
 
-      let contactsCreated = 0;
       let contactsUpdated = 0;
 
       for (const spUser of users) {
         const email = spUser.email?.toLowerCase() || spUser.userPrincipalName?.toLowerCase();
         if (!email) continue;
 
-        const fullName = spUser.displayName || spUser.name || email.split('@')[0];
         const isProtected = spUser.isAssigned === true || spUser.assigned === true || spUser.isLicensed === true;
         const hasBackup = spUser.lastBackupStatusTotal === 'success';
         
-        // Calculate storage info from user data - check nested storageInformation object
         const storageInfo = spUser.storageInformation || {};
         const mailStorageBytes = storageInfo.protectedMailBytes || spUser.mailStorageBytes || spUser.exchangeStorageBytes || 0;
         const driveStorageBytes = storageInfo.protectedBytes || spUser.driveStorageBytes || spUser.oneDriveStorageBytes || 0;
         const totalStorageBytes = mailStorageBytes + driveStorageBytes;
         
-        // Format storage as human readable
         const formatStorage = (bytes) => {
           if (!bytes || bytes === 0) return null;
           if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(2)} GB`;
@@ -324,7 +321,6 @@ Deno.serve(async (req) => {
         const storageStr = formatStorage(totalStorageBytes);
         const backupStatus = spUser.lastBackupStatusTotal || (isProtected ? 'protected' : 'not_protected');
         
-        // Build spanning_status with storage, status, and protection flag
         const titleParts = [];
         if (storageStr) titleParts.push(storageStr);
         titleParts.push(backupStatus);
@@ -333,96 +329,89 @@ Deno.serve(async (req) => {
         
         const existing = existingByEmail[email];
         if (existing) {
-          // Update existing contact with spanning info - NEVER change source, just add spanning_status
           await base44.asServiceRole.entities.Contact.update(existing.id, {
             spanning_status: contactTitle
           });
           contactsUpdated++;
         }
-        // NEVER create new contacts - Spanning only attaches to existing contacts from HaloPSA/JumpCloud
       }
 
-      // Sync license record
-      const licenseId = `spanning-${customer_id}`;
+      // Delete existing spanning licenses for this customer (we'll recreate them)
       const existingLicenses = await base44.asServiceRole.entities.SaaSLicense.filter({ 
         customer_id, 
         source: 'spanning' 
       });
-
-      // For Spanning, the license count IS the number of users with backups
-      // Since these are all actively backed up users, quantity = assigned
-      const licenseData = {
-        customer_id,
-        customer_name: customer?.name,
-        application_name: 'Spanning Backup',
-        vendor: 'Unitrends',
-        license_type: 'Microsoft 365 Backup',
-        management_type: 'managed',
-        quantity: assignedUsers,
-        assigned_users: assignedUsers,
-        status: 'active',
-        external_id: licenseId,
-        source: 'spanning',
-        website_url: 'https://spanning.com',
-        logo_url: 'https://cdn.brandfetch.io/idBZmlTqXS/w/400/h/400/theme/dark/icon.png',
-        category: 'backup',
-        notes: `Spanning Backup - ${assignedUsers} users backed up from ${mapping.spanning_tenant_name || customer?.name}`
-      };
-
-      let spanningLicense;
-      if (existingLicenses.length > 0) {
-        await base44.asServiceRole.entities.SaaSLicense.update(existingLicenses[0].id, licenseData);
-        spanningLicense = existingLicenses[0];
-      } else {
-        spanningLicense = await base44.asServiceRole.entities.SaaSLicense.create(licenseData);
+      
+      // Keep track of license IDs we're keeping vs removing
+      const licenseTypes = ['standard', 'archived', 'shared'];
+      const existingByType = {};
+      for (const lic of existingLicenses) {
+        if (lic.license_type === 'Standard Users') existingByType.standard = lic;
+        else if (lic.license_type === 'Archived Users') existingByType.archived = lic;
+        else if (lic.license_type === 'Shared Mailboxes') existingByType.shared = lic;
+        else if (lic.license_type === 'Microsoft 365 Backup') {
+          // Old format - delete it
+          await base44.asServiceRole.entities.SaaSLicense.delete(lic.id);
+        }
       }
 
-      // Auto-assign licenses to protected users
-      let assignmentsCreated = 0;
-      let assignmentsUpdated = 0;
+      // Create/update three separate licenses
+      const licensesConfig = [
+        { 
+          type: 'standard', 
+          name: 'Spanning - Standard Users',
+          licenseType: 'Standard Users',
+          quantity: standardLicenses, 
+          assigned: protectedStandard,
+          notes: `Standard M365 user backups`
+        },
+        { 
+          type: 'archived', 
+          name: 'Spanning - Archived Users',
+          licenseType: 'Archived Users',
+          quantity: archivedLicenses, 
+          assigned: protectedArchived,
+          notes: `Departed user data retention`
+        },
+        { 
+          type: 'shared', 
+          name: 'Spanning - Shared Mailboxes',
+          licenseType: 'Shared Mailboxes',
+          quantity: sharedMailboxes, 
+          assigned: protectedShared,
+          notes: `Shared/resource mailbox backups`
+        }
+      ];
+
+      const createdLicenses = {};
       
-      // Get existing assignments for this license
-      const existingAssignments = await base44.asServiceRole.entities.LicenseAssignment.filter({
-        license_id: spanningLicense.id
-      });
-      const assignmentsByContactId = {};
-      existingAssignments.forEach(a => {
-        assignmentsByContactId[a.contact_id] = a;
-      });
-
-      // Create/update assignments for protected users (only those who have backups)
-      for (const spUser of users) {
-        const email = spUser.email?.toLowerCase() || spUser.userPrincipalName?.toLowerCase();
-        if (!email) continue;
-
-        const isProtected = spUser.isAssigned === true || spUser.assigned === true || spUser.isLicensed === true || spUser.lastBackupStatusTotal === 'success';
-        if (!isProtected) continue;
-
-        // Find the contact by email
-        const contact = existingByEmail[email];
-        if (!contact) continue;
-
-        const existingAssignment = assignmentsByContactId[contact.id];
+      for (const config of licensesConfig) {
+        // Skip if no licenses of this type
+        if (config.quantity === 0 && config.assigned === 0) continue;
         
-        if (existingAssignment) {
-          // Update if status changed
-          if (existingAssignment.status !== 'active') {
-            await base44.asServiceRole.entities.LicenseAssignment.update(existingAssignment.id, {
-              status: 'active'
-            });
-            assignmentsUpdated++;
-          }
+        const licenseData = {
+          customer_id,
+          customer_name: customer?.name,
+          application_name: config.name,
+          vendor: 'Unitrends',
+          license_type: config.licenseType,
+          management_type: 'managed',
+          quantity: config.quantity,
+          assigned_users: config.assigned,
+          status: 'active',
+          external_id: `spanning-${config.type}-${customer_id}`,
+          source: 'spanning',
+          website_url: 'https://spanning.com',
+          logo_url: 'https://cdn.brandfetch.io/idBZmlTqXS/w/400/h/400/theme/dark/icon.png',
+          category: 'backup',
+          notes: config.notes
+        };
+
+        if (existingByType[config.type]) {
+          await base44.asServiceRole.entities.SaaSLicense.update(existingByType[config.type].id, licenseData);
+          createdLicenses[config.type] = existingByType[config.type];
         } else {
-          // Create new assignment
-          await base44.asServiceRole.entities.LicenseAssignment.create({
-            license_id: spanningLicense.id,
-            contact_id: contact.id,
-            customer_id,
-            assigned_date: new Date().toISOString().split('T')[0],
-            status: 'active',
-            notes: 'Auto-assigned from Spanning sync'
-          });
-          assignmentsCreated++;
+          createdLicenses[config.type] = await base44.asServiceRole.entities.SaaSLicense.create(licenseData);
         }
       }
 
@@ -433,12 +422,13 @@ Deno.serve(async (req) => {
 
       return Response.json({
         success: true,
-        totalUsers,
-        assignedUsers,
-        contactsCreated,
+        standardLicenses,
+        protectedStandard,
+        archivedLicenses,
+        protectedArchived,
+        sharedMailboxes,
+        protectedShared,
         contactsUpdated,
-        assignmentsCreated,
-        assignmentsUpdated,
         tenantName: mapping.spanning_tenant_name
       });
     }
