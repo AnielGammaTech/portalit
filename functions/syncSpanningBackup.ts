@@ -452,6 +452,56 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Create LicenseAssignments for protected users - match to existing contacts
+      // Get existing assignments for spanning licenses
+      const existingAssignments = [];
+      for (const lic of Object.values(createdLicenses)) {
+        if (lic?.id) {
+          const licAssignments = await base44.asServiceRole.entities.LicenseAssignment.filter({ license_id: lic.id });
+          existingAssignments.push(...licAssignments);
+        }
+      }
+      
+      const assignmentsByEmail = {};
+      existingAssignments.forEach(a => {
+        const contact = existingContacts.find(c => c.id === a.contact_id);
+        if (contact?.email) assignmentsByEmail[contact.email.toLowerCase()] = a;
+      });
+
+      let assignmentsCreated = 0;
+      
+      // Standard license gets standard users with backup data
+      if (createdLicenses.standard?.id) {
+        for (const spUser of users) {
+          const email = spUser.email?.toLowerCase() || spUser.userPrincipalName?.toLowerCase();
+          if (!email) continue;
+          
+          // Check if user has backup data (protected)
+          const storageInfo = spUser.storageInformation || {};
+          const mailStorageBytes = storageInfo.protectedMailBytes || spUser.mailStorageBytes || 0;
+          const driveStorageBytes = storageInfo.protectedBytes || spUser.driveStorageBytes || 0;
+          const totalStorageBytes = mailStorageBytes + driveStorageBytes;
+          const isProtected = totalStorageBytes > 0 || spUser.isAssigned === true || spUser.lastBackupStatusTotal === 'success';
+          
+          // Skip archived users (they go in archived license) and shared mailboxes
+          const userType = spUser.userType?.toLowerCase() || '';
+          if (userType === 'archived' || userType === 'sharedmailbox' || userType === 'shared') continue;
+          
+          if (isProtected && existingByEmail[email] && !assignmentsByEmail[email]) {
+            const contact = existingByEmail[email];
+            await base44.asServiceRole.entities.LicenseAssignment.create({
+              license_id: createdLicenses.standard.id,
+              contact_id: contact.id,
+              customer_id,
+              assigned_date: new Date().toISOString().split('T')[0],
+              status: 'active'
+            });
+            assignmentsByEmail[email] = true;
+            assignmentsCreated++;
+          }
+        }
+      }
+
       // Update last_synced
       await base44.asServiceRole.entities.SpanningMapping.update(mapping.id, {
         last_synced: new Date().toISOString()
