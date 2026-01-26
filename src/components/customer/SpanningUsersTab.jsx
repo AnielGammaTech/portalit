@@ -289,6 +289,90 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
           </CardContent>
         </Card>
       )}
+
+      {/* Users List */}
+      {stats.users && stats.users.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-blue-600" />
+                Spanning Users ({stats.users.length})
+              </CardTitle>
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input
+                  placeholder="Search users..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50">
+                    <TableHead>User</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Mail Storage</TableHead>
+                    <TableHead className="text-right">Drive Storage</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {stats.users
+                    .filter(u => 
+                      u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      u.displayName?.toLowerCase().includes(searchTerm.toLowerCase())
+                    )
+                    .sort((a, b) => b.totalStorageBytes - a.totalStorageBytes)
+                    .slice(0, 50)
+                    .map((user, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium text-slate-900">{user.displayName}</p>
+                            <p className="text-xs text-slate-500">{user.email}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {user.isProtected ? (
+                            <Badge className="bg-green-100 text-green-700 gap-1">
+                              <Shield className="w-3 h-3" />
+                              Protected
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-slate-500 gap-1">
+                              <ShieldOff className="w-3 h-3" />
+                              Not Protected
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm">
+                          {user.mailStorage}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm">
+                          {user.driveStorage}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm font-medium">
+                          {user.totalStorage}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            </div>
+            {stats.users.length > 50 && (
+              <p className="text-sm text-slate-500 mt-2 text-center">
+                Showing top 50 users by storage. Use search to find specific users.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
