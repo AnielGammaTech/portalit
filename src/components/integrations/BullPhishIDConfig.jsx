@@ -62,59 +62,29 @@ export default function BullPhishIDConfig() {
     queryFn: () => base44.entities.Customer.list('name', 500),
   });
 
-  const handleFileSelect = (e) => {
+  const handleFileSelect = async (e) => {
     const file = e.target.files[0];
     if (file && file.type === 'application/pdf') {
       setSelectedFile(file);
       setExtractedData(null);
       
-      // Try to auto-fill from filename
-      // Example: CURRAN_YOUNG_CONSTRUCTION,_LLC_Campaign_Gamma_Tech-2025_2026-01-26T10_15_37-05_00.pdf
-      const filename = file.name.replace('.pdf', '');
-      
-      // Try to extract customer name (before _Campaign or before date pattern)
-      const campaignMatch = filename.match(/^(.+?)_Campaign/i);
-      const dateMatch = filename.match(/(\d{4}[-_]\d{2}[-_]\d{2})/);
-      
-      if (campaignMatch) {
-        const customerNameFromFile = campaignMatch[1]
-          .replace(/_/g, ' ')
-          .replace(/,\s*/g, ', ')
-          .trim();
-        
-        // Try to find matching customer
-        const matchedCustomer = customers.find(c => {
-          const normalizedCustomerName = c.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-          const normalizedFileName = customerNameFromFile.toLowerCase().replace(/[^a-z0-9]/g, '');
-          return normalizedCustomerName.includes(normalizedFileName) || 
-                 normalizedFileName.includes(normalizedCustomerName);
-        });
-        
-        if (matchedCustomer) {
-          setSelectedCustomer(matchedCustomer.id);
-        }
-      }
-      
-      // Try to extract date from filename
-      if (dateMatch) {
-        const dateStr = dateMatch[1].replace(/_/g, '-');
-        setReportDate(dateStr);
-      } else {
-        // Default to today
+      // Default to today if no date
+      if (!reportDate) {
         setReportDate(new Date().toISOString().split('T')[0]);
       }
+      
+      // Automatically start extraction
+      await extractDataFromFile(file);
     } else {
       toast.error('Please select a PDF file');
     }
   };
 
-  const handleExtractData = async () => {
-    if (!selectedFile) return;
-    
+  const extractDataFromFile = async (file) => {
     setIsExtracting(true);
     try {
       // Upload the file first
-      const { file_url } = await base44.integrations.Core.UploadFile({ file: selectedFile });
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
       
       // Use AI to inspect and extract data from the PDF
       const result = await base44.integrations.Core.InvokeLLM({
@@ -229,7 +199,7 @@ Convert all dates to YYYY-MM-DD format.`,
         if (data.report_period_end) {
           setPeriodEnd(data.report_period_end);
         }
-        if (data.report_date && !reportDate) {
+        if (data.report_date) {
           setReportDate(data.report_date);
         }
         
@@ -241,6 +211,8 @@ Convert all dates to YYYY-MM-DD format.`,
       setIsExtracting(false);
     }
   };
+
+
 
   const handleSaveReport = async () => {
     if (!selectedCustomer || !reportDate) {
@@ -439,7 +411,7 @@ Convert all dates to YYYY-MM-DD format.`,
 
       {/* Upload Modal */}
       <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
-        <DialogContent className="max-w-lg z-[100]">
+        <DialogContent className="max-w-lg" style={{ zIndex: 9999 }}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Upload className="w-5 h-5 text-orange-600" />
@@ -453,7 +425,7 @@ Convert all dates to YYYY-MM-DD format.`,
                 <SelectTrigger className="mt-1.5">
                   <SelectValue placeholder="Select customer..." />
                 </SelectTrigger>
-                <SelectContent className="z-[200]">
+                <SelectContent style={{ zIndex: 10000 }}>
                   {customers.map(customer => (
                     <SelectItem key={customer.id} value={customer.id}>
                       {customer.name}
@@ -528,25 +500,11 @@ Convert all dates to YYYY-MM-DD format.`,
               </div>
             </div>
 
-            {selectedFile && !extractedData && (
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={handleExtractData}
-                disabled={isExtracting}
-              >
-                {isExtracting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Extracting data...
-                  </>
-                ) : (
-                  <>
-                    <FileText className="w-4 h-4 mr-2" />
-                    Extract Data from PDF
-                  </>
-                )}
-              </Button>
+            {isExtracting && (
+              <div className="flex items-center justify-center gap-2 py-3 text-slate-600">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm">Extracting data from PDF...</span>
+              </div>
             )}
 
             {extractedData && (
