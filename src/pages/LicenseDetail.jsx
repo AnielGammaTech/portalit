@@ -603,7 +603,7 @@ export default function LicenseDetail() {
             )}
           </div>
 
-          {/* Combined Cost Summary - Enhanced */}
+          {/* Combined Cost Summary */}
           <div className="bg-gradient-to-br from-slate-700 to-slate-800 rounded-xl p-4 text-white">
             <div className="flex items-center justify-between mb-3">
               <div>
@@ -612,8 +612,8 @@ export default function LicenseDetail() {
               </div>
               <div className="text-right text-xs text-slate-300">
                 <p className="font-medium text-white">{managedAssignments.length + individualAssignments.length} users</p>
-                {managedLicense && <p>Managed: ${(managedLicense.total_cost || 0).toLocaleString()}</p>}
-                {individualLicense && <p>Individual: ${individualTotalCost.toLocaleString()}</p>}
+                {managedLicenses.length > 0 && <p>Managed: ${totalManagedCost.toLocaleString()}</p>}
+                {individualLicenses.length > 0 && <p>Individual: ${individualTotalCost.toLocaleString()}</p>}
               </div>
             </div>
 
@@ -629,7 +629,7 @@ export default function LicenseDetail() {
               </div>
               <div>
                 <p className="text-lg font-semibold">
-                  {managedLicense ? `${managedUtilizationPercent.toFixed(0)}%` : '—'}
+                  {managedLicenses.length > 0 ? `${managedUtilizationPercent.toFixed(0)}%` : '—'}
                 </p>
                 <p className="text-xs text-slate-400">Utilization</p>
               </div>
@@ -642,113 +642,57 @@ export default function LicenseDetail() {
             </div>
           </div>
 
-          {/* Managed License Card - Collapsible */}
-          {managedLicense && (
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-              <button 
-                onClick={() => setManagedExpanded(!managedExpanded)}
-                className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <Building2 className="w-4 h-4 text-blue-600" />
-                  <div className="text-left">
-                    <p className="font-medium text-slate-900 text-sm">Managed License</p>
-                    <p className="text-xs text-slate-500">{managedAssignments.length}/{managedLicense.quantity || 0} seats • ${(managedLicense.total_cost || 0).toLocaleString()}/mo</p>
-                  </div>
+          {/* License Summary Cards */}
+          {managedLicenses.length > 0 && (
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <Building2 className="w-4 h-4 text-blue-600" />
+                <div>
+                  <p className="font-medium text-slate-900 text-sm">Managed Licenses</p>
+                  <p className="text-xs text-slate-500">{managedLicenses.length} type{managedLicenses.length !== 1 ? 's' : ''} • {managedAssignments.length}/{totalManagedSeats} seats</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                    <div 
-                      className={cn(
-                        "h-full rounded-full",
-                        managedUtilizationPercent >= 90 ? "bg-emerald-500" :
-                        managedUtilizationPercent >= 50 ? "bg-amber-500" : "bg-red-500"
-                      )}
-                      style={{ width: `${Math.min(100, managedUtilizationPercent)}%` }}
-                    />
-                  </div>
-                  {managedExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-                </div>
-              </button>
-              
-              {managedExpanded && (
-                <div className="px-4 pb-4 pt-2 border-t border-slate-100 space-y-3">
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Available</span>
-                      <span className={cn("font-medium", managedUnusedSeats > 0 ? "text-amber-600" : "text-slate-900")}>{managedUnusedSeats}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Billing</span>
-                      <span className="font-medium text-slate-900 capitalize">{managedLicense.billing_cycle || 'Monthly'}</span>
-                    </div>
-                    {managedLicense.renewal_date && (
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">Renewal</span>
-                        <span className={cn("font-medium", managedDaysUntilRenewal !== null && managedDaysUntilRenewal <= 30 ? "text-amber-600" : "text-slate-900")}>
-                          {format(parseISO(managedLicense.renewal_date), 'MMM d, yyyy')}
-                        </span>
-                      </div>
-                    )}
-                    {managedLicense.card_last_four && (
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">Card</span>
-                        <span className="font-medium text-slate-900">•••• {managedLicense.card_last_four}</span>
-                      </div>
-                    )}
-                  </div>
-                  {managedWastedCost > 0 && (
-                    <p className="text-xs text-red-500">~${managedWastedCost.toFixed(0)}/mo unused</p>
+              </div>
+              <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                <div 
+                  className={cn(
+                    "h-full rounded-full",
+                    managedUtilizationPercent >= 90 ? "bg-emerald-500" :
+                    managedUtilizationPercent >= 50 ? "bg-amber-500" : "bg-red-500"
                   )}
-                </div>
+                  style={{ width: `${Math.min(100, managedUtilizationPercent)}%` }}
+                />
+              </div>
+              {managedWastedCost > 0 && (
+                <p className="text-xs text-amber-600 mt-2">~${managedWastedCost.toFixed(0)}/mo in unused seats</p>
               )}
             </div>
           )}
 
-          {/* Individual Licenses Card - Collapsible */}
-          {individualLicense && (
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-              <button 
-                onClick={() => setIndividualExpanded(!individualExpanded)}
-                className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <User className="w-4 h-4 text-teal-600" />
-                  <div className="text-left">
-                    <p className="font-medium text-slate-900 text-sm">Individual Licenses</p>
-                    <p className="text-xs text-slate-500">{individualAssignments.length} license{individualAssignments.length !== 1 ? 's' : ''} • ${individualTotalCost.toLocaleString()}/mo</p>
-                  </div>
+          {individualLicenses.length > 0 && (
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <User className="w-4 h-4 text-emerald-600" />
+                <div>
+                  <p className="font-medium text-slate-900 text-sm">Individual Licenses</p>
+                  <p className="text-xs text-slate-500">{individualAssignments.length} license{individualAssignments.length !== 1 ? 's' : ''} • ${individualTotalCost.toLocaleString()}/mo</p>
                 </div>
-                {individualExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-              </button>
-              
-              {individualExpanded && (
-                <div className="px-4 pb-4 pt-2 border-t border-slate-100 space-y-3">
-                  <div className="grid grid-cols-3 gap-3 text-xs">
-                    <div className="bg-slate-50 rounded-lg p-2 text-center">
-                      <p className="font-semibold text-slate-900">
-                        ${individualAssignments.length > 0 
-                          ? (individualTotalCost / individualAssignments.length).toFixed(0) 
-                          : '0'}
-                      </p>
-                      <p className="text-slate-500">Avg Cost</p>
-                    </div>
-                    <div className="bg-slate-50 rounded-lg p-2 text-center">
-                      <p className="font-semibold text-slate-900">
-                        {individualAssignments.filter(a => a.renewal_date).length}
-                      </p>
-                      <p className="text-slate-500">With Renewal</p>
-                    </div>
-                    <div className="bg-slate-50 rounded-lg p-2 text-center">
-                      <p className="font-semibold text-slate-900">
-                        {individualAssignments.filter(a => a.card_last_four).length}
-                      </p>
-                      <p className="text-slate-500">With Payment</p>
-                    </div>
-                  </div>
-                  <p className="text-xs text-slate-400">Each user has their own license with individual billing and renewal dates.</p>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div className="bg-slate-50 rounded-lg p-2 text-center">
+                  <p className="font-semibold text-slate-900">
+                    ${individualAssignments.length > 0 ? (individualTotalCost / individualAssignments.length).toFixed(0) : '0'}
+                  </p>
+                  <p className="text-slate-500">Avg</p>
                 </div>
-              )}
+                <div className="bg-slate-50 rounded-lg p-2 text-center">
+                  <p className="font-semibold text-slate-900">{individualAssignments.filter(a => a.renewal_date).length}</p>
+                  <p className="text-slate-500">Renewals</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg p-2 text-center">
+                  <p className="font-semibold text-slate-900">{individualAssignments.filter(a => a.card_last_four).length}</p>
+                  <p className="text-slate-500">Cards</p>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1178,7 +1122,7 @@ export default function LicenseDetail() {
                                 </div>
                                 <div className="flex items-center gap-3 text-xs">
                                   {assignment.license_type && <span className="text-emerald-600 font-medium">{assignment.license_type}</span>}
-                                  <span className="text-slate-500">${assignment.cost_per_license || individualLicense?.cost_per_license || 0}/mo</span>
+                                  <span className="text-slate-500">${assignment.cost_per_license || 0}/mo</span>
                                   {assignment.renewal_date && (
                                     <div className={cn(
                                       "flex items-center gap-1.5 px-2 py-1 rounded-md",
@@ -1262,14 +1206,11 @@ export default function LicenseDetail() {
       <LicenseAssignmentModal
         open={showAssignModal}
         onClose={() => { setShowAssignModal(false); setSelectedManagedLicenseId(null); }}
-        license={selectedManagedLicenseId ? relatedLicenses.find(l => l.id === selectedManagedLicenseId) : managedLicense}
+        license={getSelectedManagedLicense()}
         contacts={contacts}
         assignments={allAssignments}
         onAssign={handleAssign}
         onRevoke={handleRevoke}
-        onAddIndividualLicense={handleAddIndividualLicense}
-        allLicenseAssignments={allAssignments}
-        individualLicenseId={individualLicense?.id}
       />
 
       {/* Edit Modal */}
@@ -1456,64 +1397,86 @@ export default function LicenseDetail() {
       </Dialog>
 
       {/* Modify Seats Modal */}
-      <Dialog open={showModifySeatsModal} onOpenChange={setShowModifySeatsModal}>
+      <Dialog open={showModifySeatsModal} onOpenChange={(open) => {
+        setShowModifySeatsModal(open);
+        if (!open) {
+          setSelectedManagedLicenseId(null);
+          setSeatChange(0);
+        }
+      }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Modify Managed License Seats</DialogTitle>
+            <DialogTitle>Modify License Seats</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-500">Current Seats</span>
-              <span className="font-medium">{managedLicense?.quantity || 0}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-500">Assigned</span>
-              <span className="font-medium text-blue-600">{managedAssignments.length}</span>
-            </div>
-            <div>
-              <label className="text-sm text-slate-500 block mb-2">Adjust Seats</label>
-              <div className="flex items-center gap-3">
-                <Button 
-                  variant="outline" 
-                  size="icon"
-                  onClick={() => setSeatChange(prev => prev - 1)}
-                  disabled={(managedLicense?.quantity || 0) + seatChange <= managedAssignments.length}
-                >
-                  -
-                </Button>
-                <Input
-                  type="number"
-                  value={seatChange}
-                  onChange={(e) => setSeatChange(parseInt(e.target.value) || 0)}
-                  className="text-center w-20"
-                />
-                <Button 
-                  variant="outline" 
-                  size="icon"
-                  onClick={() => setSeatChange(prev => prev + 1)}
-                >
-                  +
-                </Button>
+          {(() => {
+            const targetLicense = getSelectedManagedLicense();
+            const licenseAssignments = targetLicense ? getAssignmentsForLicense(targetLicense.id) : [];
+            const currentQuantity = targetLicense?.quantity || 0;
+            const assignedCount = licenseAssignments.length;
+            const costPerLicense = targetLicense?.cost_per_license || 0;
+            
+            return (
+              <div className="space-y-4 py-4">
+                {targetLicense?.license_type && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-500">License Type</span>
+                    <Badge className="bg-blue-100 text-blue-700">{targetLicense.license_type}</Badge>
+                  </div>
+                )}
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-500">Current Seats</span>
+                  <span className="font-medium">{currentQuantity}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-500">Assigned</span>
+                  <span className="font-medium text-blue-600">{assignedCount}</span>
+                </div>
+                <div>
+                  <label className="text-sm text-slate-500 block mb-2">Adjust Seats</label>
+                  <div className="flex items-center gap-3">
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      onClick={() => setSeatChange(prev => prev - 1)}
+                      disabled={currentQuantity + seatChange <= assignedCount}
+                    >
+                      -
+                    </Button>
+                    <Input
+                      type="number"
+                      value={seatChange}
+                      onChange={(e) => setSeatChange(parseInt(e.target.value) || 0)}
+                      className="text-center w-20"
+                    />
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      onClick={() => setSeatChange(prev => prev + 1)}
+                    >
+                      +
+                    </Button>
+                  </div>
+                  {seatChange < 0 && currentQuantity + seatChange < assignedCount && (
+                    <p className="text-xs text-red-500 mt-2">Cannot reduce below assigned seats ({assignedCount})</p>
+                  )}
+                </div>
+                <div className="flex items-center justify-between text-sm pt-2 border-t">
+                  <span className="text-slate-500">New Total</span>
+                  <span className="font-bold text-lg">{Math.max(assignedCount, currentQuantity + seatChange)}</span>
+                </div>
+                {costPerLicense > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-500">New Monthly Cost</span>
+                    <span className={cn("font-medium", seatChange < 0 ? "text-green-600" : "text-blue-600")}>
+                      ${(Math.max(assignedCount, currentQuantity + seatChange) * costPerLicense).toLocaleString()}/mo
+                    </span>
+                  </div>
+                )}
               </div>
-              {seatChange < 0 && (managedLicense?.quantity || 0) + seatChange < managedAssignments.length && (
-                <p className="text-xs text-red-500 mt-2">Cannot reduce below assigned seats ({managedAssignments.length})</p>
-              )}
-            </div>
-            <div className="flex items-center justify-between text-sm pt-2 border-t">
-              <span className="text-slate-500">New Total</span>
-              <span className="font-bold text-lg">{Math.max(managedAssignments.length, (managedLicense?.quantity || 0) + seatChange)}</span>
-            </div>
-            {managedLicense?.cost_per_license > 0 && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-500">New Monthly Cost</span>
-                <span className={cn("font-medium", seatChange < 0 ? "text-green-600" : "text-blue-600")}>
-                  ${(Math.max(managedAssignments.length, (managedLicense?.quantity || 0) + seatChange) * managedLicense.cost_per_license).toLocaleString()}/mo
-                </span>
-              </div>
-            )}
-          </div>
+            );
+          })()}
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => { setShowModifySeatsModal(false); setSeatChange(0); }}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setShowModifySeatsModal(false); setSelectedManagedLicenseId(null); setSeatChange(0); }}>Cancel</Button>
             <Button 
               onClick={handleModifySeats} 
               disabled={seatChange === 0}
