@@ -176,10 +176,10 @@ export default function AddIndividualLicenseModal({ open, onClose, onSave, softw
             <Button 
               type="submit" 
               className="bg-emerald-600 hover:bg-emerald-700 gap-2"
-              disabled={!form.contact_id}
+              disabled={!form.contact_id || isSaving}
             >
-              <User className="w-4 h-4" />
-              Add License
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <User className="w-4 h-4" />}
+              {isSaving ? 'Saving...' : 'Add License'}
             </Button>
           </div>
         </form>
