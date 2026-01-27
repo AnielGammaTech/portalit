@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import AddUserLicenseModal from '../components/saas/AddUserLicenseModal';
+
 import AddManagedLicenseModal from '../components/saas/AddManagedLicenseModal';
 import AddIndividualLicenseModal from '../components/saas/AddIndividualLicenseModal';
 import { Button } from "@/components/ui/button";
@@ -1258,17 +1258,7 @@ export default function LicenseDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Add User License Wizard */}
-      <AddUserLicenseModal
-        open={showAddUserLicense}
-        onClose={() => setShowAddUserLicense(false)}
-        license={software}
-        contacts={contacts}
-        onComplete={() => {
-          queryClient.invalidateQueries({ queryKey: ['license_assignments', licenseId] });
-          queryClient.invalidateQueries({ queryKey: ['license', licenseId] });
-        }}
-      />
+
 
       {/* Add Managed License Modal */}
       <AddManagedLicenseModal
