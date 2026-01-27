@@ -6,8 +6,7 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import Breadcrumbs from '../components/ui/breadcrumbs';
 import { 
-  ArrowLeft, Cloud, Users, DollarSign, Calendar, 
-  Edit2, Trash2, Plus, CheckCircle2, AlertCircle,
+  ArrowLeft, Cloud, Calendar, Edit2, Trash2, Plus,
   Globe, Building2, RefreshCw, CreditCard, User,
   ChevronDown, ChevronUp, MoreVertical
 } from 'lucide-react';
