@@ -295,8 +295,6 @@ export default function LicenseDetail() {
 
   const handleAddIndividualLicense = async (data) => {
     const contact = contacts.find(c => c.id === data.contact_id);
-    setShowAddIndividualLicense(false);
-    toast.success(`License added for ${contact?.full_name || 'user'}!`);
     
     // Find existing per_user license or create one
     let perUserLicense = individualLicenses[0];
@@ -329,6 +327,10 @@ export default function LicenseDetail() {
     });
     
     queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
+    
+    // Close modal and show success AFTER save completes
+    setShowAddIndividualLicense(false);
+    toast.success(`License added for ${contact?.full_name || 'user'}!`);
   };
 
   const handleAddManagedLicense = async (data) => {
