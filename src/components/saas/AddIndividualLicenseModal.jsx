@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { User } from 'lucide-react';
+import { User, Loader2 } from 'lucide-react';
 
 export default function AddIndividualLicenseModal({ open, onClose, onSave, softwareName, contacts = [] }) {
   const [form, setForm] = useState({
@@ -16,24 +16,39 @@ export default function AddIndividualLicenseModal({ open, onClose, onSave, softw
     card_last_four: '',
     notes: ''
   });
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Reset form when modal opens
+  useEffect(() => {
+    if (open) {
+      setForm({
+        contact_id: '',
+        license_type: '',
+        cost_per_license: 0,
+        billing_cycle: 'monthly',
+        renewal_date: '',
+        card_last_four: '',
+        notes: ''
+      });
+      setIsSaving(false);
+    }
+  }, [open]);
 
   const selectedContact = contacts.find(c => c.id === form.contact_id);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSave({
-      ...form,
-      contact_name: selectedContact?.full_name || ''
-    });
-    setForm({
-      contact_id: '',
-      license_type: '',
-      cost_per_license: 0,
-      billing_cycle: 'monthly',
-      renewal_date: '',
-      card_last_four: '',
-      notes: ''
-    });
+    if (isSaving) return; // Prevent double submit
+    
+    setIsSaving(true);
+    try {
+      await onSave({
+        ...form,
+        contact_name: selectedContact?.full_name || ''
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
