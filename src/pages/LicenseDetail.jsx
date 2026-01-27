@@ -55,27 +55,34 @@ export default function LicenseDetail() {
   const licenseId = params.get('id');
   const appId = params.get('appId'); // For catalog-only entries
   const queryClient = useQueryClient();
+  // UI State
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [syncingUsers, setSyncingUsers] = useState(false);
   const [showModifySeatsModal, setShowModifySeatsModal] = useState(false);
-  const [seatChange, setSeatChange] = useState(0);
-  const [showAddUserLicense, setShowAddUserLicense] = useState(false);
   const [showAddManagedLicense, setShowAddManagedLicense] = useState(false);
   const [showAddIndividualLicense, setShowAddIndividualLicense] = useState(false);
-  const [selectedContact, setSelectedContact] = useState(null);
-  const [editingAssignment, setEditingAssignment] = useState(null);
-  const [managedExpanded, setManagedExpanded] = useState(true);
-  const [individualExpanded, setIndividualExpanded] = useState(true);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showRenewalModal, setShowRenewalModal] = useState(false);
+  
+  // Section expansion
   const [managedSectionExpanded, setManagedSectionExpanded] = useState(true);
   const [individualSectionExpanded, setIndividualSectionExpanded] = useState(true);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [showRenewalModal, setShowRenewalModal] = useState(false);
+  
+  // Selected items for modals
+  const [selectedManagedLicenseId, setSelectedManagedLicenseId] = useState(null);
+  const [selectedContact, setSelectedContact] = useState(null);
+  const [editingAssignment, setEditingAssignment] = useState(null);
   const [renewalLicense, setRenewalLicense] = useState(null);
   const [renewalAssignment, setRenewalAssignment] = useState(null);
+  
+  // Form state
+  const [seatChange, setSeatChange] = useState(0);
   const [renewalBillingCycle, setRenewalBillingCycle] = useState('annually');
   const [renewalDate, setRenewalDate] = useState('');
+  
+  // Loading state
+  const [syncingUsers, setSyncingUsers] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch Application catalog entry (for catalog-only software)
   const { data: application, isLoading: loadingApplication } = useQuery({
@@ -138,13 +145,9 @@ export default function LicenseDetail() {
     initialData: license && !software?._isApplication ? [license] : undefined
   });
 
-  // Separate managed and individual licenses - support multiple of each type
+  // Separate managed and individual licenses
   const managedLicenses = relatedLicenses.filter(l => l.management_type === 'managed');
   const individualLicenses = relatedLicenses.filter(l => l.management_type === 'per_user');
-  
-  // For backwards compatibility
-  const managedLicense = managedLicenses[0];
-  const individualLicense = individualLicenses[0];
 
   const { data: contacts = [] } = useQuery({
     queryKey: ['contacts', software?.customer_id],
@@ -192,12 +195,9 @@ export default function LicenseDetail() {
     individualLicenses.some(l => l.id === a.license_id) && a.status === 'active'
   );
   
-  // Group assignments by license for display
+  // Get assignments for a specific license
   const getAssignmentsForLicense = (licenseId) => 
     allAssignments.filter(a => a.license_id === licenseId && a.status === 'active');
-
-  // Keep backwards compatibility
-  const assignments = allAssignments;
 
   // Redirect to Customer detail if no license/app id or not found
   useEffect(() => {
@@ -211,12 +211,7 @@ export default function LicenseDetail() {
     }
   }, [licenseId, appId, loadingLicense, loadingApplication, software]);
 
-  const activeAssignments = assignments.filter(a => a.status === 'active');
-  const isPerUser = license?.management_type === 'per_user';
   const isCatalogOnly = software?._isApplication && relatedLicenses.length === 0;
-  
-  // Check if we have both license types for this software
-  const hasBothTypes = !!managedLicense && !!individualLicense;
   
   // Managed license stats - aggregate across all managed licenses
   const totalManagedSeats = managedLicenses.reduce((sum, l) => sum + (l.quantity || 0), 0);
@@ -226,31 +221,26 @@ export default function LicenseDetail() {
   const managedUnusedSeats = totalManagedSeats - managedAssignments.length;
   const managedWastedCost = totalManagedSeats > 0 
     ? (managedUnusedSeats / totalManagedSeats) * totalManagedCost : 0;
-  const managedDaysUntilRenewal = managedLicense?.renewal_date 
-    ? differenceInDays(parseISO(managedLicense.renewal_date), new Date()) : null;
   
-  // Individual license stats
-  const individualTotalCost = individualAssignments.reduce(
-    (sum, a) => sum + (a.cost_per_license || individualLicense?.cost_per_license || 0), 0
-  );
-  
-  // Legacy calculations for single license view
-  const utilizationPercent = license?.quantity > 0 ? (activeAssignments.filter(a => a.license_id === license.id).length / license.quantity) * 100 : 0;
-  const unusedSeats = isPerUser ? Infinity : ((license?.quantity || 0) - activeAssignments.filter(a => a.license_id === license.id).length);
-  const wastedCost = !isPerUser && license?.quantity > 0 ? (unusedSeats / license.quantity) * (license?.total_cost || 0) : 0;
-  const daysUntilRenewal = license?.renewal_date ? differenceInDays(parseISO(license.renewal_date), new Date()) : null;
-  
-  // For per-user licenses, calculate total from individual assignments
-  const perUserTotalCost = isPerUser ? activeAssignments.filter(a => a.license_id === license.id).reduce((sum, a) => sum + (a.cost_per_license || license?.cost_per_license || 0), 0) : 0;
+  // Individual license stats - sum costs from each assignment
+  const individualTotalCost = individualAssignments.reduce((sum, a) => {
+    const parentLicense = individualLicenses.find(l => l.id === a.license_id);
+    return sum + (a.cost_per_license || parentLicense?.cost_per_license || 0);
+  }, 0);
   
   // Combined total cost
   const combinedTotalCost = totalManagedCost + individualTotalCost;
   
-  // State for which managed license to assign to
-  const [selectedManagedLicenseId, setSelectedManagedLicenseId] = useState(null);
+  // Get selected license for modals
+  const getSelectedManagedLicense = () => 
+    selectedManagedLicenseId ? relatedLicenses.find(l => l.id === selectedManagedLicenseId) : null;
 
   const handleAssign = async (contactId, targetLicenseId = null) => {
-    const licenseToAssign = targetLicenseId || selectedManagedLicenseId || managedLicense?.id || licenseId;
+    const licenseToAssign = targetLicenseId || selectedManagedLicenseId;
+    if (!licenseToAssign) {
+      toast.error('No license selected');
+      return;
+    }
     
     // Check if user is already assigned to this license
     const existingAssignment = allAssignments.find(a => 
@@ -305,30 +295,12 @@ export default function LicenseDetail() {
   };
 
   const handleAddIndividualLicense = async (data) => {
-    // Optimistic update
     const contact = contacts.find(c => c.id === data.contact_id);
-    const newAssignment = {
-      id: `temp-${Date.now()}`,
-      license_id: individualLicense?.id || `temp-license-${Date.now()}`,
-      contact_id: data.contact_id,
-      customer_id: software.customer_id,
-      assigned_date: new Date().toISOString().split('T')[0],
-      status: 'active',
-      renewal_date: data.renewal_date,
-      card_last_four: data.card_last_four,
-      cost_per_license: data.cost_per_license,
-      license_type: data.license_type
-    };
-    
-    queryClient.setQueryData(['all_license_assignments', software?.application_name, software?.customer_id], (old) => 
-      old ? [...old, newAssignment] : [newAssignment]
-    );
-    
     setShowAddIndividualLicense(false);
     toast.success(`License added for ${contact?.full_name || 'user'}!`);
     
-    // First, find or create per_user license for this software
-    let perUserLicense = individualLicense;
+    // Find existing per_user license or create one
+    let perUserLicense = individualLicenses[0];
     
     if (!perUserLicense) {
       perUserLicense = await base44.entities.SaaSLicense.create({
@@ -446,22 +418,30 @@ export default function LicenseDetail() {
       };
 
   const handleModifySeats = async () => {
-        if (!managedLicense || seatChange === 0) return;
-        const newQuantity = Math.max(managedAssignments.length, (managedLicense.quantity || 0) + seatChange);
-        const newTotalCost = newQuantity * (managedLicense.cost_per_license || 0);
-        await base44.entities.SaaSLicense.update(managedLicense.id, { 
-          quantity: newQuantity,
-          total_cost: newTotalCost
-        });
-        queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
-        queryClient.invalidateQueries({ queryKey: ['license', licenseId] });
-        setShowModifySeatsModal(false);
-        setSeatChange(0);
-        toast.success(`Seats updated to ${newQuantity}!`);
-      };
+    const targetLicense = getSelectedManagedLicense();
+    if (!targetLicense || seatChange === 0) return;
+    
+    const licenseAssignments = getAssignmentsForLicense(targetLicense.id);
+    const newQuantity = Math.max(licenseAssignments.length, (targetLicense.quantity || 0) + seatChange);
+    const newTotalCost = newQuantity * (targetLicense.cost_per_license || 0);
+    
+    await base44.entities.SaaSLicense.update(targetLicense.id, { 
+      quantity: newQuantity,
+      total_cost: newTotalCost
+    });
+    
+    queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
+    setShowModifySeatsModal(false);
+    setSelectedManagedLicenseId(null);
+    setSeatChange(0);
+    toast.success(`Seats updated to ${newQuantity}!`);
+  };
 
-  const isJumpCloudLicense = license?.source === 'jumpcloud' || software?.vendor?.toLowerCase() === 'jumpcloud';
-  const isSpanningLicense = license?.source === 'spanning' || software?.vendor?.toLowerCase()?.includes('spanning');
+  // Check if any license is from JumpCloud or Spanning for sync options
+  const isJumpCloudLicense = relatedLicenses.some(l => l.source === 'jumpcloud') || 
+    software?.vendor?.toLowerCase() === 'jumpcloud';
+  const isSpanningLicense = relatedLicenses.some(l => l.source === 'spanning') || 
+    software?.vendor?.toLowerCase()?.includes('spanning');
 
   const syncJumpCloudUsers = async () => {
     setSyncingUsers(true);
