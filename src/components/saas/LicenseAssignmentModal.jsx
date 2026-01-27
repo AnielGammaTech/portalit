@@ -30,9 +30,9 @@ export default function LicenseAssignmentModal({
   
   const isPerUser = license?.management_type === 'per_user';
   
-  const assignedContactIds = assignments
-    .filter(a => a.license_id === license?.id && a.status === 'active')
-    .map(a => a.contact_id);
+  const assignedContactIds = license ? assignments
+    .filter(a => a.license_id === license.id && a.status === 'active')
+    .map(a => a.contact_id) : [];
   
   const filteredContacts = contacts.filter(c => 
     c.full_name?.toLowerCase().includes(search.toLowerCase()) ||
