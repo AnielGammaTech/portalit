@@ -72,6 +72,13 @@ export default function Adminland() {
     loadUser();
   }, []);
 
+  // Fetch recently viewed/updated customers
+  const { data: recentCustomers = [] } = useQuery({
+    queryKey: ['recent_customers'],
+    queryFn: () => base44.entities.Customer.list('-updated_date', 5),
+    enabled: user?.role === 'admin'
+  });
+
   if (user?.role !== 'admin') {
     return null;
   }
