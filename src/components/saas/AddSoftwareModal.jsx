@@ -317,14 +317,24 @@ Return JSON with:
 
           {/* Application Name */}
           <div>
-            <Label>Software Name *</Label>
-            <Input
-              value={form.application_name}
-              onChange={(e) => setForm({ ...form, application_name: e.target.value })}
-              placeholder="e.g., Adobe Creative Cloud, Slack"
-              required
-              className="mt-1"
-            />
+            <Label className="flex items-center gap-2">
+              Software Name *
+              <span className="text-xs text-gray-400 font-normal">(auto-lookup on blur)</span>
+            </Label>
+            <div className="relative mt-1">
+              <Input
+                value={form.application_name}
+                onChange={(e) => setForm({ ...form, application_name: e.target.value })}
+                onBlur={handleNameBlur}
+                placeholder="e.g., Adobe Creative Cloud, Slack"
+                required
+              />
+              {isLoadingInfo && !form.website_url && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <Loader2 className="w-4 h-4 text-purple-500 animate-spin" />
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Website URL */}
