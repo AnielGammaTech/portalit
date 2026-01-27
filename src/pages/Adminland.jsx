@@ -179,6 +179,46 @@ export default function Adminland() {
           </div>
         ))}
       </div>
+
+      {/* Recent Customers */}
+      {recentCustomers.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-slate-400" />
+              Recent Customers
+            </h2>
+            <Link 
+              to={createPageUrl('Customers')} 
+              className="text-sm text-purple-600 hover:text-purple-700 font-medium"
+            >
+              View All
+            </Link>
+          </div>
+          <div className="space-y-1">
+            {recentCustomers.map((customer) => (
+              <Link
+                key={customer.id}
+                to={createPageUrl(`CustomerDetail?id=${customer.id}`)}
+                className="flex items-center gap-3 p-3 -mx-3 rounded-xl hover:bg-slate-50 transition-colors"
+              >
+                <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center">
+                  {customer.logo_url ? (
+                    <img src={customer.logo_url} alt="" className="w-6 h-6 object-contain rounded" />
+                  ) : (
+                    <Building2 className="w-5 h-5 text-purple-600" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-slate-900">{customer.name}</p>
+                  <p className="text-sm text-slate-500">{customer.email || 'No email'}</p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-slate-400" />
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
