@@ -47,7 +47,61 @@ export default function AddSoftwareModal({ open, onClose, onSave, customerId }) 
     }
   }, [open]);
 
-  const fetchAppInfo = async (url) => {
+  const fetchAppInfoByName = async (name) => {
+    if (!name || name.length < 2) return;
+    setIsLoadingInfo(true);
+    
+    try {
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt: `Research this software/SaaS application by name: "${name}"
+        
+Find information about this application. Search for the official website and details.
+
+Return JSON with:
+- name: The official application name
+- vendor: The company that makes it
+- website: The official website URL (just domain like "slack.com" or "adobe.com")
+- description: A brief 1-2 sentence description of what the app does
+- category: One of: productivity, security, backup, collaboration, crm, finance, hr, marketing, development, other`,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            vendor: { type: "string" },
+            website: { type: "string" },
+            description: { type: "string" },
+            category: { type: "string" }
+          }
+        },
+        add_context_from_internet: true
+      });
+
+      if (result) {
+        const updates = {
+          application_name: result.name || name,
+          vendor: result.vendor || '',
+          notes: result.description || '',
+          category: result.category || 'other'
+        };
+        
+        if (result.website) {
+          let domain = result.website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+          updates.website_url = domain;
+          // Also fetch logo for the discovered website
+          const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+          updates.logo_url = faviconUrl;
+        }
+        
+        setForm(prev => ({ ...prev, ...updates }));
+      }
+    } catch (error) {
+      console.log('Could not fetch app info:', error);
+    } finally {
+      setIsLoadingInfo(false);
+    }
+  };
+
+  const fetchAppInfoByUrl = async (url) => {
     if (!url || url.length < 5) return;
     setIsLoadingLogo(true);
     setIsLoadingInfo(true);
@@ -57,7 +111,7 @@ export default function AddSoftwareModal({ open, onClose, onSave, customerId }) 
       if (url.includes('://')) {
         domain = url.split('://')[1];
       }
-      domain = domain.split('/')[0];
+      domain = domain.replace(/^www\./, '').split('/')[0];
       
       const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
       setForm(prev => ({ ...prev, logo_url: faviconUrl }));
@@ -72,7 +126,7 @@ Return JSON with:
 - name: The official application name
 - vendor: The company that makes it
 - description: A brief 1-2 sentence description of what the app does
-- category: One of: productivity, security, collaboration, crm, finance, hr, marketing, development, other`,
+- category: One of: productivity, security, backup, collaboration, crm, finance, hr, marketing, development, other`,
         response_json_schema: {
           type: "object",
           properties: {
@@ -102,10 +156,71 @@ Return JSON with:
     }
   };
 
+  const fetchLogoOnly = async () => {
+    const url = form.website_url || form.application_name;
+    if (!url) return;
+    
+    setIsLoadingLogo(true);
+    try {
+      // First try Brandfetch for high-quality logos
+      let domain = url;
+      if (url.includes('://')) {
+        domain = url.split('://')[1];
+      }
+      domain = domain.replace(/^www\./, '').split('/')[0];
+      
+      // If no dots, it might be just a name - try to find the domain
+      if (!domain.includes('.')) {
+        const result = await base44.integrations.Core.InvokeLLM({
+          prompt: `What is the official website domain for the software/company "${url}"? Return just the domain like "slack.com" or "adobe.com"`,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              domain: { type: "string" }
+            }
+          },
+          add_context_from_internet: true
+        });
+        if (result?.domain) {
+          domain = result.domain.replace(/^www\./, '');
+          setForm(prev => ({ ...prev, website_url: domain }));
+        }
+      }
+      
+      // Try Brandfetch first
+      const brandfetchUrl = `https://cdn.brandfetch.io/${domain}/w/400/h/400/theme/dark/icon.png`;
+      
+      // Test if Brandfetch works by creating an image
+      const img = new window.Image();
+      img.onload = () => {
+        setForm(prev => ({ ...prev, logo_url: brandfetchUrl }));
+        setIsLoadingLogo(false);
+      };
+      img.onerror = () => {
+        // Fallback to Google favicon
+        const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+        setForm(prev => ({ ...prev, logo_url: faviconUrl }));
+        setIsLoadingLogo(false);
+      };
+      img.src = brandfetchUrl;
+    } catch (error) {
+      console.log('Could not fetch logo:', error);
+      setIsLoadingLogo(false);
+    }
+  };
+
+  const handleNameBlur = () => {
+    const name = form.application_name;
+    // Only auto-fetch if we don't have website/vendor already
+    if (name && name.length >= 2 && !form.website_url && !form.vendor) {
+      fetchAppInfoByName(name);
+    }
+  };
+
   const handleWebsiteBlur = () => {
     const url = form.website_url;
     if (url && url.includes('.') && url.length > 5) {
-      fetchAppInfo(url);
+      fetchAppInfoByUrl(url);
     }
   };
 
