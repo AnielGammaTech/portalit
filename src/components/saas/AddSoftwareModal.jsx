@@ -301,6 +301,17 @@ Return JSON with:
                     </span>
                   </Button>
                 </label>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={fetchLogoOnly}
+                  disabled={isLoadingLogo || (!form.application_name && !form.website_url)}
+                  className="gap-1"
+                >
+                  {isLoadingLogo ? <Loader2 className="w-3 h-3 animate-spin" /> : <Globe className="w-3 h-3" />}
+                  Auto
+                </Button>
                 {form.logo_url && (
                   <Button 
                     type="button" 
