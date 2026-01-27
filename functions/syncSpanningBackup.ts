@@ -279,7 +279,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Sync licenses (also syncs users/contacts)
+    // Sync licenses (contacts only, no SaaS license auto-creation)
     if (action === 'sync_licenses') {
       if (!customer_id) {
         return Response.json({ error: 'customer_id is required' }, { status: 400 });
@@ -296,7 +296,7 @@ Deno.serve(async (req) => {
       const allDomains = await unitrendsApiCall('/v2/spanning/domains?page_size=500');
       const domainInfo = allDomains.find(d => d.id === mapping.spanning_tenant_id);
       
-      // Extract counts for each license type
+      // Extract counts for each license type (for display only)
       const standardLicenses = domainInfo?.numberOfStandardLicensesTotal || 0;
       const protectedStandard = domainInfo?.numberOfProtectedStandardUsers || 0;
       const archivedLicenses = domainInfo?.numberOfArchivedLicensesTotal || 0;
@@ -322,10 +322,6 @@ Deno.serve(async (req) => {
           users = usersResponse.users;
         }
       }
-
-      // Get customer name
-      const customers = await base44.asServiceRole.entities.Customer.filter({ id: customer_id });
-      const customer = customers[0];
 
       // Sync users as contacts
       const existingContacts = await base44.asServiceRole.entities.Contact.filter({ customer_id });
@@ -373,135 +369,6 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Delete existing spanning licenses for this customer (we'll recreate them)
-      const existingLicenses = await base44.asServiceRole.entities.SaaSLicense.filter({ 
-        customer_id, 
-        source: 'spanning' 
-      });
-      
-      // Keep track of license IDs we're keeping vs removing
-      const licenseTypes = ['standard', 'archived', 'shared'];
-      const existingByType = {};
-      for (const lic of existingLicenses) {
-        if (lic.license_type === 'Standard Users') existingByType.standard = lic;
-        else if (lic.license_type === 'Archived Users') existingByType.archived = lic;
-        else if (lic.license_type === 'Shared Mailboxes') existingByType.shared = lic;
-        else if (lic.license_type === 'Microsoft 365 Backup') {
-          // Old format - delete it
-          await base44.asServiceRole.entities.SaaSLicense.delete(lic.id);
-        }
-      }
-
-      // Create/update three separate licenses
-      const licensesConfig = [
-        { 
-          type: 'standard', 
-          name: 'Spanning - Standard Users',
-          licenseType: 'Standard Users',
-          quantity: standardLicenses, 
-          assigned: protectedStandard,
-          notes: `Standard M365 user backups`
-        },
-        { 
-          type: 'archived', 
-          name: 'Spanning - Archived Users',
-          licenseType: 'Archived Users',
-          quantity: archivedLicenses, 
-          assigned: protectedArchived,
-          notes: `Departed user data retention`
-        },
-        { 
-          type: 'shared', 
-          name: 'Spanning - Shared Mailboxes',
-          licenseType: 'Shared Mailboxes',
-          quantity: sharedMailboxes, 
-          assigned: protectedShared,
-          notes: `Shared/resource mailbox backups`
-        }
-      ];
-
-      const createdLicenses = {};
-      
-      for (const config of licensesConfig) {
-        // Skip if no licenses of this type
-        if (config.quantity === 0 && config.assigned === 0) continue;
-        
-        const licenseData = {
-          customer_id,
-          customer_name: customer?.name,
-          application_name: config.name,
-          vendor: 'Unitrends',
-          license_type: config.licenseType,
-          management_type: 'managed',
-          quantity: config.quantity,
-          assigned_users: config.assigned,
-          status: 'active',
-          external_id: `spanning-${config.type}-${customer_id}`,
-          source: 'spanning',
-          website_url: 'https://spanning.com',
-          logo_url: 'https://cdn.brandfetch.io/idBZmlTqXS/w/400/h/400/theme/dark/icon.png',
-          category: 'backup',
-          notes: config.notes
-        };
-
-        if (existingByType[config.type]) {
-          await base44.asServiceRole.entities.SaaSLicense.update(existingByType[config.type].id, licenseData);
-          createdLicenses[config.type] = existingByType[config.type];
-        } else {
-          createdLicenses[config.type] = await base44.asServiceRole.entities.SaaSLicense.create(licenseData);
-        }
-      }
-
-      // Create LicenseAssignments for protected users - match to existing contacts
-      // Get existing assignments for spanning licenses
-      const existingAssignments = [];
-      for (const lic of Object.values(createdLicenses)) {
-        if (lic?.id) {
-          const licAssignments = await base44.asServiceRole.entities.LicenseAssignment.filter({ license_id: lic.id });
-          existingAssignments.push(...licAssignments);
-        }
-      }
-      
-      const assignmentsByEmail = {};
-      existingAssignments.forEach(a => {
-        const contact = existingContacts.find(c => c.id === a.contact_id);
-        if (contact?.email) assignmentsByEmail[contact.email.toLowerCase()] = a;
-      });
-
-      let assignmentsCreated = 0;
-      
-      // Standard license gets standard users with backup data
-      if (createdLicenses.standard?.id) {
-        for (const spUser of users) {
-          const email = spUser.email?.toLowerCase() || spUser.userPrincipalName?.toLowerCase();
-          if (!email) continue;
-          
-          // Check if user has backup data (protected)
-          const storageInfo = spUser.storageInformation || {};
-          const mailStorageBytes = storageInfo.protectedMailBytes || spUser.mailStorageBytes || 0;
-          const driveStorageBytes = storageInfo.protectedBytes || spUser.driveStorageBytes || 0;
-          const totalStorageBytes = mailStorageBytes + driveStorageBytes;
-          const isProtected = totalStorageBytes > 0 || spUser.isAssigned === true || spUser.lastBackupStatusTotal === 'success';
-          
-          // Skip archived users (they go in archived license) and shared mailboxes
-          const userType = spUser.userType?.toLowerCase() || '';
-          if (userType === 'archived' || userType === 'sharedmailbox' || userType === 'shared') continue;
-          
-          if (isProtected && existingByEmail[email] && !assignmentsByEmail[email]) {
-            const contact = existingByEmail[email];
-            await base44.asServiceRole.entities.LicenseAssignment.create({
-              license_id: createdLicenses.standard.id,
-              contact_id: contact.id,
-              customer_id,
-              assigned_date: new Date().toISOString().split('T')[0],
-              status: 'active'
-            });
-            assignmentsByEmail[email] = true;
-            assignmentsCreated++;
-          }
-        }
-      }
-
       // Update last_synced
       await base44.asServiceRole.entities.SpanningMapping.update(mapping.id, {
         last_synced: new Date().toISOString()
@@ -516,12 +383,11 @@ Deno.serve(async (req) => {
         sharedMailboxes,
         protectedShared,
         contactsUpdated,
-        assignmentsCreated,
         tenantName: mapping.spanning_tenant_name
       });
     }
 
-    // Sync all mapped customers
+    // Sync all mapped customers (contacts only)
     if (action === 'sync_all') {
       if (user?.role !== 'admin') {
         return Response.json({ error: 'Admin access required' }, { status: 403 });
@@ -530,49 +396,62 @@ Deno.serve(async (req) => {
       const allMappings = await base44.asServiceRole.entities.SpanningMapping.list();
       let synced = 0;
       let errors = 0;
-
-      // Get all domains upfront for efficiency
-      const allDomains = await unitrendsApiCall('/v2/spanning/domains?page_size=500');
       
       for (const mapping of allMappings) {
         try {
-          // Find domain info by ID for accurate license counts
-          const domainInfo = allDomains.find(d => d.id === mapping.spanning_tenant_id);
+          // Get users for this tenant
+          const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?page_size=1000`);
           
-          // Use domain-level counts - these match the Spanning portal exactly
-          const assignedUsers = domainInfo?.numberOfProtectedStandardUsers || domainInfo?.numberOfProtectedUsers || 0;
-          const totalUsers = assignedUsers;
+          let users = [];
+          if (Array.isArray(usersResponse)) {
+            users = usersResponse[0]?.users || usersResponse;
+          } else if (usersResponse?.users) {
+            users = Array.isArray(usersResponse.users) && usersResponse.users[0]?.users 
+              ? usersResponse.users[0].users 
+              : usersResponse.users;
+          }
 
-          const customers = await base44.asServiceRole.entities.Customer.filter({ id: mapping.customer_id });
-          const customer = customers[0];
-
-          const existingLicenses = await base44.asServiceRole.entities.SaaSLicense.filter({ 
-            customer_id: mapping.customer_id, 
-            source: 'spanning' 
+          // Sync contacts
+          const existingContacts = await base44.asServiceRole.entities.Contact.filter({ customer_id: mapping.customer_id });
+          const existingByEmail = {};
+          existingContacts.forEach(c => { 
+            if (c.email) existingByEmail[c.email.toLowerCase()] = c; 
           });
 
-          const licenseData = {
-            customer_id: mapping.customer_id,
-            customer_name: customer?.name,
-            application_name: 'Spanning Backup',
-            vendor: 'Unitrends',
-            license_type: 'Microsoft 365 Backup',
-            management_type: 'managed',
-            quantity: assignedUsers,
-            assigned_users: assignedUsers,
-            status: 'active',
-            external_id: `spanning-${mapping.customer_id}`,
-            source: 'spanning',
-            website_url: 'https://spanning.com',
-            logo_url: 'https://cdn.brandfetch.io/idBZmlTqXS/w/400/h/400/theme/dark/icon.png',
-            category: 'backup',
-            notes: `Spanning Backup - ${assignedUsers} users backed up`
-          };
+          for (const spUser of users) {
+            const email = spUser.email?.toLowerCase() || spUser.userPrincipalName?.toLowerCase();
+            if (!email) continue;
 
-          if (existingLicenses.length > 0) {
-            await base44.asServiceRole.entities.SaaSLicense.update(existingLicenses[0].id, licenseData);
-          } else {
-            await base44.asServiceRole.entities.SaaSLicense.create(licenseData);
+            const isProtected = spUser.isAssigned === true || spUser.assigned === true || spUser.isLicensed === true;
+            const hasBackup = spUser.lastBackupStatusTotal === 'success';
+            
+            const storageInfo = spUser.storageInformation || {};
+            const mailStorageBytes = storageInfo.protectedMailBytes || spUser.mailStorageBytes || 0;
+            const driveStorageBytes = storageInfo.protectedBytes || spUser.driveStorageBytes || 0;
+            const totalStorageBytes = mailStorageBytes + driveStorageBytes;
+            
+            const formatStorage = (bytes) => {
+              if (!bytes || bytes === 0) return null;
+              if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(2)} GB`;
+              if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(2)} MB`;
+              return `${(bytes / 1024).toFixed(2)} KB`;
+            };
+            
+            const storageStr = formatStorage(totalStorageBytes);
+            const backupStatus = spUser.lastBackupStatusTotal || (isProtected ? 'protected' : 'not_protected');
+            
+            const titleParts = [];
+            if (storageStr) titleParts.push(storageStr);
+            titleParts.push(backupStatus);
+            if (isProtected || hasBackup) titleParts.push('PROTECTED');
+            const contactTitle = titleParts.join(' | ');
+            
+            const existing = existingByEmail[email];
+            if (existing) {
+              await base44.asServiceRole.entities.Contact.update(existing.id, {
+                spanning_status: contactTitle
+              });
+            }
           }
 
           await base44.asServiceRole.entities.SpanningMapping.update(mapping.id, {
