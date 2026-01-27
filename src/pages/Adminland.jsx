@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import Breadcrumbs from '../components/ui/breadcrumbs';
@@ -14,7 +15,9 @@ import {
   Link2,
   UserPlus,
   ChevronRight,
-  AlertTriangle
+  AlertTriangle,
+  Building2,
+  Clock
 } from 'lucide-react';
 
 const MENU_SECTIONS = [
