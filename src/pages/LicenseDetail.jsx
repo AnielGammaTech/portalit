@@ -387,9 +387,12 @@ export default function LicenseDetail() {
       // Delete ALL related licenses and their assignments for this software
       const allLicenseIds = relatedLicenses.map(l => l.id);
       
-      // Delete all assignments for all related licenses
-      for (const assignment of allAssignments) {
-        await base44.entities.LicenseAssignment.delete(assignment.id);
+      // Fetch ALL assignments (including revoked/inactive) for all related licenses
+      for (const licId of allLicenseIds) {
+        const allLicenseAssignments = await base44.entities.LicenseAssignment.filter({ license_id: licId });
+        for (const assignment of allLicenseAssignments) {
+          await base44.entities.LicenseAssignment.delete(assignment.id);
+        }
       }
       
       // Delete all related licenses (managed and individual)
