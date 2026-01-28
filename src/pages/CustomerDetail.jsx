@@ -1068,16 +1068,6 @@ export default function CustomerDetail() {
                           .filter(([_, data]) => {
                             // Apply category filter
                             if (saasCategoryFilter && data.software.category !== saasCategoryFilter) return false;
-                            
-                            // Apply utilization filters
-                            if (saasFilter !== 'all' && data.managedLicense) {
-                              const assignedCount = licenseAssignments.filter(a => a.license_id === data.managedLicense.id && a.status === 'active').length;
-                              const utilization = data.managedLicense.quantity > 0 ? assignedCount / data.managedLicense.quantity : 0;
-                              
-                              if (saasFilter === 'underutilized') return utilization < 0.5 && data.managedLicense.quantity > 0;
-                              if (saasFilter === 'full') return assignedCount >= (data.managedLicense.quantity || 0) && data.managedLicense.quantity > 0;
-                              if (saasFilter === 'unassigned') return assignedCount < (data.managedLicense.quantity || 0);
-                            }
                             return true;
                           })
                           .map(([appName, data]) => {
