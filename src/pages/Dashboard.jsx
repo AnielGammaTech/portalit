@@ -16,11 +16,8 @@ import {
   Mail,
   CheckCircle2,
   AlertCircle,
-  ChevronDown,
-  AlertTriangle,
-  BarChart3
+  ChevronDown
 } from 'lucide-react';
-import ActivityFeed from '../components/dashboard/ActivityFeed';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
