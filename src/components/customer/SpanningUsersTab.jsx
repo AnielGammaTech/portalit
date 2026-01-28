@@ -273,11 +273,13 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
             const matchesSearch = u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
               u.displayName?.toLowerCase().includes(searchTerm.toLowerCase());
             
-            // Category filter (case-insensitive)
+            // Category filter - Note: Spanning API returns all protected users in the user list.
+            // The archived/shared counts come from domain-level stats, not user-level types.
+            // Most users will have userType "standard". We still allow filtering by type if present.
             if (!selectedCategory) return matchesSearch;
-            const uType = (u.userType || '').toLowerCase();
-            if (selectedCategory === 'standard') return matchesSearch && (uType === 'standard' || uType === 'user');
-            if (selectedCategory === 'archived') return matchesSearch && uType === 'archived';
+            const uType = (u.userType || 'standard').toLowerCase();
+            if (selectedCategory === 'standard') return matchesSearch && (uType === 'standard' || uType === 'user' || uType === '');
+            if (selectedCategory === 'archived') return matchesSearch && (uType === 'archived' || uType === 'archiveduser');
             if (selectedCategory === 'shared') return matchesSearch && (uType === 'shared_mailbox' || uType === 'shared' || uType === 'sharedmailbox');
             return matchesSearch;
           })
