@@ -1436,7 +1436,19 @@ export default function LicenseDetail() {
           }
         }
       }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md" onOpenAutoFocus={(e) => {
+          // Initialize form data when modal opens
+          const targetLicense = relatedLicenses.find(l => l.id === selectedManagedLicenseId);
+          if (targetLicense && modifyFormData.quantity === 0) {
+            setModifyFormData({
+              quantity: targetLicense.quantity || 0,
+              total_cost: targetLicense.total_cost || 0,
+              card_last_four: targetLicense.card_last_four || '',
+              renewal_date: targetLicense.renewal_date || '',
+              notes: targetLicense.notes || ''
+            });
+          }
+        }}>
           <DialogHeader>
             <DialogTitle>Modify License</DialogTitle>
           </DialogHeader>
