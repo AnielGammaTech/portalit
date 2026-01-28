@@ -338,6 +338,7 @@ export default function Loot() {
         costPerUnit={deviceCostPerUnit}
         totalProfit={deviceTotalProfit}
         totalRevenue={deviceTotalRevenue}
+        onCustomerClick={setSelectedCustomer}
       />
 
       {/* Backup Reconciliation */}
@@ -348,6 +349,14 @@ export default function Loot() {
         costPerUnit={backupCostPerUnit}
         totalProfit={backupTotalProfit}
         totalRevenue={backupTotalRevenue}
+        onCustomerClick={setSelectedCustomer}
+      />
+
+      {/* Customer Detail Modal */}
+      <CustomerDetailModal
+        customer={selectedCustomer}
+        isOpen={!!selectedCustomer}
+        onClose={() => setSelectedCustomer(null)}
       />
     </div>
   );
