@@ -294,7 +294,11 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <Users className="w-5 h-5 text-blue-600" />
-                  Spanning Users ({filteredUsers.length})
+                  {selectedCategory === 'standard' && 'Standard Users'}
+                  {selectedCategory === 'archived' && 'Archived Users'}
+                  {selectedCategory === 'shared' && 'Shared Mailboxes'}
+                  {!selectedCategory && 'All Spanning Users'}
+                  {' '}({filteredUsers.length})
                 </CardTitle>
                 <div className="relative w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
