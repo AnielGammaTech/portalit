@@ -838,7 +838,7 @@ export default function LicenseDetail() {
                               <div className="flex items-center gap-3">
                                 <Badge className="bg-blue-100 text-blue-700">{ml.license_type || '-'}</Badge>
                                 <span className="text-xs text-slate-500">
-                                  {mlAssignments.length}/{ml.quantity || 0} seats • ${ml.cost_per_license || 0}/seat • ${(ml.total_cost || 0).toLocaleString()}/mo
+                                  {ml.quantity || 0} seats • {mlAssignments.length} assigned • ${ml.cost_per_license || 0}/seat • ${(ml.total_cost || 0).toLocaleString()}/mo
                                 </span>
                                 <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
                                   <div 
