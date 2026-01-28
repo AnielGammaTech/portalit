@@ -529,6 +529,7 @@ export default function LicenseDetail() {
       <Breadcrumbs items={[
         { label: 'Customers', href: createPageUrl('Customers') },
         { label: customer?.name || 'Customer', href: createPageUrl(`CustomerDetail?id=${software.customer_id}`) },
+        { label: 'SaaS', href: createPageUrl(`CustomerDetail?id=${software.customer_id}`) + '#licenses' },
         { label: software.application_name }
       ]} />
 
