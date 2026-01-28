@@ -331,6 +331,28 @@ export default function LootSettings() {
         }}
         isLoading={createMutation.isPending || updateMutation.isPending}
       />
+
+      {/* Import from HaloPSA Modal */}
+      <ImportLineItemsModal
+        open={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        lineItems={uniqueLineItems}
+        existingSettings={settings}
+        onImport={(items) => {
+          items.forEach(item => {
+            createMutation.mutate({
+              service_name: item.description,
+              service_type: 'other',
+              cost_per_unit: 0,
+              sell_price_per_unit: 0,
+              halopsa_item_match: item.description,
+              is_active: true,
+              notes: `Imported from HaloPSA. Found in ${item.count} bills.`
+            });
+          });
+          setShowImportModal(false);
+        }}
+      />
     </div>
   );
 }
