@@ -166,10 +166,16 @@ export default function LootSettings() {
           <h1 className="text-2xl font-semibold text-slate-900">Loot Settings</h1>
           <p className="text-slate-500">Configure billing reconciliation services and pricing</p>
         </div>
-        <Button onClick={() => setIsAddModalOpen(true)} className="bg-purple-600 hover:bg-purple-700">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Service
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowImportModal(true)}>
+            <Download className="w-4 h-4 mr-2" />
+            Import from HaloPSA
+          </Button>
+          <Button onClick={() => setIsAddModalOpen(true)} className="bg-purple-600 hover:bg-purple-700">
+            <Plus className="w-4 h-4 mr-2" />
+            Add Service
+          </Button>
+        </div>
       </div>
 
       {/* Vendor Sync Section */}
