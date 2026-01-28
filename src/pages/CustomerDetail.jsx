@@ -1009,18 +1009,6 @@ export default function CustomerDetail() {
 
                   {/* Filters & Add Button Row */}
                   <div className="flex items-center gap-3">
-                    {saasView === 'licenses' && (
-                      <select
-                        value={saasFilter}
-                        onChange={(e) => setSaasFilter(e.target.value)}
-                        className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white"
-                      >
-                        <option value="all">All Licenses</option>
-                        <option value="underutilized">&lt;50% utilized</option>
-                        <option value="full">Fully Assigned</option>
-                        <option value="unassigned">Has Unused</option>
-                      </select>
-                    )}
                     {saasView === 'users' && (
                       <select
                         value={saasUserFilter}
