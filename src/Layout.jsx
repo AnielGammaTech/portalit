@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from './utils';
 import { base44 } from '@/api/base44Client';
+import { useQuery } from '@tanstack/react-query';
 import { 
   LayoutDashboard, 
   Building2,
@@ -33,6 +34,15 @@ export default function Layout({ children, currentPageName }) {
   const [customer, setCustomer] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch portal settings
+  const { data: portalSettingsData = [] } = useQuery({
+    queryKey: ['portal_settings'],
+    queryFn: () => base44.entities.PortalSettings.list(),
+    staleTime: 1000 * 60 * 5 // Cache for 5 minutes
+  });
+  
+  const portalSettings = portalSettingsData[0] || {};
 
   useEffect(() => {
     const loadData = async () => {
@@ -92,9 +102,9 @@ export default function Layout({ children, currentPageName }) {
     <div className="min-h-screen bg-slate-50">
       <style>{`
         :root {
-          --color-primary: #8b5cf6;
-          --color-accent: #8b5cf6;
-          --color-accent-hover: #7c3aed;
+          --color-primary: ${portalSettings.primary_color || '#8b5cf6'};
+          --color-accent: ${portalSettings.primary_color || '#8b5cf6'};
+          --color-accent-hover: ${portalSettings.primary_color || '#7c3aed'};
         }
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         * {
@@ -108,20 +118,47 @@ export default function Layout({ children, currentPageName }) {
           {/* Logo & Company */}
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-purple-700 flex items-center justify-center">
-                <Cloud className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-lg font-semibold text-slate-900">
-                  {isAdmin ? 'PortalIT' : 'Client Portal'}
-                </h1>
-                {!isAdmin && customer && (
-                  <p className="text-xs text-slate-500">{customer.name}</p>
-                )}
-                {isAdmin && (
-                  <p className="text-xs text-purple-600 font-medium">MSP Admin</p>
-                )}
-              </div>
+              {portalSettings.show_logo_always && portalSettings.logo_url ? (
+                <img 
+                  src={portalSettings.logo_url} 
+                  alt={portalSettings.portal_name || 'Portal'} 
+                  className="h-10 object-contain max-w-[160px]"
+                />
+              ) : (
+                <>
+                  <div 
+                    className="w-10 h-10 rounded-xl flex items-center justify-center"
+                    style={{ backgroundColor: portalSettings.primary_color || '#8b5cf6' }}
+                  >
+                    {portalSettings.logo_url ? (
+                      <img src={portalSettings.logo_url} alt="" className="w-6 h-6 object-contain" />
+                    ) : (
+                      <Cloud className="w-5 h-5 text-white" />
+                    )}
+                  </div>
+                  <div>
+                    <h1 className="text-lg font-semibold text-slate-900">
+                      {isAdmin ? (portalSettings.portal_name || 'PortalIT') : 'Client Portal'}
+                    </h1>
+                    {!isAdmin && customer && (
+                      <p className="text-xs text-slate-500">{customer.name}</p>
+                    )}
+                    {isAdmin && (
+                      <p className="text-xs font-medium" style={{ color: portalSettings.primary_color || '#8b5cf6' }}>MSP Admin</p>
+                    )}
+                  </div>
+                </>
+              )}
+              {portalSettings.show_logo_always && (
+                <div className="ml-2">
+                  {!isAdmin && customer && (
+                    <p className="text-xs text-slate-500">{customer.name}</p>
+                  )}
+                  {isAdmin && (
+                    <p className="text-xs font-medium" style={{ color: portalSettings.primary_color || '#8b5cf6' }}>MSP Admin</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
