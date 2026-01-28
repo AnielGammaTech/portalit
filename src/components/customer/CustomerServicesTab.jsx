@@ -540,6 +540,14 @@ export default function CustomerServicesTab({
           </div>
         </TabsContent>
 
+        {/* Devices Tab */}
+        <TabsContent value="devices">
+          <DevicesTab 
+            customerId={customerId} 
+            customerExternalId={customer?.external_id}
+          />
+        </TabsContent>
+
         {/* JumpCloud Tab */}
         {jumpcloudMapping && (
           <TabsContent value="jumpcloud">
