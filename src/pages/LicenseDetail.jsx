@@ -1416,24 +1416,34 @@ export default function LicenseDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Modify Seats Modal */}
+      {/* Modify License Modal - Full Edit */}
       <Dialog open={showModifySeatsModal} onOpenChange={(open) => {
         setShowModifySeatsModal(open);
         if (!open) {
           setSelectedManagedLicenseId(null);
           setSeatChange(0);
+          setModifyFormData({ quantity: 0, total_cost: 0, card_last_four: '', renewal_date: '', notes: '' });
+        } else if (selectedManagedLicenseId) {
+          const targetLicense = relatedLicenses.find(l => l.id === selectedManagedLicenseId);
+          if (targetLicense) {
+            setModifyFormData({
+              quantity: targetLicense.quantity || 0,
+              total_cost: targetLicense.total_cost || 0,
+              card_last_four: targetLicense.card_last_four || '',
+              renewal_date: targetLicense.renewal_date || '',
+              notes: targetLicense.notes || ''
+            });
+          }
         }
       }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Modify License Seats</DialogTitle>
+            <DialogTitle>Modify License</DialogTitle>
           </DialogHeader>
           {(() => {
             const targetLicense = getSelectedManagedLicense();
             const licenseAssignments = targetLicense ? getAssignmentsForLicense(targetLicense.id) : [];
-            const currentQuantity = targetLicense?.quantity || 0;
             const assignedCount = licenseAssignments.length;
-            const costPerLicense = targetLicense?.cost_per_license || 0;
             
             return (
               <div className="space-y-4 py-4">
@@ -1444,65 +1454,105 @@ export default function LicenseDetail() {
                   </div>
                 )}
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-500">Current Seats</span>
-                  <span className="font-medium">{currentQuantity}</span>
+                  <span className="text-slate-500">Currently Assigned</span>
+                  <span className="font-medium text-blue-600">{assignedCount} users</span>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-500">Assigned</span>
-                  <span className="font-medium text-blue-600">{assignedCount}</span>
-                </div>
-                <div>
-                  <label className="text-sm text-slate-500 block mb-2">Adjust Seats</label>
-                  <div className="flex items-center gap-3">
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      onClick={() => setSeatChange(prev => prev - 1)}
-                      disabled={currentQuantity + seatChange <= assignedCount}
-                    >
-                      -
-                    </Button>
+                
+                <div className="border-t pt-4 space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 block mb-1.5">Total Seats</label>
                     <Input
                       type="number"
-                      value={seatChange}
-                      onChange={(e) => setSeatChange(parseInt(e.target.value) || 0)}
-                      className="text-center w-20"
+                      value={modifyFormData.quantity}
+                      onChange={(e) => setModifyFormData(prev => ({ ...prev, quantity: parseInt(e.target.value) || 0 }))}
+                      min={assignedCount}
                     />
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      onClick={() => setSeatChange(prev => prev + 1)}
-                    >
-                      +
-                    </Button>
+                    {modifyFormData.quantity < assignedCount && (
+                      <p className="text-xs text-red-500 mt-1">Cannot be less than assigned seats ({assignedCount})</p>
+                    )}
                   </div>
-                  {seatChange < 0 && currentQuantity + seatChange < assignedCount && (
-                    <p className="text-xs text-red-500 mt-2">Cannot reduce below assigned seats ({assignedCount})</p>
-                  )}
-                </div>
-                <div className="flex items-center justify-between text-sm pt-2 border-t">
-                  <span className="text-slate-500">New Total</span>
-                  <span className="font-bold text-lg">{Math.max(assignedCount, currentQuantity + seatChange)}</span>
-                </div>
-                {costPerLicense > 0 && (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-500">New Monthly Cost</span>
-                    <span className={cn("font-medium", seatChange < 0 ? "text-green-600" : "text-blue-600")}>
-                      ${(Math.max(assignedCount, currentQuantity + seatChange) * costPerLicense).toLocaleString()}/mo
-                    </span>
+                  
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 block mb-1.5">Yearly Cost ($)</label>
+                    <Input
+                      type="number"
+                      value={modifyFormData.total_cost}
+                      onChange={(e) => setModifyFormData(prev => ({ ...prev, total_cost: parseFloat(e.target.value) || 0 }))}
+                      step="0.01"
+                      min="0"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      {modifyFormData.quantity > 0 
+                        ? `$${(modifyFormData.total_cost / modifyFormData.quantity).toFixed(2)}/seat/year • $${(modifyFormData.total_cost / 12).toFixed(2)}/month`
+                        : 'Enter total annual cost'}
+                    </p>
                   </div>
-                )}
+                  
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 block mb-1.5">Card Last 4 Digits</label>
+                    <Input
+                      type="text"
+                      placeholder="1234"
+                      maxLength={4}
+                      value={modifyFormData.card_last_four}
+                      onChange={(e) => setModifyFormData(prev => ({ ...prev, card_last_four: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 block mb-1.5">Renewal Date</label>
+                    <Input
+                      type="date"
+                      value={modifyFormData.renewal_date}
+                      onChange={(e) => setModifyFormData(prev => ({ ...prev, renewal_date: e.target.value }))}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 block mb-1.5">Notes</label>
+                    <Input
+                      type="text"
+                      placeholder="Optional notes..."
+                      value={modifyFormData.notes}
+                      onChange={(e) => setModifyFormData(prev => ({ ...prev, notes: e.target.value }))}
+                    />
+                  </div>
+                </div>
               </div>
             );
           })()}
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => { setShowModifySeatsModal(false); setSelectedManagedLicenseId(null); setSeatChange(0); }}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setShowModifySeatsModal(false); setSelectedManagedLicenseId(null); }}>Cancel</Button>
             <Button 
-              onClick={handleModifySeats} 
-              disabled={seatChange === 0}
+              onClick={async () => {
+                const targetLicense = getSelectedManagedLicense();
+                if (!targetLicense) return;
+                
+                const licenseAssignments = getAssignmentsForLicense(targetLicense.id);
+                if (modifyFormData.quantity < licenseAssignments.length) {
+                  toast.error(`Cannot set seats below assigned count (${licenseAssignments.length})`);
+                  return;
+                }
+                
+                await base44.entities.SaaSLicense.update(targetLicense.id, {
+                  quantity: modifyFormData.quantity,
+                  total_cost: modifyFormData.total_cost,
+                  cost_per_license: modifyFormData.quantity > 0 ? modifyFormData.total_cost / modifyFormData.quantity : 0,
+                  card_last_four: modifyFormData.card_last_four || null,
+                  renewal_date: modifyFormData.renewal_date || null,
+                  notes: modifyFormData.notes || null
+                });
+                
+                queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
+                queryClient.invalidateQueries({ queryKey: ['license', licenseId] });
+                setShowModifySeatsModal(false);
+                setSelectedManagedLicenseId(null);
+                toast.success('License updated!');
+              }}
+              disabled={modifyFormData.quantity < (getSelectedManagedLicense() ? getAssignmentsForLicense(getSelectedManagedLicense().id).length : 0)}
               className="bg-blue-600 hover:bg-blue-700"
             >
-              {seatChange > 0 ? `Add ${seatChange} Seat${seatChange > 1 ? 's' : ''}` : seatChange < 0 ? `Remove ${Math.abs(seatChange)} Seat${Math.abs(seatChange) > 1 ? 's' : ''}` : 'Update'}
+              Save Changes
             </Button>
           </div>
         </DialogContent>
