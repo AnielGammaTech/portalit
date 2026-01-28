@@ -941,9 +941,11 @@ export default function CustomerDetail() {
               const unusedSeats = totalSeats - assignedSeats;
               const utilizationRate = totalSeats > 0 ? Math.min(100, (assignedSeats / totalSeats) * 100) : 0;
               const wastedSpend = totalSeats > 0 ? (unusedSeats / totalSeats) * totalSpend : 0;
-              const underutilizedLicenses = managedLicenses.filter(l => {
-                const assigned = licenseAssignments.filter(a => a.license_id === l.id && a.status === 'active').length;
-                return l.quantity > 0 && (assigned / l.quantity) < 0.5;
+              // Count underutilized apps (grouped by software), not individual licenses
+              const underutilizedApps = Object.entries(groupedSoftware).filter(([_, data]) => {
+                if (!data.managedLicense) return false;
+                const assigned = licenseAssignments.filter(a => a.license_id === data.managedLicense.id && a.status === 'active').length;
+                return data.managedLicense.quantity > 0 && (assigned / data.managedLicense.quantity) < 0.5;
               });
               
               return (
