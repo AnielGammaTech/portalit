@@ -164,16 +164,16 @@ export default function UserAssignmentPanel() {
               value={user.customer_id || 'none'} 
               onValueChange={(value) => handleOrganizationChange(user, value)}
             >
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="No Organization" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-[300px]">
                 <SelectItem value="none">
                   <span className="text-slate-400">No Organization</span>
                 </SelectItem>
                 {customers.map((customer) => (
-                  <SelectItem key={customer.id} value={customer.id}>
-                    {customer.name}
+                  <SelectItem key={customer.id} value={customer.id} className="truncate">
+                    <span className="truncate max-w-[160px] block">{customer.name}</span>
                   </SelectItem>
                 ))}
               </SelectContent>
