@@ -1,38 +1,53 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2 } from 'lucide-react';
+import { Building2, Loader2 } from 'lucide-react';
 
 export default function AddManagedLicenseModal({ open, onClose, onSave, softwareName }) {
   const [form, setForm] = useState({
     license_type: '',
     quantity: 0,
     cost_per_license: 0,
-    billing_cycle: 'monthly',
+    billing_cycle: 'annually',
     renewal_date: '',
-    card_last_four: ''
+    card_last_four: '',
+    notes: ''
   });
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSubmit = (e) => {
+  // Reset form when modal opens
+  useEffect(() => {
+    if (open) {
+      setForm({
+        license_type: '',
+        quantity: 0,
+        cost_per_license: 0,
+        billing_cycle: 'annually',
+        renewal_date: '',
+        card_last_four: '',
+        notes: ''
+      });
+      setIsSaving(false);
+    }
+  }, [open]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSave({
-      ...form,
-      total_cost: form.quantity * form.cost_per_license
-    });
-    setForm({
-      license_type: '',
-      quantity: 0,
-      cost_per_license: 0,
-      billing_cycle: 'monthly',
-      renewal_date: '',
-      card_last_four: ''
-    });
+    if (isSaving) return;
+    
+    setIsSaving(true);
+    try {
+      await onSave({
+        ...form,
+        total_cost: form.quantity * form.cost_per_license
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
-
-  const totalCost = form.quantity * form.cost_per_license;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -46,6 +61,20 @@ export default function AddManagedLicenseModal({ open, onClose, onSave, software
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Seats */}
+          <div>
+            <Label>Total Seats *</Label>
+            <Input
+              type="number"
+              min="1"
+              value={form.quantity || ''}
+              onChange={(e) => setForm({ ...form, quantity: parseInt(e.target.value) || 0 })}
+              required
+              placeholder="0"
+              className="mt-1"
+            />
+          </div>
+
           {/* License Type */}
           <div>
             <Label>License Type</Label>
@@ -57,63 +86,41 @@ export default function AddManagedLicenseModal({ open, onClose, onSave, software
             />
           </div>
 
-          {/* Seats & Cost */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Billing Cycle & Cost */}
+          <div className="flex gap-4">
             <div>
-              <Label>Total Seats *</Label>
-              <Input
-                type="number"
-                min="1"
-                value={form.quantity || ''}
-                onChange={(e) => setForm({ ...form, quantity: parseInt(e.target.value) || 0 })}
-                required
-                placeholder="0"
-                className="mt-1"
-              />
+              <Label>Billing Cycle</Label>
+              <Select 
+                value={form.billing_cycle} 
+                onValueChange={(v) => setForm({ ...form, billing_cycle: v })}
+              >
+                <SelectTrigger className="mt-1 w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                  <SelectItem value="annually">Yearly</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
-              <Label>Cost per Seat ({form.billing_cycle === 'monthly' ? '$/mo' : form.billing_cycle === 'annually' ? '$/yr' : '$'})</Label>
+              <Label>{form.billing_cycle === 'monthly' ? 'Monthly' : 'Yearly'} Cost ($)</Label>
               <Input
                 type="number"
                 min="0"
                 step="0.01"
                 value={form.cost_per_license}
                 onChange={(e) => setForm({ ...form, cost_per_license: parseFloat(e.target.value) || 0 })}
-                placeholder="0.00"
-                className="mt-1"
+                placeholder="0"
+                className="mt-1 w-32"
               />
             </div>
           </div>
 
-          {totalCost > 0 && (
-            <div className="bg-blue-50 rounded-lg p-3 flex items-center justify-between">
-              <span className="text-sm text-blue-700">
-                {form.billing_cycle === 'monthly' ? 'Total Monthly Cost' : form.billing_cycle === 'annually' ? 'Total Annual Cost' : 'Total Cost (Lifetime)'}
-              </span>
-              <span className="text-lg font-bold text-blue-900">${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-            </div>
-          )}
-
           {/* Billing Info */}
-          <div className="space-y-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
-            <div className="text-sm font-medium text-slate-700">Billing Information</div>
+          <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="text-sm font-medium text-blue-700">Billing Information</div>
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Billing Cycle</Label>
-                <Select 
-                  value={form.billing_cycle} 
-                  onValueChange={(v) => setForm({ ...form, billing_cycle: v })}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="annually">Annually</SelectItem>
-                    <SelectItem value="lifetime">Lifetime</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
               <div>
                 <Label>Renewal Date</Label>
                 <Input
@@ -123,17 +130,28 @@ export default function AddManagedLicenseModal({ open, onClose, onSave, software
                   className="mt-1"
                 />
               </div>
+              <div>
+                <Label>Card (last 4 digits)</Label>
+                <Input
+                  value={form.card_last_four}
+                  onChange={(e) => setForm({ ...form, card_last_four: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+                  placeholder="1234"
+                  maxLength={4}
+                  className="mt-1 w-24"
+                />
+              </div>
             </div>
-            <div>
-              <Label>Card on File (last 4 digits)</Label>
-              <Input
-                value={form.card_last_four}
-                onChange={(e) => setForm({ ...form, card_last_four: e.target.value.replace(/\D/g, '').slice(0, 4) })}
-                placeholder="1234"
-                maxLength={4}
-                className="mt-1 w-24"
-              />
-            </div>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <Label>Notes</Label>
+            <Input
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              placeholder="Any notes..."
+              className="mt-1"
+            />
           </div>
           
           {/* Actions */}
@@ -141,9 +159,13 @@ export default function AddManagedLicenseModal({ open, onClose, onSave, software
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={!form.quantity || form.quantity < 1} className="bg-blue-600 hover:bg-blue-700 gap-2">
-              <Building2 className="w-4 h-4" />
-              Add Managed License
+            <Button 
+              type="submit" 
+              disabled={!form.quantity || form.quantity < 1 || isSaving} 
+              className="bg-blue-600 hover:bg-blue-700 gap-2"
+            >
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Building2 className="w-4 h-4" />}
+              {isSaving ? 'Saving...' : 'Add License'}
             </Button>
           </div>
         </form>
