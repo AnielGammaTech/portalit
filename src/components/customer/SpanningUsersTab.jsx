@@ -273,11 +273,12 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
             const matchesSearch = u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
               u.displayName?.toLowerCase().includes(searchTerm.toLowerCase());
             
-            // Category filter
+            // Category filter (case-insensitive)
             if (!selectedCategory) return matchesSearch;
-            if (selectedCategory === 'standard') return matchesSearch && u.userType === 'STANDARD';
-            if (selectedCategory === 'archived') return matchesSearch && u.userType === 'ARCHIVED';
-            if (selectedCategory === 'shared') return matchesSearch && u.userType === 'SHARED_MAILBOX';
+            const uType = (u.userType || '').toLowerCase();
+            if (selectedCategory === 'standard') return matchesSearch && (uType === 'standard' || uType === 'user');
+            if (selectedCategory === 'archived') return matchesSearch && uType === 'archived';
+            if (selectedCategory === 'shared') return matchesSearch && (uType === 'shared_mailbox' || uType === 'shared' || uType === 'sharedmailbox');
             return matchesSearch;
           })
           .sort((a, b) => b.totalStorageBytes - a.totalStorageBytes);
