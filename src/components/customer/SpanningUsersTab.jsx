@@ -183,7 +183,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
             "bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 cursor-pointer hover:shadow-md transition-all h-full",
             selectedCategory === 'standard' && "ring-2 ring-purple-500 shadow-md"
           )}
-          onClick={() => setSelectedCategory(selectedCategory === 'standard' ? null : 'standard')}
+          onClick={() => { setSelectedCategory(selectedCategory === 'standard' ? null : 'standard'); setCurrentPage(1); }}
         >
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
@@ -204,7 +204,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
             "bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200 cursor-pointer hover:shadow-md transition-all h-full",
             selectedCategory === 'archived' && "ring-2 ring-amber-500 shadow-md"
           )}
-          onClick={() => setSelectedCategory(selectedCategory === 'archived' ? null : 'archived')}
+          onClick={() => { setSelectedCategory(selectedCategory === 'archived' ? null : 'archived'); setCurrentPage(1); }}
         >
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
@@ -225,7 +225,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
             "bg-gradient-to-br from-cyan-50 to-cyan-100 border-cyan-200 cursor-pointer hover:shadow-md transition-all h-full",
             selectedCategory === 'shared' && "ring-2 ring-cyan-500 shadow-md"
           )}
-          onClick={() => setSelectedCategory(selectedCategory === 'shared' ? null : 'shared')}
+          onClick={() => { setSelectedCategory(selectedCategory === 'shared' ? null : 'shared'); setCurrentPage(1); }}
         >
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
@@ -246,7 +246,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
             "bg-gradient-to-br from-green-50 to-green-100 border-green-200 cursor-pointer hover:shadow-md transition-all h-full",
             selectedCategory === null && "ring-2 ring-green-500 shadow-md"
           )}
-          onClick={() => setSelectedCategory(null)}
+          onClick={() => { setSelectedCategory(null); setCurrentPage(1); }}
         >
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
