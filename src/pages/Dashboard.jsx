@@ -49,28 +49,12 @@ function AdminDashboard() {
     queryFn: () => base44.entities.Ticket.list('-created_date', 500),
   });
 
-  const { data: invoices = [] } = useQuery({
-    queryKey: ['invoices'],
-    queryFn: () => base44.entities.Invoice.list('-created_date', 500),
-  });
-
   const isLoading = loadingCustomers || loadingContracts || loadingTickets;
 
   // Calculate stats
   const activeCustomers = customers.filter(c => c.status === 'active').length;
-  const activeContracts = contracts.filter(c => c.status === 'active').length;
   const openTickets = tickets.filter(t => ['new', 'open', 'in_progress'].includes(t.status)).length;
   const totalMRR = contracts.filter(c => c.status === 'active').reduce((sum, c) => sum + (c.value || 0), 0);
-  const overdueInvoices = invoices.filter(i => i.status === 'overdue');
-  const overdueAmount = overdueInvoices.reduce((sum, i) => sum + (i.total || 0), 0);
-
-  // Contracts expiring soon
-  const expiringContracts = contracts.filter(c => {
-    const date = c.renewal_date || c.end_date;
-    if (!date) return false;
-    const days = differenceInDays(parseISO(date), new Date());
-    return days >= 0 && days <= 30;
-  });
 
   // Recent tickets
   const recentTickets = tickets
@@ -80,10 +64,10 @@ function AdminDashboard() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
         </div>
-        <Skeleton className="h-96 rounded-2xl" />
+        <Skeleton className="h-80 rounded-2xl" />
       </div>
     );
   }
@@ -96,9 +80,9 @@ function AdminDashboard() {
         <p className="text-slate-500">Overview of your managed services</p>
       </div>
 
-      {/* Stats Grid - Clickable */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Link to={createPageUrl('Customers')} className="bg-white rounded-xl border border-slate-200/50 p-5 hover:shadow-md hover:border-purple-200 transition-all cursor-pointer group">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Link to={createPageUrl('Customers')} className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md hover:border-purple-200 transition-all cursor-pointer group">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center group-hover:bg-purple-200 transition-colors">
               <Building2 className="w-5 h-5 text-purple-600" />
@@ -109,7 +93,7 @@ function AdminDashboard() {
             </div>
           </div>
         </Link>
-        <Link to={createPageUrl('Billing')} className="bg-white rounded-xl border border-slate-200/50 p-5 hover:shadow-md hover:border-emerald-200 transition-all cursor-pointer group">
+        <Link to={createPageUrl('Billing')} className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md hover:border-emerald-200 transition-all cursor-pointer group">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
               <DollarSign className="w-5 h-5 text-emerald-600" />
@@ -120,9 +104,9 @@ function AdminDashboard() {
             </div>
           </div>
         </Link>
-        <Link to={createPageUrl('Adminland')} className="bg-white rounded-xl border border-slate-200/50 p-5 hover:shadow-md hover:border-orange-200 transition-all cursor-pointer group">
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center group-hover:bg-orange-200 transition-colors">
+            <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
               <Monitor className="w-5 h-5 text-orange-600" />
             </div>
             <div>
@@ -130,62 +114,13 @@ function AdminDashboard() {
               <p className="text-sm text-slate-500">Open Tickets</p>
             </div>
           </div>
-        </Link>
-        <Link to={createPageUrl('Billing')} className="bg-white rounded-xl border border-slate-200/50 p-5 hover:shadow-md hover:border-blue-200 transition-all cursor-pointer group">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-              <FileText className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-slate-900">{activeContracts}</p>
-              <p className="text-sm text-slate-500">Active Contracts</p>
-            </div>
-          </div>
-        </Link>
+        </div>
       </div>
 
-      {/* Alerts - Clickable */}
-      {(overdueAmount > 0 || expiringContracts.length > 0) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {overdueAmount > 0 && (
-            <Link to={createPageUrl('Billing')} className="relative overflow-hidden bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-5 text-white shadow-lg shadow-red-500/20 hover:shadow-xl hover:scale-[1.01] transition-all cursor-pointer">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-              <div className="relative flex items-start gap-4">
-                <div className="p-3 bg-white/20 backdrop-blur rounded-xl">
-                  <AlertCircle className="w-6 h-6" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-lg">Overdue Invoices</p>
-                  <p className="text-red-100 text-sm mt-1">{overdueInvoices.length} invoices totaling</p>
-                  <p className="text-2xl font-bold mt-1">${overdueAmount.toLocaleString()}</p>
-                </div>
-                <ChevronRight className="w-5 h-5 text-white/60" />
-              </div>
-            </Link>
-          )}
-          {expiringContracts.length > 0 && (
-            <Link to={createPageUrl('Billing')} className="relative overflow-hidden bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl p-5 text-white shadow-lg shadow-amber-500/20 hover:shadow-xl hover:scale-[1.01] transition-all cursor-pointer">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-              <div className="relative flex items-start gap-4">
-                <div className="p-3 bg-white/20 backdrop-blur rounded-xl">
-                  <AlertTriangle className="w-6 h-6" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-lg">Contracts Expiring Soon</p>
-                  <p className="text-amber-100 text-sm mt-1">{expiringContracts.length} contracts expiring</p>
-                  <p className="text-2xl font-bold mt-1">Next 30 Days</p>
-                </div>
-                <ChevronRight className="w-5 h-5 text-white/60" />
-              </div>
-            </Link>
-          )}
-        </div>
-      )}
-
-      {/* Main Content - Simplified to 2 columns */}
+      {/* Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Customers */}
-        <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-slate-900">Recent Customers</h2>
             <Link to={createPageUrl('Customers')}>
@@ -199,26 +134,23 @@ function AdminDashboard() {
                 onClick={() => navigate(createPageUrl(`CustomerDetail?id=${customer.id}`))}
                 className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 cursor-pointer transition-colors"
               >
-                <div className="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center">
+                <div className="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
                   <Building2 className="w-4 h-4 text-purple-600" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-slate-900 text-sm truncate">{customer.name}</p>
-                  <p className="text-xs text-slate-500">{customer.email || 'No email'}</p>
+                  <p className="text-xs text-slate-500 truncate">{customer.email || 'No email'}</p>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-400" />
+                <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
               </div>
             ))}
           </div>
         </div>
 
         {/* Open Tickets */}
-        <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-slate-900">Open Tickets</h2>
-            <Link to={createPageUrl('Adminland')}>
-              <Button variant="ghost" size="sm" className="text-purple-600">View All</Button>
-            </Link>
           </div>
           {recentTickets.length === 0 ? (
             <div className="py-8 text-center">
@@ -234,14 +166,14 @@ function AdminDashboard() {
                     ticket.priority === 'critical' && "bg-red-100",
                     ticket.priority === 'high' && "bg-orange-100",
                     ticket.priority === 'medium' && "bg-yellow-100",
-                    ticket.priority === 'low' && "bg-blue-100"
+                    (!ticket.priority || ticket.priority === 'low') && "bg-blue-100"
                   )}>
                     <Monitor className={cn(
                       "w-4 h-4",
                       ticket.priority === 'critical' && "text-red-600",
                       ticket.priority === 'high' && "text-orange-600",
                       ticket.priority === 'medium' && "text-yellow-600",
-                      ticket.priority === 'low' && "text-blue-600"
+                      (!ticket.priority || ticket.priority === 'low') && "text-blue-600"
                     )} />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -253,9 +185,9 @@ function AdminDashboard() {
                     ticket.priority === 'critical' && 'bg-red-100 text-red-700',
                     ticket.priority === 'high' && 'bg-orange-100 text-orange-700',
                     ticket.priority === 'medium' && 'bg-yellow-100 text-yellow-700',
-                    ticket.priority === 'low' && 'bg-blue-100 text-blue-700',
+                    (!ticket.priority || ticket.priority === 'low') && 'bg-blue-100 text-blue-700',
                   )}>
-                    {ticket.priority}
+                    {ticket.priority || 'low'}
                   </Badge>
                 </div>
               ))}
