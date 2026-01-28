@@ -72,6 +72,33 @@ export default function LootSettings() {
     queryFn: () => base44.entities.VendorBilling.list(),
   });
 
+  // Fetch all recurring bill line items to import from
+  const { data: billLineItems = [] } = useQuery({
+    queryKey: ['all_bill_line_items'],
+    queryFn: () => base44.entities.RecurringBillLineItem.list('-created_date', 5000),
+  });
+
+  // Get unique item descriptions for import
+  const uniqueLineItems = React.useMemo(() => {
+    const itemMap = new Map();
+    billLineItems.forEach(item => {
+      const key = item.description?.trim();
+      if (key && !itemMap.has(key)) {
+        itemMap.set(key, {
+          description: item.description,
+          item_code: item.item_code,
+          count: 1,
+          totalQty: item.quantity || 0
+        });
+      } else if (key) {
+        const existing = itemMap.get(key);
+        existing.count++;
+        existing.totalQty += item.quantity || 0;
+      }
+    });
+    return Array.from(itemMap.values()).sort((a, b) => b.count - a.count);
+  }, [billLineItems]);
+
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.LootSettings.create(data),
     onSuccess: () => {
