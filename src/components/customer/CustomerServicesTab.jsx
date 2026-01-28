@@ -352,6 +352,7 @@ export default function CustomerServicesTab({
   const hasHaloPSA = customer?.source === 'halopsa' && customer?.external_id;
   const hasDatto = !!dattoMapping;
   const hasDarkWeb = !!darkwebMapping;
+  const hasDevices = devices.length > 0 || hasDatto;
 
   const formatLastSync = (dateStr) => {
     if (!dateStr) return 'Never';
