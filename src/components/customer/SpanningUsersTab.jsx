@@ -30,6 +30,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState(null); // 'standard', 'archived', 'shared', or null for all
   const ITEMS_PER_PAGE = 15;
 
   // Fetch live Spanning data from API
