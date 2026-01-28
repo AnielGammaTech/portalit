@@ -135,6 +135,7 @@ function ServiceCategory({ title, subtitle, customers, costPerUnit, totalProfit,
 export default function Loot() {
   const [user, setUser] = useState(null);
   const [sortBy, setSortBy] = useState('revenue');
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
 
   useEffect(() => {
     const loadUser = async () => {
