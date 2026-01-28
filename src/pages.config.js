@@ -57,12 +57,12 @@ import Customers from './pages/Customers';
 import Dashboard from './pages/Dashboard';
 import Integrations from './pages/Integrations';
 import LicenseDetail from './pages/LicenseDetail';
+import Loot from './pages/Loot';
+import LootCustomer from './pages/LootCustomer';
+import LootSettings from './pages/LootSettings';
 import SaaSReports from './pages/SaaSReports';
 import Services from './pages/Services';
 import Settings from './pages/Settings';
-import Loot from './pages/Loot';
-import LootSettings from './pages/LootSettings';
-import LootCustomer from './pages/LootCustomer';
 import __Layout from './Layout.jsx';
 
 
@@ -77,12 +77,12 @@ export const PAGES = {
     "Dashboard": Dashboard,
     "Integrations": Integrations,
     "LicenseDetail": LicenseDetail,
+    "Loot": Loot,
+    "LootCustomer": LootCustomer,
+    "LootSettings": LootSettings,
     "SaaSReports": SaaSReports,
     "Services": Services,
     "Settings": Settings,
-    "Loot": Loot,
-    "LootSettings": LootSettings,
-    "LootCustomer": LootCustomer,
 }
 
 export const pagesConfig = {

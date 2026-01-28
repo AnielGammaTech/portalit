@@ -79,6 +79,15 @@ export default function LicenseDetail() {
   const [renewalBillingCycle, setRenewalBillingCycle] = useState('annually');
   const [renewalDate, setRenewalDate] = useState('');
   
+  // Modify license form state
+  const [modifyFormData, setModifyFormData] = useState({
+    quantity: 0,
+    total_cost: 0,
+    card_last_four: '',
+    renewal_date: '',
+    notes: ''
+  });
+  
   // Loading state
   const [syncingUsers, setSyncingUsers] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
