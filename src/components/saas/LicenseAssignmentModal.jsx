@@ -10,21 +10,22 @@ export default function LicenseAssignmentModal({
   open, 
   onClose, 
   license, 
-  contacts, 
-  assignments,
+  contacts = [], 
+  assignments = [],
   onAssign,
   onRevoke
 }) {
   const [search, setSearch] = useState('');
   
-  if (!license) return null;
-  
-  // Use useMemo to recalculate when assignments change
+  // Calculate assigned contact IDs - must be before early return for hooks rules
   const assignedContactIds = useMemo(() => {
+    if (!license?.id || !assignments) return [];
     return assignments
       .filter(a => a.license_id === license.id && a.status === 'active')
       .map(a => a.contact_id);
-  }, [assignments, license.id]);
+  }, [assignments, license?.id]);
+  
+  if (!license || !open) return null;
   
   const filteredContacts = contacts.filter(c => 
     c.full_name?.toLowerCase().includes(search.toLowerCase()) ||
