@@ -1245,16 +1245,29 @@ export default function CustomerDetail() {
                     .filter(c => !saasUserFilter || c.id === saasUserFilter)
                     .map(contact => {
                       const userAssignments = licenseAssignments.filter(a => a.contact_id === contact.id && a.status === 'active');
-                      const userLicenses = userAssignments.map(a => licenses.find(l => l.id === a.license_id)).filter(Boolean);
-                      // Deduplicate by application name
-                      const uniqueApps = userLicenses.reduce((acc, license) => {
-                        if (!acc.find(l => l.application_name === license.application_name)) {
-                          acc.push(license);
+                      const userLicenses = userAssignments.map(a => {
+                        const license = licenses.find(l => l.id === a.license_id);
+                        if (license) {
+                          return { ...license, assignment: a };
                         }
-                        return acc;
-                      }, []);
-                      const totalCost = uniqueApps.reduce((sum, l) => {
-                        const perSeatCost = l.quantity > 0 ? (l.total_cost || 0) / l.quantity : 0;
+                        return null;
+                      }).filter(Boolean);
+                      
+                      // Check for duplicate apps (both managed and individual license for same software)
+                      const appCounts = {};
+                      userLicenses.forEach(l => {
+                        appCounts[l.application_name] = (appCounts[l.application_name] || 0) + 1;
+                      });
+                      const duplicateApps = Object.keys(appCounts).filter(app => appCounts[app] > 1);
+                      
+                      // Calculate total cost per user
+                      const totalCost = userLicenses.reduce((sum, l) => {
+                        // For per_user licenses, use the assignment's cost_per_license or license cost
+                        if (l.management_type === 'per_user') {
+                          return sum + (l.assignment?.cost_per_license || l.cost_per_license || 0);
+                        }
+                        // For managed licenses, calculate per-seat cost
+                        const perSeatCost = l.quantity > 0 ? (l.total_cost || 0) / l.quantity : (l.cost_per_license || 0);
                         return sum + perSeatCost;
                       }, 0);
                       
@@ -1271,26 +1284,77 @@ export default function CustomerDetail() {
                               </div>
                             </div>
                             <div className="text-right">
-                              <p className="font-semibold text-slate-900">{uniqueApps.length} licenses</p>
+                              <p className="font-semibold text-slate-900">{userLicenses.length} licenses</p>
                               <p className="text-sm text-slate-500">${totalCost.toFixed(2)}/mo</p>
                             </div>
                           </div>
-                          {uniqueApps.length > 0 ? (
-                            <div className="flex flex-wrap gap-2">
-                              {uniqueApps.map(license => (
-                                <Link
-                                  key={license.id}
-                                  to={createPageUrl(`LicenseDetail?id=${license.id}`)}
-                                  className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg hover:bg-purple-100 hover:text-purple-700 transition-colors"
-                                >
-                                  {license.logo_url ? (
-                                    <img src={license.logo_url} alt="" className="w-4 h-4 object-contain" />
-                                  ) : (
-                                    <Cloud className="w-4 h-4 text-purple-600" />
-                                  )}
-                                  <span className="text-sm">{license.application_name}</span>
-                                </Link>
-                              ))}
+                          
+                          {/* Duplicate License Warning */}
+                          {duplicateApps.length > 0 && (
+                            <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+                              <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                              <div>
+                                <p className="text-sm font-medium text-amber-800">Potential duplicate licenses</p>
+                                <p className="text-xs text-amber-700">
+                                  {duplicateApps.join(', ')} - User has both managed and individual licenses. Consider consolidating to save costs.
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {userLicenses.length > 0 ? (
+                            <div className="space-y-2">
+                              {userLicenses.map(license => {
+                                const isDuplicate = duplicateApps.includes(license.application_name);
+                                const userCost = license.management_type === 'per_user' 
+                                  ? (license.assignment?.cost_per_license || license.cost_per_license || 0)
+                                  : (license.quantity > 0 ? (license.total_cost || 0) / license.quantity : (license.cost_per_license || 0));
+                                
+                                return (
+                                  <Link
+                                    key={`${license.id}-${license.assignment?.id}`}
+                                    to={createPageUrl(`LicenseDetail?id=${license.id}`)}
+                                    className={cn(
+                                      "flex items-center gap-3 p-3 rounded-lg transition-colors",
+                                      isDuplicate 
+                                        ? "bg-amber-50 border border-amber-200 hover:bg-amber-100" 
+                                        : "bg-slate-50 hover:bg-purple-50"
+                                    )}
+                                  >
+                                    <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center overflow-hidden flex-shrink-0 border border-slate-200">
+                                      {license.logo_url ? (
+                                        <img src={license.logo_url} alt="" className="w-6 h-6 object-contain" />
+                                      ) : (
+                                        <Cloud className="w-4 h-4 text-purple-600" />
+                                      )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <p className="font-medium text-slate-900 truncate">{license.application_name}</p>
+                                        {isDuplicate && (
+                                          <AlertCircle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                                        <span>{license.license_type || 'Standard'}</span>
+                                        <span>•</span>
+                                        <Badge variant="outline" className={cn(
+                                          "text-[10px] py-0",
+                                          license.management_type === 'managed' 
+                                            ? "border-blue-200 text-blue-700 bg-blue-50" 
+                                            : "border-purple-200 text-purple-700 bg-purple-50"
+                                        )}>
+                                          {license.management_type === 'managed' ? 'Managed' : 'Individual'}
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                    <div className="text-right flex-shrink-0">
+                                      <p className="font-semibold text-slate-900">${userCost.toFixed(2)}</p>
+                                      <p className="text-[10px] text-slate-500">/month</p>
+                                    </div>
+                                  </Link>
+                                );
+                              })}
                             </div>
                           ) : (
                             <p className="text-sm text-slate-400">No licenses assigned</p>
