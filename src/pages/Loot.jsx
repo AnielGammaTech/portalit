@@ -90,7 +90,7 @@ function ReconciliationCard({ customer, psaCount, vendorCount, costPerUnit, onCl
 }
 
 // Service Category Section
-function ServiceCategory({ title, subtitle, customers, costPerUnit, totalProfit, totalRevenue }) {
+function ServiceCategory({ title, subtitle, customers, costPerUnit, totalProfit, totalRevenue, onCustomerClick }) {
   const matchedCount = customers.filter(c => c.vendorCount === c.psaCount).length;
   
   return (
@@ -125,6 +125,7 @@ function ServiceCategory({ title, subtitle, customers, costPerUnit, totalProfit,
             psaCount={customer.psaCount}
             vendorCount={customer.vendorCount}
             costPerUnit={costPerUnit}
+            onClick={onCustomerClick}
           />
         ))}
       </div>
