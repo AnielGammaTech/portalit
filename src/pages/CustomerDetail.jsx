@@ -1664,12 +1664,7 @@ export default function CustomerDetail() {
                                   </div>
                                   </TabsContent>
 
-        <TabsContent value="devices">
-          <DevicesTab 
-            customerId={customerId} 
-            customerExternalId={customer?.external_id}
-          />
-        </TabsContent>
+
 
 
                                   </Tabs>
