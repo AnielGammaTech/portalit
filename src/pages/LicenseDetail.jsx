@@ -633,44 +633,18 @@ export default function LicenseDetail() {
             )}
           </div>
 
-          {/* Combined Cost Summary */}
-          <div className="bg-gradient-to-br from-slate-700 to-slate-800 rounded-xl p-4 text-white">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className="text-xs text-slate-300 font-medium uppercase tracking-wide">Monthly Cost</p>
-                <p className="text-2xl font-bold">${combinedTotalCost.toLocaleString()}</p>
-              </div>
-              <div className="text-right text-xs text-slate-300">
-                <p className="font-medium text-white">{managedAssignments.length + individualAssignments.length} users</p>
-                {managedLicenses.length > 0 && <p>Managed: ${totalManagedCost.toLocaleString()}</p>}
-                {individualLicenses.length > 0 && <p>Individual: ${individualTotalCost.toLocaleString()}</p>}
-              </div>
-            </div>
-
-            {/* Cost per user & utilization */}
-            <div className="pt-3 border-t border-slate-600 grid grid-cols-3 gap-3 text-center">
-              <div>
-                <p className="text-lg font-semibold">
-                  ${(managedAssignments.length + individualAssignments.length) > 0 
-                    ? (combinedTotalCost / (managedAssignments.length + individualAssignments.length)).toFixed(0) 
-                    : '0'}
-                </p>
-                <p className="text-xs text-slate-400">Avg/User</p>
-              </div>
-              <div>
-                <p className="text-lg font-semibold">
-                  {managedLicenses.length > 0 ? `${managedUtilizationPercent.toFixed(0)}%` : '—'}
-                </p>
-                <p className="text-xs text-slate-400">Utilization</p>
-              </div>
-              <div>
-                <p className="text-lg font-semibold text-amber-400">
-                  {managedWastedCost > 0 ? `$${managedWastedCost.toFixed(0)}` : '$0'}
-                </p>
-                <p className="text-xs text-slate-400">Unused</p>
-              </div>
-            </div>
-          </div>
+          {/* Combined Cost Summary - Spend Analysis */}
+          <SpendAnalysisCard
+            combinedTotalCost={combinedTotalCost}
+            totalManagedCost={totalManagedCost}
+            individualTotalCost={individualTotalCost}
+            managedAssignments={managedAssignments}
+            individualAssignments={individualAssignments}
+            managedLicenses={managedLicenses}
+            individualLicenses={individualLicenses}
+            managedUtilizationPercent={managedUtilizationPercent}
+            managedWastedCost={managedWastedCost}
+          />
 
           {/* License Summary Cards */}
           {managedLicenses.length > 0 && (
