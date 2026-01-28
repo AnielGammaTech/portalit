@@ -951,7 +951,7 @@ export default function CustomerDetail() {
               return (
                 <>
                   {/* Stat Cards Row */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {/* Monthly Spend */}
                     <button
                       onClick={() => setSaasView('spend')}
@@ -988,24 +988,6 @@ export default function CustomerDetail() {
                       <p className="text-[10px] text-slate-400 mt-0.5">{assignedSeats}/{totalSeats} seats</p>
                     </button>
 
-                    {/* Low Usage */}
-                    <button
-                      onClick={() => { setSaasFilter('underutilized'); setSaasView('licenses'); }}
-                      className={cn(
-                        "bg-white rounded-xl border-2 p-4 text-left transition-all hover:shadow-md group",
-                        saasFilter === 'underutilized' ? "border-amber-500 shadow-md" : "border-slate-200 hover:border-amber-300"
-                      )}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center", saasFilter === 'underutilized' ? "bg-amber-100" : "bg-slate-100 group-hover:bg-amber-50")}>
-                          <AlertCircle className={cn("w-4 h-4", saasFilter === 'underutilized' ? "text-amber-600" : "text-slate-500 group-hover:text-amber-500")} />
-                        </div>
-                        <span className="text-xs text-slate-500">Low Usage</span>
-                      </div>
-                      <p className={cn("text-xl font-bold", underutilizedApps.length > 0 ? "text-amber-600" : "text-slate-900")}>{underutilizedApps.length}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">&lt;50% utilized</p>
-                    </button>
-
                     {/* By User */}
                     <button
                       onClick={() => setSaasView('users')}
@@ -1023,20 +1005,6 @@ export default function CustomerDetail() {
                       <p className="text-xl font-bold text-slate-900">{contacts.length}</p>
                       <p className="text-[10px] text-slate-400 mt-0.5">team members</p>
                     </button>
-
-                    {/* Applications */}
-                    <div className="bg-white rounded-xl border-2 border-slate-200 p-4 text-left">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
-                          <Cloud className="w-4 h-4 text-slate-500" />
-                        </div>
-                        <span className="text-xs text-slate-500">Apps</span>
-                      </div>
-                      <p className="text-xl font-bold text-slate-900">{Object.entries(groupedSoftware).filter(([_, data]) => 
-                        data.software.source !== 'jumpcloud' && data.software.vendor?.toLowerCase() !== 'jumpcloud'
-                      ).length}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">applications</p>
-                    </div>
                   </div>
 
                   {/* Filters & Add Button Row */}
