@@ -35,7 +35,8 @@ export default function CustomerServicesTab({
   setExpandedBills,
   isSyncing,
   setIsSyncing,
-  queryClient
+  queryClient,
+  devices = []
 }) {
   const [syncingJumpCloud, setSyncingJumpCloud] = useState(false);
   const [syncingSpanning, setSyncingSpanning] = useState(false);
