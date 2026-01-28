@@ -913,20 +913,19 @@ export default function CustomerDetail() {
                         </div>
                       </TabsContent>
 
-        {hasServicesMapped && (
-          <TabsContent value="services">
-            <CustomerServicesTab 
-              customerId={customerId}
-              customer={customer}
-              lineItems={lineItems}
-              expandedBills={expandedBills}
-              setExpandedBills={setExpandedBills}
-              isSyncing={isSyncing}
-              setIsSyncing={setIsSyncing}
-              queryClient={queryClient}
-            />
-          </TabsContent>
-        )}
+        <TabsContent value="services">
+          <CustomerServicesTab 
+            customerId={customerId}
+            customer={customer}
+            lineItems={lineItems}
+            expandedBills={expandedBills}
+            setExpandedBills={setExpandedBills}
+            isSyncing={isSyncing}
+            setIsSyncing={setIsSyncing}
+            queryClient={queryClient}
+            devices={devices}
+          />
+        </TabsContent>
 
         <TabsContent value="licenses">
           <div className="space-y-6">
