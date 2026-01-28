@@ -63,6 +63,7 @@ import LootSettings from './pages/LootSettings';
 import SaaSReports from './pages/SaaSReports';
 import Services from './pages/Services';
 import Settings from './pages/Settings';
+import SpendAnalysis from './pages/SpendAnalysis';
 import __Layout from './Layout.jsx';
 
 
@@ -83,6 +84,7 @@ export const PAGES = {
     "SaaSReports": SaaSReports,
     "Services": Services,
     "Settings": Settings,
+    "SpendAnalysis": SpendAnalysis,
 }
 
 export const pagesConfig = {
