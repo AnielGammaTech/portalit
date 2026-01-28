@@ -13,7 +13,8 @@ import {
   AlertCircle,
   ChevronRight,
   AlertTriangle,
-  Fish
+  Fish,
+  Monitor
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -24,6 +25,7 @@ import UserDetailModal from './UserDetailModal';
 import DarkWebTab from './DarkWebTab';
 import BullPhishTab from './BullPhishTab';
 import SpanningUsersTab from './SpanningUsersTab';
+import DevicesTab from './DevicesTab';
 
 export default function CustomerServicesTab({ 
   customerId, 
