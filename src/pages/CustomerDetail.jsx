@@ -44,6 +44,7 @@ import AddSoftwareModal from '../components/saas/AddSoftwareModal';
 import SpendAnomalyAlert from '../components/saas/SpendAnomalyAlert';
 import SoftwareCard from '../components/saas/SoftwareCard';
 import AddContactModal from '../components/saas/AddContactModal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import CustomerAnalytics from '../components/customer/CustomerAnalytics';
 import DevicesTab from '../components/customer/DevicesTab';
 import CustomerServicesTab from '../components/customer/CustomerServicesTab';
