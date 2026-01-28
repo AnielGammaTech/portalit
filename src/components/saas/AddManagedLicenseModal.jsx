@@ -61,29 +61,29 @@ export default function AddManagedLicenseModal({ open, onClose, onSave, software
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Seats */}
-          <div>
-            <Label>Total Seats *</Label>
-            <Input
-              type="number"
-              min="1"
-              value={form.quantity || ''}
-              onChange={(e) => setForm({ ...form, quantity: parseInt(e.target.value) || 0 })}
-              required
-              placeholder="0"
-              className="mt-1"
-            />
-          </div>
-
-          {/* License Type */}
-          <div>
-            <Label>License Type</Label>
-            <Input
-              value={form.license_type}
-              onChange={(e) => setForm({ ...form, license_type: e.target.value })}
-              placeholder="e.g., Business Basic, Pro, E3"
-              className="mt-1"
-            />
+          {/* License Type & Seats - side by side */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>License Type</Label>
+              <Input
+                value={form.license_type}
+                onChange={(e) => setForm({ ...form, license_type: e.target.value })}
+                placeholder="e.g., Pro, E3"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>Total Seats *</Label>
+              <Input
+                type="number"
+                min="1"
+                value={form.quantity || ''}
+                onChange={(e) => setForm({ ...form, quantity: parseInt(e.target.value) || 0 })}
+                required
+                placeholder="0"
+                className="mt-1"
+              />
+            </div>
           </div>
 
           {/* Billing Cycle & Cost */}
