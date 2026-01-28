@@ -36,12 +36,15 @@ function ReconciliationCard({ customer, psaCount, vendorCount, costPerUnit }) {
   const revenue = psaCount * costPerUnit;
   
   return (
-    <div className={cn(
-      "bg-white rounded-xl border p-5 hover:shadow-md transition-all",
-      isOver && "border-red-200",
-      isUnder && "border-emerald-200",
-      isMatched && "border-slate-200"
-    )}>
+    <Link 
+      to={createPageUrl(`CustomerDetail?id=${customer.id}`)}
+      className={cn(
+        "bg-white rounded-xl border p-5 hover:shadow-md transition-all cursor-pointer block",
+        isOver && "border-red-200 hover:border-red-300",
+        isUnder && "border-emerald-200 hover:border-emerald-300",
+        isMatched && "border-slate-200 hover:border-slate-300"
+      )}
+    >
       <div className="mb-3">
         <h3 className="font-semibold text-slate-900 truncate">{customer.name}</h3>
         <p className="text-xs text-slate-500 truncate">{customer.contract_name || 'Managed Support'}</p>
@@ -81,7 +84,7 @@ function ReconciliationCard({ customer, psaCount, vendorCount, costPerUnit }) {
           ${revenue.toFixed(0)} Revenue
         </span>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -165,7 +168,12 @@ export default function Loot() {
     queryFn: () => base44.entities.RecurringBill.list('-created_date', 2000),
   });
 
-  const isLoading = loadingCustomers || loadingDevices || loadingLicenses || loadingContracts || loadingBills;
+  const { data: billLineItems = [], isLoading: loadingLineItems } = useQuery({
+    queryKey: ['all_bill_line_items'],
+    queryFn: () => base44.entities.RecurringBillLineItem.list('-created_date', 5000),
+  });
+
+  const isLoading = loadingCustomers || loadingDevices || loadingLicenses || loadingContracts || loadingBills || loadingLineItems;
 
   // Block non-admins
   if (user && user.role !== 'admin') {
@@ -187,14 +195,31 @@ export default function Loot() {
     );
   }
 
-  // Build reconciliation data for devices
+  // Get line items per customer from recurring bills
+  const getCustomerLineItems = (customerId) => {
+    const customerBills = recurringBills.filter(b => b.customer_id === customerId);
+    const customerLineItems = [];
+    customerBills.forEach(bill => {
+      const items = billLineItems.filter(item => item.recurring_bill_id === bill.id);
+      customerLineItems.push(...items);
+    });
+    return customerLineItems;
+  };
+
+  // Build reconciliation data for devices (from Datto RMM line items)
   const deviceReconciliation = customers
     .filter(c => c.status === 'active')
     .map(customer => {
       const customerDevices = devices.filter(d => d.customer_id === customer.id);
-      const psaCount = customer.total_devices || customerDevices.length;
-      // Simulate vendor count with slight variance for demo
-      const vendorCount = customerDevices.length || Math.max(0, psaCount + Math.floor(Math.random() * 20) - 10);
+      const lineItems = getCustomerLineItems(customer.id);
+      // Look for Datto/RMM related line items in HaloPSA
+      const dattoItems = lineItems.filter(item => 
+        item.description?.toLowerCase().includes('datto') ||
+        item.description?.toLowerCase().includes('rmm') ||
+        item.description?.toLowerCase().includes('device')
+      );
+      const psaCount = dattoItems.reduce((sum, item) => sum + (item.quantity || 0), 0) || customer.total_devices || 0;
+      const vendorCount = customerDevices.length;
       const contract = contracts.find(c => c.customer_id === customer.id);
       
       return {
@@ -206,19 +231,27 @@ export default function Loot() {
     })
     .filter(c => c.psaCount > 0 || c.vendorCount > 0);
 
-  // Build reconciliation data for backup/users
+  // Build reconciliation data for backup/users (from JumpCloud/backup line items)
   const backupReconciliation = customers
     .filter(c => c.status === 'active')
     .map(customer => {
-      const psaCount = customer.total_users || Math.floor(Math.random() * 100) + 20;
-      const vendorCount = psaCount + Math.floor(Math.random() * 20) - 10;
+      const lineItems = getCustomerLineItems(customer.id);
+      // Look for backup/user related line items in HaloPSA
+      const backupItems = lineItems.filter(item => 
+        item.description?.toLowerCase().includes('backup') ||
+        item.description?.toLowerCase().includes('cove') ||
+        item.description?.toLowerCase().includes('user') ||
+        item.description?.toLowerCase().includes('jumpcloud')
+      );
+      const psaCount = backupItems.reduce((sum, item) => sum + (item.quantity || 0), 0) || customer.total_users || 0;
+      const vendorCount = psaCount; // Will be replaced with actual vendor data once synced
       const contract = contracts.find(c => c.customer_id === customer.id);
       
       return {
         ...customer,
         contract_name: contract?.name,
         psaCount,
-        vendorCount: Math.max(0, vendorCount)
+        vendorCount
       };
     })
     .filter(c => c.psaCount > 0 || c.vendorCount > 0);
