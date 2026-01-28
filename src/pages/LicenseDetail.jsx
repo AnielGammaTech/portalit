@@ -166,7 +166,7 @@ export default function LicenseDetail() {
 
   // Fetch assignments for ALL related licenses (both managed and individual)
   const { data: allAssignments = [], refetch: refetchAssignments } = useQuery({
-    queryKey: ['all_license_assignments', software?.application_name, software?.customer_id],
+    queryKey: ['all_license_assignments', software?.application_name, software?.customer_id, relatedLicenses.map(l => l.id).join(',')],
     queryFn: async () => {
       const licenseIds = relatedLicenses.map(l => l.id);
       if (licenseIds.length === 0) return [];
