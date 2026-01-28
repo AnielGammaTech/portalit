@@ -13,9 +13,7 @@ import {
   ChevronDown,
   LogOut,
   Bell,
-  Users,
-  BarChart3,
-  Receipt
+  Users
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import {
@@ -87,8 +85,6 @@ export default function Layout({ children, currentPageName }) {
                 { name: 'Dashboard', page: 'Dashboard', icon: LayoutDashboard },
                 { name: 'Customers', page: 'Customers', icon: Building2 },
                 { name: 'Services', page: 'Services', icon: Cloud },
-                { name: 'Billing', page: 'Billing', icon: FileText },
-                { name: 'Analytics', page: 'Analytics', icon: BarChart3 },
               ];
 
   // Customer navigation (end-user view) - uses customer_id from user profile
