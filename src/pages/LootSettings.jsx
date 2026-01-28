@@ -60,6 +60,7 @@ export default function LootSettings() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingService, setEditingService] = useState(null);
   const [isSyncing, setIsSyncing] = useState({});
+  const [showImportModal, setShowImportModal] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: settings = [], isLoading } = useQuery({
