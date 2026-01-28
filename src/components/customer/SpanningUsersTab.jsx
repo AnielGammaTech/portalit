@@ -268,10 +268,18 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
       {/* Users List */}
       {stats.users && stats.users.length > 0 && (() => {
         const filteredUsers = stats.users
-          .filter(u => 
-            u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            u.displayName?.toLowerCase().includes(searchTerm.toLowerCase())
-          )
+          .filter(u => {
+            // Search filter
+            const matchesSearch = u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              u.displayName?.toLowerCase().includes(searchTerm.toLowerCase());
+            
+            // Category filter
+            if (!selectedCategory) return matchesSearch;
+            if (selectedCategory === 'standard') return matchesSearch && u.userType === 'STANDARD';
+            if (selectedCategory === 'archived') return matchesSearch && u.userType === 'ARCHIVED';
+            if (selectedCategory === 'shared') return matchesSearch && u.userType === 'SHARED_MAILBOX';
+            return matchesSearch;
+          })
           .sort((a, b) => b.totalStorageBytes - a.totalStorageBytes);
         
         const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
