@@ -737,33 +737,53 @@ export default function CustomerDetail() {
                                   <option value="sent">Pending</option>
                                 </select>
 
-                                {/* Invoice Summary Stats - Inline */}
+                                {/* Invoice Summary Stats - Modern Cards */}
                                 {invoices.length > 0 && (
-                                  <div className="flex flex-wrap items-center gap-2 ml-auto">
-                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-gray-200">
-                                      <span className="text-xs text-gray-500 uppercase font-medium">Total</span>
-                                      <span className="text-sm font-bold text-gray-900">
-                                        ${invoices.reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                      </span>
+                                  <div className="flex flex-wrap items-center gap-3 ml-auto">
+                                    <div className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl shadow-sm">
+                                      <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center">
+                                        <Receipt className="w-4 h-4 text-slate-600" />
+                                      </div>
+                                      <div>
+                                        <p className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Total</p>
+                                        <p className="text-base font-bold text-slate-900">
+                                          ${invoices.reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                        </p>
+                                      </div>
                                     </div>
-                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-lg border border-emerald-200">
-                                      <span className="text-xs text-emerald-600 uppercase font-medium">Paid</span>
-                                      <span className="text-sm font-bold text-emerald-700">
-                                        ${invoices.filter(i => i.status === 'paid').reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                      </span>
+                                    <div className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl shadow-sm">
+                                      <div className="w-8 h-8 rounded-lg bg-emerald-200 flex items-center justify-center">
+                                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                      </div>
+                                      <div>
+                                        <p className="text-[10px] text-emerald-600 uppercase tracking-wide font-medium">Paid</p>
+                                        <p className="text-base font-bold text-emerald-700">
+                                          ${invoices.filter(i => i.status === 'paid').reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                        </p>
+                                      </div>
                                     </div>
-                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 rounded-lg border border-amber-200">
-                                      <span className="text-xs text-amber-600 uppercase font-medium">Pending</span>
-                                      <span className="text-sm font-bold text-amber-700">
-                                        ${invoices.filter(i => i.status === 'sent').reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                      </span>
+                                    <div className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl shadow-sm">
+                                      <div className="w-8 h-8 rounded-lg bg-amber-200 flex items-center justify-center">
+                                        <Clock className="w-4 h-4 text-amber-600" />
+                                      </div>
+                                      <div>
+                                        <p className="text-[10px] text-amber-600 uppercase tracking-wide font-medium">Pending</p>
+                                        <p className="text-base font-bold text-amber-700">
+                                          ${invoices.filter(i => i.status === 'sent').reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                        </p>
+                                      </div>
                                     </div>
                                     {invoices.filter(i => i.status === 'overdue').length > 0 && (
-                                      <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 rounded-lg border border-red-200">
-                                        <span className="text-xs text-red-600 uppercase font-medium">Overdue ({invoices.filter(i => i.status === 'overdue').length})</span>
-                                        <span className="text-sm font-bold text-red-700">
-                                          ${invoices.filter(i => i.status === 'overdue').reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                        </span>
+                                      <div className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-br from-red-50 to-red-100 rounded-xl shadow-sm">
+                                        <div className="w-8 h-8 rounded-lg bg-red-200 flex items-center justify-center">
+                                          <AlertCircle className="w-4 h-4 text-red-600" />
+                                        </div>
+                                        <div>
+                                          <p className="text-[10px] text-red-600 uppercase tracking-wide font-medium">Overdue ({invoices.filter(i => i.status === 'overdue').length})</p>
+                                          <p className="text-base font-bold text-red-700">
+                                            ${invoices.filter(i => i.status === 'overdue').reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                          </p>
+                                        </div>
                                       </div>
                                     )}
                                   </div>
