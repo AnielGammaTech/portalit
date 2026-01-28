@@ -60,6 +60,7 @@ import LicenseDetail from './pages/LicenseDetail';
 import SaaSReports from './pages/SaaSReports';
 import Services from './pages/Services';
 import Settings from './pages/Settings';
+import Loot from './pages/Loot';
 import __Layout from './Layout.jsx';
 
 
@@ -77,6 +78,7 @@ export const PAGES = {
     "SaaSReports": SaaSReports,
     "Services": Services,
     "Settings": Settings,
+    "Loot": Loot,
 }
 
 export const pagesConfig = {

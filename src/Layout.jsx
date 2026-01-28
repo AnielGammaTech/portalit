@@ -13,7 +13,8 @@ import {
   ChevronDown,
   LogOut,
   Bell,
-  Users
+  Users,
+  DollarSign
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import {
@@ -82,6 +83,7 @@ export default function Layout({ children, currentPageName }) {
 
   // Admin navigation (MSP view)
       const adminNavigation = [
+                { name: 'Loot', page: 'Loot', icon: DollarSign },
                 { name: 'Dashboard', page: 'Dashboard', icon: LayoutDashboard },
                 { name: 'Customers', page: 'Customers', icon: Building2 },
                 { name: 'Services', page: 'Services', icon: Cloud },
