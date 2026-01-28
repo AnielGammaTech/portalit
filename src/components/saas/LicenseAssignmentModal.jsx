@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,9 +19,12 @@ export default function LicenseAssignmentModal({
   
   if (!license) return null;
   
-  const assignedContactIds = assignments
-    .filter(a => a.license_id === license.id && a.status === 'active')
-    .map(a => a.contact_id);
+  // Use useMemo to recalculate when assignments change
+  const assignedContactIds = useMemo(() => {
+    return assignments
+      .filter(a => a.license_id === license.id && a.status === 'active')
+      .map(a => a.contact_id);
+  }, [assignments, license.id]);
   
   const filteredContacts = contacts.filter(c => 
     c.full_name?.toLowerCase().includes(search.toLowerCase()) ||
