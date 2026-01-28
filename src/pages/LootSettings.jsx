@@ -357,6 +357,115 @@ export default function LootSettings() {
   );
 }
 
+function ImportLineItemsModal({ open, onClose, lineItems, existingSettings, onImport }) {
+  const [selected, setSelected] = useState(new Set());
+  const [search, setSearch] = useState('');
+
+  // Filter out already imported items
+  const existingMatches = new Set(existingSettings.map(s => s.halopsa_item_match?.toLowerCase()));
+  const availableItems = lineItems.filter(item => 
+    !existingMatches.has(item.description?.toLowerCase()) &&
+    item.description?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const toggleItem = (description) => {
+    const newSelected = new Set(selected);
+    if (newSelected.has(description)) {
+      newSelected.delete(description);
+    } else {
+      newSelected.add(description);
+    }
+    setSelected(newSelected);
+  };
+
+  const handleImport = () => {
+    const itemsToImport = availableItems.filter(item => selected.has(item.description));
+    onImport(itemsToImport);
+    setSelected(new Set());
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[80vh]">
+        <DialogHeader>
+          <DialogTitle>Import Line Items from HaloPSA</DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-4 py-4">
+          <p className="text-sm text-slate-500">
+            Select recurring bill line items to track in Loot. Each item will be created as a service you can map to a vendor API.
+          </p>
+
+          <Input
+            placeholder="Search line items..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+
+          <div className="border rounded-lg max-h-96 overflow-y-auto">
+            {availableItems.length === 0 ? (
+              <div className="p-8 text-center text-slate-500">
+                {lineItems.length === 0 ? 
+                  'No line items found. Sync recurring bills from HaloPSA first.' :
+                  'All line items have already been imported.'
+                }
+              </div>
+            ) : (
+              <div className="divide-y">
+                {availableItems.map((item, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => toggleItem(item.description)}
+                    className={cn(
+                      "p-3 cursor-pointer hover:bg-slate-50 flex items-center justify-between",
+                      selected.has(item.description) && "bg-purple-50"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(item.description)}
+                        onChange={() => toggleItem(item.description)}
+                        className="rounded"
+                      />
+                      <div>
+                        <p className="font-medium text-slate-900">{item.description}</p>
+                        {item.item_code && (
+                          <p className="text-xs text-slate-500">Code: {item.item_code}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right text-sm text-slate-500">
+                      <p>{item.count} bills</p>
+                      <p>{item.totalQty} total qty</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {selected.size > 0 && (
+            <p className="text-sm text-purple-600">{selected.size} items selected</p>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button 
+            onClick={handleImport}
+            disabled={selected.size === 0}
+            className="bg-purple-600 hover:bg-purple-700"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Import {selected.size} Items
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ServiceModal({ open, onClose, service, onSave, isLoading }) {
   const [formData, setFormData] = useState({
     service_name: '',
