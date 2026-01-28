@@ -26,7 +26,7 @@ import {
 import { cn } from "@/lib/utils";
 
 // Reconciliation Card Component
-function ReconciliationCard({ customer, psaCount, vendorCount, costPerUnit }) {
+function ReconciliationCard({ customer, psaCount, vendorCount, costPerUnit, onClick }) {
   const difference = vendorCount - psaCount;
   const isOver = difference > 0;
   const isUnder = difference < 0;
@@ -36,10 +36,10 @@ function ReconciliationCard({ customer, psaCount, vendorCount, costPerUnit }) {
   const revenue = psaCount * costPerUnit;
   
   return (
-    <Link 
-      to={createPageUrl(`CustomerDetail?id=${customer.id}`)}
+    <div 
+      onClick={() => onClick(customer)}
       className={cn(
-        "bg-white rounded-xl border p-5 hover:shadow-md transition-all cursor-pointer block",
+        "bg-white rounded-xl border p-5 hover:shadow-md transition-all cursor-pointer",
         isOver && "border-red-200 hover:border-red-300",
         isUnder && "border-emerald-200 hover:border-emerald-300",
         isMatched && "border-slate-200 hover:border-slate-300"
@@ -84,7 +84,7 @@ function ReconciliationCard({ customer, psaCount, vendorCount, costPerUnit }) {
           ${revenue.toFixed(0)} Revenue
         </span>
       </div>
-    </Link>
+    </div>
   );
 }
 
