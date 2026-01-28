@@ -87,6 +87,7 @@ export default function Layout({ children, currentPageName }) {
                 { name: 'Dashboard', page: 'Dashboard', icon: LayoutDashboard },
                 { name: 'Customers', page: 'Customers', icon: Building2 },
                 { name: 'Services', page: 'Services', icon: Cloud },
+                { name: 'Loot Settings', page: 'LootSettings', icon: Settings },
               ];
 
   // Customer navigation (end-user view) - uses customer_id from user profile
