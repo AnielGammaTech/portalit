@@ -945,7 +945,7 @@ export default function CustomerDetail() {
                 <>
                   {/* Stat Cards Row */}
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {/* Monthly Spend */}
+                    {/* Spend Analysis */}
                     <button
                       onClick={() => setSaasView('spend')}
                       className={cn(
@@ -957,9 +957,9 @@ export default function CustomerDetail() {
                         <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center", saasView === 'spend' ? "bg-purple-100" : "bg-slate-100 group-hover:bg-purple-50")}>
                           <DollarSign className={cn("w-4 h-4", saasView === 'spend' ? "text-purple-600" : "text-slate-500 group-hover:text-purple-500")} />
                         </div>
-                        <span className="text-xs text-slate-500">Monthly</span>
+                        <span className="text-xs text-slate-500">Spend Analysis</span>
                       </div>
-                      <p className="text-xl font-bold text-slate-900">${totalSpend.toLocaleString()}</p>
+                      <p className="text-sm font-medium text-slate-700 mt-1">View monthly & yearly costs</p>
                       {wastedSpend > 0 && <p className="text-[10px] text-red-500 mt-0.5">~${wastedSpend.toFixed(0)} unused</p>}
                     </button>
                     
