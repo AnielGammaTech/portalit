@@ -29,7 +29,8 @@ import {
   AlertCircle,
   BarChart3,
   Receipt,
-  Shield
+  Shield,
+  Clock
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
