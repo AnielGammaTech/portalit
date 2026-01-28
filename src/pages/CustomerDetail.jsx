@@ -948,9 +948,9 @@ export default function CustomerDetail() {
                   {/* Stat Cards Row */}
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {/* Spend Analysis */}
-                    <button
-                      onClick={() => setShowSpendModal(true)}
-                      className="bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl border-2 border-purple-500 p-4 text-left transition-all hover:shadow-lg hover:from-purple-500 hover:to-purple-600 group"
+                    <Link
+                      to={createPageUrl(`SpendAnalysis?customerId=${customerId}`)}
+                      className="bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl border-2 border-purple-500 p-4 text-left transition-all hover:shadow-lg hover:from-purple-500 hover:to-purple-600 group block"
                     >
                       <div className="flex items-center gap-2 mb-1">
                         <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/20">
@@ -960,7 +960,7 @@ export default function CustomerDetail() {
                       </div>
                       <p className="text-sm font-semibold text-white mt-1">View Monthly & Yearly</p>
                       <p className="text-[10px] text-purple-200 mt-0.5">Click to see breakdown →</p>
-                    </button>
+                    </Link>
                     
                     {/* Utilization */}
                     <button
