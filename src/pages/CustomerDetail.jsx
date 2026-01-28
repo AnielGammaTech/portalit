@@ -1393,6 +1393,90 @@ export default function CustomerDetail() {
             )}
           </div>
 
+          {/* Spend Analysis Modal */}
+          <Dialog open={showSpendModal} onOpenChange={setShowSpendModal}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <DollarSign className="w-5 h-5 text-purple-600" />
+                  Spend Analysis
+                </DialogTitle>
+              </DialogHeader>
+              <div className="py-4 space-y-6">
+                {/* Monthly View */}
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <h3 className="text-sm font-semibold text-slate-700 mb-3">Monthly Costs</h3>
+                  <div className="space-y-2">
+                    {licenses.map(license => (
+                      <div key={license.id} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {license.logo_url ? (
+                            <img src={license.logo_url} alt="" className="w-5 h-5 object-contain" />
+                          ) : (
+                            <Cloud className="w-5 h-5 text-slate-400" />
+                          )}
+                          <span className="text-sm text-slate-700">{license.application_name}</span>
+                        </div>
+                        <span className="font-semibold text-slate-900">${(license.total_cost || 0).toLocaleString()}</span>
+                      </div>
+                    ))}
+                    <div className="pt-2 mt-2 border-t border-slate-200 flex items-center justify-between">
+                      <span className="font-semibold text-slate-900">Total Monthly</span>
+                      <span className="text-lg font-bold text-purple-600">${licenses.reduce((sum, l) => sum + (l.total_cost || 0), 0).toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Yearly View */}
+                <div className="bg-purple-50 rounded-xl p-4">
+                  <h3 className="text-sm font-semibold text-purple-700 mb-3">Yearly Costs (Projected)</h3>
+                  <div className="space-y-2">
+                    {licenses.map(license => (
+                      <div key={license.id} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {license.logo_url ? (
+                            <img src={license.logo_url} alt="" className="w-5 h-5 object-contain" />
+                          ) : (
+                            <Cloud className="w-5 h-5 text-purple-400" />
+                          )}
+                          <span className="text-sm text-purple-700">{license.application_name}</span>
+                        </div>
+                        <span className="font-semibold text-purple-900">${((license.total_cost || 0) * 12).toLocaleString()}</span>
+                      </div>
+                    ))}
+                    <div className="pt-2 mt-2 border-t border-purple-200 flex items-center justify-between">
+                      <span className="font-semibold text-purple-900">Total Yearly</span>
+                      <span className="text-lg font-bold text-purple-700">${(licenses.reduce((sum, l) => sum + (l.total_cost || 0), 0) * 12).toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Unused Spend Warning */}
+                {(() => {
+                  const managedLicenses = licenses.filter(l => l.management_type === 'managed');
+                  const totalSeats = managedLicenses.reduce((sum, l) => sum + (l.quantity || 0), 0);
+                  const managedLicenseIds = managedLicenses.map(l => l.id);
+                  const assignedSeats = licenseAssignments.filter(a => a.status === 'active' && managedLicenseIds.includes(a.license_id)).length;
+                  const totalSpend = licenses.reduce((sum, l) => sum + (l.total_cost || 0), 0);
+                  const unusedSeats = totalSeats - assignedSeats;
+                  const wastedSpend = totalSeats > 0 ? (unusedSeats / totalSeats) * totalSpend : 0;
+
+                  if (wastedSpend > 0) {
+                    return (
+                      <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                        <p className="text-sm font-semibold text-red-700">Potential Savings</p>
+                        <p className="text-xs text-red-600 mt-1">
+                          ~${wastedSpend.toFixed(0)}/month (${(wastedSpend * 12).toFixed(0)}/year) in unused license seats
+                        </p>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+            </DialogContent>
+          </Dialog>
+
           {/* Modals */}
           <LicenseAssignmentModal
             open={!!selectedLicense}
