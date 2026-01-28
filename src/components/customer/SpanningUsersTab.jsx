@@ -30,7 +30,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [selectedCategory, setSelectedCategory] = useState(null); // 'standard', 'archived', 'shared', or null for all
+
   const ITEMS_PER_PAGE = 15;
 
   // Fetch live Spanning data from API
@@ -176,15 +176,9 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
         </div>
       </div>
 
-      {/* Clickable Stats Grid - Filter users by category */}
+      {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card 
-          className={cn(
-            "bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 cursor-pointer hover:shadow-md transition-all h-full",
-            selectedCategory === 'standard' && "ring-2 ring-purple-500 shadow-md"
-          )}
-          onClick={() => { setSelectedCategory(selectedCategory === 'standard' ? null : 'standard'); setCurrentPage(1); }}
-        >
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 h-full">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-purple-200 rounded-lg">
@@ -199,13 +193,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
           </CardContent>
         </Card>
 
-        <Card 
-          className={cn(
-            "bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200 cursor-pointer hover:shadow-md transition-all h-full",
-            selectedCategory === 'archived' && "ring-2 ring-amber-500 shadow-md"
-          )}
-          onClick={() => { setSelectedCategory(selectedCategory === 'archived' ? null : 'archived'); setCurrentPage(1); }}
-        >
+        <Card className="bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200 h-full">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-amber-200 rounded-lg">
@@ -220,13 +208,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
           </CardContent>
         </Card>
 
-        <Card 
-          className={cn(
-            "bg-gradient-to-br from-cyan-50 to-cyan-100 border-cyan-200 cursor-pointer hover:shadow-md transition-all h-full",
-            selectedCategory === 'shared' && "ring-2 ring-cyan-500 shadow-md"
-          )}
-          onClick={() => { setSelectedCategory(selectedCategory === 'shared' ? null : 'shared'); setCurrentPage(1); }}
-        >
+        <Card className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-cyan-200 h-full">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-cyan-200 rounded-lg">
@@ -241,13 +223,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
           </CardContent>
         </Card>
 
-        <Card 
-          className={cn(
-            "bg-gradient-to-br from-green-50 to-green-100 border-green-200 cursor-pointer hover:shadow-md transition-all h-full",
-            selectedCategory === null && "ring-2 ring-green-500 shadow-md"
-          )}
-          onClick={() => { setSelectedCategory(null); setCurrentPage(1); }}
-        >
+        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200 h-full">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-green-200 rounded-lg">
@@ -273,14 +249,6 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
             const matchesSearch = u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
               u.displayName?.toLowerCase().includes(searchTerm.toLowerCase());
             
-            // Category filter - Note: Spanning API returns all protected users in the user list.
-            // The archived/shared counts come from domain-level stats, not user-level types.
-            // Most users will have userType "standard". We still allow filtering by type if present.
-            if (!selectedCategory) return matchesSearch;
-            const uType = (u.userType || 'standard').toLowerCase();
-            if (selectedCategory === 'standard') return matchesSearch && (uType === 'standard' || uType === 'user' || uType === '');
-            if (selectedCategory === 'archived') return matchesSearch && (uType === 'archived' || uType === 'archiveduser');
-            if (selectedCategory === 'shared') return matchesSearch && (uType === 'shared_mailbox' || uType === 'shared' || uType === 'sharedmailbox');
             return matchesSearch;
           })
           .sort((a, b) => b.totalStorageBytes - a.totalStorageBytes);
@@ -297,11 +265,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <Users className="w-5 h-5 text-blue-600" />
-                  {selectedCategory === 'standard' && 'Standard Users'}
-                  {selectedCategory === 'archived' && 'Archived Users'}
-                  {selectedCategory === 'shared' && 'Shared Mailboxes'}
-                  {!selectedCategory && 'All Spanning Users'}
-                  {' '}({filteredUsers.length})
+                  All Spanning Users ({filteredUsers.length})
                 </CardTitle>
                 <div className="relative w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
