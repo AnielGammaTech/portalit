@@ -1002,7 +1002,7 @@ export default function CustomerDetail() {
                         </div>
                         <span className="text-xs text-slate-500">Low Usage</span>
                       </div>
-                      <p className={cn("text-xl font-bold", underutilizedLicenses.length > 0 ? "text-amber-600" : "text-slate-900")}>{underutilizedLicenses.length}</p>
+                      <p className={cn("text-xl font-bold", underutilizedApps.length > 0 ? "text-amber-600" : "text-slate-900")}>{underutilizedApps.length}</p>
                       <p className="text-[10px] text-slate-400 mt-0.5">&lt;50% utilized</p>
                     </button>
 
