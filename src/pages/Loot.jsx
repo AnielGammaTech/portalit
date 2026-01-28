@@ -7,11 +7,11 @@ import {
   ArrowUp, 
   ArrowDown, 
   Minus,
-  DollarSign,
-  TrendingUp,
-  Filter,
-  LayoutGrid,
-  Settings
+  Settings,
+  ChevronRight,
+  Building2,
+  AlertTriangle,
+  CheckCircle2
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,119 +24,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import CustomerDetailModal from '../components/loot/CustomerDetailModal';
-
-// Reconciliation Card Component
-function ReconciliationCard({ customer, psaCount, vendorCount, costPerUnit, onClick }) {
-  const difference = vendorCount - psaCount;
-  const isOver = difference > 0;
-  const isUnder = difference < 0;
-  const isMatched = difference === 0;
-  
-  const profit = psaCount * costPerUnit * 0.3; // 30% margin assumption
-  const revenue = psaCount * costPerUnit;
-  
-  return (
-    <div 
-      onClick={() => onClick(customer)}
-      className={cn(
-        "bg-white rounded-xl border p-5 hover:shadow-md transition-all cursor-pointer",
-        isOver && "border-red-200 hover:border-red-300",
-        isUnder && "border-emerald-200 hover:border-emerald-300",
-        isMatched && "border-slate-200 hover:border-slate-300"
-      )}
-    >
-      <div className="mb-3">
-        <h3 className="font-semibold text-slate-900 truncate">{customer.name}</h3>
-        <p className="text-xs text-slate-500 truncate">{customer.contract_name || 'Managed Support'}</p>
-      </div>
-      
-      <div className="flex items-center justify-between mb-4">
-        <div className="text-center">
-          <p className="text-xs text-slate-500 mb-1">PSA</p>
-          <p className="text-2xl font-bold text-slate-900">{psaCount}</p>
-        </div>
-        
-        <div className="flex flex-col items-center">
-          {isOver && <ArrowUp className="w-5 h-5 text-red-500" />}
-          {isUnder && <ArrowDown className="w-5 h-5 text-emerald-500" />}
-          {isMatched && <Minus className="w-5 h-5 text-slate-400" />}
-        </div>
-        
-        <div className="text-center">
-          <p className="text-xs text-slate-500 mb-1">VENDOR</p>
-          <p className={cn(
-            "text-2xl font-bold",
-            isOver && "text-red-600",
-            isUnder && "text-emerald-600",
-            isMatched && "text-slate-900"
-          )}>{vendorCount}</p>
-        </div>
-      </div>
-      
-      <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-        <span className={cn(
-          "font-medium",
-          profit >= 0 ? "text-emerald-600" : "text-red-600"
-        )}>
-          {profit >= 0 ? '+' : ''} ${profit.toFixed(0)} Profit
-        </span>
-        <span className="text-slate-500">
-          ${revenue.toFixed(0)} Revenue
-        </span>
-      </div>
-    </div>
-  );
-}
-
-// Service Category Section
-function ServiceCategory({ title, subtitle, customers, costPerUnit, totalProfit, totalRevenue, onCustomerClick }) {
-  const matchedCount = customers.filter(c => c.vendorCount === c.psaCount).length;
-  
-  return (
-    <div className="mb-8">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-            <p className="text-sm text-slate-500">{subtitle}</p>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-6 text-sm">
-          <span className="text-slate-500">
-            All ({customers.length})
-          </span>
-          <span className="text-emerald-600 font-medium">
-            PROFIT ${totalProfit.toLocaleString()}
-          </span>
-          <span className="text-slate-900 font-semibold">
-            REVENUE ${totalRevenue.toLocaleString()}
-          </span>
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4">
-        {customers.map((customer, idx) => (
-          <ReconciliationCard
-            key={customer.id || idx}
-            customer={customer}
-            psaCount={customer.psaCount}
-            vendorCount={customer.vendorCount}
-            costPerUnit={costPerUnit}
-            onClick={onCustomerClick}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
+import CustomerLootModal from '../components/loot/CustomerLootModal';
 
 export default function Loot() {
   const [user, setUser] = useState(null);
-  const [sortBy, setSortBy] = useState('revenue');
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [filterStatus, setFilterStatus] = useState('all');
 
   useEffect(() => {
     const loadUser = async () => {
@@ -151,21 +44,6 @@ export default function Loot() {
     queryFn: () => base44.entities.Customer.list('-created_date', 500),
   });
 
-  const { data: devices = [], isLoading: loadingDevices } = useQuery({
-    queryKey: ['all_devices'],
-    queryFn: () => base44.entities.Device.list('-created_date', 2000),
-  });
-
-  const { data: licenses = [], isLoading: loadingLicenses } = useQuery({
-    queryKey: ['all_licenses'],
-    queryFn: () => base44.entities.SaaSLicense.list('-created_date', 2000),
-  });
-
-  const { data: contracts = [], isLoading: loadingContracts } = useQuery({
-    queryKey: ['all_contracts'],
-    queryFn: () => base44.entities.Contract.list('-created_date', 1000),
-  });
-
   const { data: recurringBills = [], isLoading: loadingBills } = useQuery({
     queryKey: ['all_recurring_bills'],
     queryFn: () => base44.entities.RecurringBill.list('-created_date', 2000),
@@ -176,7 +54,22 @@ export default function Loot() {
     queryFn: () => base44.entities.RecurringBillLineItem.list('-created_date', 5000),
   });
 
-  const isLoading = loadingCustomers || loadingDevices || loadingLicenses || loadingContracts || loadingBills || loadingLineItems;
+  const { data: lootSettings = [] } = useQuery({
+    queryKey: ['loot_settings'],
+    queryFn: () => base44.entities.LootSettings.list(),
+  });
+
+  const { data: vendorBilling = [] } = useQuery({
+    queryKey: ['vendor_billing'],
+    queryFn: () => base44.entities.VendorBilling.list(),
+  });
+
+  const { data: devices = [] } = useQuery({
+    queryKey: ['all_devices'],
+    queryFn: () => base44.entities.Device.list('-created_date', 2000),
+  });
+
+  const isLoading = loadingCustomers || loadingBills || loadingLineItems;
 
   // Block non-admins
   if (user && user.role !== 'admin') {
@@ -191,8 +84,8 @@ export default function Loot() {
     return (
       <div className="space-y-6">
         <Skeleton className="h-24 rounded-2xl" />
-        <div className="grid grid-cols-6 gap-4">
-          {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-40 rounded-xl" />)}
+        <div className="space-y-4">
+          {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
         </div>
       </div>
     );
@@ -209,76 +102,115 @@ export default function Loot() {
     return customerLineItems;
   };
 
-  // Build reconciliation data for devices (from Datto RMM line items)
-  const deviceReconciliation = customers
-    .filter(c => c.status === 'active')
-    .map(customer => {
-      const customerDevices = devices.filter(d => d.customer_id === customer.id);
-      const lineItems = getCustomerLineItems(customer.id);
-      // Look for Datto/RMM related line items in HaloPSA
-      const dattoItems = lineItems.filter(item => 
-        item.description?.toLowerCase().includes('datto') ||
-        item.description?.toLowerCase().includes('rmm') ||
-        item.description?.toLowerCase().includes('device')
-      );
-      const psaCount = dattoItems.reduce((sum, item) => sum + (item.quantity || 0), 0) || customer.total_devices || 0;
-      const vendorCount = customerDevices.length;
-      const contract = contracts.find(c => c.customer_id === customer.id);
-      
-      return {
-        ...customer,
-        contract_name: contract?.name,
-        psaCount,
-        vendorCount
-      };
-    })
-    .filter(c => c.psaCount > 0 || c.vendorCount > 0);
+  // Get vendor count for a customer and service type
+  const getVendorCount = (customerId, serviceType) => {
+    // Check VendorBilling entity first
+    const billing = vendorBilling.find(v => v.customer_id === customerId && v.vendor === serviceType);
+    if (billing) return billing.vendor_count || 0;
+    
+    // For Datto RMM, count devices
+    if (serviceType === 'datto_rmm') {
+      return devices.filter(d => d.customer_id === customerId).length;
+    }
+    
+    return 0;
+  };
 
-  // Build reconciliation data for backup/users (from JumpCloud/backup line items)
-  const backupReconciliation = customers
+  // Build company data with all their services
+  const companyData = customers
     .filter(c => c.status === 'active')
     .map(customer => {
       const lineItems = getCustomerLineItems(customer.id);
-      // Look for backup/user related line items in HaloPSA
-      const backupItems = lineItems.filter(item => 
-        item.description?.toLowerCase().includes('backup') ||
-        item.description?.toLowerCase().includes('cove') ||
-        item.description?.toLowerCase().includes('user') ||
-        item.description?.toLowerCase().includes('jumpcloud')
-      );
-      const psaCount = backupItems.reduce((sum, item) => sum + (item.quantity || 0), 0) || customer.total_users || 0;
-      const vendorCount = psaCount; // Will be replaced with actual vendor data once synced
-      const contract = contracts.find(c => c.customer_id === customer.id);
       
+      // Group line items by service type based on LootSettings matches
+      const services = [];
+      let totalPsaRevenue = 0;
+      let totalVendorCost = 0;
+      let hasDiscrepancy = false;
+
+      // For each active loot setting, find matching line items
+      lootSettings.filter(s => s.is_active).forEach(setting => {
+        const matchTerm = setting.halopsa_item_match?.toLowerCase() || setting.service_name?.toLowerCase();
+        const matchingItems = lineItems.filter(item => 
+          item.description?.toLowerCase().includes(matchTerm) ||
+          item.item_code?.toLowerCase().includes(matchTerm)
+        );
+        
+        const psaQty = matchingItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
+        const psaRevenue = matchingItems.reduce((sum, item) => sum + (item.net_amount || 0), 0);
+        const vendorQty = getVendorCount(customer.id, setting.service_type);
+        const vendorCost = vendorQty * (setting.cost_per_unit || 0);
+        
+        if (psaQty > 0 || vendorQty > 0) {
+          const diff = vendorQty - psaQty;
+          if (diff !== 0) hasDiscrepancy = true;
+          
+          services.push({
+            setting,
+            psaQty,
+            psaRevenue,
+            vendorQty,
+            vendorCost,
+            difference: diff,
+            profit: psaRevenue - vendorCost
+          });
+          
+          totalPsaRevenue += psaRevenue;
+          totalVendorCost += vendorCost;
+        }
+      });
+
+      // Also include unmatched line items as "Other" if there are items not matched
+      const matchedDescriptions = new Set();
+      lootSettings.filter(s => s.is_active).forEach(setting => {
+        const matchTerm = setting.halopsa_item_match?.toLowerCase() || setting.service_name?.toLowerCase();
+        lineItems.forEach(item => {
+          if (item.description?.toLowerCase().includes(matchTerm) || 
+              item.item_code?.toLowerCase().includes(matchTerm)) {
+            matchedDescriptions.add(item.id);
+          }
+        });
+      });
+
+      const unmatchedItems = lineItems.filter(item => !matchedDescriptions.has(item.id));
+      if (unmatchedItems.length > 0) {
+        const otherRevenue = unmatchedItems.reduce((sum, item) => sum + (item.net_amount || 0), 0);
+        totalPsaRevenue += otherRevenue;
+      }
+
       return {
         ...customer,
-        contract_name: contract?.name,
-        psaCount,
-        vendorCount
+        services,
+        totalPsaRevenue,
+        totalVendorCost,
+        totalProfit: totalPsaRevenue - totalVendorCost,
+        hasDiscrepancy,
+        lineItemCount: lineItems.length
       };
     })
-    .filter(c => c.psaCount > 0 || c.vendorCount > 0);
+    .filter(c => c.lineItemCount > 0)
+    .sort((a, b) => b.totalPsaRevenue - a.totalPsaRevenue);
+
+  // Filter companies
+  const filteredCompanies = companyData.filter(c => {
+    if (filterStatus === 'issues') return c.hasDiscrepancy;
+    if (filterStatus === 'matched') return !c.hasDiscrepancy;
+    return true;
+  });
 
   // Calculate totals
-  const deviceCostPerUnit = 5; // $5 per device
-  const backupCostPerUnit = 3; // $3 per user
-  
-  const deviceTotalProfit = deviceReconciliation.reduce((sum, c) => sum + (c.psaCount * deviceCostPerUnit * 0.3), 0);
-  const deviceTotalRevenue = deviceReconciliation.reduce((sum, c) => sum + (c.psaCount * deviceCostPerUnit), 0);
-  
-  const backupTotalProfit = backupReconciliation.reduce((sum, c) => sum + (c.psaCount * backupCostPerUnit * 0.3), 0);
-  const backupTotalRevenue = backupReconciliation.reduce((sum, c) => sum + (c.psaCount * backupCostPerUnit), 0);
-
-  const totalProfit = deviceTotalProfit + backupTotalProfit;
-  const totalRevenue = deviceTotalRevenue + backupTotalRevenue;
+  const totalRevenue = companyData.reduce((sum, c) => sum + c.totalPsaRevenue, 0);
+  const totalCost = companyData.reduce((sum, c) => sum + c.totalVendorCost, 0);
+  const totalProfit = totalRevenue - totalCost;
+  const companiesWithIssues = companyData.filter(c => c.hasDiscrepancy).length;
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Billing Reconciliation</h1>
-          <p className="text-slate-500">Compare PSA billing vs vendor counts</p>
+          <h1 className="text-2xl font-semibold text-slate-900">Loot - Billing Reconciliation</h1>
+          <p className="text-slate-500">Compare HaloPSA billing vs vendor API counts</p>
         </div>
         
         <Link to={createPageUrl('LootSettings')}>
@@ -288,73 +220,147 @@ export default function Loot() {
           </Button>
         </Link>
       </div>
-      
-      {/* Stats */}
-      <div className="flex items-center justify-end gap-6">
-        <div className="text-right">
-          <p className="text-xs text-slate-500 uppercase">Profit USD</p>
-          <p className="text-2xl font-bold text-slate-900">
-            ${(totalProfit / 1000).toFixed(0)}K
-            <span className="text-sm text-emerald-600 ml-2">+${((totalProfit * 0.07) / 1000).toFixed(0)}K</span>
-          </p>
+
+      {/* Summary Stats */}
+      <div className="grid grid-cols-4 gap-4">
+        <div className="bg-white rounded-xl border p-4">
+          <p className="text-xs text-slate-500 uppercase mb-1">Companies</p>
+          <p className="text-2xl font-bold text-slate-900">{companyData.length}</p>
         </div>
-        <div className="text-right bg-slate-900 text-white px-4 py-2 rounded-lg">
-          <p className="text-xs text-slate-400 uppercase">Revenue USD</p>
-          <p className="text-2xl font-bold">
-            ${(totalRevenue / 1000).toFixed(0)}K
-            <span className="text-sm text-emerald-400 ml-2">+${((totalRevenue * 0.05) / 1000).toFixed(0)}K</span>
+        <div className="bg-white rounded-xl border p-4">
+          <p className="text-xs text-slate-500 uppercase mb-1">PSA Revenue</p>
+          <p className="text-2xl font-bold text-slate-900">${totalRevenue.toLocaleString()}</p>
+        </div>
+        <div className="bg-white rounded-xl border p-4">
+          <p className="text-xs text-slate-500 uppercase mb-1">Vendor Cost</p>
+          <p className="text-2xl font-bold text-slate-900">${totalCost.toLocaleString()}</p>
+        </div>
+        <div className={cn(
+          "rounded-xl border p-4",
+          totalProfit >= 0 ? "bg-emerald-50 border-emerald-200" : "bg-red-50 border-red-200"
+        )}>
+          <p className="text-xs text-slate-500 uppercase mb-1">Total Profit</p>
+          <p className={cn(
+            "text-2xl font-bold",
+            totalProfit >= 0 ? "text-emerald-700" : "text-red-700"
+          )}>
+            ${totalProfit.toLocaleString()}
           </p>
         </div>
       </div>
 
       {/* Filters */}
       <div className="flex items-center gap-3">
-        <Button variant="outline" size="sm" className="gap-2">
-          <LayoutGrid className="w-4 h-4" />
-          Detailed View
-        </Button>
-        <Button variant="outline" size="sm" className="gap-2">
-          <Filter className="w-4 h-4" />
-          Filters
-        </Button>
-        <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Sort by" />
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Filter" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="revenue">Revenue</SelectItem>
-            <SelectItem value="profit">Profit</SelectItem>
-            <SelectItem value="variance">Variance</SelectItem>
-            <SelectItem value="name">Name</SelectItem>
+            <SelectItem value="all">All Companies ({companyData.length})</SelectItem>
+            <SelectItem value="issues">With Discrepancies ({companiesWithIssues})</SelectItem>
+            <SelectItem value="matched">Matched ({companyData.length - companiesWithIssues})</SelectItem>
           </SelectContent>
         </Select>
+        
+        {lootSettings.length === 0 && (
+          <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">
+            <AlertTriangle className="w-4 h-4" />
+            <span className="text-sm">No services configured. <Link to={createPageUrl('LootSettings')} className="underline">Add services</Link></span>
+          </div>
+        )}
       </div>
 
-      {/* Device Reconciliation */}
-      <ServiceCategory
-        title="Network Device"
-        subtitle="per Device by Datto"
-        customers={deviceReconciliation.slice(0, 6)}
-        costPerUnit={deviceCostPerUnit}
-        totalProfit={deviceTotalProfit}
-        totalRevenue={deviceTotalRevenue}
-        onCustomerClick={setSelectedCustomer}
-      />
+      {/* Company List */}
+      <div className="space-y-3">
+        {filteredCompanies.map(company => (
+          <div
+            key={company.id}
+            onClick={() => setSelectedCustomer(company)}
+            className={cn(
+              "bg-white rounded-xl border p-5 hover:shadow-md transition-all cursor-pointer",
+              company.hasDiscrepancy ? "border-amber-200" : "border-slate-200"
+            )}
+          >
+            <div className="flex items-center justify-between">
+              {/* Company Info */}
+              <div className="flex items-center gap-4 flex-1">
+                <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center">
+                  <Building2 className="w-5 h-5 text-slate-500" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-slate-900">{company.name}</h3>
+                    {company.hasDiscrepancy ? (
+                      <Badge className="bg-amber-100 text-amber-700">Discrepancy</Badge>
+                    ) : (
+                      <Badge className="bg-emerald-100 text-emerald-700">Matched</Badge>
+                    )}
+                  </div>
+                  <p className="text-sm text-slate-500">{company.services.length} services configured</p>
+                </div>
+              </div>
 
-      {/* Backup Reconciliation */}
-      <ServiceCategory
-        title="Virtual Workstation Backup"
-        subtitle="per User by Cove Data Protection"
-        customers={backupReconciliation.slice(0, 6)}
-        costPerUnit={backupCostPerUnit}
-        totalProfit={backupTotalProfit}
-        totalRevenue={backupTotalRevenue}
-        onCustomerClick={setSelectedCustomer}
-      />
+              {/* Services Summary */}
+              <div className="flex items-center gap-6">
+                {company.services.slice(0, 3).map((svc, idx) => (
+                  <div key={idx} className="text-center min-w-[80px]">
+                    <p className="text-xs text-slate-500 truncate">{svc.setting.service_name}</p>
+                    <div className="flex items-center justify-center gap-2 mt-1">
+                      <span className="text-sm font-medium">{svc.psaQty}</span>
+                      {svc.difference !== 0 ? (
+                        svc.difference > 0 ? (
+                          <ArrowUp className="w-3 h-3 text-red-500" />
+                        ) : (
+                          <ArrowDown className="w-3 h-3 text-emerald-500" />
+                        )
+                      ) : (
+                        <Minus className="w-3 h-3 text-slate-300" />
+                      )}
+                      <span className={cn(
+                        "text-sm font-medium",
+                        svc.difference > 0 && "text-red-600",
+                        svc.difference < 0 && "text-emerald-600"
+                      )}>{svc.vendorQty}</span>
+                    </div>
+                  </div>
+                ))}
+                {company.services.length > 3 && (
+                  <span className="text-xs text-slate-400">+{company.services.length - 3} more</span>
+                )}
+              </div>
+
+              {/* Totals */}
+              <div className="flex items-center gap-6 ml-6">
+                <div className="text-right">
+                  <p className="text-xs text-slate-500">Revenue</p>
+                  <p className="font-semibold text-slate-900">${company.totalPsaRevenue.toLocaleString()}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-slate-500">Profit</p>
+                  <p className={cn(
+                    "font-semibold",
+                    company.totalProfit >= 0 ? "text-emerald-600" : "text-red-600"
+                  )}>
+                    ${company.totalProfit.toLocaleString()}
+                  </p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-slate-300" />
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {filteredCompanies.length === 0 && (
+          <div className="text-center py-12 text-slate-500">
+            No companies found with billing data
+          </div>
+        )}
+      </div>
 
       {/* Customer Detail Modal */}
-      <CustomerDetailModal
+      <CustomerLootModal
         customer={selectedCustomer}
+        lootSettings={lootSettings}
         isOpen={!!selectedCustomer}
         onClose={() => setSelectedCustomer(null)}
       />
