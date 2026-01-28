@@ -36,7 +36,7 @@ function AdminDashboard() {
   
   const { data: customers = [], isLoading: loadingCustomers } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list('-created_date', 100),
+    queryFn: () => base44.entities.Customer.list('-updated_date', 100),
   });
 
   const { data: contracts = [], isLoading: loadingContracts } = useQuery({
