@@ -402,9 +402,24 @@ export default function LicenseDetail() {
         await base44.entities.SaaSLicense.delete(licId);
       }
       
-      // If this is a catalog-only entry, delete the Application record too
-      if (software?._isApplication && appId) {
-        await base44.entities.Application.delete(appId);
+      // Also delete any Application catalog entry with the same name for this customer
+      if (software?.application_name && software?.customer_id) {
+        const appRecords = await base44.entities.Application.filter({ 
+          name: software.application_name, 
+          customer_id: software.customer_id 
+        });
+        for (const app of appRecords) {
+          await base44.entities.Application.delete(app.id);
+        }
+      }
+      
+      // If this is a catalog-only entry accessed via appId, delete that too
+      if (appId) {
+        try {
+          await base44.entities.Application.delete(appId);
+        } catch (e) {
+          // Already deleted above, ignore
+        }
       }
       
       toast.success('Application and all licenses deleted!');
