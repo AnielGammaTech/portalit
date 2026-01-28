@@ -253,24 +253,21 @@ export default function Loot() {
         </Link>
       </div>
       
-      {/* Stats Header */}
+      {/* Stats */}
       <div className="flex items-center justify-end gap-6">
-        
-        <div className="flex items-center gap-6">
-          <div className="text-right">
-            <p className="text-xs text-slate-500 uppercase">Profit USD</p>
-            <p className="text-2xl font-bold text-slate-900">
-              ${(totalProfit / 1000).toFixed(0)}K
-              <span className="text-sm text-emerald-600 ml-2">+${((totalProfit * 0.07) / 1000).toFixed(0)}K</span>
-            </p>
-          </div>
-          <div className="text-right bg-slate-900 text-white px-4 py-2 rounded-lg">
-            <p className="text-xs text-slate-400 uppercase">Revenue USD</p>
-            <p className="text-2xl font-bold">
-              ${(totalRevenue / 1000).toFixed(0)}K
-              <span className="text-sm text-emerald-400 ml-2">+${((totalRevenue * 0.05) / 1000).toFixed(0)}K</span>
-            </p>
-          </div>
+        <div className="text-right">
+          <p className="text-xs text-slate-500 uppercase">Profit USD</p>
+          <p className="text-2xl font-bold text-slate-900">
+            ${(totalProfit / 1000).toFixed(0)}K
+            <span className="text-sm text-emerald-600 ml-2">+${((totalProfit * 0.07) / 1000).toFixed(0)}K</span>
+          </p>
+        </div>
+        <div className="text-right bg-slate-900 text-white px-4 py-2 rounded-lg">
+          <p className="text-xs text-slate-400 uppercase">Revenue USD</p>
+          <p className="text-2xl font-bold">
+            ${(totalRevenue / 1000).toFixed(0)}K
+            <span className="text-sm text-emerald-400 ml-2">+${((totalRevenue * 0.05) / 1000).toFixed(0)}K</span>
+          </p>
         </div>
       </div>
 
