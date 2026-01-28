@@ -277,8 +277,6 @@ export default function LicenseDetail() {
     );
     
     toast.success('License assigned!');
-    setShowAssignModal(false);
-    setSelectedManagedLicenseId(null);
     
     // Then persist to database
     await base44.entities.LicenseAssignment.create({
@@ -529,7 +527,7 @@ export default function LicenseDetail() {
       <Breadcrumbs items={[
         { label: 'Customers', href: createPageUrl('Customers') },
         { label: customer?.name || 'Customer', href: createPageUrl(`CustomerDetail?id=${software.customer_id}`) },
-        { label: 'SaaS', href: createPageUrl(`CustomerDetail?id=${software.customer_id}`) + '#licenses' },
+        { label: 'SaaS', href: createPageUrl(`CustomerDetail?id=${software.customer_id}&tab=services`) },
         { label: software.application_name }
       ]} />
 
