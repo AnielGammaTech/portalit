@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
           totalStorageBytes: totalBytes,
           mailStorageBytes: mailBytes,
           driveStorageBytes: driveBytes,
-          userType: u.userType || 'standard',
+          userType: u.userType || u.type || 'standard',
           lastBackupDate: u.lastBackupDate || null
         };
       });
