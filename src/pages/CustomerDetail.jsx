@@ -947,20 +947,17 @@ export default function CustomerDetail() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {/* Spend Analysis */}
                     <button
-                      onClick={() => setSaasView('spend')}
-                      className={cn(
-                        "bg-white rounded-xl border-2 p-4 text-left transition-all hover:shadow-md group",
-                        saasView === 'spend' ? "border-purple-500 shadow-md" : "border-slate-200 hover:border-purple-300"
-                      )}
+                      onClick={() => setShowSpendModal(true)}
+                      className="bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl border-2 border-purple-500 p-4 text-left transition-all hover:shadow-lg hover:from-purple-500 hover:to-purple-600 group"
                     >
                       <div className="flex items-center gap-2 mb-1">
-                        <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center", saasView === 'spend' ? "bg-purple-100" : "bg-slate-100 group-hover:bg-purple-50")}>
-                          <DollarSign className={cn("w-4 h-4", saasView === 'spend' ? "text-purple-600" : "text-slate-500 group-hover:text-purple-500")} />
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/20">
+                          <DollarSign className="w-4 h-4 text-white" />
                         </div>
-                        <span className="text-xs text-slate-500">Spend Analysis</span>
+                        <span className="text-xs text-purple-200 font-medium">Spend Analysis</span>
                       </div>
-                      <p className="text-sm font-medium text-slate-700 mt-1">View monthly & yearly costs</p>
-                      {wastedSpend > 0 && <p className="text-[10px] text-red-500 mt-0.5">~${wastedSpend.toFixed(0)} unused</p>}
+                      <p className="text-sm font-semibold text-white mt-1">View Monthly & Yearly</p>
+                      <p className="text-[10px] text-purple-200 mt-0.5">Click to see breakdown →</p>
                     </button>
                     
                     {/* Utilization */}
