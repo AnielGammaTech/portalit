@@ -48,6 +48,104 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { DollarSign, BarChart3 } from 'lucide-react';
+
+// Spend Analysis Card Component
+function SpendAnalysisCard({
+  combinedTotalCost,
+  totalManagedCost,
+  individualTotalCost,
+  managedAssignments,
+  individualAssignments,
+  managedLicenses,
+  individualLicenses,
+  managedUtilizationPercent,
+  managedWastedCost
+}) {
+  const [showYearly, setShowYearly] = useState(false);
+  
+  const monthlyTotal = combinedTotalCost;
+  const yearlyTotal = combinedTotalCost * 12;
+  const monthlyManaged = totalManagedCost;
+  const yearlyManaged = totalManagedCost * 12;
+  const monthlyIndividual = individualTotalCost;
+  const yearlyIndividual = individualTotalCost * 12;
+  const monthlyWasted = managedWastedCost;
+  const yearlyWasted = managedWastedCost * 12;
+  
+  return (
+    <div 
+      className="bg-gradient-to-br from-slate-700 to-slate-800 rounded-xl p-4 text-white cursor-pointer hover:from-slate-600 hover:to-slate-700 transition-all"
+      onClick={() => setShowYearly(!showYearly)}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-slate-300" />
+            <p className="text-xs text-slate-300 font-medium uppercase tracking-wide">Spend Analysis</p>
+          </div>
+          <p className="text-2xl font-bold mt-1">
+            ${showYearly ? yearlyTotal.toLocaleString() : monthlyTotal.toLocaleString()}
+            <span className="text-sm font-normal text-slate-400 ml-1">{showYearly ? '/year' : '/mo'}</span>
+          </p>
+        </div>
+        <div className="text-right text-xs text-slate-300">
+          <p className="font-medium text-white">{managedAssignments.length + individualAssignments.length} users</p>
+          <Badge 
+            className={cn(
+              "text-[10px] mt-1 cursor-pointer",
+              showYearly ? "bg-purple-600 text-white" : "bg-slate-600 text-slate-200"
+            )}
+          >
+            {showYearly ? 'Yearly View' : 'Monthly View'}
+          </Badge>
+        </div>
+      </div>
+
+      {/* Cost breakdown */}
+      <div className="pt-3 border-t border-slate-600 space-y-2">
+        {managedLicenses.length > 0 && (
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-slate-400">Managed Licenses</span>
+            <span className="font-medium">${showYearly ? yearlyManaged.toLocaleString() : monthlyManaged.toLocaleString()}</span>
+          </div>
+        )}
+        {individualLicenses.length > 0 && (
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-slate-400">Individual Licenses</span>
+            <span className="font-medium">${showYearly ? yearlyIndividual.toLocaleString() : monthlyIndividual.toLocaleString()}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Stats row */}
+      <div className="pt-3 mt-3 border-t border-slate-600 grid grid-cols-3 gap-3 text-center">
+        <div>
+          <p className="text-lg font-semibold">
+            ${(managedAssignments.length + individualAssignments.length) > 0 
+              ? ((showYearly ? yearlyTotal : monthlyTotal) / (managedAssignments.length + individualAssignments.length)).toFixed(0) 
+              : '0'}
+          </p>
+          <p className="text-xs text-slate-400">Avg/User</p>
+        </div>
+        <div>
+          <p className="text-lg font-semibold">
+            {managedLicenses.length > 0 ? `${managedUtilizationPercent.toFixed(0)}%` : '—'}
+          </p>
+          <p className="text-xs text-slate-400">Utilization</p>
+        </div>
+        <div>
+          <p className="text-lg font-semibold text-amber-400">
+            {(showYearly ? yearlyWasted : monthlyWasted) > 0 ? `$${(showYearly ? yearlyWasted : monthlyWasted).toFixed(0)}` : '$0'}
+          </p>
+          <p className="text-xs text-slate-400">Unused</p>
+        </div>
+      </div>
+      
+      <p className="text-[10px] text-slate-500 text-center mt-3">Click to toggle monthly/yearly</p>
+    </div>
+  );
+}
 
 export default function LicenseDetail() {
   const params = new URLSearchParams(window.location.search);
