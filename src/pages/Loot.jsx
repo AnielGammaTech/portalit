@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import CustomerDetailModal from '../components/loot/CustomerDetailModal';
 
 // Reconciliation Card Component
 function ReconciliationCard({ customer, psaCount, vendorCount, costPerUnit, onClick }) {
