@@ -118,7 +118,7 @@ export default function LicenseAssignmentModal({
                   ) : (
                     <Button 
                       size="sm"
-                      disabled={availableSeats <= 0}
+                      disabled={availableSeats <= 0 || assignedContactIds.includes(contact.id)}
                       onClick={() => onAssign(contact.id)}
                       className="bg-emerald-600 hover:bg-emerald-700"
                     >
