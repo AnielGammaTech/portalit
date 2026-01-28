@@ -304,16 +304,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
         </Card>
       </div>
 
-      {/* Sync Notice */}
-      {spanningLicenses.length === 0 && (
-        <Card className="bg-amber-50 border-amber-200">
-          <CardContent className="py-4">
-            <p className="text-sm text-amber-700">
-              <strong>Note:</strong> Click "Sync" above to create licenses in SaaS tracking. Once synced, you can click on each category to view assigned users.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+
 
       {/* Users List */}
       {stats.users && stats.users.length > 0 && (() => {
