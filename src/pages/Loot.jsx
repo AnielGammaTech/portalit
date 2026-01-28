@@ -245,6 +245,17 @@ export default function Loot() {
           <p className="text-slate-500">Compare PSA billing vs vendor counts</p>
         </div>
         
+        <Link to={createPageUrl('LootSettings')}>
+          <Button variant="outline" className="gap-2">
+            <Settings className="w-4 h-4" />
+            Settings
+          </Button>
+        </Link>
+      </div>
+      
+      {/* Stats Header */}
+      <div className="flex items-center justify-end gap-6">
+        
         <div className="flex items-center gap-6">
           <div className="text-right">
             <p className="text-xs text-slate-500 uppercase">Profit USD</p>
