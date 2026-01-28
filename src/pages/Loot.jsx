@@ -24,11 +24,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import CustomerLootModal from '../components/loot/CustomerLootModal';
+
 
 export default function Loot() {
   const [user, setUser] = useState(null);
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
 
   useEffect(() => {
@@ -273,9 +272,9 @@ export default function Loot() {
       {/* Company List */}
       <div className="space-y-3">
         {filteredCompanies.map(company => (
-          <div
+          <Link
             key={company.id}
-            onClick={() => setSelectedCustomer(company)}
+            to={createPageUrl('LootCustomer') + `?id=${company.id}`}
             className={cn(
               "bg-white rounded-xl border p-5 hover:shadow-md transition-all cursor-pointer",
               company.hasDiscrepancy ? "border-amber-200" : "border-slate-200"
@@ -347,7 +346,7 @@ export default function Loot() {
                 <ChevronRight className="w-5 h-5 text-slate-300" />
               </div>
             </div>
-          </div>
+          </Link>
         ))}
 
         {filteredCompanies.length === 0 && (
@@ -356,14 +355,6 @@ export default function Loot() {
           </div>
         )}
       </div>
-
-      {/* Customer Detail Modal */}
-      <CustomerLootModal
-        customer={selectedCustomer}
-        lootSettings={lootSettings}
-        isOpen={!!selectedCustomer}
-        onClose={() => setSelectedCustomer(null)}
-      />
     </div>
   );
 }

@@ -62,6 +62,7 @@ import Services from './pages/Services';
 import Settings from './pages/Settings';
 import Loot from './pages/Loot';
 import LootSettings from './pages/LootSettings';
+import LootCustomer from './pages/LootCustomer';
 import __Layout from './Layout.jsx';
 
 
@@ -81,6 +82,7 @@ export const PAGES = {
     "Settings": Settings,
     "Loot": Loot,
     "LootSettings": LootSettings,
+    "LootCustomer": LootCustomer,
 }
 
 export const pagesConfig = {
