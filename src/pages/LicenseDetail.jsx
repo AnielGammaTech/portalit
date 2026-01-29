@@ -920,141 +920,65 @@ export default function LicenseDetail() {
                       
                       return (
                         <div key={ml.id} className="bg-white">
-                          {/* License Type Header - Redesigned */}
-                          <div className="px-6 py-4 bg-slate-50">
-                            {/* Top row: Type badge + Actions */}
-                            <div className="flex items-center justify-between mb-3">
-                              <Badge className="bg-blue-100 text-blue-700 text-sm px-3 py-1">{ml.license_type || 'Standard'}</Badge>
-                              <div className="flex gap-2">
-                                <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                  className="h-7 text-xs"
-                                  onClick={() => { setSelectedManagedLicenseId(ml.id); setShowModifySeatsModal(true); }}
-                                >
-                                  <Edit2 className="w-3 h-3 mr-1" />
-                                  Modify
-                                </Button>
-                                <Button 
-                                  size="sm" 
-                                  className="h-7 text-xs bg-blue-600 hover:bg-blue-700"
-                                  onClick={() => { setSelectedManagedLicenseId(ml.id); setShowAssignModal(true); }}
-                                  disabled={mlUnusedSeats <= 0}
-                                >
-                                  <Plus className="w-3 h-3 mr-1" />
-                                  Assign
-                                </Button>
-                                <Button 
-                                  size="sm" 
-                                  variant="ghost"
-                                  className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                  onClick={async () => {
-                                    if (confirm(`Delete this ${ml.license_type || ''} license? This will also remove ${mlAssignments.length} assignment(s).`)) {
-                                      for (const a of mlAssignments) {
-                                        await base44.entities.LicenseAssignment.delete(a.id);
-                                      }
-                                      await base44.entities.SaaSLicense.delete(ml.id);
-                                      queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
-                                      queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
-                                      toast.success('License deleted!');
-                                    }
-                                  }}
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </Button>
-                              </div>
-                            </div>
-                            
-                            {/* Compact Stats Row */}
-                            <div className="flex items-center gap-4 text-xs mb-2">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-slate-500">Seats:</span>
-                                <span className="font-semibold text-slate-900">{mlAssignments.length}/{ml.quantity || 0}</span>
-                              </div>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-slate-500">Used:</span>
+                          {/* Compact License Header */}
+                          <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-100">
+                            {/* Single row: Name + Stats + Actions */}
+                            <div className="flex items-center gap-3">
+                              <span className="font-bold text-slate-900 text-base min-w-[80px]">{ml.license_type || 'Standard'}</span>
+                              
+                              {/* Inline stats */}
+                              <div className="flex items-center gap-3 text-xs text-slate-600 flex-1">
+                                <span><span className="font-semibold text-slate-900">{mlAssignments.length}</span>/{ml.quantity || 0} seats</span>
                                 <span className={cn(
                                   "font-semibold",
                                   mlUtilization >= 80 ? "text-emerald-600" : mlUtilization >= 50 ? "text-amber-600" : "text-red-600"
                                 )}>{mlUtilization.toFixed(0)}%</span>
+                                <span><span className="font-semibold text-slate-900">${displayCost.toLocaleString()}</span>{isAnnual ? '/yr' : '/mo'}</span>
+                                {ml.renewal_date && (
+                                  <span className={cn(
+                                    renewalPassed ? "text-red-600" :
+                                    mlDaysUntilRenewal !== null && mlDaysUntilRenewal <= 30 ? "text-amber-600" : "text-slate-500"
+                                  )}>
+                                    {renewalPassed ? 'Expired' : format(parseISO(ml.renewal_date), 'MMM d, yyyy')}
+                                  </span>
+                                )}
+                                {ml.card_last_four && <span className="text-slate-400">•••• {ml.card_last_four}</span>}
+                                {mlUnusedSeats > 0 && (
+                                  <span className="text-amber-500">{mlUnusedSeats} unused</span>
+                                )}
                               </div>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-slate-500">Cost:</span>
-                                <span className="font-semibold text-slate-900">${costPerSeat.toLocaleString()}/{isAnnual ? 'yr' : 'mo'}</span>
-                              </div>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-slate-500">Total:</span>
-                                <span className="font-semibold text-slate-900">${displayCost.toLocaleString()}{isAnnual ? '/yr' : '/mo'}</span>
-                              </div>
-                              {mlUnusedSeats > 0 && (
-                                <span className="text-amber-600 ml-auto">
-                                  {mlUnusedSeats} unused • ~${((mlUnusedSeats / (ml.quantity || 1)) * monthlyCost).toFixed(0)}/mo savings
-                                </span>
-                              )}
-                            </div>
-                            
-                            {/* Thin Utilization bar */}
-                            <div className="mb-2">
-                              <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                              
+                              {/* Progress bar mini */}
+                              <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
                                 <div 
                                   className={cn(
-                                    "h-full rounded-full transition-all",
-                                    mlUtilization >= 80 ? "bg-emerald-500" :
-                                    mlUtilization >= 50 ? "bg-amber-500" : "bg-red-500"
+                                    "h-full rounded-full",
+                                    mlUtilization >= 80 ? "bg-emerald-500" : mlUtilization >= 50 ? "bg-amber-500" : "bg-red-500"
                                   )}
                                   style={{ width: `${Math.min(100, mlUtilization)}%` }}
                                 />
                               </div>
-                            </div>
-                            
-                            {/* Billing info row */}
-                            <div className="flex flex-wrap items-center gap-3 text-xs">
-                              {ml.renewal_date && (
-                                <div className={cn(
-                                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg",
-                                  renewalPassed ? "bg-red-100 text-red-700" :
-                                  mlDaysUntilRenewal !== null && mlDaysUntilRenewal <= 30 ? "bg-amber-100 text-amber-700" :
-                                  mlDaysUntilRenewal !== null && mlDaysUntilRenewal <= 60 ? "bg-yellow-100 text-yellow-700" :
-                                  "bg-white border border-slate-200 text-slate-600"
-                                )}>
-                                  <Calendar className="w-3.5 h-3.5" />
-                                  <span className="font-medium">
-                                    {renewalPassed 
-                                      ? `Renewal passed ${format(parseISO(ml.renewal_date), 'MMM d')}` 
-                                      : `Renews ${format(parseISO(ml.renewal_date), 'MMM d, yyyy')}`}
-                                  </span>
-                                  {mlDaysUntilRenewal !== null && mlDaysUntilRenewal > 0 && mlDaysUntilRenewal <= 30 && (
-                                    <span className="font-bold">({mlDaysUntilRenewal}d)</span>
-                                  )}
-                                </div>
-                              )}
-                              {ml.card_last_four && (
-                                <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-600">
-                                  <CreditCard className="w-3.5 h-3.5" />
-                                  <span>•••• {ml.card_last_four}</span>
-                                </div>
-                              )}
-                              {ml.billing_cycle && (
-                                <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-50 border border-purple-200 rounded-lg text-purple-700">
-                                  <span className="font-medium capitalize">{ml.billing_cycle === 'annually' ? 'Annual' : 'Monthly'} billing</span>
-                                </div>
-                              )}
-                              {renewalPassed && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="ml-auto h-7 text-xs bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setRenewalLicense(ml);
-                                    setRenewalAssignment(null);
-                                    setShowRenewalModal(true);
-                                  }}
-                                >
-                                  <RefreshCw className="w-3 h-3 mr-1" />
-                                  Renew
+                              
+                              {/* Actions */}
+                              <div className="flex gap-1">
+                                <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => { setSelectedManagedLicenseId(ml.id); setShowModifySeatsModal(true); }}>
+                                  <Edit2 className="w-3 h-3" />
                                 </Button>
-                              )}
+                                <Button size="sm" className="h-6 px-2 text-xs bg-blue-600 hover:bg-blue-700" onClick={() => { setSelectedManagedLicenseId(ml.id); setShowAssignModal(true); }} disabled={mlUnusedSeats <= 0}>
+                                  <Plus className="w-3 h-3" />
+                                </Button>
+                                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={async () => {
+                                  if (confirm(`Delete this ${ml.license_type || ''} license?`)) {
+                                    for (const a of mlAssignments) await base44.entities.LicenseAssignment.delete(a.id);
+                                    await base44.entities.SaaSLicense.delete(ml.id);
+                                    queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
+                                    queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
+                                    toast.success('License deleted!');
+                                  }
+                                }}>
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
                             </div>
                           </div>
                           
