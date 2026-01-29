@@ -250,19 +250,19 @@ export default function LicenseDetail() {
   });
 
   // Fetch ALL licenses for same application (both managed and individual)
-  const { data: relatedLicenses = [] } = useQuery({
+  const { data: relatedLicenses = [], isLoading: loadingRelated } = useQuery({
     queryKey: ['related_licenses', software?.application_name, software?.customer_id],
     queryFn: async () => {
       const allLicenses = await base44.entities.SaaSLicense.filter({ 
         customer_id: software.customer_id,
         application_name: software.application_name 
       });
+      console.log('[LicenseDetail] Fetched related licenses:', allLicenses.length, allLicenses.map(l => ({id: l.id, type: l.license_type, mgmt: l.management_type})));
       return allLicenses;
     },
     enabled: !!software?.customer_id && !!software?.application_name,
-    staleTime: 1000 * 60,
-    // Use the single license as initial data if we have it (only for actual licenses)
-    initialData: license && !software?._isApplication ? [license] : undefined
+    staleTime: 0, // Don't cache - always fetch fresh
+    refetchOnMount: true
   });
 
   // Separate managed and individual licenses
