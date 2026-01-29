@@ -1016,33 +1016,25 @@ export default function LicenseDetail() {
                             <div className="flex items-center gap-3">
                               <span className="font-bold text-slate-900 text-base min-w-[80px]">{ml.license_type || 'Standard'}</span>
 
-                              {/* Inline stats */}
+                              {/* Inline stats - simplified */}
                               <div className="flex items-center gap-3 text-xs text-slate-600 flex-1">
                                 <span><span className="font-semibold text-slate-900">{mlAssignments.length}</span>/{ml.quantity || 0} seats</span>
-                                <span className={cn(
-                                  "font-semibold",
-                                  mlUtilization >= 80 ? "text-emerald-600" : mlUtilization >= 50 ? "text-amber-600" : "text-red-600"
-                                )}>{mlUtilization.toFixed(0)}%</span>
-                                <span><span className="font-semibold text-slate-900">${displayCost.toLocaleString()}</span>{isAnnual ? '/yr' : '/mo'}</span>
-                                <span className="text-slate-400">~${monthlyCost.toLocaleString(undefined, {maximumFractionDigits: 0})}/mo</span>
+                                <span><span className="font-semibold text-slate-900">${monthlyCost.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>/mo</span>
                                 {ml.renewal_date && (
                                   <div className={cn(
                                     "flex items-center gap-1",
                                     renewalPassed ? "text-red-600" :
-                                    mlDaysUntilRenewal !== null && mlDaysUntilRenewal <= 30 ? "text-amber-600" : "text-slate-500"
+                                    mlDaysUntilRenewal !== null && mlDaysUntilRenewal <= 30 ? "text-amber-600" : "text-slate-400"
                                   )}>
                                     <Calendar className="w-3 h-3" />
-                                    <span>{renewalPassed ? 'Expired' : format(parseISO(ml.renewal_date), 'MMM d, yyyy')}</span>
+                                    <span>{format(parseISO(ml.renewal_date), 'MMM d')}</span>
                                   </div>
                                 )}
                                 {ml.card_last_four && (
                                   <div className="flex items-center gap-1 text-slate-400">
                                     <CreditCard className="w-3 h-3" />
-                                    <span>•••• {ml.card_last_four}</span>
+                                    <span>{ml.card_last_four}</span>
                                   </div>
-                                )}
-                                {mlUnusedSeats > 0 && (
-                                  <span className="text-amber-500">{mlUnusedSeats} unused</span>
                                 )}
                               </div>
                               
