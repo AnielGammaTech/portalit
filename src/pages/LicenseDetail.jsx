@@ -1037,8 +1037,16 @@ export default function LicenseDetail() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
                   <span className="text-sm font-semibold text-emerald-700">${individualTotalCost.toLocaleString()}/mo</span>
+                  <Button 
+                    size="sm" 
+                    className="gap-1.5 h-7 text-xs bg-emerald-600 hover:bg-emerald-700"
+                    onClick={(e) => { e.stopPropagation(); setShowAddIndividualLicense(true); }}
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add License
+                  </Button>
                   {individualSectionExpanded ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
                 </div>
               </div>
@@ -1046,18 +1054,6 @@ export default function LicenseDetail() {
             
             {individualSectionExpanded && (
               <>
-                {/* Action button row */}
-                <div className="px-6 py-3 bg-emerald-50/50 border-b border-slate-100 flex items-center justify-end" onClick={e => e.stopPropagation()}>
-                  <Button 
-                    size="sm" 
-                    className="gap-2 bg-emerald-600 hover:bg-emerald-700"
-                    onClick={() => setShowAddIndividualLicense(true)}
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add License
-                  </Button>
-                </div>
-                
                 {individualAssignments.length === 0 ? (
                   <div className="p-8 text-center">
                     <User className="w-10 h-10 text-slate-300 mx-auto mb-3" />
