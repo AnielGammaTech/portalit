@@ -1019,7 +1019,7 @@ export default function LicenseDetail() {
                               {/* Inline stats - simplified */}
                               <div className="flex items-center gap-3 text-xs text-slate-600 flex-1">
                                 <span><span className="font-semibold text-slate-900">{mlAssignments.length}</span>/{ml.quantity || 0} seats</span>
-                                <span><span className="font-semibold text-slate-900">${monthlyCost.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>/mo</span>
+                                <span><span className="font-semibold text-slate-900">${(ml.total_cost || 0).toLocaleString(undefined, {maximumFractionDigits: 0})}</span>{isAnnual ? '/yr' : '/mo'}</span>
                                 {ml.renewal_date && (
                                   <div className={cn(
                                     "flex items-center gap-1",
