@@ -629,7 +629,9 @@ export default function CustomerDetail() {
             { value: 'quotes', icon: FileText, label: 'Quotes' },
             { value: 'tickets', icon: HelpCircle, label: 'Tickets' },
           ] : [
+            { value: 'overview', icon: Building2, label: 'Overview' },
             { value: 'billing', icon: DollarSign, label: 'Billing' },
+            { value: 'services', icon: Cloud, label: 'Services' },
             { value: 'tickets', icon: HelpCircle, label: 'Support' },
           ]).map(tab => (
             <TabsTrigger 
