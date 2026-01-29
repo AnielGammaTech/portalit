@@ -912,6 +912,8 @@ export default function LicenseDetail() {
                   </div>
                 ) : (
                   <div className="divide-y divide-slate-200">
+                    {/* Debug: Show count */}
+                    {/* <div className="p-2 bg-yellow-100 text-xs">Debug: {managedLicenses.length} managed licenses found</div> */}
                     {managedLicenses.map(ml => {
                       const mlAssignments = getAssignmentsForLicense(ml.id);
                       const mlUnusedSeats = (ml.quantity || 0) - mlAssignments.length;
