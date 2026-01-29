@@ -268,6 +268,11 @@ export default function LicenseDetail() {
   // Separate managed and individual licenses
   const managedLicenses = relatedLicenses.filter(l => l.management_type === 'managed');
   const individualLicenses = relatedLicenses.filter(l => l.management_type === 'per_user');
+  
+  // Debug logging
+  console.log('[LicenseDetail] Related licenses count:', relatedLicenses.length);
+  console.log('[LicenseDetail] Managed licenses:', managedLicenses.length, managedLicenses.map(l => l.license_type));
+  console.log('[LicenseDetail] Individual licenses:', individualLicenses.length);
 
   const { data: contacts = [] } = useQuery({
     queryKey: ['contacts', software?.customer_id],
