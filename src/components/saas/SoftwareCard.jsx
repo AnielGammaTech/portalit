@@ -14,8 +14,8 @@ export default function SoftwareCard({
   isCatalogOnly = false
 }) {
   const hasManagedLicense = !!managedLicense;
-  // Check if there are actual individual assignments, not just the license record
-  const hasIndividualLicenses = individualLicenses.length > 0 && individualAssignments.length > 0;
+  // Check if there are actual individual assignments
+  const hasIndividualLicenses = individualAssignments.length > 0;
   const hasAnyLicense = hasManagedLicense || hasIndividualLicenses;
   
   // Managed stats
