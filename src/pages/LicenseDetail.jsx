@@ -591,24 +591,24 @@ export default function LicenseDetail() {
   };
 
   const syncSpanningUsers = async () => {
-    setSyncingUsers(true);
-    try {
-      const response = await base44.functions.invoke('syncSpanningBackup', { 
-        action: 'sync_users', 
-        customer_id: software.customer_id 
-      });
-      if (response.data.success) {
-        toast.success(`Synced ${response.data.totalSpanningUsers} users: ${response.data.created} new, ${response.data.matched} matched!`);
-        queryClient.invalidateQueries({ queryKey: ['contacts', software.customer_id] });
-      } else {
-        toast.error(response.data.error || 'User sync failed');
-      }
-    } catch (error) {
-      toast.error(error.message);
-    } finally {
-      setSyncingUsers(false);
-    }
-  };
+        setSyncingUsers(true);
+        try {
+          const response = await base44.functions.invoke('syncSpanningBackup', { 
+            action: 'sync_users', 
+            customer_id: software.customer_id 
+          });
+          if (response.data.success) {
+            toast.success(`Synced ${response.data.totalSpanningUsers} users: ${response.data.updated} updated, ${response.data.matched} matched!`);
+            queryClient.invalidateQueries({ queryKey: ['contacts', software.customer_id] });
+          } else {
+            toast.error(response.data.error || 'User sync failed');
+          }
+        } catch (error) {
+          toast.error(error.message);
+        } finally {
+          setSyncingUsers(false);
+        }
+      };
 
   if (loadingLicense || loadingApplication) {
     return (
