@@ -256,16 +256,21 @@ export default function LicenseDetail() {
   const { data: relatedLicenses = [], isLoading: loadingRelated } = useQuery({
     queryKey: ['related_licenses', software?.application_name, software?.customer_id],
     queryFn: async () => {
-      const allLicenses = await base44.entities.SaaSLicense.filter({ 
-        customer_id: software.customer_id,
-        application_name: software.application_name 
+      // Fetch ALL licenses for this customer first, then filter by app name
+      // This avoids any potential issues with the filter query
+      const allCustomerLicenses = await base44.entities.SaaSLicense.filter({ 
+        customer_id: software.customer_id
       });
-      console.log('[LicenseDetail] Fetched related licenses:', allLicenses.length, allLicenses.map(l => ({id: l.id, type: l.license_type, mgmt: l.management_type})));
-      return allLicenses;
+      const appLicenses = allCustomerLicenses.filter(l => 
+        l.application_name === software.application_name
+      );
+      console.log('[LicenseDetail] Fetched related licenses:', appLicenses.length, appLicenses.map(l => ({id: l.id, type: l.license_type, mgmt: l.management_type})));
+      return appLicenses;
     },
     enabled: !!software?.customer_id && !!software?.application_name,
     staleTime: 0, // Don't cache - always fetch fresh
-    refetchOnMount: true
+    refetchOnMount: true,
+    refetchOnWindowFocus: true
   });
 
   // Separate managed and individual licenses
