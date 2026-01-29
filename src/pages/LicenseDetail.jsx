@@ -121,13 +121,13 @@ function SpendAnalysisCard({
         {managedLicenses.length > 0 && (
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-400">Managed Licenses</span>
-            <span className="font-medium">${showYearly ? yearlyManaged.toLocaleString() : monthlyManaged.toLocaleString()}</span>
+            <span className="font-medium">${showYearly ? managedYearlyCost.toLocaleString() : managedMonthlyCost.toLocaleString()}</span>
           </div>
         )}
         {individualLicenses.length > 0 && (
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-400">Individual Licenses</span>
-            <span className="font-medium">${showYearly ? yearlyIndividual.toLocaleString() : monthlyIndividual.toLocaleString()}</span>
+            <span className="font-medium">${showYearly ? individualYearlyCost.toLocaleString() : individualMonthlyCost.toLocaleString()}</span>
           </div>
         )}
       </div>
