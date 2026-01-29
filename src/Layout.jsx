@@ -90,9 +90,16 @@ export default function Layout({ children, currentPageName }) {
               ];
 
   // Customer navigation (end-user view) - uses customer_id from user profile
+  // Goes directly to CustomerDetail with their customer ID
   const customerNavigation = [
     { name: 'My Account', page: 'CustomerDetail', icon: FileText, query: user?.customer_id ? `?id=${user.customer_id}` : '' },
   ];
+
+  // For non-admin users, redirect Dashboard to CustomerDetail
+  if (!isAdmin && user?.customer_id && currentPageName === 'Dashboard') {
+    window.location.href = createPageUrl(`CustomerDetail?id=${user.customer_id}`);
+    return null;
+  }
 
   const navigation = isAdmin ? adminNavigation : customerNavigation;
 
