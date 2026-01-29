@@ -253,23 +253,33 @@ export default function LicenseDetail() {
   });
 
   // Fetch ALL licenses for same application (both managed and individual)
-  const { data: relatedLicenses = [], isLoading: loadingRelated } = useQuery({
+  // CRITICAL: This is the source of truth for all license data on this page
+  const { data: relatedLicenses = [], isLoading: loadingRelated, refetch: refetchLicenses } = useQuery({
     queryKey: ['related_licenses', software?.application_name, software?.customer_id],
     queryFn: async () => {
+      console.log('[LicenseDetail] Fetching licenses for:', software.application_name, 'customer:', software.customer_id);
+      
       // Fetch ALL licenses for this customer first, then filter by app name
       // This avoids any potential issues with the filter query
       const allCustomerLicenses = await base44.entities.SaaSLicense.filter({ 
         customer_id: software.customer_id
       });
+      
+      // Filter by exact application name match
       const appLicenses = allCustomerLicenses.filter(l => 
         l.application_name === software.application_name
       );
-      console.log('[LicenseDetail] Fetched related licenses:', appLicenses.length, appLicenses.map(l => ({id: l.id, type: l.license_type, mgmt: l.management_type})));
+      
+      console.log('[LicenseDetail] Found', appLicenses.length, 'licenses:', 
+        appLicenses.map(l => `${l.license_type || 'no-type'} (${l.management_type}, id:${l.id.slice(-6)})`).join(', ')
+      );
+      
       return appLicenses;
     },
     enabled: !!software?.customer_id && !!software?.application_name,
-    staleTime: 0, // Don't cache - always fetch fresh
-    refetchOnMount: true,
+    staleTime: 0,
+    cacheTime: 0,
+    refetchOnMount: 'always',
     refetchOnWindowFocus: true
   });
 
