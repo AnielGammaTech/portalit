@@ -912,98 +912,138 @@ export default function LicenseDetail() {
                         ? differenceInDays(parseISO(ml.renewal_date), new Date()) : null;
                       const renewalPassed = mlDaysUntilRenewal !== null && mlDaysUntilRenewal < 0;
                       
+                      // Calculate cost display based on billing cycle
+                      const isAnnual = ml.billing_cycle === 'annually';
+                      const displayCost = ml.total_cost || 0;
+                      const costPerSeat = ml.cost_per_license || 0;
+                      const monthlyCost = isAnnual ? displayCost / 12 : displayCost;
+                      
                       return (
                         <div key={ml.id} className="bg-white">
-                          {/* License Type Header */}
-                          <div className="px-6 py-3 bg-slate-50">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-3">
-                                <Badge className="bg-blue-100 text-blue-700">{ml.license_type || '-'}</Badge>
-                                <span className="text-xs text-slate-500">
-                                  {ml.quantity || 0} seats • {mlAssignments.length} assigned • ${ml.cost_per_license || 0}/seat • ${(ml.total_cost || 0).toLocaleString()}/mo
-                                </span>
-                                <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                                  <div 
-                                    className={cn(
-                                      "h-full rounded-full",
-                                      mlUtilization >= 90 ? "bg-emerald-500" :
-                                      mlUtilization >= 50 ? "bg-amber-500" : "bg-red-500"
-                                    )}
-                                    style={{ width: `${Math.min(100, mlUtilization)}%` }}
-                                  />
-                                </div>
-                              </div>
+                          {/* License Type Header - Redesigned */}
+                          <div className="px-6 py-4 bg-slate-50">
+                            {/* Top row: Type badge + Actions */}
+                            <div className="flex items-center justify-between mb-3">
+                              <Badge className="bg-blue-100 text-blue-700 text-sm px-3 py-1">{ml.license_type || 'Standard'}</Badge>
                               <div className="flex gap-2">
-                                    <Button 
-                                      size="sm" 
-                                      variant="outline"
-                                      className="h-7 text-xs"
-                                      onClick={() => { setSelectedManagedLicenseId(ml.id); setShowModifySeatsModal(true); }}
-                                    >
-                                      <Edit2 className="w-3 h-3 mr-1" />
-                                      Modify
-                                    </Button>
-                                    <Button 
-                                      size="sm" 
-                                      className="h-7 text-xs bg-blue-600 hover:bg-blue-700"
-                                      onClick={() => { setSelectedManagedLicenseId(ml.id); setShowAssignModal(true); }}
-                                      disabled={mlUnusedSeats <= 0}
-                                    >
-                                      <Plus className="w-3 h-3 mr-1" />
-                                      Assign
-                                    </Button>
-                                    <Button 
-                                      size="sm" 
-                                      variant="ghost"
-                                      className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                      onClick={async () => {
-                                        if (confirm(`Delete this ${ml.license_type || ''} license? This will also remove ${mlAssignments.length} assignment(s).`)) {
-                                          for (const a of mlAssignments) {
-                                            await base44.entities.LicenseAssignment.delete(a.id);
-                                          }
-                                          await base44.entities.SaaSLicense.delete(ml.id);
-                                          queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
-                                          queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
-                                          toast.success('License deleted!');
-                                        }
-                                      }}
-                                    >
-                                      <Trash2 className="w-3 h-3" />
-                                    </Button>
-                                  </div>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  className="h-7 text-xs"
+                                  onClick={() => { setSelectedManagedLicenseId(ml.id); setShowModifySeatsModal(true); }}
+                                >
+                                  <Edit2 className="w-3 h-3 mr-1" />
+                                  Modify
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  className="h-7 text-xs bg-blue-600 hover:bg-blue-700"
+                                  onClick={() => { setSelectedManagedLicenseId(ml.id); setShowAssignModal(true); }}
+                                  disabled={mlUnusedSeats <= 0}
+                                >
+                                  <Plus className="w-3 h-3 mr-1" />
+                                  Assign
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                  onClick={async () => {
+                                    if (confirm(`Delete this ${ml.license_type || ''} license? This will also remove ${mlAssignments.length} assignment(s).`)) {
+                                      for (const a of mlAssignments) {
+                                        await base44.entities.LicenseAssignment.delete(a.id);
+                                      }
+                                      await base44.entities.SaaSLicense.delete(ml.id);
+                                      queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
+                                      queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
+                                      toast.success('License deleted!');
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
                             </div>
+                            
+                            {/* Stats Grid */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                              <div className="bg-white rounded-lg px-3 py-2 border border-slate-200">
+                                <p className="text-[10px] text-slate-500 uppercase tracking-wide">Seats</p>
+                                <p className="text-lg font-bold text-slate-900">{mlAssignments.length}<span className="text-slate-400 font-normal">/{ml.quantity || 0}</span></p>
+                              </div>
+                              <div className="bg-white rounded-lg px-3 py-2 border border-slate-200">
+                                <p className="text-[10px] text-slate-500 uppercase tracking-wide">Utilization</p>
+                                <p className={cn(
+                                  "text-lg font-bold",
+                                  mlUtilization >= 80 ? "text-emerald-600" : mlUtilization >= 50 ? "text-amber-600" : "text-red-600"
+                                )}>{mlUtilization.toFixed(0)}%</p>
+                              </div>
+                              <div className="bg-white rounded-lg px-3 py-2 border border-slate-200">
+                                <p className="text-[10px] text-slate-500 uppercase tracking-wide">Cost/Seat</p>
+                                <p className="text-lg font-bold text-slate-900">${costPerSeat.toLocaleString()}<span className="text-xs text-slate-400 font-normal">/{isAnnual ? 'yr' : 'mo'}</span></p>
+                              </div>
+                              <div className="bg-white rounded-lg px-3 py-2 border border-slate-200">
+                                <p className="text-[10px] text-slate-500 uppercase tracking-wide">Total ({isAnnual ? 'Annual' : 'Monthly'})</p>
+                                <p className="text-lg font-bold text-slate-900">${displayCost.toLocaleString()}</p>
+                              </div>
+                            </div>
+                            
+                            {/* Utilization bar */}
+                            <div className="mb-3">
+                              <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                                <div 
+                                  className={cn(
+                                    "h-full rounded-full transition-all",
+                                    mlUtilization >= 80 ? "bg-emerald-500" :
+                                    mlUtilization >= 50 ? "bg-amber-500" : "bg-red-500"
+                                  )}
+                                  style={{ width: `${Math.min(100, mlUtilization)}%` }}
+                                />
+                              </div>
+                              {mlUnusedSeats > 0 && (
+                                <p className="text-xs text-amber-600 mt-1">
+                                  {mlUnusedSeats} unused seat{mlUnusedSeats !== 1 ? 's' : ''} • ~${((mlUnusedSeats / (ml.quantity || 1)) * monthlyCost).toFixed(0)}/mo potential savings
+                                </p>
+                              )}
+                            </div>
+                            
                             {/* Billing info row */}
-                            <div className="flex items-center gap-4 text-xs">
+                            <div className="flex flex-wrap items-center gap-3 text-xs">
                               {ml.renewal_date && (
                                 <div className={cn(
-                                  "flex items-center gap-1.5 px-2 py-1 rounded-md",
+                                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg",
                                   renewalPassed ? "bg-red-100 text-red-700" :
                                   mlDaysUntilRenewal !== null && mlDaysUntilRenewal <= 30 ? "bg-amber-100 text-amber-700" :
                                   mlDaysUntilRenewal !== null && mlDaysUntilRenewal <= 60 ? "bg-yellow-100 text-yellow-700" :
-                                  "bg-slate-100 text-slate-600"
+                                  "bg-white border border-slate-200 text-slate-600"
                                 )}>
-                                  <Calendar className="w-3 h-3" />
-                                  <span>
+                                  <Calendar className="w-3.5 h-3.5" />
+                                  <span className="font-medium">
                                     {renewalPassed 
                                       ? `Renewal passed ${format(parseISO(ml.renewal_date), 'MMM d')}` 
                                       : `Renews ${format(parseISO(ml.renewal_date), 'MMM d, yyyy')}`}
                                   </span>
                                   {mlDaysUntilRenewal !== null && mlDaysUntilRenewal > 0 && mlDaysUntilRenewal <= 30 && (
-                                    <span className="font-medium">({mlDaysUntilRenewal}d)</span>
+                                    <span className="font-bold">({mlDaysUntilRenewal}d)</span>
                                   )}
                                 </div>
                               )}
                               {ml.card_last_four && (
-                                <div className="flex items-center gap-1.5 text-slate-500">
-                                  <CreditCard className="w-3 h-3" />
+                                <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-600">
+                                  <CreditCard className="w-3.5 h-3.5" />
                                   <span>•••• {ml.card_last_four}</span>
+                                </div>
+                              )}
+                              {ml.billing_cycle && (
+                                <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-50 border border-purple-200 rounded-lg text-purple-700">
+                                  <span className="font-medium capitalize">{ml.billing_cycle === 'annually' ? 'Annual' : 'Monthly'} billing</span>
                                 </div>
                               )}
                               {renewalPassed && (
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="ml-auto h-6 text-xs bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+                                  className="ml-auto h-7 text-xs bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setRenewalLicense(ml);
