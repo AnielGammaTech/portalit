@@ -633,7 +633,10 @@ export default function LicenseDetail() {
         }
       };
 
-  if (loadingLicense || loadingApplication) {
+  // Show loading while initial data loads
+  const isInitialLoading = (licenseId && loadingLicense) || (appId && loadingApplication);
+  
+  if (isInitialLoading) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-8 w-32" />
