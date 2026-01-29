@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { User, Loader2 } from 'lucide-react';
+import { User, Loader2, AlertTriangle } from 'lucide-react';
 
-export default function AddIndividualLicenseModal({ open, onClose, onSave, softwareName, contacts = [] }) {
+export default function AddIndividualLicenseModal({ open, onClose, onSave, softwareName, contacts = [], existingAssignments = [] }) {
   const [form, setForm] = useState({
     contact_id: '',
     license_type: '',
@@ -35,6 +35,11 @@ export default function AddIndividualLicenseModal({ open, onClose, onSave, softw
   }, [open]);
 
   const selectedContact = contacts.find(c => c.id === form.contact_id);
+  
+  // Check if selected user already has a license for this software
+  const userHasExistingLicense = form.contact_id && existingAssignments.some(
+    a => a.contact_id === form.contact_id && a.status === 'active'
+  );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -88,6 +93,19 @@ export default function AddIndividualLicenseModal({ open, onClose, onSave, softw
               </SelectContent>
             </Select>
           </div>
+          
+          {/* Duplicate License Warning */}
+          {userHasExistingLicense && (
+            <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-amber-800">User already has a license</p>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  {selectedContact?.full_name} already has a license assigned for {softwareName}. Adding another may result in duplicate billing.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* License Type */}
           <div>
