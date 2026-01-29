@@ -263,8 +263,9 @@ export default function LicenseDetail() {
   });
 
   // Fetch assignments for ALL related licenses (both managed and individual)
+  const relatedLicenseIds = relatedLicenses.map(l => l.id).sort().join(',');
   const { data: allAssignments = [], refetch: refetchAssignments } = useQuery({
-    queryKey: ['all_license_assignments', software?.application_name, software?.customer_id, relatedLicenses.map(l => l.id).join(',')],
+    queryKey: ['all_license_assignments', software?.application_name, software?.customer_id, relatedLicenseIds],
     queryFn: async () => {
       const licenseIds = relatedLicenses.map(l => l.id);
       if (licenseIds.length === 0) return [];
@@ -275,7 +276,7 @@ export default function LicenseDetail() {
       return results.flat();
     },
     enabled: relatedLicenses.length > 0,
-    staleTime: 1000 * 30 // Cache for 30 seconds
+    staleTime: 0 // Always refetch when license IDs change
   });
 
   // Real-time subscription for license assignments
