@@ -226,6 +226,7 @@ export default function LicenseDetail() {
   });
 
   // Create a unified "software" object from either license or application
+  // Important: Don't wait for `license` to exist - we need customer_id and app name to fetch all related
   const software = license || (application ? {
     id: application.id,
     application_name: application.name,
@@ -238,6 +239,8 @@ export default function LicenseDetail() {
     status: application.status || 'active',
     _isApplication: true // Flag to identify this is a catalog entry
   } : null);
+  
+  console.log('[LicenseDetail] Software object:', software?.application_name, 'customer:', software?.customer_id);
 
   const { data: customer } = useQuery({
     queryKey: ['customer', software?.customer_id],
