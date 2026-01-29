@@ -154,8 +154,7 @@ Deno.serve(async (req) => {
           customer: customer?.name,
           totalUsers,
           assignedUsers,
-          contactsUpdated,
-          assignmentsCreated
+          contactsUpdated
         });
         synced++;
       } catch (e) {
