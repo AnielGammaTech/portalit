@@ -825,14 +825,33 @@ export default function LicenseDetail() {
                   <p className="text-xs text-slate-500">{managedLicenses.length} type{managedLicenses.length !== 1 ? 's' : ''} • {managedAssignments.length}/{totalManagedSeats} seats</p>
                 </div>
               </div>
-              {/* Show each license type */}
+              {/* Show each license type with details */}
               <div className="space-y-2 mb-3">
                 {managedLicenses.map(ml => {
                   const mlAssignments = allAssignments.filter(a => a.license_id === ml.id && a.status === 'active');
                   const mlUtilization = ml.quantity > 0 ? (mlAssignments.length / ml.quantity) * 100 : 0;
+                  const isAnnual = ml.billing_cycle === 'annually';
+                  const monthlyCost = isAnnual ? (ml.total_cost || 0) / 12 : (ml.total_cost || 0);
                   return (
-                    <div key={ml.id} className="flex items-center justify-between text-xs">
-                      <span className="text-slate-600">{ml.license_type || 'Standard'}</span>
+                    <div key={ml.id} className="flex items-center justify-between text-xs py-1 border-b border-slate-50 last:border-0">
+                      <div className="flex flex-col">
+                        <span className="text-slate-700 font-medium">{ml.license_type || 'Standard'}</span>
+                        <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                          <span>${monthlyCost.toLocaleString(undefined, {maximumFractionDigits: 0})}/mo</span>
+                          {ml.card_last_four && (
+                            <span className="flex items-center gap-0.5">
+                              <CreditCard className="w-2.5 h-2.5" />
+                              {ml.card_last_four}
+                            </span>
+                          )}
+                          {ml.renewal_date && (
+                            <span className="flex items-center gap-0.5">
+                              <Calendar className="w-2.5 h-2.5" />
+                              {format(parseISO(ml.renewal_date), 'MMM d')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                       <span className={cn(
                         "font-medium",
                         mlUtilization >= 80 ? "text-emerald-600" : mlUtilization >= 50 ? "text-amber-600" : "text-red-600"
