@@ -619,7 +619,7 @@ export default function CustomerDetail() {
       )}
 
       {/* Tabs - Clean minimal design */}
-      <Tabs defaultValue={isAdmin ? "overview" : "billing"} className="space-y-6" id="customer-tabs">
+      <Tabs defaultValue="overview" className="space-y-6" id="customer-tabs">
         <TabsList className="bg-slate-100/80 border-0 rounded-xl p-1 flex gap-0.5 h-auto overflow-x-auto">
           {(isAdmin ? [
             { value: 'overview', icon: Building2, label: 'Overview' },
