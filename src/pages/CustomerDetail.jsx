@@ -246,6 +246,9 @@ export default function CustomerDetail() {
 
   const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingApplications || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems || loadingContractItems || loadingContacts || loadingTickets || loadingInvoiceLineItems || loadingAssignments || loadingDevices || loadingJumpcloud || loadingSpanning;
 
+  // Check if current user is admin
+  const isAdmin = user?.role === 'admin';
+
   const handleAssignLicense = async (contactId) => {
     await base44.entities.LicenseAssignment.create({
       license_id: selectedLicense.id,
