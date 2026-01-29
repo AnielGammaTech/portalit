@@ -748,15 +748,11 @@ export default function LicenseDetail() {
 
           {/* Combined Cost Summary - Spend Analysis */}
           <SpendAnalysisCard
-            combinedTotalCost={combinedTotalCost}
-            totalManagedCost={totalManagedCost}
-            individualTotalCost={individualTotalCost}
             managedAssignments={managedAssignments}
             individualAssignments={individualAssignments}
             managedLicenses={managedLicenses}
             individualLicenses={individualLicenses}
             managedUtilizationPercent={managedUtilizationPercent}
-            managedWastedCost={managedWastedCost}
           />
 
           {/* License Summary Cards */}
