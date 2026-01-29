@@ -874,18 +874,7 @@ export default function LicenseDetail() {
             {managedSectionExpanded && (
               <>
                 {/* Action buttons */}
-                <div className="px-6 py-3 bg-blue-50/50 border-b border-slate-100 flex items-center justify-between">
-                  {managedLicenses.length > 0 && (
-                    <div className="flex items-center gap-6 text-xs">
-                      <span className={cn(managedUtilizationPercent >= 80 ? "text-emerald-600" : managedUtilizationPercent >= 50 ? "text-amber-600" : "text-red-600")}>
-                        {managedUtilizationPercent.toFixed(0)}% utilized
-                      </span>
-                      {managedWastedCost > 0 && (
-                        <span className="text-amber-600">${managedWastedCost.toFixed(0)} unused</span>
-                      )}
-                    </div>
-                  )}
-                  {managedLicenses.length === 0 && <div />}
+                <div className="px-6 py-3 bg-blue-50/50 border-b border-slate-100 flex items-center justify-end">
                   <div className="flex gap-2" onClick={e => e.stopPropagation()}>
                     <Button 
                       size="sm" 
