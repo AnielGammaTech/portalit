@@ -340,20 +340,30 @@ export default function LicenseDetail() {
     cacheTime: 0
   });
 
-  // Real-time subscription for license assignments
+  // Real-time subscription for license assignments AND licenses
   useEffect(() => {
     if (!software?.customer_id) return;
 
-    const unsubscribe = base44.entities.LicenseAssignment.subscribe((event) => {
+    const unsubAssignments = base44.entities.LicenseAssignment.subscribe((event) => {
       if (event.data?.customer_id === software.customer_id) {
-        // Immediately update local cache for faster UI
+        console.log('[LicenseDetail] Assignment changed, refreshing...');
         queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
+      }
+    });
+    
+    const unsubLicenses = base44.entities.SaaSLicense.subscribe((event) => {
+      if (event.data?.customer_id === software.customer_id && 
+          event.data?.application_name === software.application_name) {
+        console.log('[LicenseDetail] License changed, refreshing...');
         queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
       }
     });
 
-    return () => unsubscribe();
-  }, [software?.customer_id, queryClient]);
+    return () => {
+      unsubAssignments();
+      unsubLicenses();
+    };
+  }, [software?.customer_id, software?.application_name, queryClient]);
 
   // Separate assignments by license type - support multiple licenses
   const managedAssignments = allAssignments.filter(a => 
