@@ -965,32 +965,37 @@ export default function LicenseDetail() {
                               </div>
                             </div>
                             
-                            {/* Stats Grid */}
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-                              <div className="bg-white rounded-lg px-3 py-2 border border-slate-200">
-                                <p className="text-[10px] text-slate-500 uppercase tracking-wide">Seats</p>
-                                <p className="text-lg font-bold text-slate-900">{mlAssignments.length}<span className="text-slate-400 font-normal">/{ml.quantity || 0}</span></p>
+                            {/* Compact Stats Row */}
+                            <div className="flex items-center gap-4 text-xs mb-2">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-slate-500">Seats:</span>
+                                <span className="font-semibold text-slate-900">{mlAssignments.length}/{ml.quantity || 0}</span>
                               </div>
-                              <div className="bg-white rounded-lg px-3 py-2 border border-slate-200">
-                                <p className="text-[10px] text-slate-500 uppercase tracking-wide">Utilization</p>
-                                <p className={cn(
-                                  "text-lg font-bold",
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-slate-500">Used:</span>
+                                <span className={cn(
+                                  "font-semibold",
                                   mlUtilization >= 80 ? "text-emerald-600" : mlUtilization >= 50 ? "text-amber-600" : "text-red-600"
-                                )}>{mlUtilization.toFixed(0)}%</p>
+                                )}>{mlUtilization.toFixed(0)}%</span>
                               </div>
-                              <div className="bg-white rounded-lg px-3 py-2 border border-slate-200">
-                                <p className="text-[10px] text-slate-500 uppercase tracking-wide">Cost/Seat</p>
-                                <p className="text-lg font-bold text-slate-900">${costPerSeat.toLocaleString()}<span className="text-xs text-slate-400 font-normal">/{isAnnual ? 'yr' : 'mo'}</span></p>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-slate-500">Cost:</span>
+                                <span className="font-semibold text-slate-900">${costPerSeat.toLocaleString()}/{isAnnual ? 'yr' : 'mo'}</span>
                               </div>
-                              <div className="bg-white rounded-lg px-3 py-2 border border-slate-200">
-                                <p className="text-[10px] text-slate-500 uppercase tracking-wide">Total ({isAnnual ? 'Annual' : 'Monthly'})</p>
-                                <p className="text-lg font-bold text-slate-900">${displayCost.toLocaleString()}</p>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-slate-500">Total:</span>
+                                <span className="font-semibold text-slate-900">${displayCost.toLocaleString()}{isAnnual ? '/yr' : '/mo'}</span>
                               </div>
+                              {mlUnusedSeats > 0 && (
+                                <span className="text-amber-600 ml-auto">
+                                  {mlUnusedSeats} unused • ~${((mlUnusedSeats / (ml.quantity || 1)) * monthlyCost).toFixed(0)}/mo savings
+                                </span>
+                              )}
                             </div>
                             
-                            {/* Utilization bar */}
-                            <div className="mb-3">
-                              <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                            {/* Thin Utilization bar */}
+                            <div className="mb-2">
+                              <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
                                 <div 
                                   className={cn(
                                     "h-full rounded-full transition-all",
@@ -1000,11 +1005,6 @@ export default function LicenseDetail() {
                                   style={{ width: `${Math.min(100, mlUtilization)}%` }}
                                 />
                               </div>
-                              {mlUnusedSeats > 0 && (
-                                <p className="text-xs text-amber-600 mt-1">
-                                  {mlUnusedSeats} unused seat{mlUnusedSeats !== 1 ? 's' : ''} • ~${((mlUnusedSeats / (ml.quantity || 1)) * monthlyCost).toFixed(0)}/mo potential savings
-                                </p>
-                              )}
                             </div>
                             
                             {/* Billing info row */}
