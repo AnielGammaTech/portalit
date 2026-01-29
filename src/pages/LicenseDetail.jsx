@@ -283,14 +283,26 @@ export default function LicenseDetail() {
     refetchOnWindowFocus: true
   });
 
-  // Separate managed and individual licenses
-  const managedLicenses = relatedLicenses.filter(l => l.management_type === 'managed');
-  const individualLicenses = relatedLicenses.filter(l => l.management_type === 'per_user');
+  // Separate managed and individual licenses - MUST be consistent
+  const managedLicenses = React.useMemo(() => 
+    relatedLicenses.filter(l => l.management_type === 'managed'),
+    [relatedLicenses]
+  );
   
-  // Debug logging
-  console.log('[LicenseDetail] Related licenses count:', relatedLicenses.length);
-  console.log('[LicenseDetail] Managed licenses:', managedLicenses.length, managedLicenses.map(l => l.license_type));
-  console.log('[LicenseDetail] Individual licenses:', individualLicenses.length);
+  const individualLicenses = React.useMemo(() => 
+    relatedLicenses.filter(l => l.management_type === 'per_user'),
+    [relatedLicenses]
+  );
+  
+  // Debug logging - helps track rendering issues
+  React.useEffect(() => {
+    if (relatedLicenses.length > 0) {
+      console.log('[LicenseDetail] === LICENSE DATA ===');
+      console.log('[LicenseDetail] Total related:', relatedLicenses.length);
+      console.log('[LicenseDetail] Managed:', managedLicenses.length, managedLicenses.map(l => `${l.license_type || 'Standard'}(${l.id.slice(-6)})`));
+      console.log('[LicenseDetail] Individual:', individualLicenses.length);
+    }
+  }, [relatedLicenses, managedLicenses, individualLicenses]);
 
   const { data: contacts = [] } = useQuery({
     queryKey: ['contacts', software?.customer_id],
