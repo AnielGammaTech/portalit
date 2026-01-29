@@ -1428,6 +1428,7 @@ export default function LicenseDetail() {
         onSave={handleAddIndividualLicense}
         softwareName={software?.application_name}
         contacts={contacts}
+        existingAssignments={allAssignments}
       />
 
       {/* Renewal Confirmation Modal */}
