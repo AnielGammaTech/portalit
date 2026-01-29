@@ -531,7 +531,7 @@ export default function LicenseDetail() {
       }
       
       toast.success('Application and all licenses deleted!');
-      window.location.href = createPageUrl(`CustomerDetail?id=${software.customer_id}`);
+                  window.location.href = createPageUrl(`CustomerDetail?id=${software.customer_id}&tab=services`);
     } catch (error) {
       toast.error('Failed to delete application');
       setIsDeleting(false);
