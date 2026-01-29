@@ -466,10 +466,12 @@ export default function CustomerDetail() {
 
   return (
     <div className="space-y-6">
-      <Breadcrumbs items={[
-        { label: 'Customers', href: createPageUrl('Customers') },
-        { label: customer?.name || 'Customer' }
-      ]} />
+      {isAdmin && (
+        <Breadcrumbs items={[
+          { label: 'Customers', href: createPageUrl('Customers') },
+          { label: customer?.name || 'Customer' }
+        ]} />
+      )}
       
       {/* Header with Sync */}
       <div className="flex items-center justify-end">
