@@ -54,10 +54,12 @@ export default function DevicesTab({ customerId, customerExternalId }) {
     enabled: !!customerId
   });
 
-  const { data: mappings = [] } = useQuery({
+  const { data: mappings = [], isLoading: loadingMappings } = useQuery({
     queryKey: ['datto_mappings', customerId],
     queryFn: () => base44.entities.DattoSiteMapping.filter({ customer_id: customerId }),
-    enabled: !!customerId
+    enabled: !!customerId,
+    staleTime: 0,
+    refetchOnMount: 'always'
   });
 
   const syncDevices = async () => {
