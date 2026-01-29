@@ -473,21 +473,23 @@ export default function CustomerDetail() {
         ]} />
       )}
       
-      {/* Header with Sync */}
-      <div className="flex items-center justify-end">
-       {customer?.source === 'halopsa' && (
-         <Button 
-           onClick={handleSyncCustomer}
-           disabled={isSyncing}
-           variant="outline"
-           className="gap-2"
-           size="sm"
-         >
-           <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
-           Refresh Data
-         </Button>
-       )}
-      </div>
+      {/* Header with Sync - Admin only */}
+      {isAdmin && (
+        <div className="flex items-center justify-end">
+         {customer?.source === 'halopsa' && (
+           <Button 
+             onClick={handleSyncCustomer}
+             disabled={isSyncing}
+             variant="outline"
+             className="gap-2"
+             size="sm"
+           >
+             <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
+             Refresh Data
+           </Button>
+         )}
+        </div>
+      )}
 
       {/* Account Header - Modern & Clean */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
