@@ -864,8 +864,17 @@ export default function LicenseDetail() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
                   <span className="text-sm font-semibold text-blue-700">${totalManagedCost.toLocaleString()}/mo</span>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    className="gap-1.5 h-7 text-xs"
+                    onClick={(e) => { e.stopPropagation(); setShowAddManagedLicense(true); }}
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add License
+                  </Button>
                   {managedSectionExpanded ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
                 </div>
               </div>
@@ -873,21 +882,6 @@ export default function LicenseDetail() {
             
             {managedSectionExpanded && (
               <>
-                {/* Action buttons */}
-                <div className="px-6 py-3 bg-blue-50/50 border-b border-slate-100 flex items-center justify-end">
-                  <div className="flex gap-2" onClick={e => e.stopPropagation()}>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      className="gap-2"
-                      onClick={() => setShowAddManagedLicense(true)}
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add License
-                    </Button>
-                  </div>
-                </div>
-                
                 {managedLicenses.length === 0 ? (
                   <div className="p-8 text-center">
                     <Building2 className="w-10 h-10 text-slate-300 mx-auto mb-3" />
