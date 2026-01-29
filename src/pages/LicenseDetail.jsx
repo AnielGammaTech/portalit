@@ -52,26 +52,40 @@ import { DollarSign, BarChart3 } from 'lucide-react';
 
 // Spend Analysis Card Component
 function SpendAnalysisCard({
-  combinedTotalCost,
-  totalManagedCost,
-  individualTotalCost,
   managedAssignments,
   individualAssignments,
   managedLicenses,
   individualLicenses,
-  managedUtilizationPercent,
-  managedWastedCost
+  managedUtilizationPercent
 }) {
   const [showYearly, setShowYearly] = useState(false);
   
-  const monthlyTotal = combinedTotalCost;
-  const yearlyTotal = combinedTotalCost * 12;
-  const monthlyManaged = totalManagedCost;
-  const yearlyManaged = totalManagedCost * 12;
-  const monthlyIndividual = individualTotalCost;
-  const yearlyIndividual = individualTotalCost * 12;
-  const monthlyWasted = managedWastedCost;
-  const yearlyWasted = managedWastedCost * 12;
+  // Calculate costs properly based on billing cycle
+  // For annual licenses, divide by 12 to get monthly; for monthly, use as-is
+  const managedMonthlyCost = managedLicenses.reduce((sum, l) => {
+    const cost = l.total_cost || 0;
+    return sum + (l.billing_cycle === 'annually' ? cost / 12 : cost);
+  }, 0);
+  const managedYearlyCost = managedLicenses.reduce((sum, l) => {
+    const cost = l.total_cost || 0;
+    return sum + (l.billing_cycle === 'annually' ? cost : cost * 12);
+  }, 0);
+  
+  // Individual licenses - assume monthly unless specified
+  const individualMonthlyCost = individualAssignments.reduce((sum, a) => {
+    const parentLicense = individualLicenses.find(l => l.id === a.license_id);
+    return sum + (a.cost_per_license || parentLicense?.cost_per_license || 0);
+  }, 0);
+  const individualYearlyCost = individualMonthlyCost * 12;
+  
+  const monthlyTotal = managedMonthlyCost + individualMonthlyCost;
+  const yearlyTotal = managedYearlyCost + individualYearlyCost;
+  
+  // Calculate wasted cost based on unused seats
+  const totalManagedSeats = managedLicenses.reduce((sum, l) => sum + (l.quantity || 0), 0);
+  const unusedSeats = totalManagedSeats - managedAssignments.length;
+  const monthlyWasted = totalManagedSeats > 0 ? (unusedSeats / totalManagedSeats) * managedMonthlyCost : 0;
+  const yearlyWasted = totalManagedSeats > 0 ? (unusedSeats / totalManagedSeats) * managedYearlyCost : 0;
   
   return (
     <div 
