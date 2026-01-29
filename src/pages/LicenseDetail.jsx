@@ -874,6 +874,7 @@ export default function LicenseDetail() {
 
 
           {/* Managed Seats Section - Always show, Collapsible */}
+          {/* Debug info: {relatedLicenses.length} related, {managedLicenses.length} managed, {individualLicenses.length} individual */}
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             <button 
               onClick={() => setManagedSectionExpanded(!managedSectionExpanded)}
