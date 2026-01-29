@@ -312,20 +312,32 @@ export default function LicenseDetail() {
   });
 
   // Fetch assignments for ALL related licenses (both managed and individual)
-  const relatedLicenseIds = relatedLicenses.map(l => l.id).sort().join(',');
+  // CRITICAL: Must update when licenses change
+  const relatedLicenseIds = React.useMemo(() => 
+    relatedLicenses.map(l => l.id).sort().join(','),
+    [relatedLicenses]
+  );
+  
   const { data: allAssignments = [], refetch: refetchAssignments } = useQuery({
     queryKey: ['all_license_assignments', software?.application_name, software?.customer_id, relatedLicenseIds],
     queryFn: async () => {
       const licenseIds = relatedLicenses.map(l => l.id);
       if (licenseIds.length === 0) return [];
+      
+      console.log('[LicenseDetail] Fetching assignments for', licenseIds.length, 'licenses');
+      
       const assignmentPromises = licenseIds.map(id => 
         base44.entities.LicenseAssignment.filter({ license_id: id })
       );
       const results = await Promise.all(assignmentPromises);
-      return results.flat();
+      const allResults = results.flat();
+      
+      console.log('[LicenseDetail] Found', allResults.length, 'total assignments');
+      return allResults;
     },
     enabled: relatedLicenses.length > 0,
-    staleTime: 0 // Always refetch when license IDs change
+    staleTime: 0,
+    cacheTime: 0
   });
 
   // Real-time subscription for license assignments
