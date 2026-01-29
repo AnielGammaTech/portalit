@@ -106,6 +106,16 @@ export default function DevicesTab({ customerId, customerExternalId }) {
     }, {})
   };
 
+  // Show loading while checking mappings
+  if (loadingMappings) {
+    return (
+      <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
+        <RefreshCw className="w-8 h-8 text-slate-300 animate-spin mx-auto mb-4" />
+        <p className="text-slate-500">Checking Datto RMM configuration...</p>
+      </div>
+    );
+  }
+
   if (mappings.length === 0) {
     return (
       <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
