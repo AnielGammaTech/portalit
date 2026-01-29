@@ -765,6 +765,24 @@ export default function LicenseDetail() {
                   <p className="text-xs text-slate-500">{managedLicenses.length} type{managedLicenses.length !== 1 ? 's' : ''} • {managedAssignments.length}/{totalManagedSeats} seats</p>
                 </div>
               </div>
+              {/* Show each license type */}
+              <div className="space-y-2 mb-3">
+                {managedLicenses.map(ml => {
+                  const mlAssignments = allAssignments.filter(a => a.license_id === ml.id && a.status === 'active');
+                  const mlUtilization = ml.quantity > 0 ? (mlAssignments.length / ml.quantity) * 100 : 0;
+                  return (
+                    <div key={ml.id} className="flex items-center justify-between text-xs">
+                      <span className="text-slate-600">{ml.license_type || 'Standard'}</span>
+                      <span className={cn(
+                        "font-medium",
+                        mlUtilization >= 80 ? "text-emerald-600" : mlUtilization >= 50 ? "text-amber-600" : "text-red-600"
+                      )}>
+                        {mlAssignments.length}/{ml.quantity || 0}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
               <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
                 <div 
                   className={cn(
@@ -775,9 +793,6 @@ export default function LicenseDetail() {
                   style={{ width: `${Math.min(100, managedUtilizationPercent)}%` }}
                 />
               </div>
-              {managedWastedCost > 0 && (
-                <p className="text-xs text-amber-600 mt-2">~${managedWastedCost.toFixed(0)}/mo in unused seats</p>
-              )}
             </div>
           )}
 
