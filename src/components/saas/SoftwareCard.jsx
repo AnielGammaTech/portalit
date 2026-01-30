@@ -27,15 +27,17 @@ export default function SoftwareCard({
   const managedUnused = managedSeats - managedUsed;
   const managedUtilization = managedSeats > 0 ? (managedUsed / managedSeats) * 100 : 0;
   const managedCost = managedLicense?.total_cost || 0;
+  const isManagedAnnual = managedLicense?.billing_cycle === 'annually';
   
-  // Individual stats
+  // Individual stats (assume monthly)
   const individualCount = individualAssignments.length;
   const individualTotalCost = individualAssignments.reduce(
     (sum, a) => sum + (a.cost_per_license || 0), 0
   );
   
-  // Combined
-  const totalCost = managedCost + individualTotalCost;
+  // Normalize everything to monthly for combined display
+  const managedMonthlyCost = isManagedAnnual ? managedCost / 12 : managedCost;
+  const totalMonthlyCost = managedMonthlyCost + individualTotalCost;
   const totalUsers = managedUsed + individualCount;
 
   // Link to first license for detail view, or to app if catalog-only
@@ -66,9 +68,9 @@ export default function SoftwareCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-slate-900 truncate">{software.application_name}</h3>
-            {totalCost > 0 && (
+            {totalMonthlyCost > 0 && (
               <span className="text-sm font-bold text-slate-900">
-                ${totalCost.toFixed(0)}{managedLicense?.billing_cycle === 'annually' ? '/yr' : '/mo'}
+                ${totalMonthlyCost.toFixed(0)}/mo
               </span>
             )}
           </div>
@@ -126,7 +128,7 @@ export default function SoftwareCard({
           {/* Unused seats warning - only show for non-auto-synced licenses with actual unused seats */}
           {hasManagedLicense && !isAutoSynced && managedUnused > 0 && managedUtilization < 50 && (
             <p className="text-xs text-red-500 mt-1.5">
-              {managedUnused} unused seat{managedUnused !== 1 ? 's' : ''} (~${((managedUnused / managedSeats) * managedCost).toFixed(0)}{managedLicense?.billing_cycle === 'annually' ? '/yr' : '/mo'} wasted)
+              {managedUnused} unused seat{managedUnused !== 1 ? 's' : ''} (~${((managedUnused / managedSeats) * managedMonthlyCost).toFixed(0)}/mo wasted)
             </p>
           )}
         </div>
