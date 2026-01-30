@@ -49,18 +49,18 @@ export default function SoftwareCard({
   return (
     <Link 
       to={detailUrl}
-      className="group bg-white hover:bg-slate-50 rounded-lg border border-slate-200 p-3 transition-all hover:shadow-md cursor-pointer block"
+      className="group bg-white hover:bg-slate-50 rounded-lg border border-slate-200 p-2.5 transition-all hover:shadow-sm cursor-pointer block max-w-[220px]"
     >
-      <div className="flex items-start gap-2.5">
+      <div className="flex items-start gap-2">
         {/* Logo */}
         <div className={cn(
-          "w-9 h-9 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0",
+          "w-8 h-8 rounded-md flex items-center justify-center overflow-hidden flex-shrink-0",
           !software.logo_url && "bg-purple-100 border border-purple-200"
         )}>
-          {software.logo_url ? (
-            <img src={software.logo_url} alt={software.application_name} className="w-7 h-7 object-contain" />
+        {software.logo_url ? (
+            <img src={software.logo_url} alt={software.application_name} className="w-6 h-6 object-contain" />
           ) : (
-            <Cloud className="w-4 h-4 text-purple-600" />
+            <Cloud className="w-3.5 h-3.5 text-purple-600" />
           )}
         </div>
         
