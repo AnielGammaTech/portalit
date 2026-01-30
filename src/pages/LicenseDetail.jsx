@@ -831,13 +831,13 @@ export default function LicenseDetail() {
                   const mlAssignments = allAssignments.filter(a => a.license_id === ml.id && a.status === 'active');
                   const mlUtilization = ml.quantity > 0 ? (mlAssignments.length / ml.quantity) * 100 : 0;
                   const isAnnual = ml.billing_cycle === 'annually';
-                  const monthlyCost = isAnnual ? (ml.total_cost || 0) / 12 : (ml.total_cost || 0);
+                  const displayCostVal = ml.total_cost || 0;
                   return (
                     <div key={ml.id} className="flex items-center justify-between text-xs py-1 border-b border-slate-50 last:border-0">
                       <div className="flex flex-col">
                         <span className="text-slate-700 font-medium">{ml.license_type || 'Standard'}</span>
                         <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
-                          <span>${monthlyCost.toLocaleString(undefined, {maximumFractionDigits: 0})}/mo</span>
+                          <span>${displayCostVal.toLocaleString(undefined, {maximumFractionDigits: 0})}{isAnnual ? '/yr' : '/mo'}</span>
                           {ml.card_last_four && (
                             <span className="flex items-center gap-0.5">
                               <CreditCard className="w-2.5 h-2.5" />
@@ -1134,7 +1134,6 @@ export default function LicenseDetail() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
-                  <span className="text-sm font-semibold text-emerald-700">${individualTotalCost.toLocaleString()}/mo</span>
                   <Button 
                     size="sm" 
                     className="gap-1.5 h-7 text-xs bg-emerald-600 hover:bg-emerald-700"
