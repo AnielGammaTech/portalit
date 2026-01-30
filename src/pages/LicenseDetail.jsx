@@ -1388,7 +1388,7 @@ export default function LicenseDetail() {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={(open) => !isDeleting && setShowDeleteConfirm(open)}>
-        <AlertDialogContent>
+        <AlertDialogContent onEscapeKeyDown={(e) => isDeleting && e.preventDefault()}>
           {isDeleting ? (
             <div className="py-12 text-center">
               <RefreshCw className="w-10 h-10 text-red-500 mx-auto animate-spin mb-4" />
@@ -1414,13 +1414,16 @@ export default function LicenseDetail() {
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleDeleteApp}
+                <Button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleDeleteApp();
+                  }}
                   className="bg-red-600 hover:bg-red-700"
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
                   Delete Application
-                </AlertDialogAction>
+                </Button>
               </AlertDialogFooter>
             </>
           )}
