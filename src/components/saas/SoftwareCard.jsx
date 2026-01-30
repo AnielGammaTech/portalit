@@ -67,7 +67,9 @@ export default function SoftwareCard({
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-slate-900 truncate">{software.application_name}</h3>
             {totalCost > 0 && (
-              <span className="text-sm font-bold text-slate-900">${totalCost.toFixed(0)}/mo</span>
+              <span className="text-sm font-bold text-slate-900">
+                ${totalCost.toFixed(0)}{managedLicense?.billing_cycle === 'annually' ? '/yr' : '/mo'}
+              </span>
             )}
           </div>
           
@@ -124,7 +126,7 @@ export default function SoftwareCard({
           {/* Unused seats warning - only show for non-auto-synced licenses with actual unused seats */}
           {hasManagedLicense && !isAutoSynced && managedUnused > 0 && managedUtilization < 50 && (
             <p className="text-xs text-red-500 mt-1.5">
-              {managedUnused} unused seat{managedUnused !== 1 ? 's' : ''} (~${((managedUnused / managedSeats) * managedCost).toFixed(0)}/mo wasted)
+              {managedUnused} unused seat{managedUnused !== 1 ? 's' : ''} (~${((managedUnused / managedSeats) * managedCost).toFixed(0)}{managedLicense?.billing_cycle === 'annually' ? '/yr' : '/mo'} wasted)
             </p>
           )}
         </div>
