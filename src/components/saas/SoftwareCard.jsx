@@ -49,54 +49,49 @@ export default function SoftwareCard({
   return (
     <Link 
       to={detailUrl}
-      className="group bg-white hover:bg-slate-50 rounded-xl border border-slate-200 p-4 transition-all hover:shadow-md cursor-pointer block"
+      className="group bg-white hover:bg-slate-50 rounded-lg border border-slate-200 p-3 transition-all hover:shadow-md cursor-pointer block"
     >
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-2.5">
         {/* Logo */}
         <div className={cn(
-          "w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0",
+          "w-9 h-9 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0",
           !software.logo_url && "bg-purple-100 border border-purple-200"
         )}>
           {software.logo_url ? (
-            <img src={software.logo_url} alt={software.application_name} className="w-10 h-10 object-contain" />
+            <img src={software.logo_url} alt={software.application_name} className="w-7 h-7 object-contain" />
           ) : (
-            <Cloud className="w-6 h-6 text-purple-600" />
+            <Cloud className="w-4 h-4 text-purple-600" />
           )}
         </div>
         
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-slate-900 truncate">{software.application_name}</h3>
-            {totalMonthlyCost > 0 && (
-              <span className="text-sm font-bold text-slate-900">
-                ${totalMonthlyCost.toFixed(0)}/mo
-              </span>
-            )}
+            <h3 className="font-medium text-slate-900 truncate text-sm">{software.application_name}</h3>
           </div>
           
           {software.vendor && (
-            <p className="text-xs text-slate-500 truncate">{software.vendor}</p>
+            <p className="text-[10px] text-slate-500 truncate">{software.vendor}</p>
           )}
           
           {/* License Type Pills */}
-          <div className="flex flex-wrap gap-2 mt-2">
+          <div className="flex flex-wrap gap-1.5 mt-1.5">
             {/* Catalog Only - No licenses yet */}
             {!hasAnyLicense && (
-              <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 rounded-lg border border-slate-200">
-                <Cloud className="w-3 h-3 text-slate-400" />
-                <span className="text-xs font-medium text-slate-500">No licenses</span>
+              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-slate-50 rounded border border-slate-200">
+                <Cloud className="w-2.5 h-2.5 text-slate-400" />
+                <span className="text-[10px] font-medium text-slate-500">No licenses</span>
               </div>
             )}
             
             {/* Managed License Pill */}
             {hasManagedLicense && (
-              <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 rounded-lg border border-blue-100">
-                <Building2 className="w-3 h-3 text-blue-600" />
-                <span className="text-xs font-medium text-blue-700">{managedUsed}/{managedSeats}</span>
+              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 rounded border border-blue-100">
+                <Building2 className="w-2.5 h-2.5 text-blue-600" />
+                <span className="text-[10px] font-medium text-blue-700">{managedUsed}/{managedSeats}</span>
                 
                 {/* Utilization indicator */}
-                <div className="w-12 h-1.5 bg-blue-200 rounded-full overflow-hidden ml-1">
+                <div className="w-8 h-1 bg-blue-200 rounded-full overflow-hidden">
                   <div 
                     className={cn(
                       "h-full rounded-full",
@@ -107,7 +102,7 @@ export default function SoftwareCard({
                   />
                 </div>
                 <span className={cn(
-                  "text-xs font-medium ml-1",
+                  "text-[10px] font-medium",
                   managedUtilization >= 90 ? "text-emerald-600" :
                   managedUtilization >= 50 ? "text-amber-600" : "text-red-600"
                 )}>
@@ -118,17 +113,17 @@ export default function SoftwareCard({
             
             {/* Individual Licenses Pill */}
             {hasIndividualLicenses && (
-              <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 rounded-lg border border-emerald-100">
-                <User className="w-3 h-3 text-emerald-600" />
-                <span className="text-xs font-medium text-emerald-700">{individualCount} user{individualCount !== 1 ? 's' : ''}</span>
+              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50 rounded border border-emerald-100">
+                <User className="w-2.5 h-2.5 text-emerald-600" />
+                <span className="text-[10px] font-medium text-emerald-700">{individualCount} user{individualCount !== 1 ? 's' : ''}</span>
               </div>
             )}
           </div>
           
           {/* Unused seats warning - only show for non-auto-synced licenses with actual unused seats */}
           {hasManagedLicense && !isAutoSynced && managedUnused > 0 && managedUtilization < 50 && (
-            <p className="text-xs text-red-500 mt-1.5">
-              {managedUnused} unused seat{managedUnused !== 1 ? 's' : ''} (~${((managedUnused / managedSeats) * managedMonthlyCost).toFixed(0)}/mo wasted)
+            <p className="text-[10px] text-red-500 mt-1">
+              {managedUnused} unused seat{managedUnused !== 1 ? 's' : ''}
             </p>
           )}
         </div>
