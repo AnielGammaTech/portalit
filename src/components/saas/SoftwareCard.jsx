@@ -75,47 +75,25 @@ export default function SoftwareCard({
           )}
           
           {/* License Type Pills */}
-          <div className="flex flex-wrap gap-1.5 mt-1.5">
+          <div className="flex items-center gap-2 mt-1.5">
             {/* Catalog Only - No licenses yet */}
             {!hasAnyLicense && (
-              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-slate-50 rounded border border-slate-200">
-                <Cloud className="w-2.5 h-2.5 text-slate-400" />
-                <span className="text-[10px] font-medium text-slate-500">No licenses</span>
-              </div>
+              <span className="text-[10px] text-slate-400">No licenses</span>
             )}
             
-            {/* Managed License Pill */}
+            {/* Managed License */}
             {hasManagedLicense && (
-              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 rounded border border-blue-100">
-                <Building2 className="w-2.5 h-2.5 text-blue-600" />
-                <span className="text-[10px] font-medium text-blue-700">{managedUsed}/{managedSeats}</span>
-                
-                {/* Utilization indicator */}
-                <div className="w-8 h-1 bg-blue-200 rounded-full overflow-hidden">
-                  <div 
-                    className={cn(
-                      "h-full rounded-full",
-                      managedUtilization >= 90 ? "bg-emerald-500" :
-                      managedUtilization >= 50 ? "bg-amber-500" : "bg-red-500"
-                    )}
-                    style={{ width: `${Math.min(100, managedUtilization)}%` }}
-                  />
-                </div>
-                <span className={cn(
-                  "text-[10px] font-medium",
-                  managedUtilization >= 90 ? "text-emerald-600" :
-                  managedUtilization >= 50 ? "text-amber-600" : "text-red-600"
-                )}>
-                  {managedUtilization.toFixed(0)}%
-                </span>
+              <div className="flex items-center gap-1">
+                <Building2 className="w-2.5 h-2.5 text-blue-500" />
+                <span className="text-[10px] font-medium text-slate-600">{managedUsed}/{managedSeats}</span>
               </div>
             )}
             
-            {/* Individual Licenses Pill */}
+            {/* Individual Licenses */}
             {hasIndividualLicenses && (
-              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50 rounded border border-emerald-100">
-                <User className="w-2.5 h-2.5 text-emerald-600" />
-                <span className="text-[10px] font-medium text-emerald-700">{individualCount} user{individualCount !== 1 ? 's' : ''}</span>
+              <div className="flex items-center gap-1">
+                <User className="w-2.5 h-2.5 text-emerald-500" />
+                <span className="text-[10px] font-medium text-slate-600">{individualCount}</span>
               </div>
             )}
           </div>
