@@ -884,21 +884,34 @@ export default function LicenseDetail() {
                   <p className="text-xs text-slate-500">{individualAssignments.length} license{individualAssignments.length !== 1 ? 's' : ''} • ${individualTotalCost.toLocaleString()}/mo</p>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-2 text-xs">
-                <div className="bg-slate-50 rounded-lg p-2 text-center">
-                  <p className="font-semibold text-slate-900">
-                    ${individualAssignments.length > 0 ? (individualTotalCost / individualAssignments.length).toFixed(0) : '0'}
-                  </p>
-                  <p className="text-slate-500">Avg</p>
-                </div>
-                <div className="bg-slate-50 rounded-lg p-2 text-center">
-                  <p className="font-semibold text-slate-900">{individualAssignments.filter(a => a.renewal_date).length}</p>
-                  <p className="text-slate-500">Renewals</p>
-                </div>
-                <div className="bg-slate-50 rounded-lg p-2 text-center">
-                  <p className="font-semibold text-slate-900">{individualAssignments.filter(a => a.card_last_four).length}</p>
-                  <p className="text-slate-500">Cards</p>
-                </div>
+              {/* Show each individual assignment with details */}
+              <div className="space-y-2">
+                {individualAssignments.map(a => {
+                  const contact = contacts.find(c => c.id === a.contact_id);
+                  return (
+                    <div key={a.id} className="flex items-center justify-between text-xs py-1 border-b border-slate-50 last:border-0">
+                      <div className="flex flex-col">
+                        <span className="text-slate-700 font-medium">{contact?.full_name || 'Unknown'}</span>
+                        <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                          {a.license_type && <span>{a.license_type}</span>}
+                          <span>${a.cost_per_license || 0}/mo</span>
+                          {a.card_last_four && (
+                            <span className="flex items-center gap-0.5">
+                              <CreditCard className="w-2.5 h-2.5" />
+                              {a.card_last_four}
+                            </span>
+                          )}
+                          {a.renewal_date && (
+                            <span className="flex items-center gap-0.5">
+                              <Calendar className="w-2.5 h-2.5" />
+                              {format(parseISO(a.renewal_date), 'MMM d')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
