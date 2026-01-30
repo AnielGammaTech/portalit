@@ -1387,38 +1387,43 @@ export default function LicenseDetail() {
       />
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+      <AlertDialog open={showDeleteConfirm} onOpenChange={(open) => !isDeleting && setShowDeleteConfirm(open)}>
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete {software?.application_name}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete this application and all associated data:
-              <ul className="list-disc ml-5 mt-2 space-y-1">
-                {managedLicenses.length > 0 && (
-                  <li>{managedLicenses.length} managed license{managedLicenses.length !== 1 ? 's' : ''} ({managedAssignments.length} seat assignment{managedAssignments.length !== 1 ? 's' : ''})</li>
-                )}
-                {individualLicenses.length > 0 && (
-                  <li>{individualLicenses.length} individual license{individualLicenses.length !== 1 ? 's' : ''} ({individualAssignments.length} assignment{individualAssignments.length !== 1 ? 's' : ''})</li>
-                )}
-              </ul>
-              <p className="mt-2 font-medium">This action cannot be undone.</p>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteApp}
-              disabled={isDeleting}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              {isDeleting ? (
-                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Trash2 className="w-4 h-4 mr-2" />
-              )}
-              Delete Application
-            </AlertDialogAction>
-          </AlertDialogFooter>
+          {isDeleting ? (
+            <div className="py-12 text-center">
+              <RefreshCw className="w-10 h-10 text-red-500 mx-auto animate-spin mb-4" />
+              <p className="text-lg font-semibold text-slate-900">Deleting Application...</p>
+              <p className="text-sm text-slate-500 mt-1">Please wait while we remove all licenses and assignments</p>
+            </div>
+          ) : (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete {software?.application_name}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete this application and all associated data:
+                  <ul className="list-disc ml-5 mt-2 space-y-1">
+                    {managedLicenses.length > 0 && (
+                      <li>{managedLicenses.length} managed license{managedLicenses.length !== 1 ? 's' : ''} ({managedAssignments.length} seat assignment{managedAssignments.length !== 1 ? 's' : ''})</li>
+                    )}
+                    {individualLicenses.length > 0 && (
+                      <li>{individualLicenses.length} individual license{individualLicenses.length !== 1 ? 's' : ''} ({individualAssignments.length} assignment{individualAssignments.length !== 1 ? 's' : ''})</li>
+                    )}
+                  </ul>
+                  <p className="mt-2 font-medium">This action cannot be undone.</p>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeleteApp}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Application
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          )}
         </AlertDialogContent>
       </AlertDialog>
 
