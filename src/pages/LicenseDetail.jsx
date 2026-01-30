@@ -960,7 +960,6 @@ export default function LicenseDetail() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
-                  <span className="text-sm font-semibold text-blue-700">${totalManagedCost.toLocaleString()}/mo</span>
                   <Button 
                     size="sm" 
                     variant="outline"
