@@ -100,33 +100,7 @@ export default function DattoEDRTab({ customerId, edrMapping }) {
               </div>
               <div>
                 <p className="text-2xl font-bold">{edrData?.hostCount || 0}</p>
-                <p className="text-xs text-slate-500">Endpoints</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-red-100 rounded-lg">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{edrData?.criticalAlerts || 0}</p>
-                <p className="text-xs text-slate-500">Critical Alerts</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-yellow-100 rounded-lg">
-                <AlertCircle className="w-5 h-5 text-yellow-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{edrData?.alertCount || 0}</p>
-                <p className="text-xs text-slate-500">Total Alerts</p>
+                <p className="text-xs text-slate-500">Total Agents</p>
               </div>
             </div>
           </CardContent>
@@ -138,10 +112,44 @@ export default function DattoEDRTab({ customerId, edrMapping }) {
                 <Activity className="w-5 h-5 text-green-600" />
               </div>
               <div>
+                <p className="text-2xl font-bold">{edrData?.activeHostCount || 0}</p>
+                <p className="text-xs text-slate-500">Active Agents</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                "p-2 rounded-lg",
+                edrData?.alertCount > 0 ? "bg-red-100" : "bg-green-100"
+              )}>
+                <AlertTriangle className={cn(
+                  "w-5 h-5",
+                  edrData?.alertCount > 0 ? "text-red-600" : "text-green-600"
+                )} />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{edrData?.alertCount || 0}</p>
+                <p className="text-xs text-slate-500">Alerts</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <Shield className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
                 <p className="text-2xl font-bold">
-                  {edrData?.hosts?.filter(h => h.online)?.length || 0}
+                  {edrData?.hostCount > 0 
+                    ? Math.round((edrData?.activeHostCount / edrData?.hostCount) * 100) 
+                    : 0}%
                 </p>
-                <p className="text-xs text-slate-500">Online</p>
+                <p className="text-xs text-slate-500">Coverage</p>
               </div>
             </div>
           </CardContent>
