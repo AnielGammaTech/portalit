@@ -1,8 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
-const DATTO_EDR_API_KEY = Deno.env.get("DATTO_EDR_API_KEY");
-const DATTO_EDR_API_SECRET = Deno.env.get("DATTO_EDR_API_SECRET");
-const DATTO_EDR_API_URL = Deno.env.get("DATTO_EDR_API_URL") || "https://api.datto.com/edr/v1";
+const DATTO_EDR_API_TOKEN = Deno.env.get("DATTO_EDR_API_TOKEN");
+const DATTO_EDR_BASE_URL = "https://rmmcon69c80001.infocyte.com/api";
 
 Deno.serve(async (req) => {
   try {
@@ -15,56 +14,35 @@ Deno.serve(async (req) => {
 
     const { action, customer_id } = await req.json();
 
-    // Check if API credentials are configured
-    if (!DATTO_EDR_API_KEY || !DATTO_EDR_API_SECRET) {
+    // Check if API token is configured
+    if (!DATTO_EDR_API_TOKEN) {
       return Response.json({ 
         success: false, 
-        error: 'Datto EDR API credentials not configured. Please set DATTO_EDR_API_KEY and DATTO_EDR_API_SECRET in settings.' 
+        error: 'Datto EDR API token not configured. Please set DATTO_EDR_API_TOKEN in settings.' 
       });
     }
 
-    // Get auth token
-    const getAuthToken = async () => {
-      const authResponse = await fetch(`${DATTO_EDR_API_URL}/auth/token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          apiKey: DATTO_EDR_API_KEY,
-          apiSecret: DATTO_EDR_API_SECRET
-        })
-      });
-      
-      if (!authResponse.ok) {
-        throw new Error('Failed to authenticate with Datto EDR');
-      }
-      
-      const authData = await authResponse.json();
-      return authData.token || authData.access_token;
+    const headers = {
+      'Authorization': `Token ${DATTO_EDR_API_TOKEN}`,
+      'Content-Type': 'application/json'
     };
 
     if (action === 'list_tenants') {
-      // List all EDR tenants/sites
-      const token = await getAuthToken();
-      
-      const response = await fetch(`${DATTO_EDR_API_URL}/tenants`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      // List all EDR organizations/targets
+      const response = await fetch(`${DATTO_EDR_BASE_URL}/targets`, { headers });
 
       if (!response.ok) {
         const errorText = await response.text();
-        return Response.json({ success: false, error: `Failed to fetch tenants: ${errorText}` });
+        console.error('EDR API error:', errorText);
+        return Response.json({ success: false, error: `Failed to fetch tenants: ${response.status}` });
       }
 
       const data = await response.json();
-      const tenants = (data.tenants || data.sites || data.data || []).map(t => ({
-        id: t.id || t.tenantId || t.siteId,
-        name: t.name || t.tenantName || t.siteName,
-        deviceCount: t.deviceCount || t.endpoints || 0
+      // Infocyte returns targets (organizations)
+      const tenants = (data.data || data.targets || data || []).map(t => ({
+        id: t.id || t.targetId,
+        name: t.name || t.organizationName || t.targetName,
+        deviceCount: t.hostCount || t.endpointCount || 0
       }));
 
       return Response.json({ success: true, tenants });
@@ -82,22 +60,16 @@ Deno.serve(async (req) => {
       }
 
       const mapping = mappings[0];
-      const token = await getAuthToken();
 
-      // Fetch endpoints/devices for this tenant
-      const response = await fetch(`${DATTO_EDR_API_URL}/tenants/${mapping.edr_tenant_id}/endpoints`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      // Fetch hosts/endpoints for this target
+      const response = await fetch(`${DATTO_EDR_BASE_URL}/targets/${mapping.edr_tenant_id}/hosts`, { headers });
 
       if (!response.ok) {
         return Response.json({ success: false, error: 'Failed to fetch endpoints' });
       }
 
       const data = await response.json();
-      const endpoints = data.endpoints || data.devices || data.data || [];
+      const endpoints = data.data || data.hosts || data || [];
 
       // Update mapping with last synced
       await base44.entities.DattoEDRMapping.update(mapping.id, {
@@ -107,7 +79,7 @@ Deno.serve(async (req) => {
       return Response.json({ 
         success: true, 
         endpointCount: endpoints.length,
-        endpoints: endpoints.slice(0, 50) // Return first 50 for display
+        endpoints: endpoints.slice(0, 50)
       });
     }
 
@@ -142,31 +114,26 @@ Deno.serve(async (req) => {
       }
 
       const mapping = mappings[0];
-      const token = await getAuthToken();
 
-      // Fetch tenant stats
-      const [endpointsRes, alertsRes] = await Promise.all([
-        fetch(`${DATTO_EDR_API_URL}/tenants/${mapping.edr_tenant_id}/endpoints`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch(`${DATTO_EDR_API_URL}/tenants/${mapping.edr_tenant_id}/alerts`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }).catch(() => null)
+      // Fetch tenant stats from Infocyte
+      const [hostsRes, alertsRes] = await Promise.all([
+        fetch(`${DATTO_EDR_BASE_URL}/targets/${mapping.edr_tenant_id}/hosts`, { headers }),
+        fetch(`${DATTO_EDR_BASE_URL}/targets/${mapping.edr_tenant_id}/alerts`, { headers }).catch(() => null)
       ]);
 
-      const endpointsData = endpointsRes.ok ? await endpointsRes.json() : { endpoints: [] };
-      const alertsData = alertsRes?.ok ? await alertsRes.json() : { alerts: [] };
+      const hostsData = hostsRes.ok ? await hostsRes.json() : { data: [] };
+      const alertsData = alertsRes?.ok ? await alertsRes.json() : { data: [] };
 
-      const endpoints = endpointsData.endpoints || endpointsData.devices || endpointsData.data || [];
-      const alerts = alertsData.alerts || alertsData.data || [];
+      const endpoints = hostsData.data || hostsData.hosts || [];
+      const alerts = alertsData.data || alertsData.alerts || [];
 
       return Response.json({
         success: true,
         stats: {
           totalEndpoints: endpoints.length,
-          protectedEndpoints: endpoints.filter(e => e.status === 'protected' || e.status === 'active').length,
+          protectedEndpoints: endpoints.filter(e => e.status === 'online' || e.agentStatus === 'active').length,
           alerts: alerts.length,
-          criticalAlerts: alerts.filter(a => a.severity === 'critical' || a.severity === 'high').length
+          criticalAlerts: alerts.filter(a => a.severity === 'critical' || a.severity === 'high' || a.threatScore >= 7).length
         },
         endpoints: endpoints.slice(0, 20),
         alerts: alerts.slice(0, 10)
