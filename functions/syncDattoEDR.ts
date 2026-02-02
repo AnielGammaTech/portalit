@@ -44,14 +44,17 @@ Deno.serve(async (req) => {
       }
 
       const data = await response.json();
+      console.log('Targets raw response sample:', JSON.stringify(data).slice(0, 2000));
+      
       // Infocyte returns targets (organizations)
-      const tenants = (data.data || data.targets || data || []).map(t => ({
+      const targetsArray = data.data || data.targets || data || [];
+      const tenants = targetsArray.map(t => ({
         id: t.id || t.targetId,
         name: t.name || t.organizationName || t.targetName,
         deviceCount: t.hostCount || t.endpointCount || 0
       }));
 
-      return Response.json({ success: true, tenants });
+      return Response.json({ success: true, tenants, rawSample: targetsArray.slice(0, 2) });
     }
 
     if (action === 'sync_customer') {
