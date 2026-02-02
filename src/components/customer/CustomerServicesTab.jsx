@@ -26,6 +26,7 @@ import DarkWebTab from './DarkWebTab';
 import BullPhishTab from './BullPhishTab';
 import SpanningUsersTab from './SpanningUsersTab';
 import DevicesTab from './DevicesTab';
+import DattoEDRTab from './DattoEDRTab';
 
 export default function CustomerServicesTab({ 
   customerId, 
@@ -128,8 +129,19 @@ export default function CustomerServicesTab({
     enabled: !!customerId
   });
 
+  // Fetch Datto EDR mapping for this customer
+  const { data: edrMapping } = useQuery({
+    queryKey: ['edr-mapping', customerId],
+    queryFn: async () => {
+      const mappings = await base44.entities.DattoEDRMapping.filter({ customer_id: customerId });
+      return mappings[0] || null;
+    },
+    enabled: !!customerId
+  });
+
   const hasBullPhish = bullphishReports.length > 0;
   const hasDarkWeb = darkwebReports.length > 0;
+  const hasEDR = !!edrMapping;
 
   const updateSyncStatus = (service, status, error = null) => {
     setSyncStatuses(prev => ({
@@ -426,6 +438,12 @@ export default function CustomerServicesTab({
                 BullPhish ID
               </TabsTrigger>
             )}
+            {hasEDR && (
+              <TabsTrigger value="edr" className="gap-2 py-2 px-4 text-sm font-medium">
+                <Shield className="w-4 h-4" />
+                Datto EDR
+              </TabsTrigger>
+            )}
           </TabsList>
           
           {/* Sync All Button - Smaller & Sleeker */}
@@ -688,6 +706,13 @@ export default function CustomerServicesTab({
         {hasBullPhish && (
           <TabsContent value="bullphish">
             <BullPhishTab customerId={customerId} />
+          </TabsContent>
+        )}
+
+        {/* Datto EDR Tab */}
+        {hasEDR && (
+          <TabsContent value="edr">
+            <DattoEDRTab customerId={customerId} edrMapping={edrMapping} />
           </TabsContent>
         )}
       </Tabs>
