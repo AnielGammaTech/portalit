@@ -144,11 +144,11 @@ Deno.serve(async (req) => {
       
       console.log('Target stats:', JSON.stringify(targetStats));
 
-      // Count alerts by severity
-      const criticalAlerts = alerts.filter(a => a.threatScore >= 7 || a.severity === 'critical' || a.severity === 'high').length;
-      const mediumAlerts = alerts.filter(a => (a.threatScore >= 4 && a.threatScore < 7) || a.severity === 'medium').length;
-      const lowAlerts = alerts.filter(a => (a.threatScore < 4 && a.threatScore > 0) || a.severity === 'low').length;
-
+      // Use target stats for counts, with host details if available
+      const hostCount = hosts.length || targetStats?.agentCount || 0;
+      const activeCount = targetStats?.activeAgentCount || hosts.filter(h => h.online || h.connectionStatus === 'connected').length;
+      const alertCount = targetStats?.alertCount || 0;
+      
       // Update mapping with last synced
       await base44.entities.DattoEDRMapping.update(mapping.id, {
         last_synced: new Date().toISOString()
@@ -157,7 +157,8 @@ Deno.serve(async (req) => {
       return Response.json({ 
         success: true, 
         data: {
-          hostCount: hosts.length,
+          hostCount: hostCount,
+          activeHostCount: activeCount,
           hosts: hosts.slice(0, 50).map(h => ({
             id: h.id,
             hostname: h.hostname || h.name,
@@ -166,7 +167,7 @@ Deno.serve(async (req) => {
             online: h.online || h.connectionStatus === 'connected',
             lastSeen: h.lastSeen || h.updatedOn
           })),
-          alertCount: alerts.length,
+          alertCount: alertCount,
           alerts: alerts.slice(0, 20).map(a => ({
             id: a.id,
             name: a.name || a.type || a.title,
@@ -176,31 +177,11 @@ Deno.serve(async (req) => {
             createdOn: a.createdOn || a.created_date,
             status: a.status
           })),
-          criticalAlerts,
-          mediumAlerts, 
-          lowAlerts,
-          flaggedItemCount: flaggedItems.length,
-          flaggedItems: flaggedItems.slice(0, 20).map(f => ({
-            id: f.id,
-            name: f.name || f.friendlyName || f.sha256?.slice(0, 12),
-            type: f.type || f.flagType,
-            hostname: f.hostname,
-            flagName: f.flagName,
-            createdOn: f.createdOn
-          })),
-          recentScans: scans.slice(0, 5).map(s => ({
-            id: s.id,
-            type: s.type || s.scanType,
-            status: s.status,
-            createdOn: s.createdOn,
-            completedOn: s.completedOn
-          })),
-          debug: {
-            hostsFound: hosts.length,
-            alertsFound: alerts.length,
-            flaggedFound: flaggedItems.length,
-            scansFound: scans.length
-          }
+          criticalAlerts: 0,
+          mediumAlerts: 0, 
+          lowAlerts: 0,
+          lastScannedOn: targetStats?.lastScannedOn,
+          targetStats
         }
       });
     }
