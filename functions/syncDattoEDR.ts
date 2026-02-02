@@ -87,28 +87,35 @@ Deno.serve(async (req) => {
       const mapping = mappings[0];
       const targetId = mapping.edr_tenant_id;
 
-      // Infocyte/Datto EDR API - use Loopback filter syntax
-      // Hosts are queried via /hosts with targetId filter in Loopback format
+      // Infocyte/Datto EDR API - Hosts are accessed via /targets/{targetId}/hosts
+      // API Explorer shows targets have sub-resources
       console.log('Target ID:', targetId);
       
-      const hostsFilter = JSON.stringify({ where: { targetId: targetId } });
-      const hostsUrl = addAuth(`${DATTO_EDR_BASE_URL}/hosts?filter=${encodeURIComponent(hostsFilter)}`);
-      const alertsFilter = JSON.stringify({ where: { targetId: targetId } });
-      const alertsUrl = addAuth(`${DATTO_EDR_BASE_URL}/AlertInboxItems?filter=${encodeURIComponent(alertsFilter)}`);
-      const scansFilter = JSON.stringify({ where: { targetId: targetId }, limit: 20 });
-      const scansUrl = addAuth(`${DATTO_EDR_BASE_URL}/scans?filter=${encodeURIComponent(scansFilter)}`);
+      // Try the nested target endpoints - this is Infocyte's documented pattern
+      const hostsUrl = addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}/hosts`);
+      const scansUrl = addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}/scans`);
+      // Alerts might be at /targets/{id}/alerts or global /alerts with filter
+      const alertsUrl1 = addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}/alerts`);
+      const alertsUrl2 = addAuth(`${DATTO_EDR_BASE_URL}/alerts`);
       
-      console.log('Hosts URL pattern:', hostsUrl.replace(DATTO_EDR_API_TOKEN, '***'));
+      console.log('Trying nested endpoints for target');
       
-      const [hostsRes, alertsRes, scansRes] = await Promise.all([
-        fetch(hostsUrl, { headers }).catch(e => { console.log('Hosts error:', e); return null; }),
-        fetch(alertsUrl, { headers }).catch(e => { console.log('Alerts error:', e); return null; }),
-        fetch(scansUrl, { headers }).catch(e => { console.log('Scans error:', e); return null; })
-      ]);
+      // Fetch hosts from target - this should work
+      let hostsRes = await fetch(hostsUrl, { headers }).catch(e => null);
+      console.log('Target hosts status:', hostsRes?.status);
       
-      console.log('Hosts status:', hostsRes?.status);
-      console.log('Alerts status:', alertsRes?.status);
-      console.log('Scans status:', scansRes?.status);
+      // Try alerts endpoints
+      let alertsRes = await fetch(alertsUrl1, { headers }).catch(e => null);
+      console.log('Target alerts status:', alertsRes?.status);
+      
+      if (!alertsRes?.ok) {
+        alertsRes = await fetch(alertsUrl2, { headers }).catch(e => null);
+        console.log('Global alerts status:', alertsRes?.status);
+      }
+      
+      // Scans
+      let scansRes = await fetch(scansUrl, { headers }).catch(e => null);
+      console.log('Target scans status:', scansRes?.status);
       
       let hostsData = [];
       let alertsData = [];
@@ -117,7 +124,7 @@ Deno.serve(async (req) => {
       if (hostsRes?.ok) {
         const raw = await hostsRes.text();
         console.log('Hosts response length:', raw.length);
-        console.log('Hosts sample:', raw.slice(0, 1500));
+        console.log('Hosts sample:', raw.slice(0, 2000));
         try { hostsData = JSON.parse(raw); } catch(e) { console.log('Parse err:', e); }
       } else if (hostsRes) {
         const errText = await hostsRes.text().catch(() => '');
@@ -142,7 +149,9 @@ Deno.serve(async (req) => {
 
       // Extract arrays from response
       const hosts = Array.isArray(hostsData) ? hostsData : hostsData?.data || hostsData?.hosts || [];
-      const alerts = Array.isArray(alertsData) ? alertsData : alertsData?.data || alertsData?.alerts || [];
+      // Filter alerts for this target if we got global alerts
+      const allAlerts = Array.isArray(alertsData) ? alertsData : alertsData?.data || alertsData?.alerts || [];
+      const alerts = allAlerts.filter(a => !a.targetId || a.targetId === targetId);
       const scans = Array.isArray(scansData) ? scansData : scansData?.data || [];
       const flaggedItems = [];
 
