@@ -71,43 +71,27 @@ Deno.serve(async (req) => {
       const mapping = mappings[0];
       const targetId = mapping.edr_tenant_id;
 
-      // Infocyte/Datto EDR API - try different endpoint patterns
-      // The API may use different endpoint naming
-      const hostsUrl1 = addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}/hosts`);
-      const hostsUrl2 = addAuth(`${DATTO_EDR_BASE_URL}/hosts?targetId=${targetId}`);
-      const alertsUrl1 = addAuth(`${DATTO_EDR_BASE_URL}/AlertInboxItems`);
-      const alertsUrl2 = addAuth(`${DATTO_EDR_BASE_URL}/alerts`);
-      const scansUrl = addAuth(`${DATTO_EDR_BASE_URL}/scans`);
-      const endpointsUrl = addAuth(`${DATTO_EDR_BASE_URL}/endpoints?targetId=${targetId}`);
-      
+      // Infocyte/Datto EDR API - use Loopback filter syntax
+      // Hosts are queried via /hosts with targetId filter in Loopback format
       console.log('Target ID:', targetId);
-      console.log('Trying hosts endpoint 1...');
       
-      // Try multiple endpoint patterns to find the right one
-      let hostsRes = await fetch(hostsUrl1, { headers }).catch(e => null);
-      console.log('Hosts endpoint 1 status:', hostsRes?.status);
+      const hostsFilter = JSON.stringify({ where: { targetId: targetId } });
+      const hostsUrl = addAuth(`${DATTO_EDR_BASE_URL}/hosts?filter=${encodeURIComponent(hostsFilter)}`);
+      const alertsFilter = JSON.stringify({ where: { targetId: targetId } });
+      const alertsUrl = addAuth(`${DATTO_EDR_BASE_URL}/AlertInboxItems?filter=${encodeURIComponent(alertsFilter)}`);
+      const scansFilter = JSON.stringify({ where: { targetId: targetId }, limit: 20 });
+      const scansUrl = addAuth(`${DATTO_EDR_BASE_URL}/scans?filter=${encodeURIComponent(scansFilter)}`);
       
-      if (!hostsRes?.ok) {
-        console.log('Trying hosts endpoint 2...');
-        hostsRes = await fetch(hostsUrl2, { headers }).catch(e => null);
-        console.log('Hosts endpoint 2 status:', hostsRes?.status);
-      }
+      console.log('Hosts URL pattern:', hostsUrl.replace(DATTO_EDR_API_TOKEN, '***'));
       
-      if (!hostsRes?.ok) {
-        console.log('Trying endpoints endpoint...');
-        hostsRes = await fetch(endpointsUrl, { headers }).catch(e => null);
-        console.log('Endpoints status:', hostsRes?.status);
-      }
-
-      let alertsRes = await fetch(alertsUrl1, { headers }).catch(e => null);
-      console.log('Alerts endpoint 1 status:', alertsRes?.status);
+      const [hostsRes, alertsRes, scansRes] = await Promise.all([
+        fetch(hostsUrl, { headers }).catch(e => { console.log('Hosts error:', e); return null; }),
+        fetch(alertsUrl, { headers }).catch(e => { console.log('Alerts error:', e); return null; }),
+        fetch(scansUrl, { headers }).catch(e => { console.log('Scans error:', e); return null; })
+      ]);
       
-      if (!alertsRes?.ok) {
-        alertsRes = await fetch(alertsUrl2, { headers }).catch(e => null);
-        console.log('Alerts endpoint 2 status:', alertsRes?.status);
-      }
-      
-      const scansRes = await fetch(scansUrl, { headers }).catch(e => null);
+      console.log('Hosts status:', hostsRes?.status);
+      console.log('Alerts status:', alertsRes?.status);
       console.log('Scans status:', scansRes?.status);
       
       let hostsData = [];
@@ -116,33 +100,33 @@ Deno.serve(async (req) => {
       
       if (hostsRes?.ok) {
         const raw = await hostsRes.text();
-        console.log('Hosts raw response length:', raw.length);
-        console.log('Hosts raw response preview:', raw.slice(0, 1500));
-        try { hostsData = JSON.parse(raw); } catch(e) { console.log('Hosts parse error:', e); }
+        console.log('Hosts response length:', raw.length);
+        console.log('Hosts sample:', raw.slice(0, 1500));
+        try { hostsData = JSON.parse(raw); } catch(e) { console.log('Parse err:', e); }
       } else if (hostsRes) {
-        console.log('Hosts error response:', await hostsRes.text().catch(() => 'no body'));
+        const errText = await hostsRes.text().catch(() => '');
+        console.log('Hosts error body:', errText.slice(0, 500));
       }
       
       if (alertsRes?.ok) {
         const raw = await alertsRes.text();
-        console.log('Alerts raw response length:', raw.length);
-        console.log('Alerts raw response preview:', raw.slice(0, 1000));
-        try { alertsData = JSON.parse(raw); } catch(e) { console.log('Alerts parse error:', e); }
+        console.log('Alerts response length:', raw.length);
+        console.log('Alerts sample:', raw.slice(0, 1000));
+        try { alertsData = JSON.parse(raw); } catch(e) { console.log('Parse err:', e); }
       } else if (alertsRes) {
-        console.log('Alerts error response:', await alertsRes.text().catch(() => 'no body'));
+        const errText = await alertsRes.text().catch(() => '');
+        console.log('Alerts error body:', errText.slice(0, 500));
       }
       
       if (scansRes?.ok) {
         const raw = await scansRes.text();
-        console.log('Scans raw response length:', raw.length);
+        console.log('Scans response length:', raw.length);
         try { scansData = JSON.parse(raw); } catch(e) {}
       }
 
-      // Extract arrays from response (Infocyte may return {data: [...]} or just [...])
-      const hosts = Array.isArray(hostsData) ? hostsData : hostsData?.data || hostsData?.hosts || hostsData?.endpoints || [];
-      const allAlerts = Array.isArray(alertsData) ? alertsData : alertsData?.data || alertsData?.alerts || [];
-      // Filter alerts for this target
-      const alerts = allAlerts.filter(a => a.targetId === targetId);
+      // Extract arrays from response
+      const hosts = Array.isArray(hostsData) ? hostsData : hostsData?.data || hostsData?.hosts || [];
+      const alerts = Array.isArray(alertsData) ? alertsData : alertsData?.data || alertsData?.alerts || [];
       const scans = Array.isArray(scansData) ? scansData : scansData?.data || [];
       const flaggedItems = [];
 
