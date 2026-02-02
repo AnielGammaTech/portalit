@@ -178,8 +178,12 @@ export default function DarkWebTab({ customerId }) {
   };
 
   const maskPassword = (password) => {
-    if (!password) return '••••••••';
+    if (!password || password === 'N/A' || password.toLowerCase() === 'n/a') return null;
     return '•'.repeat(Math.min(password.length, 12));
+  };
+
+  const hasRealPassword = (password) => {
+    return password && password !== 'N/A' && password.toLowerCase() !== 'n/a';
   };
 
   const togglePasswordVisibility = (id) => {
@@ -546,15 +550,21 @@ export default function DarkWebTab({ customerId }) {
                   {/* Password Display */}
                   <div className="flex items-center gap-2 p-2 bg-white/80 rounded-lg border border-slate-200 mt-2">
                     <Key className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                    <code className="text-xs font-mono text-slate-700 flex-1 truncate">
-                      {showPasswords[idx] ? (item.password || 'Not available') : maskPassword(item.password)}
-                    </code>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); togglePasswordVisibility(idx); }}
-                      className="p-1 hover:bg-slate-100 rounded"
-                    >
-                      {showPasswords[idx] ? <EyeOff className="w-3.5 h-3.5 text-slate-400" /> : <Eye className="w-3.5 h-3.5 text-slate-400" />}
-                    </button>
+                    {hasRealPassword(item.password) ? (
+                      <>
+                        <code className="text-xs font-mono text-slate-700 flex-1 truncate">
+                          {showPasswords[idx] ? item.password : maskPassword(item.password)}
+                        </code>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); togglePasswordVisibility(idx); }}
+                          className="p-1 hover:bg-slate-100 rounded"
+                        >
+                          {showPasswords[idx] ? <EyeOff className="w-3.5 h-3.5 text-slate-400" /> : <Eye className="w-3.5 h-3.5 text-slate-400" />}
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-xs text-slate-400 italic">No password data</span>
+                    )}
                   </div>
                   
                   {item.breach_date && (
@@ -592,17 +602,21 @@ export default function DarkWebTab({ customerId }) {
                         </div>
                       </td>
                       <td className="p-3">
-                        <div className="flex items-center gap-2">
-                          <code className="text-xs font-mono bg-slate-100 px-2 py-1 rounded">
-                            {showPasswords[`table-${idx}`] ? (item.password || 'N/A') : maskPassword(item.password)}
-                          </code>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); togglePasswordVisibility(`table-${idx}`); }}
-                            className="p-1 hover:bg-slate-200 rounded"
-                          >
-                            {showPasswords[`table-${idx}`] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                          </button>
-                        </div>
+                        {hasRealPassword(item.password) ? (
+                          <div className="flex items-center gap-2">
+                            <code className="text-xs font-mono bg-slate-100 px-2 py-1 rounded">
+                              {showPasswords[`table-${idx}`] ? item.password : maskPassword(item.password)}
+                            </code>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); togglePasswordVisibility(`table-${idx}`); }}
+                              className="p-1 hover:bg-slate-200 rounded"
+                            >
+                              {showPasswords[`table-${idx}`] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400 italic">—</span>
+                        )}
                       </td>
                       <td className="p-3">
                         <div className="flex items-center gap-2">
@@ -685,12 +699,18 @@ export default function DarkWebTab({ customerId }) {
                                 <span>{item.source || 'Unknown'}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <code className="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded">
-                                  {showPasswords[`user-${email}-${idx}`] ? (item.password || 'N/A') : maskPassword(item.password)}
-                                </code>
-                                <button onClick={(e) => { e.stopPropagation(); togglePasswordVisibility(`user-${email}-${idx}`); }}>
-                                  {showPasswords[`user-${email}-${idx}`] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                                </button>
+                                {hasRealPassword(item.password) ? (
+                                  <>
+                                    <code className="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded">
+                                      {showPasswords[`user-${email}-${idx}`] ? item.password : maskPassword(item.password)}
+                                    </code>
+                                    <button onClick={(e) => { e.stopPropagation(); togglePasswordVisibility(`user-${email}-${idx}`); }}>
+                                      {showPasswords[`user-${email}-${idx}`] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                    </button>
+                                  </>
+                                ) : (
+                                  <span className="text-xs text-slate-400 italic">—</span>
+                                )}
                                 <Badge className={cn('text-[10px]',
                                   item.severity === 'critical' && 'bg-red-100 text-red-700',
                                   item.severity === 'high' && 'bg-orange-100 text-orange-700',
@@ -755,20 +775,30 @@ export default function DarkWebTab({ customerId }) {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                  <Key className="w-5 h-5 text-slate-400" />
-                  <div className="flex-1">
-                    <p className="text-xs text-slate-500">Password Hit</p>
-                    <div className="flex items-center gap-2">
-                      <code className="font-mono text-sm text-slate-900 bg-white px-2 py-1 rounded border">
-                        {showPasswords['modal'] ? (selectedCompromise.password || 'Not available') : maskPassword(selectedCompromise.password)}
-                      </code>
-                      <button onClick={() => togglePasswordVisibility('modal')} className="p-1 hover:bg-slate-200 rounded">
-                        {showPasswords['modal'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
+                {hasRealPassword(selectedCompromise.password) ? (
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                    <Key className="w-5 h-5 text-slate-400" />
+                    <div className="flex-1">
+                      <p className="text-xs text-slate-500">Password Hit</p>
+                      <div className="flex items-center gap-2">
+                        <code className="font-mono text-sm text-slate-900 bg-white px-2 py-1 rounded border">
+                          {showPasswords['modal'] ? selectedCompromise.password : maskPassword(selectedCompromise.password)}
+                        </code>
+                        <button onClick={() => togglePasswordVisibility('modal')} className="p-1 hover:bg-slate-200 rounded">
+                          {showPasswords['modal'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                    <Key className="w-5 h-5 text-slate-400" />
+                    <div>
+                      <p className="text-xs text-slate-500">Password Hit</p>
+                      <p className="text-sm text-slate-400 italic">No password data available</p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
                   <Database className="w-5 h-5 text-slate-400" />
