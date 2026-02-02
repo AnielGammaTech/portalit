@@ -36,6 +36,7 @@ import JumpCloudConfig from '../components/integrations/JumpCloudConfig';
 import SpanningConfig from '../components/integrations/SpanningConfig';
 import DarkWebIDConfig from '../components/integrations/DarkWebIDConfig';
 import BullPhishIDConfig from '../components/integrations/BullPhishIDConfig';
+import DattoEDRConfig from '../components/integrations/DattoEDRConfig';
 import { AlertTriangle, Fish } from 'lucide-react';
 
 function GammaStackITPanel() {
@@ -218,9 +219,15 @@ function IntegrationsPanel() {
     queryFn: () => base44.entities.SpanningMapping.list(),
   });
 
+  const { data: edrMappings = [] } = useQuery({
+    queryKey: ['edr_mappings'],
+    queryFn: () => base44.entities.DattoEDRMapping.list(),
+  });
+
   const dattoMapped = dattoMappings.length;
   const jumpcloudMapped = jumpcloudMappings.length;
   const spanningMapped = spanningMappings.length;
+  const edrMapped = edrMappings.length;
 
   return (
     <div className="space-y-4">
@@ -295,6 +302,23 @@ function IntegrationsPanel() {
         status={<Badge variant="outline" className="text-slate-500">Upload Reports</Badge>}
       >
         <BullPhishIDConfig />
+      </IntegrationCard>
+
+      {/* Datto EDR */}
+      <IntegrationCard
+        icon={Shield}
+        iconBg="bg-cyan-50"
+        title="Datto EDR"
+        description="Endpoint detection & response - map tenants to customers"
+        status={
+          edrMapped > 0 ? (
+            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">{edrMapped} mapped</Badge>
+          ) : (
+            <Badge variant="outline" className="text-slate-500">Not configured</Badge>
+          )
+        }
+      >
+        <DattoEDRConfig />
       </IntegrationCard>
     </div>
   );
