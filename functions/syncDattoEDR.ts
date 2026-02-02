@@ -68,42 +68,62 @@ Deno.serve(async (req) => {
       const mapping = mappings[0];
       const targetId = mapping.edr_tenant_id;
 
-      // Fetch multiple data points in parallel - try multiple endpoint patterns
-      const [hostsRes, hostsRes2, flagsRes, alertsRes, scansRes] = await Promise.all([
-        fetch(addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}/hosts`), { headers }).catch(() => null),
-        fetch(addAuth(`${DATTO_EDR_BASE_URL}/hosts?filter=${encodeURIComponent(JSON.stringify({where: {targetId}}))}`), { headers }).catch(() => null),
-        fetch(addAuth(`${DATTO_EDR_BASE_URL}/flags`), { headers }).catch(() => null),
-        fetch(addAuth(`${DATTO_EDR_BASE_URL}/AlertInboxItems?filter=${encodeURIComponent(JSON.stringify({where: {targetId}}))}`), { headers }).catch(() => null),
-        fetch(addAuth(`${DATTO_EDR_BASE_URL}/scans?filter=${encodeURIComponent(JSON.stringify({where: {targetId}, order: 'createdOn DESC', limit: 10}))}`), { headers }).catch(() => null)
+      // Infocyte API - fetch hosts and alerts for the target
+      // Hosts: GET /targets/{targetId}/hosts
+      // AlertInboxItems: Global endpoint, filter by targetId
+      const hostsUrl = addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}/hosts`);
+      const alertsUrl = addAuth(`${DATTO_EDR_BASE_URL}/AlertInboxItems`);
+      const flaggedItemsUrl = addAuth(`${DATTO_EDR_BASE_URL}/FlaggedItems?filter=${encodeURIComponent(JSON.stringify({where: {targetId}}))}`);
+      const scansUrl = addAuth(`${DATTO_EDR_BASE_URL}/scans?filter=${encodeURIComponent(JSON.stringify({where: {targetId}}))}`);
+      
+      console.log('Fetching hosts from:', hostsUrl.replace(DATTO_EDR_API_TOKEN, '***'));
+      
+      const [hostsRes, alertsRes, flaggedRes, scansRes] = await Promise.all([
+        fetch(hostsUrl, { headers }).catch(e => { console.log('Hosts fetch error:', e); return null; }),
+        fetch(alertsUrl, { headers }).catch(e => { console.log('Alerts fetch error:', e); return null; }),
+        fetch(flaggedItemsUrl, { headers }).catch(e => { console.log('Flagged fetch error:', e); return null; }),
+        fetch(scansUrl, { headers }).catch(e => { console.log('Scans fetch error:', e); return null; })
       ]);
 
-      // Debug: log raw responses
-      console.log('Hosts endpoint 1 status:', hostsRes?.status);
-      console.log('Hosts endpoint 2 status:', hostsRes2?.status);
-      console.log('Flags endpoint status:', flagsRes?.status);
-      console.log('Alerts endpoint status:', alertsRes?.status);
-
+      console.log('Hosts status:', hostsRes?.status);
+      console.log('Alerts status:', alertsRes?.status);
+      console.log('Flagged status:', flaggedRes?.status);
+      
       let hostsData = [];
+      let alertsData = [];
+      let flaggedData = [];
+      let scansData = [];
+      
       if (hostsRes?.ok) {
-        hostsData = await hostsRes.json();
-        console.log('Hosts data 1:', JSON.stringify(hostsData).slice(0, 500));
-      }
-      if ((!hostsData || (Array.isArray(hostsData) && hostsData.length === 0)) && hostsRes2?.ok) {
-        hostsData = await hostsRes2.json();
-        console.log('Hosts data 2:', JSON.stringify(hostsData).slice(0, 500));
+        const raw = await hostsRes.text();
+        console.log('Hosts raw response:', raw.slice(0, 1000));
+        try { hostsData = JSON.parse(raw); } catch(e) { console.log('Hosts parse error:', e); }
       }
       
-      const flagsData = flagsRes?.ok ? await flagsRes.json() : [];
-      const alertsData = alertsRes?.ok ? await alertsRes.json() : [];
-      const scansData = scansRes?.ok ? await scansRes.json() : [];
+      if (alertsRes?.ok) {
+        const raw = await alertsRes.text();
+        console.log('Alerts raw response:', raw.slice(0, 1000));
+        try { alertsData = JSON.parse(raw); } catch(e) { console.log('Alerts parse error:', e); }
+      }
       
-      console.log('Flags data:', JSON.stringify(flagsData).slice(0, 500));
-      console.log('Alerts data:', JSON.stringify(alertsData).slice(0, 500));
+      if (flaggedRes?.ok) {
+        const raw = await flaggedRes.text();
+        console.log('Flagged raw response:', raw.slice(0, 500));
+        try { flaggedData = JSON.parse(raw); } catch(e) {}
+      }
+      
+      if (scansRes?.ok) {
+        const raw = await scansRes.text();
+        try { scansData = JSON.parse(raw); } catch(e) {}
+      }
 
-      const hosts = Array.isArray(hostsData) ? hostsData : hostsData.data || hostsData.hosts || [];
-      const flags = Array.isArray(flagsData) ? flagsData : flagsData.data || [];
-      const alerts = Array.isArray(alertsData) ? alertsData : alertsData.data || [];
-      const scans = Array.isArray(scansData) ? scansData : scansData.data || [];
+      // Extract arrays from response (Infocyte may return {data: [...]} or just [...])
+      const hosts = Array.isArray(hostsData) ? hostsData : hostsData?.data || hostsData?.hosts || [];
+      const allAlerts = Array.isArray(alertsData) ? alertsData : alertsData?.data || [];
+      // Filter alerts for this target
+      const alerts = allAlerts.filter(a => a.targetId === targetId);
+      const flaggedItems = Array.isArray(flaggedData) ? flaggedData : flaggedData?.data || [];
+      const scans = Array.isArray(scansData) ? scansData : scansData?.data || [];
 
       // Count alerts by severity
       const criticalAlerts = alerts.filter(a => a.threatScore >= 7 || a.severity === 'critical' || a.severity === 'high').length;
