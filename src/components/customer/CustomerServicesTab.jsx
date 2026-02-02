@@ -114,13 +114,10 @@ export default function CustomerServicesTab({
     enabled: !!customerId
   });
 
-  // Fetch Dark Web ID mapping for this customer
-  const { data: darkwebMapping } = useQuery({
-    queryKey: ['darkwebid-mapping', customerId],
-    queryFn: async () => {
-      const mappings = await base44.entities.DarkWebIDMapping.filter({ customer_id: customerId });
-      return mappings[0] || null;
-    },
+  // Fetch Dark Web ID reports for this customer
+  const { data: darkwebReports = [] } = useQuery({
+    queryKey: ['darkwebid-reports', customerId],
+    queryFn: () => base44.entities.DarkWebIDReport.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
@@ -132,6 +129,7 @@ export default function CustomerServicesTab({
   });
 
   const hasBullPhish = bullphishReports.length > 0;
+  const hasDarkWeb = darkwebReports.length > 0;
 
   const updateSyncStatus = (service, status, error = null) => {
     setSyncStatuses(prev => ({
@@ -351,7 +349,6 @@ export default function CustomerServicesTab({
 
   const hasHaloPSA = customer?.source === 'halopsa' && customer?.external_id;
   const hasDatto = !!dattoMapping;
-  const hasDarkWeb = !!darkwebMapping;
   const hasDevices = devices.length > 0 || hasDatto;
 
   const formatLastSync = (dateStr) => {
@@ -417,7 +414,7 @@ export default function CustomerServicesTab({
                 Spanning Backup
               </TabsTrigger>
             )}
-            {darkwebMapping && (
+            {hasDarkWeb && (
               <TabsTrigger value="darkweb" className="gap-2 py-2 px-4 text-sm font-medium">
                 <AlertTriangle className="w-4 h-4" />
                 Dark Web
@@ -681,7 +678,7 @@ export default function CustomerServicesTab({
         )}
 
         {/* Dark Web ID Tab */}
-        {darkwebMapping && (
+        {hasDarkWeb && (
           <TabsContent value="darkweb">
             <DarkWebTab customerId={customerId} />
           </TabsContent>
