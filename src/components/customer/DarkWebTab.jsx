@@ -77,6 +77,7 @@ export default function DarkWebTab({ customerId }) {
   const [severityFilter, setSeverityFilter] = useState('all');
   const [showPasswords, setShowPasswords] = useState({});
   const [expandedSources, setExpandedSources] = useState({});
+  const [credentialsExpanded, setCredentialsExpanded] = useState(true);
 
   const { data: reports = [], isLoading } = useQuery({
     queryKey: ['darkwebid-reports', customerId],
@@ -153,6 +154,7 @@ export default function DarkWebTab({ customerId }) {
 
   const sourceChartData = useMemo(() => {
     return Object.entries(compromisesBySource)
+      .filter(([name]) => name.toLowerCase() !== 'none' && name.toLowerCase() !== 'unknown')
       .map(([name, items]) => ({ name: name.length > 15 ? name.slice(0, 15) + '...' : name, count: items.length, fullName: name }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 8);
@@ -457,39 +459,46 @@ export default function DarkWebTab({ customerId }) {
 
       {/* Compromises Detail Section */}
       <Card>
-        <CardHeader className="pb-3 border-b">
+        <CardHeader 
+          className="pb-3 border-b cursor-pointer hover:bg-slate-50 transition-colors"
+          onClick={() => setCredentialsExpanded(!credentialsExpanded)}
+        >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <CardTitle className="text-base font-semibold text-slate-900 flex items-center gap-2">
               <Lock className="w-5 h-5 text-red-500" />
               Compromised Credentials ({filteredCompromises.length})
+              <ChevronDown className={cn("w-5 h-5 text-slate-400 transition-transform", credentialsExpanded && "rotate-180")} />
             </CardTitle>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <Input 
-                  placeholder="Search email or source..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 h-8 w-48 text-sm"
-                />
+            {credentialsExpanded && (
+              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Input 
+                    placeholder="Search email or source..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-8 h-8 w-48 text-sm"
+                  />
+                </div>
+                <div className="flex items-center border rounded-lg overflow-hidden">
+                  <button 
+                    onClick={() => setViewMode('cards')}
+                    className={cn("p-1.5", viewMode === 'cards' ? "bg-slate-100" : "hover:bg-slate-50")}
+                  >
+                    <Grid3X3 className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => setViewMode('table')}
+                    className={cn("p-1.5", viewMode === 'table' ? "bg-slate-100" : "hover:bg-slate-50")}
+                  >
+                    <List className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center border rounded-lg overflow-hidden">
-                <button 
-                  onClick={() => setViewMode('cards')}
-                  className={cn("p-1.5", viewMode === 'cards' ? "bg-slate-100" : "hover:bg-slate-50")}
-                >
-                  <Grid3X3 className="w-4 h-4" />
-                </button>
-                <button 
-                  onClick={() => setViewMode('table')}
-                  className={cn("p-1.5", viewMode === 'table' ? "bg-slate-100" : "hover:bg-slate-50")}
-                >
-                  <List className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
+            )}
           </div>
         </CardHeader>
+        {credentialsExpanded && (
         <CardContent className="pt-4">
           {filteredCompromises.length === 0 ? (
             <div className="text-center py-12">
@@ -642,6 +651,7 @@ export default function DarkWebTab({ customerId }) {
             </div>
           )}
         </CardContent>
+        )}
       </Card>
 
       {/* Compromises by Email - Grouped View */}
