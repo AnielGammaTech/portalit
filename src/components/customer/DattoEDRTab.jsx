@@ -55,16 +55,6 @@ export default function DattoEDRTab({ customerId, edrMapping }) {
     );
   }
 
-  const getSeverityColor = (severity) => {
-    switch (severity?.toLowerCase()) {
-      case 'critical': return 'bg-red-100 text-red-700 border-red-200';
-      case 'high': return 'bg-orange-100 text-orange-700 border-orange-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-      case 'low': return 'bg-blue-100 text-blue-700 border-blue-200';
-      default: return 'bg-slate-100 text-slate-600';
-    }
-  };
-
   return (
     <div className="space-y-4">
       {/* Header */}
