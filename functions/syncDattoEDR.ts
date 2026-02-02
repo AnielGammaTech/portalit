@@ -183,8 +183,7 @@ Deno.serve(async (req) => {
           })),
           debug: {
             hostsFound: hosts.length,
-            alertsTotal: allAlerts.length,
-            alertsForTarget: alerts.length,
+            alertsFound: alerts.length,
             flaggedFound: flaggedItems.length,
             scansFound: scans.length
           }
