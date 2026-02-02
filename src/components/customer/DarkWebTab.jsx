@@ -70,7 +70,7 @@ const SEVERITY_COLORS = {
 };
 
 export default function DarkWebTab({ customerId }) {
-  const [selectedReport, setSelectedReport] = useState(null);
+  const [selectedReportId, setSelectedReportId] = useState(null);
   const [selectedCompromise, setSelectedCompromise] = useState(null);
   const [viewMode, setViewMode] = useState('cards'); // 'cards', 'table', 'timeline'
   const [searchQuery, setSearchQuery] = useState('');
@@ -92,6 +92,13 @@ export default function DarkWebTab({ customerId }) {
 
   const latestReport = sortedReports[0];
   const previousReport = sortedReports[1];
+  
+  // Active report is either selected or latest
+  const activeReport = selectedReportId 
+    ? sortedReports.find(r => r.id === selectedReportId) || latestReport 
+    : latestReport;
+  const activeReportIndex = sortedReports.findIndex(r => r.id === activeReport?.id);
+  const comparisonReport = sortedReports[activeReportIndex + 1];
 
   const parseJsonArray = (jsonString) => {
     if (!jsonString) return [];
@@ -102,11 +109,11 @@ export default function DarkWebTab({ customerId }) {
     }
   };
 
-  // Get all compromises from latest report
+  // Get all compromises from active report
   const compromises = useMemo(() => {
-    if (!latestReport) return [];
-    return parseJsonArray(latestReport.compromises_detail);
-  }, [latestReport]);
+    if (!activeReport) return [];
+    return parseJsonArray(activeReport.compromises_detail);
+  }, [activeReport]);
 
   // Filter compromises
   const filteredCompromises = useMemo(() => {
@@ -143,14 +150,14 @@ export default function DarkWebTab({ customerId }) {
 
   // Chart data
   const severityChartData = useMemo(() => {
-    if (!latestReport) return [];
+    if (!activeReport) return [];
     return [
-      { name: 'Critical', value: latestReport.critical_count || 0, color: SEVERITY_COLORS.critical },
-      { name: 'High', value: latestReport.high_count || 0, color: SEVERITY_COLORS.high },
-      { name: 'Medium', value: latestReport.medium_count || 0, color: SEVERITY_COLORS.medium },
-      { name: 'Low', value: latestReport.low_count || 0, color: SEVERITY_COLORS.low },
+      { name: 'Critical', value: activeReport.critical_count || 0, color: SEVERITY_COLORS.critical },
+      { name: 'High', value: activeReport.high_count || 0, color: SEVERITY_COLORS.high },
+      { name: 'Medium', value: activeReport.medium_count || 0, color: SEVERITY_COLORS.medium },
+      { name: 'Low', value: activeReport.low_count || 0, color: SEVERITY_COLORS.low },
     ].filter(d => d.value > 0);
-  }, [latestReport]);
+  }, [activeReport]);
 
   const sourceChartData = useMemo(() => {
     return Object.entries(compromisesBySource)
@@ -212,8 +219,8 @@ export default function DarkWebTab({ customerId }) {
     );
   }
 
-  const totalTrend = getTrend(latestReport?.total_compromises, previousReport?.total_compromises);
-  const criticalTrend = getTrend(latestReport?.critical_count, previousReport?.critical_count);
+  const totalTrend = getTrend(activeReport?.total_compromises, comparisonReport?.total_compromises);
+  const criticalTrend = getTrend(activeReport?.critical_count, comparisonReport?.critical_count);
 
   return (
     <div className="space-y-6">
@@ -227,10 +234,10 @@ export default function DarkWebTab({ customerId }) {
             <div>
               <h3 className="text-lg font-bold text-slate-900">Dark Web Monitoring Report</h3>
               <p className="text-sm text-slate-500">
-                {format(new Date(latestReport.report_date), 'MMMM d, yyyy')}
-                {latestReport.report_period_start && latestReport.report_period_end && (
+                {format(new Date(activeReport.report_date), 'MMMM d, yyyy')}
+                {activeReport.report_period_start && activeReport.report_period_end && (
                   <span className="ml-2 text-slate-400">
-                    (Period: {format(new Date(latestReport.report_period_start), 'MMM d')} - {format(new Date(latestReport.report_period_end), 'MMM d')})
+                    (Period: {format(new Date(activeReport.report_period_start), 'MMM d')} - {format(new Date(activeReport.report_period_end), 'MMM d')})
                   </span>
                 )}
               </p>
@@ -238,11 +245,8 @@ export default function DarkWebTab({ customerId }) {
           </div>
           <div className="flex items-center gap-2">
             {sortedReports.length > 1 && (
-              <Select value={latestReport?.id} onValueChange={(id) => {
-                const report = sortedReports.find(r => r.id === id);
-                if (report) setSelectedReport(report);
-              }}>
-                <SelectTrigger className="w-40 bg-white">
+              <Select value={activeReport?.id} onValueChange={(id) => setSelectedReportId(id)}>
+                <SelectTrigger className="w-44 bg-white">
                   <SelectValue placeholder="Select report" />
                 </SelectTrigger>
                 <SelectContent>
@@ -254,12 +258,12 @@ export default function DarkWebTab({ customerId }) {
                 </SelectContent>
               </Select>
             )}
-            {latestReport.pdf_url && (
+            {activeReport.pdf_url && (
               <Button 
                 variant="outline" 
                 size="sm"
                 className="bg-white"
-                onClick={() => window.open(latestReport.pdf_url, '_blank')}
+                onClick={() => window.open(activeReport.pdf_url, '_blank')}
               >
                 <Eye className="w-4 h-4 mr-2" />
                 View PDF
@@ -269,13 +273,13 @@ export default function DarkWebTab({ customerId }) {
         </div>
 
         {/* Alert Banner if critical */}
-        {(latestReport.critical_count > 0 || latestReport.new_compromises > 0) && (
+        {(activeReport.critical_count > 0 || activeReport.new_compromises > 0) && (
           <div className="mt-4 p-3 bg-red-100 border border-red-200 rounded-xl flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
             <div className="flex-1">
               <p className="text-sm font-medium text-red-900">
-                {latestReport.critical_count > 0 && `${latestReport.critical_count} critical compromises detected. `}
-                {latestReport.new_compromises > 0 && `${latestReport.new_compromises} new since last report.`}
+                {activeReport.critical_count > 0 && `${activeReport.critical_count} critical compromises detected. `}
+                {activeReport.new_compromises > 0 && `${activeReport.new_compromises} new since last report.`}
               </p>
               <p className="text-xs text-red-700">Immediate password changes recommended for affected accounts.</p>
             </div>
@@ -287,18 +291,18 @@ export default function DarkWebTab({ customerId }) {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card className={cn(
           "border-2 cursor-pointer hover:shadow-md transition-all",
-          latestReport.total_compromises > 10 ? "border-red-200 bg-red-50/50" : 
-          latestReport.total_compromises > 0 ? "border-amber-200 bg-amber-50/50" : "border-green-200 bg-green-50/50"
+          activeReport.total_compromises > 10 ? "border-red-200 bg-red-50/50" : 
+          activeReport.total_compromises > 0 ? "border-amber-200 bg-amber-50/50" : "border-green-200 bg-green-50/50"
         )} onClick={() => setSeverityFilter('all')}>
           <CardContent className="pt-4 pb-3">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Total</p>
                 <p className={cn("text-2xl font-bold mt-0.5",
-                  latestReport.total_compromises > 10 ? "text-red-600" : 
-                  latestReport.total_compromises > 0 ? "text-amber-600" : "text-green-600"
+                  activeReport.total_compromises > 10 ? "text-red-600" : 
+                  activeReport.total_compromises > 0 ? "text-amber-600" : "text-green-600"
                 )}>
-                  {latestReport.total_compromises || 0}
+                  {activeReport.total_compromises || 0}
                 </p>
                 {totalTrend && totalTrend.value > 0 && (
                   <div className={cn("flex items-center gap-0.5 text-[10px] mt-1",
@@ -315,7 +319,7 @@ export default function DarkWebTab({ customerId }) {
         </Card>
 
         {['critical', 'high', 'medium', 'low'].map(severity => {
-          const count = latestReport[`${severity}_count`] || 0;
+          const count = activeReport[`${severity}_count`] || 0;
           const isActive = severityFilter === severity;
           return (
             <Card 
