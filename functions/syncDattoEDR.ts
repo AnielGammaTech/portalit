@@ -160,12 +160,13 @@ Deno.serve(async (req) => {
           criticalAlerts,
           mediumAlerts, 
           lowAlerts,
-          flagCount: flags.length,
-          flags: flags.slice(0, 20).map(f => ({
+          flaggedItemCount: flaggedItems.length,
+          flaggedItems: flaggedItems.slice(0, 20).map(f => ({
             id: f.id,
-            name: f.name || f.friendlyName,
+            name: f.name || f.friendlyName || f.sha256?.slice(0, 12),
             type: f.type || f.flagType,
             hostname: f.hostname,
+            flagName: f.flagName,
             createdOn: f.createdOn
           })),
           recentScans: scans.slice(0, 5).map(s => ({
@@ -174,7 +175,14 @@ Deno.serve(async (req) => {
             status: s.status,
             createdOn: s.createdOn,
             completedOn: s.completedOn
-          }))
+          })),
+          debug: {
+            hostsFound: hosts.length,
+            alertsTotal: allAlerts.length,
+            alertsForTarget: alerts.length,
+            flaggedFound: flaggedItems.length,
+            scansFound: scans.length
+          }
         }
       });
     }
