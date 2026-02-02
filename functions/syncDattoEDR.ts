@@ -34,27 +34,43 @@ Deno.serve(async (req) => {
     };
 
     if (action === 'list_tenants') {
-      // List all EDR organizations/targets
-      const response = await fetch(addAuth(`${DATTO_EDR_BASE_URL}/targets`), { headers });
+      // List all EDR organizations/targets with their host counts
+      const [targetsRes, hostsRes] = await Promise.all([
+        fetch(addAuth(`${DATTO_EDR_BASE_URL}/targets`), { headers }),
+        fetch(addAuth(`${DATTO_EDR_BASE_URL}/hosts`), { headers }).catch(() => null)
+      ]);
 
-      if (!response.ok) {
-        const errorText = await response.text();
+      if (!targetsRes.ok) {
+        const errorText = await targetsRes.text();
         console.error('EDR API error:', errorText);
-        return Response.json({ success: false, error: `Failed to fetch tenants: ${response.status}` });
+        return Response.json({ success: false, error: `Failed to fetch tenants: ${targetsRes.status}` });
       }
 
-      const data = await response.json();
-      console.log('Targets raw response sample:', JSON.stringify(data).slice(0, 2000));
+      const data = await targetsRes.json();
+      const hostsData = hostsRes?.ok ? await hostsRes.json() : [];
+      const allHosts = Array.isArray(hostsData) ? hostsData : hostsData?.data || [];
+      
+      console.log('Total hosts in system:', allHosts.length);
+      console.log('Sample host:', JSON.stringify(allHosts[0] || {}).slice(0, 500));
+      
+      // Count hosts per target
+      const hostCountByTarget = {};
+      for (const host of allHosts) {
+        const tid = host.targetId;
+        if (tid) {
+          hostCountByTarget[tid] = (hostCountByTarget[tid] || 0) + 1;
+        }
+      }
       
       // Infocyte returns targets (organizations)
       const targetsArray = data.data || data.targets || data || [];
       const tenants = targetsArray.map(t => ({
         id: t.id || t.targetId,
         name: t.name || t.organizationName || t.targetName,
-        deviceCount: t.hostCount || t.endpointCount || 0
+        deviceCount: hostCountByTarget[t.id || t.targetId] || t.hostCount || t.endpointCount || 0
       }));
 
-      return Response.json({ success: true, tenants, rawSample: targetsArray.slice(0, 2) });
+      return Response.json({ success: true, tenants, totalHosts: allHosts.length });
     }
 
     if (action === 'sync_customer') {
