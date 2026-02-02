@@ -68,18 +68,37 @@ Deno.serve(async (req) => {
       const mapping = mappings[0];
       const targetId = mapping.edr_tenant_id;
 
-      // Fetch multiple data points in parallel
-      const [hostsRes, flagsRes, alertsRes, scansRes] = await Promise.all([
-        fetch(addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}/hosts`), { headers }),
-        fetch(addAuth(`${DATTO_EDR_BASE_URL}/flags?filter=${encodeURIComponent(JSON.stringify({where: {targetId}}))}`), { headers }).catch(() => null),
+      // Fetch multiple data points in parallel - try multiple endpoint patterns
+      const [hostsRes, hostsRes2, flagsRes, alertsRes, scansRes] = await Promise.all([
+        fetch(addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}/hosts`), { headers }).catch(() => null),
+        fetch(addAuth(`${DATTO_EDR_BASE_URL}/hosts?filter=${encodeURIComponent(JSON.stringify({where: {targetId}}))}`), { headers }).catch(() => null),
+        fetch(addAuth(`${DATTO_EDR_BASE_URL}/flags`), { headers }).catch(() => null),
         fetch(addAuth(`${DATTO_EDR_BASE_URL}/AlertInboxItems?filter=${encodeURIComponent(JSON.stringify({where: {targetId}}))}`), { headers }).catch(() => null),
         fetch(addAuth(`${DATTO_EDR_BASE_URL}/scans?filter=${encodeURIComponent(JSON.stringify({where: {targetId}, order: 'createdOn DESC', limit: 10}))}`), { headers }).catch(() => null)
       ]);
 
-      const hostsData = hostsRes.ok ? await hostsRes.json() : [];
+      // Debug: log raw responses
+      console.log('Hosts endpoint 1 status:', hostsRes?.status);
+      console.log('Hosts endpoint 2 status:', hostsRes2?.status);
+      console.log('Flags endpoint status:', flagsRes?.status);
+      console.log('Alerts endpoint status:', alertsRes?.status);
+
+      let hostsData = [];
+      if (hostsRes?.ok) {
+        hostsData = await hostsRes.json();
+        console.log('Hosts data 1:', JSON.stringify(hostsData).slice(0, 500));
+      }
+      if ((!hostsData || (Array.isArray(hostsData) && hostsData.length === 0)) && hostsRes2?.ok) {
+        hostsData = await hostsRes2.json();
+        console.log('Hosts data 2:', JSON.stringify(hostsData).slice(0, 500));
+      }
+      
       const flagsData = flagsRes?.ok ? await flagsRes.json() : [];
       const alertsData = alertsRes?.ok ? await alertsRes.json() : [];
       const scansData = scansRes?.ok ? await scansRes.json() : [];
+      
+      console.log('Flags data:', JSON.stringify(flagsData).slice(0, 500));
+      console.log('Alerts data:', JSON.stringify(alertsData).slice(0, 500));
 
       const hosts = Array.isArray(hostsData) ? hostsData : hostsData.data || hostsData.hosts || [];
       const flags = Array.isArray(flagsData) ? flagsData : flagsData.data || [];
