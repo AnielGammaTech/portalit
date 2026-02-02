@@ -22,14 +22,20 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Datto EDR uses accessToken as query parameter or in Authorization header
     const headers = {
-      'Authorization': `Token ${DATTO_EDR_API_TOKEN}`,
       'Content-Type': 'application/json'
+    };
+    
+    // Helper to add auth to URL
+    const addAuth = (url) => {
+      const separator = url.includes('?') ? '&' : '?';
+      return `${url}${separator}access_token=${DATTO_EDR_API_TOKEN}`;
     };
 
     if (action === 'list_tenants') {
       // List all EDR organizations/targets
-      const response = await fetch(`${DATTO_EDR_BASE_URL}/targets`, { headers });
+      const response = await fetch(addAuth(`${DATTO_EDR_BASE_URL}/targets`), { headers });
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -62,7 +68,7 @@ Deno.serve(async (req) => {
       const mapping = mappings[0];
 
       // Fetch hosts/endpoints for this target
-      const response = await fetch(`${DATTO_EDR_BASE_URL}/targets/${mapping.edr_tenant_id}/hosts`, { headers });
+      const response = await fetch(addAuth(`${DATTO_EDR_BASE_URL}/targets/${mapping.edr_tenant_id}/hosts`), { headers });
 
       if (!response.ok) {
         return Response.json({ success: false, error: 'Failed to fetch endpoints' });
@@ -117,8 +123,8 @@ Deno.serve(async (req) => {
 
       // Fetch tenant stats from Infocyte
       const [hostsRes, alertsRes] = await Promise.all([
-        fetch(`${DATTO_EDR_BASE_URL}/targets/${mapping.edr_tenant_id}/hosts`, { headers }),
-        fetch(`${DATTO_EDR_BASE_URL}/targets/${mapping.edr_tenant_id}/alerts`, { headers }).catch(() => null)
+        fetch(addAuth(`${DATTO_EDR_BASE_URL}/targets/${mapping.edr_tenant_id}/hosts`), { headers }),
+        fetch(addAuth(`${DATTO_EDR_BASE_URL}/targets/${mapping.edr_tenant_id}/alerts`), { headers }).catch(() => null)
       ]);
 
       const hostsData = hostsRes.ok ? await hostsRes.json() : { data: [] };
