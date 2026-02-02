@@ -87,73 +87,62 @@ Deno.serve(async (req) => {
       const mapping = mappings[0];
       const targetId = mapping.edr_tenant_id;
 
-      // Infocyte/Datto EDR API - Hosts are accessed via /targets/{targetId}/hosts
-      // API Explorer shows targets have sub-resources
+      // Infocyte/Datto EDR API - Get target details which contains agent counts
+      // Also fetch the hosts via the targets/{id} endpoint relation
       console.log('Target ID:', targetId);
       
-      // Try the nested target endpoints - this is Infocyte's documented pattern
+      // First get target details - this has agentCount, alertCount embedded
+      const targetUrl = addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}`);
+      // Try to get hosts via target relation endpoint pattern
       const hostsUrl = addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}/hosts`);
-      const scansUrl = addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}/scans`);
-      // Alerts might be at /targets/{id}/alerts or global /alerts with filter
-      const alertsUrl1 = addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}/alerts`);
-      const alertsUrl2 = addAuth(`${DATTO_EDR_BASE_URL}/alerts`);
       
-      console.log('Trying nested endpoints for target');
+      console.log('Fetching target details and hosts...');
       
-      // Fetch hosts from target - this should work
-      let hostsRes = await fetch(hostsUrl, { headers }).catch(e => null);
-      console.log('Target hosts status:', hostsRes?.status);
+      const [targetRes, hostsRes] = await Promise.all([
+        fetch(targetUrl, { headers }).catch(e => null),
+        fetch(hostsUrl, { headers }).catch(e => null)
+      ]);
       
-      // Try alerts endpoints
-      let alertsRes = await fetch(alertsUrl1, { headers }).catch(e => null);
-      console.log('Target alerts status:', alertsRes?.status);
+      console.log('Target details status:', targetRes?.status);
+      console.log('Hosts relation status:', hostsRes?.status);
       
-      if (!alertsRes?.ok) {
-        alertsRes = await fetch(alertsUrl2, { headers }).catch(e => null);
-        console.log('Global alerts status:', alertsRes?.status);
-      }
-      
-      // Scans
-      let scansRes = await fetch(scansUrl, { headers }).catch(e => null);
-      console.log('Target scans status:', scansRes?.status);
-      
+      let targetData = null;
       let hostsData = [];
-      let alertsData = [];
-      let scansData = [];
+      
+      if (targetRes?.ok) {
+        const raw = await targetRes.text();
+        console.log('Target details:', raw.slice(0, 1500));
+        try { targetData = JSON.parse(raw); } catch(e) { console.log('Parse err:', e); }
+      } else if (targetRes) {
+        console.log('Target error:', await targetRes.text().catch(() => ''));
+      }
       
       if (hostsRes?.ok) {
         const raw = await hostsRes.text();
         console.log('Hosts response length:', raw.length);
-        console.log('Hosts sample:', raw.slice(0, 2000));
+        console.log('Hosts sample:', raw.slice(0, 1500));
         try { hostsData = JSON.parse(raw); } catch(e) { console.log('Parse err:', e); }
       } else if (hostsRes) {
-        const errText = await hostsRes.text().catch(() => '');
-        console.log('Hosts error body:', errText.slice(0, 500));
-      }
-      
-      if (alertsRes?.ok) {
-        const raw = await alertsRes.text();
-        console.log('Alerts response length:', raw.length);
-        console.log('Alerts sample:', raw.slice(0, 1000));
-        try { alertsData = JSON.parse(raw); } catch(e) { console.log('Parse err:', e); }
-      } else if (alertsRes) {
-        const errText = await alertsRes.text().catch(() => '');
-        console.log('Alerts error body:', errText.slice(0, 500));
-      }
-      
-      if (scansRes?.ok) {
-        const raw = await scansRes.text();
-        console.log('Scans response length:', raw.length);
-        try { scansData = JSON.parse(raw); } catch(e) {}
+        console.log('Hosts error:', await hostsRes.text().catch(() => ''));
       }
 
       // Extract arrays from response
       const hosts = Array.isArray(hostsData) ? hostsData : hostsData?.data || hostsData?.hosts || [];
-      // Filter alerts for this target if we got global alerts
-      const allAlerts = Array.isArray(alertsData) ? alertsData : alertsData?.data || alertsData?.alerts || [];
-      const alerts = allAlerts.filter(a => !a.targetId || a.targetId === targetId);
-      const scans = Array.isArray(scansData) ? scansData : scansData?.data || [];
+      // Get stats from target object if hosts list is empty
+      const alerts = [];
+      const scans = [];
       const flaggedItems = [];
+      
+      // Use target-level stats when detailed host list not available
+      const targetStats = targetData ? {
+        agentCount: targetData.agentCount || 0,
+        activeAgentCount: targetData.activeAgentCount || 0,
+        alertCount: parseInt(targetData.alertCount) || 0,
+        totalAddressCount: targetData.totalAddressCount || 0,
+        lastScannedOn: targetData.lastScannedOn
+      } : null;
+      
+      console.log('Target stats:', JSON.stringify(targetStats));
 
       // Count alerts by severity
       const criticalAlerts = alerts.filter(a => a.threatScore >= 7 || a.severity === 'critical' || a.severity === 'high').length;
