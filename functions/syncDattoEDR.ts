@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'sync_customer') {
-      // Sync a specific customer
+      // Sync a specific customer - get full EDR report data
       if (!customer_id) {
         return Response.json({ success: false, error: 'customer_id required' });
       }
@@ -66,16 +66,30 @@ Deno.serve(async (req) => {
       }
 
       const mapping = mappings[0];
+      const targetId = mapping.edr_tenant_id;
 
-      // Fetch hosts/endpoints for this target
-      const response = await fetch(addAuth(`${DATTO_EDR_BASE_URL}/targets/${mapping.edr_tenant_id}/hosts`), { headers });
+      // Fetch multiple data points in parallel
+      const [hostsRes, flagsRes, alertsRes, scansRes] = await Promise.all([
+        fetch(addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}/hosts`), { headers }),
+        fetch(addAuth(`${DATTO_EDR_BASE_URL}/flags?filter=${encodeURIComponent(JSON.stringify({where: {targetId}}))}`), { headers }).catch(() => null),
+        fetch(addAuth(`${DATTO_EDR_BASE_URL}/AlertInboxItems?filter=${encodeURIComponent(JSON.stringify({where: {targetId}}))}`), { headers }).catch(() => null),
+        fetch(addAuth(`${DATTO_EDR_BASE_URL}/scans?filter=${encodeURIComponent(JSON.stringify({where: {targetId}, order: 'createdOn DESC', limit: 10}))}`), { headers }).catch(() => null)
+      ]);
 
-      if (!response.ok) {
-        return Response.json({ success: false, error: 'Failed to fetch endpoints' });
-      }
+      const hostsData = hostsRes.ok ? await hostsRes.json() : [];
+      const flagsData = flagsRes?.ok ? await flagsRes.json() : [];
+      const alertsData = alertsRes?.ok ? await alertsRes.json() : [];
+      const scansData = scansRes?.ok ? await scansRes.json() : [];
 
-      const data = await response.json();
-      const endpoints = data.data || data.hosts || data || [];
+      const hosts = Array.isArray(hostsData) ? hostsData : hostsData.data || hostsData.hosts || [];
+      const flags = Array.isArray(flagsData) ? flagsData : flagsData.data || [];
+      const alerts = Array.isArray(alertsData) ? alertsData : alertsData.data || [];
+      const scans = Array.isArray(scansData) ? scansData : scansData.data || [];
+
+      // Count alerts by severity
+      const criticalAlerts = alerts.filter(a => a.threatScore >= 7 || a.severity === 'critical' || a.severity === 'high').length;
+      const mediumAlerts = alerts.filter(a => (a.threatScore >= 4 && a.threatScore < 7) || a.severity === 'medium').length;
+      const lowAlerts = alerts.filter(a => (a.threatScore < 4 && a.threatScore > 0) || a.severity === 'low').length;
 
       // Update mapping with last synced
       await base44.entities.DattoEDRMapping.update(mapping.id, {
@@ -84,8 +98,45 @@ Deno.serve(async (req) => {
 
       return Response.json({ 
         success: true, 
-        endpointCount: endpoints.length,
-        endpoints: endpoints.slice(0, 50)
+        data: {
+          hostCount: hosts.length,
+          hosts: hosts.slice(0, 50).map(h => ({
+            id: h.id,
+            hostname: h.hostname || h.name,
+            ip: h.ip || h.ipAddress,
+            os: h.os || h.operatingSystem,
+            online: h.online || h.connectionStatus === 'connected',
+            lastSeen: h.lastSeen || h.updatedOn
+          })),
+          alertCount: alerts.length,
+          alerts: alerts.slice(0, 20).map(a => ({
+            id: a.id,
+            name: a.name || a.type || a.title,
+            severity: a.severity || (a.threatScore >= 7 ? 'critical' : a.threatScore >= 4 ? 'medium' : 'low'),
+            threatScore: a.threatScore,
+            hostname: a.hostname,
+            createdOn: a.createdOn || a.created_date,
+            status: a.status
+          })),
+          criticalAlerts,
+          mediumAlerts, 
+          lowAlerts,
+          flagCount: flags.length,
+          flags: flags.slice(0, 20).map(f => ({
+            id: f.id,
+            name: f.name || f.friendlyName,
+            type: f.type || f.flagType,
+            hostname: f.hostname,
+            createdOn: f.createdOn
+          })),
+          recentScans: scans.slice(0, 5).map(s => ({
+            id: s.id,
+            type: s.type || s.scanType,
+            status: s.status,
+            createdOn: s.createdOn,
+            completedOn: s.completedOn
+          }))
+        }
       });
     }
 
