@@ -6,16 +6,11 @@ import {
   RefreshCw, 
   Monitor,
   AlertTriangle,
-  AlertCircle,
   Activity,
-  Flag,
-  Clock,
   CheckCircle2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 export default function DattoEDRTab({ customerId, edrMapping }) {
