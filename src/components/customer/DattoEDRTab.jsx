@@ -156,165 +156,86 @@ export default function DattoEDRTab({ customerId, edrMapping }) {
         </Card>
       </div>
 
-      {/* Tabbed Content */}
-      <Tabs defaultValue="alerts" className="space-y-4">
-        <TabsList className="bg-white border">
-          <TabsTrigger value="alerts" className="gap-2">
-            <AlertTriangle className="w-4 h-4" />
-            Alerts ({edrData?.alertCount || 0})
-          </TabsTrigger>
-          <TabsTrigger value="hosts" className="gap-2">
-            <Monitor className="w-4 h-4" />
-            Endpoints ({edrData?.hostCount || 0})
-          </TabsTrigger>
-          <TabsTrigger value="flags" className="gap-2">
-            <Flag className="w-4 h-4" />
-            Flags ({edrData?.flagCount || 0})
-          </TabsTrigger>
-        </TabsList>
+      {/* EDR Summary Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>EDR Protection Summary</CardTitle>
+          <CardDescription>
+            {edrData?.hostCount || 0} total agents deployed, {edrData?.activeHostCount || 0} currently active
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {/* Alert Status */}
+            {edrData?.alertCount > 0 ? (
+              <div className="flex items-center gap-3 p-4 bg-red-50 rounded-lg border border-red-200">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+                <div>
+                  <p className="font-medium text-red-900">
+                    {edrData.alertCount} Active Alert{edrData.alertCount !== 1 ? 's' : ''}
+                  </p>
+                  <p className="text-sm text-red-700">Review alerts in the Datto EDR console</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg border border-green-200">
+                <CheckCircle2 className="w-5 h-5 text-green-600" />
+                <div>
+                  <p className="font-medium text-green-900">No Active Alerts</p>
+                  <p className="text-sm text-green-700">All monitored systems are operating normally</p>
+                </div>
+              </div>
+            )}
 
-        {/* Alerts Tab */}
-        <TabsContent value="alerts">
-          <Card>
-            <CardHeader>
-              <CardTitle>Security Alerts</CardTitle>
-              <CardDescription>Active alerts from Datto EDR</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {!edrData?.alerts || edrData.alerts.length === 0 ? (
-                <div className="text-center py-8">
-                  <CheckCircle2 className="w-10 h-10 text-green-300 mx-auto mb-3" />
-                  <p className="text-slate-500 font-medium">No active alerts</p>
-                  <p className="text-sm text-slate-400">All systems operating normally</p>
+            {/* Agent Stats */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-slate-50 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <Monitor className="w-4 h-4 text-slate-500" />
+                  <span className="text-sm font-medium text-slate-700">Agent Status</span>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {edrData.alerts.map((alert, idx) => (
-                    <div 
-                      key={alert.id || idx}
-                      className="flex items-start gap-3 p-4 bg-slate-50 rounded-lg border border-slate-100"
-                    >
-                      <div className={cn(
-                        "p-1.5 rounded-lg",
-                        alert.severity === 'critical' ? "bg-red-100" : 
-                        alert.severity === 'high' ? "bg-orange-100" : "bg-yellow-100"
-                      )}>
-                        <AlertTriangle className={cn(
-                          "w-4 h-4",
-                          alert.severity === 'critical' ? "text-red-600" : 
-                          alert.severity === 'high' ? "text-orange-600" : "text-yellow-600"
-                        )} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium text-slate-900">{alert.name || 'Unknown Alert'}</p>
-                          <Badge className={getSeverityColor(alert.severity)}>
-                            {alert.severity || 'unknown'}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-slate-500 mt-1">
-                          {alert.hostname && <span>Host: {alert.hostname} • </span>}
-                          {alert.threatScore && <span>Threat Score: {alert.threatScore} • </span>}
-                          {alert.createdOn && new Date(alert.createdOn).toLocaleDateString()}
-                        </p>
-                      </div>
-                      {alert.status && (
-                        <Badge variant="outline">{alert.status}</Badge>
-                      )}
-                    </div>
-                  ))}
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-green-600">{edrData?.activeHostCount || 0}</span>
+                  <span className="text-slate-500">/ {edrData?.hostCount || 0}</span>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+                <p className="text-xs text-slate-500 mt-1">Active / Total Agents</p>
+              </div>
+              
+              <div className="p-4 bg-slate-50 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <Shield className="w-4 h-4 text-slate-500" />
+                  <span className="text-sm font-medium text-slate-700">Coverage Rate</span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-purple-600">
+                    {edrData?.hostCount > 0 
+                      ? Math.round((edrData?.activeHostCount / edrData?.hostCount) * 100) 
+                      : 0}%
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">Agents reporting in</p>
+              </div>
+            </div>
 
-        {/* Hosts Tab */}
-        <TabsContent value="hosts">
-          <Card>
-            <CardHeader>
-              <CardTitle>Monitored Endpoints</CardTitle>
-              <CardDescription>Hosts with Datto EDR agent installed</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {!edrData?.hosts || edrData.hosts.length === 0 ? (
-                <div className="text-center py-8">
-                  <Monitor className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                  <p className="text-slate-500">No endpoints found</p>
+            {/* Target Stats if available */}
+            {edrData?.targetStats && (
+              <div className="pt-4 border-t border-slate-200">
+                <p className="text-xs text-slate-500 mb-2">Additional Details</p>
+                <div className="flex flex-wrap gap-3 text-sm">
+                  <span className="text-slate-600">
+                    Total addresses: <span className="font-medium">{edrData.targetStats.totalAddressCount}</span>
+                  </span>
+                  {edrData.lastScannedOn && (
+                    <span className="text-slate-600">
+                      Last scan: <span className="font-medium">{new Date(edrData.lastScannedOn).toLocaleDateString()}</span>
+                    </span>
+                  )}
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  {edrData.hosts.map((host, idx) => (
-                    <div 
-                      key={host.id || idx}
-                      className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg"
-                    >
-                      <div className={cn(
-                        "w-2.5 h-2.5 rounded-full",
-                        host.online ? "bg-green-500" : "bg-slate-300"
-                      )} />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-900 truncate">{host.hostname || 'Unknown'}</p>
-                        <p className="text-sm text-slate-500">
-                          {host.ip && <span>{host.ip} • </span>}
-                          {host.os || 'Unknown OS'}
-                          {host.lastSeen && (
-                            <span className="text-slate-400"> • Last seen: {new Date(host.lastSeen).toLocaleDateString()}</span>
-                          )}
-                        </p>
-                      </div>
-                      <Badge variant="outline" className={cn(
-                        host.online ? "text-green-600 border-green-200" : "text-slate-500"
-                      )}>
-                        {host.online ? 'Online' : 'Offline'}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Flags Tab */}
-        <TabsContent value="flags">
-          <Card>
-            <CardHeader>
-              <CardTitle>Detection Flags</CardTitle>
-              <CardDescription>Items flagged by Datto EDR analysis</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {!edrData?.flags || edrData.flags.length === 0 ? (
-                <div className="text-center py-8">
-                  <Flag className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                  <p className="text-slate-500">No flags found</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {edrData.flags.map((flag, idx) => (
-                    <div 
-                      key={flag.id || idx}
-                      className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg"
-                    >
-                      <div className="p-1.5 bg-purple-100 rounded-lg">
-                        <Flag className="w-4 h-4 text-purple-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-900 truncate">{flag.name || 'Unknown Flag'}</p>
-                        <p className="text-sm text-slate-500">
-                          {flag.hostname && <span>Host: {flag.hostname} • </span>}
-                          {flag.type && <span>Type: {flag.type} • </span>}
-                          {flag.createdOn && new Date(flag.createdOn).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Last Sync Info */}
       {edrMapping.last_synced && (
