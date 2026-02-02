@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -29,28 +30,32 @@ import {
   Shield, 
   Plus, 
   Trash2, 
-  RefreshCw, 
-  CheckCircle2, 
-  AlertCircle,
+  Upload,
+  FileText,
   Building2,
-  Link as LinkIcon
+  Calendar,
+  Eye,
+  Loader2,
+  AlertTriangle
 } from 'lucide-react';
-import { cn } from "@/lib/utils";
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
 export default function DarkWebIDConfig() {
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState('');
-  const [selectedOrg, setSelectedOrg] = useState('');
-  const [isTesting, setIsTesting] = useState(false);
-  const [isLoadingOrgs, setIsLoadingOrgs] = useState(false);
-  const [darkWebOrgs, setDarkWebOrgs] = useState([]);
+  const [reportDate, setReportDate] = useState('');
+  const [periodStart, setPeriodStart] = useState('');
+  const [periodEnd, setPeriodEnd] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractedData, setExtractedData] = useState(null);
   const queryClient = useQueryClient();
 
-  const { data: mappings = [], isLoading: loadingMappings } = useQuery({
-    queryKey: ['darkwebid-mappings'],
-    queryFn: () => base44.entities.DarkWebIDMapping.list('-created_date', 100),
+  const { data: reports = [], isLoading: loadingReports } = useQuery({
+    queryKey: ['darkwebid-reports'],
+    queryFn: () => base44.entities.DarkWebIDReport.list('-report_date', 100),
   });
 
   const { data: customers = [] } = useQuery({
@@ -58,99 +63,170 @@ export default function DarkWebIDConfig() {
     queryFn: () => base44.entities.Customer.list('name', 500),
   });
 
-  const mappedCustomerIds = new Set(mappings.map(m => m.customer_id));
-  const unmappedCustomers = customers.filter(c => !mappedCustomerIds.has(c.id));
-
-  const [connectionResult, setConnectionResult] = useState(null);
-
-  const handleTestConnection = async () => {
-    setIsTesting(true);
-    setConnectionResult(null);
-    try {
-      const response = await base44.functions.invoke('syncDarkWebID', { 
-        action: 'test_connection' 
-      });
-      setConnectionResult(response.data);
-      if (response.data.success) {
-        toast.success('Connected to Dark Web ID successfully!');
-      } else {
-        toast.error(response.data.error || 'Connection failed');
+  const handleFileSelect = async (e) => {
+    const file = e.target.files[0];
+    if (file && file.type === 'application/pdf') {
+      setSelectedFile(file);
+      setExtractedData(null);
+      
+      if (!reportDate) {
+        setReportDate(new Date().toISOString().split('T')[0]);
       }
-    } catch (error) {
-      setConnectionResult({ success: false, error: error.message });
-      toast.error(error.message);
-    } finally {
-      setIsTesting(false);
+      
+      await extractDataFromFile(file);
+    } else {
+      toast.error('Please select a PDF file');
     }
   };
 
-  const handleLoadOrganizations = async () => {
-    setIsLoadingOrgs(true);
+  const extractDataFromFile = async (file) => {
+    setIsExtracting(true);
     try {
-      const response = await base44.functions.invoke('syncDarkWebID', { 
-        action: 'list_organizations' 
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt: `Analyze this Dark Web ID / Dark Web monitoring report PDF and extract the following data.
+        
+Look carefully for:
+- Organization/Customer name
+- Report date and reporting period
+- Total number of compromises/breaches found
+- Number of new compromises since last report
+- Severity breakdown (critical, high, medium, low)
+- List of compromised email addresses
+- Breach sources/databases where credentials were found
+- Individual compromise details (email, password if shown, breach source, date)
+
+Convert all dates to YYYY-MM-DD format.`,
+        file_urls: [file_url],
+        response_json_schema: {
+          type: "object",
+          properties: {
+            customer_name: { type: "string", description: "Customer/organization name from the report" },
+            report_date: { type: "string", description: "Report date converted to YYYY-MM-DD format" },
+            report_period_start: { type: "string", description: "Report period start date YYYY-MM-DD" },
+            report_period_end: { type: "string", description: "Report period end date YYYY-MM-DD" },
+            total_compromises: { type: "number", description: "Total compromises found" },
+            new_compromises: { type: "number", description: "New compromises since last report" },
+            critical_count: { type: "number", description: "Number of critical severity" },
+            high_count: { type: "number", description: "Number of high severity" },
+            medium_count: { type: "number", description: "Number of medium severity" },
+            low_count: { type: "number", description: "Number of low severity" },
+            compromised_emails: { 
+              type: "array", 
+              items: { type: "string" },
+              description: "List of compromised email addresses"
+            },
+            breach_sources: { 
+              type: "array", 
+              items: { type: "string" },
+              description: "List of breach sources/databases"
+            },
+            compromises_detail: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  email: { type: "string" },
+                  password: { type: "string", description: "Password if visible (may be partial/masked)" },
+                  source: { type: "string", description: "Breach source" },
+                  breach_date: { type: "string" },
+                  severity: { type: "string", enum: ["critical", "high", "medium", "low"] }
+                }
+              }
+            }
+          }
+        }
       });
-      if (response.data.success) {
-        setDarkWebOrgs(response.data.organizations || []);
-        toast.success(`Loaded ${response.data.organizations?.length || 0} organizations`);
-      } else {
-        toast.error(response.data.error || 'Failed to load organizations');
+
+      if (result) {
+        setExtractedData({ ...result, pdf_url: file_url });
+        
+        if (result.customer_name && !selectedCustomer) {
+          const matchedCustomer = customers.find(c => {
+            const normalizedCustomerName = c.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const normalizedExtracted = result.customer_name.toLowerCase().replace(/[^a-z0-9]/g, '');
+            return normalizedCustomerName.includes(normalizedExtracted) || 
+                   normalizedExtracted.includes(normalizedCustomerName);
+          });
+          if (matchedCustomer) {
+            setSelectedCustomer(matchedCustomer.id);
+          }
+        }
+        
+        if (result.report_period_start) setPeriodStart(result.report_period_start);
+        if (result.report_period_end) setPeriodEnd(result.report_period_end);
+        if (result.report_date) setReportDate(result.report_date);
+        
+        toast.success('Data extracted from PDF');
       }
     } catch (error) {
       toast.error(error.message);
     } finally {
-      setIsLoadingOrgs(false);
+      setIsExtracting(false);
     }
   };
 
-  const handleAddMapping = async () => {
-    if (!selectedCustomer || !selectedOrg) {
-      toast.error('Please select both a customer and an organization');
+  const handleSaveReport = async () => {
+    if (!selectedCustomer || !reportDate) {
+      toast.error('Please select a customer and report date');
       return;
     }
 
-    const customer = customers.find(c => c.id === selectedCustomer);
-    const org = darkWebOrgs.find(o => (o.uuid || o.id) === selectedOrg);
-
+    setIsUploading(true);
     try {
-      await base44.entities.DarkWebIDMapping.create({
+      const customer = customers.find(c => c.id === selectedCustomer);
+      
+      let pdfUrl = extractedData?.pdf_url;
+      if (!pdfUrl && selectedFile) {
+        const { file_url } = await base44.integrations.Core.UploadFile({ file: selectedFile });
+        pdfUrl = file_url;
+      }
+
+      await base44.entities.DarkWebIDReport.create({
         customer_id: selectedCustomer,
         customer_name: customer?.name,
-        darkweb_organization_uuid: selectedOrg
+        report_date: reportDate,
+        report_period_start: periodStart || null,
+        report_period_end: periodEnd || null,
+        pdf_url: pdfUrl,
+        total_compromises: extractedData?.total_compromises || 0,
+        new_compromises: extractedData?.new_compromises || 0,
+        critical_count: extractedData?.critical_count || 0,
+        high_count: extractedData?.high_count || 0,
+        medium_count: extractedData?.medium_count || 0,
+        low_count: extractedData?.low_count || 0,
+        compromised_emails: extractedData?.compromised_emails ? JSON.stringify(extractedData.compromised_emails) : null,
+        breach_sources: extractedData?.breach_sources ? JSON.stringify(extractedData.breach_sources) : null,
+        compromises_detail: extractedData?.compromises_detail ? JSON.stringify(extractedData.compromises_detail) : null
       });
-      toast.success('Mapping created successfully');
-      queryClient.invalidateQueries({ queryKey: ['darkwebid-mappings'] });
-      setShowAddModal(false);
-      setSelectedCustomer('');
-      setSelectedOrg('');
+
+      toast.success('Report saved successfully');
+      queryClient.invalidateQueries({ queryKey: ['darkwebid-reports'] });
+      resetForm();
     } catch (error) {
       toast.error(error.message);
+    } finally {
+      setIsUploading(false);
     }
   };
 
-  const handleDeleteMapping = async (mappingId) => {
-    if (!confirm('Are you sure you want to remove this mapping?')) return;
-    try {
-      await base44.entities.DarkWebIDMapping.delete(mappingId);
-      toast.success('Mapping removed');
-      queryClient.invalidateQueries({ queryKey: ['darkwebid-mappings'] });
-    } catch (error) {
-      toast.error(error.message);
-    }
+  const resetForm = () => {
+    setShowUploadModal(false);
+    setSelectedCustomer('');
+    setReportDate('');
+    setPeriodStart('');
+    setPeriodEnd('');
+    setSelectedFile(null);
+    setExtractedData(null);
   };
 
-  const handleSyncCustomer = async (customerId) => {
+  const handleDeleteReport = async (reportId) => {
+    if (!confirm('Are you sure you want to delete this report?')) return;
     try {
-      const response = await base44.functions.invoke('syncDarkWebID', {
-        action: 'sync_customer',
-        customer_id: customerId
-      });
-      if (response.data.success) {
-        toast.success(`Synced ${response.data.synced} new compromises`);
-        queryClient.invalidateQueries({ queryKey: ['darkwebid-mappings'] });
-      } else {
-        toast.error(response.data.error || 'Sync failed');
-      }
+      await base44.entities.DarkWebIDReport.delete(reportId);
+      toast.success('Report deleted');
+      queryClient.invalidateQueries({ queryKey: ['darkwebid-reports'] });
     } catch (error) {
       toast.error(error.message);
     }
@@ -166,141 +242,107 @@ export default function DarkWebIDConfig() {
           </div>
           <div>
             <h3 className="font-semibold text-slate-900">Dark Web ID</h3>
-            <p className="text-sm text-slate-500">Monitor dark web compromises for your customers</p>
+            <p className="text-sm text-slate-500">Upload dark web monitoring reports for QBR tracking</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            onClick={handleTestConnection}
-            disabled={isTesting}
-          >
-            {isTesting ? (
-              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <CheckCircle2 className="w-4 h-4 mr-2" />
-            )}
-            Test Connection
-          </Button>
-          <Button onClick={() => {
-            setShowAddModal(true);
-            if (darkWebOrgs.length === 0) {
-              handleLoadOrganizations();
-            }
-          }}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Mapping
-          </Button>
-        </div>
+        <Button onClick={() => setShowUploadModal(true)}>
+          <Upload className="w-4 h-4 mr-2" />
+          Upload Report
+        </Button>
       </div>
 
-      {/* Connection Result */}
-      {connectionResult && !connectionResult.success && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-500 mt-0.5" />
-            <div className="flex-1">
-              <h4 className="font-medium text-red-800">{connectionResult.error}</h4>
-              {connectionResult.outgoing_ip && (
-                <p className="text-sm text-red-700 mt-1">
-                  Base44 Outgoing IP: <code className="bg-red-100 px-1.5 py-0.5 rounded font-mono">{connectionResult.outgoing_ip}</code>
-                </p>
-              )}
-              {connectionResult.hint && (
-                <p className="text-sm text-red-600 mt-2">{connectionResult.hint}</p>
-              )}
-              {connectionResult.response_preview && (
-                <details className="mt-3">
-                  <summary className="text-xs text-red-600 cursor-pointer">Show response preview</summary>
-                  <pre className="mt-2 text-xs bg-red-100 p-2 rounded overflow-x-auto max-h-32">
-                    {connectionResult.response_preview}
-                  </pre>
-                </details>
-              )}
-              <p className="text-xs text-red-500 mt-3">
-                Note: Base44 uses multiple outgoing IPs. You may need to whitelist: 34.102.44.165, 34.186.176.2, 34.102.96.46
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Info Banner */}
+      <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+        <p className="text-sm text-red-800">
+          <strong>Note:</strong> Export your Dark Web ID reports as PDF and upload them here. 
+          The system will extract key metrics automatically for QBR reporting and customer visibility.
+        </p>
+      </div>
 
-      {connectionResult && connectionResult.success && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <CheckCircle2 className="w-5 h-5 text-green-500" />
-            <div>
-              <h4 className="font-medium text-green-800">Connected successfully!</h4>
-              <p className="text-sm text-green-700">Found {connectionResult.organizations?.length || 0} organizations</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Mappings Table */}
+      {/* Reports Table */}
       <div className="bg-white rounded-xl border border-slate-200">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Customer</TableHead>
-              <TableHead>Dark Web ID Organization</TableHead>
-              <TableHead>Last Sync</TableHead>
+              <TableHead>Report Date</TableHead>
+              <TableHead>Total</TableHead>
+              <TableHead>Critical</TableHead>
+              <TableHead>High</TableHead>
+              <TableHead>New</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loadingMappings ? (
+            {loadingReports ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8">
-                  <RefreshCw className="w-5 h-5 animate-spin mx-auto text-slate-400" />
+                <TableCell colSpan={7} className="text-center py-8">
+                  <Loader2 className="w-5 h-5 animate-spin mx-auto text-slate-400" />
                 </TableCell>
               </TableRow>
-            ) : mappings.length === 0 ? (
+            ) : reports.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8">
+                <TableCell colSpan={7} className="text-center py-8">
                   <Shield className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                  <p className="text-slate-500">No customer mappings configured</p>
-                  <p className="text-sm text-slate-400">Add a mapping to start monitoring dark web compromises</p>
+                  <p className="text-slate-500">No reports uploaded yet</p>
+                  <p className="text-sm text-slate-400">Upload a Dark Web ID report to get started</p>
                 </TableCell>
               </TableRow>
             ) : (
-              mappings.map(mapping => (
-                <TableRow key={mapping.id}>
+              reports.map(report => (
+                <TableRow key={report.id}>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Building2 className="w-4 h-4 text-slate-400" />
-                      <span className="font-medium">{mapping.customer_name}</span>
+                      <span className="font-medium">{report.customer_name}</span>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <code className="text-xs bg-slate-100 px-2 py-1 rounded">
-                      {mapping.darkweb_organization_uuid}
-                    </code>
+                    {format(new Date(report.report_date), 'MMM d, yyyy')}
                   </TableCell>
                   <TableCell>
-                    {mapping.last_sync ? (
-                      <span className="text-sm text-slate-600">
-                        {format(new Date(mapping.last_sync), 'MMM d, yyyy h:mm a')}
-                      </span>
+                    <Badge variant="outline">
+                      {report.total_compromises || 0}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {report.critical_count > 0 ? (
+                      <Badge variant="destructive">{report.critical_count}</Badge>
                     ) : (
-                      <Badge variant="outline" className="text-slate-400">Never</Badge>
+                      <span className="text-slate-400">0</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {report.high_count > 0 ? (
+                      <Badge className="bg-orange-100 text-orange-700">{report.high_count}</Badge>
+                    ) : (
+                      <span className="text-slate-400">0</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {report.new_compromises > 0 ? (
+                      <span className="text-red-600 font-medium">+{report.new_compromises}</span>
+                    ) : (
+                      <span className="text-emerald-600">0</span>
                     )}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleSyncCustomer(mapping.customer_id)}
-                      >
-                        <RefreshCw className="w-3 h-3 mr-1" />
-                        Sync
-                      </Button>
+                      {report.pdf_url && (
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => window.open(report.pdf_url, '_blank')}
+                        >
+                          <Eye className="w-3 h-3 mr-1" />
+                          View
+                        </Button>
+                      )}
                       <Button 
                         size="sm" 
                         variant="ghost"
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => handleDeleteMapping(mapping.id)}
+                        onClick={() => handleDeleteReport(report.id)}
                       >
                         <Trash2 className="w-3 h-3" />
                       </Button>
@@ -313,86 +355,142 @@ export default function DarkWebIDConfig() {
         </Table>
       </div>
 
-      {/* Add Mapping Modal */}
-      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent>
+      {/* Upload Modal */}
+      <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
+        <DialogContent className="max-w-lg" style={{ zIndex: 9999 }}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <LinkIcon className="w-5 h-5 text-purple-600" />
-              Map Customer to Dark Web ID
+              <Upload className="w-5 h-5 text-red-600" />
+              Upload Dark Web ID Report
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-4">
             <div>
-              <label className="text-sm font-medium text-slate-700 mb-1.5 block">
-                Select Customer
-              </label>
+              <Label>Customer</Label>
               <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a customer..." />
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder="Select customer..." />
                 </SelectTrigger>
-                <SelectContent>
-                  {unmappedCustomers.map(customer => (
+                <SelectContent style={{ zIndex: 10000 }}>
+                  {customers.map(customer => (
                     <SelectItem key={customer.id} value={customer.id}>
                       {customer.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {unmappedCustomers.length === 0 && (
-                <p className="text-xs text-slate-500 mt-1">All customers are already mapped</p>
-              )}
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label>Report Date</Label>
+                <Input 
+                  type="date" 
+                  value={reportDate}
+                  onChange={(e) => setReportDate(e.target.value)}
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label>Period Start</Label>
+                <Input 
+                  type="date" 
+                  value={periodStart}
+                  onChange={(e) => setPeriodStart(e.target.value)}
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label>Period End</Label>
+                <Input 
+                  type="date" 
+                  value={periodEnd}
+                  onChange={(e) => setPeriodEnd(e.target.value)}
+                  className="mt-1.5"
+                />
+              </div>
             </div>
 
             <div>
-              <label className="text-sm font-medium text-slate-700 mb-1.5 block">
-                Dark Web ID Organization
-              </label>
-              {isLoadingOrgs ? (
-                <div className="flex items-center gap-2 text-sm text-slate-500 py-2">
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  Loading organizations...
-                </div>
-              ) : darkWebOrgs.length > 0 ? (
-                <Select value={selectedOrg} onValueChange={setSelectedOrg}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose an organization..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {darkWebOrgs.map(org => (
-                      <SelectItem key={org.uuid || org.id} value={org.uuid || org.id}>
-                        {org.name || org.organization_name || org.uuid || org.id}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <div className="space-y-2">
-                  <Input 
-                    placeholder="Enter organization UUID manually"
-                    value={selectedOrg}
-                    onChange={(e) => setSelectedOrg(e.target.value)}
-                  />
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleLoadOrganizations}
-                    disabled={isLoadingOrgs}
-                  >
-                    <RefreshCw className={cn("w-3 h-3 mr-1", isLoadingOrgs && "animate-spin")} />
-                    Load from Dark Web ID
-                  </Button>
-                </div>
-              )}
+              <Label>PDF Report</Label>
+              <div className="mt-1.5 border-2 border-dashed border-slate-200 rounded-lg p-4 text-center">
+                {selectedFile ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <FileText className="w-5 h-5 text-red-600" />
+                    <span className="text-sm font-medium">{selectedFile.name}</span>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      onClick={() => {
+                        setSelectedFile(null);
+                        setExtractedData(null);
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer">
+                    <input 
+                      type="file" 
+                      accept=".pdf"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                    <div className="text-slate-500">
+                      <Upload className="w-8 h-8 mx-auto mb-2 text-slate-400" />
+                      <p className="text-sm">Click to select PDF</p>
+                    </div>
+                  </label>
+                )}
+              </div>
             </div>
 
+            {isExtracting && (
+              <div className="flex items-center justify-center gap-2 py-3 text-slate-600">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm">Extracting data from PDF...</span>
+              </div>
+            )}
+
+            {extractedData && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 max-h-48 overflow-y-auto">
+                <p className="text-sm font-medium text-red-800 mb-2">Extracted Data:</p>
+                <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-xs">
+                  <div>Total: <strong>{extractedData.total_compromises || 0}</strong></div>
+                  <div>New: <strong className="text-red-600">+{extractedData.new_compromises || 0}</strong></div>
+                  <div>Critical: <strong className="text-red-600">{extractedData.critical_count || 0}</strong></div>
+                  <div>High: <strong className="text-orange-600">{extractedData.high_count || 0}</strong></div>
+                  <div>Medium: <strong className="text-yellow-600">{extractedData.medium_count || 0}</strong></div>
+                  <div>Low: <strong>{extractedData.low_count || 0}</strong></div>
+                </div>
+                {extractedData.compromised_emails?.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-red-200">
+                    <p className="text-xs text-red-700 font-medium">Compromised emails: {extractedData.compromised_emails.length}</p>
+                  </div>
+                )}
+                {extractedData.breach_sources?.length > 0 && (
+                  <p className="text-xs text-red-700">Breach sources: {extractedData.breach_sources.length}</p>
+                )}
+              </div>
+            )}
+
             <div className="flex justify-end gap-3 pt-4">
-              <Button variant="outline" onClick={() => setShowAddModal(false)}>
+              <Button variant="outline" onClick={resetForm}>
                 Cancel
               </Button>
-              <Button onClick={handleAddMapping}>
-                <Plus className="w-4 h-4 mr-2" />
-                Create Mapping
+              <Button onClick={handleSaveReport} disabled={isUploading || !selectedCustomer || !reportDate}>
+                {isUploading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Save Report
+                  </>
+                )}
               </Button>
             </div>
           </div>
