@@ -8,17 +8,20 @@ import {
   AlertTriangle,
   Activity,
   CheckCircle2,
-  ExternalLink
+  ExternalLink,
+  FileText
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import DattoEDRDetailModal from './DattoEDRDetailModal';
+import DattoEDRReportModal from './DattoEDRReportModal';
 
-export default function DattoEDRTab({ customerId, edrMapping }) {
+export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
   const [syncing, setSyncing] = useState(false);
   const [edrData, setEdrData] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const handleSync = async () => {
     if (!edrMapping) return;
@@ -61,16 +64,29 @@ export default function DattoEDRTab({ customerId, edrMapping }) {
           </p>
         </div>
         {!notMapped && (
-          <Button
-            onClick={handleSync}
-            disabled={syncing}
-            variant="outline"
-            size="sm"
-            className="gap-2"
-          >
-            <RefreshCw className={cn("w-4 h-4", syncing && "animate-spin")} />
-            {syncing ? 'Loading...' : 'Refresh'}
-          </Button>
+          <div className="flex gap-2">
+            {edrData && (
+              <Button
+                onClick={() => setShowReportModal(true)}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+              >
+                <FileText className="w-4 h-4" />
+                3-Month Report
+              </Button>
+            )}
+            <Button
+              onClick={handleSync}
+              disabled={syncing}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+            >
+              <RefreshCw className={cn("w-4 h-4", syncing && "animate-spin")} />
+              {syncing ? 'Loading...' : 'Refresh'}
+            </Button>
+          </div>
         )}
       </div>
 
@@ -255,6 +271,17 @@ export default function DattoEDRTab({ customerId, edrMapping }) {
           onOpenChange={setShowDetailModal}
           edrData={edrData}
           tenantName={edrMapping?.edr_tenant_name}
+        />
+      )}
+
+      {/* Report Generation Modal */}
+      {!notMapped && (
+        <DattoEDRReportModal
+          open={showReportModal}
+          onOpenChange={setShowReportModal}
+          edrData={edrData}
+          tenantName={edrMapping?.edr_tenant_name}
+          customerName={customerName}
         />
       )}
     </div>
