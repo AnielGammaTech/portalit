@@ -74,41 +74,46 @@ Deno.serve(async (req) => {
 
       console.log('Target ID:', targetId);
       
-      // Fetch target details AND hosts for this target
+      // Fetch target details AND try multiple endpoint patterns for hosts
       const targetUrl = addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}`);
-      // Try the 'where' filter syntax common in LoopBack APIs
-      const hostsUrl = addAuth(`${DATTO_EDR_BASE_URL}/hosts?where={"targetId":"${targetId}"}`);
       
-      const [targetRes, hostsRes] = await Promise.all([
-        fetch(targetUrl, { headers }).catch(e => null),
-        fetch(hostsUrl, { headers }).catch(e => null)
-      ]);
+      const targetRes = await fetch(targetUrl, { headers }).catch(e => null);
       
       let targetData = null;
-      let hostsData = [];
-      
       if (targetRes?.ok) {
         const raw = await targetRes.text();
         try { targetData = JSON.parse(raw); } catch(e) { console.log('Target parse err:', e); }
       }
       
-      console.log('Hosts response status:', hostsRes?.status);
+      // Try multiple host endpoint patterns
+      const hostEndpoints = [
+        `${DATTO_EDR_BASE_URL}/Hosts`,
+        `${DATTO_EDR_BASE_URL}/hosts`,
+        `${DATTO_EDR_BASE_URL}/endpoints`,
+        `${DATTO_EDR_BASE_URL}/agents`
+      ];
       
-      if (hostsRes?.ok) {
-        const raw = await hostsRes.text();
-        console.log('Hosts response length:', raw.length);
-        console.log('Hosts sample:', raw.slice(0, 1500));
-        try { 
-          const parsed = JSON.parse(raw);
-          hostsData = Array.isArray(parsed) ? parsed : parsed?.data || parsed?.hosts || [];
-        } catch(e) { console.log('Hosts parse err:', e); }
-      } else if (hostsRes) {
-        const errText = await hostsRes.text().catch(() => '');
-        console.log('Hosts error:', errText.slice(0, 500));
+      let hostsData = [];
+      for (const endpoint of hostEndpoints) {
+        const hostsRes = await fetch(addAuth(endpoint), { headers }).catch(() => null);
+        console.log(`Trying ${endpoint}: ${hostsRes?.status}`);
+        if (hostsRes?.ok) {
+          const raw = await hostsRes.text();
+          console.log('Hosts sample:', raw.slice(0, 1000));
+          try { 
+            const parsed = JSON.parse(raw);
+            hostsData = Array.isArray(parsed) ? parsed : parsed?.data || parsed?.hosts || [];
+            if (hostsData.length > 0) {
+              console.log('Host keys:', Object.keys(hostsData[0]));
+              break;
+            }
+          } catch(e) {}
+        }
       }
       
-      const hosts = hostsData;
-      console.log(`Found ${hosts.length} hosts for target`);
+      // Filter hosts for this target if we got any
+      const hosts = hostsData.filter(h => h.targetId === targetId);
+      console.log(`Found ${hosts.length} hosts for target ${targetId} out of ${hostsData.length} total`);
       
       // Use target-level stats
       const targetStats = targetData ? {
