@@ -111,7 +111,7 @@ export default function DattoEDRTab({ customerId, edrMapping }) {
               </div>
               <div>
                 <p className="text-2xl font-bold">{edrData?.activeHostCount || 0}</p>
-                <p className="text-xs text-slate-500">Active Agents</p>
+                <p className="text-xs text-slate-500">Online Agents</p>
               </div>
             </div>
           </CardContent>
@@ -169,7 +169,7 @@ export default function DattoEDRTab({ customerId, edrMapping }) {
         <CardHeader>
           <CardTitle>EDR Protection Summary</CardTitle>
           <CardDescription>
-            {edrData?.hostCount || 0} total agents deployed, {edrData?.activeHostCount || 0} currently active
+            {edrData?.hostCount || 0} total agents deployed, {edrData?.activeHostCount || 0} currently online
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -206,7 +206,7 @@ export default function DattoEDRTab({ customerId, edrMapping }) {
                   <span className="text-2xl font-bold text-green-600">{edrData?.activeHostCount || 0}</span>
                   <span className="text-slate-500">/ {edrData?.hostCount || 0}</span>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">Active / Total Agents</p>
+                <p className="text-xs text-slate-500 mt-1">Online / Total Agents</p>
               </div>
               
               <div className="p-4 bg-slate-50 rounded-lg">
