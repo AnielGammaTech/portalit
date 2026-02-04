@@ -34,11 +34,8 @@ Deno.serve(async (req) => {
     };
 
     if (action === 'list_tenants') {
-      // List all EDR organizations/targets with their host counts
-      const [targetsRes, hostsRes] = await Promise.all([
-        fetch(addAuth(`${DATTO_EDR_BASE_URL}/targets`), { headers }),
-        fetch(addAuth(`${DATTO_EDR_BASE_URL}/hosts`), { headers }).catch(() => null)
-      ]);
+      // List all EDR organizations/targets - use embedded stats from targets endpoint
+      const targetsRes = await fetch(addAuth(`${DATTO_EDR_BASE_URL}/targets`), { headers });
 
       if (!targetsRes.ok) {
         const errorText = await targetsRes.text();
@@ -47,30 +44,18 @@ Deno.serve(async (req) => {
       }
 
       const data = await targetsRes.json();
-      const hostsData = hostsRes?.ok ? await hostsRes.json() : [];
-      const allHosts = Array.isArray(hostsData) ? hostsData : hostsData?.data || [];
       
-      console.log('Total hosts in system:', allHosts.length);
-      console.log('Sample host:', JSON.stringify(allHosts[0] || {}).slice(0, 500));
-      
-      // Count hosts per target
-      const hostCountByTarget = {};
-      for (const host of allHosts) {
-        const tid = host.targetId;
-        if (tid) {
-          hostCountByTarget[tid] = (hostCountByTarget[tid] || 0) + 1;
-        }
-      }
-      
-      // Infocyte returns targets (organizations)
+      // Infocyte returns targets (organizations) with embedded agent counts
       const targetsArray = data.data || data.targets || data || [];
       const tenants = targetsArray.map(t => ({
         id: t.id || t.targetId,
         name: t.name || t.organizationName || t.targetName,
-        deviceCount: hostCountByTarget[t.id || t.targetId] || t.hostCount || t.endpointCount || 0
+        deviceCount: t.agentCount || t.hostCount || t.endpointCount || 0,
+        activeCount: t.activeAgentCount || 0,
+        alertCount: parseInt(t.alertCount) || 0
       }));
 
-      return Response.json({ success: true, tenants, totalHosts: allHosts.length });
+      return Response.json({ success: true, tenants });
     }
 
     if (action === 'sync_customer') {
