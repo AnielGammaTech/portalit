@@ -148,20 +148,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'get_reports') {
-      // Fetch reports from Datto EDR API
-      if (!customer_id) {
-        return Response.json({ success: false, error: 'customer_id required' });
-      }
-
-      const mappings = await base44.entities.DattoEDRMapping.filter({ customer_id });
-      if (mappings.length === 0) {
-        return Response.json({ success: false, error: 'Customer not mapped to EDR tenant' });
-      }
-
-      const mapping = mappings[0];
-      const targetId = mapping.edr_tenant_id;
-
-      // Fetch reports for this target
+      // Fetch all reports from Datto EDR API
       const reportsUrl = addAuth(`${DATTO_EDR_BASE_URL}/Reports`);
       const reportsRes = await fetch(reportsUrl, { headers });
       
@@ -171,16 +158,15 @@ Deno.serve(async (req) => {
 
       const allReports = await reportsRes.json();
       const reportsArray = Array.isArray(allReports) ? allReports : allReports?.data || [];
-      
-      // Filter reports for this target/location
-      const targetReports = reportsArray.filter(r => r.targetId === targetId || r.locationId === targetId);
-      
-      console.log(`Found ${targetReports.length} reports for target ${targetId} out of ${reportsArray.length} total`);
+
+      // Log report structure for debugging
+      if (reportsArray.length > 0) {
+        console.log('Report keys:', Object.keys(reportsArray[0]));
+      }
 
       return Response.json({ 
         success: true, 
-        reports: targetReports,
-        allReports: reportsArray.slice(0, 5) // Sample for debugging
+        reports: reportsArray
       });
     }
 
@@ -198,15 +184,25 @@ Deno.serve(async (req) => {
       const mapping = mappings[0];
       const targetId = mapping.edr_tenant_id;
 
-      const { report_type, start_date, end_date } = await req.json().catch(() => ({}));
+      // Get request body
+      const body = await req.json();
+      const { report_name, report_type, start_date, end_date } = body;
 
-      // Create report request
+      // Calculate date range - default to last 3 months
+      const endDt = end_date ? new Date(end_date) : new Date();
+      const startDt = start_date ? new Date(start_date) : new Date(endDt.getTime() - 90 * 24 * 60 * 60 * 1000);
+
+      // Create report request payload for Infocyte
       const reportPayload = {
+        name: report_name || `${mapping.edr_tenant_name || 'Customer'} - EDR Report`,
+        type: report_type || 'executiveThreat',
+        format: 'pdf',
         targetId: targetId,
-        type: report_type || 'summary',
-        startDate: start_date,
-        endDate: end_date
+        startDate: startDt.toISOString(),
+        endDate: endDt.toISOString()
       };
+
+      console.log('Creating report with payload:', JSON.stringify(reportPayload));
 
       const createRes = await fetch(addAuth(`${DATTO_EDR_BASE_URL}/Reports`), {
         method: 'POST',
@@ -214,13 +210,20 @@ Deno.serve(async (req) => {
         body: JSON.stringify(reportPayload)
       });
 
+      const responseText = await createRes.text();
+      console.log('Report creation response:', createRes.status, responseText);
+
       if (!createRes.ok) {
-        const errText = await createRes.text();
-        console.log('Report creation error:', errText);
-        return Response.json({ success: false, error: `Failed to create report: ${createRes.status}` });
+        return Response.json({ success: false, error: `Failed to create report: ${createRes.status} - ${responseText}` });
       }
 
-      const report = await createRes.json();
+      let report;
+      try {
+        report = JSON.parse(responseText);
+      } catch (e) {
+        report = { raw: responseText };
+      }
+
       return Response.json({ success: true, report });
     }
 
