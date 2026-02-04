@@ -281,6 +281,44 @@ export default function DattoEDRDetailModal({ open, onOpenChange, edrData, tenan
               </CardContent>
             </Card>
           )}
+
+          {/* Endpoint List */}
+          {edrData?.hosts && edrData.hosts.length > 0 && (
+            <Card>
+              <CardContent className="pt-6">
+                <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                  <Monitor className="w-4 h-4" />
+                  Protected Endpoints ({edrData.hosts.length})
+                </h3>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {edrData.hosts.map((host, idx) => (
+                    <div 
+                      key={host.id || idx}
+                      className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg"
+                    >
+                      <div className={cn(
+                        "w-2.5 h-2.5 rounded-full flex-shrink-0",
+                        host.online ? "bg-green-500" : "bg-slate-300"
+                      )} />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-slate-900 truncate">{host.hostname || 'Unknown'}</p>
+                        <p className="text-xs text-slate-500">
+                          {host.ip && <span>{host.ip} • </span>}
+                          {host.os || 'Unknown OS'}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className={cn(
+                        "text-xs",
+                        host.online ? "text-green-600 border-green-200" : "text-slate-500"
+                      )}>
+                        {host.online ? 'Online' : 'Offline'}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </DialogContent>
     </Dialog>
