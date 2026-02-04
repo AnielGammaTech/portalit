@@ -91,7 +91,9 @@ Deno.serve(async (req) => {
       
       // Fetch target details AND all hosts from global endpoint
       const targetUrl = addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}`);
-      const allHostsUrl = addAuth(`${DATTO_EDR_BASE_URL}/hosts`);
+      const allHostsUrl = addAuth(`${DATTO_EDR_BASE_URL}/hosts?filter[targetId]=${targetId}`);
+      
+      console.log('Fetching hosts URL:', allHostsUrl.replace(DATTO_EDR_API_TOKEN, '***'));
       
       const [targetRes, allHostsRes] = await Promise.all([
         fetch(targetUrl, { headers }).catch(e => null),
@@ -103,20 +105,25 @@ Deno.serve(async (req) => {
       
       if (targetRes?.ok) {
         const raw = await targetRes.text();
-        try { targetData = JSON.parse(raw); } catch(e) { console.log('Parse err:', e); }
+        try { targetData = JSON.parse(raw); } catch(e) { console.log('Target parse err:', e); }
       }
+      
+      console.log('All hosts response status:', allHostsRes?.status);
       
       if (allHostsRes?.ok) {
         const raw = await allHostsRes.text();
+        console.log('Hosts response sample:', raw.slice(0, 2000));
         try { 
           const parsed = JSON.parse(raw);
-          allHostsData = Array.isArray(parsed) ? parsed : parsed?.data || [];
-        } catch(e) { console.log('Parse err:', e); }
+          allHostsData = Array.isArray(parsed) ? parsed : parsed?.data || parsed?.hosts || [];
+        } catch(e) { console.log('Hosts parse err:', e); }
+      } else if (allHostsRes) {
+        console.log('Hosts error:', await allHostsRes.text().catch(() => ''));
       }
       
-      // Filter hosts for this specific target
-      const hosts = allHostsData.filter(h => h.targetId === targetId);
-      console.log(`Found ${hosts.length} hosts for target ${targetId} out of ${allHostsData.length} total`);
+      // Filter hosts for this specific target if needed
+      const hosts = allHostsData.filter(h => !h.targetId || h.targetId === targetId);
+      console.log(`Found ${hosts.length} hosts for target ${targetId}`);
       
       // Use target-level stats
       const targetStats = targetData ? {
