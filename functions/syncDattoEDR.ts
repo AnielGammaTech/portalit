@@ -173,20 +173,46 @@ Deno.serve(async (req) => {
       if (report.status !== 'complete') {
         return Response.json({ 
           success: false, 
-          error: `Report is not ready yet. Status: ${report.status}`,
-          status: report.status
+          error: `Report is not ready yet. Status: ${report.status || 'pending'}`,
+          status: report.status || 'pending'
         });
       }
 
-      // Download the PDF - Infocyte uses /Reports/{id}/download endpoint
-      const downloadUrl = addAuth(`${DATTO_EDR_BASE_URL}/Reports/${report_id}/download`);
-      const downloadRes = await fetch(downloadUrl, { headers });
-      
-      if (!downloadRes.ok) {
-        return Response.json({ success: false, error: `Failed to download: ${downloadRes.status}` });
+      // Try multiple download URL patterns
+      const downloadUrls = [
+        addAuth(`${DATTO_EDR_BASE_URL}/Reports/${report_id}/download`),
+        addAuth(`${DATTO_EDR_BASE_URL}/Reports/${report_id}/file`),
+        addAuth(`${DATTO_EDR_BASE_URL}/reports/${report_id}/download`)
+      ];
+
+      let pdfBuffer = null;
+      let downloadError = null;
+
+      for (const downloadUrl of downloadUrls) {
+        console.log('Trying download URL:', downloadUrl.replace(DATTO_EDR_API_TOKEN, '***'));
+        const downloadRes = await fetch(downloadUrl, { headers });
+        
+        if (downloadRes.ok) {
+          pdfBuffer = await downloadRes.arrayBuffer();
+          break;
+        } else {
+          downloadError = `${downloadRes.status}`;
+          console.log('Download failed:', downloadRes.status);
+        }
       }
 
-      const pdfBuffer = await downloadRes.arrayBuffer();
+      if (!pdfBuffer) {
+        // If direct download fails, check if report has a data.filename and construct S3 URL
+        if (report.data?.bucket && report.data?.filename) {
+          console.log('Report has S3 data:', report.data);
+          return Response.json({ 
+            success: false, 
+            error: 'Direct download not available. Report available in Datto EDR console.',
+            s3Info: report.data
+          });
+        }
+        return Response.json({ success: false, error: `Failed to download: ${downloadError}` });
+      }
       
       return new Response(pdfBuffer, {
         status: 200,
