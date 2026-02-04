@@ -12,7 +12,8 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { action, customer_id } = await req.json();
+    const body = await req.json();
+    const { action, customer_id, report_name, report_type, start_date, end_date } = body;
 
     // Check if API token is configured
     if (!DATTO_EDR_API_TOKEN) {
@@ -183,10 +184,6 @@ Deno.serve(async (req) => {
 
       const mapping = mappings[0];
       const targetId = mapping.edr_tenant_id;
-
-      // Get request body
-      const body = await req.json();
-      const { report_name, report_type, start_date, end_date } = body;
 
       // Calculate date range - default to last 3 months
       const endDt = end_date ? new Date(end_date) : new Date();
