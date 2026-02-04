@@ -7,15 +7,18 @@ import {
   Monitor,
   AlertTriangle,
   Activity,
-  CheckCircle2
+  CheckCircle2,
+  ExternalLink
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import DattoEDRDetailModal from './DattoEDRDetailModal';
 
 export default function DattoEDRTab({ customerId, edrMapping }) {
   const [syncing, setSyncing] = useState(false);
   const [edrData, setEdrData] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   const handleSync = async () => {
     if (!edrMapping) return;
@@ -75,9 +78,12 @@ export default function DattoEDRTab({ customerId, edrMapping }) {
         </Button>
       </div>
 
-      {/* Summary Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
+      {/* Summary Stats - Clickable */}
+      <div 
+        className="grid grid-cols-2 md:grid-cols-4 gap-4 cursor-pointer"
+        onClick={() => edrData && setShowDetailModal(true)}
+      >
+        <Card className="hover:shadow-md hover:border-cyan-200 transition-all">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-cyan-100 rounded-lg">
@@ -90,7 +96,7 @@ export default function DattoEDRTab({ customerId, edrMapping }) {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md hover:border-green-200 transition-all">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-green-100 rounded-lg">
@@ -103,7 +109,10 @@ export default function DattoEDRTab({ customerId, edrMapping }) {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className={cn(
+          "hover:shadow-md transition-all",
+          edrData?.alertCount > 0 ? "hover:border-red-200" : "hover:border-green-200"
+        )}>
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <div className={cn(
@@ -122,7 +131,7 @@ export default function DattoEDRTab({ customerId, edrMapping }) {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:shadow-md hover:border-purple-200 transition-all">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-purple-100 rounded-lg">
@@ -140,6 +149,13 @@ export default function DattoEDRTab({ customerId, edrMapping }) {
           </CardContent>
         </Card>
       </div>
+      
+      {edrData && (
+        <p className="text-xs text-slate-400 text-center">
+          <ExternalLink className="w-3 h-3 inline mr-1" />
+          Click stats above for detailed QBR report
+        </p>
+      )}
 
       {/* EDR Summary Card */}
       <Card>
@@ -228,6 +244,14 @@ export default function DattoEDRTab({ customerId, edrMapping }) {
           Last synced: {new Date(edrMapping.last_synced).toLocaleString()}
         </p>
       )}
+
+      {/* Detail Modal */}
+      <DattoEDRDetailModal
+        open={showDetailModal}
+        onOpenChange={setShowDetailModal}
+        edrData={edrData}
+        tenantName={edrMapping?.edr_tenant_name}
+      />
     </div>
   );
 }
