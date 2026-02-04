@@ -282,14 +282,14 @@ export default function DattoEDRDetailModal({ open, onOpenChange, edrData, tenan
             </Card>
           )}
 
-          {/* Endpoint List */}
-          {edrData?.hosts && edrData.hosts.length > 0 && (
-            <Card>
-              <CardContent className="pt-6">
-                <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                  <Monitor className="w-4 h-4" />
-                  Protected Endpoints ({edrData.hosts.length})
-                </h3>
+          {/* Endpoint List or Info */}
+          <Card>
+            <CardContent className="pt-6">
+              <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <Monitor className="w-4 h-4" />
+                Protected Endpoints
+              </h3>
+              {edrData?.hosts && edrData.hosts.length > 0 ? (
                 <div className="space-y-2 max-h-64 overflow-y-auto">
                   {edrData.hosts.map((host, idx) => (
                     <div 
@@ -316,9 +316,19 @@ export default function DattoEDRDetailModal({ open, onOpenChange, edrData, tenan
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              ) : (
+                <div className="text-center py-6 bg-slate-50 rounded-lg">
+                  <Monitor className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                  <p className="text-sm text-slate-600 font-medium">
+                    {edrData?.hostCount || 0} endpoints protected
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    View individual endpoint details in the Datto EDR console
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </DialogContent>
     </Dialog>
