@@ -147,6 +147,83 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === 'get_reports') {
+      // Fetch reports from Datto EDR API
+      if (!customer_id) {
+        return Response.json({ success: false, error: 'customer_id required' });
+      }
+
+      const mappings = await base44.entities.DattoEDRMapping.filter({ customer_id });
+      if (mappings.length === 0) {
+        return Response.json({ success: false, error: 'Customer not mapped to EDR tenant' });
+      }
+
+      const mapping = mappings[0];
+      const targetId = mapping.edr_tenant_id;
+
+      // Fetch reports for this target
+      const reportsUrl = addAuth(`${DATTO_EDR_BASE_URL}/Reports`);
+      const reportsRes = await fetch(reportsUrl, { headers });
+      
+      if (!reportsRes.ok) {
+        return Response.json({ success: false, error: `Failed to fetch reports: ${reportsRes.status}` });
+      }
+
+      const allReports = await reportsRes.json();
+      const reportsArray = Array.isArray(allReports) ? allReports : allReports?.data || [];
+      
+      // Filter reports for this target/location
+      const targetReports = reportsArray.filter(r => r.targetId === targetId || r.locationId === targetId);
+      
+      console.log(`Found ${targetReports.length} reports for target ${targetId} out of ${reportsArray.length} total`);
+
+      return Response.json({ 
+        success: true, 
+        reports: targetReports,
+        allReports: reportsArray.slice(0, 5) // Sample for debugging
+      });
+    }
+
+    if (action === 'generate_report') {
+      // Create a new report via POST /api/Reports
+      if (!customer_id) {
+        return Response.json({ success: false, error: 'customer_id required' });
+      }
+
+      const mappings = await base44.entities.DattoEDRMapping.filter({ customer_id });
+      if (mappings.length === 0) {
+        return Response.json({ success: false, error: 'Customer not mapped to EDR tenant' });
+      }
+
+      const mapping = mappings[0];
+      const targetId = mapping.edr_tenant_id;
+
+      const { report_type, start_date, end_date } = await req.json().catch(() => ({}));
+
+      // Create report request
+      const reportPayload = {
+        targetId: targetId,
+        type: report_type || 'summary',
+        startDate: start_date,
+        endDate: end_date
+      };
+
+      const createRes = await fetch(addAuth(`${DATTO_EDR_BASE_URL}/Reports`), {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(reportPayload)
+      });
+
+      if (!createRes.ok) {
+        const errText = await createRes.text();
+        console.log('Report creation error:', errText);
+        return Response.json({ success: false, error: `Failed to create report: ${createRes.status}` });
+      }
+
+      const report = await createRes.json();
+      return Response.json({ success: true, report });
+    }
+
     if (action === 'sync_all') {
       // Sync all mapped customers
       const allMappings = await base44.entities.DattoEDRMapping.list();
