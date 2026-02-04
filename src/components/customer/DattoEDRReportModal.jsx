@@ -134,6 +134,9 @@ export default function DattoEDRReportModal({ open, onOpenChange, edrData, tenan
         window.URL.revokeObjectURL(url);
         a.remove();
         toast.success('Report downloaded!');
+      } else if (response.data.s3Info) {
+        // Report is in S3, direct download not available
+        toast.info('Report generated! Download from Datto EDR console.');
       } else if (response.data.error) {
         toast.error(response.data.error);
       } else {
