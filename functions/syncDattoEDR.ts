@@ -148,14 +148,70 @@ Deno.serve(async (req) => {
       const allReports = await reportsRes.json();
       const reportsArray = Array.isArray(allReports) ? allReports : allReports?.data || [];
 
-      if (reportsArray.length > 0) {
-        console.log('Report keys:', Object.keys(reportsArray[0]));
-      }
-
       return Response.json({ 
         success: true, 
         reports: reportsArray
       });
+    }
+
+    if (action === 'download_report') {
+      const { report_id } = body;
+      if (!report_id) {
+        return Response.json({ success: false, error: 'report_id required' });
+      }
+
+      // Get report details to check status
+      const reportUrl = addAuth(`${DATTO_EDR_BASE_URL}/Reports/${report_id}`);
+      const reportRes = await fetch(reportUrl, { headers });
+      
+      if (!reportRes.ok) {
+        return Response.json({ success: false, error: `Report not found: ${reportRes.status}` });
+      }
+
+      const report = await reportRes.json();
+      
+      if (report.status !== 'complete') {
+        return Response.json({ 
+          success: false, 
+          error: `Report is not ready yet. Status: ${report.status}`,
+          status: report.status
+        });
+      }
+
+      // Download the PDF - Infocyte uses /Reports/{id}/download endpoint
+      const downloadUrl = addAuth(`${DATTO_EDR_BASE_URL}/Reports/${report_id}/download`);
+      const downloadRes = await fetch(downloadUrl, { headers });
+      
+      if (!downloadRes.ok) {
+        return Response.json({ success: false, error: `Failed to download: ${downloadRes.status}` });
+      }
+
+      const pdfBuffer = await downloadRes.arrayBuffer();
+      
+      return new Response(pdfBuffer, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="${report.name || 'EDR-Report'}.pdf"`
+        }
+      });
+    }
+
+    if (action === 'check_report_status') {
+      const { report_id } = body;
+      if (!report_id) {
+        return Response.json({ success: false, error: 'report_id required' });
+      }
+
+      const reportUrl = addAuth(`${DATTO_EDR_BASE_URL}/Reports/${report_id}`);
+      const reportRes = await fetch(reportUrl, { headers });
+      
+      if (!reportRes.ok) {
+        return Response.json({ success: false, error: `Report not found: ${reportRes.status}` });
+      }
+
+      const report = await reportRes.json();
+      return Response.json({ success: true, report });
     }
 
     if (action === 'generate_report') {
