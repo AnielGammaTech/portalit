@@ -87,53 +87,38 @@ Deno.serve(async (req) => {
       const mapping = mappings[0];
       const targetId = mapping.edr_tenant_id;
 
-      // Infocyte/Datto EDR API - Get target details which contains agent counts
-      // Also fetch the hosts via the targets/{id} endpoint relation
       console.log('Target ID:', targetId);
       
-      // First get target details - this has agentCount, alertCount embedded
+      // Fetch target details AND all hosts from global endpoint
       const targetUrl = addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}`);
-      // Try to get hosts via target relation endpoint pattern
-      const hostsUrl = addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}/hosts`);
+      const allHostsUrl = addAuth(`${DATTO_EDR_BASE_URL}/hosts`);
       
-      console.log('Fetching target details and hosts...');
-      
-      const [targetRes, hostsRes] = await Promise.all([
+      const [targetRes, allHostsRes] = await Promise.all([
         fetch(targetUrl, { headers }).catch(e => null),
-        fetch(hostsUrl, { headers }).catch(e => null)
+        fetch(allHostsUrl, { headers }).catch(e => null)
       ]);
       
-      console.log('Target details status:', targetRes?.status);
-      console.log('Hosts relation status:', hostsRes?.status);
-      
       let targetData = null;
-      let hostsData = [];
+      let allHostsData = [];
       
       if (targetRes?.ok) {
         const raw = await targetRes.text();
-        console.log('Target details:', raw.slice(0, 1500));
         try { targetData = JSON.parse(raw); } catch(e) { console.log('Parse err:', e); }
-      } else if (targetRes) {
-        console.log('Target error:', await targetRes.text().catch(() => ''));
       }
       
-      if (hostsRes?.ok) {
-        const raw = await hostsRes.text();
-        console.log('Hosts response length:', raw.length);
-        console.log('Hosts sample:', raw.slice(0, 1500));
-        try { hostsData = JSON.parse(raw); } catch(e) { console.log('Parse err:', e); }
-      } else if (hostsRes) {
-        console.log('Hosts error:', await hostsRes.text().catch(() => ''));
+      if (allHostsRes?.ok) {
+        const raw = await allHostsRes.text();
+        try { 
+          const parsed = JSON.parse(raw);
+          allHostsData = Array.isArray(parsed) ? parsed : parsed?.data || [];
+        } catch(e) { console.log('Parse err:', e); }
       }
-
-      // Extract arrays from response
-      const hosts = Array.isArray(hostsData) ? hostsData : hostsData?.data || hostsData?.hosts || [];
-      // Get stats from target object if hosts list is empty
-      const alerts = [];
-      const scans = [];
-      const flaggedItems = [];
       
-      // Use target-level stats when detailed host list not available
+      // Filter hosts for this specific target
+      const hosts = allHostsData.filter(h => h.targetId === targetId);
+      console.log(`Found ${hosts.length} hosts for target ${targetId} out of ${allHostsData.length} total`);
+      
+      // Use target-level stats
       const targetStats = targetData ? {
         agentCount: targetData.agentCount || 0,
         activeAgentCount: targetData.activeAgentCount || 0,
@@ -141,12 +126,11 @@ Deno.serve(async (req) => {
         totalAddressCount: targetData.totalAddressCount || 0,
         lastScannedOn: targetData.lastScannedOn
       } : null;
-      
-      console.log('Target stats:', JSON.stringify(targetStats));
 
-      // Use target stats for counts, with host details if available
+      // Use actual hosts list if available, otherwise fall back to target stats
       const hostCount = hosts.length || targetStats?.agentCount || 0;
-      const activeCount = targetStats?.activeAgentCount || hosts.filter(h => h.online || h.connectionStatus === 'connected').length;
+      const activeHosts = hosts.filter(h => h.online || h.connectionStatus === 'connected' || h.agentStatus === 'Active');
+      const activeCount = activeHosts.length || targetStats?.activeAgentCount || 0;
       const alertCount = targetStats?.alertCount || 0;
       
       // Update mapping with last synced
@@ -159,24 +143,15 @@ Deno.serve(async (req) => {
         data: {
           hostCount: hostCount,
           activeHostCount: activeCount,
-          hosts: hosts.slice(0, 50).map(h => ({
+          hosts: hosts.slice(0, 100).map(h => ({
             id: h.id,
-            hostname: h.hostname || h.name,
-            ip: h.ip || h.ipAddress,
-            os: h.os || h.operatingSystem,
-            online: h.online || h.connectionStatus === 'connected',
-            lastSeen: h.lastSeen || h.updatedOn
+            hostname: h.hostname || h.name || h.computerName,
+            ip: h.ip || h.ipAddress || h.managementIp,
+            os: h.os || h.operatingSystem || h.osVersion,
+            online: h.online || h.connectionStatus === 'connected' || h.agentStatus === 'Active',
+            lastSeen: h.lastSeen || h.updatedOn || h.lastConnected
           })),
           alertCount: alertCount,
-          alerts: alerts.slice(0, 20).map(a => ({
-            id: a.id,
-            name: a.name || a.type || a.title,
-            severity: a.severity || (a.threatScore >= 7 ? 'critical' : a.threatScore >= 4 ? 'medium' : 'low'),
-            threatScore: a.threatScore,
-            hostname: a.hostname,
-            createdOn: a.createdOn || a.created_date,
-            status: a.status
-          })),
           criticalAlerts: 0,
           mediumAlerts: 0, 
           lowAlerts: 0,
