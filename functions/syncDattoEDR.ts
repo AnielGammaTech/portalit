@@ -35,7 +35,6 @@ Deno.serve(async (req) => {
     };
 
     if (action === 'list_tenants') {
-      // List all EDR organizations/targets - use embedded stats from targets endpoint
       const targetsRes = await fetch(addAuth(`${DATTO_EDR_BASE_URL}/targets`), { headers });
 
       if (!targetsRes.ok) {
@@ -45,8 +44,6 @@ Deno.serve(async (req) => {
       }
 
       const data = await targetsRes.json();
-      
-      // Infocyte returns targets (organizations) with embedded agent counts
       const targetsArray = data.data || data.targets || data || [];
       const tenants = targetsArray.map(t => ({
         id: t.id || t.targetId,
@@ -60,7 +57,6 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'sync_customer') {
-      // Sync a specific customer - get full EDR report data
       if (!customer_id) {
         return Response.json({ success: false, error: 'customer_id required' });
       }
@@ -75,7 +71,6 @@ Deno.serve(async (req) => {
 
       console.log('Target ID:', targetId);
       
-      // Fetch target details 
       const targetUrl = addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}`);
       const targetRes = await fetch(targetUrl, { headers }).catch(e => null);
       
@@ -85,8 +80,6 @@ Deno.serve(async (req) => {
         try { targetData = JSON.parse(raw); } catch(e) { console.log('Target parse err:', e); }
       }
       
-      // Fetch agents - the API uses /api/agents endpoint and agents have locationId field
-      // The target ID might map to locationId in the agents table
       const agentsUrl = addAuth(`${DATTO_EDR_BASE_URL}/agents`);
       const agentsRes = await fetch(agentsUrl, { headers }).catch(() => null);
       
@@ -101,11 +94,9 @@ Deno.serve(async (req) => {
         } catch(e) {}
       }
       
-      // Filter agents by locationId matching targetId
       let hosts = allAgents.filter(a => a.locationId === targetId);
       console.log(`Found ${hosts.length} agents with locationId=${targetId} out of ${allAgents.length} total`);
       
-      // Use target-level stats
       const targetStats = targetData ? {
         agentCount: targetData.agentCount || 0,
         activeAgentCount: targetData.activeAgentCount || 0,
@@ -114,13 +105,11 @@ Deno.serve(async (req) => {
         lastScannedOn: targetData.lastScannedOn
       } : null;
 
-      // Use actual hosts list if available, otherwise fall back to target stats
       const hostCount = hosts.length || targetStats?.agentCount || 0;
       const activeHosts = hosts.filter(h => h.active === true);
       const activeCount = activeHosts.length || targetStats?.activeAgentCount || 0;
       const alertCount = targetStats?.alertCount || 0;
       
-      // Update mapping with last synced
       await base44.entities.DattoEDRMapping.update(mapping.id, {
         last_synced: new Date().toISOString()
       });
@@ -149,7 +138,6 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'get_reports') {
-      // Fetch all reports from Datto EDR API
       const reportsUrl = addAuth(`${DATTO_EDR_BASE_URL}/Reports`);
       const reportsRes = await fetch(reportsUrl, { headers });
       
@@ -160,7 +148,6 @@ Deno.serve(async (req) => {
       const allReports = await reportsRes.json();
       const reportsArray = Array.isArray(allReports) ? allReports : allReports?.data || [];
 
-      // Log report structure for debugging
       if (reportsArray.length > 0) {
         console.log('Report keys:', Object.keys(reportsArray[0]));
       }
@@ -172,7 +159,6 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'generate_report') {
-      // Create a new report via POST /api/Reports
       if (!customer_id) {
         return Response.json({ success: false, error: 'customer_id required' });
       }
@@ -225,7 +211,6 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'sync_all') {
-      // Sync all mapped customers
       const allMappings = await base44.entities.DattoEDRMapping.list();
       let synced = 0;
 
@@ -244,7 +229,6 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'get_tenant_stats') {
-      // Get stats for a specific tenant
       if (!customer_id) {
         return Response.json({ success: false, error: 'customer_id required' });
       }
@@ -256,7 +240,6 @@ Deno.serve(async (req) => {
 
       const mapping = mappings[0];
 
-      // Fetch tenant stats from Infocyte
       const [hostsRes, alertsRes] = await Promise.all([
         fetch(addAuth(`${DATTO_EDR_BASE_URL}/targets/${mapping.edr_tenant_id}/hosts`), { headers }),
         fetch(addAuth(`${DATTO_EDR_BASE_URL}/targets/${mapping.edr_tenant_id}/alerts`), { headers }).catch(() => null)
