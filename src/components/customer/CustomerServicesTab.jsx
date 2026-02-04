@@ -712,7 +712,7 @@ export default function CustomerServicesTab({
         {/* Datto EDR Tab */}
         {hasEDR && (
           <TabsContent value="edr">
-            <DattoEDRTab customerId={customerId} edrMapping={edrMapping} />
+            <DattoEDRTab customerId={customerId} edrMapping={edrMapping} customerName={customer?.name} />
           </TabsContent>
         )}
       </Tabs>
