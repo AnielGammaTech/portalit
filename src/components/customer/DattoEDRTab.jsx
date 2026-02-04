@@ -282,6 +282,7 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
           edrData={edrData}
           tenantName={edrMapping?.edr_tenant_name}
           customerName={customerName}
+          customerId={customerId}
         />
       )}
     </div>
