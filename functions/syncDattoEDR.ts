@@ -193,12 +193,16 @@ Deno.serve(async (req) => {
         const downloadRes = await fetch(downloadUrl, { headers });
         
         if (downloadRes.ok) {
-          pdfBuffer = await downloadRes.arrayBuffer();
-          break;
-        } else {
-          downloadError = `${downloadRes.status}`;
-          console.log('Download failed:', downloadRes.status);
+          const contentType = downloadRes.headers.get('content-type');
+          console.log('Content-Type:', contentType);
+          if (contentType?.includes('application/pdf') || contentType?.includes('octet-stream')) {
+            pdfBuffer = await downloadRes.arrayBuffer();
+            break;
+          }
         }
+        downloadError = `${downloadRes.status}`;
+        const errText = await downloadRes.text().catch(() => '');
+        console.log('Download failed:', downloadRes.status, errText.substring(0, 200));
       }
 
       if (!pdfBuffer) {
