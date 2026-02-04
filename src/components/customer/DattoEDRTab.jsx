@@ -48,15 +48,7 @@ export default function DattoEDRTab({ customerId, edrMapping }) {
     }
   }, [edrMapping]);
 
-  if (!edrMapping) {
-    return (
-      <div className="text-center py-12">
-        <Shield className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-        <p className="text-slate-500">No Datto EDR tenant mapped to this customer</p>
-        <p className="text-sm text-slate-400 mt-1">Map a tenant in Settings → Integrations</p>
-      </div>
-    );
-  }
+  const notMapped = !edrMapping;
 
   return (
     <div className="space-y-4">
@@ -64,19 +56,34 @@ export default function DattoEDRTab({ customerId, edrMapping }) {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-slate-900">Datto EDR Report</h3>
-          <p className="text-sm text-slate-500">Tenant: {edrMapping.edr_tenant_name}</p>
+          <p className="text-sm text-slate-500">
+            {notMapped ? 'Not configured' : `Tenant: ${edrMapping.edr_tenant_name}`}
+          </p>
         </div>
-        <Button
-          onClick={handleSync}
-          disabled={syncing}
-          variant="outline"
-          size="sm"
-          className="gap-2"
-        >
-          <RefreshCw className={cn("w-4 h-4", syncing && "animate-spin")} />
-          {syncing ? 'Loading...' : 'Refresh'}
-        </Button>
+        {!notMapped && (
+          <Button
+            onClick={handleSync}
+            disabled={syncing}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+          >
+            <RefreshCw className={cn("w-4 h-4", syncing && "animate-spin")} />
+            {syncing ? 'Loading...' : 'Refresh'}
+          </Button>
+        )}
       </div>
+
+      {/* Not Mapped Banner */}
+      {notMapped && (
+        <div className="flex items-center gap-3 p-4 bg-amber-50 rounded-lg border border-amber-200">
+          <Shield className="w-5 h-5 text-amber-600" />
+          <div>
+            <p className="font-medium text-amber-900">EDR Not Configured</p>
+            <p className="text-sm text-amber-700">Map a Datto EDR tenant in Settings → Integrations to enable monitoring</p>
+          </div>
+        </div>
+      )}
 
       {/* Summary Stats - Clickable */}
       <div 
@@ -239,19 +246,21 @@ export default function DattoEDRTab({ customerId, edrMapping }) {
       </Card>
 
       {/* Last Sync Info */}
-      {edrMapping.last_synced && (
+      {edrMapping?.last_synced && (
         <p className="text-xs text-slate-400 text-center">
           Last synced: {new Date(edrMapping.last_synced).toLocaleString()}
         </p>
       )}
 
       {/* Detail Modal */}
-      <DattoEDRDetailModal
-        open={showDetailModal}
-        onOpenChange={setShowDetailModal}
-        edrData={edrData}
-        tenantName={edrMapping?.edr_tenant_name}
-      />
+      {!notMapped && (
+        <DattoEDRDetailModal
+          open={showDetailModal}
+          onOpenChange={setShowDetailModal}
+          edrData={edrData}
+          tenantName={edrMapping?.edr_tenant_name}
+        />
+      )}
     </div>
   );
 }
