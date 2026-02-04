@@ -78,14 +78,14 @@ export default function DattoEDRDetailModal({ open, onOpenChange, edrData, tenan
               <CardContent className="pt-4 text-center">
                 <Wifi className="w-8 h-8 text-green-600 mx-auto mb-2" />
                 <p className="text-3xl font-bold text-green-600">{edrData?.activeHostCount || 0}</p>
-                <p className="text-xs text-slate-500 mt-1">Active Agents</p>
+                <p className="text-xs text-slate-500 mt-1">Online Agents</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-4 text-center">
                 <WifiOff className="w-8 h-8 text-slate-400 mx-auto mb-2" />
                 <p className="text-3xl font-bold text-slate-600">{inactiveAgents}</p>
-                <p className="text-xs text-slate-500 mt-1">Inactive Agents</p>
+                <p className="text-xs text-slate-500 mt-1">Offline Agents</p>
               </CardContent>
             </Card>
             <Card>
