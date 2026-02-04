@@ -206,16 +206,37 @@ Deno.serve(async (req) => {
       }
 
       if (!pdfBuffer) {
-        // If direct download fails, check if report has a data.filename and construct S3 URL
+        // If direct download fails, check if report has a data.filename - try to get presigned URL
         if (report.data?.bucket && report.data?.filename) {
-          console.log('Report has S3 data:', report.data);
-          return Response.json({ 
-            success: false, 
-            error: 'Direct download not available. Report available in Datto EDR console.',
-            s3Info: report.data
-          });
+          console.log('Report has S3 data, trying presigned URL:', report.data);
+          
+          // Try to get a presigned URL from the API
+          const presignedUrl = addAuth(`${DATTO_EDR_BASE_URL}/Reports/${report_id}/presignedUrl`);
+          const presignedRes = await fetch(presignedUrl, { headers }).catch(() => null);
+          
+          if (presignedRes?.ok) {
+            const presignedData = await presignedRes.json();
+            console.log('Presigned URL response:', presignedData);
+            
+            if (presignedData.url) {
+              // Download from the presigned URL
+              const s3Res = await fetch(presignedData.url);
+              if (s3Res.ok) {
+                pdfBuffer = await s3Res.arrayBuffer();
+              }
+            }
+          }
+          
+          if (!pdfBuffer) {
+            return Response.json({ 
+              success: false, 
+              error: 'Direct download not available. Report available in Datto EDR console.',
+              s3Info: report.data
+            });
+          }
+        } else {
+          return Response.json({ success: false, error: `Failed to download: ${downloadError}` });
         }
-        return Response.json({ success: false, error: `Failed to download: ${downloadError}` });
       }
       
       return new Response(pdfBuffer, {
