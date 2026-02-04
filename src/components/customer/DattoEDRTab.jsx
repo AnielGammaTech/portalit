@@ -138,19 +138,17 @@ export default function DattoEDRTab({ customerId, edrMapping }) {
             </div>
           </CardContent>
         </Card>
-        <Card className="hover:shadow-md hover:border-purple-200 transition-all">
+        <Card className="hover:shadow-md hover:border-slate-300 transition-all">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Shield className="w-5 h-5 text-purple-600" />
+              <div className="p-2 bg-slate-100 rounded-lg">
+                <Monitor className="w-5 h-5 text-slate-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">
-                  {edrData?.hostCount > 0 
-                    ? Math.round((edrData?.activeHostCount / edrData?.hostCount) * 100) 
-                    : 0}%
+                <p className="text-2xl font-bold text-slate-600">
+                  {(edrData?.hostCount || 0) - (edrData?.activeHostCount || 0)}
                 </p>
-                <p className="text-xs text-slate-500">Coverage</p>
+                <p className="text-xs text-slate-500">Offline Agents</p>
               </div>
             </div>
           </CardContent>
@@ -211,17 +209,15 @@ export default function DattoEDRTab({ customerId, edrMapping }) {
               
               <div className="p-4 bg-slate-50 rounded-lg">
                 <div className="flex items-center gap-2 mb-2">
-                  <Shield className="w-4 h-4 text-slate-500" />
-                  <span className="text-sm font-medium text-slate-700">Coverage Rate</span>
+                  <Monitor className="w-4 h-4 text-slate-500" />
+                  <span className="text-sm font-medium text-slate-700">Offline Agents</span>
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-purple-600">
-                    {edrData?.hostCount > 0 
-                      ? Math.round((edrData?.activeHostCount / edrData?.hostCount) * 100) 
-                      : 0}%
+                  <span className="text-2xl font-bold text-slate-600">
+                    {(edrData?.hostCount || 0) - (edrData?.activeHostCount || 0)}
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">Agents reporting in</p>
+                <p className="text-xs text-slate-500 mt-1">Not currently connected</p>
               </div>
             </div>
 
