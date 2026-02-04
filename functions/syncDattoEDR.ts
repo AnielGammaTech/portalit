@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
 
       // Use actual hosts list if available, otherwise fall back to target stats
       const hostCount = hosts.length || targetStats?.agentCount || 0;
-      const activeHosts = hosts.filter(h => h.online || h.connectionStatus === 'connected' || h.agentStatus === 'Active');
+      const activeHosts = hosts.filter(h => h.active === true);
       const activeCount = activeHosts.length || targetStats?.activeAgentCount || 0;
       const alertCount = targetStats?.alertCount || 0;
       
@@ -131,11 +131,11 @@ Deno.serve(async (req) => {
           activeHostCount: activeCount,
           hosts: hosts.slice(0, 100).map(h => ({
             id: h.id,
-            hostname: h.hostname || h.name || h.computerName,
-            ip: h.ip || h.ipAddress || h.managementIp,
-            os: h.os || h.operatingSystem || h.osVersion,
-            online: h.online || h.connectionStatus === 'connected' || h.agentStatus === 'Active',
-            lastSeen: h.lastSeen || h.updatedOn || h.lastConnected
+            hostname: h.hostname || h.name,
+            ip: h.ip || h.ipstring,
+            os: h.os,
+            online: h.active === true,
+            lastSeen: h.heartbeat
           })),
           alertCount: alertCount,
           criticalAlerts: 0,
