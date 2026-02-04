@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -14,14 +14,17 @@ import {
   Download,
   Loader2,
   CheckCircle2,
-  Calendar
+  Clock,
+  RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 
 export default function DattoEDRReportModal({ open, onOpenChange, edrData, tenantName, customerName, customerId }) {
   const [generating, setGenerating] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [reportGenerated, setReportGenerated] = useState(null);
+  const [checkingStatus, setCheckingStatus] = useState(false);
   
   // Default to last 3 months
   const defaultEndDate = new Date().toISOString().split('T')[0];
@@ -30,6 +33,31 @@ export default function DattoEDRReportModal({ open, onOpenChange, edrData, tenan
   const [reportName, setReportName] = useState(`${customerName || tenantName || 'Customer'} - EDR Report`);
   const [startDate, setStartDate] = useState(defaultStartDate);
   const [endDate, setEndDate] = useState(defaultEndDate);
+
+  // Poll for report status when generated
+  useEffect(() => {
+    if (!reportGenerated || reportGenerated.status === 'complete') return;
+    
+    const interval = setInterval(async () => {
+      try {
+        const response = await base44.functions.invoke('syncDattoEDR', {
+          action: 'check_report_status',
+          report_id: reportGenerated.id
+        });
+        
+        if (response.data.success && response.data.report) {
+          setReportGenerated(response.data.report);
+          if (response.data.report.status === 'complete') {
+            toast.success('Report is ready for download!');
+          }
+        }
+      } catch (error) {
+        console.error('Status check error:', error);
+      }
+    }, 5000); // Check every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [reportGenerated]);
 
   const handleGenerateReport = async () => {
     setGenerating(true);
@@ -47,7 +75,7 @@ export default function DattoEDRReportModal({ open, onOpenChange, edrData, tenan
 
       if (response.data.success) {
         setReportGenerated(response.data.report);
-        toast.success('Report generation started! It will be available in the Datto EDR console shortly.');
+        toast.success('Report generation started!');
       } else {
         toast.error(response.data.error || 'Failed to generate report');
       }
@@ -59,6 +87,66 @@ export default function DattoEDRReportModal({ open, onOpenChange, edrData, tenan
     }
   };
 
+  const handleCheckStatus = async () => {
+    if (!reportGenerated) return;
+    setCheckingStatus(true);
+    
+    try {
+      const response = await base44.functions.invoke('syncDattoEDR', {
+        action: 'check_report_status',
+        report_id: reportGenerated.id
+      });
+      
+      if (response.data.success && response.data.report) {
+        setReportGenerated(response.data.report);
+        if (response.data.report.status === 'complete') {
+          toast.success('Report is ready!');
+        } else {
+          toast.info(`Report status: ${response.data.report.status}`);
+        }
+      }
+    } catch (error) {
+      toast.error('Failed to check status');
+    } finally {
+      setCheckingStatus(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!reportGenerated) return;
+    setDownloading(true);
+    
+    try {
+      const response = await base44.functions.invoke('syncDattoEDR', {
+        action: 'download_report',
+        report_id: reportGenerated.id
+      });
+
+      // Check if response is a PDF (binary data)
+      if (response.data instanceof ArrayBuffer || response.headers?.['content-type']?.includes('application/pdf')) {
+        const blob = new Blob([response.data], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${reportGenerated.name || 'EDR-Report'}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+        toast.success('Report downloaded!');
+      } else if (response.data.error) {
+        toast.error(response.data.error);
+      } else {
+        toast.error('Unexpected response format');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error(error.message || 'Failed to download report');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const formatDate = (dateStr) => {
     return new Date(dateStr).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -66,6 +154,8 @@ export default function DattoEDRReportModal({ open, onOpenChange, edrData, tenan
       day: 'numeric'
     });
   };
+
+  const isReportReady = reportGenerated?.status === 'complete';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -84,60 +174,77 @@ export default function DattoEDRReportModal({ open, onOpenChange, edrData, tenan
             <div>
               <p className="text-sm font-medium text-cyan-900">Executive Threat Report</p>
               <p className="text-sm text-cyan-700 mt-1">
-                Generate an official PDF report from Datto EDR for {tenantName || 'this customer'}.
+                Generate and download an official PDF report from Datto EDR for {tenantName || 'this customer'}.
               </p>
             </div>
           </div>
 
           {/* Report Settings */}
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="reportName">Report Name</Label>
-              <Input
-                id="reportName"
-                value={reportName}
-                onChange={(e) => setReportName(e.target.value)}
-                placeholder="Enter report name"
-                className="mt-1"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
+          {!reportGenerated && (
+            <div className="space-y-4">
               <div>
-                <Label htmlFor="startDate">Start Date</Label>
+                <Label htmlFor="reportName">Report Name</Label>
                 <Input
-                  id="startDate"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  id="reportName"
+                  value={reportName}
+                  onChange={(e) => setReportName(e.target.value)}
+                  placeholder="Enter report name"
                   className="mt-1"
                 />
               </div>
-              <div>
-                <Label htmlFor="endDate">End Date</Label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="mt-1"
-                />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="startDate">Start Date</Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="endDate">End Date</Label>
+                  <Input
+                    id="endDate"
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Success State */}
+          {/* Report Status */}
           {reportGenerated && (
-            <div className="flex items-start gap-3 p-4 bg-green-50 rounded-lg border border-green-200">
-              <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-green-900">Report Queued Successfully!</p>
-                <p className="text-sm text-green-700 mt-1">
-                  Your report "{reportGenerated.name}" is being generated. It will be available in the Datto EDR console within a few minutes.
+            <div className={`flex items-start gap-3 p-4 rounded-lg border ${
+              isReportReady 
+                ? 'bg-green-50 border-green-200' 
+                : 'bg-amber-50 border-amber-200'
+            }`}>
+              {isReportReady ? (
+                <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5" />
+              ) : (
+                <Clock className="w-5 h-5 text-amber-600 mt-0.5" />
+              )}
+              <div className="flex-1">
+                <p className={`text-sm font-medium ${isReportReady ? 'text-green-900' : 'text-amber-900'}`}>
+                  {isReportReady ? 'Report Ready!' : 'Generating Report...'}
                 </p>
-                <div className="mt-2 text-xs text-green-600 space-y-1">
-                  <p><strong>Report ID:</strong> {reportGenerated.id}</p>
-                  <p><strong>Period:</strong> {formatDate(reportGenerated.startDate)} - {formatDate(reportGenerated.endDate)}</p>
+                <p className={`text-sm mt-1 ${isReportReady ? 'text-green-700' : 'text-amber-700'}`}>
+                  {isReportReady 
+                    ? 'Your report is ready to download.' 
+                    : 'This usually takes 1-2 minutes. The page will auto-refresh.'}
+                </p>
+                <div className="mt-2 text-xs text-slate-600 space-y-1">
+                  <p><strong>Name:</strong> {reportGenerated.name}</p>
+                  <p><strong>Status:</strong> {reportGenerated.status}</p>
+                  {reportGenerated.startDate && (
+                    <p><strong>Period:</strong> {formatDate(reportGenerated.startDate)} - {formatDate(reportGenerated.endDate)}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -147,22 +254,53 @@ export default function DattoEDRReportModal({ open, onOpenChange, edrData, tenan
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={() => {
+                onOpenChange(false);
+                setReportGenerated(null);
+              }}
             >
               Close
             </Button>
-            <Button
-              onClick={handleGenerateReport}
-              disabled={generating || !reportName}
-              className="gap-2 bg-cyan-600 hover:bg-cyan-700"
-            >
-              {generating ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Download className="w-4 h-4" />
-              )}
-              {generating ? 'Generating...' : 'Generate Report'}
-            </Button>
+            
+            {reportGenerated && !isReportReady && (
+              <Button
+                variant="outline"
+                onClick={handleCheckStatus}
+                disabled={checkingStatus}
+                className="gap-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${checkingStatus ? 'animate-spin' : ''}`} />
+                Check Status
+              </Button>
+            )}
+            
+            {reportGenerated && isReportReady ? (
+              <Button
+                onClick={handleDownload}
+                disabled={downloading}
+                className="gap-2 bg-green-600 hover:bg-green-700"
+              >
+                {downloading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                {downloading ? 'Downloading...' : 'Download PDF'}
+              </Button>
+            ) : !reportGenerated && (
+              <Button
+                onClick={handleGenerateReport}
+                disabled={generating || !reportName}
+                className="gap-2 bg-cyan-600 hover:bg-cyan-700"
+              >
+                {generating ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <FileText className="w-4 h-4" />
+                )}
+                {generating ? 'Generating...' : 'Generate Report'}
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>
