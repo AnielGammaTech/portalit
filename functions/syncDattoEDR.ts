@@ -74,50 +74,35 @@ Deno.serve(async (req) => {
 
       console.log('Target ID:', targetId);
       
-      // Fetch target details with hosts included via LoopBack filter
-      const filter = JSON.stringify({ include: ['hosts'] });
-      const targetUrl = addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}?filter=${encodeURIComponent(filter)}`);
-      
+      // Fetch target details 
+      const targetUrl = addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}`);
       const targetRes = await fetch(targetUrl, { headers }).catch(e => null);
       
       let targetData = null;
-      let hostsFromTarget = [];
       if (targetRes?.ok) {
         const raw = await targetRes.text();
-        console.log('Target response:', raw.slice(0, 2000));
+        try { targetData = JSON.parse(raw); } catch(e) { console.log('Target parse err:', e); }
+      }
+      
+      // Fetch agents - the API uses /api/agents endpoint and agents have locationId field
+      // The target ID might map to locationId in the agents table
+      const agentsUrl = addAuth(`${DATTO_EDR_BASE_URL}/agents`);
+      const agentsRes = await fetch(agentsUrl, { headers }).catch(() => null);
+      
+      let allAgents = [];
+      if (agentsRes?.ok) {
+        const raw = await agentsRes.text();
         try { 
-          targetData = JSON.parse(raw);
-          // Check if hosts are included in the target response
-          if (targetData.hosts && Array.isArray(targetData.hosts)) {
-            hostsFromTarget = targetData.hosts;
-            console.log(`Got ${hostsFromTarget.length} hosts from target include`);
+          allAgents = JSON.parse(raw);
+          if (!Array.isArray(allAgents)) {
+            allAgents = allAgents?.data || [];
           }
-        } catch(e) { console.log('Target parse err:', e); }
+        } catch(e) {}
       }
       
-      // If no hosts from include, try dedicated hosts endpoint with filter
-      let hosts = hostsFromTarget;
-      if (hosts.length === 0) {
-        const hostsFilter = JSON.stringify({ where: { targetId: targetId } });
-        const hostsUrl = addAuth(`${DATTO_EDR_BASE_URL}/hosts?filter=${encodeURIComponent(hostsFilter)}`);
-        
-        const hostsRes = await fetch(hostsUrl, { headers }).catch(() => null);
-        console.log('Hosts endpoint status:', hostsRes?.status);
-        
-        if (hostsRes?.ok) {
-          const raw = await hostsRes.text();
-          console.log('Hosts response:', raw.slice(0, 1500));
-          try { 
-            const parsed = JSON.parse(raw);
-            hosts = Array.isArray(parsed) ? parsed : parsed?.data || [];
-            if (hosts.length > 0) {
-              console.log('Host keys:', Object.keys(hosts[0]));
-            }
-          } catch(e) {}
-        }
-      }
-      
-      console.log(`Found ${hosts.length} hosts for target ${targetId}`);
+      // Filter agents by locationId matching targetId
+      let hosts = allAgents.filter(a => a.locationId === targetId);
+      console.log(`Found ${hosts.length} agents with locationId=${targetId} out of ${allAgents.length} total`);
       
       // Use target-level stats
       const targetStats = targetData ? {
