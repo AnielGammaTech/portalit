@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
@@ -8,7 +8,6 @@ import {
   Building2,
   Mail,
   Phone,
-  MapPin,
   FileText,
   Cloud,
   DollarSign,
@@ -16,10 +15,10 @@ import {
   HelpCircle,
   AlertCircle,
   Monitor,
-  Calendar,
   ChevronDown,
   Clock,
-  Receipt
+  Users,
+  RefreshCw
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,10 +26,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from 'date-fns';
+import OverviewTab from '../components/customer/OverviewTab';
+import CustomerServicesTab from '../components/customer/CustomerServicesTab';
 
 export default function CustomerPortalPreview() {
   const params = new URLSearchParams(window.location.search);
   const customerId = params.get('id');
+  const queryClient = useQueryClient();
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [expandedBills, setExpandedBills] = useState({ _section: true });
+  const [expandedInvoices, setExpandedInvoices] = useState({ _section: true });
+  const [invoiceFilter, setInvoiceFilter] = useState('all');
+  const [ticketFilter, setTicketFilter] = useState('all');
 
   const { data: customers = [], isLoading: loadingCustomer } = useQuery({
     queryKey: ['customers'],
@@ -49,6 +56,19 @@ export default function CustomerPortalPreview() {
     queryKey: ['recurring_bills', customerId],
     queryFn: () => base44.entities.RecurringBill.filter({ customer_id: customerId }),
     enabled: !!customerId
+  });
+
+  const { data: lineItems = [] } = useQuery({
+    queryKey: ['line_items', customerId],
+    queryFn: async () => {
+      const allItems = [];
+      for (const bill of recurringBills) {
+        const items = await base44.entities.RecurringBillLineItem.filter({ recurring_bill_id: bill.id });
+        allItems.push(...items);
+      }
+      return allItems;
+    },
+    enabled: !!customerId && recurringBills.length > 0
   });
 
   const { data: invoices = [] } = useQuery({
@@ -75,6 +95,24 @@ export default function CustomerPortalPreview() {
     enabled: !!customerId
   });
 
+  const { data: licenses = [] } = useQuery({
+    queryKey: ['licenses', customerId],
+    queryFn: () => base44.entities.SaaSLicense.filter({ customer_id: customerId }),
+    enabled: !!customerId
+  });
+
+  const { data: licenseAssignments = [] } = useQuery({
+    queryKey: ['license_assignments', customerId],
+    queryFn: () => base44.entities.LicenseAssignment.filter({ customer_id: customerId }),
+    enabled: !!customerId
+  });
+
+  const { data: quotes = [] } = useQuery({
+    queryKey: ['quotes', customerId],
+    queryFn: () => base44.entities.Quote.filter({ customer_id: customerId }),
+    enabled: !!customerId
+  });
+
   const { data: invoiceLineItems = [] } = useQuery({
     queryKey: ['invoice_line_items', customerId],
     queryFn: async () => {
@@ -87,10 +125,6 @@ export default function CustomerPortalPreview() {
     },
     enabled: !!customerId && invoices.length > 0
   });
-
-  const [expandedInvoices, setExpandedInvoices] = useState({ _section: true });
-  const [invoiceFilter, setInvoiceFilter] = useState('all');
-  const [ticketFilter, setTicketFilter] = useState('all');
 
   if (loadingCustomer) {
     return (
@@ -137,31 +171,41 @@ export default function CustomerPortalPreview() {
         </Link>
       </div>
 
-      {/* Customer Header - Simple */}
+      {/* Customer Header */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center flex-shrink-0 shadow-lg shadow-purple-500/20">
-            {customer.logo_url ? (
-              <img src={customer.logo_url} alt={customer.name} className="w-10 h-10 rounded-xl object-cover" />
-            ) : (
-              <Building2 className="w-7 h-7 text-white" />
-            )}
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">{customer.name}</h1>
-            <div className="flex flex-wrap items-center gap-4 mt-1.5 text-sm text-slate-500">
-              {customer.email && (
-                <span className="flex items-center gap-1.5">
-                  <Mail className="w-3.5 h-3.5" />
-                  {customer.email}
-                </span>
+        <div className="flex flex-col lg:flex-row lg:items-center gap-6">
+          <div className="flex items-center gap-4 flex-1">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center flex-shrink-0 shadow-lg shadow-purple-500/20">
+              {customer.logo_url ? (
+                <img src={customer.logo_url} alt={customer.name} className="w-10 h-10 rounded-xl object-cover" />
+              ) : (
+                <Building2 className="w-7 h-7 text-white" />
               )}
-              {customer.phone && (
-                <span className="flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5" />
-                  {customer.phone}
-                </span>
-              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold text-slate-900">{customer.name}</h1>
+                <Badge className={cn(
+                  "font-medium",
+                  customer.status === 'active' && "bg-emerald-100 text-emerald-700 border-emerald-200"
+                )}>
+                  {customer.status || 'Active'}
+                </Badge>
+              </div>
+              <div className="flex flex-wrap items-center gap-4 mt-1.5 text-sm text-slate-500">
+                {customer.email && (
+                  <span className="flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5" />
+                    {customer.email}
+                  </span>
+                )}
+                {customer.phone && (
+                  <span className="flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5" />
+                    {customer.phone}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -202,194 +246,273 @@ export default function CustomerPortalPreview() {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs - Same as customer view */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="bg-slate-100/80 border-0 rounded-xl p-1 flex gap-0.5 h-auto">
-          <TabsTrigger value="overview" className="gap-2 py-2 px-4 rounded-lg">
-            <Building2 className="w-4 h-4" />
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="billing" className="gap-2 py-2 px-4 rounded-lg">
-            <DollarSign className="w-4 h-4" />
-            Billing
-          </TabsTrigger>
-          <TabsTrigger value="tickets" className="gap-2 py-2 px-4 rounded-lg">
-            <HelpCircle className="w-4 h-4" />
-            Support
-          </TabsTrigger>
+        <TabsList className="bg-slate-100/80 border-0 rounded-xl p-1 flex gap-0.5 h-auto overflow-x-auto">
+          {[
+            { value: 'overview', icon: Building2, label: 'Overview' },
+            { value: 'billing', icon: DollarSign, label: 'Billing' },
+            { value: 'services', icon: Cloud, label: 'Services' },
+            { value: 'tickets', icon: HelpCircle, label: 'Support' },
+          ].map(tab => (
+            <TabsTrigger 
+              key={tab.value}
+              value={tab.value} 
+              className="gap-2 py-2 px-4 rounded-lg text-slate-600 font-medium transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm hover:text-slate-900 whitespace-nowrap"
+            >
+              <tab.icon className="w-4 h-4" />
+              <span className="text-sm">{tab.label}</span>
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         <TabsContent value="overview">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Quick Stats */}
-            <div className="bg-white rounded-xl border border-slate-200 p-6">
-              <h3 className="font-semibold text-slate-900 mb-4">Account Overview</h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Monitor className="w-5 h-5 text-cyan-600" />
-                    <span className="text-slate-600">Managed Devices</span>
-                  </div>
-                  <span className="font-semibold text-slate-900">{devices.length}</span>
+          <OverviewTab
+            customer={customer}
+            contacts={contacts}
+            contracts={contracts}
+            recurringBills={recurringBills}
+            licenses={licenses}
+            customerId={customerId}
+            queryClient={queryClient}
+            onAddContact={() => {}}
+            tickets={tickets}
+            devices={devices}
+            licenseAssignments={licenseAssignments}
+            invoices={invoices}
+            quotes={quotes}
+          />
+        </TabsContent>
+
+        <TabsContent value="billing">
+          <div className="space-y-6">
+            {/* Compact Summary Row */}
+            <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 max-w-3xl mx-auto shadow-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-3 items-center text-center gap-3">
+                <div className="sm:pr-4 sm:border-r sm:border-gray-200">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wide">Monthly Cost</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    ${recurringBills.reduce((sum, b) => sum + (b.amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </p>
                 </div>
-                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Cloud className="w-5 h-5 text-purple-600" />
-                    <span className="text-slate-600">Team Members</span>
-                  </div>
-                  <span className="font-semibold text-slate-900">{contacts.length}</span>
+                <div className="sm:px-4 sm:border-r sm:border-gray-200">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wide">Contract</p>
+                  {contracts.length > 0 ? (
+                    <p className="font-semibold text-gray-900">{contracts[0].name}</p>
+                  ) : (
+                    <p className="text-gray-400 text-sm">None</p>
+                  )}
                 </div>
-                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <HelpCircle className="w-5 h-5 text-amber-600" />
-                    <span className="text-slate-600">Open Tickets</span>
+                <div className="sm:pl-4">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wide">Invoices</p>
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                      <span className="text-sm font-medium text-gray-700">{invoices.filter(i => i.status === 'paid').length} Paid</span>
+                    </div>
+                    {invoices.filter(i => i.status === 'overdue').length > 0 && (
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-full bg-red-500" />
+                        <span className="text-sm font-medium text-red-600">{invoices.filter(i => i.status === 'overdue').length} Overdue</span>
+                      </div>
+                    )}
                   </div>
-                  <span className="font-semibold text-slate-900">
-                    {tickets.filter(t => ['open', 'in_progress', 'new'].includes(t.status)).length}
-                  </span>
                 </div>
               </div>
             </div>
 
-            {/* Recent Tickets */}
-            <div className="bg-white rounded-xl border border-slate-200 p-6">
-              <h3 className="font-semibold text-slate-900 mb-4">Recent Support Tickets</h3>
-              {tickets.length === 0 ? (
-                <p className="text-slate-500 text-center py-8">No tickets yet</p>
-              ) : (
-                <div className="space-y-3">
-                  {tickets.slice(0, 5).map(ticket => (
-                    <div key={ticket.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                      <Badge className={cn(
-                        'text-xs capitalize',
-                        ticket.status === 'open' && 'bg-yellow-100 text-yellow-700',
-                        ticket.status === 'in_progress' && 'bg-blue-100 text-blue-700',
-                        ticket.status === 'resolved' && 'bg-emerald-100 text-emerald-700',
-                        ticket.status === 'closed' && 'bg-slate-100 text-slate-600'
-                      )}>
-                        {ticket.status?.replace('_', ' ')}
-                      </Badge>
-                      <span className="text-sm text-slate-900 truncate flex-1">{ticket.summary}</span>
+            {/* Invoices Section */}
+            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+              <button
+                onClick={() => setExpandedInvoices(prev => ({ ...prev, _section: !prev._section }))}
+                className="w-full px-6 py-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
+              >
+                <div className="text-left">
+                  <h3 className="text-lg font-semibold text-gray-900">Invoice History</h3>
+                  <p className="text-sm text-gray-500 mt-0.5">{invoices.length} invoices on record</p>
+                </div>
+                <ChevronDown className={cn(
+                  "w-5 h-5 text-gray-400 transition-transform",
+                  expandedInvoices._section && "rotate-180"
+                )} />
+              </button>
+              
+              {expandedInvoices._section && (
+                <div className="border-t border-gray-100">
+                  <div className="px-6 py-4 bg-gray-50/50 flex flex-wrap items-center gap-3">
+                    <select
+                      value={invoiceFilter}
+                      onChange={(e) => setInvoiceFilter(e.target.value)}
+                      className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white"
+                    >
+                      <option value="all">All Invoices</option>
+                      <option value="paid">Paid</option>
+                      <option value="overdue">Overdue</option>
+                      <option value="sent">Pending</option>
+                    </select>
+                  </div>
+
+                  {invoices.length === 0 ? (
+                    <div className="py-16 text-center">
+                      <FileText className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-500">No invoices found</p>
                     </div>
-                  ))}
+                  ) : (
+                    <div className="divide-y divide-gray-100">
+                      {invoices
+                        .filter(inv => invoiceFilter === 'all' || inv.status === invoiceFilter)
+                        .sort((a, b) => new Date(b.due_date || 0) - new Date(a.due_date || 0))
+                        .map(invoice => {
+                          const isPaid = invoice.status === 'paid';
+                          const isOverdue = invoice.status === 'overdue';
+                          
+                          return (
+                            <div key={invoice.id} className={cn(
+                              "flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors",
+                              isOverdue && "bg-red-50/30"
+                            )}>
+                              <div className="flex items-center gap-5">
+                                <div className={cn(
+                                  "w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0",
+                                  isPaid && "bg-emerald-100",
+                                  isOverdue && "bg-red-100",
+                                  !isPaid && !isOverdue && "bg-amber-50"
+                                )}>
+                                  {isPaid ? (
+                                    <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                                  ) : (
+                                    <FileText className={cn(
+                                      "w-5 h-5",
+                                      isOverdue ? "text-red-600" : "text-amber-600"
+                                    )} />
+                                  )}
+                                </div>
+                                <div className="text-left">
+                                  <div className="flex items-center gap-3">
+                                    <p className="font-semibold text-gray-900">{invoice.invoice_number}</p>
+                                    <span className={cn(
+                                      "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
+                                      isPaid && "bg-emerald-100 text-emerald-700",
+                                      isOverdue && "bg-red-100 text-red-700",
+                                      invoice.status === 'sent' && "bg-amber-100 text-amber-700"
+                                    )}>
+                                      {isPaid ? '✓ Paid' : isOverdue ? 'Overdue' : 'Pending'}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
+                                    {invoice.due_date && (
+                                      <span>Due {format(parseISO(invoice.due_date), 'MMM d, yyyy')}</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              <p className={cn(
+                                "text-xl font-bold",
+                                isPaid ? "text-emerald-600" : "text-gray-900"
+                              )}>
+                                ${(invoice.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                              </p>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
         </TabsContent>
 
-        <TabsContent value="billing">
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-slate-900">Invoice History</h3>
-                <p className="text-sm text-slate-500">{invoices.length} invoices</p>
-              </div>
-              <select
-                value={invoiceFilter}
-                onChange={(e) => setInvoiceFilter(e.target.value)}
-                className="text-sm border border-gray-200 rounded-lg px-3 py-2"
-              >
-                <option value="all">All</option>
-                <option value="paid">Paid</option>
-                <option value="overdue">Overdue</option>
-                <option value="sent">Pending</option>
-              </select>
-            </div>
-            <div className="divide-y divide-slate-100">
-              {invoices
-                .filter(inv => invoiceFilter === 'all' || inv.status === invoiceFilter)
-                .sort((a, b) => new Date(b.due_date || 0) - new Date(a.due_date || 0))
-                .slice(0, 10)
-                .map(invoice => {
-                  const isPaid = invoice.status === 'paid';
-                  const isOverdue = invoice.status === 'overdue';
-                  return (
-                    <div key={invoice.id} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50">
-                      <div className="flex items-center gap-4">
-                        <div className={cn(
-                          "w-10 h-10 rounded-lg flex items-center justify-center",
-                          isPaid && "bg-emerald-100",
-                          isOverdue && "bg-red-100",
-                          !isPaid && !isOverdue && "bg-amber-50"
-                        )}>
-                          {isPaid ? (
-                            <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                          ) : (
-                            <FileText className={cn("w-5 h-5", isOverdue ? "text-red-600" : "text-amber-600")} />
-                          )}
-                        </div>
-                        <div>
-                          <p className="font-medium text-slate-900">{invoice.invoice_number}</p>
-                          <p className="text-sm text-slate-500">
-                            {invoice.due_date && format(parseISO(invoice.due_date), 'MMM d, yyyy')}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className={cn("font-semibold", isPaid ? "text-emerald-600" : "text-slate-900")}>
-                          ${(invoice.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                        </p>
-                        <Badge className={cn(
-                          "text-xs",
-                          isPaid && "bg-emerald-100 text-emerald-700",
-                          isOverdue && "bg-red-100 text-red-700",
-                          invoice.status === 'sent' && "bg-amber-100 text-amber-700"
-                        )}>
-                          {isPaid ? 'Paid' : isOverdue ? 'Overdue' : 'Pending'}
-                        </Badge>
-                      </div>
-                    </div>
-                  );
-                })}
-            </div>
-          </div>
+        <TabsContent value="services">
+          <CustomerServicesTab 
+            customerId={customerId}
+            customer={customer}
+            lineItems={lineItems}
+            expandedBills={expandedBills}
+            setExpandedBills={setExpandedBills}
+            isSyncing={isSyncing}
+            setIsSyncing={setIsSyncing}
+            queryClient={queryClient}
+            devices={devices}
+          />
         </TabsContent>
 
         <TabsContent value="tickets">
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div>
-                <h3 className="font-semibold text-slate-900">Support Tickets</h3>
+                <h3 className="text-lg font-semibold text-slate-900">Support Tickets</h3>
                 <p className="text-sm text-slate-500">
-                  {tickets.filter(t => ['open', 'in_progress', 'new'].includes(t.status)).length} open
+                  {tickets.filter(t => ['open', 'in_progress', 'new'].includes(t.status)).length} open • {tickets.filter(t => ['closed', 'resolved'].includes(t.status)).length} resolved
                 </p>
               </div>
               <select
                 value={ticketFilter}
                 onChange={(e) => setTicketFilter(e.target.value)}
-                className="text-sm border border-gray-200 rounded-lg px-3 py-2"
+                className="text-sm border border-slate-200 rounded-lg px-3 py-1.5"
               >
-                <option value="all">All</option>
+                <option value="all">All Tickets</option>
                 <option value="open">Open</option>
                 <option value="in_progress">In Progress</option>
                 <option value="resolved">Resolved</option>
+                <option value="closed">Closed</option>
               </select>
             </div>
-            <div className="divide-y divide-slate-100">
-              {tickets
-                .filter(t => ticketFilter === 'all' || t.status === ticketFilter)
-                .sort((a, b) => new Date(b.date_opened || 0) - new Date(a.date_opened || 0))
-                .map(ticket => (
-                  <div key={ticket.id} className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50">
-                    <Badge className={cn(
-                      'text-xs capitalize',
-                      ticket.status === 'open' && 'bg-yellow-100 text-yellow-700',
-                      ticket.status === 'in_progress' && 'bg-blue-100 text-blue-700',
-                      ticket.status === 'resolved' && 'bg-emerald-100 text-emerald-700',
-                      ticket.status === 'closed' && 'bg-slate-100 text-slate-600'
-                    )}>
-                      {ticket.status?.replace('_', ' ')}
-                    </Badge>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-slate-900 truncate">#{ticket.ticket_number} - {ticket.summary}</p>
-                      <p className="text-sm text-slate-500">
-                        {ticket.date_opened && format(parseISO(ticket.date_opened), 'MMM d, yyyy')}
-                      </p>
+
+            {tickets.length === 0 ? (
+              <div className="py-12 text-center">
+                <Monitor className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                <p className="text-slate-500">No tickets found</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {tickets
+                  .filter(t => ticketFilter === 'all' || t.status === ticketFilter)
+                  .sort((a, b) => new Date(b.date_opened || 0) - new Date(a.date_opened || 0))
+                  .map(ticket => (
+                    <div key={ticket.id} className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50 transition-colors">
+                      <div className={cn(
+                        "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
+                        ticket.priority === 'critical' && "bg-red-100",
+                        ticket.priority === 'high' && "bg-orange-100",
+                        ticket.priority === 'medium' && "bg-yellow-100",
+                        ticket.priority === 'low' && "bg-blue-100",
+                        !ticket.priority && "bg-slate-100"
+                      )}>
+                        <Monitor className={cn(
+                          "w-5 h-5",
+                          ticket.priority === 'critical' && "text-red-600",
+                          ticket.priority === 'high' && "text-orange-600",
+                          ticket.priority === 'medium' && "text-yellow-600",
+                          ticket.priority === 'low' && "text-blue-600",
+                          !ticket.priority && "text-slate-500"
+                        )} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-slate-900 truncate">
+                          #{ticket.ticket_number} - {ticket.summary}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1 text-sm text-slate-500">
+                          {ticket.date_opened && (
+                            <span>{format(parseISO(ticket.date_opened), 'MMM d, yyyy')}</span>
+                          )}
+                        </div>
+                      </div>
+                      <Badge className={cn(
+                        'text-xs capitalize flex-shrink-0',
+                        ticket.status === 'new' && 'bg-purple-100 text-purple-700',
+                        ticket.status === 'open' && 'bg-yellow-100 text-yellow-700',
+                        ticket.status === 'in_progress' && 'bg-blue-100 text-blue-700',
+                        ticket.status === 'waiting' && 'bg-orange-100 text-orange-700',
+                        ticket.status === 'resolved' && 'bg-emerald-100 text-emerald-700',
+                        ticket.status === 'closed' && 'bg-slate-100 text-slate-700'
+                      )}>
+                        {ticket.status?.replace('_', ' ')}
+                      </Badge>
                     </div>
-                  </div>
-                ))}
-            </div>
+                  ))}
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>
