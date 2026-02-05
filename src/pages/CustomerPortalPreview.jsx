@@ -18,7 +18,8 @@ import {
   ChevronDown,
   Clock,
   Users,
-  RefreshCw
+  RefreshCw,
+  Plus
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +29,10 @@ import { cn } from "@/lib/utils";
 import { format, parseISO } from 'date-fns';
 import OverviewTab from '../components/customer/OverviewTab';
 import CustomerServicesTab from '../components/customer/CustomerServicesTab';
+import SoftwareCard from '../components/saas/SoftwareCard';
+import AddSoftwareModal from '../components/saas/AddSoftwareModal';
+import LicenseAssignmentModal from '../components/saas/LicenseAssignmentModal';
+import { toast } from 'sonner';
 
 export default function CustomerPortalPreview() {
   const params = new URLSearchParams(window.location.search);
@@ -38,6 +43,8 @@ export default function CustomerPortalPreview() {
   const [expandedInvoices, setExpandedInvoices] = useState({ _section: true });
   const [invoiceFilter, setInvoiceFilter] = useState('all');
   const [ticketFilter, setTicketFilter] = useState('all');
+  const [showAddSoftware, setShowAddSoftware] = useState(false);
+  const [selectedLicense, setSelectedLicense] = useState(null);
 
   const { data: customers = [], isLoading: loadingCustomer } = useQuery({
     queryKey: ['customers'],
@@ -113,6 +120,12 @@ export default function CustomerPortalPreview() {
     enabled: !!customerId
   });
 
+  const { data: applications = [] } = useQuery({
+    queryKey: ['applications', customerId],
+    queryFn: () => base44.entities.Application.filter({ customer_id: customerId }),
+    enabled: !!customerId
+  });
+
   const { data: invoiceLineItems = [] } = useQuery({
     queryKey: ['invoice_line_items', customerId],
     queryFn: async () => {
@@ -125,6 +138,87 @@ export default function CustomerPortalPreview() {
     },
     enabled: !!customerId && invoices.length > 0
   });
+
+  // Group licenses by application name
+  const groupedSoftware = licenses.reduce((acc, license) => {
+    const key = license.application_name;
+    if (!acc[key]) {
+      acc[key] = {
+        software: license,
+        managedLicense: null,
+        individualLicenses: [],
+        isCatalogOnly: false
+      };
+    }
+    if (license.management_type === 'managed') {
+      acc[key].managedLicense = license;
+    } else {
+      acc[key].individualLicenses.push(license);
+    }
+    return acc;
+  }, {});
+
+  // Add Application catalog entries that don't have licenses yet
+  applications.forEach(app => {
+    if (!groupedSoftware[app.name]) {
+      groupedSoftware[app.name] = {
+        software: {
+          id: app.id,
+          application_name: app.name,
+          vendor: app.vendor,
+          logo_url: app.logo_url,
+          website_url: app.website_url,
+          category: app.category,
+          notes: app.notes,
+          customer_id: app.customer_id,
+          status: app.status || 'active',
+          _isApplication: true
+        },
+        managedLicense: null,
+        individualLicenses: [],
+        isCatalogOnly: true
+      };
+    }
+  });
+
+  const handleAddSoftware = async (softwareData) => {
+    setShowAddSoftware(false);
+    toast.success('Software added!');
+    const newApp = await base44.entities.Application.create(softwareData);
+    queryClient.invalidateQueries({ queryKey: ['applications', customerId] });
+    window.location.href = createPageUrl(`LicenseDetail?appId=${newApp.id}`);
+  };
+
+  const handleAssignLicense = async (contactId) => {
+    await base44.entities.LicenseAssignment.create({
+      license_id: selectedLicense.id,
+      contact_id: contactId,
+      customer_id: customerId,
+      assigned_date: new Date().toISOString().split('T')[0],
+      status: 'active'
+    });
+    const newCount = licenseAssignments.filter(a => a.license_id === selectedLicense.id && a.status === 'active').length + 1;
+    await base44.entities.SaaSLicense.update(selectedLicense.id, { assigned_users: newCount });
+    queryClient.invalidateQueries({ queryKey: ['license_assignments', customerId] });
+    queryClient.invalidateQueries({ queryKey: ['licenses', customerId] });
+    toast.success('License assigned!');
+  };
+
+  const handleRevokeLicense = async (contactId) => {
+    const assignment = licenseAssignments.find(a => 
+      a.license_id === selectedLicense.id && 
+      a.contact_id === contactId && 
+      a.status === 'active'
+    );
+    if (assignment) {
+      await base44.entities.LicenseAssignment.update(assignment.id, { status: 'revoked' });
+      const newCount = Math.max(0, licenseAssignments.filter(a => a.license_id === selectedLicense.id && a.status === 'active').length - 1);
+      await base44.entities.SaaSLicense.update(selectedLicense.id, { assigned_users: newCount });
+      queryClient.invalidateQueries({ queryKey: ['license_assignments', customerId] });
+      queryClient.invalidateQueries({ queryKey: ['licenses', customerId] });
+      toast.success('License revoked!');
+    }
+  };
 
   if (loadingCustomer) {
     return (
@@ -253,6 +347,7 @@ export default function CustomerPortalPreview() {
             { value: 'overview', icon: Building2, label: 'Overview' },
             { value: 'billing', icon: DollarSign, label: 'Billing' },
             { value: 'services', icon: Cloud, label: 'Services' },
+            { value: 'licenses', icon: Cloud, label: 'SaaS' },
             { value: 'tickets', icon: HelpCircle, label: 'Support' },
           ].map(tab => (
             <TabsTrigger 
@@ -434,6 +529,83 @@ export default function CustomerPortalPreview() {
             setIsSyncing={setIsSyncing}
             queryClient={queryClient}
             devices={devices}
+          />
+        </TabsContent>
+
+        <TabsContent value="licenses">
+          <div className="space-y-6">
+            {/* Header with Add Button */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Software & Licenses</h3>
+                <p className="text-sm text-slate-500">{Object.keys(groupedSoftware).length} applications</p>
+              </div>
+              <Button 
+                size="sm" 
+                className="gap-2 bg-purple-600 hover:bg-purple-700"
+                onClick={() => setShowAddSoftware(true)}
+              >
+                <Plus className="w-4 h-4" />
+                Add Software
+              </Button>
+            </div>
+
+            {/* Software Cards Grid */}
+            <div className="bg-white rounded-2xl border border-slate-200/50 overflow-hidden">
+              {Object.keys(groupedSoftware).length === 0 ? (
+                <div className="p-12 text-center">
+                  <Cloud className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                  <p className="text-slate-500 mb-3">No software added yet</p>
+                  <Button 
+                    onClick={() => setShowAddSoftware(true)}
+                    className="bg-purple-600 hover:bg-purple-700"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Software
+                  </Button>
+                </div>
+              ) : (
+                <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {Object.entries(groupedSoftware).map(([appName, data]) => {
+                    const managedAssignments = data.managedLicense 
+                      ? licenseAssignments.filter(a => a.license_id === data.managedLicense.id && a.status === 'active')
+                      : [];
+                    const individualAssignments = data.individualLicenses.flatMap(l => 
+                      licenseAssignments.filter(a => a.license_id === l.id && a.status === 'active')
+                    );
+                    
+                    return (
+                      <SoftwareCard 
+                        key={appName}
+                        software={data.software}
+                        managedLicense={data.managedLicense}
+                        individualLicenses={data.individualLicenses}
+                        managedAssignments={managedAssignments}
+                        individualAssignments={individualAssignments}
+                        isCatalogOnly={data.isCatalogOnly}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Modals */}
+          <LicenseAssignmentModal
+            open={!!selectedLicense}
+            onClose={() => setSelectedLicense(null)}
+            license={selectedLicense}
+            contacts={contacts}
+            assignments={licenseAssignments}
+            onAssign={handleAssignLicense}
+            onRevoke={handleRevokeLicense}
+          />
+          <AddSoftwareModal
+            open={showAddSoftware}
+            onClose={() => setShowAddSoftware(false)}
+            onSave={handleAddSoftware}
+            customerId={customerId}
           />
         </TabsContent>
 
