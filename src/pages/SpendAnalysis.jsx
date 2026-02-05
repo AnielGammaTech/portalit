@@ -65,18 +65,48 @@ export default function SpendAnalysis() {
     );
   }
 
-  // Calculate totals
-  const monthlyTotal = licenses.reduce((sum, l) => sum + (l.total_cost || 0), 0);
-  const yearlyTotal = monthlyTotal * 12;
+  // Calculate totals - respect billing_cycle
+  const monthlyTotal = licenses.reduce((sum, l) => {
+    if (l.billing_cycle === 'annually') {
+      return sum + ((l.total_cost || 0) / 12); // Convert annual to monthly
+    }
+    return sum + (l.total_cost || 0);
+  }, 0);
+  
+  const yearlyTotal = licenses.reduce((sum, l) => {
+    if (l.billing_cycle === 'annually') {
+      return sum + (l.total_cost || 0); // Already annual
+    }
+    return sum + ((l.total_cost || 0) * 12); // Convert monthly to annual
+  }, 0);
 
-  // Calculate unused spend
+  // Calculate unused spend per license (respecting billing cycle)
   const managedLicenses = licenses.filter(l => l.management_type === 'managed');
   const totalSeats = managedLicenses.reduce((sum, l) => sum + (l.quantity || 0), 0);
   const managedLicenseIds = managedLicenses.map(l => l.id);
   const assignedSeats = licenseAssignments.filter(a => a.status === 'active' && managedLicenseIds.includes(a.license_id)).length;
   const unusedSeats = totalSeats - assignedSeats;
-  const wastedMonthly = totalSeats > 0 ? (unusedSeats / totalSeats) * monthlyTotal : 0;
-  const wastedYearly = wastedMonthly * 12;
+  
+  // Calculate wasted spend more accurately per license
+  const wastedMonthly = managedLicenses.reduce((sum, l) => {
+    const assigned = licenseAssignments.filter(a => a.license_id === l.id && a.status === 'active').length;
+    const unused = (l.quantity || 0) - assigned;
+    if (unused <= 0 || (l.quantity || 0) === 0) return sum;
+    const costPerSeat = (l.total_cost || 0) / (l.quantity || 1);
+    const wastedCost = costPerSeat * unused;
+    // Convert to monthly if annual
+    return sum + (l.billing_cycle === 'annually' ? wastedCost / 12 : wastedCost);
+  }, 0);
+  
+  const wastedYearly = managedLicenses.reduce((sum, l) => {
+    const assigned = licenseAssignments.filter(a => a.license_id === l.id && a.status === 'active').length;
+    const unused = (l.quantity || 0) - assigned;
+    if (unused <= 0 || (l.quantity || 0) === 0) return sum;
+    const costPerSeat = (l.total_cost || 0) / (l.quantity || 1);
+    const wastedCost = costPerSeat * unused;
+    // Convert to yearly if monthly
+    return sum + (l.billing_cycle === 'annually' ? wastedCost : wastedCost * 12);
+  }, 0);
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -156,6 +186,8 @@ export default function SpendAnalysis() {
                 const assignedCount = licenseAssignments.filter(a => a.license_id === license.id && a.status === 'active').length;
                 const isManaged = license.management_type === 'managed';
                 const unusedCount = isManaged ? (license.quantity || 0) - assignedCount : 0;
+                const isAnnual = license.billing_cycle === 'annually';
+                const monthlyEquivalent = isAnnual ? (license.total_cost || 0) / 12 : (license.total_cost || 0);
                 
                 return (
                   <div key={license.id} className="px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
@@ -186,10 +218,20 @@ export default function SpendAnalysis() {
                               ({unusedCount} unused)
                             </span>
                           )}
+                          {isAnnual && (
+                            <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
+                              Annual
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     </div>
-                    <p className="text-lg font-bold text-slate-900">${(license.total_cost || 0).toLocaleString()}</p>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-slate-900">${monthlyEquivalent.toFixed(2)}</p>
+                      {isAnnual && (
+                        <p className="text-xs text-slate-500">${(license.total_cost || 0).toLocaleString()}/yr</p>
+                      )}
+                    </div>
                   </div>
                 );
               })
@@ -213,7 +255,8 @@ export default function SpendAnalysis() {
           {licenses
             .sort((a, b) => (b.total_cost || 0) - (a.total_cost || 0))
             .map(license => {
-              const yearlyCost = (license.total_cost || 0) * 12;
+              const isAnnual = license.billing_cycle === 'annually';
+              const yearlyCost = isAnnual ? (license.total_cost || 0) : (license.total_cost || 0) * 12;
               
               return (
                 <div key={license.id} className="px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
@@ -227,7 +270,12 @@ export default function SpendAnalysis() {
                     </div>
                     <div>
                       <p className="font-medium text-slate-900">{license.application_name}</p>
-                      <p className="text-xs text-slate-500">${(license.total_cost || 0).toLocaleString()}/mo × 12</p>
+                      <p className="text-xs text-slate-500">
+                        {isAnnual 
+                          ? `$${(license.total_cost || 0).toLocaleString()}/yr (billed annually)`
+                          : `$${(license.total_cost || 0).toLocaleString()}/mo × 12`
+                        }
+                      </p>
                     </div>
                   </div>
                   <p className="text-lg font-bold text-slate-900">${yearlyCost.toLocaleString()}</p>
