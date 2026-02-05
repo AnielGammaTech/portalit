@@ -184,6 +184,7 @@ export default function OverviewTab({
   const [isSyncing, setIsSyncing] = useState(false);
   const [teamPage, setTeamPage] = useState(1);
   const [selectedContact, setSelectedContact] = useState(null);
+  const [showTeamModal, setShowTeamModal] = useState(false);
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [showAssistant, setShowAssistant] = useState(false);
   const [isCreatingTicket, setIsCreatingTicket] = useState(false);
@@ -370,10 +371,9 @@ export default function OverviewTab({
                 )}>Overdue</p>
               </div>
             </div>
-            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-xs text-slate-500">{contracts.filter(c => c.status === 'active').length} active contracts</span>
-              <span className="text-sm font-semibold text-slate-900">${invoices.reduce((sum, i) => sum + (i.total || 0), 0).toLocaleString()}</span>
-            </div>
+            <p className="mt-3 pt-3 border-t border-slate-100 text-xs text-slate-500 text-center">
+              {contracts.filter(c => c.status === 'active').length} active contracts
+            </p>
           </div>
         </motion.div>
 
@@ -472,17 +472,20 @@ export default function OverviewTab({
           transition={{ delay: 0.4 }}
           className="bg-white rounded-xl border border-slate-200 overflow-hidden hover:border-purple-200 transition-colors"
         >
-          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+          <div 
+            className="px-4 py-3 border-b border-slate-100 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors"
+            onClick={() => setShowTeamModal(true)}
+          >
             <div className="flex items-center gap-2">
               <h3 className="font-semibold text-slate-900 text-sm">Team</h3>
               <Badge variant="outline" className="text-xs">{contacts.length}</Badge>
             </div>
             <div className="flex items-center gap-1">
-              <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={onAddContact}>
+              <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={(e) => { e.stopPropagation(); onAddContact(); }}>
                 <UserPlus className="w-3.5 h-3.5" />
               </Button>
               {customer?.source === 'halopsa' && (
-                <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={handleSyncContacts} disabled={isSyncing}>
+                <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={(e) => { e.stopPropagation(); handleSyncContacts(); }} disabled={isSyncing}>
                   <RefreshCw className={cn("w-3.5 h-3.5", isSyncing && "animate-spin")} />
                 </Button>
               )}
@@ -505,7 +508,7 @@ export default function OverviewTab({
             {contacts.length > 3 && (
               <p 
                 className="text-xs text-slate-400 text-center hover:text-purple-500 cursor-pointer py-1"
-                onClick={() => setSelectedContact(contacts[3])}
+                onClick={() => setShowTeamModal(true)}
               >
                 +{contacts.length - 3} more
               </p>
@@ -564,6 +567,45 @@ export default function OverviewTab({
         onClose={() => setSelectedContact(null)}
         customerId={customerId}
       />
+
+      {/* Team Members Modal */}
+      <Dialog open={showTeamModal} onOpenChange={setShowTeamModal}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-purple-600" />
+              Team Members ({contacts.length})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+            {contacts.map(contact => (
+              <div 
+                key={contact.id}
+                onClick={() => { setShowTeamModal(false); setSelectedContact(contact); }}
+                className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-slate-100 cursor-pointer transition-colors"
+              >
+                <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center text-white font-medium">
+                  {contact.full_name?.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-slate-900 truncate">{contact.full_name}</p>
+                  <p className="text-sm text-slate-500 truncate">{contact.email || contact.title || 'No email'}</p>
+                </div>
+                {contact.is_primary && (
+                  <Badge className="bg-purple-100 text-purple-700 text-xs">Primary</Badge>
+                )}
+                <ChevronRight className="w-4 h-4 text-slate-300" />
+              </div>
+            ))}
+            {contacts.length === 0 && (
+              <div className="text-center py-8 text-slate-500">
+                <Users className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                <p>No team members found</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* AI Support Assistant Modal */}
       <Dialog open={showAssistant} onOpenChange={setShowAssistant}>
