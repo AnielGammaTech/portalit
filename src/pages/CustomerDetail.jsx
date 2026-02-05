@@ -49,7 +49,7 @@ import CustomerAnalytics from '../components/customer/CustomerAnalytics';
 import DevicesTab from '../components/customer/DevicesTab';
 import CustomerServicesTab from '../components/customer/CustomerServicesTab';
 import OverviewTab from '../components/customer/OverviewTab';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, Eye } from 'lucide-react';
 
 export default function CustomerDetail() {
   const [isSyncing, setIsSyncing] = useState(false);
@@ -475,7 +475,13 @@ export default function CustomerDetail() {
       
       {/* Header with Sync - Admin only */}
       {isAdmin && (
-        <div className="flex items-center justify-end">
+        <div className="flex items-center justify-end gap-2">
+          <Link to={createPageUrl(`CustomerPortalPreview?id=${customerId}`)}>
+            <Button variant="outline" size="sm" className="gap-2">
+              <Eye className="w-4 h-4" />
+              View as Customer
+            </Button>
+          </Link>
          {customer?.source === 'halopsa' && (
            <Button 
              onClick={handleSyncCustomer}

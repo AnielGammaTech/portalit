@@ -64,6 +64,7 @@ import SaaSReports from './pages/SaaSReports';
 import Services from './pages/Services';
 import Settings from './pages/Settings';
 import SpendAnalysis from './pages/SpendAnalysis';
+import CustomerPortalPreview from './pages/CustomerPortalPreview';
 import __Layout from './Layout.jsx';
 
 
@@ -85,6 +86,7 @@ export const PAGES = {
     "Services": Services,
     "Settings": Settings,
     "SpendAnalysis": SpendAnalysis,
+    "CustomerPortalPreview": CustomerPortalPreview,
 }
 
 export const pagesConfig = {
