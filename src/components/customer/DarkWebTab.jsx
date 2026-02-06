@@ -729,35 +729,36 @@ export default function DarkWebTab({ customerId }) {
                           {items.map((item, idx) => {
                             const effSev = getEffectiveSeverity(item);
                             return (
-                            <div key={idx} className="flex items-center justify-between text-sm p-2 bg-white rounded-lg">
-                              <div className="flex items-center gap-2">
-                                <Database className="w-3.5 h-3.5 text-slate-400" />
-                                <span>{item.source || 'Unknown'}</span>
+                              <div key={idx} className="flex items-center justify-between text-sm p-2 bg-white rounded-lg">
+                                <div className="flex items-center gap-2">
+                                  <Database className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>{item.source || 'Unknown'}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {hasRealPassword(item.password) ? (
+                                    <>
+                                      <code className="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded">
+                                        {showPasswords[`user-${email}-${idx}`] ? item.password : maskPassword(item.password)}
+                                      </code>
+                                      <button onClick={(e) => { e.stopPropagation(); togglePasswordVisibility(`user-${email}-${idx}`); }}>
+                                        {showPasswords[`user-${email}-${idx}`] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <span className="text-xs text-slate-400 italic">—</span>
+                                  )}
+                                  <Badge className={cn('text-[10px]',
+                                    effSev === 'critical' && 'bg-red-100 text-red-700',
+                                    effSev === 'high' && 'bg-orange-100 text-orange-700',
+                                    effSev === 'medium' && 'bg-yellow-100 text-yellow-700',
+                                    effSev === 'low' && 'bg-blue-100 text-blue-700'
+                                  )}>
+                                    {effSev}
+                                  </Badge>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-2">
-                                {hasRealPassword(item.password) ? (
-                                  <>
-                                    <code className="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded">
-                                      {showPasswords[`user-${email}-${idx}`] ? item.password : maskPassword(item.password)}
-                                    </code>
-                                    <button onClick={(e) => { e.stopPropagation(); togglePasswordVisibility(`user-${email}-${idx}`); }}>
-                                      {showPasswords[`user-${email}-${idx}`] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                                    </button>
-                                  </>
-                                ) : (
-                                  <span className="text-xs text-slate-400 italic">—</span>
-                                )}
-                                <Badge className={cn('text-[10px]',
-                                  effSev === 'critical' && 'bg-red-100 text-red-700',
-                                  effSev === 'high' && 'bg-orange-100 text-orange-700',
-                                  effSev === 'medium' && 'bg-yellow-100 text-yellow-700',
-                                  effSev === 'low' && 'bg-blue-100 text-blue-700'
-                                )}>
-                                  {effSev}
-                                </Badge>
-                              </div>
-                            </div>
-                          );})}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
