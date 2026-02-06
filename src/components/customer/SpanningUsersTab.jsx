@@ -598,6 +598,128 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
           )}
         </DialogContent>
       </Dialog>
+
+      {/* SharePoint Sites Modal */}
+      <Dialog open={sharePointModalOpen} onOpenChange={setSharePointModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Globe className="w-5 h-5 text-blue-600" />
+              SharePoint Sites
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-auto">
+            {loadingSharePoint ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="w-6 h-6 animate-spin text-slate-400" />
+              </div>
+            ) : sharePointSites.length === 0 ? (
+              <div className="text-center py-12 text-slate-500">
+                <Globe className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                <p>No SharePoint sites found</p>
+              </div>
+            ) : (
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-slate-50">
+                      <TableHead>Site</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Storage</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sharePointSites.map((site, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium text-slate-900">{site.name}</p>
+                            {site.url && (
+                              <p className="text-xs text-slate-500 truncate max-w-[300px]">{site.url}</p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={cn(
+                            site.isProtected ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"
+                          )}>
+                            {site.isProtected ? 'Protected' : 'Not Protected'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span className="font-mono text-sm">{site.storage}</span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Teams Channels Modal */}
+      <Dialog open={teamsModalOpen} onOpenChange={setTeamsModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-indigo-600" />
+              Teams
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-auto">
+            {loadingTeams ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="w-6 h-6 animate-spin text-slate-400" />
+              </div>
+            ) : teamsChannels.length === 0 ? (
+              <div className="text-center py-12 text-slate-500">
+                <MessageSquare className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                <p>No Teams found</p>
+              </div>
+            ) : (
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-slate-50">
+                      <TableHead>Team</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Storage</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {teamsChannels.map((team, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium text-slate-900">{team.name}</p>
+                            {team.description && (
+                              <p className="text-xs text-slate-500 truncate max-w-[300px]">{team.description}</p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={cn(
+                            team.isProtected ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"
+                          )}>
+                            {team.isProtected ? 'Protected' : 'Not Protected'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span className="font-mono text-sm">{team.storage}</span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
