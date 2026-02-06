@@ -196,7 +196,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
         </div>
       </div>
 
-      {/* Stats Grid */}
+      {/* Stats Grid - Users */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 h-full">
           <CardContent className="pt-4">
@@ -258,6 +258,97 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
           </CardContent>
         </Card>
       </div>
+
+      {/* SharePoint & Teams Stats */}
+      {(stats.numberOfProtectedSharePointSites > 0 || stats.numberOfProtectedTeamChannels > 0 || stats.totalProtectedStorage) && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 h-full">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-200 rounded-lg">
+                  <Globe className="w-5 h-5 text-blue-700" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-blue-900">{stats.numberOfProtectedSharePointSites || 0}</p>
+                  <p className="text-sm text-blue-600">SharePoint Sites</p>
+                  {stats.sharePointBackupStatus && (
+                    <Badge className={cn(
+                      "text-[10px] mt-1",
+                      stats.sharePointBackupStatus === 'success' ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                    )}>
+                      {stats.sharePointBackupStatus}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 h-full">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-200 rounded-lg">
+                  <MessageSquare className="w-5 h-5 text-indigo-700" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-indigo-900">{stats.numberOfProtectedTeamChannels || 0}</p>
+                  <p className="text-sm text-indigo-600">Teams Channels</p>
+                  {stats.teamsBackupStatus && (
+                    <Badge className={cn(
+                      "text-[10px] mt-1",
+                      stats.teamsBackupStatus === 'success' ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                    )}>
+                      {stats.teamsBackupStatus}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200 h-full">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-slate-200 rounded-lg">
+                  <Database className="w-5 h-5 text-slate-700" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-slate-900">{stats.totalProtectedStorage || '0 B'}</p>
+                  <p className="text-sm text-slate-600">Protected Data</p>
+                  <p className="text-xs text-slate-500">Used: {stats.totalUsedStorage || '0 B'}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 7-Day Backup Status */}
+          {stats.backupStatus7Days && (
+            <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200 h-full">
+              <CardContent className="pt-4">
+                <p className="text-xs font-medium text-emerald-600 uppercase mb-2">7-Day Status</p>
+                <div className="grid grid-cols-3 gap-1 text-[10px]">
+                  {[
+                    { key: 'mail', icon: Mail, label: 'Mail' },
+                    { key: 'drive', icon: FolderOpen, label: 'Drive' },
+                    { key: 'sharePoint', icon: Globe, label: 'SP' },
+                    { key: 'teams', icon: MessageSquare, label: 'Teams' },
+                    { key: 'calendar', icon: Calendar, label: 'Cal' },
+                    { key: 'contacts', icon: Users, label: 'Cont' }
+                  ].map(({ key, icon: Icon, label }) => (
+                    <div key={key} className="flex items-center gap-1">
+                      <div className={cn(
+                        "w-2 h-2 rounded-full",
+                        stats.backupStatus7Days[key] === 'success' ? "bg-green-500" : "bg-amber-500"
+                      )} />
+                      <span className="text-emerald-700">{label}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
 
 
