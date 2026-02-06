@@ -771,33 +771,44 @@ export default function DarkWebTab({ customerId }) {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className={cn("w-5 h-5",
-                selectedCompromise?.severity === 'critical' && "text-red-500",
-                selectedCompromise?.severity === 'high' && "text-orange-500",
-                selectedCompromise?.severity === 'medium' && "text-yellow-500",
-                selectedCompromise?.severity === 'low' && "text-blue-500"
-              )} />
+              {(() => {
+                const modalSeverity = selectedCompromise ? getEffectiveSeverity(selectedCompromise) : null;
+                return (
+                  <AlertTriangle className={cn("w-5 h-5",
+                    modalSeverity === 'critical' && "text-red-500",
+                    modalSeverity === 'high' && "text-orange-500",
+                    modalSeverity === 'medium' && "text-yellow-500",
+                    modalSeverity === 'low' && "text-blue-500"
+                  )} />
+                );
+              })()}
               Compromise Details
             </DialogTitle>
           </DialogHeader>
-          {selectedCompromise && (
+          {selectedCompromise && (() => {
+            const modalSeverity = getEffectiveSeverity(selectedCompromise);
+            return (
             <div className="space-y-4">
               <div className={cn(
                 "p-4 rounded-xl",
-                selectedCompromise.severity === 'critical' && "bg-red-50 border border-red-200",
-                selectedCompromise.severity === 'high' && "bg-orange-50 border border-orange-200",
-                selectedCompromise.severity === 'medium' && "bg-yellow-50 border border-yellow-200",
-                selectedCompromise.severity === 'low' && "bg-blue-50 border border-blue-200"
+                modalSeverity === 'critical' && "bg-red-50 border border-red-200",
+                modalSeverity === 'high' && "bg-orange-50 border border-orange-200",
+                modalSeverity === 'medium' && "bg-yellow-50 border border-yellow-200",
+                modalSeverity === 'low' && "bg-blue-50 border border-blue-200"
               )}>
                 <Badge className={cn('mb-2',
-                  selectedCompromise.severity === 'critical' && 'bg-red-100 text-red-700',
-                  selectedCompromise.severity === 'high' && 'bg-orange-100 text-orange-700',
-                  selectedCompromise.severity === 'medium' && 'bg-yellow-100 text-yellow-700',
-                  selectedCompromise.severity === 'low' && 'bg-blue-100 text-blue-700'
+                  modalSeverity === 'critical' && 'bg-red-100 text-red-700',
+                  modalSeverity === 'high' && 'bg-orange-100 text-orange-700',
+                  modalSeverity === 'medium' && 'bg-yellow-100 text-yellow-700',
+                  modalSeverity === 'low' && 'bg-blue-100 text-blue-700'
                 )}>
-                  {selectedCompromise.severity?.toUpperCase()} SEVERITY
+                  {modalSeverity?.toUpperCase()} SEVERITY
                 </Badge>
-                <p className="text-sm text-slate-600">This credential was found exposed on the dark web and requires immediate attention.</p>
+                <p className="text-sm text-slate-600">
+                  {hasRealPassword(selectedCompromise.password) 
+                    ? "This credential was found exposed on the dark web and requires immediate attention."
+                    : "This email was found in a data breach. No password was exposed, but monitoring is recommended."}
+                </p>
               </div>
 
               <div className="space-y-3">
