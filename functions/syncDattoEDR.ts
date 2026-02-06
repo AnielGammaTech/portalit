@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
           activeHostCount: activeCount,
           hosts: hosts.slice(0, 100).map(h => {
             const heartbeatDate = h.heartbeat ? new Date(h.heartbeat) : null;
-            const isOnline = heartbeatDate ? heartbeatDate > thirtyMinutesAgo : h.active === true;
+            const isOnline = heartbeatDate ? heartbeatDate > twentyFourHoursAgo : h.active === true;
             return {
               id: h.id,
               hostname: h.hostname || h.name,
