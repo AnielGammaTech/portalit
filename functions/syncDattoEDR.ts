@@ -107,17 +107,17 @@ Deno.serve(async (req) => {
 
       const hostCount = hosts.length || targetStats?.agentCount || 0;
       
-      // Determine online status based on heartbeat within last 30 minutes
-      // The API's 'active' field is not always reliable, so we check heartbeat time
-      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+      // Determine online status based on heartbeat within last 24 hours
+      // EDR console shows "Active" status for devices that checked in today
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const activeHosts = hosts.filter(h => {
         if (h.heartbeat) {
           const heartbeatDate = new Date(h.heartbeat);
-          return heartbeatDate > thirtyMinutesAgo;
+          return heartbeatDate > twentyFourHoursAgo;
         }
         return h.active === true;
       });
-      console.log(`Active filter: ${activeHosts.length} active out of ${hosts.length} total (cutoff: ${thirtyMinutesAgo.toISOString()})`);
+      console.log(`Active filter: ${activeHosts.length} active out of ${hosts.length} total (cutoff: ${twentyFourHoursAgo.toISOString()})`);
       const activeCount = activeHosts.length || targetStats?.activeAgentCount || 0;
       const alertCount = targetStats?.alertCount || 0;
       
