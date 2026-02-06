@@ -617,7 +617,9 @@ export default function DarkWebTab({ customerId }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredCompromises.map((item, idx) => (
+                  {filteredCompromises.map((item, idx) => {
+                    const effectiveSeverity = getEffectiveSeverity(item);
+                    return (
                     <tr 
                       key={idx} 
                       className="hover:bg-slate-50 cursor-pointer"
@@ -655,16 +657,16 @@ export default function DarkWebTab({ customerId }) {
                       <td className="p-3 text-slate-500">{item.breach_date || '-'}</td>
                       <td className="p-3">
                         <Badge className={cn('text-xs',
-                          item.severity === 'critical' && 'bg-red-100 text-red-700',
-                          item.severity === 'high' && 'bg-orange-100 text-orange-700',
-                          item.severity === 'medium' && 'bg-yellow-100 text-yellow-700',
-                          item.severity === 'low' && 'bg-blue-100 text-blue-700'
+                          effectiveSeverity === 'critical' && 'bg-red-100 text-red-700',
+                          effectiveSeverity === 'high' && 'bg-orange-100 text-orange-700',
+                          effectiveSeverity === 'medium' && 'bg-yellow-100 text-yellow-700',
+                          effectiveSeverity === 'low' && 'bg-blue-100 text-blue-700'
                         )}>
-                          {item.severity || 'unknown'}
+                          {effectiveSeverity || 'unknown'}
                         </Badge>
                       </td>
                     </tr>
-                  ))}
+                  );})}
                 </tbody>
               </table>
             </div>
