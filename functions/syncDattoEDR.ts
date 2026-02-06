@@ -107,10 +107,17 @@ Deno.serve(async (req) => {
 
       const hostCount = hosts.length || targetStats?.agentCount || 0;
       
-      // Use the 'active' field directly from the API - it indicates current online status
-      // The API sets active=true for devices that have checked in recently
-      const activeHosts = hosts.filter(h => h.active === true);
-      console.log(`Active filter: ${activeHosts.length} active out of ${hosts.length} total`);
+      // Determine online status based on heartbeat within last 30 minutes
+      // The API's 'active' field is not always reliable, so we check heartbeat time
+      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+      const activeHosts = hosts.filter(h => {
+        if (h.heartbeat) {
+          const heartbeatDate = new Date(h.heartbeat);
+          return heartbeatDate > thirtyMinutesAgo;
+        }
+        return h.active === true;
+      });
+      console.log(`Active filter: ${activeHosts.length} active out of ${hosts.length} total (cutoff: ${thirtyMinutesAgo.toISOString()})`);
       const activeCount = activeHosts.length || targetStats?.activeAgentCount || 0;
       const alertCount = targetStats?.alertCount || 0;
       
