@@ -302,7 +302,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
       </div>
 
       {/* SharePoint & Teams Stats */}
-      {(stats.numberOfProtectedSharePointSites > 0 || stats.numberOfProtectedTeamChannels > 0 || stats.totalProtectedStorage) && (
+      {stats.domainName && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card 
             className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 h-full cursor-pointer hover:shadow-md transition-shadow"
