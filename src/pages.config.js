@@ -53,6 +53,7 @@ import AwaitingAccess from './pages/AwaitingAccess';
 import Billing from './pages/Billing';
 import Contracts from './pages/Contracts';
 import CustomerDetail from './pages/CustomerDetail';
+import CustomerPortalPreview from './pages/CustomerPortalPreview';
 import Customers from './pages/Customers';
 import Dashboard from './pages/Dashboard';
 import Integrations from './pages/Integrations';
@@ -64,7 +65,6 @@ import SaaSReports from './pages/SaaSReports';
 import Services from './pages/Services';
 import Settings from './pages/Settings';
 import SpendAnalysis from './pages/SpendAnalysis';
-import CustomerPortalPreview from './pages/CustomerPortalPreview';
 import __Layout from './Layout.jsx';
 
 
@@ -75,6 +75,7 @@ export const PAGES = {
     "Billing": Billing,
     "Contracts": Contracts,
     "CustomerDetail": CustomerDetail,
+    "CustomerPortalPreview": CustomerPortalPreview,
     "Customers": Customers,
     "Dashboard": Dashboard,
     "Integrations": Integrations,
@@ -86,7 +87,6 @@ export const PAGES = {
     "Services": Services,
     "Settings": Settings,
     "SpendAnalysis": SpendAnalysis,
-    "CustomerPortalPreview": CustomerPortalPreview,
 }
 
 export const pagesConfig = {
