@@ -867,10 +867,12 @@ export default function DarkWebTab({ customerId }) {
               <div className="pt-4 border-t">
                 <p className="text-sm font-medium text-slate-900 mb-2">Recommended Actions:</p>
                 <ul className="text-sm text-slate-600 space-y-1">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-green-500" />
-                    Change password immediately
-                  </li>
+                  {hasRealPassword(selectedCompromise.password) && (
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      Change password immediately
+                    </li>
+                  )}
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-green-500" />
                     Enable multi-factor authentication
@@ -882,7 +884,7 @@ export default function DarkWebTab({ customerId }) {
                 </ul>
               </div>
             </div>
-          )}
+          );})()}
         </DialogContent>
       </Dialog>
     </div>
