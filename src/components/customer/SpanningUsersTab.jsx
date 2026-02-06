@@ -166,18 +166,33 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
           <div>
             <p className="text-sm font-medium text-blue-600 uppercase tracking-wide">Spanning Backup Domain</p>
             <p className="text-xl font-bold text-slate-900 mt-1">{stats.domainName || 'Loading...'}</p>
-            <p className="text-sm text-slate-500 mt-1">Domain ID: {stats.domainId || '...'}</p>
+            <div className="flex items-center gap-4 mt-1 text-sm text-slate-500">
+              <span>Origin: {stats.origin || 'M365'}</span>
+              {stats.expirationDate && (
+                <span>Expires: {new Date(stats.expirationDate).toLocaleDateString()}</span>
+              )}
+            </div>
           </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleSyncSpanning}
-            disabled={syncingSpanning}
-            className="gap-2"
-          >
-            <RefreshCw className={cn("w-4 h-4", syncingSpanning && "animate-spin")} />
-            Sync
-          </Button>
+          <div className="flex items-center gap-3">
+            {stats.overallBackupStatus7Days && (
+              <Badge className={cn(
+                "text-xs",
+                stats.overallBackupStatus7Days === 'success' ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+              )}>
+                7-day: {stats.overallBackupStatus7Days}
+              </Badge>
+            )}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleSyncSpanning}
+              disabled={syncingSpanning}
+              className="gap-2"
+            >
+              <RefreshCw className={cn("w-4 h-4", syncingSpanning && "animate-spin")} />
+              Sync
+            </Button>
+          </div>
         </div>
       </div>
 
