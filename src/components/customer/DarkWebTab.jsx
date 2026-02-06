@@ -602,7 +602,7 @@ export default function DarkWebTab({ customerId }) {
                     </div>
                   )}
                 </div>
-              ))}
+              );})}
             </div>
           ) : (
             <div className="overflow-x-auto max-h-[500px]">
