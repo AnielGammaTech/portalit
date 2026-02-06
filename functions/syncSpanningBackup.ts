@@ -235,16 +235,45 @@ Deno.serve(async (req) => {
 
       const mapping = mappings[0];
       
-      // Fetch SharePoint sites from the API
-      const sitesResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/sharepoint-sites?page_size=500`);
+      // Try multiple possible endpoints for SharePoint sites
+      let sitesResponse = null;
+      const endpoints = [
+        `/v2/spanning/domains/${mapping.spanning_tenant_id}/sharepoint-sites`,
+        `/v2/spanning/domains/${mapping.spanning_tenant_id}/sharepoint`,
+        `/v2/spanning/domains/${mapping.spanning_tenant_id}/sites`
+      ];
+      
+      for (const endpoint of endpoints) {
+        try {
+          sitesResponse = await unitrendsApiCall(`${endpoint}?page_size=500`);
+          console.log(`SharePoint endpoint ${endpoint} response:`, JSON.stringify(sitesResponse).substring(0, 500));
+          if (sitesResponse && (Array.isArray(sitesResponse) ? sitesResponse.length > 0 : Object.keys(sitesResponse).length > 0)) {
+            break;
+          }
+        } catch (e) {
+          console.log(`SharePoint endpoint ${endpoint} failed:`, e.message);
+          continue;
+        }
+      }
       
       let sites = [];
-      if (Array.isArray(sitesResponse)) {
-        sites = sitesResponse;
-      } else if (sitesResponse?.sites) {
-        sites = sitesResponse.sites;
-      } else if (sitesResponse?.data) {
-        sites = sitesResponse.data;
+      if (sitesResponse) {
+        if (Array.isArray(sitesResponse)) {
+          // Check if it's a nested structure like users
+          if (sitesResponse[0]?.sites || sitesResponse[0]?.sharePointSites) {
+            sites = sitesResponse[0].sites || sitesResponse[0].sharePointSites;
+          } else {
+            sites = sitesResponse;
+          }
+        } else if (sitesResponse?.sites) {
+          sites = sitesResponse.sites;
+        } else if (sitesResponse?.sharePointSites) {
+          sites = sitesResponse.sharePointSites;
+        } else if (sitesResponse?.data) {
+          sites = sitesResponse.data;
+        } else if (sitesResponse?.items) {
+          sites = sitesResponse.items;
+        }
       }
 
       const formatStorage = (bytes) => {
@@ -269,7 +298,8 @@ Deno.serve(async (req) => {
       return Response.json({
         success: true,
         total: formattedSites.length,
-        sites: formattedSites
+        sites: formattedSites,
+        rawResponse: sitesResponse ? JSON.stringify(sitesResponse).substring(0, 1000) : null
       });
     }
 
@@ -286,16 +316,43 @@ Deno.serve(async (req) => {
 
       const mapping = mappings[0];
       
-      // Fetch Teams channels from the API
-      const teamsResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/teams?page_size=500`);
+      // Try multiple possible endpoints for Teams
+      let teamsResponse = null;
+      const endpoints = [
+        `/v2/spanning/domains/${mapping.spanning_tenant_id}/teams`,
+        `/v2/spanning/domains/${mapping.spanning_tenant_id}/teams-channels`,
+        `/v2/spanning/domains/${mapping.spanning_tenant_id}/channels`
+      ];
+      
+      for (const endpoint of endpoints) {
+        try {
+          teamsResponse = await unitrendsApiCall(`${endpoint}?page_size=500`);
+          console.log(`Teams endpoint ${endpoint} response:`, JSON.stringify(teamsResponse).substring(0, 500));
+          if (teamsResponse && (Array.isArray(teamsResponse) ? teamsResponse.length > 0 : Object.keys(teamsResponse).length > 0)) {
+            break;
+          }
+        } catch (e) {
+          console.log(`Teams endpoint ${endpoint} failed:`, e.message);
+          continue;
+        }
+      }
       
       let teams = [];
-      if (Array.isArray(teamsResponse)) {
-        teams = teamsResponse;
-      } else if (teamsResponse?.teams) {
-        teams = teamsResponse.teams;
-      } else if (teamsResponse?.data) {
-        teams = teamsResponse.data;
+      if (teamsResponse) {
+        if (Array.isArray(teamsResponse)) {
+          // Check if it's a nested structure
+          if (teamsResponse[0]?.teams) {
+            teams = teamsResponse[0].teams;
+          } else {
+            teams = teamsResponse;
+          }
+        } else if (teamsResponse?.teams) {
+          teams = teamsResponse.teams;
+        } else if (teamsResponse?.data) {
+          teams = teamsResponse.data;
+        } else if (teamsResponse?.items) {
+          teams = teamsResponse.items;
+        }
       }
 
       const formatStorage = (bytes) => {
@@ -320,7 +377,8 @@ Deno.serve(async (req) => {
       return Response.json({
         success: true,
         total: formattedTeams.length,
-        teams: formattedTeams
+        teams: formattedTeams,
+        rawResponse: teamsResponse ? JSON.stringify(teamsResponse).substring(0, 1000) : null
       });
     }
 
