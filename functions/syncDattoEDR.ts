@@ -106,13 +106,21 @@ Deno.serve(async (req) => {
       } : null;
 
       const hostCount = hosts.length || targetStats?.agentCount || 0;
-      // active can be true, "true", or status field - check all variations
-      const activeHosts = hosts.filter(h => 
-        h.active === true || h.active === 'true' || h.active === 1 || 
-        h.status === 'online' || h.status === 'active' ||
-        h.agentStatus === 'active' || h.agentStatus === 'online'
-      );
-      console.log(`Active filter: ${activeHosts.length} active out of ${hosts.length} total. Sample host:`, hosts[0] ? JSON.stringify(hosts[0]).substring(0, 500) : 'none');
+      
+      // Determine online status based on recent heartbeat (within last 15 minutes)
+      const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+      const activeHosts = hosts.filter(h => {
+        // Check heartbeat timestamp first (most reliable)
+        if (h.heartbeat) {
+          const heartbeatDate = new Date(h.heartbeat);
+          return heartbeatDate > fifteenMinutesAgo;
+        }
+        // Fall back to active/status fields
+        return h.active === true || h.active === 'true' || 
+               h.status === 'online' || h.status === 'active' ||
+               h.agentStatus === 'active' || h.agentStatus === 'online';
+      });
+      console.log(`Active filter: ${activeHosts.length} active out of ${hosts.length} total`);
       const activeCount = activeHosts.length || targetStats?.activeAgentCount || 0;
       const alertCount = targetStats?.alertCount || 0;
       
