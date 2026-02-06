@@ -123,17 +123,14 @@ Deno.serve(async (req) => {
         data: {
           hostCount: hostCount,
           activeHostCount: activeCount,
-          hosts: hosts.slice(0, 100).map(h => {
-            console.log(`Host ${h.hostname}: active=${h.active}, type=${typeof h.active}`);
-            return {
-              id: h.id,
-              hostname: h.hostname || h.name,
-              ip: h.ip || h.ipstring,
-              os: h.os,
-              online: h.active === true,
-              lastSeen: h.heartbeat
-            };
-          }),
+          hosts: hosts.slice(0, 100).map(h => ({
+            id: h.id,
+            hostname: h.hostname || h.name,
+            ip: h.ip || h.ipstring,
+            os: h.os,
+            online: h.active === true,
+            lastSeen: h.heartbeat
+          })),
           alertCount: alertCount,
           criticalAlerts: 0,
           mediumAlerts: 0, 
