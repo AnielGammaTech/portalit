@@ -109,6 +109,42 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
     }
   };
 
+  const handleOpenSharePointModal = async () => {
+    setSharePointModalOpen(true);
+    setLoadingSharePoint(true);
+    try {
+      const response = await base44.functions.invoke('syncSpanningBackup', {
+        action: 'list_sharepoint_sites',
+        customer_id: customerId
+      });
+      if (response.data.success) {
+        setSharePointSites(response.data.sites || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch SharePoint sites:', error);
+    } finally {
+      setLoadingSharePoint(false);
+    }
+  };
+
+  const handleOpenTeamsModal = async () => {
+    setTeamsModalOpen(true);
+    setLoadingTeams(true);
+    try {
+      const response = await base44.functions.invoke('syncSpanningBackup', {
+        action: 'list_teams_channels',
+        customer_id: customerId
+      });
+      if (response.data.success) {
+        setTeamsChannels(response.data.teams || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch Teams channels:', error);
+    } finally {
+      setLoadingTeams(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
