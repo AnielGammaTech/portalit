@@ -621,53 +621,54 @@ export default function DarkWebTab({ customerId }) {
                   {filteredCompromises.map((item, idx) => {
                     const effectiveSeverity = getEffectiveSeverity(item);
                     return (
-                    <tr 
-                      key={idx} 
-                      className="hover:bg-slate-50 cursor-pointer"
-                      onClick={() => setSelectedCompromise(item)}
-                    >
-                      <td className="p-3">
-                        <div className="flex items-center gap-2">
-                          <Mail className="w-4 h-4 text-slate-400" />
-                          <span className="font-medium">{item.email || 'Unknown'}</span>
-                        </div>
-                      </td>
-                      <td className="p-3">
-                        {hasRealPassword(item.password) ? (
+                      <tr 
+                        key={idx} 
+                        className="hover:bg-slate-50 cursor-pointer"
+                        onClick={() => setSelectedCompromise(item)}
+                      >
+                        <td className="p-3">
                           <div className="flex items-center gap-2">
-                            <code className="text-xs font-mono bg-slate-100 px-2 py-1 rounded">
-                              {showPasswords[`table-${idx}`] ? item.password : maskPassword(item.password)}
-                            </code>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); togglePasswordVisibility(`table-${idx}`); }}
-                              className="p-1 hover:bg-slate-200 rounded"
-                            >
-                              {showPasswords[`table-${idx}`] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                            </button>
+                            <Mail className="w-4 h-4 text-slate-400" />
+                            <span className="font-medium">{item.email || 'Unknown'}</span>
                           </div>
-                        ) : (
-                          <span className="text-xs text-slate-400 italic">—</span>
-                        )}
-                      </td>
-                      <td className="p-3">
-                        <div className="flex items-center gap-2">
-                          <Database className="w-4 h-4 text-slate-400" />
-                          <span className="text-slate-600">{item.source || 'Unknown'}</span>
-                        </div>
-                      </td>
-                      <td className="p-3 text-slate-500">{item.breach_date || '-'}</td>
-                      <td className="p-3">
-                        <Badge className={cn('text-xs',
-                          effectiveSeverity === 'critical' && 'bg-red-100 text-red-700',
-                          effectiveSeverity === 'high' && 'bg-orange-100 text-orange-700',
-                          effectiveSeverity === 'medium' && 'bg-yellow-100 text-yellow-700',
-                          effectiveSeverity === 'low' && 'bg-blue-100 text-blue-700'
-                        )}>
-                          {effectiveSeverity || 'unknown'}
-                        </Badge>
-                      </td>
-                    </tr>
-                  );})}
+                        </td>
+                        <td className="p-3">
+                          {hasRealPassword(item.password) ? (
+                            <div className="flex items-center gap-2">
+                              <code className="text-xs font-mono bg-slate-100 px-2 py-1 rounded">
+                                {showPasswords[`table-${idx}`] ? item.password : maskPassword(item.password)}
+                              </code>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); togglePasswordVisibility(`table-${idx}`); }}
+                                className="p-1 hover:bg-slate-200 rounded"
+                              >
+                                {showPasswords[`table-${idx}`] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400 italic">—</span>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          <div className="flex items-center gap-2">
+                            <Database className="w-4 h-4 text-slate-400" />
+                            <span className="text-slate-600">{item.source || 'Unknown'}</span>
+                          </div>
+                        </td>
+                        <td className="p-3 text-slate-500">{item.breach_date || '-'}</td>
+                        <td className="p-3">
+                          <Badge className={cn('text-xs',
+                            effectiveSeverity === 'critical' && 'bg-red-100 text-red-700',
+                            effectiveSeverity === 'high' && 'bg-orange-100 text-orange-700',
+                            effectiveSeverity === 'medium' && 'bg-yellow-100 text-yellow-700',
+                            effectiveSeverity === 'low' && 'bg-blue-100 text-blue-700'
+                          )}>
+                            {effectiveSeverity || 'unknown'}
+                          </Badge>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
