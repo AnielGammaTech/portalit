@@ -689,8 +689,9 @@ export default function DarkWebTab({ customerId }) {
               {Object.entries(compromisesByEmail)
                 .sort((a, b) => b[1].length - a[1].length)
                 .map(([email, items]) => {
-                  const hasCritical = items.some(i => i.severity === 'critical');
-                  const hasHigh = items.some(i => i.severity === 'high');
+                  // Use effective severity (only critical if password exposed)
+                  const hasCritical = items.some(i => getEffectiveSeverity(i) === 'critical');
+                  const hasHigh = items.some(i => getEffectiveSeverity(i) === 'high');
                   return (
                     <div 
                       key={email}
