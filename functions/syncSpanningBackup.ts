@@ -222,6 +222,108 @@ Deno.serve(async (req) => {
       });
     }
 
+    // List SharePoint sites for a tenant
+    if (action === 'list_sharepoint_sites') {
+      if (!customer_id) {
+        return Response.json({ error: 'customer_id is required' }, { status: 400 });
+      }
+
+      const mappings = await base44.asServiceRole.entities.SpanningMapping.filter({ customer_id });
+      if (mappings.length === 0) {
+        return Response.json({ error: 'No Spanning mapping found for this customer' }, { status: 400 });
+      }
+
+      const mapping = mappings[0];
+      
+      // Fetch SharePoint sites from the API
+      const sitesResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/sharepoint-sites?page_size=500`);
+      
+      let sites = [];
+      if (Array.isArray(sitesResponse)) {
+        sites = sitesResponse;
+      } else if (sitesResponse?.sites) {
+        sites = sitesResponse.sites;
+      } else if (sitesResponse?.data) {
+        sites = sitesResponse.data;
+      }
+
+      const formatStorage = (bytes) => {
+        if (!bytes || bytes === 0) return '0 B';
+        if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(2)} GB`;
+        if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(2)} MB`;
+        return `${(bytes / 1024).toFixed(2)} KB`;
+      };
+
+      const formattedSites = sites.map(s => ({
+        id: s.id || s.siteId,
+        name: s.name || s.displayName || s.title || 'Unnamed Site',
+        url: s.url || s.webUrl,
+        isProtected: s.isProtected === true || s.assigned === true || s.backupEnabled === true,
+        storageBytes: s.storageInformation?.protectedBytes || s.protectedBytes || s.storageBytes || 0,
+        storage: formatStorage(s.storageInformation?.protectedBytes || s.protectedBytes || s.storageBytes || 0),
+        lastBackupStatus: s.lastBackupStatus || s.backupStatus || 'unknown',
+        lastBackupDate: s.lastBackupDate || s.lastBackup || null,
+        owner: s.owner || s.ownerEmail || null
+      }));
+
+      return Response.json({
+        success: true,
+        total: formattedSites.length,
+        sites: formattedSites
+      });
+    }
+
+    // List Teams channels for a tenant
+    if (action === 'list_teams_channels') {
+      if (!customer_id) {
+        return Response.json({ error: 'customer_id is required' }, { status: 400 });
+      }
+
+      const mappings = await base44.asServiceRole.entities.SpanningMapping.filter({ customer_id });
+      if (mappings.length === 0) {
+        return Response.json({ error: 'No Spanning mapping found for this customer' }, { status: 400 });
+      }
+
+      const mapping = mappings[0];
+      
+      // Fetch Teams channels from the API
+      const teamsResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/teams?page_size=500`);
+      
+      let teams = [];
+      if (Array.isArray(teamsResponse)) {
+        teams = teamsResponse;
+      } else if (teamsResponse?.teams) {
+        teams = teamsResponse.teams;
+      } else if (teamsResponse?.data) {
+        teams = teamsResponse.data;
+      }
+
+      const formatStorage = (bytes) => {
+        if (!bytes || bytes === 0) return '0 B';
+        if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(2)} GB`;
+        if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(2)} MB`;
+        return `${(bytes / 1024).toFixed(2)} KB`;
+      };
+
+      const formattedTeams = teams.map(t => ({
+        id: t.id || t.teamId,
+        name: t.name || t.displayName || 'Unnamed Team',
+        description: t.description || null,
+        isProtected: t.isProtected === true || t.assigned === true || t.backupEnabled === true,
+        storageBytes: t.storageInformation?.protectedBytes || t.protectedBytes || t.storageBytes || 0,
+        storage: formatStorage(t.storageInformation?.protectedBytes || t.protectedBytes || t.storageBytes || 0),
+        lastBackupStatus: t.lastBackupStatus || t.backupStatus || 'unknown',
+        lastBackupDate: t.lastBackupDate || t.lastBackup || null,
+        channelCount: t.channelCount || t.numberOfChannels || 0
+      }));
+
+      return Response.json({
+        success: true,
+        total: formattedTeams.length,
+        teams: formattedTeams
+      });
+    }
+
     // Sync users to contacts
     if (action === 'sync_users') {
       if (!customer_id) {
