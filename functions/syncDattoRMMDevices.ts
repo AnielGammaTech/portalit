@@ -83,14 +83,27 @@ Deno.serve(async (req) => {
 
     const accessToken = await getDattoAccessToken();
 
-    // Action: List all Datto sites (for mapping)
+    // Action: List all Datto sites (for mapping) - with pagination
     if (action === 'list_sites') {
-      const sitesData = await dattoApiCall(accessToken, '/account/sites');
-      const sites = sitesData.sites || [];
+      let allSites = [];
+      let page = 1;
+      const pageSize = 250;
+      
+      while (true) {
+        const sitesData = await dattoApiCall(accessToken, `/account/sites?max=${pageSize}&page=${page}`);
+        const pageSites = sitesData.sites || [];
+        
+        if (!pageSites || pageSites.length === 0) break;
+        allSites = allSites.concat(pageSites);
+        
+        if (pageSites.length < pageSize) break;
+        page++;
+        if (page > 20) break; // Safety limit
+      }
       
       return Response.json({
         success: true,
-        sites: sites.map(site => ({
+        sites: allSites.map(site => ({
           id: site.uid, // Use uid as the primary identifier for API calls
           uid: site.uid,
           name: site.name,
