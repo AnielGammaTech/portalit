@@ -35,6 +35,12 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [sharePointModalOpen, setSharePointModalOpen] = useState(false);
+  const [teamsModalOpen, setTeamsModalOpen] = useState(false);
+  const [sharePointSites, setSharePointSites] = useState([]);
+  const [teamsChannels, setTeamsChannels] = useState([]);
+  const [loadingSharePoint, setLoadingSharePoint] = useState(false);
+  const [loadingTeams, setLoadingTeams] = useState(false);
 
   const ITEMS_PER_PAGE = 15;
 
