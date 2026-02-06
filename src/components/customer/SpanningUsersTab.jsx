@@ -304,7 +304,10 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
       {/* SharePoint & Teams Stats */}
       {(stats.numberOfProtectedSharePointSites > 0 || stats.numberOfProtectedTeamChannels > 0 || stats.totalProtectedStorage) && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 h-full">
+          <Card 
+            className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 h-full cursor-pointer hover:shadow-md transition-shadow"
+            onClick={handleOpenSharePointModal}
+          >
             <CardContent className="pt-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-blue-200 rounded-lg">
@@ -326,7 +329,10 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 h-full">
+          <Card 
+            className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 h-full cursor-pointer hover:shadow-md transition-shadow"
+            onClick={handleOpenTeamsModal}
+          >
             <CardContent className="pt-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-indigo-200 rounded-lg">
