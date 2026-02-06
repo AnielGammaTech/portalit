@@ -192,7 +192,20 @@ export default function DarkWebTab({ customerId }) {
   };
 
   const hasRealPassword = (password) => {
-    return password && password !== 'N/A' && password.toLowerCase() !== 'n/a';
+    if (!password) return false;
+    const lower = password.toLowerCase().trim();
+    return lower !== 'n/a' && lower !== 'no password data' && lower !== 'no password' && lower !== '' && lower !== '-';
+  };
+
+  // Determine effective severity - only critical/high if password is exposed
+  const getEffectiveSeverity = (item) => {
+    const hasPassword = hasRealPassword(item.password);
+    if (!hasPassword) {
+      // Without password exposure, downgrade critical/high to medium/low
+      if (item.severity === 'critical') return 'medium';
+      if (item.severity === 'high') return 'medium';
+    }
+    return item.severity || 'low';
   };
 
   const togglePasswordVisibility = (id) => {
