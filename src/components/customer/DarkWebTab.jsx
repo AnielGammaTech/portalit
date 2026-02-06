@@ -724,7 +724,9 @@ export default function DarkWebTab({ customerId }) {
                       </div>
                       {expandedSources[email] && (
                         <div className="mt-3 pt-3 border-t border-slate-200 space-y-2">
-                          {items.map((item, idx) => (
+                          {items.map((item, idx) => {
+                            const effSev = getEffectiveSeverity(item);
+                            return (
                             <div key={idx} className="flex items-center justify-between text-sm p-2 bg-white rounded-lg">
                               <div className="flex items-center gap-2">
                                 <Database className="w-3.5 h-3.5 text-slate-400" />
@@ -744,16 +746,16 @@ export default function DarkWebTab({ customerId }) {
                                   <span className="text-xs text-slate-400 italic">—</span>
                                 )}
                                 <Badge className={cn('text-[10px]',
-                                  item.severity === 'critical' && 'bg-red-100 text-red-700',
-                                  item.severity === 'high' && 'bg-orange-100 text-orange-700',
-                                  item.severity === 'medium' && 'bg-yellow-100 text-yellow-700',
-                                  item.severity === 'low' && 'bg-blue-100 text-blue-700'
+                                  effSev === 'critical' && 'bg-red-100 text-red-700',
+                                  effSev === 'high' && 'bg-orange-100 text-orange-700',
+                                  effSev === 'medium' && 'bg-yellow-100 text-yellow-700',
+                                  effSev === 'low' && 'bg-blue-100 text-blue-700'
                                 )}>
-                                  {item.severity}
+                                  {effSev}
                                 </Badge>
                               </div>
                             </div>
-                          ))}
+                          );})}
                         </div>
                       )}
                     </div>
