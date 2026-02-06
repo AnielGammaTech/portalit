@@ -15,7 +15,12 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  X
+  X,
+  Globe,
+  MessageSquare,
+  Calendar,
+  FolderOpen,
+  Database
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
