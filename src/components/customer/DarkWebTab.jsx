@@ -791,103 +791,104 @@ export default function DarkWebTab({ customerId }) {
           {selectedCompromise && (() => {
             const modalSeverity = getEffectiveSeverity(selectedCompromise);
             return (
-            <div className="space-y-4">
-              <div className={cn(
-                "p-4 rounded-xl",
-                modalSeverity === 'critical' && "bg-red-50 border border-red-200",
-                modalSeverity === 'high' && "bg-orange-50 border border-orange-200",
-                modalSeverity === 'medium' && "bg-yellow-50 border border-yellow-200",
-                modalSeverity === 'low' && "bg-blue-50 border border-blue-200"
-              )}>
-                <Badge className={cn('mb-2',
-                  modalSeverity === 'critical' && 'bg-red-100 text-red-700',
-                  modalSeverity === 'high' && 'bg-orange-100 text-orange-700',
-                  modalSeverity === 'medium' && 'bg-yellow-100 text-yellow-700',
-                  modalSeverity === 'low' && 'bg-blue-100 text-blue-700'
+              <div className="space-y-4">
+                <div className={cn(
+                  "p-4 rounded-xl",
+                  modalSeverity === 'critical' && "bg-red-50 border border-red-200",
+                  modalSeverity === 'high' && "bg-orange-50 border border-orange-200",
+                  modalSeverity === 'medium' && "bg-yellow-50 border border-yellow-200",
+                  modalSeverity === 'low' && "bg-blue-50 border border-blue-200"
                 )}>
-                  {modalSeverity?.toUpperCase()} SEVERITY
-                </Badge>
-                <p className="text-sm text-slate-600">
-                  {hasRealPassword(selectedCompromise.password) 
-                    ? "This credential was found exposed on the dark web and requires immediate attention."
-                    : "This email was found in a data breach. No password was exposed, but monitoring is recommended."}
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                  <Mail className="w-5 h-5 text-slate-400" />
-                  <div>
-                    <p className="text-xs text-slate-500">Email Address</p>
-                    <p className="font-medium text-slate-900">{selectedCompromise.email}</p>
-                  </div>
+                  <Badge className={cn('mb-2',
+                    modalSeverity === 'critical' && 'bg-red-100 text-red-700',
+                    modalSeverity === 'high' && 'bg-orange-100 text-orange-700',
+                    modalSeverity === 'medium' && 'bg-yellow-100 text-yellow-700',
+                    modalSeverity === 'low' && 'bg-blue-100 text-blue-700'
+                  )}>
+                    {modalSeverity?.toUpperCase()} SEVERITY
+                  </Badge>
+                  <p className="text-sm text-slate-600">
+                    {hasRealPassword(selectedCompromise.password) 
+                      ? "This credential was found exposed on the dark web and requires immediate attention."
+                      : "This email was found in a data breach. No password was exposed, but monitoring is recommended."}
+                  </p>
                 </div>
 
-                {hasRealPassword(selectedCompromise.password) ? (
+                <div className="space-y-3">
                   <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                    <Key className="w-5 h-5 text-slate-400" />
-                    <div className="flex-1">
-                      <p className="text-xs text-slate-500">Password Hit</p>
-                      <div className="flex items-center gap-2">
-                        <code className="font-mono text-sm text-slate-900 bg-white px-2 py-1 rounded border">
-                          {showPasswords['modal'] ? selectedCompromise.password : maskPassword(selectedCompromise.password)}
-                        </code>
-                        <button onClick={() => togglePasswordVisibility('modal')} className="p-1 hover:bg-slate-200 rounded">
-                          {showPasswords['modal'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
+                    <Mail className="w-5 h-5 text-slate-400" />
+                    <div>
+                      <p className="text-xs text-slate-500">Email Address</p>
+                      <p className="font-medium text-slate-900">{selectedCompromise.email}</p>
+                    </div>
+                  </div>
+
+                  {hasRealPassword(selectedCompromise.password) ? (
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                      <Key className="w-5 h-5 text-slate-400" />
+                      <div className="flex-1">
+                        <p className="text-xs text-slate-500">Password Hit</p>
+                        <div className="flex items-center gap-2">
+                          <code className="font-mono text-sm text-slate-900 bg-white px-2 py-1 rounded border">
+                            {showPasswords['modal'] ? selectedCompromise.password : maskPassword(selectedCompromise.password)}
+                          </code>
+                          <button onClick={() => togglePasswordVisibility('modal')} className="p-1 hover:bg-slate-200 rounded">
+                            {showPasswords['modal'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ) : (
+                  ) : (
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                      <Key className="w-5 h-5 text-slate-400" />
+                      <div>
+                        <p className="text-xs text-slate-500">Password Hit</p>
+                        <p className="text-sm text-slate-400 italic">No password data available</p>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                    <Key className="w-5 h-5 text-slate-400" />
+                    <Database className="w-5 h-5 text-slate-400" />
                     <div>
-                      <p className="text-xs text-slate-500">Password Hit</p>
-                      <p className="text-sm text-slate-400 italic">No password data available</p>
+                      <p className="text-xs text-slate-500">Breach Source</p>
+                      <p className="font-medium text-slate-900">{selectedCompromise.source || 'Unknown'}</p>
                     </div>
                   </div>
-                )}
 
-                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                  <Database className="w-5 h-5 text-slate-400" />
-                  <div>
-                    <p className="text-xs text-slate-500">Breach Source</p>
-                    <p className="font-medium text-slate-900">{selectedCompromise.source || 'Unknown'}</p>
-                  </div>
+                  {selectedCompromise.breach_date && (
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                      <Calendar className="w-5 h-5 text-slate-400" />
+                      <div>
+                        <p className="text-xs text-slate-500">Breach Date</p>
+                        <p className="font-medium text-slate-900">{selectedCompromise.breach_date}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {selectedCompromise.breach_date && (
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                    <Calendar className="w-5 h-5 text-slate-400" />
-                    <div>
-                      <p className="text-xs text-slate-500">Breach Date</p>
-                      <p className="font-medium text-slate-900">{selectedCompromise.breach_date}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="pt-4 border-t">
-                <p className="text-sm font-medium text-slate-900 mb-2">Recommended Actions:</p>
-                <ul className="text-sm text-slate-600 space-y-1">
-                  {hasRealPassword(selectedCompromise.password) && (
+                <div className="pt-4 border-t">
+                  <p className="text-sm font-medium text-slate-900 mb-2">Recommended Actions:</p>
+                  <ul className="text-sm text-slate-600 space-y-1">
+                    {hasRealPassword(selectedCompromise.password) && (
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        Change password immediately
+                      </li>
+                    )}
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      Change password immediately
+                      Enable multi-factor authentication
                     </li>
-                  )}
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-green-500" />
-                    Enable multi-factor authentication
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-green-500" />
-                    Check for unauthorized account access
-                  </li>
-                </ul>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      Check for unauthorized account access
+                    </li>
+                  </ul>
+                </div>
               </div>
-            </div>
-          );})()}
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
