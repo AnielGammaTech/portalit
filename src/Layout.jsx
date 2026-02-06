@@ -93,6 +93,7 @@ export default function Layout({ children, currentPageName }) {
   // Goes directly to CustomerDetail with their customer ID
   const customerNavigation = [
     { name: 'My Account', page: 'CustomerDetail', icon: FileText, query: user?.customer_id ? `?id=${user.customer_id}` : '' },
+    { name: 'Settings', page: 'CustomerSettings', icon: Settings },
   ];
 
   // For non-admin users, redirect Dashboard to CustomerDetail
