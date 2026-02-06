@@ -526,16 +526,18 @@ export default function DarkWebTab({ customerId }) {
             </div>
           ) : viewMode === 'cards' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[500px] overflow-y-auto pr-2">
-              {filteredCompromises.map((item, idx) => (
+              {filteredCompromises.map((item, idx) => {
+                const effectiveSeverity = getEffectiveSeverity(item);
+                return (
                 <div 
                   key={idx} 
                   className={cn(
                     "p-4 rounded-xl border-2 hover:shadow-md transition-all cursor-pointer",
-                    item.severity === 'critical' && "border-red-200 bg-red-50/50",
-                    item.severity === 'high' && "border-orange-200 bg-orange-50/50",
-                    item.severity === 'medium' && "border-yellow-200 bg-yellow-50/50",
-                    item.severity === 'low' && "border-blue-200 bg-blue-50/50",
-                    !item.severity && "border-slate-200 bg-slate-50/50"
+                    effectiveSeverity === 'critical' && "border-red-200 bg-red-50/50",
+                    effectiveSeverity === 'high' && "border-orange-200 bg-orange-50/50",
+                    effectiveSeverity === 'medium' && "border-yellow-200 bg-yellow-50/50",
+                    effectiveSeverity === 'low' && "border-blue-200 bg-blue-50/50",
+                    !effectiveSeverity && "border-slate-200 bg-slate-50/50"
                   )}
                   onClick={() => setSelectedCompromise(item)}
                 >
@@ -543,18 +545,18 @@ export default function DarkWebTab({ customerId }) {
                     <div className="flex items-center gap-2 min-w-0">
                       <div className={cn(
                         "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
-                        item.severity === 'critical' && "bg-red-100",
-                        item.severity === 'high' && "bg-orange-100",
-                        item.severity === 'medium' && "bg-yellow-100",
-                        item.severity === 'low' && "bg-blue-100",
-                        !item.severity && "bg-slate-100"
+                        effectiveSeverity === 'critical' && "bg-red-100",
+                        effectiveSeverity === 'high' && "bg-orange-100",
+                        effectiveSeverity === 'medium' && "bg-yellow-100",
+                        effectiveSeverity === 'low' && "bg-blue-100",
+                        !effectiveSeverity && "bg-slate-100"
                       )}>
                         <User className={cn("w-4 h-4",
-                          item.severity === 'critical' && "text-red-600",
-                          item.severity === 'high' && "text-orange-600",
-                          item.severity === 'medium' && "text-yellow-600",
-                          item.severity === 'low' && "text-blue-600",
-                          !item.severity && "text-slate-600"
+                          effectiveSeverity === 'critical' && "text-red-600",
+                          effectiveSeverity === 'high' && "text-orange-600",
+                          effectiveSeverity === 'medium' && "text-yellow-600",
+                          effectiveSeverity === 'low' && "text-blue-600",
+                          !effectiveSeverity && "text-slate-600"
                         )} />
                       </div>
                       <div className="min-w-0">
@@ -563,13 +565,13 @@ export default function DarkWebTab({ customerId }) {
                       </div>
                     </div>
                     <Badge className={cn('text-[10px] flex-shrink-0',
-                      item.severity === 'critical' && 'bg-red-100 text-red-700',
-                      item.severity === 'high' && 'bg-orange-100 text-orange-700',
-                      item.severity === 'medium' && 'bg-yellow-100 text-yellow-700',
-                      item.severity === 'low' && 'bg-blue-100 text-blue-700',
-                      !item.severity && 'bg-slate-100 text-slate-700'
+                      effectiveSeverity === 'critical' && 'bg-red-100 text-red-700',
+                      effectiveSeverity === 'high' && 'bg-orange-100 text-orange-700',
+                      effectiveSeverity === 'medium' && 'bg-yellow-100 text-yellow-700',
+                      effectiveSeverity === 'low' && 'bg-blue-100 text-blue-700',
+                      !effectiveSeverity && 'bg-slate-100 text-slate-700'
                     )}>
-                      {item.severity || 'unknown'}
+                      {effectiveSeverity || 'unknown'}
                     </Badge>
                   </div>
                   
