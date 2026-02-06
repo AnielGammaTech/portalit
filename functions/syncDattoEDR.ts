@@ -130,14 +130,18 @@ Deno.serve(async (req) => {
         data: {
           hostCount: hostCount,
           activeHostCount: activeCount,
-          hosts: hosts.slice(0, 100).map(h => ({
-            id: h.id,
-            hostname: h.hostname || h.name,
-            ip: h.ip || h.ipstring,
-            os: h.os,
-            online: h.active === true,
-            lastSeen: h.heartbeat
-          })),
+          hosts: hosts.slice(0, 100).map(h => {
+            const heartbeatDate = h.heartbeat ? new Date(h.heartbeat) : null;
+            const isOnline = heartbeatDate ? heartbeatDate > thirtyMinutesAgo : h.active === true;
+            return {
+              id: h.id,
+              hostname: h.hostname || h.name,
+              ip: h.ip || h.ipstring,
+              os: h.os,
+              online: isOnline,
+              lastSeen: h.heartbeat
+            };
+          }),
           alertCount: alertCount,
           criticalAlerts: 0,
           mediumAlerts: 0, 
