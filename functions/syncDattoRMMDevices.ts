@@ -86,12 +86,14 @@ Deno.serve(async (req) => {
     // Action: List all Datto sites (for mapping) - with pagination
     if (action === 'list_sites') {
       let allSites = [];
-      let page = 1;
+      let page = 0; // Datto uses 0-based page indexing
       const pageSize = 250;
       
       while (true) {
         const sitesData = await dattoApiCall(accessToken, `/account/sites?max=${pageSize}&page=${page}`);
         const pageSites = sitesData.sites || [];
+        
+        console.log(`Page ${page}: found ${pageSites.length} sites`);
         
         if (!pageSites || pageSites.length === 0) break;
         allSites = allSites.concat(pageSites);
@@ -100,6 +102,8 @@ Deno.serve(async (req) => {
         page++;
         if (page > 20) break; // Safety limit
       }
+      
+      console.log(`Total sites found: ${allSites.length}`);
       
       return Response.json({
         success: true,
