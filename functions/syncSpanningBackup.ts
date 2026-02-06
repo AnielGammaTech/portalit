@@ -166,6 +166,13 @@ Deno.serve(async (req) => {
           lastBackupDate: u.lastBackupDate || null
         };
       });
+
+      // Extract storage information
+      const domainStorage = domainInfo?.storageInformation || {};
+      
+      // Extract last backup status info
+      const lastBackup = domainInfo?.lastBackup || {};
+      const backupStatus7Days = domainInfo?.backupStatusLastSevenDays || {};
       
       return Response.json({ 
         success: true, 
@@ -180,8 +187,38 @@ Deno.serve(async (req) => {
         numberOfProtectedUsers: domainInfo?.numberOfProtectedUsers || 0,
         numberOfSharedMailboxesTotal: domainInfo?.numberOfSharedMailboxesTotal || 0,
         numberOfProtectedSharedMailboxes: domainInfo?.numberOfProtectedSharedMailboxes || 0,
+        // SharePoint backup info
+        numberOfProtectedSharePointSites: domainInfo?.numberOfProtectedSharePointSites || 0,
+        numberOfUnprotectedSharePointSites: domainInfo?.numberOfUnprotectedSharePointSites || 0,
+        // Teams backup info
+        numberOfProtectedTeamChannels: domainInfo?.numberOfProtectedTeamChannels || 0,
+        numberOfUnprotectedTeamChannels: domainInfo?.numberOfUnprotectedTeamChannels || 0,
+        // Storage info
+        totalProtectedBytes: domainStorage.protectedBytes || 0,
+        totalUsedBytes: domainStorage.usedBytes || 0,
+        totalProtectedStorage: formatStorage(domainStorage.protectedBytes || 0),
+        totalUsedStorage: formatStorage(domainStorage.usedBytes || 0),
+        // Backup status
+        lastBackupStatus: lastBackup.status || 'unknown',
+        lastBackupTimestamp: lastBackup.timestamp || null,
+        sharePointBackupStatus: lastBackup.sharePoint?.status || 'unknown',
+        sharePointLastBackup: lastBackup.sharePoint?.timestamp || null,
+        teamsBackupStatus: lastBackup.teams?.status || 'unknown',
+        teamsLastBackup: lastBackup.teams?.timestamp || null,
+        // 7-day backup status breakdown
+        backupStatus7Days: {
+          mail: backupStatus7Days.totalForMail || 'unknown',
+          calendar: backupStatus7Days.totalForCalendar || 'unknown',
+          contacts: backupStatus7Days.totalForContact || 'unknown',
+          drive: backupStatus7Days.totalForDrive || 'unknown',
+          sharePoint: backupStatus7Days.totalForSharePoint || 'unknown',
+          teams: backupStatus7Days.totalForTeams || 'unknown'
+        },
+        overallBackupStatus7Days: domainInfo?.backupStatusLastSevenDaysTotal || 'unknown',
         domainName: domainInfo?.name || 'unknown',
-        domainId: domainInfo?.id || 'unknown'
+        domainId: domainInfo?.id || 'unknown',
+        expirationDate: domainInfo?.expirationDate || null,
+        origin: domainInfo?.origin || 'unknown'
       });
     }
 
