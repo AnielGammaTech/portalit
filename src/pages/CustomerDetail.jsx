@@ -499,9 +499,9 @@ export default function CustomerDetail() {
 
       {/* Account Header - Modern & Clean */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-        <div className="flex flex-col lg:flex-row lg:items-center gap-6">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-center gap-6">
           {/* Logo & Name */}
-          <div className="flex items-center gap-4 flex-1">
+          <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center flex-shrink-0 shadow-lg shadow-slate-500/20">
               {customer.logo_url ? (
                 <img src={customer.logo_url} alt={customer.name} className="w-10 h-10 rounded-xl object-cover" />
@@ -523,13 +523,13 @@ export default function CustomerDetail() {
               </div>
               <div className="flex flex-wrap items-center gap-4 mt-1.5 text-sm text-slate-500">
                 {customer.email && (
-                  <a href={`mailto:${customer.email}`} className="flex items-center gap-1.5 hover:text-purple-600 transition-colors">
+                  <a href={`mailto:${customer.email}`} className="flex items-center gap-1.5 hover:text-slate-700 transition-colors">
                     <Mail className="w-3.5 h-3.5" />
                     {customer.email}
                   </a>
                 )}
                 {customer.phone && (
-                  <a href={`tel:${customer.phone}`} className="flex items-center gap-1.5 hover:text-purple-600 transition-colors">
+                  <a href={`tel:${customer.phone}`} className="flex items-center gap-1.5 hover:text-slate-700 transition-colors">
                     <Phone className="w-3.5 h-3.5" />
                     {customer.phone}
                   </a>
