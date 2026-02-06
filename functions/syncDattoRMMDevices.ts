@@ -160,6 +160,43 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Action: Search sites by name
+    if (action === 'search_sites') {
+      const { search_term } = body;
+      let allSites = [];
+      let page = 0;
+      const pageSize = 250;
+      
+      while (true) {
+        const sitesData = await dattoApiCall(accessToken, `/account/sites?max=${pageSize}&page=${page}`);
+        const pageSites = sitesData.sites || [];
+        
+        if (!pageSites || pageSites.length === 0) break;
+        allSites = allSites.concat(pageSites);
+        
+        if (pageSites.length < pageSize) break;
+        page++;
+        if (page > 20) break;
+      }
+      
+      const searchLower = (search_term || '').toLowerCase();
+      const matchingSites = allSites.filter(site => 
+        (site.name || '').toLowerCase().includes(searchLower)
+      );
+      
+      return Response.json({
+        success: true,
+        totalSites: allSites.length,
+        matchingSites: matchingSites.map(site => ({
+          id: site.uid,
+          uid: site.uid,
+          name: site.name,
+          description: site.description,
+          deviceCount: site.devicesStatus?.numberOfDevices || 0
+        }))
+      });
+    }
+
     // Action: Test connection
     if (action === 'test_connection') {
       const accountData = await dattoApiCall(accessToken, '/account');
