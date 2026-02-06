@@ -502,7 +502,7 @@ export default function CustomerDetail() {
         <div className="flex flex-col lg:flex-row lg:items-center gap-6">
           {/* Logo & Name */}
           <div className="flex items-center gap-4 flex-1">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center flex-shrink-0 shadow-lg shadow-purple-500/20">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center flex-shrink-0 shadow-lg shadow-slate-500/20">
               {customer.logo_url ? (
                 <img src={customer.logo_url} alt={customer.name} className="w-10 h-10 rounded-xl object-cover" />
               ) : (
@@ -551,7 +551,7 @@ export default function CustomerDetail() {
                 { icon: Users, value: contacts.length, label: 'Team', color: 'blue' },
                 { icon: FileText, value: contracts.filter(c => c.status === 'active').length, label: 'Contracts', color: 'orange' },
                 { icon: HelpCircle, value: tickets.length, label: 'Tickets', color: 'amber' },
-                { icon: Cloud, value: licenses.length, label: 'Apps', color: 'purple' },
+                { icon: Cloud, value: licenses.length, label: 'Apps', color: 'indigo' },
                 { icon: Monitor, value: devices.length, label: 'Devices', color: 'cyan' },
               ].map(stat => (
                 <div 
@@ -561,7 +561,7 @@ export default function CustomerDetail() {
                     stat.color === 'blue' && "bg-blue-50 border-blue-100",
                     stat.color === 'orange' && "bg-orange-50 border-orange-100",
                     stat.color === 'amber' && "bg-amber-50 border-amber-100",
-                    stat.color === 'purple' && "bg-purple-50 border-purple-100",
+                    stat.color === 'indigo' && "bg-indigo-50 border-indigo-100",
                     stat.color === 'cyan' && "bg-cyan-50 border-cyan-100"
                   )}
                 >
@@ -570,7 +570,7 @@ export default function CustomerDetail() {
                     stat.color === 'blue' && "text-blue-600",
                     stat.color === 'orange' && "text-orange-600",
                     stat.color === 'amber' && "text-amber-600",
-                    stat.color === 'purple' && "text-purple-600",
+                    stat.color === 'indigo' && "text-indigo-600",
                     stat.color === 'cyan' && "text-cyan-600"
                   )} />
                   <span className="font-bold text-slate-900">{stat.value}</span>
@@ -1019,16 +1019,16 @@ export default function CustomerDetail() {
                     {/* Spend Analysis */}
                     <Link
                       to={createPageUrl(`SpendAnalysis?customerId=${customerId}`)}
-                      className="bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl border-2 border-purple-500 p-4 text-left transition-all hover:shadow-lg hover:from-purple-500 hover:to-purple-600 group block"
+                      className="bg-gradient-to-br from-slate-700 to-slate-900 rounded-xl border-2 border-slate-600 p-4 text-left transition-all hover:shadow-lg hover:from-slate-600 hover:to-slate-800 group block"
                     >
                       <div className="flex items-center gap-2 mb-1">
                         <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/20">
                           <DollarSign className="w-4 h-4 text-white" />
                         </div>
-                        <span className="text-xs text-purple-200 font-medium">Spend Analysis</span>
+                        <span className="text-xs text-slate-300 font-medium">Spend Analysis</span>
                       </div>
                       <p className="text-sm font-semibold text-white mt-1">View Monthly & Yearly</p>
-                      <p className="text-[10px] text-purple-200 mt-0.5">Click to see breakdown →</p>
+                      <p className="text-[10px] text-slate-300 mt-0.5">Click to see breakdown →</p>
                     </Link>
                     
                     {/* Utilization */}
@@ -1036,7 +1036,7 @@ export default function CustomerDetail() {
                       onClick={() => { setSaasFilter('all'); setSaasView('licenses'); }}
                       className={cn(
                         "bg-white rounded-xl border-2 p-4 text-left transition-all hover:shadow-md group",
-                        saasFilter === 'all' && saasView === 'licenses' ? "border-purple-500 shadow-md" : "border-slate-200 hover:border-purple-300"
+                        saasFilter === 'all' && saasView === 'licenses' ? "border-slate-400 shadow-md" : "border-slate-200 hover:border-slate-300"
                       )}
                     >
                       <div className="flex items-center gap-2 mb-1">
@@ -1054,7 +1054,7 @@ export default function CustomerDetail() {
                       onClick={() => setSaasView('users')}
                       className={cn(
                         "bg-white rounded-xl border-2 p-4 text-left transition-all hover:shadow-md group",
-                        saasView === 'users' ? "border-purple-500 shadow-md" : "border-slate-200 hover:border-purple-300"
+                        saasView === 'users' ? "border-slate-400 shadow-md" : "border-slate-200 hover:border-slate-300"
                       )}
                     >
                       <div className="flex items-center gap-2 mb-1">
@@ -1085,7 +1085,7 @@ export default function CustomerDetail() {
                     <div className="flex-1" />
                     <Button 
                       size="sm" 
-                      className="gap-2 bg-purple-600 hover:bg-purple-700"
+                      className="gap-2 bg-emerald-600 hover:bg-emerald-700"
                       onClick={() => setShowAddSoftware(true)}
                     >
                       <Plus className="w-4 h-4" />
@@ -1121,7 +1121,7 @@ export default function CustomerDetail() {
                           <p className="text-slate-500 mb-3">No software added yet</p>
                           <Button 
                             onClick={() => setShowAddSoftware(true)}
-                            className="bg-purple-600 hover:bg-purple-700"
+                            className="bg-emerald-600 hover:bg-emerald-700"
                           >
                             <Plus className="w-4 h-4 mr-2" />
                             Add Software
@@ -1284,7 +1284,7 @@ export default function CustomerDetail() {
                         <div key={contact.id} className="p-5">
                           <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-medium">
+                              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 font-medium">
                                 {contact.full_name?.charAt(0) || '?'}
                               </div>
                               <div>
@@ -1327,14 +1327,14 @@ export default function CustomerDetail() {
                                       "flex items-center gap-3 p-3 rounded-lg transition-colors",
                                       isDuplicate 
                                         ? "bg-amber-50 border border-amber-200 hover:bg-amber-100" 
-                                        : "bg-slate-50 hover:bg-purple-50"
+                                        : "bg-slate-50 hover:bg-slate-100"
                                     )}
                                   >
                                     <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center overflow-hidden flex-shrink-0 border border-slate-200">
                                       {license.logo_url ? (
                                         <img src={license.logo_url} alt="" className="w-6 h-6 object-contain" />
                                       ) : (
-                                        <Cloud className="w-4 h-4 text-purple-600" />
+                                        <Cloud className="w-4 h-4 text-slate-600" />
                                       )}
                                     </div>
                                     <div className="flex-1 min-w-0">
@@ -1428,12 +1428,12 @@ export default function CustomerDetail() {
                 </div>
                 
                 {/* Cost Optimization Tips */}
-                <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl border border-purple-200 p-6">
-                  <h3 className="font-semibold text-purple-900 mb-3 flex items-center gap-2">
+                <div className="bg-gradient-to-r from-slate-50 to-blue-50 rounded-2xl border border-slate-200 p-6">
+                  <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
                     <HelpCircle className="w-5 h-5" />
                     Cost Optimization Insights
                   </h3>
-                  <div className="space-y-2 text-sm text-purple-800">
+                  <div className="space-y-2 text-sm text-slate-700">
                     {(() => {
                       const totalUnused = licenses.reduce((sum, l) => {
                         const assigned = licenseAssignments.filter(a => a.license_id === l.id && a.status === 'active').length;
@@ -1498,7 +1498,7 @@ export default function CustomerDetail() {
             <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="font-semibold text-slate-900">Quotes</h3>
-                <Button size="sm" className="gap-2 bg-slate-900 hover:bg-slate-800">
+                <Button size="sm" className="gap-2 bg-emerald-600 hover:bg-emerald-700">
                   <Plus className="w-4 h-4" />
                   New Quote
                 </Button>
@@ -1628,7 +1628,7 @@ export default function CustomerDetail() {
                               <select
                                 value={ticketFilter}
                                 onChange={(e) => { setTicketFilter(e.target.value); setTicketPage(1); }}
-                                className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-400"
                               >
                                 <option value="all">All Tickets</option>
                                 <option value="open">Open</option>
