@@ -203,61 +203,75 @@ function CustomerDashboard({ customer }) {
   const queryClient = useQueryClient();
   const customerId = customer?.id;
 
-  const { data: contracts = [] } = useQuery({
+  // Parallel fetch all primary data at once
+  const { data: contracts = [], isLoading: loadingContracts } = useQuery({
     queryKey: ['contracts', customerId],
     queryFn: () => base44.entities.Contract.filter({ customer_id: customerId }),
-    enabled: !!customerId
+    enabled: !!customerId,
+    staleTime: 1000 * 60 * 5
   });
 
-  const { data: recurringBills = [] } = useQuery({
+  const { data: recurringBills = [], isLoading: loadingBills } = useQuery({
     queryKey: ['recurring_bills', customerId],
     queryFn: () => base44.entities.RecurringBill.filter({ customer_id: customerId }),
-    enabled: !!customerId
+    enabled: !!customerId,
+    staleTime: 1000 * 60 * 5
   });
 
   const { data: lineItems = [] } = useQuery({
     queryKey: ['line_items', customerId],
     queryFn: async () => {
-      const allItems = [];
-      for (const bill of recurringBills) {
-        const items = await base44.entities.RecurringBillLineItem.filter({ recurring_bill_id: bill.id });
-        allItems.push(...items);
-      }
-      return allItems;
+      if (recurringBills.length === 0) return [];
+      // Fetch all line items in parallel
+      const results = await Promise.all(
+        recurringBills.map(bill => 
+          base44.entities.RecurringBillLineItem.filter({ recurring_bill_id: bill.id })
+        )
+      );
+      return results.flat();
     },
-    enabled: !!customerId && recurringBills.length > 0
+    enabled: !!customerId && recurringBills.length > 0,
+    staleTime: 1000 * 60 * 5
   });
 
-  const { data: invoices = [] } = useQuery({
+  const { data: invoices = [], isLoading: loadingInvoices } = useQuery({
     queryKey: ['invoices', customerId],
     queryFn: () => base44.entities.Invoice.filter({ customer_id: customerId }),
-    enabled: !!customerId
+    enabled: !!customerId,
+    staleTime: 1000 * 60 * 5
   });
 
   const { data: invoiceLineItems = [] } = useQuery({
     queryKey: ['invoice_line_items', customerId],
     queryFn: async () => {
-      const allItems = [];
-      for (const invoice of invoices) {
-        const items = await base44.entities.InvoiceLineItem.filter({ invoice_id: invoice.id });
-        allItems.push(...items);
-      }
-      return allItems;
+      if (invoices.length === 0) return [];
+      // Fetch all invoice items in parallel
+      const results = await Promise.all(
+        invoices.slice(0, 10).map(invoice => 
+          base44.entities.InvoiceLineItem.filter({ invoice_id: invoice.id })
+        )
+      );
+      return results.flat();
     },
-    enabled: !!customerId && invoices.length > 0
+    enabled: !!customerId && invoices.length > 0,
+    staleTime: 1000 * 60 * 5
   });
 
-  const { data: tickets = [] } = useQuery({
+  const { data: tickets = [], isLoading: loadingTickets } = useQuery({
     queryKey: ['tickets', customerId],
     queryFn: () => base44.entities.Ticket.filter({ customer_id: customerId }),
-    enabled: !!customerId
+    enabled: !!customerId,
+    staleTime: 1000 * 60 * 5
   });
 
-  const { data: contacts = [] } = useQuery({
+  const { data: contacts = [], isLoading: loadingContacts } = useQuery({
     queryKey: ['contacts', customerId],
     queryFn: () => base44.entities.Contact.filter({ customer_id: customerId }),
-    enabled: !!customerId
+    enabled: !!customerId,
+    staleTime: 1000 * 60 * 5
   });
+
+  const isLoadingPrimary = loadingContracts || loadingBills || loadingInvoices || loadingTickets || loadingContacts;
 
   const monthlyTotal = recurringBills.reduce((sum, b) => sum + (b.amount || 0), 0);
   const openTickets = tickets.filter(t => ['new', 'open', 'in_progress'].includes(t.status)).length;
@@ -293,6 +307,25 @@ function CustomerDashboard({ customer }) {
       setIsSyncing(false);
     }
   };
+
+  // Show skeleton while primary data loads
+  if (isLoadingPrimary) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-6">
+        <Skeleton className="h-64 rounded-3xl" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <Skeleton className="h-64 rounded-2xl" />
+            <Skeleton className="h-48 rounded-2xl" />
+          </div>
+          <div className="space-y-6">
+            <Skeleton className="h-48 rounded-2xl" />
+            <Skeleton className="h-40 rounded-2xl" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
@@ -399,7 +432,7 @@ function CustomerDashboard({ customer }) {
                 {lineItems.slice(0, 6).map(item => (
                   <div key={item.id} className="flex items-center justify-between py-3 px-4 bg-slate-50 rounded-lg">
                     <div className="flex items-center gap-3">
-                      <CheckCircle2 className="w-4 h-4 text-purple-600" />
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                       <p className="font-medium text-slate-900 text-sm">
                         {item.description?.replace(/\s*\$recurringbillingdate\s*/gi, '').trim()}
                       </p>
@@ -411,7 +444,7 @@ function CustomerDashboard({ customer }) {
                 ))}
                 {lineItems.length > 6 && (
                   <Link to={createPageUrl(`CustomerDetail?id=${customerId}`)}>
-                    <Button variant="ghost" className="w-full text-purple-600">
+                    <Button variant="ghost" className="w-full text-slate-600 hover:text-slate-900">
                       View all {lineItems.length} services <ChevronRight className="w-4 h-4 ml-1" />
                     </Button>
                   </Link>
@@ -425,7 +458,7 @@ function CustomerDashboard({ customer }) {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-slate-900">Recent Invoices</h2>
               <Link to={createPageUrl(`CustomerDetail?id=${customerId}`)}>
-                <Button variant="ghost" size="sm" className="text-purple-600">View All</Button>
+                <Button variant="ghost" size="sm" className="text-slate-600 hover:text-slate-900">View All</Button>
               </Link>
             </div>
 
@@ -490,7 +523,7 @@ function CustomerDashboard({ customer }) {
           <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-slate-900">Support</h2>
-              <Badge className="bg-purple-100 text-purple-700">{openTickets} open</Badge>
+              <Badge className="bg-slate-100 text-slate-700">{openTickets} open</Badge>
             </div>
             {tickets.filter(t => ['new', 'open', 'in_progress'].includes(t.status)).length === 0 ? (
               <div className="py-6 text-center">
@@ -508,7 +541,7 @@ function CustomerDashboard({ customer }) {
               </div>
             )}
             <Link to={createPageUrl(`CustomerDetail?id=${customerId}`)}>
-              <Button className="w-full mt-4 bg-purple-600 hover:bg-purple-700">
+              <Button className="w-full mt-4 bg-slate-800 hover:bg-slate-900">
                 <HelpCircle className="w-4 h-4 mr-2" />
                 View All Tickets
               </Button>
@@ -520,16 +553,16 @@ function CustomerDashboard({ customer }) {
             <h2 className="text-lg font-semibold text-slate-900 mb-4">Quick Actions</h2>
             <div className="space-y-2">
               <Button variant="outline" className="w-full justify-start gap-3 h-12">
-                <Phone className="w-4 h-4 text-purple-600" />
+                <Phone className="w-4 h-4 text-slate-600" />
                 Call Support
               </Button>
               <Button variant="outline" className="w-full justify-start gap-3 h-12">
-                <Mail className="w-4 h-4 text-purple-600" />
+                <Mail className="w-4 h-4 text-slate-600" />
                 Email Support
               </Button>
               <Link to={createPageUrl(`CustomerDetail?id=${customerId}`)} className="block">
                 <Button variant="outline" className="w-full justify-start gap-3 h-12">
-                  <FileText className="w-4 h-4 text-purple-600" />
+                  <FileText className="w-4 h-4 text-slate-600" />
                   View Full Account
                 </Button>
               </Link>
