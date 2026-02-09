@@ -338,10 +338,13 @@ export default function SpanningConfig() {
                       <p className="font-medium text-slate-900">{getCustomerName(mapping.customer_id)}</p>
                       <p className="text-sm text-slate-500">→ {mapping.spanning_tenant_name}</p>
                       {mapping.last_synced && (
-                        <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                          <Clock className="w-3 h-3" />
-                          Last synced: {format(new Date(mapping.last_synced), 'MMM d, h:mm a')}
-                        </p>
+                      <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                      <Clock className="w-3 h-3" />
+                      Last synced: {format(new Date(mapping.last_synced), 'MMM d, h:mm a')}
+                      </p>
+                      )}
+                      {mapping.spanning_api_key && (
+                      <Badge className="bg-blue-100 text-blue-700 text-xs mt-1">API Key Set</Badge>
                       )}
                     </div>
                   </div>
