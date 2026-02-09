@@ -22,7 +22,10 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  Wand2
+  Wand2,
+  Key,
+  X,
+  Save
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
@@ -44,6 +47,10 @@ export default function SpanningConfig() {
   const [currentPage, setCurrentPage] = useState(1);
   const [domainSelections, setDomainSelections] = useState({});
   const [autoMatching, setAutoMatching] = useState(false);
+  const [editingApiKeyId, setEditingApiKeyId] = useState(null);
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [regionInput, setRegionInput] = useState('us');
+  const [savingApiKey, setSavingApiKey] = useState(false);
   const itemsPerPage = 10;
 
   const queryClient = useQueryClient();
@@ -220,6 +227,24 @@ export default function SpanningConfig() {
   const unmappedCount = spanningDomains.length - mappedCount;
 
   // Auto-match domains to customers by name similarity
+  const saveApiKey = async (mappingId) => {
+    setSavingApiKey(true);
+    try {
+      await base44.entities.SpanningMapping.update(mappingId, {
+        spanning_api_key: apiKeyInput || null,
+        spanning_region: regionInput
+      });
+      toast.success('API key saved!');
+      refetchMappings();
+      setEditingApiKeyId(null);
+      setApiKeyInput('');
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setSavingApiKey(false);
+    }
+  };
+
   const autoMatchDomains = async () => {
     setAutoMatching(true);
     let matched = 0;
@@ -352,6 +377,19 @@ export default function SpanningConfig() {
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => {
+                        setEditingApiKeyId(mapping.id);
+                        setApiKeyInput(mapping.spanning_api_key || '');
+                        setRegionInput(mapping.spanning_region || 'us');
+                      }}
+                      className="text-xs h-7"
+                    >
+                      <Key className="w-3 h-3 mr-1" />
+                      API Key
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => syncCustomerUsers(mapping.customer_id)}
                       disabled={syncingUsersCustomerId === mapping.customer_id}
                       className="text-xs h-7"
@@ -379,6 +417,58 @@ export default function SpanningConfig() {
                     </Button>
                   </div>
                 </div>
+                {/* API Key Editor */}
+                {editingApiKeyId === mapping.id && (
+                  <div className="mt-2 p-3 bg-white border border-slate-200 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Key className="w-4 h-4 text-slate-500" />
+                      <span className="text-sm font-medium text-slate-700">Spanning Tenant API Key</span>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-3">
+                      Enter the tenant-specific API key to fetch SharePoint sites and Teams channels.
+                      Get this from Spanning Admin → Settings → API.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Select value={regionInput} onValueChange={setRegionInput}>
+                        <SelectTrigger className="h-8 w-24 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="us">US</SelectItem>
+                          <SelectItem value="eu">EU</SelectItem>
+                          <SelectItem value="ap">AU</SelectItem>
+                          <SelectItem value="ca">CA</SelectItem>
+                          <SelectItem value="uk">UK</SelectItem>
+                          <SelectItem value="af">AF</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="password"
+                        placeholder="API Key..."
+                        value={apiKeyInput}
+                        onChange={(e) => setApiKeyInput(e.target.value)}
+                        className="h-8 text-sm flex-1"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => saveApiKey(mapping.id)}
+                        disabled={savingApiKey}
+                        className="h-8 bg-green-600 hover:bg-green-700"
+                      >
+                        <Save className={cn("w-3 h-3 mr-1", savingApiKey && "animate-spin")} />
+                        Save
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => { setEditingApiKeyId(null); setApiKeyInput(''); }}
+                        className="h-8"
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               ))}
             </div>
           )
