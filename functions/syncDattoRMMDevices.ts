@@ -236,15 +236,20 @@ Deno.serve(async (req) => {
 
       for (const mapping of mappings) {
         const siteUid = mapping.datto_site_id;
+        console.log(`Syncing devices for site: ${siteUid} (${mapping.datto_site_name})`);
 
         // Datto RMM API: /site/{siteUid}/devices - with pagination
+        // Note: Datto uses 0-based page indexing
         let allDevices = [];
-        let page = 1;
+        let page = 0;
         const pageSize = 250;
         
         while (true) {
-          const devicesData = await dattoApiCall(accessToken, `/site/${siteUid}/devices?max=${pageSize}&page=${page}`);
+          const endpoint = `/site/${siteUid}/devices?max=${pageSize}&page=${page}`;
+          console.log(`Fetching: ${endpoint}`);
+          const devicesData = await dattoApiCall(accessToken, endpoint);
           const pageDevices = devicesData.devices || [];
+          console.log(`Page ${page}: found ${pageDevices.length} devices`);
           
           if (!pageDevices || pageDevices.length === 0) break;
           allDevices = allDevices.concat(pageDevices);
@@ -254,6 +259,7 @@ Deno.serve(async (req) => {
           if (page > 50) break; // Safety limit
         }
         
+        console.log(`Total devices found for site ${siteUid}: ${allDevices.length}`);
         const devices = allDevices;
 
         // Get existing devices for this customer
