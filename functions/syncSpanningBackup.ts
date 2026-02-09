@@ -256,73 +256,26 @@ Deno.serve(async (req) => {
           return `${(bytes / 1024).toFixed(2)} KB`;
         };
         
-        // Spanning API uses Basic auth with empty username and API key as password
-        const basicAuth = btoa(`:${mapping.spanning_api_key}`);
+        // Use Unitrends API to get tenant data (already working)
+        const allDomains = await unitrendsApiCall('/v2/spanning/domains?page_size=500');
+        const domainInfo = allDomains.find(d => d.id === mapping.spanning_tenant_id);
         
-        // Get tenant info which includes SharePoint summary
-        const tenantResponse = await fetch(`${tenantApiBase}/external/tenant`, {
-          headers: {
-            'Authorization': `Basic ${basicAuth}`,
-            'Accept': 'application/json'
-          }
-        });
-        
-        if (!tenantResponse.ok) {
-          const errorText = await tenantResponse.text();
-          return Response.json({ success: false, error: `Tenant API error: ${tenantResponse.status} - ${errorText}` });
+        if (!domainInfo) {
+          return Response.json({ success: false, error: 'Could not find domain info in Unitrends API' });
         }
-        
-        const tenantData = await tenantResponse.json();
-        
-        // Get users to find SharePoint-related info
-        const usersResponse = await fetch(`${tenantApiBase}/external/users?size=1000`, {
-          headers: {
-            'Authorization': `Basic ${basicAuth}`,
-            'Accept': 'application/json'
-          }
-        });
-        
-        let users = [];
-        if (usersResponse.ok) {
-          const usersData = await usersResponse.json();
-          users = usersData.users || usersData || [];
-        }
-        
-        // Extract SharePoint sites from users (if available in user data)
-        const sitesMap = new Map();
-        for (const user of users) {
-          if (user.sharePointSites && Array.isArray(user.sharePointSites)) {
-            for (const site of user.sharePointSites) {
-              if (!sitesMap.has(site.id || site.siteId || site.url)) {
-                sitesMap.set(site.id || site.siteId || site.url, site);
-              }
-            }
-          }
-        }
-
-        const sites = Array.from(sitesMap.values()).map(s => ({
-          id: s.id || s.siteId,
-          name: s.name || s.displayName || s.title || 'Unnamed Site',
-          url: s.url || s.webUrl,
-          isProtected: s.isAssigned === true || s.assigned === true,
-          storageBytes: s.size || s.storageBytes || 0,
-          storage: formatStorage(s.size || s.storageBytes || 0),
-          lastBackupStatus: s.lastBackupStatus || 'unknown',
-          lastBackupDate: s.lastBackupDate || null
-        }));
 
         return Response.json({
           success: true,
-          total: sites.length,
-          sites,
-          // Include summary counts from tenant info
+          total: 0, // Spanning API doesn't expose individual sites via the external API
+          sites: [],
+          // Include summary counts from domain info
           sharePointSummary: {
-            protectedSites: tenantData.sharePointProtectedSites || tenantData.numberOfProtectedSharePointSites || 0,
-            unprotectedSites: tenantData.sharePointUnprotectedSites || tenantData.numberOfUnprotectedSharePointSites || 0,
-            totalStorage: formatStorage(tenantData.sharePointStorageBytes || 0)
+            protectedSites: domainInfo.numberOfProtectedSharePointSites || 0,
+            unprotectedSites: domainInfo.numberOfUnprotectedSharePointSites || 0,
+            totalSites: (domainInfo.numberOfProtectedSharePointSites || 0) + (domainInfo.numberOfUnprotectedSharePointSites || 0)
           },
-          tenantName: tenantData.name || tenantData.displayName,
-          rawTenantData: tenantData // For debugging
+          tenantName: domainInfo.name || mapping.spanning_tenant_name,
+          message: 'SharePoint site details are available in the Spanning portal. Summary counts shown here.'
         });
       } catch (e) {
         return Response.json({ success: false, error: e.message });
