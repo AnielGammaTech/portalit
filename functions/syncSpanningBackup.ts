@@ -249,45 +249,32 @@ Deno.serve(async (req) => {
       const tenantApiBase = `https://o365-api-${region}.spanningbackup.com`;
       
       try {
-        // Spanning API uses Basic auth with API key as password (empty username)
-        const basicAuth = btoa(`:${mapping.spanning_api_key}`);
-        
-        // First get sites directly from SharePoint endpoint
-        const sitesResponse = await fetch(`${tenantApiBase}/external/sites?size=1000`, {
-          headers: {
-            'Authorization': `Basic ${basicAuth}`,
-            'Accept': 'application/json'
-          }
-        });
-        
         const formatStorage = (bytes) => {
           if (!bytes || bytes === 0) return '0 B';
           if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(2)} GB`;
           if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(2)} MB`;
           return `${(bytes / 1024).toFixed(2)} KB`;
         };
-
-        if (sitesResponse.ok) {
-          const sitesData = await sitesResponse.json();
-          const sites = (sitesData.sites || sitesData || []).map(s => ({
-            id: s.id || s.siteId,
-            name: s.name || s.displayName || s.title || 'Unnamed Site',
-            url: s.url || s.webUrl,
-            isProtected: s.isAssigned === true || s.assigned === true,
-            storageBytes: s.size || s.storageBytes || 0,
-            storage: formatStorage(s.size || s.storageBytes || 0),
-            lastBackupStatus: s.lastBackupStatus || 'unknown',
-            lastBackupDate: s.lastBackupDate || null
-          }));
-
-          return Response.json({
-            success: true,
-            total: sites.length,
-            sites
-          });
+        
+        // Spanning API uses Basic auth with empty username and API key as password
+        const basicAuth = btoa(`:${mapping.spanning_api_key}`);
+        
+        // Get tenant info which includes SharePoint summary
+        const tenantResponse = await fetch(`${tenantApiBase}/external/tenant`, {
+          headers: {
+            'Authorization': `Basic ${basicAuth}`,
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (!tenantResponse.ok) {
+          const errorText = await tenantResponse.text();
+          return Response.json({ success: false, error: `Tenant API error: ${tenantResponse.status} - ${errorText}` });
         }
         
-        // Fallback: try users endpoint to extract SharePoint info
+        const tenantData = await tenantResponse.json();
+        
+        // Get users to find SharePoint-related info
         const usersResponse = await fetch(`${tenantApiBase}/external/users?size=1000`, {
           headers: {
             'Authorization': `Basic ${basicAuth}`,
@@ -295,15 +282,13 @@ Deno.serve(async (req) => {
           }
         });
         
-        if (!usersResponse.ok) {
-          const errorText = await usersResponse.text();
-          return Response.json({ success: false, error: `Tenant API error: ${usersResponse.status} - ${errorText}` });
+        let users = [];
+        if (usersResponse.ok) {
+          const usersData = await usersResponse.json();
+          users = usersData.users || usersData || [];
         }
         
-        const usersData = await usersResponse.json();
-        const users = usersData.users || usersData || [];
-        
-        // Extract SharePoint sites from users who have SharePoint backup data
+        // Extract SharePoint sites from users (if available in user data)
         const sitesMap = new Map();
         for (const user of users) {
           if (user.sharePointSites && Array.isArray(user.sharePointSites)) {
@@ -330,7 +315,14 @@ Deno.serve(async (req) => {
           success: true,
           total: sites.length,
           sites,
-          usersWithSharePoint: users.filter(u => u.sharePointSites?.length > 0).length
+          // Include summary counts from tenant info
+          sharePointSummary: {
+            protectedSites: tenantData.sharePointProtectedSites || tenantData.numberOfProtectedSharePointSites || 0,
+            unprotectedSites: tenantData.sharePointUnprotectedSites || tenantData.numberOfUnprotectedSharePointSites || 0,
+            totalStorage: formatStorage(tenantData.sharePointStorageBytes || 0)
+          },
+          tenantName: tenantData.name || tenantData.displayName,
+          rawTenantData: tenantData // For debugging
         });
       } catch (e) {
         return Response.json({ success: false, error: e.message });
