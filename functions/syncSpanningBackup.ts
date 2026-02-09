@@ -309,81 +309,26 @@ Deno.serve(async (req) => {
       const tenantApiBase = `https://o365-api-${region}.spanningbackup.com`;
       
       try {
-        const formatStorage = (bytes) => {
-          if (!bytes || bytes === 0) return '0 B';
-          if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(2)} GB`;
-          if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(2)} MB`;
-          return `${(bytes / 1024).toFixed(2)} KB`;
-        };
+        // Use Unitrends API to get tenant data (already working)
+        const allDomains = await unitrendsApiCall('/v2/spanning/domains?page_size=500');
+        const domainInfo = allDomains.find(d => d.id === mapping.spanning_tenant_id);
         
-        // Spanning API uses Basic auth with empty username and API key as password
-        const basicAuth = btoa(`:${mapping.spanning_api_key}`);
-        
-        // Get tenant info which includes Teams summary
-        const tenantResponse = await fetch(`${tenantApiBase}/external/tenant`, {
-          headers: {
-            'Authorization': `Basic ${basicAuth}`,
-            'Accept': 'application/json'
-          }
-        });
-        
-        if (!tenantResponse.ok) {
-          const errorText = await tenantResponse.text();
-          return Response.json({ success: false, error: `Tenant API error: ${tenantResponse.status} - ${errorText}` });
+        if (!domainInfo) {
+          return Response.json({ success: false, error: 'Could not find domain info in Unitrends API' });
         }
-        
-        const tenantData = await tenantResponse.json();
-        
-        // Get users to find Teams-related info
-        const usersResponse = await fetch(`${tenantApiBase}/external/users?size=1000`, {
-          headers: {
-            'Authorization': `Basic ${basicAuth}`,
-            'Accept': 'application/json'
-          }
-        });
-        
-        let users = [];
-        if (usersResponse.ok) {
-          const usersData = await usersResponse.json();
-          users = usersData.users || usersData || [];
-        }
-        
-        // Extract Teams from users (if available in user data)
-        const teamsMap = new Map();
-        for (const user of users) {
-          if (user.teams && Array.isArray(user.teams)) {
-            for (const team of user.teams) {
-              if (!teamsMap.has(team.id || team.teamId || team.name)) {
-                teamsMap.set(team.id || team.teamId || team.name, team);
-              }
-            }
-          }
-        }
-
-        const teams = Array.from(teamsMap.values()).map(t => ({
-          id: t.id || t.teamId,
-          name: t.name || t.displayName || 'Unnamed Team',
-          description: t.description || null,
-          isProtected: t.isAssigned === true || t.assigned === true,
-          storageBytes: t.size || t.storageBytes || 0,
-          storage: formatStorage(t.size || t.storageBytes || 0),
-          lastBackupStatus: t.lastBackupStatus || 'unknown',
-          lastBackupDate: t.lastBackupDate || null,
-          channelCount: t.channels?.length || t.channelCount || 0
-        }));
 
         return Response.json({
           success: true,
-          total: teams.length,
-          teams,
-          // Include summary counts from tenant info
+          total: 0, // Spanning API doesn't expose individual teams via the external API
+          teams: [],
+          // Include summary counts from domain info
           teamsSummary: {
-            protectedChannels: tenantData.teamsProtectedChannels || tenantData.numberOfProtectedTeamChannels || 0,
-            unprotectedChannels: tenantData.teamsUnprotectedChannels || tenantData.numberOfUnprotectedTeamChannels || 0,
-            totalStorage: formatStorage(tenantData.teamsStorageBytes || 0)
+            protectedChannels: domainInfo.numberOfProtectedTeamChannels || 0,
+            unprotectedChannels: domainInfo.numberOfUnprotectedTeamChannels || 0,
+            totalChannels: (domainInfo.numberOfProtectedTeamChannels || 0) + (domainInfo.numberOfUnprotectedTeamChannels || 0)
           },
-          tenantName: tenantData.name || tenantData.displayName,
-          rawTenantData: tenantData // For debugging
+          tenantName: domainInfo.name || mapping.spanning_tenant_name,
+          message: 'Teams channel details are available in the Spanning portal. Summary counts shown here.'
         });
       } catch (e) {
         return Response.json({ success: false, error: e.message });
