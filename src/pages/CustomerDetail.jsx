@@ -544,41 +544,39 @@ export default function CustomerDetail() {
             </div>
           </div>
 
-          {/* Quick Stats - Compact Pills - Admin only */}
-          {isAdmin && (
-            <div className="flex flex-wrap gap-2">
-              {[
-                { icon: Users, value: contacts.length, label: 'Team', color: 'blue' },
-                { icon: FileText, value: contracts.filter(c => c.status === 'active').length, label: 'Contracts', color: 'orange' },
-                { icon: HelpCircle, value: tickets.length, label: 'Tickets', color: 'amber' },
-                { icon: Cloud, value: licenses.length, label: 'Apps', color: 'indigo' },
-                { icon: Monitor, value: devices.length, label: 'Devices', color: 'cyan' },
-              ].map(stat => (
-                <div 
-                  key={stat.label}
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-xl border transition-all cursor-default",
-                    stat.color === 'blue' && "bg-blue-50 border-blue-100",
-                    stat.color === 'orange' && "bg-orange-50 border-orange-100",
-                    stat.color === 'amber' && "bg-amber-50 border-amber-100",
-                    stat.color === 'indigo' && "bg-indigo-50 border-indigo-100",
-                    stat.color === 'cyan' && "bg-cyan-50 border-cyan-100"
-                  )}
-                >
-                  <stat.icon className={cn(
-                    "w-4 h-4",
-                    stat.color === 'blue' && "text-blue-600",
-                    stat.color === 'orange' && "text-orange-600",
-                    stat.color === 'amber' && "text-amber-600",
-                    stat.color === 'indigo' && "text-indigo-600",
-                    stat.color === 'cyan' && "text-cyan-600"
-                  )} />
-                  <span className="font-bold text-slate-900">{stat.value}</span>
-                  <span className="text-xs text-slate-500">{stat.label}</span>
-                </div>
-              ))}
-            </div>
-          )}
+          {/* Quick Stats - Compact Pills */}
+          <div className="flex flex-wrap gap-2">
+            {[
+              { icon: Users, value: contacts.length, label: 'Team', color: 'blue' },
+              { icon: FileText, value: contracts.filter(c => c.status === 'active').length, label: 'Contracts', color: 'orange' },
+              { icon: HelpCircle, value: tickets.length, label: 'Tickets', color: 'amber' },
+              { icon: Cloud, value: licenses.length, label: 'Apps', color: 'indigo' },
+              { icon: Monitor, value: devices.length, label: 'Devices', color: 'cyan' },
+            ].map(stat => (
+              <div 
+                key={stat.label}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-2 rounded-xl border transition-all cursor-default",
+                  stat.color === 'blue' && "bg-blue-50 border-blue-100",
+                  stat.color === 'orange' && "bg-orange-50 border-orange-100",
+                  stat.color === 'amber' && "bg-amber-50 border-amber-100",
+                  stat.color === 'indigo' && "bg-indigo-50 border-indigo-100",
+                  stat.color === 'cyan' && "bg-cyan-50 border-cyan-100"
+                )}
+              >
+                <stat.icon className={cn(
+                  "w-4 h-4",
+                  stat.color === 'blue' && "text-blue-600",
+                  stat.color === 'orange' && "text-orange-600",
+                  stat.color === 'amber' && "text-amber-600",
+                  stat.color === 'indigo' && "text-indigo-600",
+                  stat.color === 'cyan' && "text-cyan-600"
+                )} />
+                <span className="font-bold text-slate-900">{stat.value}</span>
+                <span className="text-xs text-slate-500">{stat.label}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
