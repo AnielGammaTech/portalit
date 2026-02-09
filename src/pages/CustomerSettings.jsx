@@ -59,7 +59,11 @@ export default function CustomerSettings() {
     queryKey: ['portal_users', customerId],
     queryFn: async () => {
       const allUsers = await base44.entities.User.list();
-      return allUsers.filter(u => u.customer_id === customerId);
+      // customer_id can be at top level OR inside data object
+      return allUsers.filter(u => 
+        u.customer_id === customerId || 
+        u.data?.customer_id === customerId
+      );
     },
     enabled: !!customerId
   });
