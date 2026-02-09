@@ -1083,7 +1083,7 @@ export default function CustomerDetail() {
                     }
                     
                     return (
-                      <div className="p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                      <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                         {nonJumpcloudApps
                           .filter(([_, data]) => {
                             // Apply category filter
