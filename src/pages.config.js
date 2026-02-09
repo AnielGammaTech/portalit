@@ -54,6 +54,7 @@ import Billing from './pages/Billing';
 import Contracts from './pages/Contracts';
 import CustomerDetail from './pages/CustomerDetail';
 import CustomerPortalPreview from './pages/CustomerPortalPreview';
+import CustomerSettings from './pages/CustomerSettings';
 import Customers from './pages/Customers';
 import Dashboard from './pages/Dashboard';
 import Integrations from './pages/Integrations';
@@ -65,7 +66,6 @@ import SaaSReports from './pages/SaaSReports';
 import Services from './pages/Services';
 import Settings from './pages/Settings';
 import SpendAnalysis from './pages/SpendAnalysis';
-import CustomerSettings from './pages/CustomerSettings';
 import __Layout from './Layout.jsx';
 
 
@@ -77,6 +77,7 @@ export const PAGES = {
     "Contracts": Contracts,
     "CustomerDetail": CustomerDetail,
     "CustomerPortalPreview": CustomerPortalPreview,
+    "CustomerSettings": CustomerSettings,
     "Customers": Customers,
     "Dashboard": Dashboard,
     "Integrations": Integrations,
@@ -88,7 +89,6 @@ export const PAGES = {
     "Services": Services,
     "Settings": Settings,
     "SpendAnalysis": SpendAnalysis,
-    "CustomerSettings": CustomerSettings,
 }
 
 export const pagesConfig = {
