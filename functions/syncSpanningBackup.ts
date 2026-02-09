@@ -249,20 +249,58 @@ Deno.serve(async (req) => {
       const tenantApiBase = `https://o365-api-${region}.spanningbackup.com`;
       
       try {
-        // Use tenant-specific API with their API key
-        const response = await fetch(`${tenantApiBase}/external/users?size=1000`, {
+        // Spanning API uses Basic auth with API key as password (empty username)
+        const basicAuth = btoa(`:${mapping.spanning_api_key}`);
+        
+        // First get sites directly from SharePoint endpoint
+        const sitesResponse = await fetch(`${tenantApiBase}/external/sites?size=1000`, {
           headers: {
-            'Authorization': `Bearer ${mapping.spanning_api_key}`,
+            'Authorization': `Basic ${basicAuth}`,
             'Accept': 'application/json'
           }
         });
         
-        if (!response.ok) {
-          const errorText = await response.text();
-          return Response.json({ success: false, error: `Tenant API error: ${response.status} - ${errorText}` });
+        const formatStorage = (bytes) => {
+          if (!bytes || bytes === 0) return '0 B';
+          if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(2)} GB`;
+          if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(2)} MB`;
+          return `${(bytes / 1024).toFixed(2)} KB`;
+        };
+
+        if (sitesResponse.ok) {
+          const sitesData = await sitesResponse.json();
+          const sites = (sitesData.sites || sitesData || []).map(s => ({
+            id: s.id || s.siteId,
+            name: s.name || s.displayName || s.title || 'Unnamed Site',
+            url: s.url || s.webUrl,
+            isProtected: s.isAssigned === true || s.assigned === true,
+            storageBytes: s.size || s.storageBytes || 0,
+            storage: formatStorage(s.size || s.storageBytes || 0),
+            lastBackupStatus: s.lastBackupStatus || 'unknown',
+            lastBackupDate: s.lastBackupDate || null
+          }));
+
+          return Response.json({
+            success: true,
+            total: sites.length,
+            sites
+          });
         }
         
-        const usersData = await response.json();
+        // Fallback: try users endpoint to extract SharePoint info
+        const usersResponse = await fetch(`${tenantApiBase}/external/users?size=1000`, {
+          headers: {
+            'Authorization': `Basic ${basicAuth}`,
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (!usersResponse.ok) {
+          const errorText = await usersResponse.text();
+          return Response.json({ success: false, error: `Tenant API error: ${usersResponse.status} - ${errorText}` });
+        }
+        
+        const usersData = await usersResponse.json();
         const users = usersData.users || usersData || [];
         
         // Extract SharePoint sites from users who have SharePoint backup data
@@ -276,13 +314,6 @@ Deno.serve(async (req) => {
             }
           }
         }
-        
-        const formatStorage = (bytes) => {
-          if (!bytes || bytes === 0) return '0 B';
-          if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(2)} GB`;
-          if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(2)} MB`;
-          return `${(bytes / 1024).toFixed(2)} KB`;
-        };
 
         const sites = Array.from(sitesMap.values()).map(s => ({
           id: s.id || s.siteId,
