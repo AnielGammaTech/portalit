@@ -582,47 +582,7 @@ export default function CustomerDetail() {
         </div>
       </div>
 
-      {/* Client Portal Summary - Only for non-admin users */}
-      {!isAdmin && (
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="grid grid-cols-1 sm:grid-cols-3 items-center text-center gap-4">
-            {/* Monthly Cost */}
-            <div className="sm:pr-4 sm:border-r sm:border-gray-200">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Monthly Cost</p>
-              <p className="text-2xl font-bold text-gray-900">
-                ${recurringBills.reduce((sum, b) => sum + (b.amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-              </p>
-            </div>
-            
-            {/* Contract */}
-            <div className="sm:px-4 sm:border-r sm:border-gray-200">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Contract</p>
-              {contracts.length > 0 ? (
-                <p className="text-lg font-semibold text-gray-900">{contracts[0].name}</p>
-              ) : (
-                <p className="text-gray-400">None</p>
-              )}
-            </div>
-            
-            {/* Invoice Status */}
-            <div className="sm:pl-4">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Invoices</p>
-              <div className="flex items-center justify-center gap-3">
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                  <span className="text-sm font-medium text-gray-700">{invoices.filter(i => i.status === 'paid').length} Paid</span>
-                </div>
-                {invoices.filter(i => i.status === 'overdue').length > 0 && (
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-red-500" />
-                    <span className="text-sm font-medium text-red-600">{invoices.filter(i => i.status === 'overdue').length} Overdue</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Tabs - Clean minimal design */}
       <Tabs defaultValue="overview" className="space-y-6" id="customer-tabs">
