@@ -356,9 +356,6 @@ Deno.serve(async (req) => {
       const tenantApiBase = `https://o365-api-${region}.spanningbackup.com`;
       
       try {
-        // Spanning API uses Basic auth with API key as password (empty username)
-        const basicAuth = btoa(`:${mapping.spanning_api_key}`);
-        
         const formatStorage = (bytes) => {
           if (!bytes || bytes === 0) return '0 B';
           if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(2)} GB`;
@@ -366,36 +363,25 @@ Deno.serve(async (req) => {
           return `${(bytes / 1024).toFixed(2)} KB`;
         };
         
-        // First try the teams endpoint directly
-        const teamsResponse = await fetch(`${tenantApiBase}/external/teams?size=1000`, {
+        // Spanning API uses Basic auth with empty username and API key as password
+        const basicAuth = btoa(`:${mapping.spanning_api_key}`);
+        
+        // Get tenant info which includes Teams summary
+        const tenantResponse = await fetch(`${tenantApiBase}/external/tenant`, {
           headers: {
             'Authorization': `Basic ${basicAuth}`,
             'Accept': 'application/json'
           }
         });
         
-        if (teamsResponse.ok) {
-          const teamsData = await teamsResponse.json();
-          const teams = (teamsData.teams || teamsData || []).map(t => ({
-            id: t.id || t.teamId,
-            name: t.name || t.displayName || 'Unnamed Team',
-            description: t.description || null,
-            isProtected: t.isAssigned === true || t.assigned === true,
-            storageBytes: t.size || t.storageBytes || 0,
-            storage: formatStorage(t.size || t.storageBytes || 0),
-            lastBackupStatus: t.lastBackupStatus || 'unknown',
-            lastBackupDate: t.lastBackupDate || null,
-            channelCount: t.channels?.length || t.channelCount || 0
-          }));
-
-          return Response.json({
-            success: true,
-            total: teams.length,
-            teams
-          });
+        if (!tenantResponse.ok) {
+          const errorText = await tenantResponse.text();
+          return Response.json({ success: false, error: `Tenant API error: ${tenantResponse.status} - ${errorText}` });
         }
         
-        // Fallback: try users endpoint to extract Teams info
+        const tenantData = await tenantResponse.json();
+        
+        // Get users to find Teams-related info
         const usersResponse = await fetch(`${tenantApiBase}/external/users?size=1000`, {
           headers: {
             'Authorization': `Basic ${basicAuth}`,
@@ -403,15 +389,13 @@ Deno.serve(async (req) => {
           }
         });
         
-        if (!usersResponse.ok) {
-          const errorText = await usersResponse.text();
-          return Response.json({ success: false, error: `Tenant API error: ${usersResponse.status} - ${errorText}` });
+        let users = [];
+        if (usersResponse.ok) {
+          const usersData = await usersResponse.json();
+          users = usersData.users || usersData || [];
         }
         
-        const usersData = await usersResponse.json();
-        const users = usersData.users || usersData || [];
-        
-        // Extract Teams from users who have Teams backup data
+        // Extract Teams from users (if available in user data)
         const teamsMap = new Map();
         for (const user of users) {
           if (user.teams && Array.isArray(user.teams)) {
@@ -439,7 +423,14 @@ Deno.serve(async (req) => {
           success: true,
           total: teams.length,
           teams,
-          usersWithTeams: users.filter(u => u.teams?.length > 0).length
+          // Include summary counts from tenant info
+          teamsSummary: {
+            protectedChannels: tenantData.teamsProtectedChannels || tenantData.numberOfProtectedTeamChannels || 0,
+            unprotectedChannels: tenantData.teamsUnprotectedChannels || tenantData.numberOfUnprotectedTeamChannels || 0,
+            totalStorage: formatStorage(tenantData.teamsStorageBytes || 0)
+          },
+          tenantName: tenantData.name || tenantData.displayName,
+          rawTenantData: tenantData // For debugging
         });
       } catch (e) {
         return Response.json({ success: false, error: e.message });
