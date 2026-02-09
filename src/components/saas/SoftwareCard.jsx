@@ -49,61 +49,49 @@ export default function SoftwareCard({
   return (
     <Link 
       to={detailUrl}
-      className="group bg-white hover:bg-slate-50 rounded-lg border border-slate-200 p-2.5 transition-all hover:shadow-sm cursor-pointer block max-w-[220px]"
+      className="group bg-white hover:bg-slate-50 rounded-lg border border-slate-200 px-3 py-2 transition-all hover:shadow-sm cursor-pointer block"
     >
-      <div className="flex items-start gap-2">
+      <div className="flex items-center gap-2">
         {/* Logo */}
         <div className={cn(
-          "w-8 h-8 rounded-md flex items-center justify-center overflow-hidden flex-shrink-0",
+          "w-7 h-7 rounded-md flex items-center justify-center overflow-hidden flex-shrink-0",
           !software.logo_url && "bg-purple-100 border border-purple-200"
         )}>
         {software.logo_url ? (
-            <img src={software.logo_url} alt={software.application_name} className="w-6 h-6 object-contain" />
+            <img src={software.logo_url} alt={software.application_name} className="w-5 h-5 object-contain" />
           ) : (
-            <Cloud className="w-3.5 h-3.5 text-purple-600" />
+            <Cloud className="w-3 h-3 text-purple-600" />
           )}
         </div>
         
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between">
-            <h3 className="font-medium text-slate-900 truncate text-sm">{software.application_name}</h3>
-          </div>
+          <h3 className="font-medium text-slate-900 truncate text-xs leading-tight">{software.application_name}</h3>
           
-          {software.vendor && (
-            <p className="text-[10px] text-slate-500 truncate">{software.vendor}</p>
-          )}
-          
-          {/* License Type Pills */}
-          <div className="flex items-center gap-2 mt-1.5">
-            {/* Catalog Only - No licenses yet */}
+          <div className="flex items-center gap-1.5 mt-0.5">
+            {software.vendor && (
+              <span className="text-[10px] text-slate-400 truncate max-w-[80px]">{software.vendor}</span>
+            )}
+            
+            {/* License info inline */}
             {!hasAnyLicense && (
               <span className="text-[10px] text-slate-400">No licenses</span>
             )}
             
-            {/* Managed License */}
             {hasManagedLicense && (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5">
                 <Building2 className="w-2.5 h-2.5 text-blue-500" />
-                <span className="text-[10px] font-medium text-slate-600">{managedUsed}/{managedSeats}</span>
+                <span className="text-[10px] font-medium text-slate-500">{managedUsed}/{managedSeats}</span>
               </div>
             )}
             
-            {/* Individual Licenses */}
             {hasIndividualLicenses && (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5">
                 <User className="w-2.5 h-2.5 text-emerald-500" />
-                <span className="text-[10px] font-medium text-slate-600">{individualCount}</span>
+                <span className="text-[10px] font-medium text-slate-500">{individualCount}</span>
               </div>
             )}
           </div>
-          
-          {/* Unused seats warning - only show for non-auto-synced licenses with actual unused seats */}
-          {hasManagedLicense && !isAutoSynced && managedUnused > 0 && managedUtilization < 50 && (
-            <p className="text-[10px] text-red-500 mt-1">
-              {managedUnused} unused seat{managedUnused !== 1 ? 's' : ''}
-            </p>
-          )}
         </div>
       </div>
     </Link>
