@@ -364,20 +364,59 @@ Deno.serve(async (req) => {
       const tenantApiBase = `https://o365-api-${region}.spanningbackup.com`;
       
       try {
-        // Use tenant-specific API with their API key
-        const response = await fetch(`${tenantApiBase}/external/users?size=1000`, {
+        // Spanning API uses Basic auth with API key as password (empty username)
+        const basicAuth = btoa(`:${mapping.spanning_api_key}`);
+        
+        const formatStorage = (bytes) => {
+          if (!bytes || bytes === 0) return '0 B';
+          if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(2)} GB`;
+          if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(2)} MB`;
+          return `${(bytes / 1024).toFixed(2)} KB`;
+        };
+        
+        // First try the teams endpoint directly
+        const teamsResponse = await fetch(`${tenantApiBase}/external/teams?size=1000`, {
           headers: {
-            'Authorization': `Bearer ${mapping.spanning_api_key}`,
+            'Authorization': `Basic ${basicAuth}`,
             'Accept': 'application/json'
           }
         });
         
-        if (!response.ok) {
-          const errorText = await response.text();
-          return Response.json({ success: false, error: `Tenant API error: ${response.status} - ${errorText}` });
+        if (teamsResponse.ok) {
+          const teamsData = await teamsResponse.json();
+          const teams = (teamsData.teams || teamsData || []).map(t => ({
+            id: t.id || t.teamId,
+            name: t.name || t.displayName || 'Unnamed Team',
+            description: t.description || null,
+            isProtected: t.isAssigned === true || t.assigned === true,
+            storageBytes: t.size || t.storageBytes || 0,
+            storage: formatStorage(t.size || t.storageBytes || 0),
+            lastBackupStatus: t.lastBackupStatus || 'unknown',
+            lastBackupDate: t.lastBackupDate || null,
+            channelCount: t.channels?.length || t.channelCount || 0
+          }));
+
+          return Response.json({
+            success: true,
+            total: teams.length,
+            teams
+          });
         }
         
-        const usersData = await response.json();
+        // Fallback: try users endpoint to extract Teams info
+        const usersResponse = await fetch(`${tenantApiBase}/external/users?size=1000`, {
+          headers: {
+            'Authorization': `Basic ${basicAuth}`,
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (!usersResponse.ok) {
+          const errorText = await usersResponse.text();
+          return Response.json({ success: false, error: `Tenant API error: ${usersResponse.status} - ${errorText}` });
+        }
+        
+        const usersData = await usersResponse.json();
         const users = usersData.users || usersData || [];
         
         // Extract Teams from users who have Teams backup data
@@ -391,13 +430,6 @@ Deno.serve(async (req) => {
             }
           }
         }
-        
-        const formatStorage = (bytes) => {
-          if (!bytes || bytes === 0) return '0 B';
-          if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(2)} GB`;
-          if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(2)} MB`;
-          return `${(bytes / 1024).toFixed(2)} KB`;
-        };
 
         const teams = Array.from(teamsMap.values()).map(t => ({
           id: t.id || t.teamId,
