@@ -208,8 +208,11 @@ export default function LicenseDetail() {
   const { data: application, isLoading: loadingApplication } = useQuery({
     queryKey: ['application', appId],
     queryFn: async () => {
-      const apps = await base44.entities.Application.filter({ id: appId });
-      return apps[0];
+      // Fetch all applications and find by ID since filter by id may not work
+      const allApps = await base44.entities.Application.list();
+      const foundApp = allApps.find(a => a.id === appId);
+      console.log('[LicenseDetail] Fetching app by ID:', appId, 'Found:', foundApp?.name);
+      return foundApp;
     },
     enabled: !!appId && !licenseId,
     staleTime: 1000 * 60
