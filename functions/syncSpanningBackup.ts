@@ -222,7 +222,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // List SharePoint sites for a tenant
+    // List SharePoint sites for a tenant (uses per-tenant API key)
     if (action === 'list_sharepoint_sites') {
       if (!customer_id) {
         return Response.json({ error: 'customer_id is required' }, { status: 400 });
@@ -235,75 +235,78 @@ Deno.serve(async (req) => {
 
       const mapping = mappings[0];
       
-      // Try multiple possible endpoints for SharePoint sites
-      let sitesResponse = null;
-      const endpoints = [
-        `/v2/spanning/domains/${mapping.spanning_tenant_id}/sharepoint-sites`,
-        `/v2/spanning/domains/${mapping.spanning_tenant_id}/sharepoint`,
-        `/v2/spanning/domains/${mapping.spanning_tenant_id}/sites`
-      ];
-      
-      for (const endpoint of endpoints) {
-        try {
-          sitesResponse = await unitrendsApiCall(`${endpoint}?page_size=500`);
-          console.log(`SharePoint endpoint ${endpoint} response:`, JSON.stringify(sitesResponse).substring(0, 500));
-          if (sitesResponse && (Array.isArray(sitesResponse) ? sitesResponse.length > 0 : Object.keys(sitesResponse).length > 0)) {
-            break;
-          }
-        } catch (e) {
-          console.log(`SharePoint endpoint ${endpoint} failed:`, e.message);
-          continue;
-        }
-      }
-      
-      let sites = [];
-      if (sitesResponse) {
-        if (Array.isArray(sitesResponse)) {
-          // Check if it's a nested structure like users
-          if (sitesResponse[0]?.sites || sitesResponse[0]?.sharePointSites) {
-            sites = sitesResponse[0].sites || sitesResponse[0].sharePointSites;
-          } else {
-            sites = sitesResponse;
-          }
-        } else if (sitesResponse?.sites) {
-          sites = sitesResponse.sites;
-        } else if (sitesResponse?.sharePointSites) {
-          sites = sitesResponse.sharePointSites;
-        } else if (sitesResponse?.data) {
-          sites = sitesResponse.data;
-        } else if (sitesResponse?.items) {
-          sites = sitesResponse.items;
-        }
+      // Check if tenant has API key configured
+      if (!mapping.spanning_api_key) {
+        return Response.json({ 
+          success: true, 
+          total: 0, 
+          sites: [],
+          message: 'No tenant API key configured. Add the Spanning API key in Settings to view SharePoint sites.'
+        });
       }
 
-      const formatStorage = (bytes) => {
-        if (!bytes || bytes === 0) return '0 B';
-        if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(2)} GB`;
-        if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(2)} MB`;
-        return `${(bytes / 1024).toFixed(2)} KB`;
-      };
+      const region = mapping.spanning_region || 'us';
+      const tenantApiBase = `https://o365-api-${region}.spanningbackup.com`;
+      
+      try {
+        // Use tenant-specific API with their API key
+        const response = await fetch(`${tenantApiBase}/external/users?size=1000`, {
+          headers: {
+            'Authorization': `Bearer ${mapping.spanning_api_key}`,
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          return Response.json({ success: false, error: `Tenant API error: ${response.status} - ${errorText}` });
+        }
+        
+        const usersData = await response.json();
+        const users = usersData.users || usersData || [];
+        
+        // Extract SharePoint sites from users who have SharePoint backup data
+        const sitesMap = new Map();
+        for (const user of users) {
+          if (user.sharePointSites && Array.isArray(user.sharePointSites)) {
+            for (const site of user.sharePointSites) {
+              if (!sitesMap.has(site.id || site.siteId || site.url)) {
+                sitesMap.set(site.id || site.siteId || site.url, site);
+              }
+            }
+          }
+        }
+        
+        const formatStorage = (bytes) => {
+          if (!bytes || bytes === 0) return '0 B';
+          if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(2)} GB`;
+          if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(2)} MB`;
+          return `${(bytes / 1024).toFixed(2)} KB`;
+        };
 
-      const formattedSites = sites.map(s => ({
-        id: s.id || s.siteId,
-        name: s.name || s.displayName || s.title || 'Unnamed Site',
-        url: s.url || s.webUrl,
-        isProtected: s.isProtected === true || s.assigned === true || s.backupEnabled === true,
-        storageBytes: s.storageInformation?.protectedBytes || s.protectedBytes || s.storageBytes || 0,
-        storage: formatStorage(s.storageInformation?.protectedBytes || s.protectedBytes || s.storageBytes || 0),
-        lastBackupStatus: s.lastBackupStatus || s.backupStatus || 'unknown',
-        lastBackupDate: s.lastBackupDate || s.lastBackup || null,
-        owner: s.owner || s.ownerEmail || null
-      }));
+        const sites = Array.from(sitesMap.values()).map(s => ({
+          id: s.id || s.siteId,
+          name: s.name || s.displayName || s.title || 'Unnamed Site',
+          url: s.url || s.webUrl,
+          isProtected: s.isAssigned === true || s.assigned === true,
+          storageBytes: s.size || s.storageBytes || 0,
+          storage: formatStorage(s.size || s.storageBytes || 0),
+          lastBackupStatus: s.lastBackupStatus || 'unknown',
+          lastBackupDate: s.lastBackupDate || null
+        }));
 
-      return Response.json({
-        success: true,
-        total: formattedSites.length,
-        sites: formattedSites,
-        rawResponse: sitesResponse ? JSON.stringify(sitesResponse).substring(0, 1000) : null
-      });
+        return Response.json({
+          success: true,
+          total: sites.length,
+          sites,
+          usersWithSharePoint: users.filter(u => u.sharePointSites?.length > 0).length
+        });
+      } catch (e) {
+        return Response.json({ success: false, error: e.message });
+      }
     }
 
-    // List Teams channels for a tenant
+    // List Teams channels for a tenant (uses per-tenant API key)
     if (action === 'list_teams_channels') {
       if (!customer_id) {
         return Response.json({ error: 'customer_id is required' }, { status: 400 });
@@ -316,70 +319,76 @@ Deno.serve(async (req) => {
 
       const mapping = mappings[0];
       
-      // Try multiple possible endpoints for Teams
-      let teamsResponse = null;
-      const endpoints = [
-        `/v2/spanning/domains/${mapping.spanning_tenant_id}/teams`,
-        `/v2/spanning/domains/${mapping.spanning_tenant_id}/teams-channels`,
-        `/v2/spanning/domains/${mapping.spanning_tenant_id}/channels`
-      ];
-      
-      for (const endpoint of endpoints) {
-        try {
-          teamsResponse = await unitrendsApiCall(`${endpoint}?page_size=500`);
-          console.log(`Teams endpoint ${endpoint} response:`, JSON.stringify(teamsResponse).substring(0, 500));
-          if (teamsResponse && (Array.isArray(teamsResponse) ? teamsResponse.length > 0 : Object.keys(teamsResponse).length > 0)) {
-            break;
-          }
-        } catch (e) {
-          console.log(`Teams endpoint ${endpoint} failed:`, e.message);
-          continue;
-        }
-      }
-      
-      let teams = [];
-      if (teamsResponse) {
-        if (Array.isArray(teamsResponse)) {
-          // Check if it's a nested structure
-          if (teamsResponse[0]?.teams) {
-            teams = teamsResponse[0].teams;
-          } else {
-            teams = teamsResponse;
-          }
-        } else if (teamsResponse?.teams) {
-          teams = teamsResponse.teams;
-        } else if (teamsResponse?.data) {
-          teams = teamsResponse.data;
-        } else if (teamsResponse?.items) {
-          teams = teamsResponse.items;
-        }
+      // Check if tenant has API key configured
+      if (!mapping.spanning_api_key) {
+        return Response.json({ 
+          success: true, 
+          total: 0, 
+          teams: [],
+          message: 'No tenant API key configured. Add the Spanning API key in Settings to view Teams channels.'
+        });
       }
 
-      const formatStorage = (bytes) => {
-        if (!bytes || bytes === 0) return '0 B';
-        if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(2)} GB`;
-        if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(2)} MB`;
-        return `${(bytes / 1024).toFixed(2)} KB`;
-      };
+      const region = mapping.spanning_region || 'us';
+      const tenantApiBase = `https://o365-api-${region}.spanningbackup.com`;
+      
+      try {
+        // Use tenant-specific API with their API key
+        const response = await fetch(`${tenantApiBase}/external/users?size=1000`, {
+          headers: {
+            'Authorization': `Bearer ${mapping.spanning_api_key}`,
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          return Response.json({ success: false, error: `Tenant API error: ${response.status} - ${errorText}` });
+        }
+        
+        const usersData = await response.json();
+        const users = usersData.users || usersData || [];
+        
+        // Extract Teams from users who have Teams backup data
+        const teamsMap = new Map();
+        for (const user of users) {
+          if (user.teams && Array.isArray(user.teams)) {
+            for (const team of user.teams) {
+              if (!teamsMap.has(team.id || team.teamId || team.name)) {
+                teamsMap.set(team.id || team.teamId || team.name, team);
+              }
+            }
+          }
+        }
+        
+        const formatStorage = (bytes) => {
+          if (!bytes || bytes === 0) return '0 B';
+          if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(2)} GB`;
+          if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(2)} MB`;
+          return `${(bytes / 1024).toFixed(2)} KB`;
+        };
 
-      const formattedTeams = teams.map(t => ({
-        id: t.id || t.teamId,
-        name: t.name || t.displayName || 'Unnamed Team',
-        description: t.description || null,
-        isProtected: t.isProtected === true || t.assigned === true || t.backupEnabled === true,
-        storageBytes: t.storageInformation?.protectedBytes || t.protectedBytes || t.storageBytes || 0,
-        storage: formatStorage(t.storageInformation?.protectedBytes || t.protectedBytes || t.storageBytes || 0),
-        lastBackupStatus: t.lastBackupStatus || t.backupStatus || 'unknown',
-        lastBackupDate: t.lastBackupDate || t.lastBackup || null,
-        channelCount: t.channelCount || t.numberOfChannels || 0
-      }));
+        const teams = Array.from(teamsMap.values()).map(t => ({
+          id: t.id || t.teamId,
+          name: t.name || t.displayName || 'Unnamed Team',
+          description: t.description || null,
+          isProtected: t.isAssigned === true || t.assigned === true,
+          storageBytes: t.size || t.storageBytes || 0,
+          storage: formatStorage(t.size || t.storageBytes || 0),
+          lastBackupStatus: t.lastBackupStatus || 'unknown',
+          lastBackupDate: t.lastBackupDate || null,
+          channelCount: t.channels?.length || t.channelCount || 0
+        }));
 
-      return Response.json({
-        success: true,
-        total: formattedTeams.length,
-        teams: formattedTeams,
-        rawResponse: teamsResponse ? JSON.stringify(teamsResponse).substring(0, 1000) : null
-      });
+        return Response.json({
+          success: true,
+          total: teams.length,
+          teams,
+          usersWithTeams: users.filter(u => u.teams?.length > 0).length
+        });
+      } catch (e) {
+        return Response.json({ success: false, error: e.message });
+      }
     }
 
     // Sync users to contacts
