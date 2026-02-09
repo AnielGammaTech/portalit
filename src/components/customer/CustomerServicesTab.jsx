@@ -185,12 +185,12 @@ export default function CustomerServicesTab({
     updateSyncStatus('datto', 'syncing');
     try {
       const response = await base44.functions.invoke('syncDattoRMMDevices', {
-        action: 'sync_site',
-        site_id: dattoMapping.datto_site_id
+        action: 'sync_devices',
+        customer_id: customerId
       });
       if (response.data.success) {
         updateSyncStatus('datto', 'success');
-        toast.success(`Datto: Synced ${response.data.synced || 0} devices`);
+        toast.success(`Datto: Synced ${response.data.recordsSynced || 0} devices`);
         queryClient.invalidateQueries();
       } else {
         updateSyncStatus('datto', 'error', response.data.error);
@@ -236,12 +236,12 @@ export default function CustomerServicesTab({
         updateSyncStatus('datto', 'syncing');
         try {
           const res = await base44.functions.invoke('syncDattoRMMDevices', {
-            action: 'sync_site',
-            site_id: dattoMapping.datto_site_id
+            action: 'sync_devices',
+            customer_id: customerId
           });
           if (res.data.success) {
             updateSyncStatus('datto', 'success');
-            results.push(`Datto (${res.data.synced || 0} devices)`);
+            results.push(`Datto (${res.data.recordsSynced || 0} devices)`);
           } else {
             updateSyncStatus('datto', 'error', res.data.error);
             errors.push('Datto');
