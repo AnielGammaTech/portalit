@@ -161,7 +161,7 @@ export default function CustomerServicesTab({
   });
 
   const hasBullPhish = bullphishReports.length > 0;
-  const hasDarkWeb = !!darkwebMapping;
+  const hasDarkWeb = !!darkwebMapping || darkwebReports.length > 0;
   const hasEDR = !!edrMapping;
   const hasRocketCyber = !!rocketcyberMapping;
 
