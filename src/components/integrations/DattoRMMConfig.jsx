@@ -37,7 +37,10 @@ export default function DattoRMMConfig() {
   const [filterTab, setFilterTab] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [siteSelections, setSiteSelections] = useState({});
+  const [mappingSearchQuery, setMappingSearchQuery] = useState('');
+  const [mappingPage, setMappingPage] = useState(1);
   const itemsPerPage = 10;
+  const mappingsPerPage = 10;
 
   const queryClient = useQueryClient();
 
@@ -230,6 +233,21 @@ export default function DattoRMMConfig() {
     return customer?.name || 'Unknown';
   };
 
+  // Filter and paginate existing mappings
+  const filteredMappings = mappings.filter(mapping => {
+    if (!mappingSearchQuery) return true;
+    const customerName = getCustomerName(mapping.customer_id).toLowerCase();
+    const siteName = (mapping.datto_site_name || '').toLowerCase();
+    const query = mappingSearchQuery.toLowerCase();
+    return customerName.includes(query) || siteName.includes(query);
+  });
+  
+  const totalMappingPages = Math.ceil(filteredMappings.length / mappingsPerPage);
+  const paginatedMappings = filteredMappings.slice(
+    (mappingPage - 1) * mappingsPerPage, 
+    mappingPage * mappingsPerPage
+  );
+
   return (
     <div className="space-y-5">
       {/* Connection Status */}
@@ -287,32 +305,81 @@ export default function DattoRMMConfig() {
         {!showMappingView ? (
             mappings.length === 0 ? (
               <p className="text-sm text-slate-500 py-4 text-center">
-                No sites mapped yet. Click "Client Mapping" to link Datto sites to customers.
+                No sites mapped yet. Click "Load Sites" to link Datto sites to customers.
               </p>
             ) : (
-              <div className="space-y-2">
-                {mappings.map(mapping => (
-                  <div 
-                    key={mapping.id} 
-                    className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Building2 className="w-4 h-4 text-slate-400" />
-                      <div>
-                        <p className="font-medium text-slate-900">{getCustomerName(mapping.customer_id)}</p>
-                        <p className="text-sm text-slate-500">→ {mapping.datto_site_name}</p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deleteMapping(mapping.id)}
-                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
+              <div className="space-y-3">
+                {/* Search for existing mappings */}
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    placeholder="Search mapped customers or sites..."
+                    value={mappingSearchQuery}
+                    onChange={(e) => { setMappingSearchQuery(e.target.value); setMappingPage(1); }}
+                    className="pl-9 h-9 text-sm"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  {paginatedMappings.map(mapping => (
+                    <div 
+                      key={mapping.id} 
+                      className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
                     >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                      <div className="flex items-center gap-3">
+                        <Building2 className="w-4 h-4 text-slate-400" />
+                        <div>
+                          <p className="font-medium text-slate-900">{getCustomerName(mapping.customer_id)}</p>
+                          <p className="text-sm text-slate-500">→ {mapping.datto_site_name}</p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteMapping(mapping.id)}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Pagination for mappings */}
+                {totalMappingPages > 1 && (
+                  <div className="flex items-center justify-between pt-2">
+                    <p className="text-xs text-slate-500">
+                      {((mappingPage - 1) * mappingsPerPage) + 1}–{Math.min(mappingPage * mappingsPerPage, filteredMappings.length)} of {filteredMappings.length}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setMappingPage(p => Math.max(1, p - 1))}
+                        disabled={mappingPage === 1}
+                        className="h-7 px-2"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </Button>
+                      <span className="text-xs text-slate-600 px-2">{mappingPage} / {totalMappingPages}</span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setMappingPage(p => Math.min(totalMappingPages, p + 1))}
+                        disabled={mappingPage === totalMappingPages}
+                        className="h-7 px-2"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
-                ))}
+                )}
+                
+                {filteredMappings.length === 0 && mappingSearchQuery && (
+                  <p className="text-sm text-slate-500 py-4 text-center">
+                    No mappings found for "{mappingSearchQuery}"
+                  </p>
+                )}
               </div>
             )
           ) : (
