@@ -14,13 +14,15 @@ import {
   ChevronDown,
   ChevronRight,
   Users,
-  ExternalLink
+  ExternalLink,
+  User
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
+import UserDetailModal from './UserDetailModal';
 
 export default function SaaSAlertsTab({ customer, saasAlertsMapping }) {
   const [isSyncing, setIsSyncing] = useState(false);
