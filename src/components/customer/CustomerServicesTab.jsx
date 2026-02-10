@@ -28,7 +28,7 @@ import SpanningUsersTab from './SpanningUsersTab';
 import DevicesTab from './DevicesTab';
 import DattoEDRTab from './DattoEDRTab';
 import RocketCyberTab from './RocketCyberTab';
-import SaaSAlertsTab from './SaaSAlertsTab';
+import SaaSAlertsTab from './SaaSAlertsTab.jsx';
 
 export default function CustomerServicesTab({ 
   customerId, 
