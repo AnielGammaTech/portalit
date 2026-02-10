@@ -1,0 +1,200 @@
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+
+const API_BASE = 'https://us-central1-the-byway-248217.cloudfunctions.net/reportApi/api/v1';
+
+async function saasAlertsApiCall(endpoint, method = 'GET', body = null) {
+  const apiKey = Deno.env.get('SAAS_ALERTS_API_KEY');
+  const apiUser = Deno.env.get('SAAS_ALERTS_API_USER');
+  const partnerId = Deno.env.get('SAAS_ALERTS_PARTNER_ID');
+  
+  const headers = {
+    'x-api-key': apiKey,
+    'x-api-user': apiUser,
+    'x-partner-id': partnerId,
+    'Content-Type': 'application/json'
+  };
+  
+  const options = { method, headers };
+  if (body) options.body = JSON.stringify(body);
+  
+  const response = await fetch(`${API_BASE}${endpoint}`, options);
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`SaaS Alerts API error: ${response.status} - ${errorText}`);
+  }
+  
+  return response.json();
+}
+
+Deno.serve(async (req) => {
+  try {
+    const base44 = createClientFromRequest(req);
+    const { action, customer_id, days = 7 } = await req.json();
+    
+    // Skip auth check for scheduled runs
+    if (action !== 'scheduled_sync') {
+      const user = await base44.auth.me();
+      if (!user) {
+        return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+    }
+    
+    // Test connection
+    if (action === 'test_connection') {
+      const profile = await saasAlertsApiCall('/reports/partners/profile');
+      return Response.json({ success: true, partner: profile });
+    }
+    
+    // List all organizations/customers from SaaS Alerts
+    if (action === 'list_organizations') {
+      const customers = await saasAlertsApiCall('/reports/customers');
+      return Response.json({ success: true, organizations: customers });
+    }
+    
+    // Get billing details
+    if (action === 'get_billing') {
+      const billing = await saasAlertsApiCall('/reports/billing-details');
+      return Response.json({ success: true, billing });
+    }
+    
+    // Get users for an organization
+    if (action === 'get_users') {
+      if (!customer_id) {
+        return Response.json({ error: 'customer_id required' }, { status: 400 });
+      }
+      
+      const mapping = await base44.asServiceRole.entities.SaaSAlertsMapping.filter({ customer_id });
+      if (!mapping.length) {
+        return Response.json({ error: 'No SaaS Alerts mapping found for this customer' }, { status: 404 });
+      }
+      
+      const orgId = mapping[0].saas_alerts_org_id;
+      const users = await saasAlertsApiCall(`/reports/users?organizationId=${orgId}`);
+      return Response.json({ success: true, users });
+    }
+    
+    // Get events/alerts for an organization
+    if (action === 'get_events') {
+      if (!customer_id) {
+        return Response.json({ error: 'customer_id required' }, { status: 400 });
+      }
+      
+      const mapping = await base44.asServiceRole.entities.SaaSAlertsMapping.filter({ customer_id });
+      if (!mapping.length) {
+        return Response.json({ error: 'No SaaS Alerts mapping found for this customer' }, { status: 404 });
+      }
+      
+      const orgId = mapping[0].saas_alerts_org_id;
+      const fromDate = new Date();
+      fromDate.setDate(fromDate.getDate() - days);
+      
+      const events = await saasAlertsApiCall(`/reports/events?organizationId=${orgId}&fromUtc=${fromDate.toISOString()}&size=100`);
+      return Response.json({ success: true, events });
+    }
+    
+    // Sync events for a customer
+    if (action === 'sync_events') {
+      if (!customer_id) {
+        return Response.json({ error: 'customer_id required' }, { status: 400 });
+      }
+      
+      const mapping = await base44.asServiceRole.entities.SaaSAlertsMapping.filter({ customer_id });
+      if (!mapping.length) {
+        return Response.json({ error: 'No SaaS Alerts mapping found for this customer' }, { status: 404 });
+      }
+      
+      const orgId = mapping[0].saas_alerts_org_id;
+      const fromDate = new Date();
+      fromDate.setDate(fromDate.getDate() - days);
+      
+      const eventsResponse = await saasAlertsApiCall(`/reports/events?organizationId=${orgId}&fromUtc=${fromDate.toISOString()}&size=500`);
+      const events = eventsResponse?.hits?.hits || eventsResponse || [];
+      
+      console.log(`Found ${Array.isArray(events) ? events.length : 0} events for org ${orgId}`);
+      
+      // Get existing alerts
+      const existingAlerts = await base44.asServiceRole.entities.SaaSAlert.filter({ customer_id });
+      const existingIds = new Set(existingAlerts.map(a => a.alert_id));
+      
+      let synced = 0;
+      for (const event of (Array.isArray(events) ? events : [])) {
+        const source = event._source || event;
+        const alertId = event._id || source.id || `${source.timestamp}-${source.jointType}`;
+        
+        if (existingIds.has(alertId)) continue;
+        
+        const alertData = {
+          customer_id,
+          alert_id: alertId,
+          event_type: source.jointType || source.eventType || 'unknown',
+          description: source.jointDesc || source.description || '',
+          severity: source.alertStatus || 'medium',
+          status: 'open',
+          user_email: source.userPrincipalName || source.email || '',
+          application: source.applicationType || source.application || '',
+          ip_address: source.ipAddress || source.ip || '',
+          location: source.location ? `${source.location.city || ''}, ${source.location.country || ''}`.trim() : '',
+          detected_at: source.timestamp || source.createdAt || new Date().toISOString(),
+          raw_data: JSON.stringify(source)
+        };
+        
+        await base44.asServiceRole.entities.SaaSAlert.create(alertData);
+        synced++;
+      }
+      
+      // Update mapping last_synced
+      await base44.asServiceRole.entities.SaaSAlertsMapping.update(mapping[0].id, {
+        last_synced: new Date().toISOString()
+      });
+      
+      return Response.json({ 
+        success: true, 
+        recordsSynced: synced,
+        totalEvents: Array.isArray(events) ? events.length : 0
+      });
+    }
+    
+    // Get summary for a customer
+    if (action === 'get_summary') {
+      if (!customer_id) {
+        return Response.json({ error: 'customer_id required' }, { status: 400 });
+      }
+      
+      const alerts = await base44.asServiceRole.entities.SaaSAlert.filter({ customer_id });
+      const openAlerts = alerts.filter(a => a.status === 'open');
+      const criticalAlerts = alerts.filter(a => a.severity === 'critical');
+      
+      // Group by event type
+      const byType = {};
+      for (const alert of alerts) {
+        byType[alert.event_type] = (byType[alert.event_type] || 0) + 1;
+      }
+      
+      // Group by application
+      const byApp = {};
+      for (const alert of alerts) {
+        if (alert.application) {
+          byApp[alert.application] = (byApp[alert.application] || 0) + 1;
+        }
+      }
+      
+      return Response.json({
+        success: true,
+        summary: {
+          total: alerts.length,
+          open: openAlerts.length,
+          critical: criticalAlerts.length,
+          byEventType: byType,
+          byApplication: byApp
+        }
+      });
+    }
+    
+    return Response.json({ error: 'Invalid action' }, { status: 400 });
+    
+  } catch (error) {
+    console.error('SaaS Alerts sync error:', error);
+    return Response.json({ error: error.message }, { status: 500 });
+  }
+});
