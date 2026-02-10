@@ -4,13 +4,19 @@ const API_BASE = 'https://us-central1-the-byway-248217.cloudfunctions.net/report
 
 async function saasAlertsApiCall(endpoint, method = 'GET', body = null) {
   const apiKey = Deno.env.get('SAAS_ALERTS_API_KEY');
+  const apiUser = Deno.env.get('SAAS_ALERTS_API_USER');
+  const partnerId = Deno.env.get('SAAS_ALERTS_PARTNER_ID');
   
   console.log('API Call to:', endpoint);
   console.log('API Key present:', !!apiKey, 'length:', apiKey?.length);
+  console.log('API User present:', !!apiUser);
+  console.log('Partner ID present:', !!partnerId);
   
-  // SaaS Alerts uses 'apikey' header (lowercase) per their Swagger docs
+  // Try Basic Auth with API User:API Key
+  const basicAuth = btoa(`${apiUser}:${apiKey}`);
+  
   const headers = {
-    'apikey': apiKey,
+    'Authorization': `Basic ${basicAuth}`,
     'Content-Type': 'application/json'
   };
   
