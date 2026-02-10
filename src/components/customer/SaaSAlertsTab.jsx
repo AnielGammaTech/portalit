@@ -279,6 +279,11 @@ export default function SaaSAlertsTab({ customer, saasAlertsMapping }) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-slate-900 text-sm">{group.event_type}</p>
+                        {group.alerts[0]?.application && (
+                          <Badge variant="outline" className="text-xs">
+                            {group.alerts[0].application}
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
                         {group.latestDate && (
