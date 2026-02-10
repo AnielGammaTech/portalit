@@ -12,11 +12,11 @@ async function saasAlertsApiCall(endpoint, method = 'GET', body = null) {
   console.log('API User present:', !!apiUser);
   console.log('Partner ID present:', !!partnerId);
   
-  // Try Basic Auth with API User:API Key
-  const basicAuth = btoa(`${apiUser}:${apiKey}`);
-  
+  // Try multiple auth approaches
   const headers = {
-    'Authorization': `Basic ${basicAuth}`,
+    'Authorization': `Bearer ${apiKey}`,
+    'x-api-key': apiKey,
+    'apikey': apiKey,
     'Content-Type': 'application/json'
   };
   
