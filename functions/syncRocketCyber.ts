@@ -40,10 +40,11 @@ function mapSeverity(priority) {
 
 function mapStatus(status) {
   if (!status) return 'closed';
-  const s = String(status).toLowerCase();
+  const s = String(status).toLowerCase().trim();
   // Only 'open' or 'new' count as open - must be exact match
   if (s === 'open' || s === 'new') return 'open';
-  // Everything else (suppressed, in_progress, investigating, resolved, closed, etc.) is closed
+  // Explicitly handle suppressed, resolved, closed, etc. as closed
+  // This includes: suppressed, Suppressed, SUPPRESSED, in_progress, investigating, resolved, closed
   return 'closed';
 }
 
