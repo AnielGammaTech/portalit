@@ -387,6 +387,14 @@ export default function SaaSAlertsTab({ customer, saasAlertsMapping }) {
           <ExternalLink className="w-4 h-4" />
         </a>
       </div>
+
+      {/* User Detail Modal */}
+      <UserDetailModal 
+        contact={selectedContact}
+        open={!!selectedContact}
+        onClose={() => setSelectedContact(null)}
+        customerId={customer?.id}
+      />
     </div>
   );
 }
