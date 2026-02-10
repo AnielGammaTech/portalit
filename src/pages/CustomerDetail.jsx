@@ -244,10 +244,13 @@ export default function CustomerDetail() {
                   const [jumpcloudSsoExpanded, setJumpcloudSsoExpanded] = useState(false); // collapsible JumpCloud SSO section
   
 
-  const isLoading = loadingCustomer || loadingContracts || loadingLicenses || loadingApplications || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems || loadingContractItems || loadingContacts || loadingTickets || loadingInvoiceLineItems || loadingAssignments || loadingDevices || loadingJumpcloud || loadingSpanning;
-
   // Check if current user is admin
   const isAdmin = user?.role === 'admin';
+
+  // For loading state, we need to wait for user AND customers to load first before showing "Account Not Found"
+  const isLoadingInitial = !user || loadingCustomer;
+  const isLoadingData = loadingContracts || loadingLicenses || loadingApplications || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems || loadingContractItems || loadingContacts || loadingTickets || loadingInvoiceLineItems || loadingAssignments || loadingDevices || loadingJumpcloud || loadingSpanning;
+  const isLoading = isLoadingInitial || isLoadingData;
 
   const handleAssignLicense = async (contactId) => {
     await base44.entities.LicenseAssignment.create({
