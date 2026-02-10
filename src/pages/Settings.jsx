@@ -37,7 +37,8 @@ import SpanningConfig from '../components/integrations/SpanningConfig';
 import DarkWebIDConfig from '../components/integrations/DarkWebIDConfig';
 import BullPhishIDConfig from '../components/integrations/BullPhishIDConfig';
 import DattoEDRConfig from '../components/integrations/DattoEDRConfig';
-import { AlertTriangle, Fish } from 'lucide-react';
+import RocketCyberConfig from '../components/integrations/RocketCyberConfig';
+import { AlertTriangle, Fish, Rocket } from 'lucide-react';
 
 function GammaStackITPanel() {
   const [apiKey, setApiKey] = useState('');
@@ -224,10 +225,16 @@ function IntegrationsPanel() {
     queryFn: () => base44.entities.DattoEDRMapping.list(),
   });
 
+  const { data: rocketcyberMappings = [] } = useQuery({
+    queryKey: ['rocketcyber_mappings'],
+    queryFn: () => base44.entities.RocketCyberMapping.list(),
+  });
+
   const dattoMapped = dattoMappings.length;
   const jumpcloudMapped = jumpcloudMappings.length;
   const spanningMapped = spanningMappings.length;
   const edrMapped = edrMappings.length;
+  const rocketcyberMapped = rocketcyberMappings.length;
 
   return (
     <div className="space-y-4">
@@ -319,6 +326,23 @@ function IntegrationsPanel() {
         }
       >
         <DattoEDRConfig />
+      </IntegrationCard>
+
+      {/* RocketCyber SOC */}
+      <IntegrationCard
+        icon={Shield}
+        iconBg="bg-orange-50"
+        title="RocketCyber SOC"
+        description="Sync security incidents and alerts from RocketCyber"
+        status={
+          rocketcyberMapped > 0 ? (
+            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">{rocketcyberMapped} mapped</Badge>
+          ) : (
+            <Badge variant="outline" className="text-slate-500">Not configured</Badge>
+          )
+        }
+      >
+        <RocketCyberConfig />
       </IntegrationCard>
     </div>
   );
