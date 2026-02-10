@@ -1,0 +1,333 @@
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { base44 } from '@/api/base44Client';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { 
+  Shield, 
+  AlertTriangle, 
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  RefreshCw,
+  ChevronDown,
+  ChevronRight,
+  Monitor,
+  Calendar,
+  Activity
+} from 'lucide-react';
+import { toast } from 'sonner';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+const severityConfig = {
+  critical: { color: 'bg-red-100 text-red-700 border-red-200', icon: AlertTriangle, label: 'Critical' },
+  high: { color: 'bg-orange-100 text-orange-700 border-orange-200', icon: AlertCircle, label: 'High' },
+  medium: { color: 'bg-yellow-100 text-yellow-700 border-yellow-200', icon: AlertCircle, label: 'Medium' },
+  low: { color: 'bg-blue-100 text-blue-700 border-blue-200', icon: Activity, label: 'Low' },
+  informational: { color: 'bg-slate-100 text-slate-700 border-slate-200', icon: Activity, label: 'Info' }
+};
+
+const statusConfig = {
+  open: { color: 'bg-red-100 text-red-700', label: 'Open' },
+  investigating: { color: 'bg-yellow-100 text-yellow-700', label: 'Investigating' },
+  resolved: { color: 'bg-green-100 text-green-700', label: 'Resolved' },
+  closed: { color: 'bg-slate-100 text-slate-700', label: 'Closed' }
+};
+
+export default function RocketCyberTab({ customer }) {
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [selectedIncident, setSelectedIncident] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [severityFilter, setSeverityFilter] = useState('all');
+
+  // Fetch mapping
+  const { data: mappings = [] } = useQuery({
+    queryKey: ['rocketcyber_mapping', customer.id],
+    queryFn: () => base44.entities.RocketCyberMapping.filter({ customer_id: customer.id })
+  });
+
+  // Fetch incidents
+  const { data: incidents = [], refetch: refetchIncidents } = useQuery({
+    queryKey: ['rocketcyber_incidents', customer.id],
+    queryFn: () => base44.entities.RocketCyberIncident.filter({ customer_id: customer.id }),
+    enabled: mappings.length > 0
+  });
+
+  const mapping = mappings[0];
+
+  const syncIncidents = async () => {
+    setIsSyncing(true);
+    try {
+      const result = await base44.functions.invoke('syncRocketCyber', {
+        action: 'sync_incidents',
+        customer_id: customer.id
+      });
+      if (result.data.success) {
+        toast.success(`Synced ${result.data.recordsSynced} incidents`);
+        refetchIncidents();
+      }
+    } catch (error) {
+      toast.error('Sync failed: ' + error.message);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  if (!mapping) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <Shield className="w-12 h-12 mx-auto text-slate-300 mb-4" />
+          <h3 className="text-lg font-medium text-slate-900 mb-2">RocketCyber Not Configured</h3>
+          <p className="text-slate-500 mb-4">
+            This customer hasn't been mapped to a RocketCyber account yet.
+          </p>
+          <p className="text-sm text-slate-400">
+            Go to Integrations settings to configure RocketCyber mapping.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Filter incidents
+  const filteredIncidents = incidents.filter(incident => {
+    if (statusFilter !== 'all' && incident.status !== statusFilter) return false;
+    if (severityFilter !== 'all' && incident.severity !== severityFilter) return false;
+    return true;
+  });
+
+  // Stats
+  const stats = {
+    total: incidents.length,
+    open: incidents.filter(i => i.status === 'open' || i.status === 'investigating').length,
+    critical: incidents.filter(i => i.severity === 'critical').length,
+    high: incidents.filter(i => i.severity === 'high').length
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header with Sync */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <Shield className="w-5 h-5 text-orange-500" />
+            RocketCyber SOC
+          </h3>
+          <p className="text-sm text-slate-500">
+            Account: {mapping.rocketcyber_account_name}
+            {mapping.last_synced && (
+              <span className="ml-2">
+                • Last sync: {new Date(mapping.last_synced).toLocaleString()}
+              </span>
+            )}
+          </p>
+        </div>
+        <Button onClick={syncIncidents} disabled={isSyncing} variant="outline" size="sm">
+          <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+          Sync Incidents
+        </Button>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="pt-4">
+            <div className="text-2xl font-bold">{stats.total}</div>
+            <p className="text-sm text-slate-500">Total Incidents</p>
+          </CardContent>
+        </Card>
+        <Card className={stats.open > 0 ? 'border-red-200 bg-red-50' : ''}>
+          <CardContent className="pt-4">
+            <div className={`text-2xl font-bold ${stats.open > 0 ? 'text-red-600' : ''}`}>
+              {stats.open}
+            </div>
+            <p className="text-sm text-slate-500">Open/Active</p>
+          </CardContent>
+        </Card>
+        <Card className={stats.critical > 0 ? 'border-red-200 bg-red-50' : ''}>
+          <CardContent className="pt-4">
+            <div className={`text-2xl font-bold ${stats.critical > 0 ? 'text-red-600' : ''}`}>
+              {stats.critical}
+            </div>
+            <p className="text-sm text-slate-500">Critical</p>
+          </CardContent>
+        </Card>
+        <Card className={stats.high > 0 ? 'border-orange-200 bg-orange-50' : ''}>
+          <CardContent className="pt-4">
+            <div className={`text-2xl font-bold ${stats.high > 0 ? 'text-orange-600' : ''}`}>
+              {stats.high}
+            </div>
+            <p className="text-sm text-slate-500">High Severity</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      <div className="flex gap-4">
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="text-sm border rounded-md px-3 py-2"
+        >
+          <option value="all">All Statuses</option>
+          <option value="open">Open</option>
+          <option value="investigating">Investigating</option>
+          <option value="resolved">Resolved</option>
+          <option value="closed">Closed</option>
+        </select>
+        <select
+          value={severityFilter}
+          onChange={(e) => setSeverityFilter(e.target.value)}
+          className="text-sm border rounded-md px-3 py-2"
+        >
+          <option value="all">All Severities</option>
+          <option value="critical">Critical</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+
+      {/* Incidents List */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            Security Incidents ({filteredIncidents.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {filteredIncidents.length === 0 ? (
+            <div className="text-center py-8 text-slate-500">
+              <CheckCircle2 className="w-12 h-12 mx-auto text-green-300 mb-3" />
+              <p>No incidents found</p>
+              <p className="text-sm">Your environment is looking secure!</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredIncidents
+                .sort((a, b) => new Date(b.detected_at) - new Date(a.detected_at))
+                .map(incident => {
+                  const sevConfig = severityConfig[incident.severity] || severityConfig.medium;
+                  const statConfig = statusConfig[incident.status] || statusConfig.open;
+                  const SeverityIcon = sevConfig.icon;
+
+                  return (
+                    <div
+                      key={incident.id}
+                      className="p-4 border rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                      onClick={() => setSelectedIncident(incident)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-3">
+                          <div className={`p-2 rounded-lg ${sevConfig.color}`}>
+                            <SeverityIcon className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-slate-900">{incident.title}</h4>
+                            <div className="flex items-center gap-2 mt-1 text-sm text-slate-500">
+                              {incident.hostname && (
+                                <span className="flex items-center gap-1">
+                                  <Monitor className="w-3 h-3" />
+                                  {incident.hostname}
+                                </span>
+                              )}
+                              {incident.app_name && (
+                                <span>• {incident.app_name}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          <Badge className={statConfig.color}>{statConfig.label}</Badge>
+                          <span className="text-xs text-slate-500 flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {incident.detected_at 
+                              ? new Date(incident.detected_at).toLocaleDateString()
+                              : 'Unknown'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Incident Detail Modal */}
+      <Dialog open={!!selectedIncident} onOpenChange={() => setSelectedIncident(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-orange-500" />
+              Incident Details
+            </DialogTitle>
+          </DialogHeader>
+          {selectedIncident && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-semibold text-lg">{selectedIncident.title}</h3>
+                <div className="flex gap-2 mt-2">
+                  <Badge className={severityConfig[selectedIncident.severity]?.color}>
+                    {severityConfig[selectedIncident.severity]?.label || selectedIncident.severity}
+                  </Badge>
+                  <Badge className={statusConfig[selectedIncident.status]?.color}>
+                    {statusConfig[selectedIncident.status]?.label || selectedIncident.status}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-slate-500">Hostname</p>
+                  <p className="font-medium">{selectedIncident.hostname || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Detection App</p>
+                  <p className="font-medium">{selectedIncident.app_name || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Category</p>
+                  <p className="font-medium">{selectedIncident.category || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Detected</p>
+                  <p className="font-medium">
+                    {selectedIncident.detected_at 
+                      ? new Date(selectedIncident.detected_at).toLocaleString()
+                      : 'N/A'}
+                  </p>
+                </div>
+                {selectedIncident.resolved_at && (
+                  <div>
+                    <p className="text-slate-500">Resolved</p>
+                    <p className="font-medium">
+                      {new Date(selectedIncident.resolved_at).toLocaleString()}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {selectedIncident.description && (
+                <div>
+                  <p className="text-slate-500 text-sm mb-1">Description</p>
+                  <p className="text-sm bg-slate-50 p-3 rounded-lg">
+                    {selectedIncident.description}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
