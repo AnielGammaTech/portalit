@@ -27,7 +27,10 @@ import {
   Save,
   Code,
   Copy,
-  Check
+  Check,
+  Printer,
+  Share2,
+  ExternalLink
 } from 'lucide-react';
 
 const MENU_SECTIONS = [
