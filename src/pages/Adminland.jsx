@@ -236,8 +236,6 @@ export default function Adminland() {
     );
   }
 
-  const [copiedEndpoint, setCopiedEndpoint] = useState(null);
-  
   const copyToClipboard = (text, id) => {
     navigator.clipboard.writeText(text);
     setCopiedEndpoint(id);
