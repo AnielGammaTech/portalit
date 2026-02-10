@@ -93,6 +93,7 @@ export default function Adminland() {
   const [primaryColor, setPrimaryColor] = useState('#8b5cf6');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [copiedEndpoint, setCopiedEndpoint] = useState(null);
 
   useEffect(() => {
     const loadUser = async () => {
