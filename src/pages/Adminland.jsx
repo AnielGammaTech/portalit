@@ -407,7 +407,7 @@ export default function Adminland() {
               size="sm"
               className="gap-2"
               onClick={() => {
-                const url = window.location.href;
+                const url = `${window.location.origin}${window.location.pathname}?panel=api-docs`;
                 navigator.clipboard.writeText(url);
                 toast.success('Link copied to clipboard');
               }}
