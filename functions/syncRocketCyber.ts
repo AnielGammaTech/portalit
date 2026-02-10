@@ -227,7 +227,7 @@ Deno.serve(async (req) => {
       const mapping = mappings[0];
       const rcAccountId = mapping.rocketcyber_account_id;
 
-      // Fetch only OPEN incidents from RocketCyber (status=open filters to open incidents only)
+      // Fetch ALL incidents from RocketCyber to get accurate status
       let allIncidents = [];
       let page = 1;
       const pageSize = 100;
@@ -240,9 +240,9 @@ Deno.serve(async (req) => {
         endpoint = `/account/${rcAccountId}/events`;
       }
 
-      // Only sync open incidents (not historical resolved ones)
+      // Fetch all incidents (no status filter) to get current status of all incidents
       while (true) {
-        const incidentsData = await rocketCyberApiCall(endpoint, { page, pageSize, status: 'open' });
+        const incidentsData = await rocketCyberApiCall(endpoint, { page, pageSize });
         const pageIncidents = incidentsData.data || [];
         
         if (!pageIncidents || pageIncidents.length === 0) break;
@@ -250,7 +250,7 @@ Deno.serve(async (req) => {
         
         if (pageIncidents.length < pageSize || page >= (incidentsData.totalPages || 1)) break;
         page++;
-        if (page > 20) break; // Safety limit
+        if (page > 50) break; // Safety limit - increased to get more data
       }
 
       console.log(`Found ${allIncidents.length} incidents for account ${rcAccountId}`);
@@ -261,6 +261,7 @@ Deno.serve(async (req) => {
       existingIncidents.forEach(i => { existingByIncidentId[i.incident_id] = i; });
 
       let synced = 0;
+      let closed = 0;
       const rcIncidentIds = new Set();
 
       for (const incident of allIncidents) {
@@ -288,9 +289,19 @@ Deno.serve(async (req) => {
           if (existing.status !== incidentData.status || existing.resolved_at !== incidentData.resolved_at) {
             await base44.asServiceRole.entities.RocketCyberIncident.update(existing.id, incidentData);
             synced++;
+            if (incidentData.status !== 'open') closed++;
           }
         } else {
           await base44.asServiceRole.entities.RocketCyberIncident.create(incidentData);
+          synced++;
+        }
+      }
+
+      // Mark any existing incidents NOT in RC response as closed (they were resolved/deleted in RocketCyber)
+      for (const existing of existingIncidents) {
+        if (!rcIncidentIds.has(existing.incident_id) && existing.status === 'open') {
+          await base44.asServiceRole.entities.RocketCyberIncident.update(existing.id, { status: 'closed' });
+          closed++;
           synced++;
         }
       }
@@ -303,6 +314,7 @@ Deno.serve(async (req) => {
       return Response.json({
         success: true,
         recordsSynced: synced,
+        closedIncidents: closed,
         totalIncidents: allIncidents.length
       });
     }
