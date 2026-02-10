@@ -130,6 +130,7 @@ Deno.serve(async (req) => {
       const existingIds = new Set(existingAlerts.map(a => a.alert_id));
       
       let synced = 0;
+      let skipped = 0;
       for (const event of (Array.isArray(events) ? events : [])) {
         const source = event._source || event;
         const alertId = event._id || source.id || `${source.timestamp}-${source.jointType}`;
@@ -139,6 +140,14 @@ Deno.serve(async (req) => {
         // Skip non-Fortify alerts (ignore Unify/Datto device alerts)
         const productType = source.product?.type || '';
         if (productType === 'DATTO_RMM' || productType === 'UNIFY' || source.jointType?.startsWith('unify.')) {
+          continue;
+        }
+        
+        // IMPORTANT: Only sync alerts that actually belong to this organization
+        // The API sometimes returns events from other orgs even with organizationId filter
+        const eventOrgId = source.customer?.id;
+        if (eventOrgId && eventOrgId !== orgId) {
+          skipped++;
           continue;
         }
         
@@ -171,7 +180,8 @@ Deno.serve(async (req) => {
       
       return Response.json({ 
         success: true, 
-        recordsSynced: synced,
+        alertsSynced: synced,
+        skippedWrongOrg: skipped,
         totalEvents: Array.isArray(events) ? events.length : 0
       });
     }
