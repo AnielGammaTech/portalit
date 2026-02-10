@@ -126,6 +126,13 @@ export default function CustomerServicesTab({
     enabled: !!customerId
   });
 
+  // Fetch Dark Web ID reports for this customer (reports can exist without mapping)
+  const { data: darkwebReports = [] } = useQuery({
+    queryKey: ['darkwebid-reports', customerId],
+    queryFn: () => base44.entities.DarkWebIDReport.filter({ customer_id: customerId }),
+    enabled: !!customerId
+  });
+
   // Fetch BullPhish ID reports for this customer
   const { data: bullphishReports = [] } = useQuery({
     queryKey: ['bullphishid-reports', customerId],
