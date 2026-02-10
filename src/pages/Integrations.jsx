@@ -4,13 +4,15 @@ import {
   Monitor,
   ChevronDown,
   CheckCircle2,
-  Shield
+  Shield,
+  ShieldAlert
 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import HaloPSAConfig from '../components/integrations/HaloPSAConfig';
 import DattoRMMConfig from '../components/integrations/DattoRMMConfig';
 import RocketCyberConfig from '../components/integrations/RocketCyberConfig';
+import SaaSAlertsConfig from '../components/integrations/SaaSAlertsConfig';
 
 export default function Integrations() {
   const [expandedIntegration, setExpandedIntegration] = useState(null);
@@ -36,6 +38,13 @@ export default function Integrations() {
       description: 'Sync security incidents and alerts from RocketCyber.',
       icon: Shield,
       color: 'bg-orange-500'
+    },
+    {
+      id: 'saasalerts',
+      name: 'SaaS Alerts',
+      description: 'Monitor SaaS security events and map organizations.',
+      icon: ShieldAlert,
+      color: 'bg-amber-500'
     }
   ];
 
@@ -86,6 +95,7 @@ export default function Integrations() {
                   {integration.id === 'halopsa' && <HaloPSAConfig />}
                   {integration.id === 'dattormm' && <DattoRMMConfig />}
                   {integration.id === 'rocketcyber' && <RocketCyberConfig />}
+                  {integration.id === 'saasalerts' && <SaaSAlertsConfig />}
                 </div>
               )}
             </div>
