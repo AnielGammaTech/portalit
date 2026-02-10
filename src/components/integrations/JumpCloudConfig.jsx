@@ -40,7 +40,10 @@ export default function JumpCloudConfig() {
   const [filterTab, setFilterTab] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [orgSelections, setOrgSelections] = useState({});
+  const [mappingSearchQuery, setMappingSearchQuery] = useState('');
+  const [mappingPage, setMappingPage] = useState(1);
   const itemsPerPage = 10;
+  const mappingsPerPage = 10;
 
   const queryClient = useQueryClient();
 
@@ -183,6 +186,21 @@ export default function JumpCloudConfig() {
     return customer?.name || 'Unknown';
   };
 
+  // Filter and paginate existing mappings
+  const filteredMappings = mappings.filter(mapping => {
+    if (!mappingSearchQuery) return true;
+    const customerName = getCustomerName(mapping.customer_id).toLowerCase();
+    const orgName = (mapping.jumpcloud_org_name || '').toLowerCase();
+    const query = mappingSearchQuery.toLowerCase();
+    return customerName.includes(query) || orgName.includes(query);
+  });
+  
+  const totalMappingPages = Math.ceil(filteredMappings.length / mappingsPerPage);
+  const paginatedMappings = filteredMappings.slice(
+    (mappingPage - 1) * mappingsPerPage, 
+    mappingPage * mappingsPerPage
+  );
+
   // Filter and paginate orgs
   const getFilteredOrgs = () => {
     let filtered = jumpcloudOrgs;
@@ -273,57 +291,106 @@ export default function JumpCloudConfig() {
               No organizations mapped yet. Click "Load Organizations" to link JumpCloud orgs to customers.
             </p>
           ) : (
-            <div className="space-y-2">
-              {mappings.map(mapping => (
-                <div 
-                  key={mapping.id} 
-                  className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
-                >
-                  <div className="flex items-center gap-3">
-                    <Building2 className="w-4 h-4 text-slate-400" />
-                    <div>
-                      <p className="font-medium text-slate-900">{getCustomerName(mapping.customer_id)}</p>
-                      <p className="text-sm text-slate-500">→ {mapping.jumpcloud_org_name}</p>
-                      {mapping.last_synced && (
-                        <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                          <Clock className="w-3 h-3" />
-                          Last synced: {format(new Date(mapping.last_synced), 'MMM d, h:mm a')}
-                        </p>
-                      )}
+            <div className="space-y-3">
+              {/* Search for existing mappings */}
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Input
+                  placeholder="Search mapped customers or orgs..."
+                  value={mappingSearchQuery}
+                  onChange={(e) => { setMappingSearchQuery(e.target.value); setMappingPage(1); }}
+                  className="pl-9 h-9 text-sm"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                {paginatedMappings.map(mapping => (
+                  <div 
+                    key={mapping.id} 
+                    className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Building2 className="w-4 h-4 text-slate-400" />
+                      <div>
+                        <p className="font-medium text-slate-900">{getCustomerName(mapping.customer_id)}</p>
+                        <p className="text-sm text-slate-500">→ {mapping.jumpcloud_org_name}</p>
+                        {mapping.last_synced && (
+                          <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                            <Clock className="w-3 h-3" />
+                            Last synced: {format(new Date(mapping.last_synced), 'MMM d, h:mm a')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => syncCustomerUsers(mapping.customer_id)}
+                        disabled={syncingUsersCustomerId === mapping.customer_id}
+                        className="text-xs h-7"
+                      >
+                        <RefreshCw className={cn("w-3 h-3 mr-1", syncingUsersCustomerId === mapping.customer_id && "animate-spin")} />
+                        Sync Users
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => syncCustomerLicenses(mapping.customer_id)}
+                        disabled={syncingCustomerId === mapping.customer_id}
+                        className="text-xs h-7"
+                      >
+                        <Cloud className={cn("w-3 h-3 mr-1", syncingCustomerId === mapping.customer_id && "animate-spin")} />
+                        Sync Licenses
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteMapping(mapping.id)}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50 h-7 w-7"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                ))}
+              </div>
+              
+              {/* Pagination for mappings */}
+              {totalMappingPages > 1 && (
+                <div className="flex items-center justify-between pt-2">
+                  <p className="text-xs text-slate-500">
+                    {((mappingPage - 1) * mappingsPerPage) + 1}–{Math.min(mappingPage * mappingsPerPage, filteredMappings.length)} of {filteredMappings.length}
+                  </p>
+                  <div className="flex items-center gap-1">
                     <Button
-                      variant="outline"
                       size="sm"
-                      onClick={() => syncCustomerUsers(mapping.customer_id)}
-                      disabled={syncingUsersCustomerId === mapping.customer_id}
-                      className="text-xs h-7"
-                    >
-                      <RefreshCw className={cn("w-3 h-3 mr-1", syncingUsersCustomerId === mapping.customer_id && "animate-spin")} />
-                      Sync Users
-                    </Button>
-                    <Button
                       variant="outline"
-                      size="sm"
-                      onClick={() => syncCustomerLicenses(mapping.customer_id)}
-                      disabled={syncingCustomerId === mapping.customer_id}
-                      className="text-xs h-7"
+                      onClick={() => setMappingPage(p => Math.max(1, p - 1))}
+                      disabled={mappingPage === 1}
+                      className="h-7 px-2"
                     >
-                      <Cloud className={cn("w-3 h-3 mr-1", syncingCustomerId === mapping.customer_id && "animate-spin")} />
-                      Sync Licenses
+                      <ChevronLeft className="w-4 h-4" />
                     </Button>
+                    <span className="text-xs text-slate-600 px-2">{mappingPage} / {totalMappingPages}</span>
                     <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deleteMapping(mapping.id)}
-                      className="text-red-500 hover:text-red-700 hover:bg-red-50 h-7 w-7"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setMappingPage(p => Math.min(totalMappingPages, p + 1))}
+                      disabled={mappingPage === totalMappingPages}
+                      className="h-7 px-2"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <ChevronRight className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
-              ))}
+              )}
+              
+              {filteredMappings.length === 0 && mappingSearchQuery && (
+                <p className="text-sm text-slate-500 py-4 text-center">
+                  No mappings found for "{mappingSearchQuery}"
+                </p>
+              )}
             </div>
           )
         ) : (

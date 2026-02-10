@@ -51,7 +51,10 @@ export default function SpanningConfig() {
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [regionInput, setRegionInput] = useState('us');
   const [savingApiKey, setSavingApiKey] = useState(false);
+  const [mappingSearchQuery, setMappingSearchQuery] = useState('');
+  const [mappingPage, setMappingPage] = useState(1);
   const itemsPerPage = 10;
+  const mappingsPerPage = 10;
 
   const queryClient = useQueryClient();
 
@@ -195,6 +198,21 @@ export default function SpanningConfig() {
     const customer = customers.find(c => c.id === customerId);
     return customer?.name || 'Unknown';
   };
+
+  // Filter and paginate existing mappings
+  const filteredMappings = mappings.filter(mapping => {
+    if (!mappingSearchQuery) return true;
+    const customerName = getCustomerName(mapping.customer_id).toLowerCase();
+    const tenantName = (mapping.spanning_tenant_name || '').toLowerCase();
+    const query = mappingSearchQuery.toLowerCase();
+    return customerName.includes(query) || tenantName.includes(query);
+  });
+  
+  const totalMappingPages = Math.ceil(filteredMappings.length / mappingsPerPage);
+  const paginatedMappings = filteredMappings.slice(
+    (mappingPage - 1) * mappingsPerPage, 
+    mappingPage * mappingsPerPage
+  );
 
   // Filter and paginate domains
   const getFilteredDomains = () => {
@@ -351,124 +369,173 @@ export default function SpanningConfig() {
               No domains mapped yet. Click "Load Domains" to link Unitrends tenants to customers.
             </p>
           ) : (
-            <div className="space-y-2">
-              {mappings.map(mapping => (
-                <React.Fragment key={mapping.id}>
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <Building2 className="w-4 h-4 text-slate-400" />
-                      <div>
-                        <p className="font-medium text-slate-900">{getCustomerName(mapping.customer_id)}</p>
-                        <p className="text-sm text-slate-500">→ {mapping.spanning_tenant_name}</p>
-                        {mapping.last_synced && (
-                          <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                            <Clock className="w-3 h-3" />
-                            Last synced: {format(new Date(mapping.last_synced), 'MMM d, h:mm a')}
-                          </p>
-                        )}
-                        {mapping.spanning_api_key && (
-                          <Badge className="bg-blue-100 text-blue-700 text-xs mt-1">API Key Set</Badge>
-                        )}
+            <div className="space-y-3">
+              {/* Search for existing mappings */}
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Input
+                  placeholder="Search mapped customers or tenants..."
+                  value={mappingSearchQuery}
+                  onChange={(e) => { setMappingSearchQuery(e.target.value); setMappingPage(1); }}
+                  className="pl-9 h-9 text-sm"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                {paginatedMappings.map(mapping => (
+                  <React.Fragment key={mapping.id}>
+                    <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <Building2 className="w-4 h-4 text-slate-400" />
+                        <div>
+                          <p className="font-medium text-slate-900">{getCustomerName(mapping.customer_id)}</p>
+                          <p className="text-sm text-slate-500">→ {mapping.spanning_tenant_name}</p>
+                          {mapping.last_synced && (
+                            <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                              <Clock className="w-3 h-3" />
+                              Last synced: {format(new Date(mapping.last_synced), 'MMM d, h:mm a')}
+                            </p>
+                          )}
+                          {mapping.spanning_api_key && (
+                            <Badge className="bg-blue-100 text-blue-700 text-xs mt-1">API Key Set</Badge>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setEditingApiKeyId(mapping.id);
-                          setApiKeyInput(mapping.spanning_api_key || '');
-                          setRegionInput(mapping.spanning_region || 'us');
-                        }}
-                        className="text-xs h-7"
-                      >
-                        <Key className="w-3 h-3 mr-1" />
-                        API Key
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => syncCustomerUsers(mapping.customer_id)}
-                        disabled={syncingUsersCustomerId === mapping.customer_id}
-                        className="text-xs h-7"
-                      >
-                        <Users className={cn("w-3 h-3 mr-1", syncingUsersCustomerId === mapping.customer_id && "animate-spin")} />
-                        Sync Users
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => syncCustomerLicenses(mapping.customer_id)}
-                        disabled={syncingCustomerId === mapping.customer_id}
-                        className="text-xs h-7"
-                      >
-                        <Cloud className={cn("w-3 h-3 mr-1", syncingCustomerId === mapping.customer_id && "animate-spin")} />
-                        Sync Licenses
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteMapping(mapping.id)}
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50 h-7 w-7"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  {/* API Key Editor */}
-                  {editingApiKeyId === mapping.id && (
-                    <div className="mt-2 p-3 bg-white border border-slate-200 rounded-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Key className="w-4 h-4 text-slate-500" />
-                        <span className="text-sm font-medium text-slate-700">Spanning Tenant API Key</span>
-                      </div>
-                      <p className="text-xs text-slate-500 mb-3">
-                        Enter the tenant-specific API key to fetch SharePoint sites and Teams channels.
-                        Get this from Spanning Admin → Settings → API.
-                      </p>
                       <div className="flex items-center gap-2">
-                        <Select value={regionInput} onValueChange={setRegionInput}>
-                          <SelectTrigger className="h-8 w-24 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="us">US</SelectItem>
-                            <SelectItem value="eu">EU</SelectItem>
-                            <SelectItem value="ap">AU</SelectItem>
-                            <SelectItem value="ca">CA</SelectItem>
-                            <SelectItem value="uk">UK</SelectItem>
-                            <SelectItem value="af">AF</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Input
-                          type="password"
-                          placeholder="API Key..."
-                          value={apiKeyInput}
-                          onChange={(e) => setApiKeyInput(e.target.value)}
-                          className="h-8 text-sm flex-1"
-                        />
                         <Button
+                          variant="outline"
                           size="sm"
-                          onClick={() => saveApiKey(mapping.id)}
-                          disabled={savingApiKey}
-                          className="h-8 bg-green-600 hover:bg-green-700"
+                          onClick={() => {
+                            setEditingApiKeyId(mapping.id);
+                            setApiKeyInput(mapping.spanning_api_key || '');
+                            setRegionInput(mapping.spanning_region || 'us');
+                          }}
+                          className="text-xs h-7"
                         >
-                          <Save className={cn("w-3 h-3 mr-1", savingApiKey && "animate-spin")} />
-                          Save
+                          <Key className="w-3 h-3 mr-1" />
+                          API Key
                         </Button>
                         <Button
+                          variant="outline"
                           size="sm"
-                          variant="ghost"
-                          onClick={() => { setEditingApiKeyId(null); setApiKeyInput(''); }}
-                          className="h-8"
+                          onClick={() => syncCustomerUsers(mapping.customer_id)}
+                          disabled={syncingUsersCustomerId === mapping.customer_id}
+                          className="text-xs h-7"
                         >
-                          <X className="w-3 h-3" />
+                          <Users className={cn("w-3 h-3 mr-1", syncingUsersCustomerId === mapping.customer_id && "animate-spin")} />
+                          Sync Users
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => syncCustomerLicenses(mapping.customer_id)}
+                          disabled={syncingCustomerId === mapping.customer_id}
+                          className="text-xs h-7"
+                        >
+                          <Cloud className={cn("w-3 h-3 mr-1", syncingCustomerId === mapping.customer_id && "animate-spin")} />
+                          Sync Licenses
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteMapping(mapping.id)}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50 h-7 w-7"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>
-                  )}
-                </React.Fragment>
-              ))}
+                    {/* API Key Editor */}
+                    {editingApiKeyId === mapping.id && (
+                      <div className="mt-2 p-3 bg-white border border-slate-200 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Key className="w-4 h-4 text-slate-500" />
+                          <span className="text-sm font-medium text-slate-700">Spanning Tenant API Key</span>
+                        </div>
+                        <p className="text-xs text-slate-500 mb-3">
+                          Enter the tenant-specific API key to fetch SharePoint sites and Teams channels.
+                          Get this from Spanning Admin → Settings → API.
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Select value={regionInput} onValueChange={setRegionInput}>
+                            <SelectTrigger className="h-8 w-24 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="us">US</SelectItem>
+                              <SelectItem value="eu">EU</SelectItem>
+                              <SelectItem value="ap">AU</SelectItem>
+                              <SelectItem value="ca">CA</SelectItem>
+                              <SelectItem value="uk">UK</SelectItem>
+                              <SelectItem value="af">AF</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            type="password"
+                            placeholder="API Key..."
+                            value={apiKeyInput}
+                            onChange={(e) => setApiKeyInput(e.target.value)}
+                            className="h-8 text-sm flex-1"
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => saveApiKey(mapping.id)}
+                            disabled={savingApiKey}
+                            className="h-8 bg-green-600 hover:bg-green-700"
+                          >
+                            <Save className={cn("w-3 h-3 mr-1", savingApiKey && "animate-spin")} />
+                            Save
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => { setEditingApiKeyId(null); setApiKeyInput(''); }}
+                            className="h-8"
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
+              
+              {/* Pagination for mappings */}
+              {totalMappingPages > 1 && (
+                <div className="flex items-center justify-between pt-2">
+                  <p className="text-xs text-slate-500">
+                    {((mappingPage - 1) * mappingsPerPage) + 1}–{Math.min(mappingPage * mappingsPerPage, filteredMappings.length)} of {filteredMappings.length}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setMappingPage(p => Math.max(1, p - 1))}
+                      disabled={mappingPage === 1}
+                      className="h-7 px-2"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <span className="text-xs text-slate-600 px-2">{mappingPage} / {totalMappingPages}</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setMappingPage(p => Math.min(totalMappingPages, p + 1))}
+                      disabled={mappingPage === totalMappingPages}
+                      className="h-7 px-2"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+              
+              {filteredMappings.length === 0 && mappingSearchQuery && (
+                <p className="text-sm text-slate-500 py-4 text-center">
+                  No mappings found for "{mappingSearchQuery}"
+                </p>
+              )}
             </div>
           )
         ) : (

@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function DattoEDRConfig() {
   const queryClient = useQueryClient();
@@ -32,6 +33,8 @@ export default function DattoEDRConfig() {
   const [edrTenants, setEdrTenants] = useState([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Fetch customers
   const { data: customers = [] } = useQuery({
@@ -116,6 +119,13 @@ export default function DattoEDRConfig() {
   const filteredCustomers = customers.filter(c => 
     c.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  
+  // Pagination for filtered customers
+  const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage);
+  const paginatedCustomers = filteredCustomers.slice(
+    (currentPage - 1) * itemsPerPage, 
+    currentPage * itemsPerPage
+  );
 
   // Get mapping for a customer
   const getMapping = (customerId) => mappings.find(m => m.customer_id === customerId);
@@ -168,7 +178,7 @@ export default function DattoEDRConfig() {
           <Input 
             placeholder="Search customers..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
             className="pl-9"
           />
         </div>
@@ -203,8 +213,8 @@ export default function DattoEDRConfig() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2 max-h-[500px] overflow-y-auto">
-              {filteredCustomers.map(customer => {
+            <div className="space-y-2">
+              {paginatedCustomers.map(customer => {
                 const mapping = getMapping(customer.id);
                 return (
                   <div 
@@ -270,6 +280,36 @@ export default function DattoEDRConfig() {
                 );
               })}
             </div>
+            
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-4 border-t border-slate-200 mt-4">
+                <p className="text-xs text-slate-500">
+                  {((currentPage - 1) * itemsPerPage) + 1}–{Math.min(currentPage * itemsPerPage, filteredCustomers.length)} of {filteredCustomers.length}
+                </p>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="h-7 px-2"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <span className="text-xs text-slate-600 px-2">{currentPage} / {totalPages}</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="h-7 px-2"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
