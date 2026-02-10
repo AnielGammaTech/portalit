@@ -298,17 +298,30 @@ export default function Customers() {
                 </div>
 
                 <div className="hidden sm:flex items-center gap-2 text-xs">
-                  <div className="flex items-center gap-1 px-2 py-1 bg-slate-100 rounded-md" title="Contracts">
-                    <FileText className="w-3 h-3 text-slate-500" />
-                    <span className="font-medium text-slate-700">{stats.contracts}</span>
+                  <div className="flex items-center gap-1 px-2 py-1 bg-purple-50 rounded-md" title="Team Members">
+                    <Users className="w-3 h-3 text-purple-500" />
+                    <span className="font-medium text-purple-700">{customer.total_users || 0}</span>
+                    <span className="text-purple-600">Team</span>
                   </div>
-                  <div className="flex items-center gap-1 px-2 py-1 bg-slate-100 rounded-md" title="Open Tickets">
-                    <AlertCircle className="w-3 h-3 text-slate-500" />
-                    <span className="font-medium text-slate-700">{stats.tickets}</span>
+                  <div className="flex items-center gap-1 px-2 py-1 bg-blue-50 rounded-md" title="Contracts">
+                    <FileText className="w-3 h-3 text-blue-500" />
+                    <span className="font-medium text-blue-700">{stats.contracts}</span>
+                    <span className="text-blue-600">Contracts</span>
                   </div>
-                  <div className="flex items-center gap-1 px-2 py-1 bg-emerald-50 rounded-md" title="Monthly Revenue">
-                    <DollarSign className="w-3 h-3 text-emerald-600" />
-                    <span className="font-medium text-emerald-700">${stats.mrr.toLocaleString()}</span>
+                  <div className="flex items-center gap-1 px-2 py-1 bg-orange-50 rounded-md" title="Open Tickets">
+                    <AlertCircle className="w-3 h-3 text-orange-500" />
+                    <span className="font-medium text-orange-700">{stats.tickets}</span>
+                    <span className="text-orange-600">Tickets</span>
+                  </div>
+                  <div className="flex items-center gap-1 px-2 py-1 bg-cyan-50 rounded-md" title="Apps">
+                    <Cloud className="w-3 h-3 text-cyan-500" />
+                    <span className="font-medium text-cyan-700">{stats.apps}</span>
+                    <span className="text-cyan-600">Apps</span>
+                  </div>
+                  <div className="flex items-center gap-1 px-2 py-1 bg-slate-100 rounded-md" title="Devices">
+                    <Monitor className="w-3 h-3 text-slate-500" />
+                    <span className="font-medium text-slate-700">{customer.total_devices || 0}</span>
+                    <span className="text-slate-600">Devices</span>
                   </div>
                 </div>
 
