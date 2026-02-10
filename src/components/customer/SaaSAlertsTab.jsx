@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { Loader2 } from 'lucide-react';
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import UserDetailModal from './UserDetailModal';
 
@@ -196,8 +197,20 @@ export default function SaaSAlertsTab({ customer, saasAlertsMapping }) {
     resolveAlertsMutation.mutate(Array.from(selectedAlerts));
   };
 
+  const isProcessing = isSyncing || resolveAlertsMutation.isPending;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 relative">
+      {/* Loading Overlay */}
+      {isProcessing && (
+        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center rounded-lg">
+          <Loader2 className="w-10 h-10 animate-spin text-purple-600 mb-3" />
+          <p className="text-slate-700 font-medium">
+            {isSyncing ? 'Syncing alerts from SaaS Alerts...' : `Resolving ${selectedAlerts.size} alert(s)...`}
+          </p>
+          <p className="text-sm text-slate-500 mt-1">Please wait, do not navigate away</p>
+        </div>
+      )}
       {/* Stats Summary */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
