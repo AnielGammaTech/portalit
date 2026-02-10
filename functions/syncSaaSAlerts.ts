@@ -203,6 +203,67 @@ Deno.serve(async (req) => {
       });
     }
     
+    // Get Fortify data (secure score, licenses, connections) for an organization
+    if (action === 'get_fortify') {
+      if (!customer_id) {
+        return Response.json({ error: 'customer_id required' }, { status: 400 });
+      }
+      
+      const mapping = await base44.asServiceRole.entities.SaaSAlertsMapping.filter({ customer_id });
+      if (!mapping.length) {
+        return Response.json({ error: 'No SaaS Alerts mapping found for this customer' }, { status: 404 });
+      }
+      
+      const orgId = mapping[0].saas_alerts_org_id;
+      
+      // Fetch licenses/subscriptions
+      let licenses = [];
+      try {
+        const licensesData = await saasAlertsApiCall(`/reports/licenses?organizationId=${orgId}`);
+        licenses = Array.isArray(licensesData) ? licensesData : licensesData?.licenses || [];
+      } catch (e) {
+        console.log('Could not fetch licenses:', e.message);
+      }
+      
+      // Fetch connections/integrations
+      let connections = [];
+      try {
+        const connectionsData = await saasAlertsApiCall(`/reports/connections?organizationId=${orgId}`);
+        connections = Array.isArray(connectionsData) ? connectionsData : connectionsData?.connections || [];
+      } catch (e) {
+        console.log('Could not fetch connections:', e.message);
+      }
+      
+      // Fetch secure score / benchmark
+      let secureScore = null;
+      try {
+        const scoreData = await saasAlertsApiCall(`/reports/secure-score?organizationId=${orgId}`);
+        secureScore = scoreData;
+      } catch (e) {
+        console.log('Could not fetch secure score:', e.message);
+      }
+      
+      // Fetch customer details for additional info
+      let customerInfo = null;
+      try {
+        const customersData = await saasAlertsApiCall('/reports/customers');
+        const customers = Array.isArray(customersData) ? customersData : [];
+        customerInfo = customers.find(c => c.id === orgId || c.organizationId === orgId);
+      } catch (e) {
+        console.log('Could not fetch customer info:', e.message);
+      }
+      
+      return Response.json({
+        success: true,
+        fortify: {
+          licenses,
+          connections,
+          secureScore,
+          customerInfo
+        }
+      });
+    }
+    
     return Response.json({ error: 'Invalid action' }, { status: 400 });
     
   } catch (error) {
