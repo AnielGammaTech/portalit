@@ -227,7 +227,7 @@ Deno.serve(async (req) => {
       const mapping = mappings[0];
       const rcAccountId = mapping.rocketcyber_account_id;
 
-      // Fetch incidents from RocketCyber (last 90 days by default)
+      // Fetch only OPEN incidents from RocketCyber (status=open filters to open incidents only)
       let allIncidents = [];
       let page = 1;
       const pageSize = 100;
@@ -240,8 +240,9 @@ Deno.serve(async (req) => {
         endpoint = `/account/${rcAccountId}/events`;
       }
 
+      // Only sync open incidents (not historical resolved ones)
       while (true) {
-        const incidentsData = await rocketCyberApiCall(endpoint, { page, pageSize });
+        const incidentsData = await rocketCyberApiCall(endpoint, { page, pageSize, status: 'open' });
         const pageIncidents = incidentsData.data || [];
         
         if (!pageIncidents || pageIncidents.length === 0) break;
@@ -333,8 +334,9 @@ Deno.serve(async (req) => {
           let page = 1;
           const pageSize = 100;
 
+          // Only sync open incidents
           while (true) {
-            const incidentsData = await rocketCyberApiCall(endpoint, { page, pageSize });
+            const incidentsData = await rocketCyberApiCall(endpoint, { page, pageSize, status: 'open' });
             const pageIncidents = incidentsData.data || [];
             
             if (!pageIncidents || pageIncidents.length === 0) break;
