@@ -273,76 +273,78 @@ export default function Customers() {
               <div
                 key={customer.id}
                 onClick={() => navigate(createPageUrl(`CustomerDetail?id=${customer.id}`))}
-                className="flex items-center gap-3 bg-white rounded-xl border border-slate-200/50 p-3 hover:border-purple-200 hover:shadow-sm transition-all group cursor-pointer"
+                className="bg-white rounded-xl border border-slate-200/50 p-3 hover:border-purple-200 hover:shadow-sm transition-all group cursor-pointer"
               >
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-100 to-purple-50 flex items-center justify-center flex-shrink-0">
-                  {customer.logo_url ? (
-                    <img src={customer.logo_url} alt={customer.name} className="w-6 h-6 rounded" />
-                  ) : (
-                    <Building2 className="w-5 h-5 text-purple-600" />
-                  )}
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-100 to-purple-50 flex items-center justify-center flex-shrink-0">
+                    {customer.logo_url ? (
+                      <img src={customer.logo_url} alt={customer.name} className="w-6 h-6 rounded" />
+                    ) : (
+                      <Building2 className="w-5 h-5 text-purple-600" />
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-slate-900 text-sm">{customer.name}</p>
+                  </div>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0">
+                        <MoreVertical className="w-4 h-4 text-slate-400" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenDialog(customer);
+                      }}>
+                        <Pencil className="w-4 h-4 mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        className="text-red-600"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteMutation.mutate(customer.id);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-purple-600 flex-shrink-0" />
                 </div>
 
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-slate-900 truncate text-sm">{customer.name}</p>
-                </div>
-
-                <div className="hidden sm:flex items-center gap-2 text-xs">
-                  <div className="flex items-center gap-1 px-2 py-1 bg-purple-50 rounded-md" title="Team Members">
+                <div className="flex items-center gap-1.5 mt-2 ml-13 text-xs flex-wrap">
+                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-purple-50 rounded" title="Team Members">
                     <Users className="w-3 h-3 text-purple-500" />
                     <span className="font-medium text-purple-700">{customer.total_users || 0}</span>
                     <span className="text-purple-600">Team</span>
                   </div>
-                  <div className="flex items-center gap-1 px-2 py-1 bg-blue-50 rounded-md" title="Contracts">
+                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 rounded" title="Contracts">
                     <FileText className="w-3 h-3 text-blue-500" />
                     <span className="font-medium text-blue-700">{stats.contracts}</span>
                     <span className="text-blue-600">Contracts</span>
                   </div>
-                  <div className="flex items-center gap-1 px-2 py-1 bg-orange-50 rounded-md" title="Open Tickets">
+                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-orange-50 rounded" title="Open Tickets">
                     <AlertCircle className="w-3 h-3 text-orange-500" />
                     <span className="font-medium text-orange-700">{stats.tickets}</span>
                     <span className="text-orange-600">Tickets</span>
                   </div>
-                  <div className="flex items-center gap-1 px-2 py-1 bg-cyan-50 rounded-md" title="Apps">
+                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-cyan-50 rounded" title="Apps">
                     <Cloud className="w-3 h-3 text-cyan-500" />
                     <span className="font-medium text-cyan-700">{stats.apps}</span>
                     <span className="text-cyan-600">Apps</span>
                   </div>
-                  <div className="flex items-center gap-1 px-2 py-1 bg-slate-100 rounded-md" title="Devices">
+                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-slate-100 rounded" title="Devices">
                     <Monitor className="w-3 h-3 text-slate-500" />
                     <span className="font-medium text-slate-700">{customer.total_devices || 0}</span>
                     <span className="text-slate-600">Devices</span>
                   </div>
                 </div>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0">
-                      <MoreVertical className="w-4 h-4 text-slate-400" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenDialog(customer);
-                    }}>
-                      <Pencil className="w-4 h-4 mr-2" />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      className="text-red-600"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteMutation.mutate(customer.id);
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-purple-600 flex-shrink-0" />
               </div>
             );
           })}
