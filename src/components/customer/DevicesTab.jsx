@@ -17,7 +17,8 @@ import {
   XCircle,
   Clock,
   User,
-  StickyNote
+  StickyNote,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
@@ -129,7 +130,16 @@ export default function DevicesTab({ customerId, customerExternalId }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Loading Overlay */}
+      {syncing && (
+        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center rounded-lg">
+          <Loader2 className="w-10 h-10 animate-spin text-blue-600 mb-3" />
+          <p className="text-slate-700 font-medium">Syncing devices from Datto RMM...</p>
+          <p className="text-sm text-slate-500 mt-1">Please wait, do not navigate away</p>
+        </div>
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl border border-slate-200 p-4">
