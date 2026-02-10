@@ -7,6 +7,11 @@ async function saasAlertsApiCall(endpoint, method = 'GET', body = null) {
   const apiUser = Deno.env.get('SAAS_ALERTS_API_USER');
   const partnerId = Deno.env.get('SAAS_ALERTS_PARTNER_ID');
   
+  console.log('API Call to:', endpoint);
+  console.log('Using partnerId:', partnerId);
+  console.log('Using apiUser:', apiUser);
+  console.log('API Key present:', !!apiKey);
+  
   const headers = {
     'x-api-key': apiKey,
     'x-api-user': apiUser,
@@ -19,12 +24,15 @@ async function saasAlertsApiCall(endpoint, method = 'GET', body = null) {
   
   const response = await fetch(`${API_BASE}${endpoint}`, options);
   
+  const responseText = await response.text();
+  console.log('Response status:', response.status);
+  console.log('Response body:', responseText.substring(0, 500));
+  
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`SaaS Alerts API error: ${response.status} - ${errorText}`);
+    throw new Error(`SaaS Alerts API error: ${response.status} - ${responseText}`);
   }
   
-  return response.json();
+  return JSON.parse(responseText);
 }
 
 Deno.serve(async (req) => {
