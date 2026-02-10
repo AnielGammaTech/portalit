@@ -156,12 +156,12 @@ export default function SaaSAlertsTab({ customer, saasAlertsMapping }) {
     return filteredAlerts.filter(a => a.status === 'open' || a.status === 'acknowledged').map(a => a.id);
   }, [filteredAlerts]);
 
-  // Resolve alerts mutation
+  // Resolve alerts mutation - batch sequentially to avoid rate limits
   const resolveAlertsMutation = useMutation({
     mutationFn: async (alertIds) => {
-      await Promise.all(alertIds.map(id => 
-        base44.entities.SaaSAlert.update(id, { status: 'resolved' })
-      ));
+      for (const id of alertIds) {
+        await base44.entities.SaaSAlert.update(id, { status: 'resolved' });
+      }
     },
     onSuccess: () => {
       toast.success(`Resolved ${selectedAlerts.size} alert(s)`);
