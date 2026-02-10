@@ -12,9 +12,10 @@ async function saasAlertsApiCall(endpoint, method = 'GET', body = null) {
   console.log('Using apiUser:', apiUser);
   console.log('API Key length:', apiKey?.length);
   
-  // SaaS Alerts uses apiKey header for authentication
+  // Try different auth header formats
   const headers = {
-    'apiKey': apiKey,
+    'x-api-key': apiKey,
+    'apikey': apiKey,
     'Content-Type': 'application/json'
   };
   
