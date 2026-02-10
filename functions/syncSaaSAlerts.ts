@@ -136,6 +136,9 @@ Deno.serve(async (req) => {
         
         if (existingIds.has(alertId)) continue;
         
+        // Extract user info - SaaS Alerts uses user.name (email) and user.fullName
+        const userEmail = source.userPrincipalName || source.user?.name || source.email || '';
+        
         const alertData = {
           customer_id,
           alert_id: alertId,
@@ -143,11 +146,11 @@ Deno.serve(async (req) => {
           description: source.jointDesc || source.description || '',
           severity: source.alertStatus || 'medium',
           status: 'open',
-          user_email: source.userPrincipalName || source.email || '',
-          application: source.applicationType || source.application || '',
-          ip_address: source.ipAddress || source.ip || '',
-          location: source.location ? `${source.location.city || ''}, ${source.location.country || ''}`.trim() : '',
-          detected_at: source.timestamp || source.createdAt || new Date().toISOString(),
+          user_email: userEmail,
+          application: source.applicationType || source.application || source.product?.name || '',
+          ip_address: source.ip || source.ipAddress || '',
+          location: source.location ? `${source.location.city || ''}, ${source.location.country || ''}`.trim().replace(/^,\s*/, '').replace(/,\s*$/, '') : '',
+          detected_at: source.time || source.timestamp || source.createdAt || new Date().toISOString(),
           raw_data: JSON.stringify(source)
         };
         
