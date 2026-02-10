@@ -153,10 +153,10 @@ export default function RocketCyberTab({ customer }) {
     return true;
   });
 
-  // Stats
+  // Stats - only 'open' counts as open, everything else (suppressed, in_progress, resolved, investigating, closed) is closed
   const stats = {
     total: incidents.length,
-    open: incidents.filter(i => i.status === 'open' || i.status === 'investigating').length,
+    open: incidents.filter(i => i.status === 'open').length,
     critical: incidents.filter(i => i.severity === 'critical').length,
     high: incidents.filter(i => i.severity === 'high').length
   };
