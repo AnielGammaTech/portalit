@@ -268,13 +268,15 @@ Deno.serve(async (req) => {
         rcIncidentIds.add(incidentId);
         const existing = existingByIncidentId[incidentId];
 
+        // If resolvedAt exists, consider it closed regardless of status field
+        const hasResolved = incident.resolvedAt != null;
         const incidentData = {
           customer_id,
           incident_id: incidentId,
           title: incident.title || incident.description || 'Security Incident',
           description: incident.details || incident.description || '',
           severity: mapSeverity(incident.priority || incident.severity),
-          status: mapStatus(incident.status),
+          status: hasResolved ? 'closed' : mapStatus(incident.status),
           category: incident.category || incident.eventType || '',
           app_name: incident.appName || incident.app?.name || '',
           hostname: incident.hostname || incident.agent?.hostname || '',
