@@ -136,6 +136,12 @@ Deno.serve(async (req) => {
         
         if (existingIds.has(alertId)) continue;
         
+        // Skip non-Fortify alerts (ignore Unify/Datto device alerts)
+        const productType = source.product?.type || '';
+        if (productType === 'DATTO_RMM' || productType === 'UNIFY' || source.jointType?.startsWith('unify.')) {
+          continue;
+        }
+        
         // Extract user info - SaaS Alerts uses user.name (email) and user.fullName
         const userEmail = source.userPrincipalName || source.user?.name || source.email || '';
         
