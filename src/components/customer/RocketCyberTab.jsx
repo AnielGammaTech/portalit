@@ -24,6 +24,56 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ExternalLink, Mail, MapPin, Globe, User } from 'lucide-react';
+
+// Helper to parse structured alert details from description
+const parseAlertDetails = (description) => {
+  if (!description) return null;
+  
+  const details = {};
+  
+  // Extract email
+  const emailMatch = description.match(/Email:\s*([^\s|•]+)/i);
+  if (emailMatch) details.email = emailMatch[1];
+  
+  // Extract name
+  const nameMatch = description.match(/Name:\s*([^|•\n]+)/i);
+  if (nameMatch) details.name = nameMatch[1].trim();
+  
+  // Extract Risk Type
+  const riskTypeMatch = description.match(/Risk Type:\s*([^|•\n]+)/i);
+  if (riskTypeMatch) details.riskType = riskTypeMatch[1].trim();
+  
+  // Extract Risk Level
+  const riskLevelMatch = description.match(/Risk Level:\s*([^|•\n]+)/i);
+  if (riskLevelMatch) details.riskLevel = riskLevelMatch[1].trim();
+  
+  // Extract Location (City, State, Country)
+  const locationMatch = description.match(/Country:\s*([^|•\n]+).*?State:\s*([^|•\n]+).*?City:\s*([^|•\n]+)/i) ||
+                       description.match(/City:\s*([^|•\n]+).*?State:\s*([^|•\n]+).*?Country:\s*([^|•\n]+)/i);
+  if (locationMatch) {
+    details.location = `${locationMatch[3] || locationMatch[1]}, ${locationMatch[2]}, ${locationMatch[1] || locationMatch[3]}`.replace(/\s+/g, ' ').trim();
+  }
+  
+  // Extract IP
+  const ipMatch = description.match(/IP:\s*([0-9.]+)/i);
+  if (ipMatch) details.ip = ipMatch[1];
+  
+  // Extract Organization
+  const orgMatch = description.match(/Organization:\s*([^(•\n]+)/i);
+  if (orgMatch) details.organization = orgMatch[1].trim();
+  
+  // Extract RocketCyber link
+  const rcLinkMatch = description.match(/(https:\/\/app\.rocketcyber\.com[^\s•]+)/i);
+  if (rcLinkMatch) details.rocketcyberUrl = rcLinkMatch[1];
+  
+  // Get the main message (before ===)
+  const mainMessage = description.split(/={3,}/)[0]?.trim();
+  if (mainMessage) details.summary = mainMessage;
+  
+  return Object.keys(details).length > 0 ? details : null;
+};
 
 const severityConfig = {
   critical: { color: 'bg-red-100 text-red-700 border-red-200', icon: AlertTriangle, label: 'Critical' },
@@ -264,68 +314,155 @@ export default function RocketCyberTab({ customer }) {
 
       {/* Incident Detail Modal */}
       <Dialog open={!!selectedIncident} onOpenChange={() => setSelectedIncident(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[85vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Shield className="w-5 h-5 text-orange-500" />
               Incident Details
             </DialogTitle>
           </DialogHeader>
-          {selectedIncident && (
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-semibold text-lg">{selectedIncident.title}</h3>
-                <div className="flex gap-2 mt-2">
-                  <Badge className={severityConfig[selectedIncident.severity]?.color}>
-                    {severityConfig[selectedIncident.severity]?.label || selectedIncident.severity}
-                  </Badge>
-                  <Badge className={statusConfig[selectedIncident.status]?.color}>
-                    {statusConfig[selectedIncident.status]?.label || selectedIncident.status}
-                  </Badge>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-slate-500">Hostname</p>
-                  <p className="font-medium">{selectedIncident.hostname || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-slate-500">Detection App</p>
-                  <p className="font-medium">{selectedIncident.app_name || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-slate-500">Category</p>
-                  <p className="font-medium">{selectedIncident.category || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-slate-500">Detected</p>
-                  <p className="font-medium">
-                    {selectedIncident.detected_at 
-                      ? new Date(selectedIncident.detected_at).toLocaleString()
-                      : 'N/A'}
-                  </p>
-                </div>
-                {selectedIncident.resolved_at && (
+          {selectedIncident && (() => {
+            const parsedDetails = parseAlertDetails(selectedIncident.description);
+            
+            return (
+              <ScrollArea className="max-h-[65vh] pr-4">
+                <div className="space-y-5">
+                  {/* Title and Badges */}
                   <div>
-                    <p className="text-slate-500">Resolved</p>
-                    <p className="font-medium">
-                      {new Date(selectedIncident.resolved_at).toLocaleString()}
-                    </p>
+                    <h3 className="font-semibold text-base leading-tight">{selectedIncident.title}</h3>
+                    <div className="flex gap-2 mt-2">
+                      <Badge className={severityConfig[selectedIncident.severity]?.color}>
+                        {severityConfig[selectedIncident.severity]?.label || selectedIncident.severity}
+                      </Badge>
+                      <Badge className={statusConfig[selectedIncident.status]?.color}>
+                        {statusConfig[selectedIncident.status]?.label || selectedIncident.status}
+                      </Badge>
+                    </div>
                   </div>
-                )}
-              </div>
 
-              {selectedIncident.description && (
-                <div>
-                  <p className="text-slate-500 text-sm mb-1">Description</p>
-                  <p className="text-sm bg-slate-50 p-3 rounded-lg">
-                    {selectedIncident.description}
-                  </p>
+                  {/* Parsed Alert Details (if available) */}
+                  {parsedDetails && (
+                    <div className="bg-slate-50 rounded-lg p-4 space-y-3">
+                      {parsedDetails.email && (
+                        <div className="flex items-center gap-3">
+                          <Mail className="w-4 h-4 text-slate-400" />
+                          <div>
+                            <p className="text-xs text-slate-500">Affected User</p>
+                            <p className="font-medium text-sm">{parsedDetails.email}</p>
+                            {parsedDetails.name && <p className="text-xs text-slate-500">{parsedDetails.name}</p>}
+                          </div>
+                        </div>
+                      )}
+                      {parsedDetails.riskType && (
+                        <div className="flex items-center gap-3">
+                          <AlertTriangle className="w-4 h-4 text-slate-400" />
+                          <div>
+                            <p className="text-xs text-slate-500">Risk Type</p>
+                            <p className="font-medium text-sm">{parsedDetails.riskType}</p>
+                            {parsedDetails.riskLevel && (
+                              <Badge variant="outline" className="mt-1 text-xs">
+                                {parsedDetails.riskLevel} Risk
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {parsedDetails.location && (
+                        <div className="flex items-center gap-3">
+                          <MapPin className="w-4 h-4 text-slate-400" />
+                          <div>
+                            <p className="text-xs text-slate-500">Location</p>
+                            <p className="font-medium text-sm">{parsedDetails.location}</p>
+                            {parsedDetails.ip && <p className="text-xs text-slate-500">IP: {parsedDetails.ip}</p>}
+                          </div>
+                        </div>
+                      )}
+                      {parsedDetails.organization && (
+                        <div className="flex items-center gap-3">
+                          <User className="w-4 h-4 text-slate-400" />
+                          <div>
+                            <p className="text-xs text-slate-500">Organization</p>
+                            <p className="font-medium text-sm">{parsedDetails.organization}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Basic Info Grid */}
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    {selectedIncident.hostname && (
+                      <div>
+                        <p className="text-slate-500 text-xs">Hostname</p>
+                        <p className="font-medium">{selectedIncident.hostname}</p>
+                      </div>
+                    )}
+                    {selectedIncident.app_name && (
+                      <div>
+                        <p className="text-slate-500 text-xs">Detection App</p>
+                        <p className="font-medium">{selectedIncident.app_name}</p>
+                      </div>
+                    )}
+                    {selectedIncident.category && (
+                      <div>
+                        <p className="text-slate-500 text-xs">Category</p>
+                        <p className="font-medium">{selectedIncident.category}</p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-slate-500 text-xs">Detected</p>
+                      <p className="font-medium">
+                        {selectedIncident.detected_at 
+                          ? new Date(selectedIncident.detected_at).toLocaleString()
+                          : 'N/A'}
+                      </p>
+                    </div>
+                    {selectedIncident.resolved_at && (
+                      <div>
+                        <p className="text-slate-500 text-xs">Resolved</p>
+                        <p className="font-medium">
+                          {new Date(selectedIncident.resolved_at).toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Summary / Description */}
+                  {parsedDetails?.summary && (
+                    <div>
+                      <p className="text-slate-500 text-xs mb-1">Summary</p>
+                      <p className="text-sm bg-amber-50 border border-amber-200 p-3 rounded-lg text-amber-900">
+                        {parsedDetails.summary}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* RocketCyber Link */}
+                  {parsedDetails?.rocketcyberUrl && (
+                    <a 
+                      href={parsedDetails.rocketcyberUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm text-orange-600 hover:text-orange-700 font-medium"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      View in RocketCyber Console
+                    </a>
+                  )}
+
+                  {/* Raw Description (collapsed by default if parsed) */}
+                  {selectedIncident.description && !parsedDetails && (
+                    <div>
+                      <p className="text-slate-500 text-xs mb-1">Description</p>
+                      <p className="text-sm bg-slate-50 p-3 rounded-lg whitespace-pre-wrap break-words">
+                        {selectedIncident.description}
+                      </p>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          )}
+              </ScrollArea>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
