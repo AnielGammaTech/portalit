@@ -419,55 +419,58 @@ export default function CustomerServicesTab({
   return (
     <div className="space-y-6">
       <Tabs defaultValue="recurring" className="space-y-4">
-        <div className="flex items-center justify-between">
-          <TabsList className="bg-white border border-slate-200 p-1 h-auto mx-auto">
-            <TabsTrigger value="recurring" className="gap-2 py-2 px-4 text-sm font-medium">
+        <div className="flex flex-col gap-4">
+          {/* Sync All Button */}
+          {integrations.length > 0 && (
+            <div className="flex justify-end">
+              <Button
+                onClick={handleSyncAll}
+                disabled={syncingAll}
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs h-8"
+              >
+                <RefreshCw className={cn("w-3.5 h-3.5", syncingAll && "animate-spin")} />
+                {syncingAll ? 'Syncing...' : 'Sync All'}
+              </Button>
+            </div>
+          )}
+          
+          {/* Service Tabs Grid */}
+          <TabsList className="bg-slate-100/50 border border-slate-200 p-1.5 h-auto flex flex-wrap gap-1 justify-center rounded-xl">
+            <TabsTrigger value="recurring" className="gap-2 py-2.5 px-4 text-sm font-medium rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
               <HardDrive className="w-4 h-4" />
-              Recurring Services
+              Recurring
             </TabsTrigger>
-            <TabsTrigger value="devices" className="gap-2 py-2 px-4 text-sm font-medium">
+            <TabsTrigger value="devices" className="gap-2 py-2.5 px-4 text-sm font-medium rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
               <Monitor className="w-4 h-4" />
               Devices
             </TabsTrigger>
-            <TabsTrigger value="jumpcloud" className="gap-2 py-2 px-4 text-sm font-medium">
-              <Shield className="w-4 h-4" />
+            <TabsTrigger value="jumpcloud" className="gap-2 py-2.5 px-4 text-sm font-medium rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              <Shield className="w-4 h-4 text-indigo-500" />
               JumpCloud
             </TabsTrigger>
-            <TabsTrigger value="spanning" className="gap-2 py-2 px-4 text-sm font-medium">
-              <Cloud className="w-4 h-4" />
-              Spanning Backup
+            <TabsTrigger value="spanning" className="gap-2 py-2.5 px-4 text-sm font-medium rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              <Cloud className="w-4 h-4 text-cyan-500" />
+              Spanning
             </TabsTrigger>
-            <TabsTrigger value="darkweb" className="gap-2 py-2 px-4 text-sm font-medium">
-              <AlertTriangle className="w-4 h-4" />
+            <TabsTrigger value="darkweb" className="gap-2 py-2.5 px-4 text-sm font-medium rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              <AlertTriangle className="w-4 h-4 text-red-500" />
               Dark Web
             </TabsTrigger>
-            <TabsTrigger value="bullphish" className="gap-2 py-2 px-4 text-sm font-medium">
-              <Fish className="w-4 h-4" />
-              BullPhish ID
+            <TabsTrigger value="bullphish" className="gap-2 py-2.5 px-4 text-sm font-medium rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              <Fish className="w-4 h-4 text-amber-500" />
+              BullPhish
             </TabsTrigger>
-            <TabsTrigger value="edr" className="gap-2 py-2 px-4 text-sm font-medium">
-              <Shield className="w-4 h-4" />
+            <TabsTrigger value="edr" className="gap-2 py-2.5 px-4 text-sm font-medium rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              <Shield className="w-4 h-4 text-blue-500" />
               Datto EDR
             </TabsTrigger>
-            <TabsTrigger value="rocketcyber" className="gap-2 py-2 px-4 text-sm font-medium">
-              <Shield className="w-4 h-4" />
+            <TabsTrigger value="rocketcyber" className="gap-2 py-2.5 px-4 text-sm font-medium rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              <Shield className="w-4 h-4 text-orange-500" />
               RocketCyber
             </TabsTrigger>
           </TabsList>
-          
-          {/* Sync All Button - Smaller & Sleeker */}
-          {integrations.length > 0 && (
-            <Button
-              onClick={handleSyncAll}
-              disabled={syncingAll}
-              variant="outline"
-              size="sm"
-              className="gap-1.5 text-xs h-8"
-            >
-              <RefreshCw className={cn("w-3.5 h-3.5", syncingAll && "animate-spin")} />
-              {syncingAll ? 'Syncing...' : 'Sync All'}
-            </Button>
-          )}
         </div>
 
         {/* Recurring Services Tab - Always show */}
