@@ -30,8 +30,10 @@ import {
   Check,
   Printer,
   Share2,
-  ExternalLink
+  ExternalLink,
+  ShieldAlert
 } from 'lucide-react';
+import SaaSAlertsConfig from '../components/integrations/SaaSAlertsConfig';
 
 const MENU_SECTIONS = [
   {
@@ -78,6 +80,12 @@ const MENU_SECTIONS = [
         description: 'API documentation for integrations',
         icon: Code,
         panel: 'api-docs'
+      },
+      {
+        name: 'SaaS Alerts Mapping',
+        description: 'Map customers to SaaS Alerts organizations',
+        icon: ShieldAlert,
+        panel: 'saas-alerts-mapping'
       }
     ]
   }
@@ -534,6 +542,32 @@ export default function Adminland() {
             <li>• Rate limiting: 100 requests per minute per API key</li>
           </ul>
         </div>
+      </div>
+    );
+  }
+
+  if (activePanel === 'saas-alerts-mapping') {
+    return (
+      <div className="max-w-4xl mx-auto py-8">
+        <Breadcrumbs items={[
+          { label: 'Adminland', href: createPageUrl('Adminland') },
+          { label: 'SaaS Alerts Mapping' }
+        ]} />
+        
+        <div className="flex items-center gap-4 mb-8">
+          <button 
+            onClick={() => setActivePanel(null)}
+            className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
+          >
+            <ChevronRight className="w-5 h-5 text-slate-600 rotate-180" />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">SaaS Alerts Mapping</h1>
+            <p className="text-sm text-slate-500">Map your customers to SaaS Alerts organizations</p>
+          </div>
+        </div>
+
+        <SaaSAlertsConfig />
       </div>
     );
   }
