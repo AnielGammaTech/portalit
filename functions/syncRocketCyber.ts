@@ -39,11 +39,11 @@ function mapSeverity(priority) {
 }
 
 function mapStatus(status) {
-  if (!status) return 'open';
+  if (!status) return 'closed';
   const s = String(status).toLowerCase();
-  // Only 'open' or 'new' count as open
+  // Only 'open' or 'new' count as open - must be exact match
   if (s === 'open' || s === 'new') return 'open';
-  // Everything else (suppressed, in_progress, investigating, resolved, closed) is closed
+  // Everything else (suppressed, in_progress, investigating, resolved, closed, etc.) is closed
   return 'closed';
 }
 
