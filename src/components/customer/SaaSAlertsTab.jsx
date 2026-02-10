@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
@@ -12,13 +12,14 @@ import {
   Globe,
   Mail,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Users
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, formatDistanceToNow } from 'date-fns';
 
 export default function SaaSAlertsTab({ customer, saasAlertsMapping }) {
   const [isSyncing, setIsSyncing] = useState(false);
@@ -78,6 +79,40 @@ export default function SaaSAlertsTab({ customer, saasAlertsMapping }) {
     const matchesSeverity = severityFilter === 'all' || alert.severity === severityFilter;
     return matchesStatus && matchesSeverity;
   }).sort((a, b) => new Date(b.detected_at || 0) - new Date(a.detected_at || 0));
+
+  // Group alerts by event_type for cleaner display
+  const groupedAlerts = useMemo(() => {
+    const groups = {};
+    filteredAlerts.forEach(alert => {
+      const key = `${alert.event_type || 'Unknown'}_${alert.severity || 'unknown'}_${alert.status || 'open'}`;
+      if (!groups[key]) {
+        groups[key] = {
+          event_type: alert.event_type || 'Unknown Event',
+          severity: alert.severity,
+          status: alert.status,
+          count: 0,
+          alerts: [],
+          latestDate: null,
+          users: new Set()
+        };
+      }
+      groups[key].count++;
+      groups[key].alerts.push(alert);
+      if (alert.user_email) groups[key].users.add(alert.user_email);
+      const alertDate = alert.detected_at ? new Date(alert.detected_at) : null;
+      if (alertDate && (!groups[key].latestDate || alertDate > groups[key].latestDate)) {
+        groups[key].latestDate = alertDate;
+      }
+    });
+    return Object.values(groups).sort((a, b) => {
+      // Sort by severity first, then by count
+      const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+      const aSev = severityOrder[a.severity] ?? 4;
+      const bSev = severityOrder[b.severity] ?? 4;
+      if (aSev !== bSev) return aSev - bSev;
+      return b.count - a.count;
+    });
+  }, [filteredAlerts]);
 
   const criticalCount = alerts.filter(a => a.severity === 'critical' && a.status === 'open').length;
   const openCount = alerts.filter(a => a.status === 'open').length;
@@ -190,104 +225,90 @@ export default function SaaSAlertsTab({ customer, saasAlertsMapping }) {
               <RefreshCw className="w-8 h-8 animate-spin text-slate-400 mx-auto" />
               <p className="text-slate-500 mt-2">Loading alerts...</p>
             </div>
-          ) : filteredAlerts.length === 0 ? (
+          ) : groupedAlerts.length === 0 ? (
             <div className="py-12 text-center">
               <Shield className="w-12 h-12 text-slate-300 mx-auto mb-4" />
               <p className="text-slate-500">No alerts found</p>
               <p className="text-sm text-slate-400 mt-1">Click "Sync" to pull alerts from SaaS Alerts</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {filteredAlerts.map(alert => (
-                <div 
-                  key={alert.id}
-                  className="border border-slate-200 rounded-lg overflow-hidden"
-                >
+            <div className="divide-y divide-slate-100">
+              {groupedAlerts.map((group, idx) => (
+                <div key={idx}>
                   <button
-                    onClick={() => setExpandedAlert(expandedAlert === alert.id ? null : alert.id)}
+                    onClick={() => setExpandedAlert(expandedAlert === idx ? null : idx)}
                     className="w-full px-4 py-3 flex items-center gap-4 hover:bg-slate-50 transition-colors text-left"
                   >
+                    {/* Severity indicator bar */}
                     <div className={cn(
-                      "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
-                      alert.severity === 'critical' && "bg-red-100",
-                      alert.severity === 'high' && "bg-orange-100",
-                      alert.severity === 'medium' && "bg-yellow-100",
-                      alert.severity === 'low' && "bg-blue-100",
-                      !alert.severity && "bg-slate-100"
-                    )}>
-                      <AlertTriangle className={cn(
-                        "w-5 h-5",
-                        alert.severity === 'critical' && "text-red-600",
-                        alert.severity === 'high' && "text-orange-600",
-                        alert.severity === 'medium' && "text-yellow-600",
-                        alert.severity === 'low' && "text-blue-600",
-                        !alert.severity && "text-slate-500"
-                      )} />
-                    </div>
+                      "w-1 h-12 rounded-full flex-shrink-0",
+                      group.severity === 'critical' && "bg-red-500",
+                      group.severity === 'high' && "bg-orange-500",
+                      group.severity === 'medium' && "bg-yellow-500",
+                      group.severity === 'low' && "bg-blue-400",
+                      !group.severity && "bg-slate-300"
+                    )} />
+                    
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="font-medium text-slate-900 truncate">{alert.event_type || 'Security Event'}</p>
-                        <Badge className={cn("text-xs capitalize", getSeverityColor(alert.severity))}>
-                          {alert.severity || 'unknown'}
-                        </Badge>
-                        <Badge className={cn("text-xs capitalize", getStatusColor(alert.status))}>
-                          {alert.status || 'open'}
-                        </Badge>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-slate-900 text-sm">{group.event_type}</p>
                       </div>
-                      <div className="flex items-center gap-3 text-sm text-slate-500">
-                        {alert.user_email && (
-                          <span className="flex items-center gap-1">
-                            <Mail className="w-3 h-3" />
-                            {alert.user_email}
-                          </span>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                        {group.latestDate && (
+                          <span>{formatDistanceToNow(group.latestDate, { addSuffix: true })}</span>
                         )}
-                        {alert.application && (
+                        {group.users.size > 0 && (
                           <span className="flex items-center gap-1">
-                            <Globe className="w-3 h-3" />
-                            {alert.application}
-                          </span>
-                        )}
-                        {alert.detected_at && (
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {format(parseISO(alert.detected_at), 'MMM d, yyyy h:mm a')}
+                            <Users className="w-3 h-3" />
+                            {group.users.size} user{group.users.size !== 1 ? 's' : ''}
                           </span>
                         )}
                       </div>
                     </div>
-                    {expandedAlert === alert.id ? (
-                      <ChevronDown className="w-4 h-4 text-slate-400" />
-                    ) : (
-                      <ChevronRight className="w-4 h-4 text-slate-400" />
-                    )}
+
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Badge className={cn("text-xs capitalize font-normal", getSeverityColor(group.severity))}>
+                        {group.severity || 'unknown'}
+                      </Badge>
+                      <Badge className={cn("text-xs capitalize font-normal", getStatusColor(group.status))}>
+                        {group.status || 'open'}
+                      </Badge>
+                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-sm font-medium text-slate-600">
+                        {group.count}
+                      </div>
+                      {expandedAlert === idx ? (
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-slate-400" />
+                      )}
+                    </div>
                   </button>
                   
-                  {expandedAlert === alert.id && (
-                    <div className="px-4 py-3 bg-slate-50 border-t border-slate-200">
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        {alert.description && (
-                          <div className="col-span-2">
-                            <p className="text-slate-500 text-xs uppercase tracking-wide mb-1">Description</p>
-                            <p className="text-slate-700">{alert.description}</p>
+                  {expandedAlert === idx && (
+                    <div className="bg-slate-50 border-t border-slate-100 px-4 py-3">
+                      <p className="text-xs text-slate-500 mb-2">{group.count} occurrence{group.count !== 1 ? 's' : ''}</p>
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {group.alerts.slice(0, 20).map(alert => (
+                          <div key={alert.id} className="bg-white rounded-lg px-3 py-2 text-sm border border-slate-200">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-slate-600 truncate">{alert.user_email || 'Unknown user'}</span>
+                              <span className="text-xs text-slate-400 flex-shrink-0">
+                                {alert.detected_at && format(parseISO(alert.detected_at), 'MMM d, h:mm a')}
+                              </span>
+                            </div>
+                            {(alert.ip_address || alert.location) && (
+                              <div className="text-xs text-slate-400 mt-1">
+                                {alert.ip_address && <span>{alert.ip_address}</span>}
+                                {alert.ip_address && alert.location && <span> · </span>}
+                                {alert.location && <span>{alert.location}</span>}
+                              </div>
+                            )}
                           </div>
-                        )}
-                        {alert.ip_address && (
-                          <div>
-                            <p className="text-slate-500 text-xs uppercase tracking-wide mb-1">IP Address</p>
-                            <p className="text-slate-700">{alert.ip_address}</p>
-                          </div>
-                        )}
-                        {alert.location && (
-                          <div>
-                            <p className="text-slate-500 text-xs uppercase tracking-wide mb-1">Location</p>
-                            <p className="text-slate-700">{alert.location}</p>
-                          </div>
-                        )}
-                        {alert.alert_id && (
-                          <div>
-                            <p className="text-slate-500 text-xs uppercase tracking-wide mb-1">Alert ID</p>
-                            <p className="text-slate-700 font-mono text-xs">{alert.alert_id}</p>
-                          </div>
+                        ))}
+                        {group.alerts.length > 20 && (
+                          <p className="text-xs text-slate-400 text-center py-2">
+                            +{group.alerts.length - 20} more alerts
+                          </p>
                         )}
                       </div>
                     </div>
