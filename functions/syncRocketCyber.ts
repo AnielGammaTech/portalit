@@ -286,10 +286,12 @@ Deno.serve(async (req) => {
         };
 
         if (existing) {
-          // Always update to ensure status is correct based on latest API data
-          await base44.asServiceRole.entities.RocketCyberIncident.update(existing.id, incidentData);
-          synced++;
-          if (incidentData.status !== 'open') closed++;
+          // Only update if status actually changed to avoid rate limiting
+          if (existing.status !== incidentData.status) {
+            await base44.asServiceRole.entities.RocketCyberIncident.update(existing.id, { status: incidentData.status, resolved_at: incidentData.resolved_at });
+            synced++;
+            if (incidentData.status !== 'open') closed++;
+          }
         } else {
           await base44.asServiceRole.entities.RocketCyberIncident.create(incidentData);
           synced++;
