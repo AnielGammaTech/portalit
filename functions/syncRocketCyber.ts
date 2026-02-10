@@ -44,7 +44,7 @@ function mapStatus(status) {
   if (s.includes('open') || s.includes('new')) return 'open';
   if (s.includes('progress') || s.includes('investigating')) return 'investigating';
   if (s.includes('resolved')) return 'resolved';
-  if (s.includes('closed')) return 'closed';
+  if (s.includes('closed') || s.includes('suppressed')) return 'closed';
   return 'open';
 }
 
