@@ -28,6 +28,7 @@ import SpanningUsersTab from './SpanningUsersTab';
 import DevicesTab from './DevicesTab';
 import DattoEDRTab from './DattoEDRTab';
 import RocketCyberTab from './RocketCyberTab';
+import SaaSAlertsTab from './SaaSAlertsTab';
 
 export default function CustomerServicesTab({ 
   customerId, 
@@ -160,10 +161,21 @@ export default function CustomerServicesTab({
     enabled: !!customerId
   });
 
+  // Fetch SaaS Alerts mapping for this customer
+  const { data: saasAlertsMapping } = useQuery({
+    queryKey: ['saas-alerts-mapping', customerId],
+    queryFn: async () => {
+      const mappings = await base44.entities.SaaSAlertsMapping.filter({ customer_id: customerId });
+      return mappings[0] || null;
+    },
+    enabled: !!customerId
+  });
+
   const hasBullPhish = bullphishReports.length > 0;
   const hasDarkWeb = !!darkwebMapping || darkwebReports.length > 0;
   const hasEDR = !!edrMapping;
   const hasRocketCyber = !!rocketcyberMapping;
+  const hasSaaSAlerts = !!saasAlertsMapping;
 
   const updateSyncStatus = (service, status, error = null) => {
     setSyncStatuses(prev => ({
@@ -461,6 +473,10 @@ export default function CustomerServicesTab({
               <Shield className="w-4 h-4 text-orange-500" />
               RocketCyber
             </TabsTrigger>
+            <TabsTrigger value="saasalerts" className="gap-2 py-2.5 px-4 text-sm font-medium rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              <Shield className="w-4 h-4 text-amber-500" />
+              SaaS Alerts
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -733,6 +749,15 @@ export default function CustomerServicesTab({
         <TabsContent value="rocketcyber">
           {hasRocketCyber ? (
             <RocketCyberTab customer={customer} />
+          ) : (
+            <Card><CardContent className="py-12 text-center text-slate-500">Not configured for this customer</CardContent></Card>
+          )}
+        </TabsContent>
+
+        {/* SaaS Alerts Tab */}
+        <TabsContent value="saasalerts">
+          {hasSaaSAlerts ? (
+            <SaaSAlertsTab customer={customer} saasAlertsMapping={saasAlertsMapping} />
           ) : (
             <Card><CardContent className="py-12 text-center text-slate-500">Not configured for this customer</CardContent></Card>
           )}
