@@ -13,7 +13,8 @@ import {
   Mail,
   ChevronDown,
   ChevronRight,
-  Users
+  Users,
+  ExternalLink
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,26 +27,12 @@ export default function SaaSAlertsTab({ customer, saasAlertsMapping }) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [severityFilter, setSeverityFilter] = useState('all');
   const [expandedAlert, setExpandedAlert] = useState(null);
-  const [activeView, setActiveView] = useState('overview'); // 'overview' or 'alerts'
 
   // Fetch SaaS Alerts for this customer
   const { data: alerts = [], isLoading, refetch } = useQuery({
     queryKey: ['saas-alerts', customer?.id],
     queryFn: () => base44.entities.SaaSAlert.filter({ customer_id: customer?.id }),
     enabled: !!customer?.id
-  });
-
-  // Fetch Fortify data (licenses, connections, secure score)
-  const { data: fortifyData, isLoading: isLoadingFortify } = useQuery({
-    queryKey: ['saas-alerts-fortify', customer?.id],
-    queryFn: async () => {
-      const response = await base44.functions.invoke('syncSaaSAlerts', {
-        action: 'get_fortify',
-        customer_id: customer?.id
-      });
-      return response.data?.fortify || {};
-    },
-    enabled: !!customer?.id && !!saasAlertsMapping
   });
 
   const handleSync = async () => {
@@ -132,215 +119,10 @@ export default function SaaSAlertsTab({ customer, saasAlertsMapping }) {
   const openCount = alerts.filter(a => a.status === 'open').length;
   const resolvedCount = alerts.filter(a => a.status === 'resolved').length;
 
-  const licenses = fortifyData?.licenses || [];
-  const connections = fortifyData?.connections || [];
-  const secureScore = fortifyData?.secureScore;
-
   return (
     <div className="space-y-4">
-      {/* View Toggle */}
-      <div className="flex gap-2 border-b border-slate-200 pb-2">
-        <button
-          onClick={() => setActiveView('overview')}
-          className={cn(
-            "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors",
-            activeView === 'overview' 
-              ? "bg-purple-100 text-purple-700 border-b-2 border-purple-600" 
-              : "text-slate-600 hover:bg-slate-100"
-          )}
-        >
-          Overview
-        </button>
-        <button
-          onClick={() => setActiveView('alerts')}
-          className={cn(
-            "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors",
-            activeView === 'alerts' 
-              ? "bg-purple-100 text-purple-700 border-b-2 border-purple-600" 
-              : "text-slate-600 hover:bg-slate-100"
-          )}
-        >
-          Alerts ({alerts.length})
-        </button>
-      </div>
-
-      {activeView === 'overview' ? (
-        <div className="space-y-6">
-          {/* Secure Score + Stats Row */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Secure Score Card */}
-            <Card className="md:col-span-1">
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-emerald-100 rounded-lg">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs text-slate-500 mb-1">Secure Score</p>
-                    {isLoadingFortify ? (
-                      <div className="h-6 w-16 bg-slate-200 animate-pulse rounded"></div>
-                    ) : secureScore?.score ? (
-                      <div className="flex items-center gap-2">
-                        <p className="text-2xl font-bold text-emerald-600">{secureScore.score}%</p>
-                        <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-emerald-500 rounded-full"
-                            style={{ width: `${secureScore.score}%` }}
-                          />
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-slate-400">N/A</p>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-slate-100 rounded-lg">
-                    <Shield className="w-5 h-5 text-slate-600" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{alerts.length}</p>
-                    <p className="text-sm text-slate-500">Total Alerts</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-red-100 rounded-lg">
-                    <AlertTriangle className="w-5 h-5 text-red-600" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-red-600">{criticalCount}</p>
-                    <p className="text-sm text-slate-500">Critical Open</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <Globe className="w-5 h-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-purple-600">{connections.length}</p>
-                    <p className="text-sm text-slate-500">Connections</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Connections */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Connected Services</CardTitle>
-              <CardDescription>SaaS applications being monitored</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoadingFortify ? (
-                <div className="flex gap-3">
-                  {[1,2,3].map(i => (
-                    <div key={i} className="h-10 w-32 bg-slate-200 animate-pulse rounded-lg"></div>
-                  ))}
-                </div>
-              ) : connections.length === 0 ? (
-                <p className="text-sm text-slate-500">No connections found</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {connections.map((conn, idx) => (
-                    <Badge 
-                      key={idx} 
-                      variant="outline" 
-                      className={cn(
-                        "px-3 py-1.5 text-sm flex items-center gap-2",
-                        conn.status === 'connected' || conn.connected 
-                          ? "border-emerald-200 bg-emerald-50 text-emerald-700" 
-                          : "border-slate-200"
-                      )}
-                    >
-                      {conn.applicationType || conn.name || conn.type || 'Unknown'}
-                      {(conn.status === 'connected' || conn.connected) && (
-                        <CheckCircle2 className="w-3 h-3" />
-                      )}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Licenses */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Current Licenses</CardTitle>
-              <CardDescription>Active subscriptions detected</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoadingFortify ? (
-                <div className="space-y-2">
-                  {[1,2,3].map(i => (
-                    <div key={i} className="h-12 bg-slate-200 animate-pulse rounded-lg"></div>
-                  ))}
-                </div>
-              ) : licenses.length === 0 ? (
-                <p className="text-sm text-slate-500">No licenses found</p>
-              ) : (
-                <div className="space-y-2">
-                  {licenses.slice(0, 10).map((license, idx) => (
-                    <div 
-                      key={idx} 
-                      className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-white rounded flex items-center justify-center border border-slate-200">
-                          {license.applicationType?.toLowerCase().includes('microsoft') ? (
-                            <span className="text-xs">MS</span>
-                          ) : license.applicationType?.toLowerCase().includes('google') ? (
-                            <span className="text-xs">G</span>
-                          ) : (
-                            <Globe className="w-4 h-4 text-slate-400" />
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-slate-900">
-                            {license.name || license.licenseName || license.skuPartNumber || 'Unknown License'}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            {license.applicationType || license.application || ''}
-                          </p>
-                        </div>
-                      </div>
-                      {license.quantity && (
-                        <Badge variant="outline" className="text-xs">
-                          {license.quantity} seats
-                        </Badge>
-                      )}
-                    </div>
-                  ))}
-                  {licenses.length > 10 && (
-                    <p className="text-sm text-slate-500 text-center pt-2">
-                      +{licenses.length - 10} more licenses
-                    </p>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {/* Alerts View - Stats Summary */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Stats Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
