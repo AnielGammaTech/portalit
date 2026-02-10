@@ -460,9 +460,9 @@ export default function RocketCyberTab({ customer }) {
                   {parsedDetails?.summary && (
                     <div>
                       <p className="text-slate-500 text-xs mb-1">Summary</p>
-                      <p className="text-sm bg-amber-50 border border-amber-200 p-3 rounded-lg text-amber-900">
+                      <div className="text-sm bg-amber-50 border border-amber-200 p-3 rounded-lg text-amber-900 max-h-48 overflow-y-auto whitespace-pre-wrap break-all">
                         {parsedDetails.summary}
-                      </p>
+                      </div>
                     </div>
                   )}
 
