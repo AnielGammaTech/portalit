@@ -3,12 +3,14 @@ import {
   Cloud,
   Monitor,
   ChevronDown,
-  CheckCircle2
+  CheckCircle2,
+  Shield
 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import HaloPSAConfig from '../components/integrations/HaloPSAConfig';
 import DattoRMMConfig from '../components/integrations/DattoRMMConfig';
+import RocketCyberConfig from '../components/integrations/RocketCyberConfig';
 
 export default function Integrations() {
   const [expandedIntegration, setExpandedIntegration] = useState(null);
@@ -27,6 +29,13 @@ export default function Integrations() {
       description: 'Sync devices and map Datto sites to customers.',
       icon: Monitor,
       color: 'bg-emerald-500'
+    },
+    {
+      id: 'rocketcyber',
+      name: 'RocketCyber SOC',
+      description: 'Sync security incidents and alerts from RocketCyber.',
+      icon: Shield,
+      color: 'bg-orange-500'
     }
   ];
 
@@ -76,6 +85,7 @@ export default function Integrations() {
                 <div className="border-t border-slate-100 p-5 bg-slate-50/50">
                   {integration.id === 'halopsa' && <HaloPSAConfig />}
                   {integration.id === 'dattormm' && <DattoRMMConfig />}
+                  {integration.id === 'rocketcyber' && <RocketCyberConfig />}
                 </div>
               )}
             </div>
