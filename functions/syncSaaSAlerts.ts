@@ -10,19 +10,26 @@ async function saasAlertsApiCall(endpoint, method = 'GET', body = null) {
   console.log('API Call to:', endpoint);
   console.log('Using partnerId:', partnerId);
   console.log('Using apiUser:', apiUser);
-  console.log('API Key present:', !!apiKey);
+  console.log('API Key length:', apiKey?.length);
   
+  // SaaS Alerts uses apiKey header for authentication
   const headers = {
-    'x-api-key': apiKey,
-    'x-api-user': apiUser,
-    'x-partner-id': partnerId,
+    'apiKey': apiKey,
     'Content-Type': 'application/json'
   };
   
   const options = { method, headers };
   if (body) options.body = JSON.stringify(body);
   
-  const response = await fetch(`${API_BASE}${endpoint}`, options);
+  // Add partnerId to query params if not already present
+  let url = `${API_BASE}${endpoint}`;
+  if (!url.includes('partnerId=') && partnerId) {
+    url += (url.includes('?') ? '&' : '?') + `partnerId=${partnerId}`;
+  }
+  
+  console.log('Full URL:', url);
+  
+  const response = await fetch(url, options);
   
   const responseText = await response.text();
   console.log('Response status:', response.status);
