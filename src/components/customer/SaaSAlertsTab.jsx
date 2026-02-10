@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Clock,
-  User,
   Globe,
   Mail,
   ChevronDown,
