@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import { 
@@ -15,11 +15,15 @@ import {
   ChevronRight,
   Users,
   ExternalLink,
-  User
+  User,
+  Square,
+  CheckSquare,
+  XCircle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import UserDetailModal from './UserDetailModal';
@@ -30,6 +34,8 @@ export default function SaaSAlertsTab({ customer, saasAlertsMapping }) {
   const [severityFilter, setSeverityFilter] = useState('all');
   const [expandedAlert, setExpandedAlert] = useState(null);
   const [selectedContact, setSelectedContact] = useState(null);
+  const [selectedAlerts, setSelectedAlerts] = useState(new Set());
+  const queryClient = useQueryClient();
 
   // Fetch SaaS Alerts for this customer
   const { data: alerts = [], isLoading, refetch } = useQuery({
@@ -145,6 +151,51 @@ export default function SaaSAlertsTab({ customer, saasAlertsMapping }) {
   const openCount = alerts.filter(a => a.status === 'open').length;
   const resolvedCount = alerts.filter(a => a.status === 'resolved').length;
 
+  // Get all open alert IDs from filtered results
+  const openAlertIds = useMemo(() => {
+    return filteredAlerts.filter(a => a.status === 'open' || a.status === 'acknowledged').map(a => a.id);
+  }, [filteredAlerts]);
+
+  // Resolve alerts mutation
+  const resolveAlertsMutation = useMutation({
+    mutationFn: async (alertIds) => {
+      await Promise.all(alertIds.map(id => 
+        base44.entities.SaaSAlert.update(id, { status: 'resolved' })
+      ));
+    },
+    onSuccess: () => {
+      toast.success(`Resolved ${selectedAlerts.size} alert(s)`);
+      setSelectedAlerts(new Set());
+      queryClient.invalidateQueries({ queryKey: ['saas-alerts', customer?.id] });
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to resolve alerts');
+    }
+  });
+
+  const handleSelectAll = () => {
+    if (selectedAlerts.size === openAlertIds.length) {
+      setSelectedAlerts(new Set());
+    } else {
+      setSelectedAlerts(new Set(openAlertIds));
+    }
+  };
+
+  const handleSelectAlert = (alertId) => {
+    const newSelected = new Set(selectedAlerts);
+    if (newSelected.has(alertId)) {
+      newSelected.delete(alertId);
+    } else {
+      newSelected.add(alertId);
+    }
+    setSelectedAlerts(newSelected);
+  };
+
+  const handleResolveSelected = () => {
+    if (selectedAlerts.size === 0) return;
+    resolveAlertsMutation.mutate(Array.from(selectedAlerts));
+  };
+
   return (
     <div className="space-y-4">
       {/* Stats Summary */}
@@ -244,6 +295,17 @@ export default function SaaSAlertsTab({ customer, saasAlertsMapping }) {
               <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
               Sync
             </Button>
+            {selectedAlerts.size > 0 && (
+              <Button
+                size="sm"
+                onClick={handleResolveSelected}
+                disabled={resolveAlertsMutation.isPending}
+                className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                Resolve ({selectedAlerts.size})
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -260,6 +322,20 @@ export default function SaaSAlertsTab({ customer, saasAlertsMapping }) {
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
+              {/* Select All Header */}
+              {openAlertIds.length > 0 && (
+                <div className="px-4 py-2 bg-slate-50 border-b flex items-center gap-3">
+                  <Checkbox
+                    checked={selectedAlerts.size === openAlertIds.length && openAlertIds.length > 0}
+                    onCheckedChange={handleSelectAll}
+                  />
+                  <span className="text-sm text-slate-600">
+                    {selectedAlerts.size === 0 
+                      ? `Select all ${openAlertIds.length} open alerts` 
+                      : `${selectedAlerts.size} selected`}
+                  </span>
+                </div>
+              )}
               {groupedAlerts.map((group, idx) => (
                 <div key={idx}>
                   <button
@@ -324,13 +400,26 @@ export default function SaaSAlertsTab({ customer, saasAlertsMapping }) {
                           const contact = getContactFromEmail(alert.user_email);
                           const displayName = contact?.full_name || alert.user_email || 'Unknown user';
                           
+                          const isOpenAlert = alert.status === 'open' || alert.status === 'acknowledged';
                           return (
                             <div 
                               key={alert.id} 
-                              className="bg-white rounded-lg px-3 py-2 text-sm border border-slate-200 hover:border-slate-300 transition-colors"
+                              className={cn(
+                                "bg-white rounded-lg px-3 py-2 text-sm border transition-colors",
+                                selectedAlerts.has(alert.id) 
+                                  ? "border-purple-300 bg-purple-50" 
+                                  : "border-slate-200 hover:border-slate-300"
+                              )}
                             >
                               <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2 min-w-0">
+                                  {isOpenAlert && (
+                                    <Checkbox
+                                      checked={selectedAlerts.has(alert.id)}
+                                      onCheckedChange={() => handleSelectAlert(alert.id)}
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                  )}
                                   {contact ? (
                                     <button
                                       onClick={() => setSelectedContact(contact)}
