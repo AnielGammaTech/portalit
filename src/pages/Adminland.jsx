@@ -69,6 +69,12 @@ const MENU_SECTIONS = [
         description: 'Review feedback from customers',
         icon: MessageSquare,
         panel: 'customer-feedback'
+      },
+      {
+        name: 'API Docs',
+        description: 'API documentation for integrations',
+        icon: Code,
+        panel: 'api-docs'
       }
     ]
   }
