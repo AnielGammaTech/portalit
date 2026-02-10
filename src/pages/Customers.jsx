@@ -188,8 +188,9 @@ export default function Customers() {
     const customerContracts = contracts.filter(c => c.customer_id === customerId && c.status === 'active');
     const customerTickets = tickets.filter(t => t.customer_id === customerId && ['new', 'open', 'in_progress'].includes(t.status));
     const customerBills = recurringBills.filter(b => b.customer_id === customerId && b.status === 'active');
+    const customerApps = applications.filter(a => a.customer_id === customerId);
     const mrr = customerBills.reduce((sum, b) => sum + (b.amount || 0), 0);
-    return { contracts: customerContracts.length, tickets: customerTickets.length, mrr };
+    return { contracts: customerContracts.length, tickets: customerTickets.length, mrr, apps: customerApps.length };
   };
 
   return (
