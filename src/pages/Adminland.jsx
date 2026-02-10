@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import Breadcrumbs from '../components/ui/breadcrumbs';
 import UserAssignmentPanel from '../components/admin/UserAssignmentPanel';
+import FeedbackPanel from '../components/admin/FeedbackPanel';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -59,6 +60,12 @@ const MENU_SECTIONS = [
         icon: Link2,
         page: 'Settings',
         tab: 'integrations'
+      },
+      {
+        name: 'Customer Feedback',
+        description: 'Review feedback from customers',
+        icon: MessageSquare,
+        panel: 'customer-feedback'
       }
     ]
   }
@@ -187,6 +194,34 @@ export default function Adminland() {
         </div>
 
         <UserAssignmentPanel />
+      </div>
+    );
+  }
+
+  if (activePanel === 'customer-feedback') {
+    return (
+      <div className="max-w-4xl mx-auto py-8">
+        <Breadcrumbs items={[
+          { label: 'Adminland', href: createPageUrl('Adminland') },
+          { label: 'Customer Feedback' }
+        ]} />
+        
+        <div className="flex items-center gap-4 mb-8">
+          <button 
+            onClick={() => setActivePanel(null)}
+            className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
+          >
+            <ChevronRight className="w-5 h-5 text-slate-600 rotate-180" />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Customer Feedback</h1>
+            <p className="text-sm text-slate-500">Review and respond to customer feedback</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
+          <FeedbackPanel />
+        </div>
       </div>
     );
   }

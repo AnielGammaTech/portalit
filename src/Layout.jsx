@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import FloatingAdminland from './components/admin/FloatingAdminland';
+import FeedbackButton from './components/feedback/FeedbackButton';
 import AwaitingAccess from './pages/AwaitingAccess';
 
 export default function Layout({ children, currentPageName }) {
@@ -265,6 +266,11 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Floating Adminland - Only for admins */}
       <FloatingAdminland />
+
+      {/* Feedback Button - For non-admin users */}
+      {!isAdmin && user && customer && (
+        <FeedbackButton user={user} customer={customer} />
+      )}
     </div>
   );
 }
