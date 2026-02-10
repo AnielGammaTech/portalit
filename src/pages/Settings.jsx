@@ -38,7 +38,8 @@ import DarkWebIDConfig from '../components/integrations/DarkWebIDConfig';
 import BullPhishIDConfig from '../components/integrations/BullPhishIDConfig';
 import DattoEDRConfig from '../components/integrations/DattoEDRConfig';
 import RocketCyberConfig from '../components/integrations/RocketCyberConfig';
-import { AlertTriangle, Fish, Rocket } from 'lucide-react';
+import SaaSAlertsConfig from '../components/integrations/SaaSAlertsConfig';
+import { AlertTriangle, Fish, Rocket, ShieldAlert } from 'lucide-react';
 
 function GammaStackITPanel() {
   const [apiKey, setApiKey] = useState('');
@@ -230,11 +231,17 @@ function IntegrationsPanel() {
     queryFn: () => base44.entities.RocketCyberMapping.list(),
   });
 
+  const { data: saasAlertsMappings = [] } = useQuery({
+    queryKey: ['saas_alerts_mappings'],
+    queryFn: () => base44.entities.SaaSAlertsMapping.list(),
+  });
+
   const dattoMapped = dattoMappings.length;
   const jumpcloudMapped = jumpcloudMappings.length;
   const spanningMapped = spanningMappings.length;
   const edrMapped = edrMappings.length;
   const rocketcyberMapped = rocketcyberMappings.length;
+  const saasAlertsMapped = saasAlertsMappings.length;
 
   return (
     <div className="space-y-4">
@@ -343,6 +350,23 @@ function IntegrationsPanel() {
         }
       >
         <RocketCyberConfig />
+      </IntegrationCard>
+
+      {/* SaaS Alerts */}
+      <IntegrationCard
+        icon={ShieldAlert}
+        iconBg="bg-amber-50"
+        title="SaaS Alerts"
+        description="Monitor SaaS security events and map organizations"
+        status={
+          saasAlertsMapped > 0 ? (
+            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">{saasAlertsMapped} mapped</Badge>
+          ) : (
+            <Badge variant="outline" className="text-slate-500">Not configured</Badge>
+          )
+        }
+      >
+        <SaaSAlertsConfig />
       </IntegrationCard>
     </div>
   );
