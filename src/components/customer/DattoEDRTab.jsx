@@ -9,8 +9,7 @@ import {
   Activity,
   CheckCircle2,
   ExternalLink,
-  FileText,
-  Loader2
+  FileText
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -55,16 +54,7 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
   const notMapped = !edrMapping;
 
   return (
-    <div className="space-y-4 relative">
-      {/* Loading Overlay */}
-      {syncing && (
-        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
-          <Loader2 className="w-10 h-10 animate-spin text-cyan-600 mb-3" />
-          <p className="text-slate-700 font-medium">Syncing data from Datto EDR...</p>
-          <p className="text-sm text-slate-500 mt-1">Please wait, do not navigate away</p>
-        </div>
-      )}
-
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

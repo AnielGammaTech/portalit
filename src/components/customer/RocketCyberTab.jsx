@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,9 +15,7 @@ import {
   ChevronRight,
   Monitor,
   Calendar,
-  Activity,
-  XCircle,
-  Loader2
+  Activity
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -97,7 +95,6 @@ export default function RocketCyberTab({ customer }) {
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const [severityFilter, setSeverityFilter] = useState('all');
-  const queryClient = useQueryClient();
 
   // Fetch mapping
   const { data: mappings = [] } = useQuery({
@@ -113,21 +110,6 @@ export default function RocketCyberTab({ customer }) {
   });
 
   const mapping = mappings[0];
-
-  // Mutation to close an incident
-  const closeIncidentMutation = useMutation({
-    mutationFn: async (incidentId) => {
-      await base44.entities.RocketCyberIncident.update(incidentId, { status: 'closed' });
-    },
-    onSuccess: () => {
-      toast.success('Incident closed');
-      queryClient.invalidateQueries({ queryKey: ['rocketcyber_incidents', customer.id] });
-      setSelectedIncident(null);
-    },
-    onError: (error) => {
-      toast.error('Failed to close incident: ' + error.message);
-    }
-  });
 
   const syncIncidents = async () => {
     setIsSyncing(true);
@@ -171,29 +153,16 @@ export default function RocketCyberTab({ customer }) {
     return true;
   });
 
-  // Stats - only 'open' counts as open, everything else (suppressed, in_progress, resolved, investigating, closed) is closed
+  // Stats
   const stats = {
     total: incidents.length,
-    open: incidents.filter(i => i.status === 'open').length,
+    open: incidents.filter(i => i.status === 'open' || i.status === 'investigating').length,
     critical: incidents.filter(i => i.severity === 'critical').length,
     high: incidents.filter(i => i.severity === 'high').length
   };
 
-  const isProcessing = isSyncing || closeIncidentMutation.isPending;
-
   return (
-    <div className="space-y-6 relative">
-      {/* Loading Overlay */}
-      {isProcessing && (
-        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
-          <Loader2 className="w-10 h-10 animate-spin text-orange-600 mb-3" />
-          <p className="text-slate-700 font-medium">
-            {isSyncing ? 'Syncing incidents from RocketCyber...' : 'Closing incident...'}
-          </p>
-          <p className="text-sm text-slate-500 mt-1">Please wait, do not navigate away</p>
-        </div>
-      )}
-
+    <div className="space-y-6">
       {/* Header with Sync */}
       <div className="flex items-center justify-between">
         <div>
@@ -218,19 +187,13 @@ export default function RocketCyberTab({ customer }) {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card 
-          className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => { setStatusFilter('all'); setSeverityFilter('all'); }}
-        >
+        <Card>
           <CardContent className="pt-4">
             <div className="text-2xl font-bold">{stats.total}</div>
             <p className="text-sm text-slate-500">Total Incidents</p>
           </CardContent>
         </Card>
-        <Card 
-          className={`cursor-pointer hover:shadow-md transition-shadow ${stats.open > 0 ? 'border-red-200 bg-red-50' : ''}`}
-          onClick={() => { setStatusFilter('open'); setSeverityFilter('all'); }}
-        >
+        <Card className={stats.open > 0 ? 'border-red-200 bg-red-50' : ''}>
           <CardContent className="pt-4">
             <div className={`text-2xl font-bold ${stats.open > 0 ? 'text-red-600' : ''}`}>
               {stats.open}
@@ -238,10 +201,7 @@ export default function RocketCyberTab({ customer }) {
             <p className="text-sm text-slate-500">Open/Active</p>
           </CardContent>
         </Card>
-        <Card 
-          className={`cursor-pointer hover:shadow-md transition-shadow ${stats.critical > 0 ? 'border-red-200 bg-red-50' : ''}`}
-          onClick={() => { setSeverityFilter('critical'); setStatusFilter('all'); }}
-        >
+        <Card className={stats.critical > 0 ? 'border-red-200 bg-red-50' : ''}>
           <CardContent className="pt-4">
             <div className={`text-2xl font-bold ${stats.critical > 0 ? 'text-red-600' : ''}`}>
               {stats.critical}
@@ -249,10 +209,7 @@ export default function RocketCyberTab({ customer }) {
             <p className="text-sm text-slate-500">Critical</p>
           </CardContent>
         </Card>
-        <Card 
-          className={`cursor-pointer hover:shadow-md transition-shadow ${stats.high > 0 ? 'border-orange-200 bg-orange-50' : ''}`}
-          onClick={() => { setSeverityFilter('high'); setStatusFilter('all'); }}
-        >
+        <Card className={stats.high > 0 ? 'border-orange-200 bg-orange-50' : ''}>
           <CardContent className="pt-4">
             <div className={`text-2xl font-bold ${stats.high > 0 ? 'text-orange-600' : ''}`}>
               {stats.high}
@@ -474,38 +431,24 @@ export default function RocketCyberTab({ customer }) {
                   {parsedDetails?.summary && (
                     <div>
                       <p className="text-slate-500 text-xs mb-1">Summary</p>
-                      <div className="text-sm bg-amber-50 border border-amber-200 p-3 rounded-lg text-amber-900 max-h-48 overflow-y-auto whitespace-pre-wrap break-all">
+                      <p className="text-sm bg-amber-50 border border-amber-200 p-3 rounded-lg text-amber-900">
                         {parsedDetails.summary}
-                      </div>
+                      </p>
                     </div>
                   )}
 
-                  {/* Action Buttons */}
-                  <div className="flex flex-col gap-3 pt-3 border-t">
-                    {(selectedIncident.status === 'open' || selectedIncident.status === 'investigating') && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => closeIncidentMutation.mutate(selectedIncident.id)}
-                        disabled={closeIncidentMutation.isPending}
-                        className="w-full text-slate-600"
-                      >
-                        <XCircle className="w-4 h-4 mr-1" />
-                        {closeIncidentMutation.isPending ? 'Closing...' : 'Close Incident'}
-                      </Button>
-                    )}
-                    {parsedDetails?.rocketcyberUrl && (
-                      <a 
-                        href={parsedDetails.rocketcyberUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-center gap-2 text-sm text-orange-600 hover:text-orange-700 font-medium"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                        View in RocketCyber
-                      </a>
-                    )}
-                  </div>
+                  {/* RocketCyber Link */}
+                  {parsedDetails?.rocketcyberUrl && (
+                    <a 
+                      href={parsedDetails.rocketcyberUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm text-orange-600 hover:text-orange-700 font-medium"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      View in RocketCyber Console
+                    </a>
+                  )}
 
                   {/* Raw Description (collapsed by default if parsed) */}
                   {selectedIncident.description && !parsedDetails && (

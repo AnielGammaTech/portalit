@@ -20,8 +20,7 @@ import {
   MessageSquare,
   Calendar,
   FolderOpen,
-  Database,
-  Loader2
+  Database
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -202,20 +201,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
   };
 
   return (
-    <div className="space-y-4 relative">
-      {/* Loading Overlay */}
-      {(syncingSpanning || loadingSharePoint || loadingTeams) && (
-        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
-          <Loader2 className="w-10 h-10 animate-spin text-blue-600 mb-3" />
-          <p className="text-slate-700 font-medium">
-            {syncingSpanning ? 'Syncing data from Spanning Backup...' : 
-             loadingSharePoint ? 'Loading SharePoint sites...' : 
-             'Loading Teams channels...'}
-          </p>
-          <p className="text-sm text-slate-500 mt-1">Please wait, do not navigate away</p>
-        </div>
-      )}
-
+    <div className="space-y-4">
       {/* Domain Info */}
       <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-2xl border border-blue-100 p-6">
         <div className="flex items-center justify-between">

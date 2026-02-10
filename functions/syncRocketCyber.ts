@@ -39,13 +39,13 @@ function mapSeverity(priority) {
 }
 
 function mapStatus(status) {
-  if (!status) return 'closed';
-  const s = String(status).toLowerCase().trim();
-  // Only 'open' or 'new' count as open - must be exact match
-  if (s === 'open' || s === 'new') return 'open';
-  // Explicitly handle suppressed, resolved, closed, etc. as closed
-  // This includes: suppressed, Suppressed, SUPPRESSED, in_progress, investigating, resolved, closed
-  return 'closed';
+  if (!status) return 'open';
+  const s = String(status).toLowerCase();
+  if (s.includes('open') || s.includes('new')) return 'open';
+  if (s.includes('progress') || s.includes('investigating')) return 'investigating';
+  if (s.includes('resolved')) return 'resolved';
+  if (s.includes('closed') || s.includes('suppressed')) return 'closed';
+  return 'open';
 }
 
 Deno.serve(async (req) => {
@@ -227,7 +227,7 @@ Deno.serve(async (req) => {
       const mapping = mappings[0];
       const rcAccountId = mapping.rocketcyber_account_id;
 
-      // Fetch ALL incidents from RocketCyber to get accurate status
+      // Fetch only OPEN incidents from RocketCyber (status=open filters to open incidents only)
       let allIncidents = [];
       let page = 1;
       const pageSize = 100;
@@ -240,9 +240,9 @@ Deno.serve(async (req) => {
         endpoint = `/account/${rcAccountId}/events`;
       }
 
-      // Fetch all incidents (no status filter) to get current status of all incidents
+      // Only sync open incidents (not historical resolved ones)
       while (true) {
-        const incidentsData = await rocketCyberApiCall(endpoint, { page, pageSize });
+        const incidentsData = await rocketCyberApiCall(endpoint, { page, pageSize, status: 'open' });
         const pageIncidents = incidentsData.data || [];
         
         if (!pageIncidents || pageIncidents.length === 0) break;
@@ -250,7 +250,7 @@ Deno.serve(async (req) => {
         
         if (pageIncidents.length < pageSize || page >= (incidentsData.totalPages || 1)) break;
         page++;
-        if (page > 50) break; // Safety limit - increased to get more data
+        if (page > 20) break; // Safety limit
       }
 
       console.log(`Found ${allIncidents.length} incidents for account ${rcAccountId}`);
@@ -261,7 +261,6 @@ Deno.serve(async (req) => {
       existingIncidents.forEach(i => { existingByIncidentId[i.incident_id] = i; });
 
       let synced = 0;
-      let closed = 0;
       const rcIncidentIds = new Set();
 
       for (const incident of allIncidents) {
@@ -269,16 +268,13 @@ Deno.serve(async (req) => {
         rcIncidentIds.add(incidentId);
         const existing = existingByIncidentId[incidentId];
 
-        // If resolvedAt exists OR status is suppressed, consider it closed
-        const hasResolved = incident.resolvedAt != null;
-        const isSuppressed = incident.status && String(incident.status).toLowerCase().includes('suppress');
         const incidentData = {
           customer_id,
           incident_id: incidentId,
           title: incident.title || incident.description || 'Security Incident',
           description: incident.details || incident.description || '',
           severity: mapSeverity(incident.priority || incident.severity),
-          status: (hasResolved || isSuppressed) ? 'closed' : mapStatus(incident.status),
+          status: mapStatus(incident.status),
           category: incident.category || incident.eventType || '',
           app_name: incident.appName || incident.app?.name || '',
           hostname: incident.hostname || incident.agent?.hostname || '',
@@ -288,23 +284,13 @@ Deno.serve(async (req) => {
         };
 
         if (existing) {
-          // Only update if status actually changed to avoid rate limiting
-          if (existing.status !== incidentData.status) {
-            await base44.asServiceRole.entities.RocketCyberIncident.update(existing.id, { status: incidentData.status, resolved_at: incidentData.resolved_at });
+          // Update if status changed
+          if (existing.status !== incidentData.status || existing.resolved_at !== incidentData.resolved_at) {
+            await base44.asServiceRole.entities.RocketCyberIncident.update(existing.id, incidentData);
             synced++;
-            if (incidentData.status !== 'open') closed++;
           }
         } else {
           await base44.asServiceRole.entities.RocketCyberIncident.create(incidentData);
-          synced++;
-        }
-      }
-
-      // Mark any existing incidents NOT in RC response as closed (they were resolved/deleted in RocketCyber)
-      for (const existing of existingIncidents) {
-        if (!rcIncidentIds.has(existing.incident_id) && existing.status === 'open') {
-          await base44.asServiceRole.entities.RocketCyberIncident.update(existing.id, { status: 'closed' });
-          closed++;
           synced++;
         }
       }
@@ -317,7 +303,6 @@ Deno.serve(async (req) => {
       return Response.json({
         success: true,
         recordsSynced: synced,
-        closedIncidents: closed,
         totalIncidents: allIncidents.length
       });
     }
@@ -372,16 +357,13 @@ Deno.serve(async (req) => {
             const incidentId = String(incident.id);
             const existing = existingByIncidentId[incidentId];
 
-            // If resolvedAt exists OR status is suppressed, consider it closed
-            const hasResolved = incident.resolvedAt != null;
-            const isSuppressed = incident.status && String(incident.status).toLowerCase().includes('suppress');
             const incidentData = {
               customer_id: mapping.customer_id,
               incident_id: incidentId,
               title: incident.title || incident.description || 'Security Incident',
               description: incident.details || incident.description || '',
               severity: mapSeverity(incident.priority || incident.severity),
-              status: (hasResolved || isSuppressed) ? 'closed' : mapStatus(incident.status),
+              status: mapStatus(incident.status),
               category: incident.category || incident.eventType || '',
               app_name: incident.appName || incident.app?.name || '',
               hostname: incident.hostname || incident.agent?.hostname || '',

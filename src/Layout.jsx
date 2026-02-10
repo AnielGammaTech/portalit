@@ -268,7 +268,7 @@ export default function Layout({ children, currentPageName }) {
       <FloatingAdminland />
 
       {/* Feedback Button - For non-admin users */}
-      {!isAdmin && user && (
+      {!isAdmin && user && customer && (
         <FeedbackButton user={user} customer={customer} />
       )}
     </div>

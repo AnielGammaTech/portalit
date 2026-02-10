@@ -17,9 +17,7 @@ import {
   RefreshCw,
   AlertCircle,
   FileText,
-  DollarSign,
-  Cloud,
-  Monitor
+  DollarSign
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -88,11 +86,6 @@ export default function Customers() {
   const { data: tickets = [] } = useQuery({
     queryKey: ['all_tickets'],
     queryFn: () => base44.entities.Ticket.list('-created_date', 1000),
-  });
-
-  const { data: applications = [] } = useQuery({
-    queryKey: ['all_applications'],
-    queryFn: () => base44.entities.Application.filter({ status: 'active' }),
   });
 
   const createMutation = useMutation({
@@ -188,9 +181,8 @@ export default function Customers() {
     const customerContracts = contracts.filter(c => c.customer_id === customerId && c.status === 'active');
     const customerTickets = tickets.filter(t => t.customer_id === customerId && ['new', 'open', 'in_progress'].includes(t.status));
     const customerBills = recurringBills.filter(b => b.customer_id === customerId && b.status === 'active');
-    const customerApps = applications.filter(a => a.customer_id === customerId);
     const mrr = customerBills.reduce((sum, b) => sum + (b.amount || 0), 0);
-    return { contracts: customerContracts.length, tickets: customerTickets.length, mrr, apps: customerApps.length };
+    return { contracts: customerContracts.length, tickets: customerTickets.length, mrr };
   };
 
   return (
@@ -273,78 +265,73 @@ export default function Customers() {
               <div
                 key={customer.id}
                 onClick={() => navigate(createPageUrl(`CustomerDetail?id=${customer.id}`))}
-                className="bg-white rounded-xl border border-slate-200/50 p-3 hover:border-purple-200 hover:shadow-sm transition-all group cursor-pointer"
+                className="flex items-center gap-3 bg-white rounded-xl border border-slate-200/50 p-3 hover:border-purple-200 hover:shadow-sm transition-all group cursor-pointer"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-100 to-purple-50 flex items-center justify-center flex-shrink-0">
-                    {customer.logo_url ? (
-                      <img src={customer.logo_url} alt={customer.name} className="w-6 h-6 rounded" />
-                    ) : (
-                      <Building2 className="w-5 h-5 text-purple-600" />
-                    )}
-                  </div>
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-100 to-purple-50 flex items-center justify-center flex-shrink-0">
+                  {customer.logo_url ? (
+                    <img src={customer.logo_url} alt={customer.name} className="w-6 h-6 rounded" />
+                  ) : (
+                    <Building2 className="w-5 h-5 text-purple-600" />
+                  )}
+                </div>
 
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-slate-900 text-sm">{customer.name}</p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-slate-900 truncate text-sm">{customer.name}</p>
+                    <Badge className={cn(
+                      'text-[10px] px-1.5 py-0',
+                      customer.status === 'active' && 'bg-emerald-100 text-emerald-700',
+                      customer.status === 'inactive' && 'bg-slate-100 text-slate-600',
+                      customer.status === 'suspended' && 'bg-red-100 text-red-700'
+                    )}>
+                      {customer.status || 'active'}
+                    </Badge>
                   </div>
+                </div>
 
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0">
-                        <MoreVertical className="w-4 h-4 text-slate-400" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={(e) => {
+                <div className="hidden sm:flex items-center gap-2 text-xs">
+                  <div className="flex items-center gap-1 px-2 py-1 bg-slate-100 rounded-md" title="Contracts">
+                    <FileText className="w-3 h-3 text-slate-500" />
+                    <span className="font-medium text-slate-700">{stats.contracts}</span>
+                  </div>
+                  <div className="flex items-center gap-1 px-2 py-1 bg-slate-100 rounded-md" title="Open Tickets">
+                    <AlertCircle className="w-3 h-3 text-slate-500" />
+                    <span className="font-medium text-slate-700">{stats.tickets}</span>
+                  </div>
+                  <div className="flex items-center gap-1 px-2 py-1 bg-emerald-50 rounded-md" title="Monthly Revenue">
+                    <DollarSign className="w-3 h-3 text-emerald-600" />
+                    <span className="font-medium text-emerald-700">${stats.mrr.toLocaleString()}</span>
+                  </div>
+                </div>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0">
+                      <MoreVertical className="w-4 h-4 text-slate-400" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenDialog(customer);
+                    }}>
+                      <Pencil className="w-4 h-4 mr-2" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      className="text-red-600"
+                      onClick={(e) => {
                         e.stopPropagation();
-                        handleOpenDialog(customer);
-                      }}>
-                        <Pencil className="w-4 h-4 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        className="text-red-600"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteMutation.mutate(customer.id);
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        deleteMutation.mutate(customer.id);
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-                  <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-purple-600 flex-shrink-0" />
-                </div>
-
-                <div className="flex items-center gap-1.5 mt-2 ml-13 text-xs flex-wrap">
-                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-purple-50 rounded" title="Team Members">
-                    <Users className="w-3 h-3 text-purple-500" />
-                    <span className="font-medium text-purple-700">{customer.total_users || 0}</span>
-                    <span className="text-purple-600">Team</span>
-                  </div>
-                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 rounded" title="Contracts">
-                    <FileText className="w-3 h-3 text-blue-500" />
-                    <span className="font-medium text-blue-700">{stats.contracts}</span>
-                    <span className="text-blue-600">Contracts</span>
-                  </div>
-                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-orange-50 rounded" title="Open Tickets">
-                    <AlertCircle className="w-3 h-3 text-orange-500" />
-                    <span className="font-medium text-orange-700">{stats.tickets}</span>
-                    <span className="text-orange-600">Tickets</span>
-                  </div>
-                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-cyan-50 rounded" title="Apps">
-                    <Cloud className="w-3 h-3 text-cyan-500" />
-                    <span className="font-medium text-cyan-700">{stats.apps}</span>
-                    <span className="text-cyan-600">Apps</span>
-                  </div>
-                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-slate-100 rounded" title="Devices">
-                    <Monitor className="w-3 h-3 text-slate-500" />
-                    <span className="font-medium text-slate-700">{customer.total_devices || 0}</span>
-                    <span className="text-slate-600">Devices</span>
-                  </div>
-                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-purple-600 flex-shrink-0" />
               </div>
             );
           })}
