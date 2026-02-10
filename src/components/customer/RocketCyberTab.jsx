@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +15,8 @@ import {
   ChevronRight,
   Monitor,
   Calendar,
-  Activity
+  Activity,
+  XCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -95,6 +96,7 @@ export default function RocketCyberTab({ customer }) {
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const [severityFilter, setSeverityFilter] = useState('all');
+  const queryClient = useQueryClient();
 
   // Fetch mapping
   const { data: mappings = [] } = useQuery({
@@ -110,6 +112,21 @@ export default function RocketCyberTab({ customer }) {
   });
 
   const mapping = mappings[0];
+
+  // Mutation to close an incident
+  const closeIncidentMutation = useMutation({
+    mutationFn: async (incidentId) => {
+      await base44.entities.RocketCyberIncident.update(incidentId, { status: 'closed' });
+    },
+    onSuccess: () => {
+      toast.success('Incident closed');
+      queryClient.invalidateQueries({ queryKey: ['rocketcyber_incidents', customer.id] });
+      setSelectedIncident(null);
+    },
+    onError: (error) => {
+      toast.error('Failed to close incident: ' + error.message);
+    }
+  });
 
   const syncIncidents = async () => {
     setIsSyncing(true);
@@ -437,18 +454,32 @@ export default function RocketCyberTab({ customer }) {
                     </div>
                   )}
 
-                  {/* RocketCyber Link */}
-                  {parsedDetails?.rocketcyberUrl && (
-                    <a 
-                      href={parsedDetails.rocketcyberUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-orange-600 hover:text-orange-700 font-medium"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      View in RocketCyber Console
-                    </a>
-                  )}
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-3 pt-2 border-t">
+                    {parsedDetails?.rocketcyberUrl && (
+                      <a 
+                        href={parsedDetails.rocketcyberUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-sm text-orange-600 hover:text-orange-700 font-medium"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        View in RocketCyber
+                      </a>
+                    )}
+                    {selectedIncident.status === 'open' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => closeIncidentMutation.mutate(selectedIncident.id)}
+                        disabled={closeIncidentMutation.isPending}
+                        className="ml-auto text-slate-600"
+                      >
+                        <XCircle className="w-4 h-4 mr-1" />
+                        {closeIncidentMutation.isPending ? 'Closing...' : 'Close Incident'}
+                      </Button>
+                    )}
+                  </div>
 
                   {/* Raw Description (collapsed by default if parsed) */}
                   {selectedIncident.description && !parsedDetails && (
