@@ -205,7 +205,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
     <div className="space-y-4 relative">
       {/* Loading Overlay */}
       {(syncingSpanning || loadingSharePoint || loadingTeams) && (
-        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center rounded-lg">
+        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
           <Loader2 className="w-10 h-10 animate-spin text-blue-600 mb-3" />
           <p className="text-slate-700 font-medium">
             {syncingSpanning ? 'Syncing data from Spanning Backup...' : 

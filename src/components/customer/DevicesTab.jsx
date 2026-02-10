@@ -133,7 +133,7 @@ export default function DevicesTab({ customerId, customerExternalId }) {
     <div className="space-y-6 relative">
       {/* Loading Overlay */}
       {syncing && (
-        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center rounded-lg">
+        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
           <Loader2 className="w-10 h-10 animate-spin text-blue-600 mb-3" />
           <p className="text-slate-700 font-medium">Syncing devices from Datto RMM...</p>
           <p className="text-sm text-slate-500 mt-1">Please wait, do not navigate away</p>
