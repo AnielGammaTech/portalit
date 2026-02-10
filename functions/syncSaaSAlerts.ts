@@ -4,15 +4,11 @@ const API_BASE = 'https://us-central1-the-byway-248217.cloudfunctions.net/report
 
 async function saasAlertsApiCall(endpoint, method = 'GET', body = null) {
   const apiKey = Deno.env.get('SAAS_ALERTS_API_KEY');
-  const apiUser = Deno.env.get('SAAS_ALERTS_API_USER');
-  const partnerId = Deno.env.get('SAAS_ALERTS_PARTNER_ID');
   
   console.log('API Call to:', endpoint);
-  console.log('Using partnerId:', partnerId);
-  console.log('Using apiUser:', apiUser);
-  console.log('API Key length:', apiKey?.length);
+  console.log('API Key present:', !!apiKey, 'length:', apiKey?.length);
   
-  // Use apikey header (lowercase) as per SaaS Alerts docs
+  // SaaS Alerts uses 'apikey' header (lowercase) per their Swagger docs
   const headers = {
     'apikey': apiKey,
     'Content-Type': 'application/json'
@@ -21,25 +17,20 @@ async function saasAlertsApiCall(endpoint, method = 'GET', body = null) {
   const options = { method, headers };
   if (body) options.body = JSON.stringify(body);
   
-  // Add partnerId to query params if not already present
-  let url = `${API_BASE}${endpoint}`;
-  if (!url.includes('partnerId=') && partnerId) {
-    url += (url.includes('?') ? '&' : '?') + `partnerId=${partnerId}`;
-  }
-  
+  const url = `${API_BASE}${endpoint}`;
   console.log('Full URL:', url);
   
   const response = await fetch(url, options);
   
   const responseText = await response.text();
   console.log('Response status:', response.status);
-  console.log('Response body:', responseText.substring(0, 500));
+  console.log('Response body preview:', responseText.substring(0, 500));
   
   if (!response.ok) {
     throw new Error(`SaaS Alerts API error: ${response.status} - ${responseText}`);
   }
   
-  return JSON.parse(responseText);
+  return responseText ? JSON.parse(responseText) : {};
 }
 
 Deno.serve(async (req) => {
