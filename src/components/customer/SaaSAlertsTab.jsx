@@ -320,8 +320,19 @@ export default function SaaSAlertsTab({ customer, saasAlertsMapping }) {
           )}
         </CardContent>
       </Card>
-        </div>
-      )}
+
+      {/* Link to SaaS Alerts */}
+      <div className="text-center pt-2">
+        <a 
+          href="https://app.saasalerts.com" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 text-sm text-purple-600 hover:text-purple-700 font-medium"
+        >
+          View full details in SaaS Alerts
+          <ExternalLink className="w-4 h-4" />
+        </a>
+      </div>
     </div>
   );
 }
