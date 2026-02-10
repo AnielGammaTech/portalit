@@ -429,42 +429,30 @@ export default function CustomerServicesTab({
               <Monitor className="w-4 h-4" />
               Devices
             </TabsTrigger>
-            {jumpcloudMapping && (
-              <TabsTrigger value="jumpcloud" className="gap-2 py-2 px-4 text-sm font-medium">
-                <Shield className="w-4 h-4" />
-                JumpCloud
-              </TabsTrigger>
-            )}
-            {spanningMapping && (
-              <TabsTrigger value="spanning" className="gap-2 py-2 px-4 text-sm font-medium">
-                <Cloud className="w-4 h-4" />
-                Spanning Backup
-              </TabsTrigger>
-            )}
-            {hasDarkWeb && (
-              <TabsTrigger value="darkweb" className="gap-2 py-2 px-4 text-sm font-medium">
-                <AlertTriangle className="w-4 h-4" />
-                Dark Web
-              </TabsTrigger>
-            )}
-            {hasBullPhish && (
-              <TabsTrigger value="bullphish" className="gap-2 py-2 px-4 text-sm font-medium">
-                <Fish className="w-4 h-4" />
-                BullPhish ID
-              </TabsTrigger>
-            )}
-            {hasEDR && (
-              <TabsTrigger value="edr" className="gap-2 py-2 px-4 text-sm font-medium">
-                <Shield className="w-4 h-4" />
-                Datto EDR
-              </TabsTrigger>
-            )}
-            {hasRocketCyber && (
-              <TabsTrigger value="rocketcyber" className="gap-2 py-2 px-4 text-sm font-medium">
-                <Shield className="w-4 h-4" />
-                RocketCyber
-              </TabsTrigger>
-            )}
+            <TabsTrigger value="jumpcloud" className="gap-2 py-2 px-4 text-sm font-medium">
+              <Shield className="w-4 h-4" />
+              JumpCloud
+            </TabsTrigger>
+            <TabsTrigger value="spanning" className="gap-2 py-2 px-4 text-sm font-medium">
+              <Cloud className="w-4 h-4" />
+              Spanning Backup
+            </TabsTrigger>
+            <TabsTrigger value="darkweb" className="gap-2 py-2 px-4 text-sm font-medium">
+              <AlertTriangle className="w-4 h-4" />
+              Dark Web
+            </TabsTrigger>
+            <TabsTrigger value="bullphish" className="gap-2 py-2 px-4 text-sm font-medium">
+              <Fish className="w-4 h-4" />
+              BullPhish ID
+            </TabsTrigger>
+            <TabsTrigger value="edr" className="gap-2 py-2 px-4 text-sm font-medium">
+              <Shield className="w-4 h-4" />
+              Datto EDR
+            </TabsTrigger>
+            <TabsTrigger value="rocketcyber" className="gap-2 py-2 px-4 text-sm font-medium">
+              <Shield className="w-4 h-4" />
+              RocketCyber
+            </TabsTrigger>
           </TabsList>
           
           {/* Sync All Button - Smaller & Sleeker */}
@@ -585,8 +573,8 @@ export default function CustomerServicesTab({
         </TabsContent>
 
         {/* JumpCloud Tab */}
-        {jumpcloudMapping && (
-          <TabsContent value="jumpcloud">
+        <TabsContent value="jumpcloud">
+          {jumpcloudMapping ? (
             <div className="space-y-4">
               {/* Stats */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -702,47 +690,59 @@ export default function CustomerServicesTab({
 
 
             </div>
-          </TabsContent>
-        )}
+          ) : (
+            <Card><CardContent className="py-12 text-center text-slate-500">Not configured for this customer</CardContent></Card>
+          )}
+        </TabsContent>
 
         {/* Spanning Backup Tab */}
-        {spanningMapping && (
-          <TabsContent value="spanning">
+        <TabsContent value="spanning">
+          {spanningMapping ? (
             <SpanningUsersTab 
               customerId={customerId} 
               spanningMapping={spanningMapping}
               queryClient={queryClient}
             />
-          </TabsContent>
-        )}
+          ) : (
+            <Card><CardContent className="py-12 text-center text-slate-500">Not configured for this customer</CardContent></Card>
+          )}
+        </TabsContent>
 
         {/* Dark Web ID Tab */}
-        {hasDarkWeb && (
-          <TabsContent value="darkweb">
+        <TabsContent value="darkweb">
+          {hasDarkWeb ? (
             <DarkWebTab customerId={customerId} />
-          </TabsContent>
-        )}
+          ) : (
+            <Card><CardContent className="py-12 text-center text-slate-500">Not configured for this customer</CardContent></Card>
+          )}
+        </TabsContent>
 
         {/* BullPhish ID Tab */}
-        {hasBullPhish && (
-          <TabsContent value="bullphish">
+        <TabsContent value="bullphish">
+          {hasBullPhish ? (
             <BullPhishTab customerId={customerId} />
-          </TabsContent>
-        )}
+          ) : (
+            <Card><CardContent className="py-12 text-center text-slate-500">Not configured for this customer</CardContent></Card>
+          )}
+        </TabsContent>
 
         {/* Datto EDR Tab */}
-        {hasEDR && (
-          <TabsContent value="edr">
+        <TabsContent value="edr">
+          {hasEDR ? (
             <DattoEDRTab customerId={customerId} edrMapping={edrMapping} customerName={customer?.name} />
-          </TabsContent>
-        )}
+          ) : (
+            <Card><CardContent className="py-12 text-center text-slate-500">Not configured for this customer</CardContent></Card>
+          )}
+        </TabsContent>
 
         {/* RocketCyber Tab */}
-        {hasRocketCyber && (
-          <TabsContent value="rocketcyber">
+        <TabsContent value="rocketcyber">
+          {hasRocketCyber ? (
             <RocketCyberTab customer={customer} />
-          </TabsContent>
-        )}
+          ) : (
+            <Card><CardContent className="py-12 text-center text-slate-500">Not configured for this customer</CardContent></Card>
+          )}
+        </TabsContent>
       </Tabs>
 
 
