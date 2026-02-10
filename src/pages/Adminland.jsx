@@ -24,7 +24,10 @@ import {
   Image,
   Upload,
   Palette,
-  Save
+  Save,
+  Code,
+  Copy,
+  Check
 } from 'lucide-react';
 
 const MENU_SECTIONS = [
