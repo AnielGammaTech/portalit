@@ -29,6 +29,7 @@ export default function SaaSAlertsTab({ customer, saasAlertsMapping }) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [severityFilter, setSeverityFilter] = useState('all');
   const [expandedAlert, setExpandedAlert] = useState(null);
+  const [selectedContact, setSelectedContact] = useState(null);
 
   // Fetch SaaS Alerts for this customer
   const { data: alerts = [], isLoading, refetch } = useQuery({
