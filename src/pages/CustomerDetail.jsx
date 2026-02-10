@@ -548,7 +548,7 @@ export default function CustomerDetail() {
               { icon: Users, value: contacts.length, label: 'Team', color: 'blue' },
               { icon: FileText, value: contracts.filter(c => c.status === 'active').length, label: 'Contracts', color: 'orange' },
               { icon: HelpCircle, value: tickets.length, label: 'Tickets', color: 'amber' },
-              { icon: Cloud, value: licenses.length, label: 'Apps', color: 'indigo' },
+              { icon: Cloud, value: applications.length, label: 'Apps', color: 'indigo' },
               { icon: Monitor, value: devices.length, label: 'Devices', color: 'cyan' },
             ].map(stat => (
               <div 
