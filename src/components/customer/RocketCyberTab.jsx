@@ -204,13 +204,19 @@ export default function RocketCyberTab({ customer }) {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => { setStatusFilter('all'); setSeverityFilter('all'); }}
+        >
           <CardContent className="pt-4">
             <div className="text-2xl font-bold">{stats.total}</div>
             <p className="text-sm text-slate-500">Total Incidents</p>
           </CardContent>
         </Card>
-        <Card className={stats.open > 0 ? 'border-red-200 bg-red-50' : ''}>
+        <Card 
+          className={`cursor-pointer hover:shadow-md transition-shadow ${stats.open > 0 ? 'border-red-200 bg-red-50' : ''}`}
+          onClick={() => { setStatusFilter('open'); setSeverityFilter('all'); }}
+        >
           <CardContent className="pt-4">
             <div className={`text-2xl font-bold ${stats.open > 0 ? 'text-red-600' : ''}`}>
               {stats.open}
@@ -218,7 +224,10 @@ export default function RocketCyberTab({ customer }) {
             <p className="text-sm text-slate-500">Open/Active</p>
           </CardContent>
         </Card>
-        <Card className={stats.critical > 0 ? 'border-red-200 bg-red-50' : ''}>
+        <Card 
+          className={`cursor-pointer hover:shadow-md transition-shadow ${stats.critical > 0 ? 'border-red-200 bg-red-50' : ''}`}
+          onClick={() => { setSeverityFilter('critical'); setStatusFilter('all'); }}
+        >
           <CardContent className="pt-4">
             <div className={`text-2xl font-bold ${stats.critical > 0 ? 'text-red-600' : ''}`}>
               {stats.critical}
@@ -226,7 +235,10 @@ export default function RocketCyberTab({ customer }) {
             <p className="text-sm text-slate-500">Critical</p>
           </CardContent>
         </Card>
-        <Card className={stats.high > 0 ? 'border-orange-200 bg-orange-50' : ''}>
+        <Card 
+          className={`cursor-pointer hover:shadow-md transition-shadow ${stats.high > 0 ? 'border-orange-200 bg-orange-50' : ''}`}
+          onClick={() => { setSeverityFilter('high'); setStatusFilter('all'); }}
+        >
           <CardContent className="pt-4">
             <div className={`text-2xl font-bold ${stats.high > 0 ? 'text-orange-600' : ''}`}>
               {stats.high}
@@ -467,7 +479,7 @@ export default function RocketCyberTab({ customer }) {
                         View in RocketCyber
                       </a>
                     )}
-                    {selectedIncident.status === 'open' && (
+                    {(selectedIncident.status === 'open' || selectedIncident.status === 'investigating') && (
                       <Button
                         variant="outline"
                         size="sm"
