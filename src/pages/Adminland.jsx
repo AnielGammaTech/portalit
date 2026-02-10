@@ -86,6 +86,15 @@ const MENU_SECTIONS = [
 export default function Adminland() {
   const [user, setUser] = useState(null);
   const [activePanel, setActivePanel] = useState(null);
+  
+  // Check URL for panel parameter
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const panel = params.get('panel');
+    if (panel) {
+      setActivePanel(panel);
+    }
+  }, []);
   const queryClient = useQueryClient();
 
   // Portal Settings state
