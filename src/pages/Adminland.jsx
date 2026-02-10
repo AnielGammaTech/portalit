@@ -392,6 +392,30 @@ export default function Adminland() {
             <h1 className="text-2xl font-bold text-slate-900">API Documentation</h1>
             <p className="text-sm text-slate-500">REST API endpoints for external integrations (e.g., Triggr)</p>
           </div>
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => {
+                const url = window.location.href;
+                navigator.clipboard.writeText(url);
+                toast.success('Link copied to clipboard');
+              }}
+            >
+              <Share2 className="w-4 h-4" />
+              Share Link
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => window.print()}
+            >
+              <Printer className="w-4 h-4" />
+              Print
+            </Button>
+          </div>
         </div>
 
         {/* Authentication Section */}
