@@ -315,23 +315,51 @@ export default function SaaSAlertsTab({ customer, saasAlertsMapping }) {
                     <div className="bg-slate-50 border-t border-slate-100 px-4 py-3">
                       <p className="text-xs text-slate-500 mb-2">{group.count} occurrence{group.count !== 1 ? 's' : ''}</p>
                       <div className="space-y-2 max-h-64 overflow-y-auto">
-                        {group.alerts.slice(0, 20).map(alert => (
-                          <div key={alert.id} className="bg-white rounded-lg px-3 py-2 text-sm border border-slate-200">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-slate-600 truncate">{alert.user_email || 'Unknown user'}</span>
-                              <span className="text-xs text-slate-400 flex-shrink-0">
-                                {alert.detected_at && format(parseISO(alert.detected_at), 'MMM d, h:mm a')}
-                              </span>
-                            </div>
-                            {(alert.ip_address || alert.location) && (
-                              <div className="text-xs text-slate-400 mt-1">
-                                {alert.ip_address && <span>{alert.ip_address}</span>}
-                                {alert.ip_address && alert.location && <span> · </span>}
-                                {alert.location && <span>{alert.location}</span>}
+                        {group.alerts.slice(0, 20).map(alert => {
+                          const contact = getContactFromEmail(alert.user_email);
+                          const displayName = contact?.full_name || alert.user_email || 'Unknown user';
+                          
+                          return (
+                            <div 
+                              key={alert.id} 
+                              className={cn(
+                                "bg-white rounded-lg px-3 py-2 text-sm border border-slate-200",
+                                contact && "cursor-pointer hover:border-purple-300 hover:bg-purple-50/30 transition-colors"
+                              )}
+                              onClick={() => contact && setSelectedContact(contact)}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  {contact ? (
+                                    <>
+                                      <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 text-xs font-medium flex-shrink-0">
+                                        {displayName.charAt(0)}
+                                      </div>
+                                      <span className="text-purple-600 font-medium truncate">{displayName}</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 flex-shrink-0">
+                                        <User className="w-3 h-3" />
+                                      </div>
+                                      <span className="text-slate-600 truncate">{displayName}</span>
+                                    </>
+                                  )}
+                                </div>
+                                <span className="text-xs text-slate-400 flex-shrink-0">
+                                  {alert.detected_at && format(parseISO(alert.detected_at), 'MMM d, h:mm a')}
+                                </span>
                               </div>
-                            )}
-                          </div>
-                        ))}
+                              {(alert.ip_address || alert.location) && (
+                                <div className="text-xs text-slate-400 mt-1 ml-8">
+                                  {alert.ip_address && <span>{alert.ip_address}</span>}
+                                  {alert.ip_address && alert.location && <span> · </span>}
+                                  {alert.location && <span>{alert.location}</span>}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                         {group.alerts.length > 20 && (
                           <p className="text-xs text-slate-400 text-center py-2">
                             +{group.alerts.length - 20} more alerts
