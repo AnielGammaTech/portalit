@@ -41,11 +41,10 @@ function mapSeverity(priority) {
 function mapStatus(status) {
   if (!status) return 'open';
   const s = String(status).toLowerCase();
-  if (s.includes('open') || s.includes('new')) return 'open';
-  if (s.includes('progress') || s.includes('investigating')) return 'investigating';
-  if (s.includes('resolved')) return 'resolved';
-  if (s.includes('closed') || s.includes('suppressed')) return 'closed';
-  return 'open';
+  // Only 'open' or 'new' count as open
+  if (s === 'open' || s === 'new') return 'open';
+  // Everything else (suppressed, in_progress, investigating, resolved, closed) is closed
+  return 'closed';
 }
 
 Deno.serve(async (req) => {
