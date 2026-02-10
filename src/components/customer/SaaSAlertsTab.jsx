@@ -38,6 +38,29 @@ export default function SaaSAlertsTab({ customer, saasAlertsMapping }) {
     enabled: !!customer?.id
   });
 
+  // Fetch contacts for this customer to match user emails
+  const { data: contacts = [] } = useQuery({
+    queryKey: ['contacts', customer?.id],
+    queryFn: () => base44.entities.Contact.filter({ customer_id: customer?.id }),
+    enabled: !!customer?.id
+  });
+
+  // Create a lookup map for contacts by email
+  const contactsByEmail = useMemo(() => {
+    const map = {};
+    contacts.forEach(contact => {
+      if (contact.email) {
+        map[contact.email.toLowerCase()] = contact;
+      }
+    });
+    return map;
+  }, [contacts]);
+
+  const getContactFromEmail = (email) => {
+    if (!email) return null;
+    return contactsByEmail[email.toLowerCase()] || null;
+  };
+
   const handleSync = async () => {
     if (!saasAlertsMapping) return;
     setIsSyncing(true);
