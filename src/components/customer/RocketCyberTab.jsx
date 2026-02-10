@@ -16,7 +16,8 @@ import {
   Monitor,
   Calendar,
   Activity,
-  XCircle
+  XCircle,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -178,8 +179,21 @@ export default function RocketCyberTab({ customer }) {
     high: incidents.filter(i => i.severity === 'high').length
   };
 
+  const isProcessing = isSyncing || closeIncidentMutation.isPending;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Loading Overlay */}
+      {isProcessing && (
+        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center rounded-lg">
+          <Loader2 className="w-10 h-10 animate-spin text-orange-600 mb-3" />
+          <p className="text-slate-700 font-medium">
+            {isSyncing ? 'Syncing incidents from RocketCyber...' : 'Closing incident...'}
+          </p>
+          <p className="text-sm text-slate-500 mt-1">Please wait, do not navigate away</p>
+        </div>
+      )}
+
       {/* Header with Sync */}
       <div className="flex items-center justify-between">
         <div>
