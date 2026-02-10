@@ -27,6 +27,7 @@ import BullPhishTab from './BullPhishTab';
 import SpanningUsersTab from './SpanningUsersTab';
 import DevicesTab from './DevicesTab';
 import DattoEDRTab from './DattoEDRTab';
+import RocketCyberTab from './RocketCyberTab';
 
 export default function CustomerServicesTab({ 
   customerId, 
@@ -139,9 +140,20 @@ export default function CustomerServicesTab({
     enabled: !!customerId
   });
 
+  // Fetch RocketCyber mapping for this customer
+  const { data: rocketcyberMapping } = useQuery({
+    queryKey: ['rocketcyber-mapping', customerId],
+    queryFn: async () => {
+      const mappings = await base44.entities.RocketCyberMapping.filter({ customer_id: customerId });
+      return mappings[0] || null;
+    },
+    enabled: !!customerId
+  });
+
   const hasBullPhish = bullphishReports.length > 0;
   const hasDarkWeb = darkwebReports.length > 0;
   const hasEDR = !!edrMapping;
+  const hasRocketCyber = !!rocketcyberMapping;
 
   const updateSyncStatus = (service, status, error = null) => {
     setSyncStatuses(prev => ({
@@ -444,6 +456,12 @@ export default function CustomerServicesTab({
                 Datto EDR
               </TabsTrigger>
             )}
+            {hasRocketCyber && (
+              <TabsTrigger value="rocketcyber" className="gap-2 py-2 px-4 text-sm font-medium">
+                <Shield className="w-4 h-4" />
+                RocketCyber
+              </TabsTrigger>
+            )}
           </TabsList>
           
           {/* Sync All Button - Smaller & Sleeker */}
@@ -713,6 +731,13 @@ export default function CustomerServicesTab({
         {hasEDR && (
           <TabsContent value="edr">
             <DattoEDRTab customerId={customerId} edrMapping={edrMapping} customerName={customer?.name} />
+          </TabsContent>
+        )}
+
+        {/* RocketCyber Tab */}
+        {hasRocketCyber && (
+          <TabsContent value="rocketcyber">
+            <RocketCyberTab customer={customer} />
           </TabsContent>
         )}
       </Tabs>
