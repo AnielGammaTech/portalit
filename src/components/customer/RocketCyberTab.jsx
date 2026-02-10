@@ -467,29 +467,29 @@ export default function RocketCyberTab({ customer }) {
                   )}
 
                   {/* Action Buttons */}
-                  <div className="flex items-center gap-3 pt-2 border-t">
-                    {parsedDetails?.rocketcyberUrl && (
-                      <a 
-                        href={parsedDetails.rocketcyberUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-sm text-orange-600 hover:text-orange-700 font-medium"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                        View in RocketCyber
-                      </a>
-                    )}
+                  <div className="flex flex-col gap-3 pt-3 border-t">
                     {(selectedIncident.status === 'open' || selectedIncident.status === 'investigating') && (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => closeIncidentMutation.mutate(selectedIncident.id)}
                         disabled={closeIncidentMutation.isPending}
-                        className="ml-auto text-slate-600"
+                        className="w-full text-slate-600"
                       >
                         <XCircle className="w-4 h-4 mr-1" />
                         {closeIncidentMutation.isPending ? 'Closing...' : 'Close Incident'}
                       </Button>
+                    )}
+                    {parsedDetails?.rocketcyberUrl && (
+                      <a 
+                        href={parsedDetails.rocketcyberUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-2 text-sm text-orange-600 hover:text-orange-700 font-medium"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        View in RocketCyber
+                      </a>
                     )}
                   </div>
 
