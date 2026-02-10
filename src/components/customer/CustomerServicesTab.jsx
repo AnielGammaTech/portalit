@@ -116,10 +116,13 @@ export default function CustomerServicesTab({
     enabled: !!customerId
   });
 
-  // Fetch Dark Web ID reports for this customer
-  const { data: darkwebReports = [] } = useQuery({
-    queryKey: ['darkwebid-reports', customerId],
-    queryFn: () => base44.entities.DarkWebIDReport.filter({ customer_id: customerId }),
+  // Fetch Dark Web ID mapping for this customer
+  const { data: darkwebMapping } = useQuery({
+    queryKey: ['darkwebid-mapping', customerId],
+    queryFn: async () => {
+      const mappings = await base44.entities.DarkWebIDMapping.filter({ customer_id: customerId });
+      return mappings[0] || null;
+    },
     enabled: !!customerId
   });
 
@@ -151,7 +154,7 @@ export default function CustomerServicesTab({
   });
 
   const hasBullPhish = bullphishReports.length > 0;
-  const hasDarkWeb = darkwebReports.length > 0;
+  const hasDarkWeb = !!darkwebMapping;
   const hasEDR = !!edrMapping;
   const hasRocketCyber = !!rocketcyberMapping;
 
