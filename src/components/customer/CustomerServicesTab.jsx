@@ -420,22 +420,6 @@ export default function CustomerServicesTab({
     <div className="space-y-6">
       <Tabs defaultValue="recurring" className="space-y-4">
         <div className="flex flex-col gap-4">
-          {/* Sync All Button */}
-          {integrations.length > 0 && (
-            <div className="flex justify-end">
-              <Button
-                onClick={handleSyncAll}
-                disabled={syncingAll}
-                variant="outline"
-                size="sm"
-                className="gap-1.5 text-xs h-8"
-              >
-                <RefreshCw className={cn("w-3.5 h-3.5", syncingAll && "animate-spin")} />
-                {syncingAll ? 'Syncing...' : 'Sync All'}
-              </Button>
-            </div>
-          )}
-          
           {/* Service Tabs Grid */}
           <TabsList className="bg-slate-100/50 border border-slate-200 p-1.5 h-auto flex flex-wrap gap-1 justify-center rounded-xl">
             <TabsTrigger value="recurring" className="gap-2 py-2.5 px-4 text-sm font-medium rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">

@@ -482,18 +482,16 @@ export default function CustomerDetail() {
               View as Customer
             </Button>
           </Link>
-         {customer?.source === 'halopsa' && (
-           <Button 
-             onClick={handleSyncCustomer}
-             disabled={isSyncing}
-             variant="outline"
-             className="gap-2"
-             size="sm"
-           >
-             <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
-             Refresh Data
-           </Button>
-         )}
+          <Button 
+            onClick={handleSyncCustomer}
+            disabled={isSyncing}
+            variant="outline"
+            className="gap-2"
+            size="sm"
+          >
+            <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
+            {isSyncing ? 'Syncing...' : 'Sync All'}
+          </Button>
         </div>
       )}
 
