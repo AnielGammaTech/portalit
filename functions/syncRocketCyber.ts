@@ -1,7 +1,8 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 const ROCKETCYBER_API_TOKEN = Deno.env.get('ROCKETCYBER_API_TOKEN');
-const API_BASE_URL = 'https://api-us.rocketcyber.com/v3';
+// RocketCyber API uses v2 for most endpoints
+const API_BASE_URL = 'https://api-us.rocketcyber.com/v2';
 
 async function rocketCyberApiCall(endpoint, params = {}) {
   const url = new URL(`${API_BASE_URL}${endpoint}`);
@@ -90,33 +91,51 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'msp_account_id is required' }, { status: 400 });
       }
 
-      const accountData = await rocketCyberApiCall(`/account/${msp_account_id}`);
-      const customerIds = accountData.customers || [];
-      
-      // Fetch details for each customer
-      const customers = [];
-      for (const customerId of customerIds) {
-        try {
-          const customerData = await rocketCyberApiCall(`/account/${customerId}`);
-          customers.push({
-            id: customerId,
-            name: customerData.name,
-            status: customerData.status,
-            type: customerData.type
-          });
-        } catch (err) {
-          console.error(`Error fetching customer ${customerId}:`, err.message);
+      try {
+        const accountData = await rocketCyberApiCall(`/account/${msp_account_id}`);
+        const customerIds = accountData.customers || [];
+        
+        // Fetch details for each customer (limit to avoid timeout)
+        const customers = [];
+        const batchSize = 20;
+        const idsToFetch = customerIds.slice(0, 100); // Limit to first 100 for performance
+        
+        for (let i = 0; i < idsToFetch.length; i += batchSize) {
+          const batch = idsToFetch.slice(i, i + batchSize);
+          const batchResults = await Promise.all(
+            batch.map(async (customerId) => {
+              try {
+                const customerData = await rocketCyberApiCall(`/account/${customerId}`);
+                return {
+                  id: customerId,
+                  name: customerData.name,
+                  status: customerData.status,
+                  type: customerData.type
+                };
+              } catch (err) {
+                console.error(`Error fetching customer ${customerId}:`, err.message);
+                return null;
+              }
+            })
+          );
+          customers.push(...batchResults.filter(Boolean));
         }
-      }
 
-      return Response.json({
-        success: true,
-        mspAccount: {
-          id: msp_account_id,
-          name: accountData.name
-        },
-        customers
-      });
+        return Response.json({
+          success: true,
+          mspAccount: {
+            id: msp_account_id,
+            name: accountData.name
+          },
+          customers,
+          totalCustomerIds: customerIds.length
+        });
+      } catch (err) {
+        console.error('Error listing accounts:', err.message);
+        return Response.json({ 
+          error: `Failed to list accounts: ${err.message}. Make sure you're using your Provider account ID from RocketCyber Settings.` 
+        }, { status: 400 });
+      }
     }
 
     // Action: Get account details
@@ -129,7 +148,7 @@ Deno.serve(async (req) => {
       return Response.json({ success: true, account: accountData });
     }
 
-    // Action: Get incidents for an account
+    // Action: Get incidents/events for an account (RocketCyber calls them 'events' in v2)
     if (action === 'get_incidents') {
       if (!account_id) {
         return Response.json({ error: 'account_id is required' }, { status: 400 });
@@ -142,14 +161,27 @@ Deno.serve(async (req) => {
         params.status = incidentStatus;
       }
 
-      const incidentsData = await rocketCyberApiCall(`/account/${account_id}/incidents`, params);
-      return Response.json({
-        success: true,
-        incidents: incidentsData.data || incidentsData,
-        totalCount: incidentsData.totalCount,
-        currentPage: incidentsData.currentPage,
-        totalPages: incidentsData.totalPages
-      });
+      // Try incidents endpoint first, fall back to events if not available
+      try {
+        const incidentsData = await rocketCyberApiCall(`/account/${account_id}/incidents`, params);
+        return Response.json({
+          success: true,
+          incidents: incidentsData.data || incidentsData,
+          totalCount: incidentsData.totalCount,
+          currentPage: incidentsData.currentPage,
+          totalPages: incidentsData.totalPages
+        });
+      } catch (err) {
+        // Try events endpoint as fallback
+        const eventsData = await rocketCyberApiCall(`/account/${account_id}/events`, params);
+        return Response.json({
+          success: true,
+          incidents: eventsData.data || eventsData,
+          totalCount: eventsData.totalCount,
+          currentPage: eventsData.currentPage,
+          totalPages: eventsData.totalPages
+        });
+      }
     }
 
     // Action: Get agents/devices for an account
@@ -200,8 +232,16 @@ Deno.serve(async (req) => {
       let page = 1;
       const pageSize = 100;
 
+      // Try incidents endpoint first, fall back to events
+      let endpoint = `/account/${rcAccountId}/incidents`;
+      try {
+        await rocketCyberApiCall(endpoint, { page: 1, pageSize: 1 });
+      } catch (err) {
+        endpoint = `/account/${rcAccountId}/events`;
+      }
+
       while (true) {
-        const incidentsData = await rocketCyberApiCall(`/account/${rcAccountId}/incidents`, { page, pageSize });
+        const incidentsData = await rocketCyberApiCall(endpoint, { page, pageSize });
         const pageIncidents = incidentsData.data || [];
         
         if (!pageIncidents || pageIncidents.length === 0) break;
@@ -281,12 +321,20 @@ Deno.serve(async (req) => {
         try {
           const rcAccountId = mapping.rocketcyber_account_id;
           
+          // Determine correct endpoint
+          let endpoint = `/account/${rcAccountId}/incidents`;
+          try {
+            await rocketCyberApiCall(endpoint, { page: 1, pageSize: 1 });
+          } catch (err) {
+            endpoint = `/account/${rcAccountId}/events`;
+          }
+          
           let allIncidents = [];
           let page = 1;
           const pageSize = 100;
 
           while (true) {
-            const incidentsData = await rocketCyberApiCall(`/account/${rcAccountId}/incidents`, { page, pageSize });
+            const incidentsData = await rocketCyberApiCall(endpoint, { page, pageSize });
             const pageIncidents = incidentsData.data || [];
             
             if (!pageIncidents || pageIncidents.length === 0) break;
