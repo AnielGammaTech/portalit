@@ -88,6 +88,11 @@ export default function Customers() {
     queryFn: () => base44.entities.Ticket.list('-created_date', 1000),
   });
 
+  const { data: applications = [] } = useQuery({
+    queryKey: ['all_applications'],
+    queryFn: () => base44.entities.Application.filter({ status: 'active' }),
+  });
+
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.Customer.create(data),
     onSuccess: () => {
