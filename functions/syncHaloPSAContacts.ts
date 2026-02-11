@@ -93,7 +93,14 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'Customer not found in database' }, { status: 404 });
       }
 
-      // Fetch users/contacts from HaloPSA for this client
+      // Step 1: Get all existing contacts for this customer BEFORE sync
+      const existingContacts = await base44.asServiceRole.entities.Contact.filter({ 
+        customer_id: dbCustomer.id 
+      });
+      const existingContactMap = new Map(existingContacts.map(c => [c.halopsa_id, c]));
+      console.log(`Found ${existingContacts.length} existing contacts in database`);
+
+      // Step 2: Fetch users/contacts from HaloPSA for this client
       const url = buildUrl(apiUrl, `Users?client_id=${customer_id}&page_size=500`);
       const data = await fetchHalo(url, accessToken, haloClientId);
       console.log(`Users response sample: ${JSON.stringify(data).substring(0, 1500)}`);
@@ -107,22 +114,26 @@ Deno.serve(async (req) => {
         users = data.records;
       }
 
-      console.log(`Found ${users.length} users for client ${customer_id}`);
+      console.log(`Found ${users.length} users in HaloPSA for client ${customer_id}`);
+
+      // Track which HaloPSA IDs we've seen
+      const syncedHaloPSAIds = new Set();
 
       let recordsSynced = 0;
       let recordsFailed = 0;
 
+      // Step 3: Sync contacts from HaloPSA (create/update)
       for (const haloUser of users) {
         try {
+          const haloPSAId = String(haloUser.id);
+          syncedHaloPSAIds.add(haloPSAId);
+          
           const contactPayload = transformContact(haloUser, dbCustomer.id);
 
-          const existing = await base44.asServiceRole.entities.Contact.filter({ 
-            halopsa_id: String(haloUser.id),
-            customer_id: dbCustomer.id
-          });
+          const existing = existingContactMap.get(haloPSAId);
 
-          if (existing.length > 0) {
-            await base44.asServiceRole.entities.Contact.update(existing[0].id, contactPayload);
+          if (existing) {
+            await base44.asServiceRole.entities.Contact.update(existing.id, contactPayload);
           } else {
             await base44.asServiceRole.entities.Contact.create(contactPayload);
           }
@@ -134,7 +145,52 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Update customer total_users count
+      // Step 4: Identify contacts that exist in app but NOT in HaloPSA (removed from HaloPSA)
+      const missingContacts = existingContacts.filter(c => c.halopsa_id && !syncedHaloPSAIds.has(c.halopsa_id));
+      console.log(`Found ${missingContacts.length} contacts in app that are no longer in HaloPSA`);
+
+      let recordsDeleted = 0;
+      let recordsFlagged = 0;
+
+      // Step 5: For each missing contact, check for license assignments
+      for (const contact of missingContacts) {
+        try {
+          const licenseAssignments = await base44.asServiceRole.entities.LicenseAssignment.filter({
+            contact_id: contact.id,
+            status: 'active'
+          });
+
+          if (licenseAssignments.length > 0) {
+            // Contact has active licenses - create notification/activity, don't delete
+            await base44.asServiceRole.entities.Activity.create({
+              type: 'license_revoked', // Using existing type that fits
+              title: 'User Removed from HaloPSA with Active Licenses',
+              description: `${contact.full_name} (${contact.email || 'no email'}) has been removed from HaloPSA but still has ${licenseAssignments.length} active license(s) assigned.`,
+              entity_type: 'customer',
+              entity_id: dbCustomer.id,
+              entity_name: dbCustomer.name,
+              metadata: JSON.stringify({
+                contact_id: contact.id,
+                contact_name: contact.full_name,
+                contact_email: contact.email,
+                license_count: licenseAssignments.length,
+                action_needed: 'Review and revoke licenses if appropriate'
+              })
+            });
+            console.log(`Flagged contact ${contact.full_name} - has ${licenseAssignments.length} active licenses`);
+            recordsFlagged++;
+          } else {
+            // No active licenses - safe to delete
+            await base44.asServiceRole.entities.Contact.delete(contact.id);
+            console.log(`Deleted contact ${contact.full_name} - no active licenses`);
+            recordsDeleted++;
+          }
+        } catch (err) {
+          console.log(`Error processing missing contact ${contact.id}: ${err.message}`);
+        }
+      }
+
+      // Step 6: Update customer total_users count to reflect HaloPSA count
       await base44.asServiceRole.entities.Customer.update(dbCustomer.id, {
         total_users: users.length
       });
@@ -143,7 +199,10 @@ Deno.serve(async (req) => {
         success: true,
         recordsSynced,
         recordsFailed,
-        message: `Synced ${recordsSynced} users`
+        recordsDeleted,
+        recordsFlagged,
+        haloUserCount: users.length,
+        message: `Synced ${recordsSynced} users, deleted ${recordsDeleted}, flagged ${recordsFlagged} with active licenses`
       });
     }
 
