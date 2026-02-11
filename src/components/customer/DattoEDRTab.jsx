@@ -22,6 +22,28 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
   const [edrData, setEdrData] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [fromCache, setFromCache] = useState(false);
+
+  // Load cached data first, then optionally sync
+  const loadCachedData = async () => {
+    if (!edrMapping) return;
+    try {
+      const response = await base44.functions.invoke('syncDattoEDR', {
+        action: 'get_cached',
+        customer_id: customerId
+      });
+      if (response.data.success && response.data.data) {
+        setEdrData(response.data.data);
+        setFromCache(true);
+      } else {
+        // No cache, do a full sync
+        handleSync();
+      }
+    } catch (error) {
+      // On error, try full sync
+      handleSync();
+    }
+  };
 
   const handleSync = async () => {
     if (!edrMapping) return;
@@ -33,6 +55,7 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
       });
       if (response.data.success) {
         setEdrData(response.data.data);
+        setFromCache(false);
         toast.success(`Synced EDR data`);
       } else {
         toast.error(response.data.error || 'Sync failed');
@@ -44,10 +67,10 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
     }
   };
 
-  // Auto-load data on mount
+  // Auto-load cached data on mount
   React.useEffect(() => {
     if (edrMapping && !edrData) {
-      handleSync();
+      loadCachedData();
     }
   }, [edrMapping]);
 
