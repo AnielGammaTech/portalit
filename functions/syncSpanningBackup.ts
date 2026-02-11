@@ -212,7 +212,7 @@ Deno.serve(async (req) => {
       const lastBackup = domainInfo?.lastBackup || {};
       const backupStatus7Days = domainInfo?.backupStatusLastSevenDays || {};
       
-      return Response.json({ 
+      const responseData = { 
         success: true, 
         total: users.length,
         users: formattedUsers,
@@ -257,7 +257,15 @@ Deno.serve(async (req) => {
         domainId: domainInfo?.id || 'unknown',
         expirationDate: domainInfo?.expirationDate || null,
         origin: domainInfo?.origin || 'unknown'
+      };
+      
+      // Cache the data for future quick loads
+      await base44.asServiceRole.entities.SpanningMapping.update(mapping.id, {
+        cached_data: JSON.stringify(responseData),
+        last_synced: new Date().toISOString()
       });
+      
+      return Response.json(responseData);
     }
 
     // List SharePoint sites for a tenant (uses per-tenant API key)
