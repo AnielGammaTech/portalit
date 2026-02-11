@@ -55,38 +55,42 @@ export default function CustomerServicesTab({
     spanning: { status: 'idle', lastSync: null, error: null }
   });
 
-  // Fetch JumpCloud mapping for this customer
+  // Fetch JumpCloud mapping for this customer (includes cached_data)
   const { data: jumpcloudMapping } = useQuery({
     queryKey: ['jumpcloud-mapping', customerId],
     queryFn: async () => {
       const mappings = await base44.entities.JumpCloudMapping.filter({ customer_id: customerId });
       return mappings[0] || null;
     },
-    enabled: !!customerId
+    enabled: !!customerId,
+    staleTime: 1000 * 60 * 5 // Cache for 5 minutes
   });
 
-  // Fetch Spanning mapping for this customer
+  // Fetch Spanning mapping for this customer (includes cached_data)
   const { data: spanningMapping } = useQuery({
     queryKey: ['spanning-mapping', customerId],
     queryFn: async () => {
       const mappings = await base44.entities.SpanningMapping.filter({ customer_id: customerId });
       return mappings[0] || null;
     },
-    enabled: !!customerId
+    enabled: !!customerId,
+    staleTime: 1000 * 60 * 5 // Cache for 5 minutes
   });
 
   // Fetch JumpCloud contacts for this customer
   const { data: jumpcloudContacts = [] } = useQuery({
     queryKey: ['jumpcloud-contacts', customerId],
     queryFn: () => base44.entities.Contact.filter({ customer_id: customerId, source: 'jumpcloud' }),
-    enabled: !!customerId && !!jumpcloudMapping
+    enabled: !!customerId && !!jumpcloudMapping,
+    staleTime: 1000 * 60 * 5 // Cache for 5 minutes
   });
 
   // Fetch JumpCloud licenses for this customer
   const { data: jumpcloudLicenses = [] } = useQuery({
     queryKey: ['jumpcloud-licenses', customerId],
     queryFn: () => base44.entities.SaaSLicense.filter({ customer_id: customerId, source: 'jumpcloud' }),
-    enabled: !!customerId && !!jumpcloudMapping
+    enabled: !!customerId && !!jumpcloudMapping,
+    staleTime: 1000 * 60 * 5 // Cache for 5 minutes
   });
 
   // Fetch Spanning contacts for this customer (any contact with spanning_status set)
