@@ -249,6 +249,11 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
                 7-day: {stats.overallBackupStatus7Days}
               </Badge>
             )}
+            {stats.fromCache && stats.last_synced && (
+              <span className="text-xs text-slate-400">
+                Cached {new Date(stats.last_synced).toLocaleDateString()}
+              </span>
+            )}
             <Button 
               variant="outline" 
               size="sm" 
@@ -257,7 +262,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
               className="gap-2"
             >
               <RefreshCw className={cn("w-4 h-4", syncingSpanning && "animate-spin")} />
-              Sync
+              {stats.fromCache ? 'Refresh' : 'Sync'}
             </Button>
           </div>
         </div>
