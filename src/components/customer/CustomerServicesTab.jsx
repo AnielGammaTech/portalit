@@ -635,6 +635,11 @@ export default function CustomerServicesTab({
                     <CardTitle>JumpCloud Users</CardTitle>
                     <CardDescription>Users synced from JumpCloud directory ({jumpcloudContacts.length} total)</CardDescription>
                   </div>
+                  {jumpcloudMapping?.last_synced && (
+                    <span className="text-xs text-slate-400">
+                      Last synced {new Date(jumpcloudMapping.last_synced).toLocaleDateString()}
+                    </span>
+                  )}
                   <Button 
                     variant="outline" 
                     size="sm" 
@@ -643,7 +648,7 @@ export default function CustomerServicesTab({
                     className="gap-2"
                   >
                     <RefreshCw className={cn("w-4 h-4", syncingJumpCloud && "animate-spin")} />
-                    Sync
+                    {jumpcloudMapping?.last_synced ? 'Refresh' : 'Sync'}
                   </Button>
                 </CardHeader>
                 <CardContent>
