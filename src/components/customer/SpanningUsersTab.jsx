@@ -44,10 +44,27 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
 
   const ITEMS_PER_PAGE = 15;
 
-  // Fetch live Spanning data from API
+  // First try to get cached data, then fetch live if needed
   const { data: spanningData, isLoading, refetch } = useQuery({
     queryKey: ['spanning-live-users', customerId],
     queryFn: async () => {
+      // First try to get cached data (fast, no API call)
+      const cachedResponse = await base44.functions.invoke('syncSpanningBackup', {
+        action: 'get_cached',
+        customer_id: customerId
+      });
+      
+      // If we have cached data and it's less than 24 hours old, use it
+      if (cachedResponse.data?.cached && cachedResponse.data?.total > 0) {
+        const lastSync = cachedResponse.data.last_synced ? new Date(cachedResponse.data.last_synced) : null;
+        const hoursSinceSync = lastSync ? (Date.now() - lastSync.getTime()) / (1000 * 60 * 60) : 999;
+        
+        if (hoursSinceSync < 24) {
+          return { ...cachedResponse.data, fromCache: true };
+        }
+      }
+      
+      // No valid cache, fetch live data
       const response = await base44.functions.invoke('syncSpanningBackup', {
         action: 'list_users',
         customer_id: customerId
@@ -55,7 +72,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
       return response.data;
     },
     enabled: !!customerId && !!spanningMapping,
-    staleTime: 5 * 60 * 1000 // Cache for 5 minutes
+    staleTime: 5 * 60 * 1000 // Cache for 5 minutes in react-query
   });
 
   // Fetch Spanning licenses for this customer
