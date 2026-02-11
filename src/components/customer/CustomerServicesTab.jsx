@@ -349,6 +349,7 @@ export default function CustomerServicesTab({
         toast.success('JumpCloud data synced!');
         queryClient.invalidateQueries({ queryKey: ['jumpcloud-contacts', customerId] });
         queryClient.invalidateQueries({ queryKey: ['jumpcloud-licenses', customerId] });
+        queryClient.invalidateQueries({ queryKey: ['jumpcloud-mapping', customerId] });
       } else {
         toast.error(response.data.error || 'Sync failed');
       }
@@ -358,6 +359,16 @@ export default function CustomerServicesTab({
       setSyncingJumpCloud(false);
     }
   };
+
+  // Get cached JumpCloud stats
+  const jumpcloudCachedStats = React.useMemo(() => {
+    if (!jumpcloudMapping?.cached_data) return null;
+    try {
+      return JSON.parse(jumpcloudMapping.cached_data);
+    } catch (e) {
+      return null;
+    }
+  }, [jumpcloudMapping?.cached_data]);
 
   const handleSyncSpanning = async () => {
     if (!spanningMapping) return;
