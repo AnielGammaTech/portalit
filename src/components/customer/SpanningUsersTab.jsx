@@ -110,10 +110,18 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
   const handleSyncSpanning = async () => {
     setSyncingSpanning(true);
     try {
-      const response = await base44.functions.invoke('syncSpanningBackup', {
+      // First sync licenses/contacts
+      await base44.functions.invoke('syncSpanningBackup', {
         action: 'sync_licenses',
         customer_id: customerId
       });
+      
+      // Then fetch fresh user data (this also updates the cache)
+      const response = await base44.functions.invoke('syncSpanningBackup', {
+        action: 'list_users',
+        customer_id: customerId
+      });
+      
       if (response.data.success) {
         await refetch();
         queryClient?.invalidateQueries({ queryKey: ['spanning-contacts', customerId] });
