@@ -344,6 +344,59 @@ export default function OverviewTab({
         </motion.div>
       )}
 
+      {/* Orphaned User Alerts */}
+      {orphanedUserAlerts.filter(a => !dismissedAlerts.includes(a.id)).length > 0 && (
+        <div className="space-y-3">
+          {orphanedUserAlerts.filter(a => !dismissedAlerts.includes(a.id)).map(alert => (
+            <motion.div 
+              key={alert.id} 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-amber-50 border border-amber-200 rounded-xl p-4"
+            >
+              <div className="flex items-start gap-4">
+                <div className="p-2 bg-amber-100 rounded-lg flex-shrink-0">
+                  <AlertCircle className="w-5 h-5 text-amber-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-amber-900">User Removed from HaloPSA</p>
+                  <p className="text-sm text-amber-700 mt-1">
+                    <strong>{alert.metadata?.contact_name || 'Unknown User'}</strong>
+                    {alert.metadata?.contact_email && (
+                      <span className="text-amber-600"> ({alert.metadata.contact_email})</span>
+                    )}
+                    {' '}was removed from HaloPSA but still has active licenses assigned.
+                  </p>
+                  {alert.licenseNames && alert.licenseNames.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs font-medium text-amber-800 mb-1">Assigned Licenses:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {alert.licenseNames.map((name, idx) => (
+                          <Badge key={idx} className="bg-amber-200 text-amber-800 text-xs">
+                            {name}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-xs text-amber-600 mt-2">
+                    Action needed: Review and revoke licenses if this user should no longer have access.
+                  </p>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="text-amber-600 hover:text-amber-800 hover:bg-amber-100 flex-shrink-0"
+                  onClick={() => setDismissedAlerts(prev => [...prev, alert.id])}
+                >
+                  Dismiss
+                </Button>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
+
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
