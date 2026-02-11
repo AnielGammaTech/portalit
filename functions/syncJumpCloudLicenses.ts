@@ -448,12 +448,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Update last_synced timestamp on the mapping
-      await base44.asServiceRole.entities.JumpCloudMapping.update(mapping.id, {
-        last_synced: new Date().toISOString()
-      });
-
-      return Response.json({
+      const responseData = {
         success: true,
         licensesCreated: created,
         licensesUpdated: updated,
@@ -461,7 +456,22 @@ Deno.serve(async (req) => {
         usersUpdated,
         totalUsers,
         ssoApps: applications?.length || 0
+      };
+      
+      // Cache the data for future quick loads
+      await base44.asServiceRole.entities.JumpCloudMapping.update(mapping.id, {
+        last_synced: new Date().toISOString(),
+        cached_data: JSON.stringify({
+          totalUsers,
+          ssoApps: applications?.length || 0,
+          usersCreated,
+          usersUpdated,
+          licensesCreated: created,
+          licensesUpdated: updated
+        })
       });
+
+      return Response.json(responseData);
     }
 
     // Action: Sync all mapped customers
