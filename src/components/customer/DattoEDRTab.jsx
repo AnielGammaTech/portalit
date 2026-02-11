@@ -87,7 +87,12 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
           </p>
         </div>
         {!notMapped && (
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            {fromCache && edrMapping?.last_synced && (
+              <span className="text-xs text-slate-400">
+                Cached {new Date(edrMapping.last_synced).toLocaleDateString()}
+              </span>
+            )}
             {edrData && (
               <Button
                 onClick={() => setShowReportModal(true)}
@@ -107,7 +112,7 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
               className="gap-2"
             >
               <RefreshCw className={cn("w-4 h-4", syncing && "animate-spin")} />
-              {syncing ? 'Loading...' : 'Refresh'}
+              {syncing ? 'Loading...' : (fromCache ? 'Refresh' : 'Sync')}
             </Button>
           </div>
         )}
