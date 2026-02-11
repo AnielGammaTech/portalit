@@ -44,36 +44,35 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
 
   const ITEMS_PER_PAGE = 15;
 
-  // First try to get cached data, then fetch live if needed
-  const { data: spanningData, isLoading, refetch } = useQuery({
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Load cached data from the mapping entity (instant, no API call)
+  const cachedStats = useMemo(() => {
+    if (!spanningMapping?.cached_data) return null;
+    try {
+      return { ...JSON.parse(spanningMapping.cached_data), fromCache: true, last_synced: spanningMapping.last_synced };
+    } catch (e) {
+      return null;
+    }
+  }, [spanningMapping?.cached_data, spanningMapping?.last_synced]);
+
+  // Live data query - only runs when user clicks refresh
+  const { data: liveSpanningData, refetch } = useQuery({
     queryKey: ['spanning-live-users', customerId],
     queryFn: async () => {
-      // First try to get cached data (fast, no API call)
-      const cachedResponse = await base44.functions.invoke('syncSpanningBackup', {
-        action: 'get_cached',
-        customer_id: customerId
-      });
-      
-      // If we have cached data and it's less than 24 hours old, use it
-      if (cachedResponse.data?.cached && cachedResponse.data?.total > 0) {
-        const lastSync = cachedResponse.data.last_synced ? new Date(cachedResponse.data.last_synced) : null;
-        const hoursSinceSync = lastSync ? (Date.now() - lastSync.getTime()) / (1000 * 60 * 60) : 999;
-        
-        if (hoursSinceSync < 24) {
-          return { ...cachedResponse.data, fromCache: true };
-        }
-      }
-      
-      // No valid cache, fetch live data
       const response = await base44.functions.invoke('syncSpanningBackup', {
         action: 'list_users',
         customer_id: customerId
       });
       return response.data;
     },
-    enabled: !!customerId && !!spanningMapping,
-    staleTime: 5 * 60 * 1000 // Cache for 5 minutes in react-query
+    enabled: false, // Don't run automatically
+    staleTime: 5 * 60 * 1000
   });
+
+  // Use live data if available, otherwise cached
+  const spanningData = liveSpanningData || cachedStats;
+  const isLoading = !spanningData;
 
   // Fetch Spanning licenses for this customer
   const { data: spanningLicenses = [] } = useQuery({
@@ -109,28 +108,20 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
 
   const handleSyncSpanning = async () => {
     setSyncingSpanning(true);
+    setIsRefreshing(true);
     try {
-      // First sync licenses/contacts
-      await base44.functions.invoke('syncSpanningBackup', {
-        action: 'sync_licenses',
-        customer_id: customerId
-      });
-      
-      // Then fetch fresh user data (this also updates the cache)
-      const response = await base44.functions.invoke('syncSpanningBackup', {
-        action: 'list_users',
-        customer_id: customerId
-      });
-      
-      if (response.data.success) {
-        await refetch();
-        queryClient?.invalidateQueries({ queryKey: ['spanning-contacts', customerId] });
-        queryClient?.invalidateQueries({ queryKey: ['spanning-licenses', customerId] });
-      }
+      // Fetch fresh user data (this also updates the cache)
+      await refetch();
+      queryClient?.invalidateQueries({ queryKey: ['spanning-mapping', customerId] });
+      queryClient?.invalidateQueries({ queryKey: ['spanning-contacts', customerId] });
+      queryClient?.invalidateQueries({ queryKey: ['spanning-licenses', customerId] });
+      toast.success('Spanning data refreshed');
     } catch (error) {
       console.error('Sync failed:', error);
+      toast.error('Failed to refresh Spanning data');
     } finally {
       setSyncingSpanning(false);
+      setIsRefreshing(false);
     }
   };
 

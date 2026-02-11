@@ -19,31 +19,23 @@ import DattoEDRReportModal from './DattoEDRReportModal';
 
 export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
   const [syncing, setSyncing] = useState(false);
-  const [edrData, setEdrData] = useState(null);
+  const [liveEdrData, setLiveEdrData] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [fromCache, setFromCache] = useState(false);
 
-  // Load cached data first, then optionally sync
-  const loadCachedData = async () => {
-    if (!edrMapping) return;
+  // Parse cached data from mapping (instant, no API call)
+  const cachedEdrData = React.useMemo(() => {
+    if (!edrMapping?.cached_data) return null;
     try {
-      const response = await base44.functions.invoke('syncDattoEDR', {
-        action: 'get_cached',
-        customer_id: customerId
-      });
-      if (response.data.success && response.data.data) {
-        setEdrData(response.data.data);
-        setFromCache(true);
-      } else {
-        // No cache, do a full sync
-        handleSync();
-      }
-    } catch (error) {
-      // On error, try full sync
-      handleSync();
+      return JSON.parse(edrMapping.cached_data);
+    } catch (e) {
+      return null;
     }
-  };
+  }, [edrMapping?.cached_data]);
+
+  // Use live data if available, otherwise cached
+  const edrData = liveEdrData || cachedEdrData;
+  const fromCache = !liveEdrData && !!cachedEdrData;
 
   const handleSync = async () => {
     if (!edrMapping) return;
@@ -54,9 +46,8 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
         customer_id: customerId
       });
       if (response.data.success) {
-        setEdrData(response.data.data);
-        setFromCache(false);
-        toast.success(`Synced EDR data`);
+        setLiveEdrData(response.data.data);
+        toast.success(`EDR data refreshed`);
       } else {
         toast.error(response.data.error || 'Sync failed');
       }
@@ -66,13 +57,6 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
       setSyncing(false);
     }
   };
-
-  // Auto-load cached data on mount
-  React.useEffect(() => {
-    if (edrMapping && !edrData) {
-      loadCachedData();
-    }
-  }, [edrMapping]);
 
   const notMapped = !edrMapping;
 
