@@ -194,7 +194,46 @@ export default function OverviewTab({
     details: '',
     priority: 'medium'
   });
+  const [dismissedAlerts, setDismissedAlerts] = useState([]);
   const itemsPerPage = 8;
+
+  // Fetch activities for orphaned users (removed from HaloPSA but have licenses)
+  const { data: orphanedUserAlerts = [] } = useQuery({
+    queryKey: ['orphaned_user_alerts', customerId],
+    queryFn: async () => {
+      const activities = await base44.entities.Activity.filter({ 
+        entity_id: customerId,
+        type: 'license_revoked'
+      });
+      // Filter to only those that mention HaloPSA removal
+      const recentAlerts = activities.filter(a => 
+        a.description?.includes('removed from HaloPSA') || 
+        a.title?.includes('Removed from HaloPSA')
+      );
+      
+      // For each alert, get the contact's license assignments
+      const alertsWithLicenses = await Promise.all(recentAlerts.map(async (alert) => {
+        const metadata = alert.metadata ? JSON.parse(alert.metadata) : {};
+        if (metadata.contact_id) {
+          const assignments = await base44.entities.LicenseAssignment.filter({
+            contact_id: metadata.contact_id,
+            status: 'active'
+          });
+          // Get license details
+          const licenseDetails = await Promise.all(assignments.map(async (a) => {
+            const licenses = await base44.entities.SaaSLicense.filter({ id: a.license_id });
+            return licenses[0]?.application_name || 'Unknown License';
+          }));
+          return { ...alert, metadata, licenseNames: licenseDetails };
+        }
+        return { ...alert, metadata, licenseNames: [] };
+      }));
+      
+      return alertsWithLicenses;
+    },
+    enabled: !!customerId,
+    staleTime: 1000 * 60 * 5
+  });
 
   const handleOpenSupport = () => {
     setShowAssistant(true);
