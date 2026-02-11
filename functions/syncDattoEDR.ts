@@ -158,34 +158,38 @@ Deno.serve(async (req) => {
       const activeCount = activeHosts.length || targetStats?.activeAgentCount || 0;
       const alertCount = targetStats?.alertCount || 0;
       
+      const responseData = {
+        hostCount: hostCount,
+        activeHostCount: activeCount,
+        hosts: hosts.slice(0, 100).map(h => {
+          const heartbeatDate = h.heartbeat ? new Date(h.heartbeat) : null;
+          const isOnline = heartbeatDate ? heartbeatDate > twentyFourHoursAgo : h.active === true;
+          return {
+            id: h.id,
+            hostname: h.hostname || h.name,
+            ip: h.ip || h.ipstring,
+            os: h.os,
+            online: isOnline,
+            lastSeen: h.heartbeat
+          };
+        }),
+        alertCount: alertCount,
+        criticalAlerts: 0,
+        mediumAlerts: 0, 
+        lowAlerts: 0,
+        lastScannedOn: targetStats?.lastScannedOn,
+        targetStats
+      };
+      
+      // Cache the data for future quick loads
       await base44.entities.DattoEDRMapping.update(mapping.id, {
-        last_synced: new Date().toISOString()
+        last_synced: new Date().toISOString(),
+        cached_data: JSON.stringify(responseData)
       });
 
       return Response.json({ 
         success: true, 
-        data: {
-          hostCount: hostCount,
-          activeHostCount: activeCount,
-          hosts: hosts.slice(0, 100).map(h => {
-            const heartbeatDate = h.heartbeat ? new Date(h.heartbeat) : null;
-            const isOnline = heartbeatDate ? heartbeatDate > twentyFourHoursAgo : h.active === true;
-            return {
-              id: h.id,
-              hostname: h.hostname || h.name,
-              ip: h.ip || h.ipstring,
-              os: h.os,
-              online: isOnline,
-              lastSeen: h.heartbeat
-            };
-          }),
-          alertCount: alertCount,
-          criticalAlerts: 0,
-          mediumAlerts: 0, 
-          lowAlerts: 0,
-          lastScannedOn: targetStats?.lastScannedOn,
-          targetStats
-        }
+        data: responseData
       });
     }
 
