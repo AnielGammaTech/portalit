@@ -76,6 +76,44 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'JumpCloud Provider ID not configured (required for MTP)' }, { status: 400 });
     }
 
+    // Get cached data without calling external API
+    if (action === 'get_cached') {
+      if (!customer_id) {
+        return Response.json({ error: 'customer_id is required' }, { status: 400 });
+      }
+
+      const mappings = await base44.asServiceRole.entities.JumpCloudMapping.filter({ customer_id });
+      if (mappings.length === 0) {
+        return Response.json({ error: 'No JumpCloud organization mapped to this customer' }, { status: 400 });
+      }
+
+      const mapping = mappings[0];
+      
+      // Return cached data if available
+      if (mapping.cached_data) {
+        try {
+          const cached = JSON.parse(mapping.cached_data);
+          return Response.json({ 
+            success: true, 
+            cached: true,
+            last_synced: mapping.last_synced,
+            ...cached
+          });
+        } catch (e) {
+          // Cache invalid
+        }
+      }
+
+      return Response.json({ 
+        success: true, 
+        cached: true,
+        last_synced: mapping.last_synced,
+        totalUsers: 0,
+        ssoApps: 0,
+        message: 'No cached data available. Click Sync to fetch data.'
+      });
+    }
+
     // Action: Test connection
     if (action === 'test_connection') {
       try {
