@@ -594,7 +594,7 @@ export default function CustomerServicesTab({
                         <Users className="w-5 h-5 text-purple-600" />
                       </div>
                       <div>
-                        <p className="text-2xl font-bold">{jumpcloudContacts.length}</p>
+                        <p className="text-2xl font-bold">{jumpcloudCachedStats?.totalUsers || jumpcloudContacts.length}</p>
                         <p className="text-sm text-slate-500">Directory Users</p>
                       </div>
                     </div>
@@ -607,7 +607,7 @@ export default function CustomerServicesTab({
                         <Cloud className="w-5 h-5 text-blue-600" />
                       </div>
                       <div>
-                        <p className="text-2xl font-bold">{jumpcloudLicenses.length}</p>
+                        <p className="text-2xl font-bold">{jumpcloudCachedStats?.ssoApps || jumpcloudLicenses.length}</p>
                         <p className="text-sm text-slate-500">SSO Applications</p>
                       </div>
                     </div>
