@@ -97,6 +97,44 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Get cached data without calling external API
+    if (action === 'get_cached') {
+      if (!customer_id) {
+        return Response.json({ error: 'customer_id is required' }, { status: 400 });
+      }
+
+      const mappings = await base44.asServiceRole.entities.SpanningMapping.filter({ customer_id });
+      if (mappings.length === 0) {
+        return Response.json({ error: 'No Spanning mapping found for this customer' }, { status: 400 });
+      }
+
+      const mapping = mappings[0];
+      
+      // Return cached data if available
+      if (mapping.cached_data) {
+        try {
+          const cached = JSON.parse(mapping.cached_data);
+          return Response.json({ 
+            success: true, 
+            cached: true,
+            last_synced: mapping.last_synced,
+            ...cached
+          });
+        } catch (e) {
+          // Cache invalid, return empty
+        }
+      }
+
+      return Response.json({ 
+        success: true, 
+        cached: true,
+        last_synced: mapping.last_synced,
+        total: 0,
+        users: [],
+        message: 'No cached data available. Click Sync to fetch data.'
+      });
+    }
+
     // List users for a tenant
     if (action === 'list_users') {
       if (!customer_id) {
