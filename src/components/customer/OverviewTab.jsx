@@ -43,6 +43,7 @@ import { cn } from "@/lib/utils";
 import { format, parseISO } from 'date-fns';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
 import UserDetailModal from './UserDetailModal';
 import SupportAssistantChat from './SupportAssistantChat';
 
