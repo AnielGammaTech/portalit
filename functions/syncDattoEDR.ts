@@ -56,6 +56,43 @@ Deno.serve(async (req) => {
       return Response.json({ success: true, tenants });
     }
 
+    // Get cached data without calling external API
+    if (action === 'get_cached') {
+      if (!customer_id) {
+        return Response.json({ success: false, error: 'customer_id required' });
+      }
+
+      const mappings = await base44.entities.DattoEDRMapping.filter({ customer_id });
+      if (mappings.length === 0) {
+        return Response.json({ success: false, error: 'Customer not mapped to EDR tenant' });
+      }
+
+      const mapping = mappings[0];
+      
+      // Return cached data if available
+      if (mapping.cached_data) {
+        try {
+          const cached = JSON.parse(mapping.cached_data);
+          return Response.json({ 
+            success: true, 
+            cached: true,
+            last_synced: mapping.last_synced,
+            data: cached
+          });
+        } catch (e) {
+          // Cache invalid
+        }
+      }
+
+      return Response.json({ 
+        success: true, 
+        cached: true,
+        last_synced: mapping.last_synced,
+        data: null,
+        message: 'No cached data available. Click Sync to fetch data.'
+      });
+    }
+
     if (action === 'sync_customer') {
       if (!customer_id) {
         return Response.json({ success: false, error: 'customer_id required' });
