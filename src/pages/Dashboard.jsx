@@ -200,8 +200,47 @@ function AdminDashboard() {
 function CustomerDashboard({ customer }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [expandedInvoices, setExpandedInvoices] = useState({});
+  const [dismissedAlerts, setDismissedAlerts] = useState([]);
   const queryClient = useQueryClient();
   const customerId = customer?.id;
+
+  // Fetch activities for orphaned users (removed from HaloPSA but have licenses)
+  const { data: orphanedUserAlerts = [] } = useQuery({
+    queryKey: ['orphaned_user_alerts', customerId],
+    queryFn: async () => {
+      const activities = await base44.entities.Activity.filter({ 
+        entity_id: customerId,
+        type: 'license_revoked'
+      });
+      // Filter to only recent ones (last 30 days) that mention HaloPSA removal
+      const recentAlerts = activities.filter(a => 
+        a.description?.includes('removed from HaloPSA') || 
+        a.title?.includes('Removed from HaloPSA')
+      );
+      
+      // For each alert, get the contact's license assignments
+      const alertsWithLicenses = await Promise.all(recentAlerts.map(async (alert) => {
+        const metadata = alert.metadata ? JSON.parse(alert.metadata) : {};
+        if (metadata.contact_id) {
+          const assignments = await base44.entities.LicenseAssignment.filter({
+            contact_id: metadata.contact_id,
+            status: 'active'
+          });
+          // Get license details
+          const licenseDetails = await Promise.all(assignments.map(async (a) => {
+            const licenses = await base44.entities.SaaSLicense.filter({ id: a.license_id });
+            return licenses[0]?.application_name || 'Unknown License';
+          }));
+          return { ...alert, metadata, licenseNames: licenseDetails };
+        }
+        return { ...alert, metadata, licenseNames: [] };
+      }));
+      
+      return alertsWithLicenses;
+    },
+    enabled: !!customerId,
+    staleTime: 1000 * 60 * 5
+  });
 
   // Parallel fetch all primary data at once
   const { data: contracts = [], isLoading: loadingContracts } = useQuery({
@@ -376,6 +415,54 @@ function CustomerDashboard({ customer }) {
           </div>
         </div>
       </div>
+
+      {/* Orphaned User Alerts - Users removed from HaloPSA but still have licenses */}
+      {orphanedUserAlerts.filter(a => !dismissedAlerts.includes(a.id)).length > 0 && (
+        <div className="space-y-3">
+          {orphanedUserAlerts.filter(a => !dismissedAlerts.includes(a.id)).map(alert => (
+            <div key={alert.id} className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <div className="flex items-start gap-4">
+                <div className="p-2 bg-amber-100 rounded-lg flex-shrink-0">
+                  <AlertCircle className="w-5 h-5 text-amber-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-amber-900">User Removed from HaloPSA</p>
+                  <p className="text-sm text-amber-700 mt-1">
+                    <strong>{alert.metadata?.contact_name || 'Unknown User'}</strong>
+                    {alert.metadata?.contact_email && (
+                      <span className="text-amber-600"> ({alert.metadata.contact_email})</span>
+                    )}
+                    {' '}was removed from HaloPSA but still has active licenses assigned.
+                  </p>
+                  {alert.licenseNames && alert.licenseNames.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs font-medium text-amber-800 mb-1">Assigned Licenses:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {alert.licenseNames.map((name, idx) => (
+                          <Badge key={idx} className="bg-amber-200 text-amber-800 text-xs">
+                            {name}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-xs text-amber-600 mt-2">
+                    Action needed: Review and revoke licenses if this user should no longer have access.
+                  </p>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="text-amber-600 hover:text-amber-800 hover:bg-amber-100 flex-shrink-0"
+                  onClick={() => setDismissedAlerts(prev => [...prev, alert.id])}
+                >
+                  Dismiss
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Alerts */}
       {(overdueAmount > 0 || upcomingRenewals.length > 0) && (
