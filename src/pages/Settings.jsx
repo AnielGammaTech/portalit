@@ -38,7 +38,8 @@ import DarkWebIDConfig from '../components/integrations/DarkWebIDConfig';
 import BullPhishIDConfig from '../components/integrations/BullPhishIDConfig';
 import DattoEDRConfig from '../components/integrations/DattoEDRConfig';
 import RocketCyberConfig from '../components/integrations/RocketCyberConfig';
-import { AlertTriangle, Fish, Rocket } from 'lucide-react';
+import CoveDataConfig from '../components/integrations/CoveDataConfig';
+import { AlertTriangle, Fish, Rocket, HardDrive } from 'lucide-react';
 
 function GammaStackITPanel() {
   const [apiKey, setApiKey] = useState('');
@@ -230,11 +231,17 @@ function IntegrationsPanel() {
     queryFn: () => base44.entities.RocketCyberMapping.list(),
   });
 
+  const { data: coveMappings = [] } = useQuery({
+    queryKey: ['cove_mappings'],
+    queryFn: () => base44.entities.CoveDataMapping.list(),
+  });
+
   const dattoMapped = dattoMappings.length;
   const jumpcloudMapped = jumpcloudMappings.length;
   const spanningMapped = spanningMappings.length;
   const edrMapped = edrMappings.length;
   const rocketcyberMapped = rocketcyberMappings.length;
+  const coveMapped = coveMappings.length;
 
   return (
     <div className="space-y-4">
@@ -343,6 +350,23 @@ function IntegrationsPanel() {
         }
       >
         <RocketCyberConfig />
+      </IntegrationCard>
+
+      {/* Cove Data Protection */}
+      <IntegrationCard
+        icon={HardDrive}
+        iconBg="bg-teal-50"
+        title="Cove Data Protection"
+        description="Sync backup devices and status from N-able Cove"
+        status={
+          coveMapped > 0 ? (
+            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">{coveMapped} mapped</Badge>
+          ) : (
+            <Badge variant="outline" className="text-slate-500">Not configured</Badge>
+          )
+        }
+      >
+        <CoveDataConfig />
       </IntegrationCard>
     </div>
   );
