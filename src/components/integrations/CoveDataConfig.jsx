@@ -190,7 +190,7 @@ export default function CoveDataConfig() {
           </div>
 
           <p className="text-sm text-slate-500">
-            Credentials are configured via environment variables (COVE_API_USERNAME, COVE_API_PASSWORD)
+            Credentials are configured via environment variables (COVE_API_USERNAME = login name, COVE_API_TOKEN = API token)
           </p>
         </CardContent>
       </Card>

@@ -32,11 +32,11 @@ async function coveApiCall(method, params = {}, visa = null) {
   return data.result || data;
 }
 
-// Login and get visa token
-async function coveLogin(username, password) {
+// Login and get visa token using username + API token
+async function coveLogin(username, apiToken) {
   const result = await coveApiCall('Login', {
     partner: username,
-    password: password
+    password: apiToken
   });
   
   return result.visa;
@@ -63,19 +63,19 @@ Deno.serve(async (req) => {
     const { action, customer_id, partner_id } = await req.json();
 
     const username = Deno.env.get('COVE_API_USERNAME');
-    const password = Deno.env.get('COVE_API_PASSWORD');
+    const apiToken = Deno.env.get('COVE_API_TOKEN');
 
-    if (!username || !password) {
+    if (!username || !apiToken) {
       return Response.json({ 
         success: false, 
-        error: 'Cove API credentials not configured. Set COVE_API_USERNAME and COVE_API_PASSWORD in Settings.' 
+        error: 'Cove API credentials not configured. Set COVE_API_USERNAME (login name) and COVE_API_TOKEN in Settings.' 
       });
     }
 
     // Test connection
     if (action === 'test_connection') {
       try {
-        const visa = await coveLogin(username, password);
+        const visa = await coveLogin(username, apiToken);
         return Response.json({ success: true, message: 'Connected to Cove API successfully' });
       } catch (error) {
         return Response.json({ success: false, error: error.message });
@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
     // List all partners/companies
     if (action === 'list_partners') {
       try {
-        const visa = await coveLogin(username, password);
+        const visa = await coveLogin(username, apiToken);
         
         // Enumerate partners (customers in Cove)
         const result = await coveApiCall('EnumeratePartners', {
@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
       }
 
       try {
-        const visa = await coveLogin(username, password);
+        const visa = await coveLogin(username, apiToken);
         
         // Get devices for this partner
         const devicesResult = await coveApiCall('EnumerateAccountStatistics', {
@@ -250,7 +250,7 @@ Deno.serve(async (req) => {
       }
 
       try {
-        const visa = await coveLogin(username, password);
+        const visa = await coveLogin(username, apiToken);
         
         const devicesResult = await coveApiCall('EnumerateAccountStatistics', {
           partnerId: parseInt(mapping.cove_partner_id)
