@@ -168,10 +168,20 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
     }
   };
 
-  if (isLoading) {
+  // Show loading only if no cached data at all
+  if (!spanningData && !cachedStats) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <RefreshCw className="w-6 h-6 animate-spin text-slate-400" />
+      <div className="flex flex-col items-center justify-center py-12 gap-4">
+        <Cloud className="w-12 h-12 text-slate-300" />
+        <p className="text-slate-500">No cached data available</p>
+        <Button 
+          onClick={handleSyncSpanning}
+          disabled={syncingSpanning}
+          className="gap-2"
+        >
+          <RefreshCw className={cn("w-4 h-4", syncingSpanning && "animate-spin")} />
+          Sync from Spanning
+        </Button>
       </div>
     );
   }
