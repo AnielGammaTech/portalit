@@ -58,7 +58,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
   }, [spanningMapping?.cached_data, spanningMapping?.last_synced]);
 
   // Live data query - only runs when user clicks refresh
-  const { data: liveSpanningData, refetch } = useQuery({
+  const { data: liveSpanningData, refetch, isFetching } = useQuery({
     queryKey: ['spanning-live-users', customerId],
     queryFn: async () => {
       const response = await base44.functions.invoke('syncSpanningBackup', {
@@ -73,7 +73,8 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
 
   // Use live data if available, otherwise cached
   const spanningData = liveSpanningData || cachedStats;
-  const isLoading = !spanningData;
+  // Only show loading spinner on initial load if no cached data
+  const isLoading = !spanningData && isFetching;
 
   // Fetch Spanning licenses for this customer
   const { data: spanningLicenses = [] } = useQuery({
