@@ -167,8 +167,84 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'Customer not found in database' }, { status: 404 });
       }
 
-      // Fetch ALL invoices from HaloPSA - no date filter, get everything with pagination
-      console.log(`Full sync for customer ${customer_id}`);
+      // Fetch invoices from HaloPSA for this specific customer only
+      // Use a single page request with reasonable limit for quick sync
+      console.log(`Quick sync for customer ${customer_id}`);
+      
+      const url = buildUrl(apiUrl, `Invoice?client_id=${customer_id}&page_size=200&page_no=1`);
+      console.log(`Fetching: ${url}`);
+      const data = await fetchHalo(url, accessToken, haloClientId);
+      
+      // Extract invoices array
+      let invoices = [];
+      if (Array.isArray(data)) {
+        invoices = data;
+      } else if (data.invoices) {
+        invoices = data.invoices;
+      } else if (data.records) {
+        invoices = data.records;
+      }
+      
+      console.log(`Found ${invoices.length} invoices for client ${customer_id}`);
+
+      let recordsSynced = 0;
+      let recordsFailed = 0;
+
+      // Process invoices in parallel batches for speed
+      const batchSize = 10;
+      for (let i = 0; i < invoices.length; i += batchSize) {
+        const batch = invoices.slice(i, i + batchSize);
+        
+        await Promise.all(batch.map(async (haloInvoice) => {
+          try {
+            const invoicePayload = transformInvoice(haloInvoice, dbCustomer.id);
+
+            // Check if invoice exists
+            const existing = await base44.asServiceRole.entities.Invoice.filter({ 
+              halopsa_id: String(haloInvoice.id),
+              customer_id: dbCustomer.id
+            });
+
+            if (existing.length > 0) {
+              await base44.asServiceRole.entities.Invoice.update(existing[0].id, invoicePayload);
+            } else {
+              await base44.asServiceRole.entities.Invoice.create(invoicePayload);
+            }
+
+            recordsSynced++;
+          } catch (err) {
+            console.log(`Error syncing invoice ${haloInvoice.id}: ${err.message}`);
+            recordsFailed++;
+          }
+        }));
+      }
+
+      return Response.json({
+        success: true,
+        recordsSynced,
+        recordsFailed,
+        message: `Synced ${recordsSynced} invoices`
+      });
+    }
+
+    // Full sync with line items - use this for comprehensive sync
+    if (action === 'sync_customer_full') {
+      if (!customer_id) {
+        return Response.json({ error: 'customer_id is required' }, { status: 400 });
+      }
+
+      // Find customer in database
+      const customers = await base44.asServiceRole.entities.Customer.filter({ 
+        external_id: String(customer_id),
+        source: 'halopsa'
+      });
+      const dbCustomer = customers[0];
+      if (!dbCustomer) {
+        return Response.json({ error: 'Customer not found in database' }, { status: 404 });
+      }
+
+      // Fetch ALL invoices with pagination
+      console.log(`Full sync with line items for customer ${customer_id}`);
       
       let allInvoices = [];
       let page = 1;
@@ -176,10 +252,8 @@ Deno.serve(async (req) => {
       
       while (hasMore) {
         const url = buildUrl(apiUrl, `Invoice?client_id=${customer_id}&page_size=100&page_no=${page}`);
-        console.log(`Fetching page ${page}: ${url}`);
         const data = await fetchHalo(url, accessToken, haloClientId);
         
-        // Extract invoices array
         let pageInvoices = [];
         if (Array.isArray(data)) {
           pageInvoices = data;
@@ -189,23 +263,17 @@ Deno.serve(async (req) => {
           pageInvoices = data.records;
         }
         
-        console.log(`Page ${page}: Found ${pageInvoices.length} invoices`);
-        
         if (pageInvoices.length === 0) {
           hasMore = false;
         } else {
           allInvoices = allInvoices.concat(pageInvoices);
           page++;
-          // Safety limit to prevent infinite loops
-          if (page > 50) {
-            console.log('Reached page limit of 50');
-            hasMore = false;
-          }
+          if (page > 50) hasMore = false;
         }
       }
       
       const invoices = allInvoices;
-      console.log(`Total invoices found for client ${customer_id}: ${invoices.length}`);
+      console.log(`Total invoices: ${invoices.length}`);
 
       let recordsSynced = 0;
       let recordsFailed = 0;
@@ -214,7 +282,6 @@ Deno.serve(async (req) => {
         try {
           const invoicePayload = transformInvoice(haloInvoice, dbCustomer.id);
 
-          // Check if invoice exists
           const existing = await base44.asServiceRole.entities.Invoice.filter({ 
             halopsa_id: String(haloInvoice.id),
             customer_id: dbCustomer.id
@@ -229,25 +296,18 @@ Deno.serve(async (req) => {
             dbInvoiceId = created.id;
           }
 
-          // Fetch line items separately from HaloPSA
+          // Fetch line items for full sync
           try {
             const invoiceDetailUrl = buildUrl(apiUrl, `Invoice/${haloInvoice.id}`);
             const invoiceDetail = await fetchHalo(invoiceDetailUrl, accessToken, haloClientId);
             const lineItems = invoiceDetail.lines || invoiceDetail.lineitems || invoiceDetail.items || [];
             
-            console.log(`Invoice ${haloInvoice.id} has ${lineItems.length} line items`);
             if (lineItems.length > 0) {
-              console.log(`Sample line item: ${JSON.stringify(lineItems[0])}`);
-            }
-            
-            if (lineItems.length > 0) {
-              // Delete existing line items for this invoice
               const existingItems = await base44.asServiceRole.entities.InvoiceLineItem.filter({ invoice_id: dbInvoiceId });
               for (const item of existingItems) {
                 await base44.asServiceRole.entities.InvoiceLineItem.delete(item.id);
               }
               
-              // Create new line items
               for (const line of lineItems) {
                 await base44.asServiceRole.entities.InvoiceLineItem.create({
                   invoice_id: dbInvoiceId,
@@ -276,7 +336,7 @@ Deno.serve(async (req) => {
         success: true,
         recordsSynced,
         recordsFailed,
-        message: `Synced ${recordsSynced} invoices`
+        message: `Synced ${recordsSynced} invoices with line items`
       });
     }
 
