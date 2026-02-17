@@ -250,14 +250,6 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {stats.overallBackupStatus7Days && (
-              <Badge className={cn(
-                "text-xs",
-                stats.overallBackupStatus7Days === 'success' ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
-              )}>
-                7-day: {stats.overallBackupStatus7Days}
-              </Badge>
-            )}
             {stats.fromCache && stats.last_synced && (
               <span className="text-xs text-slate-400">
                 Cached {new Date(stats.last_synced).toLocaleDateString()}
