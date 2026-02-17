@@ -58,9 +58,12 @@ export default function DevicesTab({ customerId, customerExternalId }) {
     queryKey: ['datto_mappings', customerId],
     queryFn: () => base44.entities.DattoSiteMapping.filter({ customer_id: customerId }),
     enabled: !!customerId,
-    staleTime: 0,
-    refetchOnMount: 'always'
+    staleTime: 1000 * 60 * 5 // Cache for 5 minutes
   });
+
+  // Get cached data from mapping
+  const cachedData = mappings[0]?.cached_data ? JSON.parse(mappings[0].cached_data) : null;
+  const lastSynced = mappings[0]?.last_synced;
 
   const syncDevices = async () => {
     if (mappings.length === 0) {
@@ -76,6 +79,7 @@ export default function DevicesTab({ customerId, customerExternalId }) {
       if (response.data.success) {
         toast.success(`Synced ${response.data.recordsSynced} devices from Datto RMM`);
         queryClient.invalidateQueries({ queryKey: ['devices', customerId] });
+        queryClient.invalidateQueries({ queryKey: ['datto_mappings', customerId] });
       } else {
         toast.error(response.data.error || 'Sync failed');
       }
