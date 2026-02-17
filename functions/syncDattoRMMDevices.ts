@@ -219,6 +219,29 @@ Deno.serve(async (req) => {
       return Response.json({ success: true, device: deviceData });
     }
 
+    // Action: Get cached device data for a customer (fast, no API call)
+    if (action === 'get_cached') {
+      if (!customer_id) {
+        return Response.json({ error: 'customer_id is required' }, { status: 400 });
+      }
+
+      const mappings = await base44.asServiceRole.entities.DattoSiteMapping.filter({ customer_id });
+      if (mappings.length === 0) {
+        return Response.json({ success: true, cached: null, message: 'No mapping found' });
+      }
+
+      const mapping = mappings[0];
+      if (!mapping.cached_data) {
+        return Response.json({ success: true, cached: null, last_synced: null });
+      }
+
+      return Response.json({
+        success: true,
+        cached: JSON.parse(mapping.cached_data),
+        last_synced: mapping.last_synced
+      });
+    }
+
     // Action: Sync devices for a specific customer
     if (action === 'sync_devices') {
       if (!customer_id) {
@@ -233,6 +256,10 @@ Deno.serve(async (req) => {
       }
 
       let totalSynced = 0;
+      let onlineCount = 0;
+      let offlineCount = 0;
+      let serverCount = 0;
+      let workstationCount = 0;
 
       for (const mapping of mappings) {
         const siteUid = mapping.datto_site_id;
@@ -285,6 +312,15 @@ Deno.serve(async (req) => {
             lastSeenStr = typeof lastSeen === 'number' ? new Date(lastSeen).toISOString() : lastSeen;
           }
 
+          const deviceType = mapDeviceType(device.deviceType?.category);
+          const isOnline = device.online;
+
+          // Track stats for cache
+          if (isOnline) onlineCount++;
+          else offlineCount++;
+          if (deviceType === 'server') serverCount++;
+          else workstationCount++;
+
           // Build device data from list endpoint
           const deviceData = {
             customer_id,
@@ -292,12 +328,12 @@ Deno.serve(async (req) => {
             datto_site_id: siteUid,
             hostname: device.hostname || device.name || 'Unknown',
             description: device.description || '',
-            device_type: mapDeviceType(device.deviceType?.category),
+            device_type: deviceType,
             os: device.operatingSystem || '',
             ip_address: device.intIpAddress || device.extIpAddress || '',
             last_seen: lastSeenStr,
             last_user: device.lastLoggedInUser || '',
-            status: device.online ? 'online' : 'offline'
+            status: isOnline ? 'online' : 'offline'
           };
 
           // Skip if no changes
@@ -320,11 +356,32 @@ Deno.serve(async (req) => {
             totalSynced++;
           }
         }
+
+        // Update mapping with cached data and last_synced timestamp
+        const cachedData = {
+          total_devices: allDevices.length,
+          online_count: onlineCount,
+          offline_count: offlineCount,
+          server_count: serverCount,
+          workstation_count: workstationCount
+        };
+        
+        await base44.asServiceRole.entities.DattoSiteMapping.update(mapping.id, {
+          last_synced: new Date().toISOString(),
+          cached_data: JSON.stringify(cachedData)
+        });
       }
 
       return Response.json({
         success: true,
-        recordsSynced: totalSynced
+        recordsSynced: totalSynced,
+        stats: {
+          total_devices: onlineCount + offlineCount,
+          online_count: onlineCount,
+          offline_count: offlineCount,
+          server_count: serverCount,
+          workstation_count: workstationCount
+        }
       });
     }
 
