@@ -112,15 +112,20 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
     setSyncingSpanning(true);
     setIsRefreshing(true);
     try {
-      // Fetch fresh user data (this also updates the cache)
-      await refetch();
-      queryClient?.invalidateQueries({ queryKey: ['spanning-mapping', customerId] });
-      queryClient?.invalidateQueries({ queryKey: ['spanning-contacts', customerId] });
-      queryClient?.invalidateQueries({ queryKey: ['spanning-licenses', customerId] });
-      toast.success('Spanning data refreshed');
+      // Fetch fresh user data (this also updates the cache in backend)
+      const result = await refetch();
+      if (result.data?.success) {
+        // Invalidate mapping query to pick up new cached_data and last_synced
+        queryClient?.invalidateQueries({ queryKey: ['spanning-mapping', customerId] });
+        queryClient?.invalidateQueries({ queryKey: ['spanning-contacts', customerId] });
+        queryClient?.invalidateQueries({ queryKey: ['spanning-licenses', customerId] });
+        toast.success('Spanning data synced');
+      } else {
+        toast.error(result.data?.error || 'Sync failed');
+      }
     } catch (error) {
       console.error('Sync failed:', error);
-      toast.error('Failed to refresh Spanning data');
+      toast.error('Failed to sync Spanning data');
     } finally {
       setSyncingSpanning(false);
       setIsRefreshing(false);
