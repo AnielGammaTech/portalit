@@ -134,7 +134,7 @@ export default function DevicesTab({ customerId, customerExternalId }) {
 
   return (
     <div className="space-y-6">
-      {/* Stats Cards */}
+      {/* Stats Cards - Use cached data if available, otherwise fall back to device list */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div className="flex items-center gap-3">
@@ -142,7 +142,7 @@ export default function DevicesTab({ customerId, customerExternalId }) {
               <Monitor className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-slate-900">{deviceCounts.total}</p>
+              <p className="text-2xl font-bold text-slate-900">{cachedData?.total_devices ?? deviceCounts.total}</p>
               <p className="text-xs text-slate-500">Total Devices</p>
             </div>
           </div>
@@ -153,7 +153,7 @@ export default function DevicesTab({ customerId, customerExternalId }) {
               <CheckCircle2 className="w-5 h-5 text-emerald-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-slate-900">{deviceCounts.online}</p>
+              <p className="text-2xl font-bold text-slate-900">{cachedData?.online_count ?? deviceCounts.online}</p>
               <p className="text-xs text-slate-500">Online</p>
             </div>
           </div>
@@ -164,7 +164,7 @@ export default function DevicesTab({ customerId, customerExternalId }) {
               <XCircle className="w-5 h-5 text-red-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-slate-900">{deviceCounts.offline}</p>
+              <p className="text-2xl font-bold text-slate-900">{cachedData?.offline_count ?? deviceCounts.offline}</p>
               <p className="text-xs text-slate-500">Offline</p>
             </div>
           </div>
@@ -175,12 +175,19 @@ export default function DevicesTab({ customerId, customerExternalId }) {
               <Server className="w-5 h-5 text-purple-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-slate-900">{deviceCounts.byType?.server || 0}</p>
+              <p className="text-2xl font-bold text-slate-900">{cachedData?.server_count ?? deviceCounts.byType?.server ?? 0}</p>
               <p className="text-xs text-slate-500">Servers</p>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Last synced info */}
+      {lastSynced && (
+        <p className="text-xs text-slate-400 text-right">
+          Last synced: {format(parseISO(lastSynced), 'MMM d, yyyy h:mm a')}
+        </p>
+      )}
 
       {/* Filters & Actions */}
       <div className="bg-white rounded-2xl border border-slate-200 p-4">
