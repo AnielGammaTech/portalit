@@ -466,7 +466,7 @@ export default function RocketCyberTab({ customer }) {
                   {parsedDetails?.summary && (
                     <div>
                       <p className="text-slate-500 text-xs mb-1">Summary</p>
-                      <p className="text-sm bg-amber-50 border border-amber-200 p-3 rounded-lg text-amber-900">
+                      <p className="text-sm bg-amber-50 border border-amber-200 p-3 rounded-lg text-amber-900 whitespace-pre-wrap break-words">
                         {parsedDetails.summary}
                       </p>
                     </div>
@@ -489,12 +489,12 @@ export default function RocketCyberTab({ customer }) {
                   {(selectedIncident.status === 'open' || selectedIncident.status === 'investigating') && (
                     <Button
                       variant="outline"
-                      className="w-full mt-2"
+                      className="w-full mt-4"
                       onClick={() => handleCloseIncident(selectedIncident)}
                       disabled={closingId === selectedIncident.id}
                     >
                       <X className="w-4 h-4 mr-2" />
-                      {closingId === selectedIncident.id ? 'Closing...' : 'Close Incident'}
+                      {closingId === selectedIncident.id ? 'Closing...' : 'Dismiss Incident'}
                     </Button>
                   )}
 
