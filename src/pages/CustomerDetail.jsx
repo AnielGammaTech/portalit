@@ -54,6 +54,7 @@ import { UserPlus, Eye } from 'lucide-react';
 export default function CustomerDetail() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [user, setUser] = useState(null);
+  const [userLoading, setUserLoading] = useState(true);
   const [selectedLicense, setSelectedLicense] = useState(null);
   const [showAddLicense, setShowAddLicense] = useState(false);
   const [showAddSoftware, setShowAddSoftware] = useState(false);
@@ -69,6 +70,8 @@ export default function CustomerDetail() {
         setUser(currentUser);
       } catch (error) {
         console.error('Failed to load user', error);
+      } finally {
+        setUserLoading(false);
       }
     };
     loadUser();
