@@ -340,7 +340,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    return Response.json({ error: 'Invalid action. Use: sync_customer' }, { status: 400 });
+    return Response.json({ error: 'Invalid action. Use: sync_customer or sync_customer_full' }, { status: 400 });
   } catch (error) {
     console.log(`Error: ${error.message}`);
     return Response.json({ error: error.message }, { status: 500 });
