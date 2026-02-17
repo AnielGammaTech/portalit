@@ -21,7 +21,8 @@ import {
   MessageSquare,
   Calendar,
   FolderOpen,
-  Database
+  Database,
+  Cloud
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
