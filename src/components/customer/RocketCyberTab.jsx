@@ -15,7 +15,8 @@ import {
   ChevronRight,
   Monitor,
   Calendar,
-  Activity
+  Activity,
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -95,6 +96,7 @@ export default function RocketCyberTab({ customer }) {
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const [severityFilter, setSeverityFilter] = useState('all');
+  const [closingId, setClosingId] = useState(null);
 
   // Fetch mapping
   const { data: mappings = [] } = useQuery({
@@ -126,6 +128,26 @@ export default function RocketCyberTab({ customer }) {
       toast.error('Sync failed: ' + error.message);
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const handleCloseIncident = async (incident, e) => {
+    e?.stopPropagation();
+    setClosingId(incident.id);
+    try {
+      await base44.entities.RocketCyberIncident.update(incident.id, {
+        status: 'closed',
+        manually_closed: true
+      });
+      toast.success('Incident closed');
+      refetchIncidents();
+      if (selectedIncident?.id === incident.id) {
+        setSelectedIncident(null);
+      }
+    } catch (error) {
+      toast.error('Failed to close incident');
+    } finally {
+      setClosingId(null);
     }
   };
 
@@ -295,7 +317,20 @@ export default function RocketCyberTab({ customer }) {
                           </div>
                         </div>
                         <div className="flex flex-col items-end gap-2">
-                          <Badge className={statConfig.color}>{statConfig.label}</Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge className={statConfig.color}>{statConfig.label}</Badge>
+                            {(incident.status === 'open' || incident.status === 'investigating') && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 text-slate-400 hover:text-slate-600"
+                                onClick={(e) => handleCloseIncident(incident, e)}
+                                disabled={closingId === incident.id}
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
                           <span className="text-xs text-slate-500 flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
                             {incident.detected_at 
@@ -448,6 +483,19 @@ export default function RocketCyberTab({ customer }) {
                       <ExternalLink className="w-4 h-4" />
                       View in RocketCyber Console
                     </a>
+                  )}
+
+                  {/* Close Incident Button */}
+                  {(selectedIncident.status === 'open' || selectedIncident.status === 'investigating') && (
+                    <Button
+                      variant="outline"
+                      className="w-full mt-2"
+                      onClick={() => handleCloseIncident(selectedIncident)}
+                      disabled={closingId === selectedIncident.id}
+                    >
+                      <X className="w-4 h-4 mr-2" />
+                      {closingId === selectedIncident.id ? 'Closing...' : 'Close Incident'}
+                    </Button>
                   )}
 
                   {/* Raw Description (collapsed by default if parsed) */}

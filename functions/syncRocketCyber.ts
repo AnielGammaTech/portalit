@@ -284,6 +284,10 @@ Deno.serve(async (req) => {
         };
 
         if (existing) {
+          // Skip update if manually closed - respect local dismissal
+          if (existing.manually_closed) {
+            continue;
+          }
           // Update if status changed
           if (existing.status !== incidentData.status || existing.resolved_at !== incidentData.resolved_at) {
             await base44.asServiceRole.entities.RocketCyberIncident.update(existing.id, incidentData);
@@ -373,6 +377,10 @@ Deno.serve(async (req) => {
             };
 
             if (existing) {
+              // Skip update if manually closed - respect local dismissal
+              if (existing.manually_closed) {
+                continue;
+              }
               if (existing.status !== incidentData.status) {
                 await base44.asServiceRole.entities.RocketCyberIncident.update(existing.id, incidentData);
                 totalSynced++;
