@@ -36,7 +36,7 @@ import FeedbackButton from './components/feedback/FeedbackButton';
 import AwaitingAccess from './pages/AwaitingAccess';
 import { isCustomerPortal } from '@/lib/portal-mode';
 
-const DEFAULT_PRIMARY = '#8b5cf6';
+const DEFAULT_PRIMARY = '#7C3AED';
 
 function getUserInitials(fullName, email) {
   if (fullName && fullName.trim()) {
@@ -105,7 +105,7 @@ function MobileBottomTab({ item, isActive, primaryColor }) {
 
 function MobileDrawerNav({ navigation, currentPageName, primaryColor, user, isAdmin, customer, onClose }) {
   return (
-    <div className="flex flex-col h-full bg-slate-900">
+    <div className="flex flex-col h-full" style={{ backgroundColor: '#1E1048' }}>
       {/* User info at top */}
       <div className="p-4 border-b border-white/10">
         <div className="flex items-center gap-3">
@@ -332,7 +332,7 @@ export default function Layout({ children, currentPageName }) {
       `}</style>
 
       {/* ─── Fixed Top Header ─── */}
-      <header className="fixed top-0 left-0 right-0 h-14 bg-slate-900 text-white z-40">
+      <header className="fixed top-0 left-0 right-0 h-14 text-white z-40" style={{ backgroundColor: '#1E1048' }}>
         <div className="flex items-center justify-between h-full px-4 sm:px-6 max-w-full">
 
           {/* Left: Mobile hamburger + Logo */}
@@ -366,15 +366,14 @@ export default function Layout({ children, currentPageName }) {
                   className="h-7 object-contain max-w-[120px]"
                 />
               ) : (
-                <div
-                  className="w-7 h-7 rounded-lg flex items-center justify-center"
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  <Cloud className="w-4 h-4 text-white" />
-                </div>
+                <img
+                  src="/favicon.svg"
+                  alt="PortalIT"
+                  className="h-7 w-7"
+                />
               )}
-              <span className="text-sm font-semibold text-white hidden sm:block">
-                {isAdmin
+              <span className="text-sm font-bold text-white hidden sm:block tracking-tight">
+                {(isAdmin && !isCustomerPortal)
                   ? (portalSettings.portal_name || 'PortalIT')
                   : (customer?.name || 'Client Portal')}
               </span>
