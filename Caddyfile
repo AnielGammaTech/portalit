@@ -16,6 +16,8 @@
 		path /index.html
 	}
 	header @html Cache-Control "no-cache, no-store, must-revalidate"
+	header @html CDN-Cache-Control "no-store"
+	header @html Surrogate-Control "no-store"
 
 	# Cache hashed assets forever — filenames change on each build
 	@assets {
