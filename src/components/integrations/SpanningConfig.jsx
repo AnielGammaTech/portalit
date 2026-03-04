@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -60,18 +60,18 @@ export default function SpanningConfig() {
 
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list(),
+    queryFn: () => client.entities.Customer.list(),
   });
 
   const { data: mappings = [], refetch: refetchMappings } = useQuery({
     queryKey: ['spanning_mappings'],
-    queryFn: () => base44.entities.SpanningMapping.list(),
+    queryFn: () => client.entities.SpanningMapping.list(),
   });
 
   const testConnection = async () => {
     setTesting(true);
     try {
-      const response = await base44.functions.invoke('syncSpanningBackup', { 
+      const response = await client.functions.invoke('syncSpanningBackup', { 
         action: 'test_connection'
       });
       if (response.data.success) {
@@ -92,7 +92,7 @@ export default function SpanningConfig() {
   const loadDomains = async () => {
     setLoadingDomains(true);
     try {
-      const response = await base44.functions.invoke('syncSpanningBackup', { action: 'list_domains' });
+      const response = await client.functions.invoke('syncSpanningBackup', { action: 'list_domains' });
       if (response.data.success) {
         setSpanningDomains(response.data.domains);
         setShowMappingView(true);
@@ -111,7 +111,7 @@ export default function SpanningConfig() {
     if (!customerId) return;
     
     try {
-      await base44.entities.SpanningMapping.create({
+      await client.entities.SpanningMapping.create({
         customer_id: customerId,
         spanning_tenant_id: String(domain.id),
         spanning_tenant_name: domain.name || domain.domainName
@@ -126,7 +126,7 @@ export default function SpanningConfig() {
 
   const deleteMapping = async (mappingId) => {
     try {
-      await base44.entities.SpanningMapping.delete(mappingId);
+      await client.entities.SpanningMapping.delete(mappingId);
       toast.success('Mapping removed');
       refetchMappings();
     } catch (error) {
@@ -137,7 +137,7 @@ export default function SpanningConfig() {
   const syncCustomerLicenses = async (customerId) => {
     setSyncingCustomerId(customerId);
     try {
-      const response = await base44.functions.invoke('syncSpanningBackup', { 
+      const response = await client.functions.invoke('syncSpanningBackup', { 
         action: 'sync_licenses', 
         customer_id: customerId 
       });
@@ -158,7 +158,7 @@ export default function SpanningConfig() {
   const syncCustomerUsers = async (customerId) => {
     setSyncingUsersCustomerId(customerId);
     try {
-      const response = await base44.functions.invoke('syncSpanningBackup', { 
+      const response = await client.functions.invoke('syncSpanningBackup', { 
         action: 'sync_users', 
         customer_id: customerId 
       });
@@ -179,7 +179,7 @@ export default function SpanningConfig() {
   const syncAllLicenses = async () => {
     setSyncing(true);
     try {
-      const response = await base44.functions.invoke('syncSpanningBackup', { action: 'sync_all' });
+      const response = await client.functions.invoke('syncSpanningBackup', { action: 'sync_all' });
       if (response.data.success) {
         toast.success(`Synced ${response.data.synced} tenants!`);
         queryClient.invalidateQueries({ queryKey: ['licenses'] });
@@ -248,7 +248,7 @@ export default function SpanningConfig() {
   const saveApiKey = async (mappingId) => {
     setSavingApiKey(true);
     try {
-      await base44.entities.SpanningMapping.update(mappingId, {
+      await client.entities.SpanningMapping.update(mappingId, {
         spanning_api_key: apiKeyInput || null,
         spanning_region: regionInput
       });
@@ -287,7 +287,7 @@ export default function SpanningConfig() {
         });
         
         if (matchedCustomer) {
-          await base44.entities.SpanningMapping.create({
+          await client.entities.SpanningMapping.create({
             customer_id: matchedCustomer.id,
             spanning_tenant_id: domainId,
             spanning_tenant_name: domain.name || domain.domainName

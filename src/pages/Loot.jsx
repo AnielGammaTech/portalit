@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { 
@@ -32,7 +32,7 @@ export default function Loot() {
 
   useEffect(() => {
     const loadUser = async () => {
-      const currentUser = await base44.auth.me();
+      const currentUser = await client.auth.me();
       setUser(currentUser);
     };
     loadUser();
@@ -40,32 +40,32 @@ export default function Loot() {
 
   const { data: customers = [], isLoading: loadingCustomers } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list('-created_date', 500),
+    queryFn: () => client.entities.Customer.list('-created_date', 500),
   });
 
   const { data: recurringBills = [], isLoading: loadingBills } = useQuery({
     queryKey: ['all_recurring_bills'],
-    queryFn: () => base44.entities.RecurringBill.list('-created_date', 2000),
+    queryFn: () => client.entities.RecurringBill.list('-created_date', 2000),
   });
 
   const { data: billLineItems = [], isLoading: loadingLineItems } = useQuery({
     queryKey: ['all_bill_line_items'],
-    queryFn: () => base44.entities.RecurringBillLineItem.list('-created_date', 5000),
+    queryFn: () => client.entities.RecurringBillLineItem.list('-created_date', 5000),
   });
 
   const { data: lootSettings = [] } = useQuery({
     queryKey: ['loot_settings'],
-    queryFn: () => base44.entities.LootSettings.list(),
+    queryFn: () => client.entities.LootSettings.list(),
   });
 
   const { data: vendorBilling = [] } = useQuery({
     queryKey: ['vendor_billing'],
-    queryFn: () => base44.entities.VendorBilling.list(),
+    queryFn: () => client.entities.VendorBilling.list(),
   });
 
   const { data: devices = [] } = useQuery({
     queryKey: ['all_devices'],
-    queryFn: () => base44.entities.Device.list('-created_date', 2000),
+    queryFn: () => client.entities.Device.list('-created_date', 2000),
   });
 
   const isLoading = loadingCustomers || loadingBills || loadingLineItems;

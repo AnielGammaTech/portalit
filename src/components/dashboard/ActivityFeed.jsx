@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../../utils';
 import {
@@ -55,28 +55,28 @@ export default function ActivityFeed({ limit = 20, showFilters = true, compact =
 
   const { data: activities = [], isLoading } = useQuery({
     queryKey: ['activities'],
-    queryFn: () => base44.entities.Activity.list('-created_date', 100),
+    queryFn: () => client.entities.Activity.list('-created_date', 100),
   });
 
   // Also fetch recent entity changes to supplement activity feed
   const { data: recentCustomers = [] } = useQuery({
     queryKey: ['recent_customers'],
-    queryFn: () => base44.entities.Customer.list('-updated_date', 20),
+    queryFn: () => client.entities.Customer.list('-updated_date', 20),
   });
 
   const { data: recentContracts = [] } = useQuery({
     queryKey: ['recent_contracts'],
-    queryFn: () => base44.entities.Contract.list('-updated_date', 20),
+    queryFn: () => client.entities.Contract.list('-updated_date', 20),
   });
 
   const { data: recentTickets = [] } = useQuery({
     queryKey: ['recent_tickets'],
-    queryFn: () => base44.entities.Ticket.list('-updated_date', 20),
+    queryFn: () => client.entities.Ticket.list('-updated_date', 20),
   });
 
   const { data: syncLogs = [] } = useQuery({
     queryKey: ['sync_logs'],
-    queryFn: () => base44.entities.SyncLog.list('-created_date', 20),
+    queryFn: () => client.entities.SyncLog.list('-created_date', 20),
   });
 
   // Combine activities with inferred activities from entity changes

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,18 +36,18 @@ export default function RocketCyberConfig() {
   // Fetch customers and existing mappings
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list()
+    queryFn: () => client.entities.Customer.list()
   });
 
   const { data: mappings = [], refetch: refetchMappings } = useQuery({
     queryKey: ['rocketcyber_mappings'],
-    queryFn: () => base44.entities.RocketCyberMapping.list()
+    queryFn: () => client.entities.RocketCyberMapping.list()
   });
 
   const testConnection = async () => {
     setIsTesting(true);
     try {
-      const result = await base44.functions.invoke('syncRocketCyber', { 
+      const result = await client.functions.invoke('syncRocketCyber', { 
         action: 'test_connection' 
       });
       if (result.data.success) {
@@ -70,7 +70,7 @@ export default function RocketCyberConfig() {
     
     setIsLoading(true);
     try {
-      const result = await base44.functions.invoke('syncRocketCyber', { 
+      const result = await client.functions.invoke('syncRocketCyber', { 
         action: 'list_accounts',
         msp_account_id: mspAccountId
       });
@@ -87,7 +87,7 @@ export default function RocketCyberConfig() {
 
   const createMapping = async (rcAccount, customer) => {
     try {
-      await base44.entities.RocketCyberMapping.create({
+      await client.entities.RocketCyberMapping.create({
         customer_id: customer.id,
         customer_name: customer.name,
         rocketcyber_account_id: String(rcAccount.id),
@@ -102,7 +102,7 @@ export default function RocketCyberConfig() {
 
   const deleteMapping = async (mappingId) => {
     try {
-      await base44.entities.RocketCyberMapping.delete(mappingId);
+      await client.entities.RocketCyberMapping.delete(mappingId);
       toast.success('Mapping removed');
       refetchMappings();
     } catch (error) {
@@ -113,7 +113,7 @@ export default function RocketCyberConfig() {
   const syncAll = async () => {
     setIsLoading(true);
     try {
-      const result = await base44.functions.invoke('syncRocketCyber', { 
+      const result = await client.functions.invoke('syncRocketCyber', { 
         action: 'sync_all' 
       });
       if (result.data.success) {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -54,12 +54,12 @@ export default function BullPhishIDConfig() {
 
   const { data: reports = [], isLoading: loadingReports } = useQuery({
     queryKey: ['bullphishid-reports'],
-    queryFn: () => base44.entities.BullPhishIDReport.list('-report_date', 100),
+    queryFn: () => client.entities.BullPhishIDReport.list('-report_date', 100),
   });
 
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list('name', 500),
+    queryFn: () => client.entities.Customer.list('name', 500),
   });
 
   const handleFileSelect = async (e) => {
@@ -84,10 +84,10 @@ export default function BullPhishIDConfig() {
     setIsExtracting(true);
     try {
       // Upload the file first
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await client.integrations.Core.UploadFile({ file });
       
       // Use AI to inspect and extract data from the PDF
-      const result = await base44.integrations.Core.InvokeLLM({
+      const result = await client.integrations.Core.InvokeLLM({
         prompt: `Analyze this BullPhish ID phishing simulation report PDF and extract the following data. 
         
 Look carefully for these specific fields in the Campaign Results section:
@@ -227,11 +227,11 @@ Convert all dates to YYYY-MM-DD format.`,
       // If no extracted data, just upload the PDF
       let pdfUrl = extractedData?.pdf_url;
       if (!pdfUrl && selectedFile) {
-        const { file_url } = await base44.integrations.Core.UploadFile({ file: selectedFile });
+        const { file_url } = await client.integrations.Core.UploadFile({ file: selectedFile });
         pdfUrl = file_url;
       }
 
-      await base44.entities.BullPhishIDReport.create({
+      await client.entities.BullPhishIDReport.create({
         customer_id: selectedCustomer,
         customer_name: customer?.name,
         report_date: reportDate,
@@ -278,7 +278,7 @@ Convert all dates to YYYY-MM-DD format.`,
   const handleDeleteReport = async (reportId) => {
     if (!confirm('Are you sure you want to delete this report?')) return;
     try {
-      await base44.entities.BullPhishIDReport.delete(reportId);
+      await client.entities.BullPhishIDReport.delete(reportId);
       toast.success('Report deleted');
       queryClient.invalidateQueries({ queryKey: ['bullphishid-reports'] });
     } catch (error) {

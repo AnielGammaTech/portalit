@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { RefreshCw, X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,14 +14,14 @@ export default function CustomerDetailsDrawer({ customer, isOpen, onClose }) {
 
   const { data: contacts = [], refetch: refetchContacts } = useQuery({
     queryKey: ['contacts', customer?.id],
-    queryFn: () => base44.entities.Contact.filter({ customer_id: customer?.id }),
+    queryFn: () => client.entities.Contact.filter({ customer_id: customer?.id }),
     enabled: !!customer?.id
   });
 
   const handleSyncContacts = async () => {
     try {
       setIsSyncingContacts(true);
-      const response = await base44.functions.invoke('syncHaloPSACustomers', { 
+      const response = await client.functions.invoke('syncHaloPSACustomers', { 
         action: 'sync_contacts',
         customer_id: customer?.external_id
       });
@@ -41,7 +41,7 @@ export default function CustomerDetailsDrawer({ customer, isOpen, onClose }) {
   const handleSyncAddress = async () => {
     try {
       setIsSyncingAddress(true);
-      const response = await base44.functions.invoke('syncHaloPSACustomers', { 
+      const response = await client.functions.invoke('syncHaloPSACustomers', { 
         action: 'sync_address',
         customer_id: customer?.external_id
       });

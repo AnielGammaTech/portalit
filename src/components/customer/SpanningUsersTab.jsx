@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../../utils';
@@ -62,7 +62,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
   const { data: liveSpanningData, refetch, isFetching } = useQuery({
     queryKey: ['spanning-live-users', customerId],
     queryFn: async () => {
-      const response = await base44.functions.invoke('syncSpanningBackup', {
+      const response = await client.functions.invoke('syncSpanningBackup', {
         action: 'list_users',
         customer_id: customerId
       });
@@ -81,7 +81,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
   const { data: spanningLicenses = [] } = useQuery({
     queryKey: ['spanning-licenses', customerId],
     queryFn: async () => {
-      const licenses = await base44.entities.SaaSLicense.filter({ 
+      const licenses = await client.entities.SaaSLicense.filter({ 
         customer_id: customerId,
         source: 'spanning'
       });
@@ -94,7 +94,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
   const { data: contacts = [] } = useQuery({
     queryKey: ['customer-contacts', customerId],
     queryFn: async () => {
-      const contactsList = await base44.entities.Contact.filter({ customer_id: customerId });
+      const contactsList = await client.entities.Contact.filter({ customer_id: customerId });
       return contactsList;
     },
     enabled: !!customerId
@@ -137,7 +137,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
     setSharePointModalOpen(true);
     setLoadingSharePoint(true);
     try {
-      const response = await base44.functions.invoke('syncSpanningBackup', {
+      const response = await client.functions.invoke('syncSpanningBackup', {
         action: 'list_sharepoint_sites',
         customer_id: customerId
       });
@@ -155,7 +155,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
     setTeamsModalOpen(true);
     setLoadingTeams(true);
     try {
-      const response = await base44.functions.invoke('syncSpanningBackup', {
+      const response = await client.functions.invoke('syncSpanningBackup', {
         action: 'list_teams_channels',
         customer_id: customerId
       });

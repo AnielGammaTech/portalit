@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import Breadcrumbs from '../components/ui/breadcrumbs';
@@ -46,27 +46,27 @@ export default function Analytics() {
 
   const { data: customers = [], isLoading: loadingCustomers } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list('-created_date', 500),
+    queryFn: () => client.entities.Customer.list('-created_date', 500),
   });
 
   const { data: contracts = [], isLoading: loadingContracts } = useQuery({
     queryKey: ['contracts'],
-    queryFn: () => base44.entities.Contract.list('-created_date', 500),
+    queryFn: () => client.entities.Contract.list('-created_date', 500),
   });
 
   const { data: recurringBills = [], isLoading: loadingBills } = useQuery({
     queryKey: ['recurring_bills'],
-    queryFn: () => base44.entities.RecurringBill.list('-created_date', 500),
+    queryFn: () => client.entities.RecurringBill.list('-created_date', 500),
   });
 
   const { data: tickets = [], isLoading: loadingTickets } = useQuery({
     queryKey: ['tickets'],
-    queryFn: () => base44.entities.Ticket.list('-created_date', 1000),
+    queryFn: () => client.entities.Ticket.list('-created_date', 1000),
   });
 
   const { data: invoices = [], isLoading: loadingInvoices } = useQuery({
     queryKey: ['invoices'],
-    queryFn: () => base44.entities.Invoice.list('-created_date', 500),
+    queryFn: () => client.entities.Invoice.list('-created_date', 500),
   });
 
   const isLoading = loadingCustomers || loadingContracts || loadingBills || loadingTickets || loadingInvoices;

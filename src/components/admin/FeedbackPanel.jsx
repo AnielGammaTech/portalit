@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { MessageSquare, Bug, Lightbulb, HelpCircle, ExternalLink, Trash2, CheckCircle2, Eye, Clock, X, ChevronDown } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -39,11 +39,11 @@ export default function FeedbackPanel() {
 
   const { data: feedbacks = [], isLoading } = useQuery({
     queryKey: ['feedbacks'],
-    queryFn: () => base44.entities.Feedback.list('-created_date'),
+    queryFn: () => client.entities.Feedback.list('-created_date'),
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Feedback.update(id, data),
+    mutationFn: ({ id, data }) => client.entities.Feedback.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feedbacks'] });
       toast.success('Feedback updated');
@@ -51,7 +51,7 @@ export default function FeedbackPanel() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.Feedback.delete(id),
+    mutationFn: (id) => client.entities.Feedback.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feedbacks'] });
       setSelectedFeedback(null);

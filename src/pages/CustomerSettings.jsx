@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { 
   Settings, 
   Upload, 
@@ -30,7 +30,7 @@ export default function CustomerSettings() {
 
   useEffect(() => {
     const loadUser = async () => {
-      const currentUser = await base44.auth.me();
+      const currentUser = await client.auth.me();
       setUser(currentUser);
       setCustomerId(currentUser?.customer_id);
     };
@@ -40,7 +40,7 @@ export default function CustomerSettings() {
   const { data: customer, isLoading: loadingCustomer } = useQuery({
     queryKey: ['customer', customerId],
     queryFn: async () => {
-      const customers = await base44.entities.Customer.list();
+      const customers = await client.entities.Customer.list();
       return customers.find(c => c.id === customerId);
     },
     enabled: !!customerId
@@ -49,7 +49,7 @@ export default function CustomerSettings() {
   const { data: portalSettings, isLoading: loadingSettings } = useQuery({
     queryKey: ['portal_settings', customerId],
     queryFn: async () => {
-      const settings = await base44.entities.CustomerPortalSettings.filter({ customer_id: customerId });
+      const settings = await client.entities.CustomerPortalSettings.filter({ customer_id: customerId });
       return settings[0] || null;
     },
     enabled: !!customerId
@@ -58,7 +58,7 @@ export default function CustomerSettings() {
   const { data: portalUsers = [], isLoading: loadingUsers } = useQuery({
     queryKey: ['portal_users', customerId],
     queryFn: async () => {
-      const allUsers = await base44.entities.User.list();
+      const allUsers = await client.entities.User.list();
       // customer_id can be at top level OR inside data object
       return allUsers.filter(u => 
         u.customer_id === customerId || 
@@ -83,12 +83,12 @@ export default function CustomerSettings() {
     
     setIsUploading(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file: logoFile });
+      const { file_url } = await client.integrations.Core.UploadFile({ file: logoFile });
       
       if (portalSettings) {
-        await base44.entities.CustomerPortalSettings.update(portalSettings.id, { logo_url: file_url });
+        await client.entities.CustomerPortalSettings.update(portalSettings.id, { logo_url: file_url });
       } else {
-        await base44.entities.CustomerPortalSettings.create({ 
+        await client.entities.CustomerPortalSettings.create({ 
           customer_id: customerId, 
           logo_url: file_url 
         });
@@ -109,7 +109,7 @@ export default function CustomerSettings() {
     if (!portalSettings) return;
     
     try {
-      await base44.entities.CustomerPortalSettings.update(portalSettings.id, { logo_url: null });
+      await client.entities.CustomerPortalSettings.update(portalSettings.id, { logo_url: null });
       queryClient.invalidateQueries({ queryKey: ['portal_settings', customerId] });
       toast.success('Logo removed');
     } catch (error) {

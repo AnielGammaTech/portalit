@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import {
   Dialog,
   DialogContent,
@@ -30,7 +30,7 @@ export default function UserDetailModal({ contact, open, onClose, customerId }) 
   // Fetch license assignments for this contact
   const { data: assignments = [] } = useQuery({
     queryKey: ['license-assignments', contact?.id],
-    queryFn: () => base44.entities.LicenseAssignment.filter({ contact_id: contact.id }),
+    queryFn: () => client.entities.LicenseAssignment.filter({ contact_id: contact.id }),
     enabled: !!contact?.id
   });
 
@@ -40,7 +40,7 @@ export default function UserDetailModal({ contact, open, onClose, customerId }) 
     queryFn: async () => {
       if (assignments.length === 0) return [];
       const licenseIds = assignments.map(a => a.license_id);
-      const allLicenses = await base44.entities.SaaSLicense.filter({ customer_id: customerId });
+      const allLicenses = await client.entities.SaaSLicense.filter({ customer_id: customerId });
       return allLicenses.filter(l => licenseIds.includes(l.id));
     },
     enabled: assignments.length > 0
@@ -49,20 +49,20 @@ export default function UserDetailModal({ contact, open, onClose, customerId }) 
   // Fetch devices assigned to this contact
   const { data: devices = [] } = useQuery({
     queryKey: ['contact-devices', contact?.id],
-    queryFn: () => base44.entities.Device.filter({ assigned_contact_id: contact.id }),
+    queryFn: () => client.entities.Device.filter({ assigned_contact_id: contact.id }),
     enabled: !!contact?.id
   });
 
   // Check if company has JumpCloud or Spanning configured
   const { data: jumpcloudMapping } = useQuery({
     queryKey: ['jumpcloud-mapping', customerId],
-    queryFn: () => base44.entities.JumpCloudMapping.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.JumpCloudMapping.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
   const { data: spanningMapping } = useQuery({
     queryKey: ['spanning-mapping', customerId],
-    queryFn: () => base44.entities.SpanningMapping.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.SpanningMapping.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 

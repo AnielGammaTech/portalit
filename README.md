@@ -1,39 +1,37 @@
-**Welcome to your Base44 project** 
+# PortalIT
 
-**About**
+MSP management portal built with React + Supabase + Express.
 
-View and Edit  your app on [Base44.com](http://Base44.com) 
+## Architecture
 
-This project contains everything you need to run your app locally.
+- **Frontend**: React + Vite + TailwindCSS + shadcn/ui
+- **Backend**: Express.js (hosted on Railway)
+- **Database**: Supabase (PostgreSQL)
+- **Auth**: Supabase Auth (email + password)
+- **Storage**: Supabase Storage
+- **LLM**: Anthropic Claude
 
-**Edit the code in your local development environment**
+## Local Development
 
-Any change pushed to the repo will also be reflected in the Base44 Builder.
+### Prerequisites
 
-**Prerequisites:** 
+1. Clone the repository
+2. Install frontend dependencies: `npm install`
+3. Install backend dependencies: `cd server && npm install`
+4. Create `.env.local` for frontend and `server/.env` for backend (see `.env.example` files)
 
-1. Clone the repository using the project's Git URL 
-2. Navigate to the project directory
-3. Install dependencies: `npm install`
-4. Create an `.env.local` file and set the right environment variables
+### Running
 
+```bash
+# Frontend
+npm run dev
+
+# Backend
+cd server && npm start
 ```
-VITE_BASE44_APP_ID=your_app_id
-VITE_BASE44_APP_BASE_URL=your_backend_url
 
-e.g.
-VITE_BASE44_APP_ID=cbef744a8545c389ef439ea6
-VITE_BASE44_APP_BASE_URL=https://my-to-do-list-81bfaad7.base44.app
-```
+## Deployment
 
-Run the app: `npm run dev`
-
-**Publish your changes**
-
-Open [Base44.com](http://Base44.com) and click on Publish.
-
-**Docs & Support**
-
-Documentation: [https://docs.base44.com/Integrations/Using-GitHub](https://docs.base44.com/Integrations/Using-GitHub)
-
-Support: [https://app.base44.com/support](https://app.base44.com/support)
+- **Frontend**: Build with `npm run build`, deploy static files to Railway
+- **Backend**: Deploy `server/` to Railway
+- **Database**: Run migrations in `supabase/migrations/` against your Supabase project

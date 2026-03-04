@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { toast } from 'sonner';
 import { 
   Cloud, 
@@ -59,7 +59,7 @@ export default function CustomerServicesTab({
   const { data: jumpcloudMapping } = useQuery({
     queryKey: ['jumpcloud-mapping', customerId],
     queryFn: async () => {
-      const mappings = await base44.entities.JumpCloudMapping.filter({ customer_id: customerId });
+      const mappings = await client.entities.JumpCloudMapping.filter({ customer_id: customerId });
       return mappings[0] || null;
     },
     enabled: !!customerId,
@@ -70,7 +70,7 @@ export default function CustomerServicesTab({
   const { data: spanningMapping } = useQuery({
     queryKey: ['spanning-mapping', customerId],
     queryFn: async () => {
-      const mappings = await base44.entities.SpanningMapping.filter({ customer_id: customerId });
+      const mappings = await client.entities.SpanningMapping.filter({ customer_id: customerId });
       return mappings[0] || null;
     },
     enabled: !!customerId,
@@ -80,7 +80,7 @@ export default function CustomerServicesTab({
   // Fetch JumpCloud contacts for this customer
   const { data: jumpcloudContacts = [] } = useQuery({
     queryKey: ['jumpcloud-contacts', customerId],
-    queryFn: () => base44.entities.Contact.filter({ customer_id: customerId, source: 'jumpcloud' }),
+    queryFn: () => client.entities.Contact.filter({ customer_id: customerId, source: 'jumpcloud' }),
     enabled: !!customerId && !!jumpcloudMapping,
     staleTime: 1000 * 60 * 5 // Cache for 5 minutes
   });
@@ -88,7 +88,7 @@ export default function CustomerServicesTab({
   // Fetch JumpCloud licenses for this customer
   const { data: jumpcloudLicenses = [] } = useQuery({
     queryKey: ['jumpcloud-licenses', customerId],
-    queryFn: () => base44.entities.SaaSLicense.filter({ customer_id: customerId, source: 'jumpcloud' }),
+    queryFn: () => client.entities.SaaSLicense.filter({ customer_id: customerId, source: 'jumpcloud' }),
     enabled: !!customerId && !!jumpcloudMapping,
     staleTime: 1000 * 60 * 5 // Cache for 5 minutes
   });
@@ -97,7 +97,7 @@ export default function CustomerServicesTab({
   const { data: spanningContacts = [] } = useQuery({
     queryKey: ['spanning-contacts', customerId],
     queryFn: async () => {
-      const contacts = await base44.entities.Contact.filter({ customer_id: customerId });
+      const contacts = await client.entities.Contact.filter({ customer_id: customerId });
       return contacts.filter(c => c.spanning_status);
     },
     enabled: !!customerId && !!spanningMapping
@@ -106,7 +106,7 @@ export default function CustomerServicesTab({
   // Fetch Spanning licenses for this customer
   const { data: spanningLicenses = [] } = useQuery({
     queryKey: ['spanning-licenses', customerId],
-    queryFn: () => base44.entities.SaaSLicense.filter({ customer_id: customerId, vendor: 'Unitrends' }),
+    queryFn: () => client.entities.SaaSLicense.filter({ customer_id: customerId, vendor: 'Unitrends' }),
     enabled: !!customerId && !!spanningMapping
   });
 
@@ -114,7 +114,7 @@ export default function CustomerServicesTab({
   const { data: dattoMapping } = useQuery({
     queryKey: ['datto-mapping', customerId],
     queryFn: async () => {
-      const mappings = await base44.entities.DattoSiteMapping.filter({ customer_id: customerId });
+      const mappings = await client.entities.DattoSiteMapping.filter({ customer_id: customerId });
       return mappings[0] || null;
     },
     enabled: !!customerId
@@ -124,7 +124,7 @@ export default function CustomerServicesTab({
   const { data: darkwebMapping } = useQuery({
     queryKey: ['darkwebid-mapping', customerId],
     queryFn: async () => {
-      const mappings = await base44.entities.DarkWebIDMapping.filter({ customer_id: customerId });
+      const mappings = await client.entities.DarkWebIDMapping.filter({ customer_id: customerId });
       return mappings[0] || null;
     },
     enabled: !!customerId
@@ -133,14 +133,14 @@ export default function CustomerServicesTab({
   // Fetch Dark Web ID reports for this customer (reports can exist without mapping)
   const { data: darkwebReports = [] } = useQuery({
     queryKey: ['darkwebid-reports', customerId],
-    queryFn: () => base44.entities.DarkWebIDReport.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.DarkWebIDReport.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
   // Fetch BullPhish ID reports for this customer
   const { data: bullphishReports = [] } = useQuery({
     queryKey: ['bullphishid-reports', customerId],
-    queryFn: () => base44.entities.BullPhishIDReport.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.BullPhishIDReport.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
@@ -148,7 +148,7 @@ export default function CustomerServicesTab({
   const { data: edrMapping } = useQuery({
     queryKey: ['edr-mapping', customerId],
     queryFn: async () => {
-      const mappings = await base44.entities.DattoEDRMapping.filter({ customer_id: customerId });
+      const mappings = await client.entities.DattoEDRMapping.filter({ customer_id: customerId });
       return mappings[0] || null;
     },
     enabled: !!customerId
@@ -158,7 +158,7 @@ export default function CustomerServicesTab({
   const { data: rocketcyberMapping } = useQuery({
     queryKey: ['rocketcyber-mapping', customerId],
     queryFn: async () => {
-      const mappings = await base44.entities.RocketCyberMapping.filter({ customer_id: customerId });
+      const mappings = await client.entities.RocketCyberMapping.filter({ customer_id: customerId });
       return mappings[0] || null;
     },
     enabled: !!customerId
@@ -185,7 +185,7 @@ export default function CustomerServicesTab({
     setSyncingHalo(true);
     updateSyncStatus('halopsa', 'syncing');
     try {
-      const response = await base44.functions.invoke('syncHaloPSAContacts', {
+      const response = await client.functions.invoke('syncHaloPSAContacts', {
         action: 'sync_customer',
         customer_id: customer.external_id
       });
@@ -210,7 +210,7 @@ export default function CustomerServicesTab({
     setSyncingDatto(true);
     updateSyncStatus('datto', 'syncing');
     try {
-      const response = await base44.functions.invoke('syncDattoRMMDevices', {
+      const response = await client.functions.invoke('syncDattoRMMDevices', {
         action: 'sync_devices',
         customer_id: customerId
       });
@@ -240,7 +240,7 @@ export default function CustomerServicesTab({
       if (customer?.source === 'halopsa' && customer?.external_id) {
         updateSyncStatus('halopsa', 'syncing');
         try {
-          const res = await base44.functions.invoke('syncHaloPSAContacts', {
+          const res = await client.functions.invoke('syncHaloPSAContacts', {
             action: 'sync_customer',
             customer_id: customer.external_id
           });
@@ -261,7 +261,7 @@ export default function CustomerServicesTab({
       if (dattoMapping) {
         updateSyncStatus('datto', 'syncing');
         try {
-          const res = await base44.functions.invoke('syncDattoRMMDevices', {
+          const res = await client.functions.invoke('syncDattoRMMDevices', {
             action: 'sync_devices',
             customer_id: customerId
           });
@@ -282,7 +282,7 @@ export default function CustomerServicesTab({
       if (jumpcloudMapping) {
         updateSyncStatus('jumpcloud', 'syncing');
         try {
-          const res = await base44.functions.invoke('syncJumpCloudLicenses', {
+          const res = await client.functions.invoke('syncJumpCloudLicenses', {
             action: 'sync_licenses',
             customer_id: customerId
           });
@@ -303,7 +303,7 @@ export default function CustomerServicesTab({
       if (spanningMapping) {
         updateSyncStatus('spanning', 'syncing');
         try {
-          const res = await base44.functions.invoke('syncSpanningBackup', {
+          const res = await client.functions.invoke('syncSpanningBackup', {
             action: 'sync_licenses',
             customer_id: customerId
           });
@@ -341,7 +341,7 @@ export default function CustomerServicesTab({
     if (!jumpcloudMapping) return;
     setSyncingJumpCloud(true);
     try {
-      const response = await base44.functions.invoke('syncJumpCloudLicenses', {
+      const response = await client.functions.invoke('syncJumpCloudLicenses', {
         action: 'sync_licenses',
         customer_id: customerId
       });
@@ -374,7 +374,7 @@ export default function CustomerServicesTab({
     if (!spanningMapping) return;
     setSyncingSpanning(true);
     try {
-      const response = await base44.functions.invoke('syncSpanningBackup', {
+      const response = await client.functions.invoke('syncSpanningBackup', {
         action: 'sync_licenses',
         customer_id: customerId
       });
@@ -497,7 +497,7 @@ export default function CustomerServicesTab({
                     onClick={async () => {
                       try {
                         setIsSyncing(true);
-                        const response = await base44.functions.invoke('syncHaloPSARecurringBills', { 
+                        const response = await client.functions.invoke('syncHaloPSARecurringBills', { 
                           action: 'sync_customer',
                           customer_id: customer.external_id 
                         });

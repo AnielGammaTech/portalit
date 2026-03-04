@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import Breadcrumbs from '../components/ui/breadcrumbs';
@@ -30,12 +30,12 @@ function InvoicesTab() {
 
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list('-created_date', 500),
+    queryFn: () => client.entities.Customer.list('-created_date', 500),
   });
 
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ['invoices'],
-    queryFn: () => base44.entities.Invoice.list('-invoice_date', 500),
+    queryFn: () => client.entities.Invoice.list('-invoice_date', 500),
   });
 
   const filteredInvoices = invoices.filter(inv => {
@@ -202,12 +202,12 @@ function RecurringBillsTab() {
 
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list('-created_date', 500),
+    queryFn: () => client.entities.Customer.list('-created_date', 500),
   });
 
   const { data: recurringBills = [], isLoading } = useQuery({
     queryKey: ['recurring-bills'],
-    queryFn: () => base44.entities.RecurringBill.list('-created_date', 500),
+    queryFn: () => client.entities.RecurringBill.list('-created_date', 500),
   });
 
   const filteredBills = recurringBills.filter(bill => {
@@ -339,7 +339,7 @@ function ContractsTab() {
 
   const { data: contracts = [], isLoading } = useQuery({
     queryKey: ['contracts'],
-    queryFn: () => base44.entities.Contract.list('-created_date', 500),
+    queryFn: () => client.entities.Contract.list('-created_date', 500),
   });
 
   const filteredContracts = contracts.filter(c => {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { Shield, Clock, Mail, Phone, LogOut } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 
@@ -71,7 +71,7 @@ export default function AwaitingAccess({ user }) {
           {/* Logout */}
           <Button 
             variant="ghost" 
-            onClick={() => base44.auth.logout()}
+            onClick={() => client.auth.logout()}
             className="text-slate-500 hover:text-slate-700"
           >
             <LogOut className="w-4 h-4 mr-2" />

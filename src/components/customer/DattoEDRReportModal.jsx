@@ -18,7 +18,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 
 export default function DattoEDRReportModal({ open, onOpenChange, edrData, tenantName, customerName, customerId }) {
   const [generating, setGenerating] = useState(false);
@@ -40,7 +40,7 @@ export default function DattoEDRReportModal({ open, onOpenChange, edrData, tenan
     
     const interval = setInterval(async () => {
       try {
-        const response = await base44.functions.invoke('syncDattoEDR', {
+        const response = await client.functions.invoke('syncDattoEDR', {
           action: 'check_report_status',
           report_id: reportGenerated.id
         });
@@ -64,7 +64,7 @@ export default function DattoEDRReportModal({ open, onOpenChange, edrData, tenan
     setReportGenerated(null);
     
     try {
-      const response = await base44.functions.invoke('syncDattoEDR', {
+      const response = await client.functions.invoke('syncDattoEDR', {
         action: 'generate_report',
         customer_id: customerId,
         report_name: reportName,
@@ -92,7 +92,7 @@ export default function DattoEDRReportModal({ open, onOpenChange, edrData, tenan
     setCheckingStatus(true);
     
     try {
-      const response = await base44.functions.invoke('syncDattoEDR', {
+      const response = await client.functions.invoke('syncDattoEDR', {
         action: 'check_report_status',
         report_id: reportGenerated.id
       });
@@ -117,7 +117,7 @@ export default function DattoEDRReportModal({ open, onOpenChange, edrData, tenan
     setDownloading(true);
     
     try {
-      const response = await base44.functions.invoke('syncDattoEDR', {
+      const response = await client.functions.invoke('syncDattoEDR', {
         action: 'download_report',
         report_id: reportGenerated.id
       });

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { Cloud, Upload, Globe, Loader2, X, Image } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
@@ -84,7 +84,7 @@ export default function AddLicenseModal({ open, onClose, onSave, customerId }) {
       setIsLoadingLogo(false);
 
       // Use AI to get app info
-      const result = await base44.integrations.Core.InvokeLLM({
+      const result = await client.integrations.Core.InvokeLLM({
         prompt: `Research this software/SaaS application website: ${domain}
         
 Provide information about this application. If you don't know it, make reasonable assumptions based on the domain name.
@@ -137,7 +137,7 @@ Return JSON with:
     
     setIsUploading(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await client.integrations.Core.UploadFile({ file });
       setForm(prev => ({ ...prev, logo_url: file_url }));
     } catch (error) {
       console.error('Upload failed:', error);

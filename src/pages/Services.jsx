@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import Breadcrumbs from '../components/ui/breadcrumbs';
 import { 
   Cloud, 
@@ -29,22 +29,22 @@ function JumpCloudTab() {
 
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list('-created_date', 500),
+    queryFn: () => client.entities.Customer.list('-created_date', 500),
   });
 
   const { data: mappings = [] } = useQuery({
     queryKey: ['jumpcloud-mappings'],
-    queryFn: () => base44.entities.JumpCloudMapping.list('-created_date', 500),
+    queryFn: () => client.entities.JumpCloudMapping.list('-created_date', 500),
   });
 
   const { data: contacts = [], isLoading } = useQuery({
     queryKey: ['contacts-jumpcloud'],
-    queryFn: () => base44.entities.Contact.filter({ source: 'jumpcloud' }, '-created_date', 1000),
+    queryFn: () => client.entities.Contact.filter({ source: 'jumpcloud' }, '-created_date', 1000),
   });
 
   const { data: licenses = [] } = useQuery({
     queryKey: ['licenses-jumpcloud'],
-    queryFn: () => base44.entities.SaaSLicense.filter({ source: 'jumpcloud' }, '-created_date', 500),
+    queryFn: () => client.entities.SaaSLicense.filter({ source: 'jumpcloud' }, '-created_date', 500),
   });
 
   const filteredContacts = contacts.filter(c => {
@@ -199,22 +199,22 @@ function SpanningTab() {
 
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list('-created_date', 500),
+    queryFn: () => client.entities.Customer.list('-created_date', 500),
   });
 
   const { data: mappings = [], isLoading } = useQuery({
     queryKey: ['spanning-mappings'],
-    queryFn: () => base44.entities.SpanningMapping.list('-created_date', 500),
+    queryFn: () => client.entities.SpanningMapping.list('-created_date', 500),
   });
 
   const { data: licenses = [] } = useQuery({
     queryKey: ['licenses-spanning'],
-    queryFn: () => base44.entities.SaaSLicense.filter({ vendor: 'Unitrends' }, '-created_date', 500),
+    queryFn: () => client.entities.SaaSLicense.filter({ vendor: 'Unitrends' }, '-created_date', 500),
   });
 
   const { data: contacts = [] } = useQuery({
     queryKey: ['contacts-spanning'],
-    queryFn: () => base44.entities.Contact.filter({ source: 'spanning' }, '-created_date', 1000),
+    queryFn: () => client.entities.Contact.filter({ source: 'spanning' }, '-created_date', 1000),
   });
 
   const filteredMappings = mappings.filter(m => {
@@ -418,17 +418,17 @@ function DattoTab() {
 
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list('-created_date', 500),
+    queryFn: () => client.entities.Customer.list('-created_date', 500),
   });
 
   const { data: mappings = [] } = useQuery({
     queryKey: ['datto-mappings'],
-    queryFn: () => base44.entities.DattoSiteMapping.list('-created_date', 500),
+    queryFn: () => client.entities.DattoSiteMapping.list('-created_date', 500),
   });
 
   const { data: devices = [], isLoading } = useQuery({
     queryKey: ['devices'],
-    queryFn: () => base44.entities.Device.list('-created_date', 1000),
+    queryFn: () => client.entities.Device.list('-created_date', 1000),
   });
 
   const filteredDevices = devices.filter(d => {

@@ -41,7 +41,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from 'date-fns';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import UserDetailModal from './UserDetailModal';
@@ -201,7 +201,7 @@ export default function OverviewTab({
   const { data: orphanedUserAlerts = [] } = useQuery({
     queryKey: ['orphaned_user_alerts', customerId],
     queryFn: async () => {
-      const activities = await base44.entities.Activity.filter({ 
+      const activities = await client.entities.Activity.filter({ 
         entity_id: customerId,
         type: 'license_revoked'
       });
@@ -215,13 +215,13 @@ export default function OverviewTab({
       const alertsWithLicenses = await Promise.all(recentAlerts.map(async (alert) => {
         const metadata = alert.metadata ? JSON.parse(alert.metadata) : {};
         if (metadata.contact_id) {
-          const assignments = await base44.entities.LicenseAssignment.filter({
+          const assignments = await client.entities.LicenseAssignment.filter({
             contact_id: metadata.contact_id,
             status: 'active'
           });
           // Get license details
           const licenseDetails = await Promise.all(assignments.map(async (a) => {
-            const licenses = await base44.entities.SaaSLicense.filter({ id: a.license_id });
+            const licenses = await client.entities.SaaSLicense.filter({ id: a.license_id });
             return licenses[0]?.application_name || 'Unknown License';
           }));
           return { ...alert, metadata, licenseNames: licenseDetails };
@@ -256,7 +256,7 @@ export default function OverviewTab({
     if (!customer?.external_id) return;
     setIsSyncing(true);
     try {
-      const response = await base44.functions.invoke('syncHaloPSAContacts', { 
+      const response = await client.functions.invoke('syncHaloPSAContacts', { 
         action: 'sync_customer',
         customer_id: customer.external_id 
       });
@@ -280,7 +280,7 @@ export default function OverviewTab({
     }
     setIsCreatingTicket(true);
     try {
-      const response = await base44.functions.invoke('createHaloPSATicket', {
+      const response = await client.functions.invoke('createHaloPSATicket', {
         customer_id: customerId,
         ...newTicket,
         conversation_transcript: conversationTranscript || null

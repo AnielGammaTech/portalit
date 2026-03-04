@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import Breadcrumbs from '../components/ui/breadcrumbs';
@@ -70,26 +70,26 @@ export default function Customers() {
 
   const { data: customers = [], isLoading } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list('-created_date', 500),
+    queryFn: () => client.entities.Customer.list('-created_date', 500),
   });
 
   const { data: contracts = [] } = useQuery({
     queryKey: ['all_contracts'],
-    queryFn: () => base44.entities.Contract.list('-created_date', 1000),
+    queryFn: () => client.entities.Contract.list('-created_date', 1000),
   });
 
   const { data: recurringBills = [] } = useQuery({
     queryKey: ['all_recurring_bills'],
-    queryFn: () => base44.entities.RecurringBill.list('-created_date', 1000),
+    queryFn: () => client.entities.RecurringBill.list('-created_date', 1000),
   });
 
   const { data: tickets = [] } = useQuery({
     queryKey: ['all_tickets'],
-    queryFn: () => base44.entities.Ticket.list('-created_date', 1000),
+    queryFn: () => client.entities.Ticket.list('-created_date', 1000),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Customer.create(data),
+    mutationFn: (data) => client.entities.Customer.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       handleCloseDialog();
@@ -97,7 +97,7 @@ export default function Customers() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Customer.update(id, data),
+    mutationFn: ({ id, data }) => client.entities.Customer.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       handleCloseDialog();
@@ -105,7 +105,7 @@ export default function Customers() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.Customer.delete(id),
+    mutationFn: (id) => client.entities.Customer.delete(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['customers'] })
   });
 
@@ -153,7 +153,7 @@ export default function Customers() {
   const handleSyncHaloPSA = async () => {
     try {
       setIsSyncing(true);
-      const response = await base44.functions.invoke('syncHaloPSACustomers', { action: 'sync_now' });
+      const response = await client.functions.invoke('syncHaloPSACustomers', { action: 'sync_now' });
       if (response.data.success) {
         toast.success(`Sync completed! ${response.data.recordsSynced} records synced.`);
         queryClient.invalidateQueries({ queryKey: ['customers'] });

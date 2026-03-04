@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
@@ -66,7 +66,7 @@ export default function CustomerDetail() {
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const currentUser = await base44.auth.me();
+        const currentUser = await client.auth.me();
         setUser(currentUser);
       } catch (error) {
         console.error('Failed to load user', error);
@@ -79,7 +79,7 @@ export default function CustomerDetail() {
 
   const { data: customers = [], isLoading: loadingCustomer } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list(),
+    queryFn: () => client.entities.Customer.list(),
   });
 
   // If no customerId in URL, use the user's assigned customer_id
@@ -96,32 +96,32 @@ export default function CustomerDetail() {
 
   const { data: contracts = [], isLoading: loadingContracts } = useQuery({
     queryKey: ['contracts', customerId],
-    queryFn: () => base44.entities.Contract.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.Contract.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
   const { data: devices = [], isLoading: loadingDevices } = useQuery({
     queryKey: ['devices', customerId],
-    queryFn: () => base44.entities.Device.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.Device.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
   const { data: licenses = [], isLoading: loadingLicenses } = useQuery({
     queryKey: ['licenses', customerId],
-    queryFn: () => base44.entities.SaaSLicense.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.SaaSLicense.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
   // Fetch Application catalog entries (software without licenses yet)
   const { data: applications = [], isLoading: loadingApplications } = useQuery({
     queryKey: ['applications', customerId],
-    queryFn: () => base44.entities.Application.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.Application.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
   const { data: recurringBills = [], isLoading: loadingBills } = useQuery({
     queryKey: ['recurring_bills', customerId],
-    queryFn: () => base44.entities.RecurringBill.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.RecurringBill.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
@@ -130,7 +130,7 @@ export default function CustomerDetail() {
     queryFn: async () => {
       const allItems = [];
       for (const bill of recurringBills) {
-        const items = await base44.entities.RecurringBillLineItem.filter({ recurring_bill_id: bill.id });
+        const items = await client.entities.RecurringBillLineItem.filter({ recurring_bill_id: bill.id });
         allItems.push(...items);
       }
       return allItems;
@@ -140,25 +140,25 @@ export default function CustomerDetail() {
 
   const { data: invoices = [], isLoading: loadingInvoices } = useQuery({
     queryKey: ['invoices', customerId],
-    queryFn: () => base44.entities.Invoice.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.Invoice.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
   const { data: quotes = [], isLoading: loadingQuotes } = useQuery({
     queryKey: ['quotes', customerId],
-    queryFn: () => base44.entities.Quote.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.Quote.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
   const { data: contacts = [], isLoading: loadingContacts } = useQuery({
         queryKey: ['contacts', customerId],
-        queryFn: () => base44.entities.Contact.filter({ customer_id: customerId }),
+        queryFn: () => client.entities.Contact.filter({ customer_id: customerId }),
         enabled: !!customerId
       });
 
       const { data: tickets = [], isLoading: loadingTickets } = useQuery({
         queryKey: ['tickets', customerId],
-        queryFn: () => base44.entities.Ticket.filter({ customer_id: customerId }),
+        queryFn: () => client.entities.Ticket.filter({ customer_id: customerId }),
         enabled: !!customerId
       });
 
@@ -167,7 +167,7 @@ export default function CustomerDetail() {
         queryFn: async () => {
           const allItems = [];
           for (const quote of quotes) {
-            const items = await base44.entities.QuoteItem.filter({ quote_id: quote.id });
+            const items = await client.entities.QuoteItem.filter({ quote_id: quote.id });
             allItems.push(...items);
           }
           return allItems;
@@ -180,7 +180,7 @@ export default function CustomerDetail() {
         queryFn: async () => {
           const allItems = [];
           for (const invoice of invoices) {
-            const items = await base44.entities.InvoiceLineItem.filter({ invoice_id: invoice.id });
+            const items = await client.entities.InvoiceLineItem.filter({ invoice_id: invoice.id });
             allItems.push(...items);
           }
           return allItems;
@@ -193,7 +193,7 @@ export default function CustomerDetail() {
     queryFn: async () => {
       const allItems = [];
       for (const contract of contracts) {
-        const items = await base44.entities.ContractItem.filter({ contract_id: contract.id });
+        const items = await client.entities.ContractItem.filter({ contract_id: contract.id });
         allItems.push(...items);
       }
       return allItems;
@@ -203,7 +203,7 @@ export default function CustomerDetail() {
 
   const { data: licenseAssignments = [], isLoading: loadingAssignments } = useQuery({
     queryKey: ['license_assignments', customerId],
-    queryFn: () => base44.entities.LicenseAssignment.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.LicenseAssignment.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
@@ -211,7 +211,7 @@ export default function CustomerDetail() {
   const { data: jumpcloudMapping, isLoading: loadingJumpcloud } = useQuery({
     queryKey: ['jumpcloud-mapping', customerId],
     queryFn: async () => {
-      const mappings = await base44.entities.JumpCloudMapping.filter({ customer_id: customerId });
+      const mappings = await client.entities.JumpCloudMapping.filter({ customer_id: customerId });
       return mappings[0] || null;
     },
     enabled: !!customerId
@@ -221,7 +221,7 @@ export default function CustomerDetail() {
   const { data: spanningMapping, isLoading: loadingSpanning } = useQuery({
     queryKey: ['spanning-mapping', customerId],
     queryFn: async () => {
-      const mappings = await base44.entities.SpanningMapping.filter({ customer_id: customerId });
+      const mappings = await client.entities.SpanningMapping.filter({ customer_id: customerId });
       return mappings[0] || null;
     },
     enabled: !!customerId
@@ -253,7 +253,7 @@ export default function CustomerDetail() {
   const isAdmin = user?.role === 'admin';
 
   const handleAssignLicense = async (contactId) => {
-    await base44.entities.LicenseAssignment.create({
+    await client.entities.LicenseAssignment.create({
       license_id: selectedLicense.id,
       contact_id: contactId,
       customer_id: customerId,
@@ -262,7 +262,7 @@ export default function CustomerDetail() {
     });
     // Update license assigned_users count
     const newCount = licenseAssignments.filter(a => a.license_id === selectedLicense.id && a.status === 'active').length + 1;
-    await base44.entities.SaaSLicense.update(selectedLicense.id, { assigned_users: newCount });
+    await client.entities.SaaSLicense.update(selectedLicense.id, { assigned_users: newCount });
     queryClient.invalidateQueries({ queryKey: ['license_assignments', customerId] });
     queryClient.invalidateQueries({ queryKey: ['licenses', customerId] });
     toast.success('License assigned!');
@@ -275,9 +275,9 @@ export default function CustomerDetail() {
       a.status === 'active'
     );
     if (assignment) {
-      await base44.entities.LicenseAssignment.update(assignment.id, { status: 'revoked' });
+      await client.entities.LicenseAssignment.update(assignment.id, { status: 'revoked' });
       const newCount = Math.max(0, licenseAssignments.filter(a => a.license_id === selectedLicense.id && a.status === 'active').length - 1);
-      await base44.entities.SaaSLicense.update(selectedLicense.id, { assigned_users: newCount });
+      await client.entities.SaaSLicense.update(selectedLicense.id, { assigned_users: newCount });
       queryClient.invalidateQueries({ queryKey: ['license_assignments', customerId] });
       queryClient.invalidateQueries({ queryKey: ['licenses', customerId] });
       toast.success('License revoked!');
@@ -285,7 +285,7 @@ export default function CustomerDetail() {
   };
 
   const handleAddLicense = async (licenseData) => {
-    await base44.entities.SaaSLicense.create(licenseData);
+    await client.entities.SaaSLicense.create(licenseData);
     queryClient.invalidateQueries({ queryKey: ['licenses', customerId] });
     setShowAddLicense(false);
     toast.success('License added!');
@@ -296,7 +296,7 @@ export default function CustomerDetail() {
     toast.success('Software added!');
     
     // Create the software in the Application catalog
-    const newApp = await base44.entities.Application.create(softwareData);
+    const newApp = await client.entities.Application.create(softwareData);
     
     // Pre-populate the query cache for instant load
     queryClient.setQueryData(['application', newApp.id], newApp);
@@ -350,7 +350,7 @@ export default function CustomerDetail() {
   });
 
   const handleAddContact = async (contactData) => {
-    await base44.entities.Contact.create(contactData);
+    await client.entities.Contact.create(contactData);
     queryClient.invalidateQueries({ queryKey: ['contacts', customerId] });
     setShowAddContact(false);
     toast.success('Team member added!');
@@ -366,7 +366,7 @@ export default function CustomerDetail() {
       // Sync HaloPSA if customer is from HaloPSA
       if (customer?.source === 'halopsa' && customer?.external_id) {
         try {
-          const res = await base44.functions.invoke('syncHaloPSACustomers', { 
+          const res = await client.functions.invoke('syncHaloPSACustomers', { 
             action: 'sync_customer',
             customer_id: customer.external_id 
           });
@@ -376,10 +376,10 @@ export default function CustomerDetail() {
       }
 
       // Sync JumpCloud if mapped
-      const jcMappings = await base44.entities.JumpCloudMapping.filter({ customer_id: customerId });
+      const jcMappings = await client.entities.JumpCloudMapping.filter({ customer_id: customerId });
       if (jcMappings.length > 0) {
         try {
-          const res = await base44.functions.invoke('syncJumpCloudLicenses', {
+          const res = await client.functions.invoke('syncJumpCloudLicenses', {
             action: 'sync_licenses',
             customer_id: customerId
           });
@@ -389,10 +389,10 @@ export default function CustomerDetail() {
       }
 
       // Sync Spanning if mapped
-      const spanningMappings = await base44.entities.SpanningMapping.filter({ customer_id: customerId });
+      const spanningMappings = await client.entities.SpanningMapping.filter({ customer_id: customerId });
       if (spanningMappings.length > 0) {
         try {
-          const res = await base44.functions.invoke('syncSpanningBackup', {
+          const res = await client.functions.invoke('syncSpanningBackup', {
             action: 'sync_licenses',
             customer_id: customerId
           });
@@ -402,10 +402,10 @@ export default function CustomerDetail() {
       }
 
       // Sync Datto if mapped
-      const dattoMappings = await base44.entities.DattoSiteMapping.filter({ customer_id: customerId });
+      const dattoMappings = await client.entities.DattoSiteMapping.filter({ customer_id: customerId });
       if (dattoMappings.length > 0) {
         try {
-          const res = await base44.functions.invoke('syncDattoRMMDevices', {
+          const res = await client.functions.invoke('syncDattoRMMDevices', {
             action: 'sync_site',
             site_id: dattoMappings[0].datto_site_id
           });
@@ -646,7 +646,7 @@ export default function CustomerDetail() {
                                       onClick={async () => {
                                         try {
                                           setIsSyncing(true);
-                                          const response = await base44.functions.invoke('syncHaloPSAContracts', { 
+                                          const response = await client.functions.invoke('syncHaloPSAContracts', { 
                                             action: 'sync_customer',
                                             customer_id: customer.external_id 
                                           });
@@ -726,7 +726,7 @@ export default function CustomerDetail() {
                                       e.stopPropagation();
                                       try {
                                         setIsSyncing(true);
-                                        const response = await base44.functions.invoke('syncHaloPSAInvoices', { 
+                                        const response = await client.functions.invoke('syncHaloPSAInvoices', { 
                                           action: 'sync_customer',
                                           customer_id: customer.external_id 
                                         });
@@ -1556,7 +1556,7 @@ export default function CustomerDetail() {
                                   onClick={async () => {
                                     try {
                                       setIsSyncing(true);
-                                      const response = await base44.functions.invoke('syncHaloPSATickets', { 
+                                      const response = await client.functions.invoke('syncHaloPSATickets', { 
                                         action: 'sync_customer',
                                         customer_id: customer.external_id 
                                       });

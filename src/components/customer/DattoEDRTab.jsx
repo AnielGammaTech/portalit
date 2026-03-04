@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { toast } from 'sonner';
 import { 
   Shield, 
@@ -41,7 +41,7 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
     if (!edrMapping) return;
     setSyncing(true);
     try {
-      const response = await base44.functions.invoke('syncDattoEDR', {
+      const response = await client.functions.invoke('syncDattoEDR', {
         action: 'sync_customer',
         customer_id: customerId
       });

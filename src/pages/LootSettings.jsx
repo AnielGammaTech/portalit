@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { 
   Settings, 
   Plus, 
@@ -65,18 +65,18 @@ export default function LootSettings() {
 
   const { data: settings = [], isLoading } = useQuery({
     queryKey: ['loot_settings'],
-    queryFn: () => base44.entities.LootSettings.list(),
+    queryFn: () => client.entities.LootSettings.list(),
   });
 
   const { data: vendorBilling = [] } = useQuery({
     queryKey: ['vendor_billing'],
-    queryFn: () => base44.entities.VendorBilling.list(),
+    queryFn: () => client.entities.VendorBilling.list(),
   });
 
   // Fetch all recurring bill line items to import from
   const { data: billLineItems = [] } = useQuery({
     queryKey: ['all_bill_line_items'],
-    queryFn: () => base44.entities.RecurringBillLineItem.list('-created_date', 5000),
+    queryFn: () => client.entities.RecurringBillLineItem.list('-created_date', 5000),
   });
 
   // Get unique item descriptions for import
@@ -101,7 +101,7 @@ export default function LootSettings() {
   }, [billLineItems]);
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.LootSettings.create(data),
+    mutationFn: (data) => client.entities.LootSettings.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['loot_settings'] });
       setIsAddModalOpen(false);
@@ -110,7 +110,7 @@ export default function LootSettings() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.LootSettings.update(id, data),
+    mutationFn: ({ id, data }) => client.entities.LootSettings.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['loot_settings'] });
       setEditingService(null);
@@ -119,7 +119,7 @@ export default function LootSettings() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.LootSettings.delete(id),
+    mutationFn: (id) => client.entities.LootSettings.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['loot_settings'] });
       toast.success('Service deleted');
@@ -131,9 +131,9 @@ export default function LootSettings() {
     try {
       let response;
       if (vendorType === 'datto_rmm') {
-        response = await base44.functions.invoke('fetchDattoRMMBilling');
+        response = await client.functions.invoke('fetchDattoRMMBilling');
       } else if (vendorType === 'jumpcloud') {
-        response = await base44.functions.invoke('fetchJumpCloudBilling');
+        response = await client.functions.invoke('fetchJumpCloudBilling');
       }
       
       if (response.data?.success) {

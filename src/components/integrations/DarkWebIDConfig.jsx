@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -55,12 +55,12 @@ export default function DarkWebIDConfig() {
 
   const { data: reports = [], isLoading: loadingReports } = useQuery({
     queryKey: ['darkwebid-reports'],
-    queryFn: () => base44.entities.DarkWebIDReport.list('-report_date', 100),
+    queryFn: () => client.entities.DarkWebIDReport.list('-report_date', 100),
   });
 
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list('name', 500),
+    queryFn: () => client.entities.Customer.list('name', 500),
   });
 
   const handleFileSelect = async (e) => {
@@ -82,9 +82,9 @@ export default function DarkWebIDConfig() {
   const extractDataFromFile = async (file) => {
     setIsExtracting(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await client.integrations.Core.UploadFile({ file });
       
-      const result = await base44.integrations.Core.InvokeLLM({
+      const result = await client.integrations.Core.InvokeLLM({
         prompt: `Analyze this Dark Web ID / Dark Web monitoring report PDF and extract the following data.
         
 Look carefully for:
@@ -179,11 +179,11 @@ Convert all dates to YYYY-MM-DD format.`,
       
       let pdfUrl = extractedData?.pdf_url;
       if (!pdfUrl && selectedFile) {
-        const { file_url } = await base44.integrations.Core.UploadFile({ file: selectedFile });
+        const { file_url } = await client.integrations.Core.UploadFile({ file: selectedFile });
         pdfUrl = file_url;
       }
 
-      await base44.entities.DarkWebIDReport.create({
+      await client.entities.DarkWebIDReport.create({
         customer_id: selectedCustomer,
         customer_name: customer?.name,
         report_date: reportDate,
@@ -224,7 +224,7 @@ Convert all dates to YYYY-MM-DD format.`,
   const handleDeleteReport = async (reportId) => {
     if (!confirm('Are you sure you want to delete this report?')) return;
     try {
-      await base44.entities.DarkWebIDReport.delete(reportId);
+      await client.entities.DarkWebIDReport.delete(reportId);
       toast.success('Report deleted');
       queryClient.invalidateQueries({ queryKey: ['darkwebid-reports'] });
     } catch (error) {

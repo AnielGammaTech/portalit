@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +30,7 @@ export default function HaloPSASection() {
   const loadSettings = async () => {
     try {
       setLoading(true);
-      const settingsList = await base44.entities.Settings.list();
+      const settingsList = await client.entities.Settings.list();
       if (settingsList.length > 0) {
         const s = settingsList[0];
         setSettings({
@@ -72,11 +72,11 @@ export default function HaloPSASection() {
     
     try {
       setSaving(true);
-      const settingsList = await base44.entities.Settings.list();
+      const settingsList = await client.entities.Settings.list();
       if (settingsList.length > 0) {
-        await base44.entities.Settings.update(settingsList[0].id, settings);
+        await client.entities.Settings.update(settingsList[0].id, settings);
       } else {
-        await base44.entities.Settings.create(settings);
+        await client.entities.Settings.create(settings);
       }
       setIsEnabled(true);
       toast.success('HaloPSA configuration saved');
@@ -91,7 +91,7 @@ export default function HaloPSASection() {
     try {
       setTesting(true);
       setConnectionStatus(null);
-      const response = await base44.functions.invoke('syncHaloPSACustomers', { action: 'test_connection' });
+      const response = await client.functions.invoke('syncHaloPSACustomers', { action: 'test_connection' });
       if (response.data.success) {
         setConnectionStatus({ success: true, message: 'Connection successful!' });
         toast.success('HaloPSA connection successful!');

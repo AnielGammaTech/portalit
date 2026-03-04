@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { 
@@ -29,7 +29,7 @@ export default function LootCustomer() {
 
   useEffect(() => {
     const loadUser = async () => {
-      const currentUser = await base44.auth.me();
+      const currentUser = await client.auth.me();
       setUser(currentUser);
     };
     loadUser();
@@ -38,7 +38,7 @@ export default function LootCustomer() {
   const { data: customer, isLoading: loadingCustomer } = useQuery({
     queryKey: ['customer', customerId],
     queryFn: async () => {
-      const customers = await base44.entities.Customer.filter({ id: customerId });
+      const customers = await client.entities.Customer.filter({ id: customerId });
       return customers[0];
     },
     enabled: !!customerId
@@ -46,14 +46,14 @@ export default function LootCustomer() {
 
   const { data: recurringBills = [], isLoading: loadingBills, refetch: refetchBills } = useQuery({
     queryKey: ['customer_recurring_bills', customerId],
-    queryFn: () => base44.entities.RecurringBill.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.RecurringBill.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
   const { data: billLineItems = [], isLoading: loadingLineItems, refetch: refetchLineItems } = useQuery({
     queryKey: ['customer_bill_line_items', customerId],
     queryFn: async () => {
-      const allItems = await base44.entities.RecurringBillLineItem.list('-created_date', 5000);
+      const allItems = await client.entities.RecurringBillLineItem.list('-created_date', 5000);
       const billIds = recurringBills.map(b => b.id);
       return allItems.filter(item => billIds.includes(item.recurring_bill_id));
     },
@@ -62,18 +62,18 @@ export default function LootCustomer() {
 
   const { data: lootSettings = [] } = useQuery({
     queryKey: ['loot_settings'],
-    queryFn: () => base44.entities.LootSettings.list(),
+    queryFn: () => client.entities.LootSettings.list(),
   });
 
   const { data: vendorBilling = [] } = useQuery({
     queryKey: ['vendor_billing', customerId],
-    queryFn: () => base44.entities.VendorBilling.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.VendorBilling.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
   const { data: devices = [] } = useQuery({
     queryKey: ['customer_devices', customerId],
-    queryFn: () => base44.entities.Device.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.Device.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
@@ -83,7 +83,7 @@ export default function LootCustomer() {
   const handleSyncRecurringBills = async () => {
     setIsSyncing(true);
     try {
-      const response = await base44.functions.invoke('syncHaloPSARecurringBills', {
+      const response = await client.functions.invoke('syncHaloPSARecurringBills', {
         customer_id: customerId
       });
       

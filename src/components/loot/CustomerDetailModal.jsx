@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 export default function CustomerDetailModal({ customer, isOpen, onClose }) {
   const { data: recurringBills = [], isLoading: loadingBills } = useQuery({
     queryKey: ['customer_bills', customer?.id],
-    queryFn: () => base44.entities.RecurringBill.filter({ customer_id: customer?.id }),
+    queryFn: () => client.entities.RecurringBill.filter({ customer_id: customer?.id }),
     enabled: !!customer?.id,
   });
 
@@ -23,7 +23,7 @@ export default function CustomerDetailModal({ customer, isOpen, onClose }) {
     queryKey: ['customer_line_items', customer?.id],
     queryFn: async () => {
       if (!recurringBills.length) return [];
-      const allItems = await base44.entities.RecurringBillLineItem.list('-created_date', 1000);
+      const allItems = await client.entities.RecurringBillLineItem.list('-created_date', 1000);
       return allItems.filter(item => 
         recurringBills.some(bill => bill.id === item.recurring_bill_id)
       );
@@ -33,7 +33,7 @@ export default function CustomerDetailModal({ customer, isOpen, onClose }) {
 
   const { data: devices = [], isLoading: loadingDevices } = useQuery({
     queryKey: ['customer_devices', customer?.id],
-    queryFn: () => base44.entities.Device.filter({ customer_id: customer?.id }),
+    queryFn: () => client.entities.Device.filter({ customer_id: customer?.id }),
     enabled: !!customer?.id,
   });
 

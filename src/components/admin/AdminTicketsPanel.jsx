@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { toast } from 'sonner';
 import { 
   HelpCircle, 
@@ -54,18 +54,18 @@ export default function AdminTicketsPanel() {
 
   const { data: tickets = [], isLoading } = useQuery({
     queryKey: ['all-tickets'],
-    queryFn: () => base44.entities.Ticket.list('-created_date', 100),
+    queryFn: () => client.entities.Ticket.list('-created_date', 100),
   });
 
   const { data: customers = [] } = useQuery({
     queryKey: ['customers-list'],
-    queryFn: () => base44.entities.Customer.list(),
+    queryFn: () => client.entities.Customer.list(),
   });
 
   const handleSyncAllTickets = async () => {
     setIsSyncing(true);
     try {
-      const response = await base44.functions.invoke('syncHaloPSATickets', { 
+      const response = await client.functions.invoke('syncHaloPSATickets', { 
         action: 'sync_all'
       });
       if (response.data.success) {
@@ -89,7 +89,7 @@ export default function AdminTicketsPanel() {
 
     setIsCreating(true);
     try {
-      const response = await base44.functions.invoke('createHaloPSATicket', newTicket);
+      const response = await client.functions.invoke('createHaloPSATicket', newTicket);
       if (response.data.success) {
         toast.success('Ticket created successfully');
         setShowCreateModal(false);

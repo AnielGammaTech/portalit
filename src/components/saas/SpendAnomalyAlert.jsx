@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { AlertTriangle, TrendingUp, Loader2, X, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -42,7 +42,7 @@ export default function SpendAnomalyAlert({ licenses, licenseAssignments }) {
 
       const totalSpend = licenses.reduce((sum, l) => sum + (l.total_cost || 0), 0);
       
-      const result = await base44.integrations.Core.InvokeLLM({
+      const result = await client.integrations.Core.InvokeLLM({
         prompt: `Analyze this SaaS spend data for anomalies and cost optimization opportunities:
 
 Total Monthly Spend: $${totalSpend.toFixed(2)}

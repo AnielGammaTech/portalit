@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import Breadcrumbs from '../components/ui/breadcrumbs';
 import { 
   Settings as SettingsIcon,
@@ -49,7 +49,7 @@ function GammaStackITPanel() {
   // Load existing API key from user data
   useEffect(() => {
     const loadApiKey = async () => {
-      const user = await base44.auth.me();
+      const user = await client.auth.me();
       if (user?.gammastack_api_key) {
         setApiKey(user.gammastack_api_key);
       }
@@ -68,7 +68,7 @@ function GammaStackITPanel() {
       }
       
       // Save to user data
-      await base44.auth.updateMe({ gammastack_api_key: key });
+      await client.auth.updateMe({ gammastack_api_key: key });
       setApiKey(key);
       toast.success('New API key generated!');
     } catch (error) {
@@ -158,7 +158,7 @@ function GammaStackITPanel() {
                       <Copy className="w-4 h-4 text-slate-500" />
                     </button>
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">👈 Use this for "PortalIT Base44 App URL" in ProjectIT</p>
+                  <p className="text-xs text-slate-500 mt-1">👈 Use this for "PortalIT App URL" in ProjectIT</p>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -208,32 +208,32 @@ function GammaStackITPanel() {
 function IntegrationsPanel() {
   const { data: dattoMappings = [] } = useQuery({
     queryKey: ['datto_mappings'],
-    queryFn: () => base44.entities.DattoSiteMapping.list(),
+    queryFn: () => client.entities.DattoSiteMapping.list(),
   });
   
   const { data: jumpcloudMappings = [] } = useQuery({
     queryKey: ['jumpcloud_mappings'],
-    queryFn: () => base44.entities.JumpCloudMapping.list(),
+    queryFn: () => client.entities.JumpCloudMapping.list(),
   });
   
   const { data: spanningMappings = [] } = useQuery({
     queryKey: ['spanning_mappings'],
-    queryFn: () => base44.entities.SpanningMapping.list(),
+    queryFn: () => client.entities.SpanningMapping.list(),
   });
 
   const { data: edrMappings = [] } = useQuery({
     queryKey: ['edr_mappings'],
-    queryFn: () => base44.entities.DattoEDRMapping.list(),
+    queryFn: () => client.entities.DattoEDRMapping.list(),
   });
 
   const { data: rocketcyberMappings = [] } = useQuery({
     queryKey: ['rocketcyber_mappings'],
-    queryFn: () => base44.entities.RocketCyberMapping.list(),
+    queryFn: () => client.entities.RocketCyberMapping.list(),
   });
 
   const { data: coveMappings = [] } = useQuery({
     queryKey: ['cove_mappings'],
-    queryFn: () => base44.entities.CoveDataMapping.list(),
+    queryFn: () => client.entities.CoveDataMapping.list(),
   });
 
   const dattoMapped = dattoMappings.length;
@@ -422,7 +422,7 @@ export default function Settings() {
 
   useEffect(() => {
     const loadUser = async () => {
-      const currentUser = await base44.auth.me();
+      const currentUser = await client.auth.me();
       setUser(currentUser);
       if (currentUser) {
         setCompanySettings({
@@ -438,7 +438,7 @@ export default function Settings() {
   }, []);
 
   const handleSaveCompany = async () => {
-    await base44.auth.updateMe(companySettings);
+    await client.auth.updateMe(companySettings);
     toast.success('Company settings saved');
   };
 

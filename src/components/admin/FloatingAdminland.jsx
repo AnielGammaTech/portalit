@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../../utils';
 import { Shield } from 'lucide-react';
@@ -10,7 +10,7 @@ export default function FloatingAdminland() {
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const currentUser = await base44.auth.me();
+        const currentUser = await client.auth.me();
         setUser(currentUser);
       } catch (error) {
         console.error('Failed to load user', error);

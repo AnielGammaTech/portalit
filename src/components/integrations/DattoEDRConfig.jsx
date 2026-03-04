@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,20 +39,20 @@ export default function DattoEDRConfig() {
   // Fetch customers
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.filter({ status: 'active' })
+    queryFn: () => client.entities.Customer.filter({ status: 'active' })
   });
 
   // Fetch existing mappings
   const { data: mappings = [], refetch: refetchMappings } = useQuery({
     queryKey: ['datto-edr-mappings'],
-    queryFn: () => base44.entities.DattoEDRMapping.list()
+    queryFn: () => client.entities.DattoEDRMapping.list()
   });
 
   // Fetch EDR tenants from API
   const fetchEDRTenants = async () => {
     setLoading(true);
     try {
-      const response = await base44.functions.invoke('syncDattoEDR', { action: 'list_tenants' });
+      const response = await client.functions.invoke('syncDattoEDR', { action: 'list_tenants' });
       if (response.data.success) {
         setEdrTenants(response.data.tenants || []);
         toast.success(`Found ${response.data.tenants?.length || 0} EDR tenants`);
@@ -73,12 +73,12 @@ export default function DattoEDRConfig() {
     // Check if already mapped
     const existingMapping = mappings.find(m => m.customer_id === customerId);
     if (existingMapping) {
-      await base44.entities.DattoEDRMapping.update(existingMapping.id, {
+      await client.entities.DattoEDRMapping.update(existingMapping.id, {
         edr_tenant_id: tenantId,
         edr_tenant_name: tenantName
       });
     } else {
-      await base44.entities.DattoEDRMapping.create({
+      await client.entities.DattoEDRMapping.create({
         customer_id: customerId,
         customer_name: customer?.name,
         edr_tenant_id: tenantId,
@@ -92,7 +92,7 @@ export default function DattoEDRConfig() {
 
   // Remove mapping
   const removeMapping = async (mappingId) => {
-    await base44.entities.DattoEDRMapping.delete(mappingId);
+    await client.entities.DattoEDRMapping.delete(mappingId);
     refetchMappings();
     toast.success('Mapping removed');
   };
@@ -101,7 +101,7 @@ export default function DattoEDRConfig() {
   const syncAll = async () => {
     setSyncing(true);
     try {
-      const response = await base44.functions.invoke('syncDattoEDR', { action: 'sync_all' });
+      const response = await client.functions.invoke('syncDattoEDR', { action: 'sync_all' });
       if (response.data.success) {
         toast.success(`Synced ${response.data.synced || 0} customers`);
         refetchMappings();

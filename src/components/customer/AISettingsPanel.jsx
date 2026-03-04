@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Bot, Save, RefreshCw } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { toast } from 'sonner';
 
 export default function AISettingsPanel({ customer, onUpdate }) {
@@ -12,7 +12,7 @@ export default function AISettingsPanel({ customer, onUpdate }) {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await base44.entities.Customer.update(customer.id, {
+      await client.entities.Customer.update(customer.id, {
         ai_support_instructions: instructions
       });
       toast.success('AI settings saved');

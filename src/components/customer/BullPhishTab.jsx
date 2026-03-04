@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,7 @@ export default function BullPhishTab({ customerId }) {
 
   const { data: reports = [], isLoading } = useQuery({
     queryKey: ['bullphishid-reports', customerId],
-    queryFn: () => base44.entities.BullPhishIDReport.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.BullPhishIDReport.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 

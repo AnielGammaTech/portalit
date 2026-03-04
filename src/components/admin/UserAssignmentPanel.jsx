@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   UserPlus, 
@@ -44,13 +44,13 @@ export default function UserAssignmentPanel() {
   // Fetch all users
   const { data: allUsers = [], isLoading: loadingUsers } = useQuery({
     queryKey: ['all-users'],
-    queryFn: () => base44.entities.User.list('-created_date', 500),
+    queryFn: () => client.entities.User.list('-created_date', 500),
   });
 
   // Fetch all customers
   const { data: customers = [] } = useQuery({
     queryKey: ['customers-for-assignment'],
-    queryFn: () => base44.entities.Customer.list('name', 500),
+    queryFn: () => client.entities.Customer.list('name', 500),
   });
 
   // Filter users
@@ -72,7 +72,7 @@ export default function UserAssignmentPanel() {
   // Update user mutation
   const updateUserMutation = useMutation({
     mutationFn: async ({ userId, data }) => {
-      await base44.entities.User.update(userId, data);
+      await client.entities.User.update(userId, data);
     },
     onSuccess: () => {
       toast.success('User updated');
@@ -87,7 +87,7 @@ export default function UserAssignmentPanel() {
     const customer = customers.find(c => c.id === customerId);
     console.log('Updating user', user.id, 'to customer', customerId, customer?.name);
     try {
-      await base44.entities.User.update(user.id, {
+      await client.entities.User.update(user.id, {
         customer_id: customerId === 'none' ? null : customerId,
         customer_name: customerId === 'none' ? null : customer?.name
       });
@@ -109,7 +109,7 @@ export default function UserAssignmentPanel() {
   const handleInviteUser = async () => {
     if (!inviteEmail) return;
     try {
-      await base44.users.inviteUser(inviteEmail, inviteRole);
+      await client.users.inviteUser(inviteEmail, inviteRole);
       toast.success('Invitation sent to ' + inviteEmail);
       setInviteDialogOpen(false);
       setInviteEmail('');

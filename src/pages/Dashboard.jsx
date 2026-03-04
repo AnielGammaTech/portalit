@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { 
   Building2, 
   FileText, 
@@ -33,17 +33,17 @@ function AdminDashboard() {
   
   const { data: customers = [], isLoading: loadingCustomers } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list('-updated_date', 100),
+    queryFn: () => client.entities.Customer.list('-updated_date', 100),
   });
 
   const { data: contracts = [], isLoading: loadingContracts } = useQuery({
     queryKey: ['contracts'],
-    queryFn: () => base44.entities.Contract.list('-created_date', 500),
+    queryFn: () => client.entities.Contract.list('-created_date', 500),
   });
 
   const { data: tickets = [], isLoading: loadingTickets } = useQuery({
     queryKey: ['tickets'],
-    queryFn: () => base44.entities.Ticket.list('-created_date', 500),
+    queryFn: () => client.entities.Ticket.list('-created_date', 500),
   });
 
   const isLoading = loadingCustomers || loadingContracts || loadingTickets;
@@ -208,7 +208,7 @@ function CustomerDashboard({ customer }) {
   const { data: orphanedUserAlerts = [] } = useQuery({
     queryKey: ['orphaned_user_alerts', customerId],
     queryFn: async () => {
-      const activities = await base44.entities.Activity.filter({ 
+      const activities = await client.entities.Activity.filter({ 
         entity_id: customerId,
         type: 'license_revoked'
       });
@@ -222,13 +222,13 @@ function CustomerDashboard({ customer }) {
       const alertsWithLicenses = await Promise.all(recentAlerts.map(async (alert) => {
         const metadata = alert.metadata ? JSON.parse(alert.metadata) : {};
         if (metadata.contact_id) {
-          const assignments = await base44.entities.LicenseAssignment.filter({
+          const assignments = await client.entities.LicenseAssignment.filter({
             contact_id: metadata.contact_id,
             status: 'active'
           });
           // Get license details
           const licenseDetails = await Promise.all(assignments.map(async (a) => {
-            const licenses = await base44.entities.SaaSLicense.filter({ id: a.license_id });
+            const licenses = await client.entities.SaaSLicense.filter({ id: a.license_id });
             return licenses[0]?.application_name || 'Unknown License';
           }));
           return { ...alert, metadata, licenseNames: licenseDetails };
@@ -245,14 +245,14 @@ function CustomerDashboard({ customer }) {
   // Parallel fetch all primary data at once
   const { data: contracts = [], isLoading: loadingContracts } = useQuery({
     queryKey: ['contracts', customerId],
-    queryFn: () => base44.entities.Contract.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.Contract.filter({ customer_id: customerId }),
     enabled: !!customerId,
     staleTime: 1000 * 60 * 5
   });
 
   const { data: recurringBills = [], isLoading: loadingBills } = useQuery({
     queryKey: ['recurring_bills', customerId],
-    queryFn: () => base44.entities.RecurringBill.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.RecurringBill.filter({ customer_id: customerId }),
     enabled: !!customerId,
     staleTime: 1000 * 60 * 5
   });
@@ -264,7 +264,7 @@ function CustomerDashboard({ customer }) {
       // Fetch all line items in parallel
       const results = await Promise.all(
         recurringBills.map(bill => 
-          base44.entities.RecurringBillLineItem.filter({ recurring_bill_id: bill.id })
+          client.entities.RecurringBillLineItem.filter({ recurring_bill_id: bill.id })
         )
       );
       return results.flat();
@@ -275,7 +275,7 @@ function CustomerDashboard({ customer }) {
 
   const { data: invoices = [], isLoading: loadingInvoices } = useQuery({
     queryKey: ['invoices', customerId],
-    queryFn: () => base44.entities.Invoice.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.Invoice.filter({ customer_id: customerId }),
     enabled: !!customerId,
     staleTime: 1000 * 60 * 5
   });
@@ -287,7 +287,7 @@ function CustomerDashboard({ customer }) {
       // Fetch all invoice items in parallel
       const results = await Promise.all(
         invoices.slice(0, 10).map(invoice => 
-          base44.entities.InvoiceLineItem.filter({ invoice_id: invoice.id })
+          client.entities.InvoiceLineItem.filter({ invoice_id: invoice.id })
         )
       );
       return results.flat();
@@ -298,14 +298,14 @@ function CustomerDashboard({ customer }) {
 
   const { data: tickets = [], isLoading: loadingTickets } = useQuery({
     queryKey: ['tickets', customerId],
-    queryFn: () => base44.entities.Ticket.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.Ticket.filter({ customer_id: customerId }),
     enabled: !!customerId,
     staleTime: 1000 * 60 * 5
   });
 
   const { data: contacts = [], isLoading: loadingContacts } = useQuery({
     queryKey: ['contacts', customerId],
-    queryFn: () => base44.entities.Contact.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.Contact.filter({ customer_id: customerId }),
     enabled: !!customerId,
     staleTime: 1000 * 60 * 5
   });
@@ -332,11 +332,11 @@ function CustomerDashboard({ customer }) {
     setIsSyncing(true);
     try {
       await Promise.all([
-        base44.functions.invoke('syncHaloPSAContracts', { action: 'sync_customer', customer_id: customer.external_id }),
-        base44.functions.invoke('syncHaloPSARecurringBills', { action: 'sync_customer', customer_id: customer.external_id }),
-        base44.functions.invoke('syncHaloPSAInvoices', { action: 'sync_customer', customer_id: customer.external_id }),
-        base44.functions.invoke('syncHaloPSATickets', { action: 'sync_customer', customer_id: customer.external_id }),
-        base44.functions.invoke('syncHaloPSAContacts', { action: 'sync_customer', customer_id: customer.external_id }),
+        client.functions.invoke('syncHaloPSAContracts', { action: 'sync_customer', customer_id: customer.external_id }),
+        client.functions.invoke('syncHaloPSARecurringBills', { action: 'sync_customer', customer_id: customer.external_id }),
+        client.functions.invoke('syncHaloPSAInvoices', { action: 'sync_customer', customer_id: customer.external_id }),
+        client.functions.invoke('syncHaloPSATickets', { action: 'sync_customer', customer_id: customer.external_id }),
+        client.functions.invoke('syncHaloPSAContacts', { action: 'sync_customer', customer_id: customer.external_id }),
       ]);
       toast.success('All data synced successfully!');
       queryClient.invalidateQueries();
@@ -669,13 +669,13 @@ export default function Dashboard() {
 
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list('-created_date', 500),
+    queryFn: () => client.entities.Customer.list('-created_date', 500),
   });
 
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const currentUser = await base44.auth.me();
+        const currentUser = await client.auth.me();
         setUser(currentUser);
         
         // For non-admin users, use their assigned customer_id ONLY

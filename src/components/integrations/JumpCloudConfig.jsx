@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -49,18 +49,18 @@ export default function JumpCloudConfig() {
 
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list(),
+    queryFn: () => client.entities.Customer.list(),
   });
 
   const { data: mappings = [], refetch: refetchMappings } = useQuery({
     queryKey: ['jumpcloud_mappings'],
-    queryFn: () => base44.entities.JumpCloudMapping.list(),
+    queryFn: () => client.entities.JumpCloudMapping.list(),
   });
 
   const testConnection = async () => {
     setTesting(true);
     try {
-      const response = await base44.functions.invoke('syncJumpCloudLicenses', { action: 'test_connection' });
+      const response = await client.functions.invoke('syncJumpCloudLicenses', { action: 'test_connection' });
       if (response.data.success) {
         setConnectionStatus({ success: true, isMsp: response.data.isMsp });
         toast.success('Connected to JumpCloud!');
@@ -79,7 +79,7 @@ export default function JumpCloudConfig() {
   const loadOrganizations = async () => {
     setLoadingOrgs(true);
     try {
-      const response = await base44.functions.invoke('syncJumpCloudLicenses', { action: 'list_organizations' });
+      const response = await client.functions.invoke('syncJumpCloudLicenses', { action: 'list_organizations' });
       if (response.data.success) {
         setJumpcloudOrgs(response.data.organizations);
         setShowMappingView(true);
@@ -98,7 +98,7 @@ export default function JumpCloudConfig() {
     if (!customerId) return;
     
     try {
-      await base44.entities.JumpCloudMapping.create({
+      await client.entities.JumpCloudMapping.create({
         customer_id: customerId,
         jumpcloud_org_id: String(org.id),
         jumpcloud_org_name: org.name
@@ -113,7 +113,7 @@ export default function JumpCloudConfig() {
 
   const deleteMapping = async (mappingId) => {
     try {
-      await base44.entities.JumpCloudMapping.delete(mappingId);
+      await client.entities.JumpCloudMapping.delete(mappingId);
       toast.success('Mapping removed');
       refetchMappings();
     } catch (error) {
@@ -124,7 +124,7 @@ export default function JumpCloudConfig() {
   const syncAllLicenses = async () => {
     setSyncing(true);
     try {
-      const response = await base44.functions.invoke('syncJumpCloudLicenses', { action: 'sync_all' });
+      const response = await client.functions.invoke('syncJumpCloudLicenses', { action: 'sync_all' });
       if (response.data.success) {
         toast.success(`Synced ${response.data.created} new, ${response.data.updated} updated licenses!`);
         queryClient.invalidateQueries({ queryKey: ['licenses'] });
@@ -142,7 +142,7 @@ export default function JumpCloudConfig() {
   const syncCustomerLicenses = async (customerId) => {
     setSyncingCustomerId(customerId);
     try {
-      const response = await base44.functions.invoke('syncJumpCloudLicenses', { 
+      const response = await client.functions.invoke('syncJumpCloudLicenses', { 
         action: 'sync_licenses', 
         customer_id: customerId 
       });
@@ -163,7 +163,7 @@ export default function JumpCloudConfig() {
   const syncCustomerUsers = async (customerId) => {
     setSyncingUsersCustomerId(customerId);
     try {
-      const response = await base44.functions.invoke('syncJumpCloudLicenses', { 
+      const response = await client.functions.invoke('syncJumpCloudLicenses', { 
         action: 'sync_users', 
         customer_id: customerId 
       });

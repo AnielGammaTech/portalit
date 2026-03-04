@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
@@ -110,7 +110,7 @@ export default function Adminland() {
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const currentUser = await base44.auth.me();
+        const currentUser = await client.auth.me();
         setUser(currentUser);
         
         if (currentUser?.role !== 'admin') {
@@ -126,7 +126,7 @@ export default function Adminland() {
   // Fetch portal settings
   const { data: portalSettings = [] } = useQuery({
     queryKey: ['portal_settings'],
-    queryFn: () => base44.entities.PortalSettings.list(),
+    queryFn: () => client.entities.PortalSettings.list(),
     enabled: user?.role === 'admin'
   });
 
@@ -148,7 +148,7 @@ export default function Adminland() {
     
     setIsUploading(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await client.integrations.Core.UploadFile({ file });
       if (type === 'light') {
         setLogoUrl(file_url);
       } else {
@@ -174,9 +174,9 @@ export default function Adminland() {
       };
 
       if (portalSettings.length > 0) {
-        await base44.entities.PortalSettings.update(portalSettings[0].id, data);
+        await client.entities.PortalSettings.update(portalSettings[0].id, data);
       } else {
-        await base44.entities.PortalSettings.create(data);
+        await client.entities.PortalSettings.create(data);
       }
       
       queryClient.invalidateQueries({ queryKey: ['portal_settings'] });

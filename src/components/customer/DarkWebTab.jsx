@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -81,7 +81,7 @@ export default function DarkWebTab({ customerId }) {
 
   const { data: reports = [], isLoading } = useQuery({
     queryKey: ['darkwebid-reports', customerId],
-    queryFn: () => base44.entities.DarkWebIDReport.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.DarkWebIDReport.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from './utils';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { 
   LayoutDashboard, 
@@ -38,7 +38,7 @@ export default function Layout({ children, currentPageName }) {
   // Fetch portal settings
   const { data: portalSettingsData = [] } = useQuery({
     queryKey: ['portal_settings'],
-    queryFn: () => base44.entities.PortalSettings.list(),
+    queryFn: () => client.entities.PortalSettings.list(),
     staleTime: 1000 * 60 * 5 // Cache for 5 minutes
   });
   
@@ -47,13 +47,13 @@ export default function Layout({ children, currentPageName }) {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const currentUser = await base44.auth.me();
+        const currentUser = await client.auth.me();
         setUser(currentUser);
         setIsAdmin(currentUser?.role === 'admin');
         
         // For non-admin users, use customer_id from user profile
         if (currentUser?.role !== 'admin' && currentUser?.customer_id) {
-          const allCustomers = await base44.entities.Customer.list();
+          const allCustomers = await client.entities.Customer.list();
           const userCustomer = allCustomers.find(c => c.id === currentUser.customer_id);
           if (userCustomer) {
             setCustomer(userCustomer);
@@ -227,7 +227,7 @@ export default function Layout({ children, currentPageName }) {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
-                  onClick={() => base44.auth.logout()}
+                  onClick={() => client.auth.logout()}
                   className="text-red-600 focus:text-red-600"
                 >
                   <LogOut className="w-4 h-4 mr-2" />

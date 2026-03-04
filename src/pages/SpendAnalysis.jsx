@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import Breadcrumbs from '../components/ui/breadcrumbs';
@@ -24,20 +24,20 @@ export default function SpendAnalysis() {
 
   const { data: customers = [], isLoading: loadingCustomer } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list(),
+    queryFn: () => client.entities.Customer.list(),
   });
 
   const customer = customers.find(c => c.id === customerId);
 
   const { data: licenses = [], isLoading: loadingLicenses } = useQuery({
     queryKey: ['licenses', customerId],
-    queryFn: () => base44.entities.SaaSLicense.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.SaaSLicense.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
   const { data: licenseAssignments = [], isLoading: loadingAssignments } = useQuery({
     queryKey: ['license_assignments', customerId],
-    queryFn: () => base44.entities.LicenseAssignment.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.LicenseAssignment.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 

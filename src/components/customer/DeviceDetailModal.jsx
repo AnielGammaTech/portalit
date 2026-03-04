@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import {
   Dialog,
   DialogContent,
@@ -59,7 +59,7 @@ export default function DeviceDetailModal({ device, open, onClose, customerId })
 
   const { data: contacts = [] } = useQuery({
     queryKey: ['contacts', customerId],
-    queryFn: () => base44.entities.Contact.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.Contact.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
@@ -79,7 +79,7 @@ export default function DeviceDetailModal({ device, open, onClose, customerId })
   const handleSave = async () => {
     setSaving(true);
     try {
-      await base44.entities.Device.update(device.id, {
+      await client.entities.Device.update(device.id, {
         notes,
         assigned_contact_id: assignedContactId || null
       });

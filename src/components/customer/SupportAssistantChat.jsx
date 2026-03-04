@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { 
   Bot, 
   Send, 
@@ -56,8 +56,8 @@ export default function SupportAssistantChat({
       if (customerId) {
         try {
           const [customers, tickets] = await Promise.all([
-            base44.entities.Customer.filter({ id: customerId }),
-            base44.entities.Ticket.filter({ customer_id: customerId })
+            client.entities.Customer.filter({ id: customerId }),
+            client.entities.Ticket.filter({ customer_id: customerId })
           ]);
           
           if (customers.length > 0 && customers[0].ai_support_instructions) {
@@ -79,7 +79,7 @@ export default function SupportAssistantChat({
         }
       }
 
-      const conv = await base44.agents.createConversation({
+      const conv = await client.agents.createConversation({
         agent_name: 'support_assistant',
         metadata: { 
           name: 'Support Chat',
@@ -91,7 +91,7 @@ export default function SupportAssistantChat({
       setConversation(conv);
       
       // Subscribe to updates
-      base44.agents.subscribeToConversation(conv.id, (data) => {
+      client.agents.subscribeToConversation(conv.id, (data) => {
         setMessages(data.messages || []);
       });
 
@@ -127,7 +127,7 @@ export default function SupportAssistantChat({
         messagePayload.file_urls = images;
       }
 
-      await base44.agents.addMessage(conversation, messagePayload);
+      await client.agents.addMessage(conversation, messagePayload);
     } catch (error) {
       console.error('Failed to send message:', error);
     } finally {
@@ -143,7 +143,7 @@ export default function SupportAssistantChat({
     try {
       for (const file of files) {
         if (!file.type.startsWith('image/')) continue;
-        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        const { file_url } = await client.integrations.Core.UploadFile({ file });
         setAttachedImages(prev => [...prev, file_url]);
       }
     } catch (error) {
@@ -166,7 +166,7 @@ export default function SupportAssistantChat({
         
         setIsUploading(true);
         try {
-          const { file_url } = await base44.integrations.Core.UploadFile({ file });
+          const { file_url } = await client.integrations.Core.UploadFile({ file });
           setAttachedImages(prev => [...prev, file_url]);
         } catch (error) {
           console.error('Failed to upload pasted image:', error);

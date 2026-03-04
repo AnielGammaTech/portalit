@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import {
@@ -40,17 +40,17 @@ export default function SaaSReports() {
 
   const { data: licenses = [], isLoading: loadingLicenses } = useQuery({
     queryKey: ['all_licenses'],
-    queryFn: () => base44.entities.SaaSLicense.list()
+    queryFn: () => client.entities.SaaSLicense.list()
   });
 
   const { data: assignments = [], isLoading: loadingAssignments } = useQuery({
     queryKey: ['all_assignments'],
-    queryFn: () => base44.entities.LicenseAssignment.list()
+    queryFn: () => client.entities.LicenseAssignment.list()
   });
 
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list()
+    queryFn: () => client.entities.Customer.list()
   });
 
   // Filter licenses

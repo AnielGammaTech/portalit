@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -46,18 +46,18 @@ export default function DattoRMMConfig() {
 
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list(),
+    queryFn: () => client.entities.Customer.list(),
   });
 
   const { data: mappings = [], refetch: refetchMappings } = useQuery({
     queryKey: ['datto_mappings'],
-    queryFn: () => base44.entities.DattoSiteMapping.list(),
+    queryFn: () => client.entities.DattoSiteMapping.list(),
   });
 
   const testConnection = async () => {
     setTesting(true);
     try {
-      const response = await base44.functions.invoke('syncDattoRMMDevices', { action: 'test_connection' });
+      const response = await client.functions.invoke('syncDattoRMMDevices', { action: 'test_connection' });
       if (response.data.success) {
         setConnectionStatus({ success: true, account: response.data.account });
         toast.success(`Connected to ${response.data.account.name}`);
@@ -76,7 +76,7 @@ export default function DattoRMMConfig() {
   const loadDattoSites = async () => {
     setLoadingSites(true);
     try {
-      const response = await base44.functions.invoke('syncDattoRMMDevices', { action: 'list_sites' });
+      const response = await client.functions.invoke('syncDattoRMMDevices', { action: 'list_sites' });
       if (response.data.success) {
         setDattoSites(response.data.sites);
         setShowMappingView(true);
@@ -95,7 +95,7 @@ export default function DattoRMMConfig() {
     if (!customerId) return;
     
     try {
-      await base44.entities.DattoSiteMapping.create({
+      await client.entities.DattoSiteMapping.create({
         customer_id: customerId,
         datto_site_id: String(site.id || site.uid),
         datto_site_name: site.name
@@ -182,7 +182,7 @@ export default function DattoRMMConfig() {
 
   const deleteMapping = async (mappingId) => {
     try {
-      await base44.entities.DattoSiteMapping.delete(mappingId);
+      await client.entities.DattoSiteMapping.delete(mappingId);
       toast.success('Mapping removed');
       refetchMappings();
     } catch (error) {
@@ -193,7 +193,7 @@ export default function DattoRMMConfig() {
   const autoMapSites = async () => {
     setAutomapping(true);
     try {
-      const response = await base44.functions.invoke('syncDattoRMMDevices', { action: 'automap' });
+      const response = await client.functions.invoke('syncDattoRMMDevices', { action: 'automap' });
       if (response.data.success) {
         if (response.data.mappedCount > 0) {
           toast.success(`Auto-mapped ${response.data.mappedCount} sites to customers!`);
@@ -214,7 +214,7 @@ export default function DattoRMMConfig() {
   const syncAllDevices = async () => {
     setSyncing(true);
     try {
-      const response = await base44.functions.invoke('syncDattoRMMDevices', { action: 'sync_all' });
+      const response = await client.functions.invoke('syncDattoRMMDevices', { action: 'sync_all' });
       if (response.data.success) {
         toast.success(`Synced ${response.data.recordsSynced} devices!`);
         queryClient.invalidateQueries({ queryKey: ['devices'] });

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { MessageSquarePlus, X, Upload, Image, Bug, Lightbulb, HelpCircle, Send, Loader2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -31,7 +31,7 @@ export default function FeedbackButton({ user, customer }) {
     
     setUploading(true);
     try {
-      const uploadPromises = files.map(file => base44.integrations.Core.UploadFile({ file }));
+      const uploadPromises = files.map(file => client.integrations.Core.UploadFile({ file }));
       const results = await Promise.all(uploadPromises);
       const urls = results.map(r => r.file_url);
       setScreenshots(prev => [...prev, ...urls]);
@@ -52,7 +52,7 @@ export default function FeedbackButton({ user, customer }) {
         if (file) {
           setUploading(true);
           try {
-            const result = await base44.integrations.Core.UploadFile({ file });
+            const result = await client.integrations.Core.UploadFile({ file });
             setScreenshots(prev => [...prev, result.file_url]);
           } catch (error) {
             toast.error('Failed to upload pasted image');
@@ -76,7 +76,7 @@ export default function FeedbackButton({ user, customer }) {
 
     setSubmitting(true);
     try {
-      await base44.entities.Feedback.create({
+      await client.entities.Feedback.create({
         customer_id: customer?.id || user?.customer_id,
         customer_name: customer?.name || 'Unknown',
         submitted_by: user?.email,

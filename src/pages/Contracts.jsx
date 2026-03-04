@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import {
@@ -27,17 +27,17 @@ export default function Contracts() {
 
   const { data: contracts = [], isLoading: loadingContracts } = useQuery({
     queryKey: ['contracts'],
-    queryFn: () => base44.entities.Contract.list('-created_date', 500),
+    queryFn: () => client.entities.Contract.list('-created_date', 500),
   });
 
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list(),
+    queryFn: () => client.entities.Customer.list(),
   });
 
   const { data: contractItems = [] } = useQuery({
     queryKey: ['contract_items'],
-    queryFn: () => base44.entities.ContractItem.list(),
+    queryFn: () => client.entities.ContractItem.list(),
   });
 
   const filteredContracts = contracts.filter(contract => {

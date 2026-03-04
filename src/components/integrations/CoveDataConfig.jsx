@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { toast } from 'sonner';
 import { 
   Database, 
@@ -40,20 +40,20 @@ export default function CoveDataConfig() {
   // Fetch customers
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list()
+    queryFn: () => client.entities.Customer.list()
   });
 
   // Fetch existing mappings
   const { data: mappings = [], refetch: refetchMappings } = useQuery({
     queryKey: ['cove-mappings'],
-    queryFn: () => base44.entities.CoveDataMapping.list()
+    queryFn: () => client.entities.CoveDataMapping.list()
   });
 
   const handleTestConnection = async () => {
     setTesting(true);
     setConnectionStatus(null);
     try {
-      const response = await base44.functions.invoke('syncCoveData', {
+      const response = await client.functions.invoke('syncCoveData', {
         action: 'test_connection'
       });
       if (response.data.success) {
@@ -74,7 +74,7 @@ export default function CoveDataConfig() {
   const handleLoadPartners = async () => {
     setLoadingPartners(true);
     try {
-      const response = await base44.functions.invoke('syncCoveData', {
+      const response = await client.functions.invoke('syncCoveData', {
         action: 'list_partners'
       });
       if (response.data.success) {
@@ -107,12 +107,12 @@ export default function CoveDataConfig() {
       const existingMapping = mappings.find(m => m.customer_id === mappingCustomerId);
       
       if (existingMapping) {
-        await base44.entities.CoveDataMapping.update(existingMapping.id, {
+        await client.entities.CoveDataMapping.update(existingMapping.id, {
           cove_partner_id: partner.id,
           cove_partner_name: partner.name
         });
       } else {
-        await base44.entities.CoveDataMapping.create({
+        await client.entities.CoveDataMapping.create({
           customer_id: mappingCustomerId,
           customer_name: customer.name,
           cove_partner_id: partner.id,
@@ -130,7 +130,7 @@ export default function CoveDataConfig() {
 
   const handleUnmapCustomer = async (mapping) => {
     try {
-      await base44.entities.CoveDataMapping.delete(mapping.id);
+      await client.entities.CoveDataMapping.delete(mapping.id);
       toast.success('Mapping removed');
       refetchMappings();
     } catch (error) {

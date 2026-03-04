@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -101,13 +101,13 @@ export default function RocketCyberTab({ customer }) {
   // Fetch mapping
   const { data: mappings = [] } = useQuery({
     queryKey: ['rocketcyber_mapping', customer.id],
-    queryFn: () => base44.entities.RocketCyberMapping.filter({ customer_id: customer.id })
+    queryFn: () => client.entities.RocketCyberMapping.filter({ customer_id: customer.id })
   });
 
   // Fetch incidents
   const { data: incidents = [], refetch: refetchIncidents } = useQuery({
     queryKey: ['rocketcyber_incidents', customer.id],
-    queryFn: () => base44.entities.RocketCyberIncident.filter({ customer_id: customer.id }),
+    queryFn: () => client.entities.RocketCyberIncident.filter({ customer_id: customer.id }),
     enabled: mappings.length > 0
   });
 
@@ -116,7 +116,7 @@ export default function RocketCyberTab({ customer }) {
   const syncIncidents = async () => {
     setIsSyncing(true);
     try {
-      const result = await base44.functions.invoke('syncRocketCyber', {
+      const result = await client.functions.invoke('syncRocketCyber', {
         action: 'sync_incidents',
         customer_id: customer.id
       });
@@ -135,7 +135,7 @@ export default function RocketCyberTab({ customer }) {
     e?.stopPropagation();
     setClosingId(incident.id);
     try {
-      await base44.entities.RocketCyberIncident.update(incident.id, {
+      await client.entities.RocketCyberIncident.update(incident.id, {
         status: 'closed',
         manually_closed: true
       });

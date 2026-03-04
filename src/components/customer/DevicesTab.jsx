@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -50,13 +50,13 @@ export default function DevicesTab({ customerId, customerExternalId }) {
 
   const { data: devices = [], isLoading } = useQuery({
     queryKey: ['devices', customerId],
-    queryFn: () => base44.entities.Device.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.Device.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
   const { data: mappings = [], isLoading: loadingMappings } = useQuery({
     queryKey: ['datto_mappings', customerId],
-    queryFn: () => base44.entities.DattoSiteMapping.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.DattoSiteMapping.filter({ customer_id: customerId }),
     enabled: !!customerId,
     staleTime: 1000 * 60 * 5 // Cache for 5 minutes
   });
@@ -72,7 +72,7 @@ export default function DevicesTab({ customerId, customerExternalId }) {
     }
     setSyncing(true);
     try {
-      const response = await base44.functions.invoke('syncDattoRMMDevices', { 
+      const response = await client.functions.invoke('syncDattoRMMDevices', { 
         action: 'sync_devices',
         customer_id: customerId
       });

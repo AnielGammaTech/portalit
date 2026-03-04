@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
@@ -209,7 +209,7 @@ export default function LicenseDetail() {
     queryKey: ['application', appId],
     queryFn: async () => {
       // Fetch all applications and find by ID since filter by id may not work
-      const allApps = await base44.entities.Application.list();
+      const allApps = await client.entities.Application.list();
       const foundApp = allApps.find(a => a.id === appId);
       console.log('[LicenseDetail] Fetching app by ID:', appId, 'Found:', foundApp?.name);
       return foundApp;
@@ -221,7 +221,7 @@ export default function LicenseDetail() {
   const { data: license, isLoading: loadingLicense } = useQuery({
     queryKey: ['license', licenseId],
     queryFn: async () => {
-      const licenses = await base44.entities.SaaSLicense.filter({ id: licenseId });
+      const licenses = await client.entities.SaaSLicense.filter({ id: licenseId });
       return licenses[0];
     },
     enabled: !!licenseId,
@@ -248,7 +248,7 @@ export default function LicenseDetail() {
   const { data: customer } = useQuery({
     queryKey: ['customer', software?.customer_id],
     queryFn: async () => {
-      const customers = await base44.entities.Customer.filter({ id: software.customer_id });
+      const customers = await client.entities.Customer.filter({ id: software.customer_id });
       return customers[0];
     },
     enabled: !!software?.customer_id,
@@ -264,7 +264,7 @@ export default function LicenseDetail() {
       
       // Fetch ALL licenses for this customer first, then filter by app name
       // This avoids any potential issues with the filter query
-      const allCustomerLicenses = await base44.entities.SaaSLicense.filter({ 
+      const allCustomerLicenses = await client.entities.SaaSLicense.filter({ 
         customer_id: software.customer_id
       });
       
@@ -309,7 +309,7 @@ export default function LicenseDetail() {
 
   const { data: contacts = [] } = useQuery({
     queryKey: ['contacts', software?.customer_id],
-    queryFn: () => base44.entities.Contact.filter({ customer_id: software.customer_id }),
+    queryFn: () => client.entities.Contact.filter({ customer_id: software.customer_id }),
     enabled: !!software?.customer_id,
     staleTime: 1000 * 60 * 5 // Cache contacts for 5 minutes
   });
@@ -330,7 +330,7 @@ export default function LicenseDetail() {
       console.log('[LicenseDetail] Fetching assignments for', licenseIds.length, 'licenses');
       
       const assignmentPromises = licenseIds.map(id => 
-        base44.entities.LicenseAssignment.filter({ license_id: id })
+        client.entities.LicenseAssignment.filter({ license_id: id })
       );
       const results = await Promise.all(assignmentPromises);
       const allResults = results.flat();
@@ -347,14 +347,14 @@ export default function LicenseDetail() {
   useEffect(() => {
     if (!software?.customer_id) return;
 
-    const unsubAssignments = base44.entities.LicenseAssignment.subscribe((event) => {
+    const unsubAssignments = client.entities.LicenseAssignment.subscribe((event) => {
       if (event.data?.customer_id === software.customer_id) {
         console.log('[LicenseDetail] Assignment changed, refreshing...');
         queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
       }
     });
     
-    const unsubLicenses = base44.entities.SaaSLicense.subscribe((event) => {
+    const unsubLicenses = client.entities.SaaSLicense.subscribe((event) => {
       if (event.data?.customer_id === software.customer_id && 
           event.data?.application_name === software.application_name) {
         console.log('[LicenseDetail] License changed, refreshing...');
@@ -464,7 +464,7 @@ export default function LicenseDetail() {
     toast.success('License assigned!');
     
     // Then persist to database
-    await base44.entities.LicenseAssignment.create({
+    await client.entities.LicenseAssignment.create({
       license_id: licenseToAssign,
       contact_id: contactId,
       customer_id: software.customer_id,
@@ -483,7 +483,7 @@ export default function LicenseDetail() {
     let perUserLicense = individualLicenses[0];
     
     if (!perUserLicense) {
-      perUserLicense = await base44.entities.SaaSLicense.create({
+      perUserLicense = await client.entities.SaaSLicense.create({
         customer_id: software.customer_id,
         application_name: software.application_name,
         vendor: software.vendor,
@@ -497,7 +497,7 @@ export default function LicenseDetail() {
       queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
     }
     
-    await base44.entities.LicenseAssignment.create({
+    await client.entities.LicenseAssignment.create({
       license_id: perUserLicense.id,
       contact_id: data.contact_id,
       customer_id: software.customer_id,
@@ -518,7 +518,7 @@ export default function LicenseDetail() {
 
   const handleAddManagedLicense = async (data) => {
     // Always create a NEW managed license record (supports multiple license types per software)
-    await base44.entities.SaaSLicense.create({
+    await client.entities.SaaSLicense.create({
       customer_id: software.customer_id,
       application_name: software.application_name,
       vendor: software.vendor,
@@ -554,13 +554,13 @@ export default function LicenseDetail() {
       toast.success('License revoked!');
       
       // Then persist to database
-      await base44.entities.LicenseAssignment.update(assignment.id, { status: 'revoked' });
+      await client.entities.LicenseAssignment.update(assignment.id, { status: 'revoked' });
       queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
     }
   };
 
   const handleEditSave = async (updatedData) => {
-    await base44.entities.SaaSLicense.update(licenseId, updatedData);
+    await client.entities.SaaSLicense.update(licenseId, updatedData);
     queryClient.invalidateQueries({ queryKey: ['license', licenseId] });
     setShowEditModal(false);
     toast.success('License updated!');
@@ -574,32 +574,32 @@ export default function LicenseDetail() {
       
       // Fetch ALL assignments (including revoked/inactive) for all related licenses
       for (const licId of allLicenseIds) {
-        const allLicenseAssignments = await base44.entities.LicenseAssignment.filter({ license_id: licId });
+        const allLicenseAssignments = await client.entities.LicenseAssignment.filter({ license_id: licId });
         for (const assignment of allLicenseAssignments) {
-          await base44.entities.LicenseAssignment.delete(assignment.id);
+          await client.entities.LicenseAssignment.delete(assignment.id);
         }
       }
       
       // Delete all related licenses (managed and individual)
       for (const licId of allLicenseIds) {
-        await base44.entities.SaaSLicense.delete(licId);
+        await client.entities.SaaSLicense.delete(licId);
       }
       
       // Also delete any Application catalog entry with the same name for this customer
       if (software?.application_name && software?.customer_id) {
-        const appRecords = await base44.entities.Application.filter({ 
+        const appRecords = await client.entities.Application.filter({ 
           name: software.application_name, 
           customer_id: software.customer_id 
         });
         for (const app of appRecords) {
-          await base44.entities.Application.delete(app.id);
+          await client.entities.Application.delete(app.id);
         }
       }
       
       // If this is a catalog-only entry accessed via appId, delete that too
       if (appId) {
         try {
-          await base44.entities.Application.delete(appId);
+          await client.entities.Application.delete(appId);
         } catch (e) {
           // Already deleted above, ignore
         }
@@ -614,7 +614,7 @@ export default function LicenseDetail() {
   };
 
       const handleUpdateAssignment = async (assignmentId, data) => {
-        await base44.entities.LicenseAssignment.update(assignmentId, data);
+        await client.entities.LicenseAssignment.update(assignmentId, data);
         queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
         toast.success('License updated!');
       };
@@ -627,7 +627,7 @@ export default function LicenseDetail() {
     const newQuantity = Math.max(licenseAssignments.length, (targetLicense.quantity || 0) + seatChange);
     const newTotalCost = newQuantity * (targetLicense.cost_per_license || 0);
     
-    await base44.entities.SaaSLicense.update(targetLicense.id, { 
+    await client.entities.SaaSLicense.update(targetLicense.id, { 
       quantity: newQuantity,
       total_cost: newTotalCost
     });
@@ -648,7 +648,7 @@ export default function LicenseDetail() {
   const syncJumpCloudUsers = async () => {
     setSyncingUsers(true);
     try {
-      const response = await base44.functions.invoke('syncJumpCloudLicenses', { 
+      const response = await client.functions.invoke('syncJumpCloudLicenses', { 
         action: 'sync_users', 
         customer_id: software.customer_id 
       });
@@ -668,7 +668,7 @@ export default function LicenseDetail() {
   const syncSpanningUsers = async () => {
         setSyncingUsers(true);
         try {
-          const response = await base44.functions.invoke('syncSpanningBackup', { 
+          const response = await client.functions.invoke('syncSpanningBackup', { 
             action: 'sync_users', 
             customer_id: software.customer_id 
           });
@@ -1074,8 +1074,8 @@ export default function LicenseDetail() {
                                 </Button>
                                 <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={async () => {
                                   if (confirm(`Delete this ${ml.license_type || ''} license?`)) {
-                                    for (const a of mlAssignments) await base44.entities.LicenseAssignment.delete(a.id);
-                                    await base44.entities.SaaSLicense.delete(ml.id);
+                                    for (const a of mlAssignments) await client.entities.LicenseAssignment.delete(a.id);
+                                    await client.entities.SaaSLicense.delete(ml.id);
                                     queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
                                     queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
                                     toast.success('License deleted!');
@@ -1537,13 +1537,13 @@ export default function LicenseDetail() {
                 })();
                 
                 if (renewalLicense) {
-                  await base44.entities.SaaSLicense.update(renewalLicense.id, {
+                  await client.entities.SaaSLicense.update(renewalLicense.id, {
                     renewal_date: finalDate,
                     billing_cycle: renewalBillingCycle
                   });
                   queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
                 } else if (renewalAssignment) {
-                  await base44.entities.LicenseAssignment.update(renewalAssignment.id, {
+                  await client.entities.LicenseAssignment.update(renewalAssignment.id, {
                     renewal_date: finalDate
                   });
                   queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
@@ -1692,7 +1692,7 @@ export default function LicenseDetail() {
                   return;
                 }
                 
-                await base44.entities.SaaSLicense.update(targetLicense.id, {
+                await client.entities.SaaSLicense.update(targetLicense.id, {
                   quantity: modifyFormData.quantity,
                   total_cost: modifyFormData.total_cost,
                   cost_per_license: modifyFormData.quantity > 0 ? modifyFormData.total_cost / modifyFormData.quantity : 0,

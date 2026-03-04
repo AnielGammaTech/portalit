@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { client } from '@/api/client';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { 
@@ -48,20 +48,20 @@ export default function CustomerPortalPreview() {
 
   const { data: customers = [], isLoading: loadingCustomer } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => base44.entities.Customer.list(),
+    queryFn: () => client.entities.Customer.list(),
   });
 
   const customer = customers.find(c => c.id === customerId);
 
   const { data: contracts = [] } = useQuery({
     queryKey: ['contracts', customerId],
-    queryFn: () => base44.entities.Contract.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.Contract.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
   const { data: recurringBills = [] } = useQuery({
     queryKey: ['recurring_bills', customerId],
-    queryFn: () => base44.entities.RecurringBill.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.RecurringBill.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
@@ -70,7 +70,7 @@ export default function CustomerPortalPreview() {
     queryFn: async () => {
       const allItems = [];
       for (const bill of recurringBills) {
-        const items = await base44.entities.RecurringBillLineItem.filter({ recurring_bill_id: bill.id });
+        const items = await client.entities.RecurringBillLineItem.filter({ recurring_bill_id: bill.id });
         allItems.push(...items);
       }
       return allItems;
@@ -80,49 +80,49 @@ export default function CustomerPortalPreview() {
 
   const { data: invoices = [] } = useQuery({
     queryKey: ['invoices', customerId],
-    queryFn: () => base44.entities.Invoice.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.Invoice.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
   const { data: tickets = [] } = useQuery({
     queryKey: ['tickets', customerId],
-    queryFn: () => base44.entities.Ticket.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.Ticket.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
   const { data: contacts = [] } = useQuery({
     queryKey: ['contacts', customerId],
-    queryFn: () => base44.entities.Contact.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.Contact.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
   const { data: devices = [] } = useQuery({
     queryKey: ['devices', customerId],
-    queryFn: () => base44.entities.Device.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.Device.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
   const { data: licenses = [] } = useQuery({
     queryKey: ['licenses', customerId],
-    queryFn: () => base44.entities.SaaSLicense.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.SaaSLicense.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
   const { data: licenseAssignments = [] } = useQuery({
     queryKey: ['license_assignments', customerId],
-    queryFn: () => base44.entities.LicenseAssignment.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.LicenseAssignment.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
   const { data: quotes = [] } = useQuery({
     queryKey: ['quotes', customerId],
-    queryFn: () => base44.entities.Quote.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.Quote.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
   const { data: applications = [] } = useQuery({
     queryKey: ['applications', customerId],
-    queryFn: () => base44.entities.Application.filter({ customer_id: customerId }),
+    queryFn: () => client.entities.Application.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
@@ -131,7 +131,7 @@ export default function CustomerPortalPreview() {
     queryFn: async () => {
       const allItems = [];
       for (const invoice of invoices) {
-        const items = await base44.entities.InvoiceLineItem.filter({ invoice_id: invoice.id });
+        const items = await client.entities.InvoiceLineItem.filter({ invoice_id: invoice.id });
         allItems.push(...items);
       }
       return allItems;
@@ -184,13 +184,13 @@ export default function CustomerPortalPreview() {
   const handleAddSoftware = async (softwareData) => {
     setShowAddSoftware(false);
     toast.success('Software added!');
-    const newApp = await base44.entities.Application.create(softwareData);
+    const newApp = await client.entities.Application.create(softwareData);
     queryClient.invalidateQueries({ queryKey: ['applications', customerId] });
     window.location.href = createPageUrl(`LicenseDetail?appId=${newApp.id}`);
   };
 
   const handleAssignLicense = async (contactId) => {
-    await base44.entities.LicenseAssignment.create({
+    await client.entities.LicenseAssignment.create({
       license_id: selectedLicense.id,
       contact_id: contactId,
       customer_id: customerId,
@@ -198,7 +198,7 @@ export default function CustomerPortalPreview() {
       status: 'active'
     });
     const newCount = licenseAssignments.filter(a => a.license_id === selectedLicense.id && a.status === 'active').length + 1;
-    await base44.entities.SaaSLicense.update(selectedLicense.id, { assigned_users: newCount });
+    await client.entities.SaaSLicense.update(selectedLicense.id, { assigned_users: newCount });
     queryClient.invalidateQueries({ queryKey: ['license_assignments', customerId] });
     queryClient.invalidateQueries({ queryKey: ['licenses', customerId] });
     toast.success('License assigned!');
@@ -211,9 +211,9 @@ export default function CustomerPortalPreview() {
       a.status === 'active'
     );
     if (assignment) {
-      await base44.entities.LicenseAssignment.update(assignment.id, { status: 'revoked' });
+      await client.entities.LicenseAssignment.update(assignment.id, { status: 'revoked' });
       const newCount = Math.max(0, licenseAssignments.filter(a => a.license_id === selectedLicense.id && a.status === 'active').length - 1);
-      await base44.entities.SaaSLicense.update(selectedLicense.id, { assigned_users: newCount });
+      await client.entities.SaaSLicense.update(selectedLicense.id, { assigned_users: newCount });
       queryClient.invalidateQueries({ queryKey: ['license_assignments', customerId] });
       queryClient.invalidateQueries({ queryKey: ['licenses', customerId] });
       toast.success('License revoked!');
