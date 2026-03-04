@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import WrongPortalMessage from '@/components/WrongPortalMessage';
 import Login from '@/pages/Login';
+import AcceptInvite from '@/pages/AcceptInvite';
 import {
   isCustomerPortal,
   CUSTOMER_ALLOWED_PAGES,
@@ -118,6 +119,7 @@ function App() {
         <Router>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/accept-invite" element={<AcceptInvite />} />
             <Route path="*" element={
               <>
                 <NavigationTracker />

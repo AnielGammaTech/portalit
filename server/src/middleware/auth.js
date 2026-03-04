@@ -43,3 +43,12 @@ export async function requireAdmin(req, res, next) {
     next();
   });
 }
+
+export async function requireAdminOrSales(req, res, next) {
+  await requireAuth(req, res, () => {
+    if (req.user?.role !== 'admin' && req.user?.role !== 'sales') {
+      return res.status(403).json({ error: 'Forbidden: Admin or Sales access required' });
+    }
+    next();
+  });
+}

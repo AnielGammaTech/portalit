@@ -334,8 +334,10 @@ const agents = {
 // ── Users ──────────────────────────────────────────────────────────────
 
 const users = {
-  async inviteUser(email, role) {
-    return apiFetch('/api/users/invite', { body: { email, role } });
+  async inviteUser(email, role, invite_type = 'tech', customer_id) {
+    return apiFetch('/api/users/invite', {
+      body: { email, role, invite_type, customer_id },
+    });
   },
 };
 
