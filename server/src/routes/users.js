@@ -52,21 +52,28 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
       return res.status(409).json({ error: 'A user with this email already exists' });
     }
 
-    // Create auth user (email not confirmed)
+    // Create auth user (email not confirmed) or reuse existing
+    let authUserId;
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
       email_confirm: false,
     });
 
     if (authError) {
-      // If user already exists in auth, still allow re-invite
       if (authError.message?.includes('already been registered')) {
-        return res.status(409).json({ error: 'A user with this email already exists in authentication' });
+        // Reuse existing auth user — happens when a previous invite partially failed
+        const { data: { users: authUsers } } = await supabase.auth.admin.listUsers();
+        const existing = authUsers?.find(u => u.email === email);
+        if (!existing) {
+          return res.status(409).json({ error: 'A user with this email already exists but could not be found' });
+        }
+        authUserId = existing.id;
+      } else {
+        return res.status(400).json({ error: authError.message });
       }
-      return res.status(400).json({ error: authError.message });
+    } else {
+      authUserId = authData.user.id;
     }
-
-    const authUserId = authData.user.id;
 
     // Generate OTP and hash it
     const otp = generateOtp();
@@ -105,17 +112,17 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
       return res.status(500).json({ error: 'Failed to create invitation record' });
     }
 
-    // Create user profile row
+    // Create or update user profile row
     const { error: profileError } = await supabase
       .from('users')
-      .insert({
+      .upsert({
         auth_id: authUserId,
         email,
         role: finalRole,
         full_name: '',
         customer_id: invite_type === 'customer' ? customer_id : null,
         customer_name: customerName,
-      });
+      }, { onConflict: 'auth_id' });
 
     if (profileError) {
       console.error('Failed to create user profile:', profileError);
