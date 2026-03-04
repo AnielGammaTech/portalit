@@ -1,16 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { client } from '@/api/client';
+import { client, supabase } from '@/api/client';
 import { toast } from 'sonner';
-import { 
-  Database, 
-  RefreshCw, 
-  CheckCircle2, 
+import {
+  Database,
+  RefreshCw,
+  CheckCircle2,
   AlertCircle,
   Link2,
   Unlink,
   Search,
-  HardDrive
+  HardDrive,
+  XCircle,
+  ChevronDown,
+  Clock
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,12 +26,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { formatDistanceToNow } from 'date-fns';
 
 export default function CoveDataConfig() {
   const [testing, setTesting] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState(null);
+  const [configStatus, setConfigStatus] = useState('not_configured');
   const [loadingPartners, setLoadingPartners] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState(null);
+  const [errorDetails, setErrorDetails] = useState(null);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
   const [partners, setPartners] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [mappingCustomerId, setMappingCustomerId] = useState(null);
@@ -49,23 +57,46 @@ export default function CoveDataConfig() {
     queryFn: () => client.entities.CoveDataMapping.list()
   });
 
+  const fetchLastSync = useCallback(async () => {
+    try {
+      const { data } = await supabase
+        .from('sync_logs')
+        .select('completed_at')
+        .eq('integration_type', 'cove_data')
+        .eq('status', 'success')
+        .order('completed_at', { ascending: false })
+        .limit(1);
+      if (data && data.length > 0) {
+        setLastSyncTime(data[0].completed_at);
+      }
+    } catch (_err) { /* sync logs may not exist */ }
+  }, []);
+
+  useEffect(() => {
+    fetchLastSync();
+  }, [fetchLastSync]);
+
   const handleTestConnection = async () => {
     setTesting(true);
-    setConnectionStatus(null);
+    setErrorDetails(null);
     try {
       const response = await client.functions.invoke('syncCoveData', {
         action: 'test_connection'
       });
       if (response.data.success) {
-        setConnectionStatus('success');
+        setConfigStatus('connected');
         toast.success('Connected to Cove API');
       } else {
-        setConnectionStatus('error');
-        toast.error(response.data.error || 'Connection failed');
+        const errMsg = response.data.error || 'Connection failed';
+        setConfigStatus('configured');
+        setErrorDetails(errMsg);
+        toast.error(errMsg);
       }
     } catch (error) {
-      setConnectionStatus('error');
-      toast.error(error.message);
+      const errMsg = error.message || 'Connection test failed';
+      setConfigStatus('configured');
+      setErrorDetails(errMsg);
+      toast.error(errMsg);
     } finally {
       setTesting(false);
     }
@@ -150,8 +181,55 @@ export default function CoveDataConfig() {
     p.name?.toLowerCase().includes(partnerSearchTerm.toLowerCase())
   );
 
+  const statusColor = configStatus === 'connected' ? 'bg-emerald-500' : configStatus === 'configured' ? 'bg-amber-500' : 'bg-slate-300';
+  const statusLabel = configStatus === 'connected' ? 'Connected' : configStatus === 'configured' ? 'Configured' : 'Not configured';
+  const statusBg = configStatus === 'connected' ? 'bg-emerald-50 border-emerald-200' : configStatus === 'configured' ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200';
+  const statusTextCls = configStatus === 'connected' ? 'text-emerald-700' : configStatus === 'configured' ? 'text-amber-700' : 'text-slate-500';
+
   return (
     <div className="space-y-6">
+      {/* Connection Status Header */}
+      <div className={cn("flex items-center justify-between px-4 py-3 rounded-lg border", statusBg)}>
+        <div className="flex items-center gap-3">
+          <div className={cn("w-2.5 h-2.5 rounded-full", statusColor)} />
+          <span className={cn("text-sm font-medium", statusTextCls)}>{statusLabel}</span>
+          {configStatus === 'connected' && (
+            <Badge className="bg-emerald-100 text-emerald-700 text-xs font-normal">
+              <CheckCircle2 className="w-3 h-3 mr-1" />
+              Cove Data
+            </Badge>
+          )}
+        </div>
+        {lastSyncTime && (
+          <div className="flex items-center gap-1.5 text-xs text-slate-500">
+            <Clock className="w-3.5 h-3.5" />
+            Last synced: {formatDistanceToNow(new Date(lastSyncTime), { addSuffix: true })}
+          </div>
+        )}
+      </div>
+
+      {/* Error Details (collapsible) */}
+      {errorDetails && (
+        <Collapsible open={showErrorDetails} onOpenChange={setShowErrorDetails}>
+          <div className="border border-red-200 bg-red-50 rounded-lg overflow-hidden">
+            <CollapsibleTrigger asChild>
+              <button className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-red-700 hover:bg-red-100 transition-colors">
+                <div className="flex items-center gap-2">
+                  <XCircle className="w-4 h-4" />
+                  Error details
+                </div>
+                <ChevronDown className={cn("w-4 h-4 transition-transform", showErrorDetails && "rotate-180")} />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="px-4 pb-3 pt-1 border-t border-red-200">
+                <pre className="text-xs text-red-600 whitespace-pre-wrap font-mono bg-red-100/50 rounded p-2">{errorDetails}</pre>
+              </div>
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
+      )}
+
       {/* Connection Test */}
       <Card>
         <CardHeader>
@@ -165,7 +243,7 @@ export default function CoveDataConfig() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4">
-            <Button 
+            <Button
               onClick={handleTestConnection}
               disabled={testing}
               variant="outline"
@@ -174,14 +252,14 @@ export default function CoveDataConfig() {
               <RefreshCw className={cn("w-4 h-4", testing && "animate-spin")} />
               Test Connection
             </Button>
-            
-            {connectionStatus === 'success' && (
+
+            {configStatus === 'connected' && (
               <Badge className="bg-green-100 text-green-700 gap-1">
                 <CheckCircle2 className="w-3 h-3" />
                 Connected
               </Badge>
             )}
-            {connectionStatus === 'error' && (
+            {configStatus === 'configured' && (
               <Badge className="bg-red-100 text-red-700 gap-1">
                 <AlertCircle className="w-3 h-3" />
                 Connection Failed

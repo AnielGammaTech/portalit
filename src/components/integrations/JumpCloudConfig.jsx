@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { client } from '@/api/client';
+import { client, supabase } from '@/api/client';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -11,25 +11,45 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  RefreshCw, 
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  RefreshCw,
   CheckCircle2,
   Building2,
   Trash2,
-  Wand2,
   Search,
   ChevronLeft,
   ChevronRight,
   Cloud,
-  Clock
+  Clock,
+  XCircle,
+  ChevronDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
+
+const CONNECTION_STATES = {
+  CONNECTED: 'connected',
+  CONFIGURED: 'configured',
+  NOT_CONFIGURED: 'not_configured',
+};
+
+function getConnectionStatusDisplay(status) {
+  switch (status) {
+    case CONNECTION_STATES.CONNECTED:
+      return { color: 'bg-emerald-500', label: 'Connected', bgClass: 'bg-emerald-50 border-emerald-200', textClass: 'text-emerald-700' };
+    case CONNECTION_STATES.CONFIGURED:
+      return { color: 'bg-amber-500', label: 'Configured', bgClass: 'bg-amber-50 border-amber-200', textClass: 'text-amber-700' };
+    default:
+      return { color: 'bg-slate-300', label: 'Not configured', bgClass: 'bg-slate-50 border-slate-200', textClass: 'text-slate-500' };
+  }
+}
 
 export default function JumpCloudConfig() {
   const [testing, setTesting] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState(null);
+  const [configStatus, setConfigStatus] = useState(CONNECTION_STATES.NOT_CONFIGURED);
+  const [isMsp, setIsMsp] = useState(false);
   const [loadingOrgs, setLoadingOrgs] = useState(false);
   const [jumpcloudOrgs, setJumpcloudOrgs] = useState([]);
   const [showMappingView, setShowMappingView] = useState(false);
@@ -42,6 +62,9 @@ export default function JumpCloudConfig() {
   const [orgSelections, setOrgSelections] = useState({});
   const [mappingSearchQuery, setMappingSearchQuery] = useState('');
   const [mappingPage, setMappingPage] = useState(1);
+  const [lastSyncTime, setLastSyncTime] = useState(null);
+  const [errorDetails, setErrorDetails] = useState(null);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
   const itemsPerPage = 10;
   const mappingsPerPage = 10;
 
@@ -57,20 +80,47 @@ export default function JumpCloudConfig() {
     queryFn: () => client.entities.JumpCloudMapping.list(),
   });
 
+  const fetchLastSync = useCallback(async () => {
+    try {
+      const { data } = await supabase
+        .from('sync_logs')
+        .select('completed_at')
+        .eq('integration_type', 'jumpcloud')
+        .eq('status', 'success')
+        .order('completed_at', { ascending: false })
+        .limit(1);
+      if (data && data.length > 0) {
+        setLastSyncTime(data[0].completed_at);
+      }
+    } catch (_err) {
+      // Sync logs may not exist yet
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLastSync();
+  }, [fetchLastSync]);
+
   const testConnection = async () => {
     setTesting(true);
+    setErrorDetails(null);
     try {
       const response = await client.functions.invoke('syncJumpCloudLicenses', { action: 'test_connection' });
       if (response.data.success) {
-        setConnectionStatus({ success: true, isMsp: response.data.isMsp });
+        setConfigStatus(CONNECTION_STATES.CONNECTED);
+        setIsMsp(!!response.data.isMsp);
         toast.success('Connected to JumpCloud!');
       } else {
-        setConnectionStatus({ success: false, error: response.data.error });
-        toast.error(response.data.error || 'Connection failed');
+        const errMsg = response.data.error || 'Connection failed';
+        setConfigStatus(CONNECTION_STATES.CONFIGURED);
+        setErrorDetails(errMsg);
+        toast.error(errMsg);
       }
     } catch (error) {
-      setConnectionStatus({ success: false, error: error.message });
-      toast.error(error.message);
+      const errMsg = error.message || 'Connection test failed';
+      setConfigStatus(CONNECTION_STATES.CONFIGURED);
+      setErrorDetails(errMsg);
+      toast.error(errMsg);
     } finally {
       setTesting(false);
     }
@@ -78,6 +128,7 @@ export default function JumpCloudConfig() {
 
   const loadOrganizations = async () => {
     setLoadingOrgs(true);
+    setErrorDetails(null);
     try {
       const response = await client.functions.invoke('syncJumpCloudLicenses', { action: 'list_organizations' });
       if (response.data.success) {
@@ -85,10 +136,14 @@ export default function JumpCloudConfig() {
         setShowMappingView(true);
         setCurrentPage(1);
       } else {
-        toast.error(response.data.error || 'Failed to load organizations');
+        const errMsg = response.data.error || 'Failed to load organizations';
+        setErrorDetails(errMsg);
+        toast.error(errMsg);
       }
     } catch (error) {
-      toast.error(error.message);
+      const errMsg = error.message || 'Failed to load organizations';
+      setErrorDetails(errMsg);
+      toast.error(errMsg);
     } finally {
       setLoadingOrgs(false);
     }
@@ -96,7 +151,7 @@ export default function JumpCloudConfig() {
 
   const applyMapping = async (org, customerId) => {
     if (!customerId) return;
-    
+
     try {
       await client.entities.JumpCloudMapping.create({
         customer_id: customerId,
@@ -107,7 +162,7 @@ export default function JumpCloudConfig() {
       refetchMappings();
       setOrgSelections(prev => ({ ...prev, [org.id]: '' }));
     } catch (error) {
-      toast.error(error.message);
+      toast.error(`Failed to map organization: ${error.message}`);
     }
   };
 
@@ -117,23 +172,29 @@ export default function JumpCloudConfig() {
       toast.success('Mapping removed');
       refetchMappings();
     } catch (error) {
-      toast.error(error.message);
+      toast.error(`Failed to remove mapping: ${error.message}`);
     }
   };
 
   const syncAllLicenses = async () => {
     setSyncing(true);
+    setErrorDetails(null);
     try {
       const response = await client.functions.invoke('syncJumpCloudLicenses', { action: 'sync_all' });
       if (response.data.success) {
         toast.success(`Synced ${response.data.created} new, ${response.data.updated} updated licenses!`);
         queryClient.invalidateQueries({ queryKey: ['licenses'] });
         refetchMappings();
+        fetchLastSync();
       } else {
-        toast.error(response.data.error || 'Sync failed');
+        const errMsg = response.data.error || 'Sync failed';
+        setErrorDetails(errMsg);
+        toast.error(errMsg);
       }
     } catch (error) {
-      toast.error(error.message);
+      const errMsg = error.message || 'Sync failed';
+      setErrorDetails(errMsg);
+      toast.error(errMsg);
     } finally {
       setSyncing(false);
     }
@@ -141,20 +202,25 @@ export default function JumpCloudConfig() {
 
   const syncCustomerLicenses = async (customerId) => {
     setSyncingCustomerId(customerId);
+    setErrorDetails(null);
     try {
-      const response = await client.functions.invoke('syncJumpCloudLicenses', { 
-        action: 'sync_licenses', 
-        customer_id: customerId 
+      const response = await client.functions.invoke('syncJumpCloudLicenses', {
+        action: 'sync_licenses',
+        customer_id: customerId
       });
       if (response.data.success) {
         toast.success(`Synced ${response.data.totalUsers} users, ${response.data.ssoApps} SSO apps!`);
         queryClient.invalidateQueries({ queryKey: ['licenses'] });
         refetchMappings();
       } else {
-        toast.error(response.data.error || 'Sync failed');
+        const errMsg = response.data.error || 'Sync failed';
+        setErrorDetails(errMsg);
+        toast.error(errMsg);
       }
     } catch (error) {
-      toast.error(error.message);
+      const errMsg = error.message || 'Sync failed';
+      setErrorDetails(errMsg);
+      toast.error(errMsg);
     } finally {
       setSyncingCustomerId(null);
     }
@@ -162,20 +228,25 @@ export default function JumpCloudConfig() {
 
   const syncCustomerUsers = async (customerId) => {
     setSyncingUsersCustomerId(customerId);
+    setErrorDetails(null);
     try {
-      const response = await client.functions.invoke('syncJumpCloudLicenses', { 
-        action: 'sync_users', 
-        customer_id: customerId 
+      const response = await client.functions.invoke('syncJumpCloudLicenses', {
+        action: 'sync_users',
+        customer_id: customerId
       });
       if (response.data.success) {
         toast.success(`Synced ${response.data.totalJumpCloudUsers} users: ${response.data.created} new, ${response.data.matched} matched!`);
         queryClient.invalidateQueries({ queryKey: ['contacts'] });
         refetchMappings();
       } else {
-        toast.error(response.data.error || 'User sync failed');
+        const errMsg = response.data.error || 'User sync failed';
+        setErrorDetails(errMsg);
+        toast.error(errMsg);
       }
     } catch (error) {
-      toast.error(error.message);
+      const errMsg = error.message || 'User sync failed';
+      setErrorDetails(errMsg);
+      toast.error(errMsg);
     } finally {
       setSyncingUsersCustomerId(null);
     }
@@ -194,51 +265,91 @@ export default function JumpCloudConfig() {
     const query = mappingSearchQuery.toLowerCase();
     return customerName.includes(query) || orgName.includes(query);
   });
-  
+
   const totalMappingPages = Math.ceil(filteredMappings.length / mappingsPerPage);
   const paginatedMappings = filteredMappings.slice(
-    (mappingPage - 1) * mappingsPerPage, 
+    (mappingPage - 1) * mappingsPerPage,
     mappingPage * mappingsPerPage
   );
 
   // Filter and paginate orgs
   const getFilteredOrgs = () => {
     let filtered = jumpcloudOrgs;
-    
+
     if (searchQuery) {
-      filtered = filtered.filter(org => 
+      filtered = filtered.filter(org =>
         org.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    
+
     if (filterTab === 'mapped') {
-      filtered = filtered.filter(org => 
+      filtered = filtered.filter(org =>
         mappings.some(m => m.jumpcloud_org_id === String(org.id))
       );
     } else if (filterTab === 'unmapped') {
-      filtered = filtered.filter(org => 
+      filtered = filtered.filter(org =>
         !mappings.some(m => m.jumpcloud_org_id === String(org.id))
       );
     }
-    
+
     return filtered;
   };
 
   const filteredOrgs = getFilteredOrgs();
   const totalPages = Math.ceil(filteredOrgs.length / itemsPerPage);
   const paginatedOrgs = filteredOrgs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  
+
   const mappedCount = jumpcloudOrgs.filter(org => mappings.some(m => m.jumpcloud_org_id === String(org.id))).length;
   const unmappedCount = jumpcloudOrgs.length - mappedCount;
 
+  const statusDisplay = getConnectionStatusDisplay(configStatus);
+
   return (
     <div className="space-y-5">
-      {/* Connection Status */}
-      {connectionStatus?.success && (
-        <div className="flex items-center gap-2 text-sm text-emerald-600 bg-emerald-50 px-3 py-2 rounded-lg">
-          <CheckCircle2 className="w-4 h-4" />
-          Connected to JumpCloud {connectionStatus.isMsp ? '(MSP Account)' : ''}
+      {/* Connection Status Header */}
+      <div className={cn("flex items-center justify-between px-4 py-3 rounded-lg border", statusDisplay.bgClass)}>
+        <div className="flex items-center gap-3">
+          <div className={cn("w-2.5 h-2.5 rounded-full", statusDisplay.color)} />
+          <span className={cn("text-sm font-medium", statusDisplay.textClass)}>
+            {statusDisplay.label}
+          </span>
+          {configStatus === CONNECTION_STATES.CONNECTED && (
+            <Badge className="bg-emerald-100 text-emerald-700 text-xs font-normal">
+              <CheckCircle2 className="w-3 h-3 mr-1" />
+              JumpCloud {isMsp ? '(MSP)' : ''}
+            </Badge>
+          )}
         </div>
+        {lastSyncTime && (
+          <div className="flex items-center gap-1.5 text-xs text-slate-500">
+            <Clock className="w-3.5 h-3.5" />
+            Last synced: {formatDistanceToNow(new Date(lastSyncTime), { addSuffix: true })}
+          </div>
+        )}
+      </div>
+
+      {/* Error Details (collapsible) */}
+      {errorDetails && (
+        <Collapsible open={showErrorDetails} onOpenChange={setShowErrorDetails}>
+          <div className="border border-red-200 bg-red-50 rounded-lg overflow-hidden">
+            <CollapsibleTrigger asChild>
+              <button className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-red-700 hover:bg-red-100 transition-colors">
+                <div className="flex items-center gap-2">
+                  <XCircle className="w-4 h-4" />
+                  Error details
+                </div>
+                <ChevronDown className={cn("w-4 h-4 transition-transform", showErrorDetails && "rotate-180")} />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="px-4 pb-3 pt-1 border-t border-red-200">
+                <pre className="text-xs text-red-600 whitespace-pre-wrap font-mono bg-red-100/50 rounded p-2">
+                  {errorDetails}
+                </pre>
+              </div>
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
       )}
 
       {/* Info about API keys */}
@@ -271,7 +382,7 @@ export default function JumpCloudConfig() {
             className="bg-slate-900 hover:bg-slate-800"
           >
             <Cloud className={cn("w-4 h-4 mr-2", syncing && "animate-spin")} />
-            Sync All Licenses
+            {syncing ? 'Syncing...' : 'Sync All Licenses'}
           </Button>
         )}
       </div>
@@ -302,18 +413,18 @@ export default function JumpCloudConfig() {
                   className="pl-9 h-9 text-sm"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 {paginatedMappings.map(mapping => (
-                  <div 
-                    key={mapping.id} 
+                  <div
+                    key={mapping.id}
                     className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
                   >
                     <div className="flex items-center gap-3">
                       <Building2 className="w-4 h-4 text-slate-400" />
                       <div>
                         <p className="font-medium text-slate-900">{getCustomerName(mapping.customer_id)}</p>
-                        <p className="text-sm text-slate-500">→ {mapping.jumpcloud_org_name}</p>
+                        <p className="text-sm text-slate-500">{'\u2192'} {mapping.jumpcloud_org_name}</p>
                         {mapping.last_synced && (
                           <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
                             <Clock className="w-3 h-3" />
@@ -331,7 +442,7 @@ export default function JumpCloudConfig() {
                         className="text-xs h-7"
                       >
                         <RefreshCw className={cn("w-3 h-3 mr-1", syncingUsersCustomerId === mapping.customer_id && "animate-spin")} />
-                        Sync Users
+                        {syncingUsersCustomerId === mapping.customer_id ? 'Syncing...' : 'Sync Users'}
                       </Button>
                       <Button
                         variant="outline"
@@ -341,7 +452,7 @@ export default function JumpCloudConfig() {
                         className="text-xs h-7"
                       >
                         <Cloud className={cn("w-3 h-3 mr-1", syncingCustomerId === mapping.customer_id && "animate-spin")} />
-                        Sync Licenses
+                        {syncingCustomerId === mapping.customer_id ? 'Syncing...' : 'Sync Licenses'}
                       </Button>
                       <Button
                         variant="ghost"
@@ -355,12 +466,12 @@ export default function JumpCloudConfig() {
                   </div>
                 ))}
               </div>
-              
+
               {/* Pagination for mappings */}
               {totalMappingPages > 1 && (
                 <div className="flex items-center justify-between pt-2">
                   <p className="text-xs text-slate-500">
-                    {((mappingPage - 1) * mappingsPerPage) + 1}–{Math.min(mappingPage * mappingsPerPage, filteredMappings.length)} of {filteredMappings.length}
+                    {((mappingPage - 1) * mappingsPerPage) + 1}{'\u2013'}{Math.min(mappingPage * mappingsPerPage, filteredMappings.length)} of {filteredMappings.length}
                   </p>
                   <div className="flex items-center gap-1">
                     <Button
@@ -385,7 +496,7 @@ export default function JumpCloudConfig() {
                   </div>
                 </div>
               )}
-              
+
               {filteredMappings.length === 0 && mappingSearchQuery && (
                 <p className="text-sm text-slate-500 py-4 text-center">
                   No mappings found for "{mappingSearchQuery}"
@@ -456,7 +567,7 @@ export default function JumpCloudConfig() {
                     const orgId = String(org.id);
                     const existingMapping = mappings.find(m => m.jumpcloud_org_id === orgId);
                     const selectedCustomerId = orgSelections[orgId] || '';
-                    
+
                     return (
                       <tr key={orgId} className="hover:bg-slate-50">
                         <td className="px-4 py-3">
@@ -520,7 +631,7 @@ export default function JumpCloudConfig() {
             {totalPages > 1 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50">
                 <p className="text-xs text-slate-500">
-                  {((currentPage - 1) * itemsPerPage) + 1}–{Math.min(currentPage * itemsPerPage, filteredOrgs.length)} of {filteredOrgs.length}
+                  {((currentPage - 1) * itemsPerPage) + 1}{'\u2013'}{Math.min(currentPage * itemsPerPage, filteredOrgs.length)} of {filteredOrgs.length}
                 </p>
                 <div className="flex items-center gap-1">
                   <Button

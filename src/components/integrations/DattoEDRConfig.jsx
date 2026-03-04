@@ -1,20 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { client } from '@/api/client';
+import { client, supabase } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Shield, 
-  RefreshCw, 
-  Link2, 
-  Unlink, 
-  CheckCircle2, 
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Shield,
+  RefreshCw,
+  Link2,
+  Unlink,
+  CheckCircle2,
   AlertCircle,
   Search,
   Building2,
-  Loader2
+  Loader2,
+  XCircle,
+  ChevronDown,
+  Clock
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { toast } from 'sonner';
@@ -26,6 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 
 export default function DattoEDRConfig() {
   const queryClient = useQueryClient();
@@ -34,6 +39,11 @@ export default function DattoEDRConfig() {
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [testing, setTesting] = useState(false);
+  const [configStatus, setConfigStatus] = useState('not_configured');
+  const [lastSyncTime, setLastSyncTime] = useState(null);
+  const [errorDetails, setErrorDetails] = useState(null);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
   const itemsPerPage = 10;
 
   // Fetch customers
@@ -48,6 +58,50 @@ export default function DattoEDRConfig() {
     queryFn: () => client.entities.DattoEDRMapping.list()
   });
 
+  const fetchLastSync = useCallback(async () => {
+    try {
+      const { data } = await supabase
+        .from('sync_logs')
+        .select('completed_at')
+        .eq('integration_type', 'datto_edr')
+        .eq('status', 'success')
+        .order('completed_at', { ascending: false })
+        .limit(1);
+      if (data && data.length > 0) {
+        setLastSyncTime(data[0].completed_at);
+      }
+    } catch (_err) { /* sync logs may not exist */ }
+  }, []);
+
+  useEffect(() => {
+    fetchLastSync();
+  }, [fetchLastSync]);
+
+  // Test connection to EDR API
+  const testConnection = async () => {
+    setTesting(true);
+    setErrorDetails(null);
+    try {
+      const response = await client.functions.invoke('syncDattoEDR', { action: 'test_connection' });
+      if (response.data.success) {
+        setConfigStatus('connected');
+        toast.success('Connected to Datto EDR');
+      } else {
+        const errMsg = response.data.error || 'Connection failed';
+        setConfigStatus('configured');
+        setErrorDetails(errMsg);
+        toast.error(errMsg);
+      }
+    } catch (error) {
+      const errMsg = error.message || 'Connection test failed';
+      setConfigStatus('configured');
+      setErrorDetails(errMsg);
+      toast.error(errMsg);
+    } finally {
+      setTesting(false);
+    }
+  };
+
   // Fetch EDR tenants from API
   const fetchEDRTenants = async () => {
     setLoading(true);
@@ -60,7 +114,9 @@ export default function DattoEDRConfig() {
         toast.error(response.data.error || 'Failed to fetch tenants');
       }
     } catch (error) {
-      toast.error(error.message || 'Failed to connect to Datto EDR');
+      const errMsg = error.message || 'Failed to connect to Datto EDR';
+      setErrorDetails(errMsg);
+      toast.error(errMsg);
     } finally {
       setLoading(false);
     }
@@ -100,16 +156,22 @@ export default function DattoEDRConfig() {
   // Sync all mapped customers
   const syncAll = async () => {
     setSyncing(true);
+    setErrorDetails(null);
     try {
       const response = await client.functions.invoke('syncDattoEDR', { action: 'sync_all' });
       if (response.data.success) {
         toast.success(`Synced ${response.data.synced || 0} customers`);
         refetchMappings();
+        fetchLastSync();
       } else {
-        toast.error(response.data.error || 'Sync failed');
+        const errMsg = response.data.error || 'Sync failed';
+        setErrorDetails(errMsg);
+        toast.error(errMsg);
       }
     } catch (error) {
-      toast.error(error.message);
+      const errMsg = error.message || 'Sync failed';
+      setErrorDetails(errMsg);
+      toast.error(errMsg);
     } finally {
       setSyncing(false);
     }
@@ -134,8 +196,55 @@ export default function DattoEDRConfig() {
   const mappedTenantIds = mappings.map(m => m.edr_tenant_id);
   const unmappedTenants = edrTenants.filter(t => !mappedTenantIds.includes(t.id));
 
+  const statusColor = configStatus === 'connected' ? 'bg-emerald-500' : configStatus === 'configured' ? 'bg-amber-500' : 'bg-slate-300';
+  const statusLabel = configStatus === 'connected' ? 'Connected' : configStatus === 'configured' ? 'Configured' : 'Not configured';
+  const statusBg = configStatus === 'connected' ? 'bg-emerald-50 border-emerald-200' : configStatus === 'configured' ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200';
+  const statusText = configStatus === 'connected' ? 'text-emerald-700' : configStatus === 'configured' ? 'text-amber-700' : 'text-slate-500';
+
   return (
     <div className="space-y-6">
+      {/* Connection Status Header */}
+      <div className={cn("flex items-center justify-between px-4 py-3 rounded-lg border", statusBg)}>
+        <div className="flex items-center gap-3">
+          <div className={cn("w-2.5 h-2.5 rounded-full", statusColor)} />
+          <span className={cn("text-sm font-medium", statusText)}>{statusLabel}</span>
+          {configStatus === 'connected' && (
+            <Badge className="bg-emerald-100 text-emerald-700 text-xs font-normal">
+              <CheckCircle2 className="w-3 h-3 mr-1" />
+              Datto EDR
+            </Badge>
+          )}
+        </div>
+        {lastSyncTime && (
+          <div className="flex items-center gap-1.5 text-xs text-slate-500">
+            <Clock className="w-3.5 h-3.5" />
+            Last synced: {formatDistanceToNow(new Date(lastSyncTime), { addSuffix: true })}
+          </div>
+        )}
+      </div>
+
+      {/* Error Details (collapsible) */}
+      {errorDetails && (
+        <Collapsible open={showErrorDetails} onOpenChange={setShowErrorDetails}>
+          <div className="border border-red-200 bg-red-50 rounded-lg overflow-hidden">
+            <CollapsibleTrigger asChild>
+              <button className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-red-700 hover:bg-red-100 transition-colors">
+                <div className="flex items-center gap-2">
+                  <XCircle className="w-4 h-4" />
+                  Error details
+                </div>
+                <ChevronDown className={cn("w-4 h-4 transition-transform", showErrorDetails && "rotate-180")} />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="px-4 pb-3 pt-1 border-t border-red-200">
+                <pre className="text-xs text-red-600 whitespace-pre-wrap font-mono bg-red-100/50 rounded p-2">{errorDetails}</pre>
+              </div>
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
+      )}
+
       {/* Header */}
       <Card>
         <CardHeader>
@@ -152,8 +261,16 @@ export default function DattoEDRConfig() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
+                onClick={testConnection}
+                disabled={testing}
+              >
+                {testing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Shield className="w-4 h-4 mr-2" />}
+                Test Connection
+              </Button>
+              <Button
+                variant="outline"
                 onClick={fetchEDRTenants}
                 disabled={loading}
               >
@@ -163,7 +280,7 @@ export default function DattoEDRConfig() {
               {mappings.length > 0 && (
                 <Button onClick={syncAll} disabled={syncing}>
                   {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-                  Sync All
+                  {syncing ? 'Syncing...' : 'Sync All'}
                 </Button>
               )}
             </div>

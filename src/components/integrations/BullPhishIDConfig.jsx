@@ -26,22 +26,28 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { 
-  Fish, 
-  Plus, 
-  Trash2, 
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Fish,
+  Plus,
+  Trash2,
   Upload,
   FileText,
   Building2,
   Calendar,
   Eye,
-  Loader2
+  Loader2,
+  XCircle,
+  ChevronDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { cn } from "@/lib/utils";
 
 export default function BullPhishIDConfig() {
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [errorDetails, setErrorDetails] = useState(null);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [reportDate, setReportDate] = useState('');
   const [periodStart, setPeriodStart] = useState('');
@@ -206,7 +212,9 @@ Convert all dates to YYYY-MM-DD format.`,
         toast.success('Data extracted from PDF');
       }
     } catch (error) {
-      toast.error(error.message);
+      const errMsg = error.message || 'Failed to extract data from PDF';
+      setErrorDetails(errMsg);
+      toast.error(errMsg);
     } finally {
       setIsExtracting(false);
     }
@@ -256,10 +264,13 @@ Convert all dates to YYYY-MM-DD format.`,
       });
 
       toast.success('Report saved successfully');
+      setErrorDetails(null);
       queryClient.invalidateQueries({ queryKey: ['bullphishid-reports'] });
       resetForm();
     } catch (error) {
-      toast.error(error.message);
+      const errMsg = error.message || 'Failed to save report';
+      setErrorDetails(errMsg);
+      toast.error(errMsg);
     } finally {
       setIsUploading(false);
     }
@@ -282,7 +293,7 @@ Convert all dates to YYYY-MM-DD format.`,
       toast.success('Report deleted');
       queryClient.invalidateQueries({ queryKey: ['bullphishid-reports'] });
     } catch (error) {
-      toast.error(error.message);
+      toast.error(error.message || 'Failed to delete report');
     }
   };
 
@@ -300,6 +311,28 @@ Convert all dates to YYYY-MM-DD format.`,
 
   return (
     <div className="space-y-6">
+      {/* Error Details (collapsible) */}
+      {errorDetails && (
+        <Collapsible open={showErrorDetails} onOpenChange={setShowErrorDetails}>
+          <div className="border border-red-200 bg-red-50 rounded-lg overflow-hidden">
+            <CollapsibleTrigger asChild>
+              <button className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-red-700 hover:bg-red-100 transition-colors">
+                <div className="flex items-center gap-2">
+                  <XCircle className="w-4 h-4" />
+                  Error details
+                </div>
+                <ChevronDown className={cn("w-4 h-4 transition-transform", showErrorDetails && "rotate-180")} />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="px-4 pb-3 pt-1 border-t border-red-200">
+                <pre className="text-xs text-red-600 whitespace-pre-wrap font-mono bg-red-100/50 rounded p-2">{errorDetails}</pre>
+              </div>
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">

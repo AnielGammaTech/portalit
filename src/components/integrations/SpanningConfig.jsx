@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { client } from '@/api/client';
+import { client, supabase } from '@/api/client';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -11,8 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  RefreshCw, 
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  RefreshCw,
   CheckCircle2,
   Building2,
   Trash2,
@@ -25,19 +26,25 @@ import {
   Wand2,
   Key,
   X,
-  Save
+  Save,
+  XCircle,
+  ChevronDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 
 export default function SpanningConfig() {
   const [testing, setTesting] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState(null);
+  const [configStatus, setConfigStatus] = useState('not_configured');
+  const [connectionMeta, setConnectionMeta] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [syncingCustomerId, setSyncingCustomerId] = useState(null);
   const [syncingUsersCustomerId, setSyncingUsersCustomerId] = useState(null);
-  
+  const [lastSyncTime, setLastSyncTime] = useState(null);
+  const [errorDetails, setErrorDetails] = useState(null);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
+
   // Domain mapping
   const [loadingDomains, setLoadingDomains] = useState(false);
   const [spanningDomains, setSpanningDomains] = useState([]);
@@ -68,22 +75,47 @@ export default function SpanningConfig() {
     queryFn: () => client.entities.SpanningMapping.list(),
   });
 
+  const fetchLastSync = useCallback(async () => {
+    try {
+      const { data } = await supabase
+        .from('sync_logs')
+        .select('completed_at')
+        .eq('integration_type', 'spanning')
+        .eq('status', 'success')
+        .order('completed_at', { ascending: false })
+        .limit(1);
+      if (data && data.length > 0) {
+        setLastSyncTime(data[0].completed_at);
+      }
+    } catch (_err) { /* sync logs may not exist */ }
+  }, []);
+
+  useEffect(() => {
+    fetchLastSync();
+  }, [fetchLastSync]);
+
   const testConnection = async () => {
     setTesting(true);
+    setErrorDetails(null);
     try {
-      const response = await client.functions.invoke('syncSpanningBackup', { 
+      const response = await client.functions.invoke('syncSpanningBackup', {
         action: 'test_connection'
       });
       if (response.data.success) {
-        setConnectionStatus({ success: true, totalCustomers: response.data.totalCustomers });
+        setConfigStatus('connected');
+        setConnectionMeta({ totalCustomers: response.data.totalCustomers });
         toast.success('Connected to Unitrends MSP!');
       } else {
-        setConnectionStatus({ success: false, error: response.data.error });
-        toast.error(response.data.error || 'Connection failed');
+        const errMsg = response.data.error || 'Connection failed';
+        setConfigStatus('configured');
+        setErrorDetails(errMsg);
+        toast.error(errMsg);
       }
     } catch (error) {
-      setConnectionStatus({ success: false, error: error.message });
-      toast.error(error.message);
+      const errMsg = error.message || 'Connection test failed';
+      setConfigStatus('configured');
+      setErrorDetails(errMsg);
+      toast.error(errMsg);
     } finally {
       setTesting(false);
     }
@@ -178,17 +210,23 @@ export default function SpanningConfig() {
 
   const syncAllLicenses = async () => {
     setSyncing(true);
+    setErrorDetails(null);
     try {
       const response = await client.functions.invoke('syncSpanningBackup', { action: 'sync_all' });
       if (response.data.success) {
         toast.success(`Synced ${response.data.synced} tenants!`);
         queryClient.invalidateQueries({ queryKey: ['licenses'] });
         refetchMappings();
+        fetchLastSync();
       } else {
-        toast.error(response.data.error || 'Sync failed');
+        const errMsg = response.data.error || 'Sync failed';
+        setErrorDetails(errMsg);
+        toast.error(errMsg);
       }
     } catch (error) {
-      toast.error(error.message);
+      const errMsg = error.message || 'Sync failed';
+      setErrorDetails(errMsg);
+      toast.error(errMsg);
     } finally {
       setSyncing(false);
     }
@@ -309,14 +347,53 @@ export default function SpanningConfig() {
     }
   };
 
+  const statusColor = configStatus === 'connected' ? 'bg-emerald-500' : configStatus === 'configured' ? 'bg-amber-500' : 'bg-slate-300';
+  const statusLabel = configStatus === 'connected' ? 'Connected' : configStatus === 'configured' ? 'Configured' : 'Not configured';
+  const statusBg = configStatus === 'connected' ? 'bg-emerald-50 border-emerald-200' : configStatus === 'configured' ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200';
+  const statusText = configStatus === 'connected' ? 'text-emerald-700' : configStatus === 'configured' ? 'text-amber-700' : 'text-slate-500';
+
   return (
     <div className="space-y-5">
-      {/* Connection Status */}
-      {connectionStatus?.success && (
-        <div className="flex items-center gap-2 text-sm text-emerald-600 bg-emerald-50 px-3 py-2 rounded-lg">
-          <CheckCircle2 className="w-4 h-4" />
-          Connected to Unitrends ({connectionStatus.totalCustomers} customers)
+      {/* Connection Status Header */}
+      <div className={cn("flex items-center justify-between px-4 py-3 rounded-lg border", statusBg)}>
+        <div className="flex items-center gap-3">
+          <div className={cn("w-2.5 h-2.5 rounded-full", statusColor)} />
+          <span className={cn("text-sm font-medium", statusText)}>{statusLabel}</span>
+          {configStatus === 'connected' && connectionMeta && (
+            <Badge className="bg-emerald-100 text-emerald-700 text-xs font-normal">
+              <CheckCircle2 className="w-3 h-3 mr-1" />
+              {connectionMeta.totalCustomers} customers
+            </Badge>
+          )}
         </div>
+        {lastSyncTime && (
+          <div className="flex items-center gap-1.5 text-xs text-slate-500">
+            <Clock className="w-3.5 h-3.5" />
+            Last synced: {formatDistanceToNow(new Date(lastSyncTime), { addSuffix: true })}
+          </div>
+        )}
+      </div>
+
+      {/* Error Details (collapsible) */}
+      {errorDetails && (
+        <Collapsible open={showErrorDetails} onOpenChange={setShowErrorDetails}>
+          <div className="border border-red-200 bg-red-50 rounded-lg overflow-hidden">
+            <CollapsibleTrigger asChild>
+              <button className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-red-700 hover:bg-red-100 transition-colors">
+                <div className="flex items-center gap-2">
+                  <XCircle className="w-4 h-4" />
+                  Error details
+                </div>
+                <ChevronDown className={cn("w-4 h-4 transition-transform", showErrorDetails && "rotate-180")} />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="px-4 pb-3 pt-1 border-t border-red-200">
+                <pre className="text-xs text-red-600 whitespace-pre-wrap font-mono bg-red-100/50 rounded p-2">{errorDetails}</pre>
+              </div>
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
       )}
 
       {/* Info */}
@@ -349,7 +426,7 @@ export default function SpanningConfig() {
             className="bg-slate-900 hover:bg-slate-800"
           >
             <Cloud className={cn("w-4 h-4 mr-2", syncing && "animate-spin")} />
-            Sync All Licenses
+            {syncing ? 'Syncing...' : 'Sync All Licenses'}
           </Button>
         )}
       </div>

@@ -1,24 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { client } from '@/api/client';
+import { client, supabase } from '@/api/client';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Shield, 
-  RefreshCw, 
-  CheckCircle2, 
-  XCircle, 
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Shield,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
   Search,
   Link as LinkIcon,
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
-  Trash2
+  Trash2,
+  Clock,
+  ChevronDown
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from "@/lib/utils";
+import { formatDistanceToNow } from 'date-fns';
 
 export default function RocketCyberConfig() {
   const [mspAccountId, setMspAccountId] = useState('');
@@ -27,7 +32,10 @@ export default function RocketCyberConfig() {
   const [accounts, setAccounts] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState(null);
+  const [configStatus, setConfigStatus] = useState('not_configured');
+  const [lastSyncTime, setLastSyncTime] = useState(null);
+  const [errorDetails, setErrorDetails] = useState(null);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
   const [mappingPage, setMappingPage] = useState(1);
   const mappingsPerPage = 10;
 
@@ -44,19 +52,46 @@ export default function RocketCyberConfig() {
     queryFn: () => client.entities.RocketCyberMapping.list()
   });
 
+  const fetchLastSync = useCallback(async () => {
+    try {
+      const { data } = await supabase
+        .from('sync_logs')
+        .select('completed_at')
+        .eq('integration_type', 'rocketcyber')
+        .eq('status', 'success')
+        .order('completed_at', { ascending: false })
+        .limit(1);
+      if (data && data.length > 0) {
+        setLastSyncTime(data[0].completed_at);
+      }
+    } catch (_err) { /* sync logs may not exist */ }
+  }, []);
+
+  useEffect(() => {
+    fetchLastSync();
+  }, [fetchLastSync]);
+
   const testConnection = async () => {
     setIsTesting(true);
+    setErrorDetails(null);
     try {
-      const result = await client.functions.invoke('syncRocketCyber', { 
-        action: 'test_connection' 
+      const result = await client.functions.invoke('syncRocketCyber', {
+        action: 'test_connection'
       });
       if (result.data.success) {
-        setConnectionStatus('connected');
+        setConfigStatus('connected');
         toast.success('RocketCyber API connection successful');
+      } else {
+        const errMsg = result.data.error || 'Connection failed';
+        setConfigStatus('configured');
+        setErrorDetails(errMsg);
+        toast.error(errMsg);
       }
     } catch (error) {
-      setConnectionStatus('error');
-      toast.error('Failed to connect: ' + error.message);
+      const errMsg = error.message || 'Connection test failed';
+      setConfigStatus('configured');
+      setErrorDetails(errMsg);
+      toast.error('Failed to connect: ' + errMsg);
     } finally {
       setIsTesting(false);
     }
@@ -112,16 +147,24 @@ export default function RocketCyberConfig() {
 
   const syncAll = async () => {
     setIsLoading(true);
+    setErrorDetails(null);
     try {
-      const result = await client.functions.invoke('syncRocketCyber', { 
-        action: 'sync_all' 
+      const result = await client.functions.invoke('syncRocketCyber', {
+        action: 'sync_all'
       });
       if (result.data.success) {
         toast.success(`Synced ${result.data.recordsSynced} incidents`);
         queryClient.invalidateQueries(['rocketcyber_incidents']);
+        fetchLastSync();
+      } else {
+        const errMsg = result.data.error || 'Sync failed';
+        setErrorDetails(errMsg);
+        toast.error(errMsg);
       }
     } catch (error) {
-      toast.error('Sync failed: ' + error.message);
+      const errMsg = error.message || 'Sync failed';
+      setErrorDetails(errMsg);
+      toast.error('Sync failed: ' + errMsg);
     } finally {
       setIsLoading(false);
     }
@@ -148,8 +191,55 @@ export default function RocketCyberConfig() {
     mappingPage * mappingsPerPage
   );
 
+  const statusColor = configStatus === 'connected' ? 'bg-emerald-500' : configStatus === 'configured' ? 'bg-amber-500' : 'bg-slate-300';
+  const statusLabel = configStatus === 'connected' ? 'Connected' : configStatus === 'configured' ? 'Configured' : 'Not configured';
+  const statusBg = configStatus === 'connected' ? 'bg-emerald-50 border-emerald-200' : configStatus === 'configured' ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200';
+  const statusTextCls = configStatus === 'connected' ? 'text-emerald-700' : configStatus === 'configured' ? 'text-amber-700' : 'text-slate-500';
+
   return (
     <div className="space-y-6">
+      {/* Connection Status Header */}
+      <div className={cn("flex items-center justify-between px-4 py-3 rounded-lg border", statusBg)}>
+        <div className="flex items-center gap-3">
+          <div className={cn("w-2.5 h-2.5 rounded-full", statusColor)} />
+          <span className={cn("text-sm font-medium", statusTextCls)}>{statusLabel}</span>
+          {configStatus === 'connected' && (
+            <Badge className="bg-emerald-100 text-emerald-700 text-xs font-normal">
+              <CheckCircle2 className="w-3 h-3 mr-1" />
+              RocketCyber
+            </Badge>
+          )}
+        </div>
+        {lastSyncTime && (
+          <div className="flex items-center gap-1.5 text-xs text-slate-500">
+            <Clock className="w-3.5 h-3.5" />
+            Last synced: {formatDistanceToNow(new Date(lastSyncTime), { addSuffix: true })}
+          </div>
+        )}
+      </div>
+
+      {/* Error Details (collapsible) */}
+      {errorDetails && (
+        <Collapsible open={showErrorDetails} onOpenChange={setShowErrorDetails}>
+          <div className="border border-red-200 bg-red-50 rounded-lg overflow-hidden">
+            <CollapsibleTrigger asChild>
+              <button className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-red-700 hover:bg-red-100 transition-colors">
+                <div className="flex items-center gap-2">
+                  <XCircle className="w-4 h-4" />
+                  Error details
+                </div>
+                <ChevronDown className={cn("w-4 h-4 transition-transform", showErrorDetails && "rotate-180")} />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="px-4 pb-3 pt-1 border-t border-red-200">
+                <pre className="text-xs text-red-600 whitespace-pre-wrap font-mono bg-red-100/50 rounded p-2">{errorDetails}</pre>
+              </div>
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
+      )}
+
       {/* Connection Test */}
       <Card>
         <CardHeader>
@@ -163,23 +253,23 @@ export default function RocketCyberConfig() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4">
-            <Button 
-              onClick={testConnection} 
+            <Button
+              onClick={testConnection}
               disabled={isTesting}
               variant="outline"
             >
               {isTesting ? (
                 <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-              ) : connectionStatus === 'connected' ? (
+              ) : configStatus === 'connected' ? (
                 <CheckCircle2 className="w-4 h-4 mr-2 text-green-500" />
-              ) : connectionStatus === 'error' ? (
+              ) : configStatus === 'configured' ? (
                 <XCircle className="w-4 h-4 mr-2 text-red-500" />
               ) : (
                 <Shield className="w-4 h-4 mr-2" />
               )}
               Test Connection
             </Button>
-            {connectionStatus === 'connected' && (
+            {configStatus === 'connected' && (
               <Badge variant="outline" className="text-green-600 border-green-300">
                 Connected
               </Badge>

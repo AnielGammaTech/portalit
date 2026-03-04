@@ -4,9 +4,19 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ChevronDown, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown, Loader2, CheckCircle2, AlertCircle, Eye, EyeOff, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
+
+const MASKED_PLACEHOLDER = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
+
+const CONNECTION_STATES = {
+  CONNECTED: 'connected',
+  CONFIGURED: 'configured',
+  NOT_CONFIGURED: 'not_configured',
+};
 
 export default function HaloPSASection() {
   const [isEnabled, setIsEnabled] = useState(false);
@@ -21,7 +31,15 @@ export default function HaloPSASection() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState(null);
+  const [configStatus, setConfigStatus] = useState(CONNECTION_STATES.NOT_CONFIGURED);
+  const [errorDetails, setErrorDetails] = useState(null);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
+
+  // Credential masking
+  const [showClientId, setShowClientId] = useState(false);
+  const [showClientSecret, setShowClientSecret] = useState(false);
+  const [hasExistingCredentials, setHasExistingCredentials] = useState(false);
+  const [dirtyFields, setDirtyFields] = useState(new Set());
 
   useEffect(() => {
     loadSettings();
@@ -33,6 +51,8 @@ export default function HaloPSASection() {
       const settingsList = await client.entities.Settings.list();
       if (settingsList.length > 0) {
         const s = settingsList[0];
+        const hasCreds = !!(s.halopsa_client_id);
+        setHasExistingCredentials(hasCreds);
         setSettings({
           halopsa_client_id: s.halopsa_client_id || '',
           halopsa_client_secret: s.halopsa_client_secret || '',
@@ -41,6 +61,9 @@ export default function HaloPSASection() {
           halopsa_api_url: s.halopsa_api_url || ''
         });
         setIsEnabled(!!s.halopsa_client_id);
+        if (hasCreds && s.halopsa_auth_url && s.halopsa_api_url) {
+          setConfigStatus(CONNECTION_STATES.CONFIGURED);
+        }
       }
     } catch (error) {
       console.error('Failed to load settings', error);
@@ -62,6 +85,17 @@ export default function HaloPSASection() {
 
   const handleChange = (field, value) => {
     setSettings(prev => ({ ...prev, [field]: value }));
+    setDirtyFields(prev => new Set([...prev, field]));
+  };
+
+  const getMaskedValue = (fieldName, showRaw) => {
+    const value = settings[fieldName];
+    if (!value) return '';
+    if (showRaw) return value;
+    if (hasExistingCredentials && !dirtyFields.has(fieldName)) {
+      return MASKED_PLACEHOLDER;
+    }
+    return value;
   };
 
   const handleSave = async () => {
@@ -69,39 +103,66 @@ export default function HaloPSASection() {
       toast.error('Please fill in all required fields');
       return;
     }
-    
+
     try {
       setSaving(true);
+      setErrorDetails(null);
+
+      // Build payload, only sending dirty secret fields
+      const payload = { ...settings };
+      if (hasExistingCredentials && !dirtyFields.has('halopsa_client_id')) {
+        delete payload.halopsa_client_id;
+      }
+      if (hasExistingCredentials && !dirtyFields.has('halopsa_client_secret')) {
+        delete payload.halopsa_client_secret;
+      }
+
       const settingsList = await client.entities.Settings.list();
       if (settingsList.length > 0) {
-        await client.entities.Settings.update(settingsList[0].id, settings);
+        await client.entities.Settings.update(settingsList[0].id, payload);
       } else {
-        await client.entities.Settings.create(settings);
+        await client.entities.Settings.create(payload);
       }
       setIsEnabled(true);
+      setHasExistingCredentials(true);
+      setDirtyFields(new Set());
       toast.success('HaloPSA configuration saved');
+
+      // Auto-test connection after save
+      await handleTestConnection({ silent: false });
     } catch (error) {
       toast.error('Failed to save configuration');
+      setErrorDetails(error.message || 'Unknown error');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleTestConnection = async () => {
+  const handleTestConnection = async ({ silent = false } = {}) => {
     try {
       setTesting(true);
-      setConnectionStatus(null);
+      setErrorDetails(null);
       const response = await client.functions.invoke('syncHaloPSACustomers', { action: 'test_connection' });
       if (response.data.success) {
-        setConnectionStatus({ success: true, message: 'Connection successful!' });
-        toast.success('HaloPSA connection successful!');
+        setConfigStatus(CONNECTION_STATES.CONNECTED);
+        if (!silent) {
+          toast.success('HaloPSA connection successful!');
+        }
       } else {
-        setConnectionStatus({ success: false, message: response.data.error || 'Connection test failed' });
-        toast.error(response.data.error || 'Connection test failed');
+        const errMsg = response.data.error || 'Connection test failed';
+        setConfigStatus(CONNECTION_STATES.CONFIGURED);
+        setErrorDetails(errMsg);
+        if (!silent) {
+          toast.error(errMsg);
+        }
       }
     } catch (error) {
-      setConnectionStatus({ success: false, message: error.message });
-      toast.error('Failed to test connection');
+      const errMsg = error.message || 'Connection test failed';
+      setConfigStatus(CONNECTION_STATES.CONFIGURED);
+      setErrorDetails(errMsg);
+      if (!silent) {
+        toast.error('Failed to test connection');
+      }
     } finally {
       setTesting(false);
     }
@@ -110,6 +171,18 @@ export default function HaloPSASection() {
   if (loading) {
     return <Loader2 className="w-4 h-4 animate-spin" />;
   }
+
+  const statusDotColor = configStatus === CONNECTION_STATES.CONNECTED
+    ? 'bg-emerald-500'
+    : configStatus === CONNECTION_STATES.CONFIGURED
+      ? 'bg-amber-500'
+      : 'bg-slate-300';
+
+  const statusLabel = configStatus === CONNECTION_STATES.CONNECTED
+    ? 'Connected'
+    : configStatus === CONNECTION_STATES.CONFIGURED
+      ? 'Configured'
+      : 'Not configured';
 
   return (
     <div className="border border-slate-200 rounded-lg overflow-hidden">
@@ -123,7 +196,13 @@ export default function HaloPSASection() {
             <span className="text-blue-600 font-semibold text-sm">HPS</span>
           </div>
           <div className="text-left">
-            <p className="font-medium text-slate-900">HaloPSA</p>
+            <div className="flex items-center gap-2">
+              <p className="font-medium text-slate-900">HaloPSA</p>
+              <div className="flex items-center gap-1.5">
+                <div className={cn("w-2 h-2 rounded-full", statusDotColor)} />
+                <span className="text-xs text-slate-500">{statusLabel}</span>
+              </div>
+            </div>
             <p className="text-xs text-slate-500">Sync customers, contracts, and billing data</p>
           </div>
         </div>
@@ -143,28 +222,88 @@ export default function HaloPSASection() {
       {/* Content */}
       {isExpanded && (
         <div className="border-t border-slate-200 p-6 space-y-4 bg-slate-50">
+          {/* Connection Status Badge */}
+          {configStatus === CONNECTION_STATES.CONNECTED && (
+            <div className="flex items-center gap-2 text-sm text-emerald-600 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-lg">
+              <CheckCircle2 className="w-4 h-4" />
+              Connected to HaloPSA
+            </div>
+          )}
+
+          {/* Error Details (collapsible) */}
+          {errorDetails && (
+            <Collapsible open={showErrorDetails} onOpenChange={setShowErrorDetails}>
+              <div className="border border-red-200 bg-red-50 rounded-lg overflow-hidden">
+                <CollapsibleTrigger asChild>
+                  <button className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-red-700 hover:bg-red-100 transition-colors">
+                    <div className="flex items-center gap-2">
+                      <XCircle className="w-4 h-4" />
+                      Connection error detected
+                    </div>
+                    <ChevronDown className={cn("w-4 h-4 transition-transform", showErrorDetails && "rotate-180")} />
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="px-4 pb-3 pt-1 border-t border-red-200">
+                    <pre className="text-xs text-red-600 whitespace-pre-wrap font-mono bg-red-100/50 rounded p-2">
+                      {errorDetails}
+                    </pre>
+                  </div>
+                </CollapsibleContent>
+              </div>
+            </Collapsible>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="client_id" className="text-sm font-medium text-slate-700">Client ID</Label>
-              <Input
-                id="client_id"
-                type="password"
-                value={settings.halopsa_client_id}
-                onChange={(e) => handleChange('halopsa_client_id', e.target.value)}
-                placeholder="Your Client ID"
-                className="mt-1"
-              />
+              <div className="relative mt-1">
+                <Input
+                  id="client_id"
+                  type={showClientId ? "text" : "password"}
+                  value={getMaskedValue('halopsa_client_id', showClientId)}
+                  onChange={(e) => handleChange('halopsa_client_id', e.target.value)}
+                  onFocus={() => {
+                    if (hasExistingCredentials && !dirtyFields.has('halopsa_client_id')) {
+                      handleChange('halopsa_client_id', '');
+                    }
+                  }}
+                  placeholder="Your Client ID"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowClientId(prev => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showClientId ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
             <div>
               <Label htmlFor="client_secret" className="text-sm font-medium text-slate-700">Client Secret</Label>
-              <Input
-                id="client_secret"
-                type="password"
-                value={settings.halopsa_client_secret}
-                onChange={(e) => handleChange('halopsa_client_secret', e.target.value)}
-                placeholder="Your Client Secret"
-                className="mt-1"
-              />
+              <div className="relative mt-1">
+                <Input
+                  id="client_secret"
+                  type={showClientSecret ? "text" : "password"}
+                  value={getMaskedValue('halopsa_client_secret', showClientSecret)}
+                  onChange={(e) => handleChange('halopsa_client_secret', e.target.value)}
+                  onFocus={() => {
+                    if (hasExistingCredentials && !dirtyFields.has('halopsa_client_secret')) {
+                      handleChange('halopsa_client_secret', '');
+                    }
+                  }}
+                  placeholder="Your Client Secret"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowClientSecret(prev => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showClientSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -203,21 +342,6 @@ export default function HaloPSASection() {
             />
           </div>
 
-          {connectionStatus && (
-            <div className={`border rounded-lg p-3 flex gap-2 ${connectionStatus.success ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
-              <div className="flex-shrink-0">
-                {connectionStatus.success ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 text-red-600 mt-0.5" />
-                )}
-              </div>
-              <p className={`text-sm ${connectionStatus.success ? 'text-emerald-700' : 'text-red-700'}`}>
-                {connectionStatus.message}
-              </p>
-            </div>
-          )}
-
           <div className="flex gap-3 pt-2">
             <Button
               onClick={handleSave}
@@ -225,10 +349,10 @@ export default function HaloPSASection() {
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Save
+              {saving ? 'Saving & Testing...' : 'Save'}
             </Button>
             <Button
-              onClick={handleTestConnection}
+              onClick={() => handleTestConnection()}
               disabled={testing || !settings.halopsa_client_id}
               variant="outline"
             >
