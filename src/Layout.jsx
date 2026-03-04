@@ -34,6 +34,7 @@ import {
 import FloatingAdminland from './components/admin/FloatingAdminland';
 import FeedbackButton from './components/feedback/FeedbackButton';
 import AwaitingAccess from './pages/AwaitingAccess';
+import { isCustomerPortal } from '@/lib/portal-mode';
 
 const DEFAULT_PRIMARY = '#8b5cf6';
 
@@ -169,8 +170,8 @@ function MobileDrawerNav({ navigation, currentPageName, primaryColor, user, isAd
           );
         })}
 
-        {/* Extra nav items in drawer for admin */}
-        {isAdmin && (
+        {/* Extra nav items in drawer for admin (hidden in customer portal mode) */}
+        {isAdmin && !isCustomerPortal && (
           <>
             <div className="pt-3 pb-1 px-3">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-white/30">
@@ -289,7 +290,7 @@ export default function Layout({ children, currentPageName }) {
     { name: 'Billing', page: 'Billing', icon: CreditCard },
   ], []);
 
-  const navigation = isAdmin ? adminNavigation : customerNavigation;
+  const navigation = (isAdmin && !isCustomerPortal) ? adminNavigation : customerNavigation;
 
   // Show loading state
   if (isLoading) {
@@ -357,7 +358,7 @@ export default function Layout({ children, currentPageName }) {
             </Sheet>
 
             {/* Logo / Portal name */}
-            <Link to={createPageUrl(isAdmin ? 'Dashboard' : 'CustomerDetail') + (isAdmin ? '' : `?id=${user?.customer_id || ''}`)} className="flex items-center gap-2.5">
+            <Link to={createPageUrl((isAdmin && !isCustomerPortal) ? 'Dashboard' : 'CustomerDetail') + ((isAdmin && !isCustomerPortal) ? '' : `?id=${user?.customer_id || ''}`)} className="flex items-center gap-2.5">
               {portalSettings.logo_url ? (
                 <img
                   src={portalSettings.logo_url}
@@ -457,13 +458,17 @@ export default function Layout({ children, currentPageName }) {
                   </div>
                 </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link to={createPageUrl('Settings')} className="cursor-pointer">
-                    <Settings className="w-4 h-4 mr-2" />
-                    Settings
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
+                {!isCustomerPortal && (
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link to={createPageUrl('Settings')} className="cursor-pointer">
+                        <Settings className="w-4 h-4 mr-2" />
+                        Settings
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
                 <DropdownMenuItem
                   onClick={() => client.auth.logout()}
                   className="text-red-600 focus:text-red-600"
@@ -487,7 +492,7 @@ export default function Layout({ children, currentPageName }) {
       {/* ─── Mobile Bottom Tab Bar ─── */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 lg:hidden z-40">
         <div className="flex items-stretch h-14">
-          {isAdmin ? (
+          {(isAdmin && !isCustomerPortal) ? (
             <>
               {adminBottomTabs.map((item) => {
                 const isActive = currentPageName === item.page;
@@ -530,15 +535,15 @@ export default function Layout({ children, currentPageName }) {
       <footer className="border-t border-slate-200 bg-white py-4 hidden lg:block">
         <div className="max-w-7xl mx-auto px-6 text-center">
           <p className="text-xs text-slate-400">
-            {isAdmin
+            {(isAdmin && !isCustomerPortal)
               ? `\u00A9 ${new Date().getFullYear()} ${portalSettings.portal_name || 'PortalIT'}`
               : 'Need help? Contact your IT provider.'}
           </p>
         </div>
       </footer>
 
-      {/* ─── Floating Adminland Button ─── */}
-      <FloatingAdminland />
+      {/* ─── Floating Adminland Button (hidden in customer portal mode) ─── */}
+      {!isCustomerPortal && <FloatingAdminland />}
 
       {/* ─── Feedback Button (non-admin only) ─── */}
       {!isAdmin && user && customer && (

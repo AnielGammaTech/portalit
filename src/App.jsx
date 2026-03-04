@@ -7,10 +7,27 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
+import WrongPortalMessage from '@/components/WrongPortalMessage';
 import Login from '@/pages/Login';
+import {
+  isCustomerPortal,
+  CUSTOMER_ALLOWED_PAGES,
+  CUSTOMER_PORTAL_MAIN_PAGE,
+} from '@/lib/portal-mode';
 
-const { Pages, Layout, mainPage } = pagesConfig;
-const mainPageKey = mainPage ?? Object.keys(Pages)[0];
+const { Pages: AllPages, Layout, mainPage } = pagesConfig;
+
+// In customer portal mode, only register allowed pages
+const Pages = isCustomerPortal
+  ? Object.fromEntries(
+      Object.entries(AllPages).filter(([key]) => CUSTOMER_ALLOWED_PAGES.has(key))
+    )
+  : AllPages;
+
+const mainPageKey = isCustomerPortal
+  ? CUSTOMER_PORTAL_MAIN_PAGE
+  : (mainPage ?? Object.keys(Pages)[0]);
+
 const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
 
 const LayoutWrapper = ({ children, currentPageName }) => Layout ?
@@ -18,7 +35,7 @@ const LayoutWrapper = ({ children, currentPageName }) => Layout ?
   : <>{children}</>;
 
 const AuthenticatedApp = () => {
-  const { isAuthenticated, isLoadingAuth, authError } = useAuth();
+  const { isAuthenticated, isLoadingAuth, authError, user } = useAuth();
 
   // Show loading spinner while checking auth
   if (isLoadingAuth) {
@@ -41,7 +58,35 @@ const AuthenticatedApp = () => {
     }
   }
 
-  // Render the main app
+  // Block admin users on the customer portal
+  if (isCustomerPortal && user?.role === 'admin') {
+    return <WrongPortalMessage user={user} />;
+  }
+
+  // In customer portal mode, redirect / to CustomerDetail with their customer_id
+  if (isCustomerPortal && user?.customer_id) {
+    return (
+      <Routes>
+        <Route path="/" element={
+          <Navigate to={`/CustomerDetail?id=${user.customer_id}`} replace />
+        } />
+        {Object.entries(Pages).map(([path, Page]) => (
+          <Route
+            key={path}
+            path={`/${path}`}
+            element={
+              <LayoutWrapper currentPageName={path}>
+                <Page />
+              </LayoutWrapper>
+            }
+          />
+        ))}
+        <Route path="*" element={<PageNotFound />} />
+      </Routes>
+    );
+  }
+
+  // Render the main app (full portal mode)
   return (
     <Routes>
       <Route path="/" element={
