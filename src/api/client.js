@@ -42,13 +42,55 @@ async function apiFetch(path, { method = 'POST', body } = {}) {
   return data;
 }
 
+// ── Entity → Table Mapping ────────────────────────────────────────────
+//
+// Explicit mapping because Supabase tables are plural snake_case
+// and toSnakeCase alone doesn't pluralize or handle acronyms (ID, EDR, SaaS).
+
+const ENTITY_TABLE_MAP = {
+  Activity: 'activities',
+  Application: 'applications',
+  BullPhishIDReport: 'bull_phish_id_reports',
+  Contact: 'contacts',
+  Contract: 'contracts',
+  ContractItem: 'contract_items',
+  CoveDataMapping: 'cove_data_mappings',
+  Customer: 'customers',
+  CustomerPortalSettings: 'customer_portal_settings',
+  DarkWebIDMapping: 'dark_web_id_mappings',
+  DarkWebIDReport: 'dark_web_id_reports',
+  DattoEDRMapping: 'datto_edr_mappings',
+  DattoSiteMapping: 'datto_site_mappings',
+  Device: 'devices',
+  Feedback: 'feedbacks',
+  Invoice: 'invoices',
+  InvoiceLineItem: 'invoice_line_items',
+  JumpCloudMapping: 'jump_cloud_mappings',
+  LicenseAssignment: 'license_assignments',
+  LootSettings: 'loot_settings',
+  PortalSettings: 'portal_settings',
+  Quote: 'quotes',
+  QuoteItem: 'quote_items',
+  RecurringBill: 'recurring_bills',
+  RecurringBillLineItem: 'recurring_bill_line_items',
+  RocketCyberIncident: 'rocket_cyber_incidents',
+  RocketCyberMapping: 'rocket_cyber_mappings',
+  SaaSLicense: 'saas_licenses',
+  Settings: 'settings',
+  SpanningMapping: 'spanning_mappings',
+  SyncLog: 'sync_logs',
+  Ticket: 'tickets',
+  User: 'users',
+  VendorBilling: 'vendor_billings',
+};
+
 // ── Entity Proxy ───────────────────────────────────────────────────────
 //
 // Provides the same API as client.entities.EntityName.method()
 // but backed by Supabase PostgreSQL.
 
 function createEntityHandler(entityName) {
-  const tableName = toSnakeCase(entityName);
+  const tableName = ENTITY_TABLE_MAP[entityName] || toSnakeCase(entityName);
 
   return {
     async list(sortField, limit) {
