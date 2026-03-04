@@ -220,7 +220,8 @@ function CustomerDashboard({ customer }) {
       
       // For each alert, get the contact's license assignments
       const alertsWithLicenses = await Promise.all(recentAlerts.map(async (alert) => {
-        const metadata = alert.metadata ? JSON.parse(alert.metadata) : {};
+        let metadata = {};
+        try { metadata = alert.metadata ? JSON.parse(alert.metadata) : {}; } catch { /* skip malformed */ }
         if (metadata.contact_id) {
           const assignments = await client.entities.LicenseAssignment.filter({
             contact_id: metadata.contact_id,

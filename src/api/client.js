@@ -67,7 +67,6 @@ const ENTITY_TABLE_MAP = {
   InvoiceLineItem: 'invoice_line_items',
   JumpCloudMapping: 'jump_cloud_mappings',
   LicenseAssignment: 'license_assignments',
-  LootSettings: 'loot_settings',
   PortalSettings: 'portal_settings',
   Quote: 'quotes',
   QuoteItem: 'quote_items',
@@ -334,10 +333,22 @@ const agents = {
 // ── Users ──────────────────────────────────────────────────────────────
 
 const users = {
-  async inviteUser(email, role, invite_type = 'tech', customer_id) {
+  async inviteUser(email, role, invite_type = 'tech', customer_id, full_name) {
     return apiFetch('/api/users/invite', {
-      body: { email, role, invite_type, customer_id },
+      body: { email, role, invite_type, customer_id, full_name },
     });
+  },
+
+  async getAuthDetails() {
+    return apiFetch('/api/users/auth-details', { method: 'GET' });
+  },
+
+  async getSignIns(userId) {
+    return apiFetch(`/api/users/${userId}/sign-ins`, { method: 'GET' });
+  },
+
+  async resendInvite(email) {
+    return apiFetch('/api/users/resend-invite', { body: { email } });
   },
 };
 

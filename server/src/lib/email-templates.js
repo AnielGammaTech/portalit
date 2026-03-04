@@ -1,6 +1,6 @@
 /**
- * Email templates for user invitations via Resend.
- * Used by the /api/users/invite endpoint.
+ * Email templates for PortalIT invitations and OTP verification.
+ * Used by /api/users/invite and /api/users/send-otp endpoints.
  */
 
 const baseStyles = `
@@ -69,7 +69,7 @@ function wrapTemplate(content) {
     </div>
     <div style="padding: 16px 32px; background: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center;">
       <p style="color: #94a3b8; font-size: 12px; margin: 0;">
-        This invitation expires in 72 hours. If you didn't expect this email, you can safely ignore it.
+        If you didn't expect this email, you can safely ignore it.
       </p>
     </div>
   </div>
@@ -77,64 +77,74 @@ function wrapTemplate(content) {
 </html>`;
 }
 
-export function customerInviteTemplate({ otp, portalUrl, companyName }) {
+/**
+ * Welcome email sent when an admin invites a new user.
+ * Contains a link to the accept-invite page.
+ */
+export function welcomeEmailTemplate({ firstName, inviteUrl, invitedBy, customerName, role }) {
+  const greeting = firstName || 'there';
+
+  let contextLine = '';
+  if (customerName) {
+    contextLine = `You've been invited to access the <strong>${customerName}</strong> portal on PortalIT.`;
+  } else if (role) {
+    const roleLabel = role === 'admin' ? 'Administrator' : role === 'sales' ? 'Sales' : 'Team Member';
+    contextLine = `You've been invited to join PortalIT as a <strong>${roleLabel}</strong>.`;
+  } else {
+    contextLine = `You've been invited to join PortalIT.`;
+  }
+
+  const invitedByLine = invitedBy
+    ? `<p style="color: #94a3b8; font-size: 13px; margin: 16px 0 0;">Invited by ${invitedBy}</p>`
+    : '';
+
   return wrapTemplate(`
     <h2 style="color: #1e293b; font-size: 20px; margin: 0 0 8px;">
-      You've been invited!
+      Hi ${greeting}, you're invited!
     </h2>
-    <p style="color: #64748b; font-size: 15px; line-height: 1.6; margin: 0 0 16px;">
-      You've been invited to access the <strong>${companyName || 'your company'}</strong> portal on PortalIT. 
-      Use the verification code below to activate your account.
+    <p style="color: #64748b; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
+      ${contextLine}
+      Click the button below to activate your account.
     </p>
 
-    <div style="${otpBoxStyles}">
-      <p style="color: #64748b; font-size: 13px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 1px;">
-        Your verification code
-      </p>
-      <div style="${otpCodeStyles}">${otp}</div>
-    </div>
-
     <div style="text-align: center; margin: 24px 0;">
-      <a href="${portalUrl}/accept-invite?email=${encodeURIComponent('')}" style="${buttonStyles}">
+      <a href="${inviteUrl}" style="${buttonStyles}">
         Activate Your Account
       </a>
     </div>
 
     <p style="color: #94a3b8; font-size: 13px; line-height: 1.5;">
-      Or go to <a href="${portalUrl}/accept-invite" style="color: #7C3AED;">${portalUrl}/accept-invite</a> 
-      and enter the code above.
+      Or copy and paste this link into your browser:<br/>
+      <a href="${inviteUrl}" style="color: #7C3AED; word-break: break-all;">${inviteUrl}</a>
     </p>
+    ${invitedByLine}
   `);
 }
 
-export function techInviteTemplate({ otp, portalUrl, role }) {
-  const roleLabel = role === 'admin' ? 'Administrator' : role === 'sales' ? 'Sales' : 'Team Member';
-  
+/**
+ * OTP verification email sent when a user requests a code on the accept-invite page.
+ * Contains the 6-digit verification code.
+ */
+export function otpEmailTemplate({ code, firstName }) {
+  const greeting = firstName || 'there';
+
   return wrapTemplate(`
     <h2 style="color: #1e293b; font-size: 20px; margin: 0 0 8px;">
-      Welcome to the team!
+      Your verification code
     </h2>
-    <p style="color: #64748b; font-size: 15px; line-height: 1.6; margin: 0 0 16px;">
-      You've been invited to join PortalIT as a <strong>${roleLabel}</strong>. 
-      Use the verification code below to activate your account.
+    <p style="color: #64748b; font-size: 15px; line-height: 1.6; margin: 0 0 8px;">
+      Hi ${greeting}, use the code below to verify your email and activate your account.
     </p>
 
     <div style="${otpBoxStyles}">
       <p style="color: #64748b; font-size: 13px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 1px;">
-        Your verification code
+        Verification code
       </p>
-      <div style="${otpCodeStyles}">${otp}</div>
-    </div>
-
-    <div style="text-align: center; margin: 24px 0;">
-      <a href="${portalUrl}/accept-invite" style="${buttonStyles}">
-        Activate Your Account
-      </a>
+      <div style="${otpCodeStyles}">${code}</div>
     </div>
 
     <p style="color: #94a3b8; font-size: 13px; line-height: 1.5;">
-      Or go to <a href="${portalUrl}/accept-invite" style="color: #7C3AED;">${portalUrl}/accept-invite</a> 
-      and enter the code above.
+      This code expires in 10 minutes. If you didn't request this code, you can safely ignore this email.
     </p>
   `);
 }

@@ -12,7 +12,6 @@ import {
   ChevronDown,
   LogOut,
   Bell,
-  DollarSign,
   Menu,
   CreditCard,
   MoreHorizontal,
@@ -266,7 +265,6 @@ export default function Layout({ children, currentPageName }) {
 
   // Navigation definitions
   const adminNavigation = useMemo(() => [
-    { name: 'Loot', page: 'Loot', icon: DollarSign },
     { name: 'Dashboard', page: 'Dashboard', icon: LayoutDashboard },
     { name: 'Customers', page: 'Customers', icon: Building2 },
     { name: 'Services', page: 'Services', icon: Cloud },

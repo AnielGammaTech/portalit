@@ -1,32 +1,37 @@
 import { Router } from 'express';
-import bcrypt from 'bcryptjs';
 import { requireAdmin } from '../middleware/auth.js';
 import { getServiceSupabase } from '../lib/supabase.js';
-import { sendEmail } from '../lib/email.js';
-import { customerInviteTemplate, techInviteTemplate } from '../lib/email-templates.js';
+import { sendEmail, isEmailConfigured } from '../lib/email.js';
+import { welcomeEmailTemplate, otpEmailTemplate } from '../lib/email-templates.js';
 
 const router = Router();
 
-// ── Helpers ────────────────────────────────────────────────────────────
+// ── In-memory OTP store (codes expire after 10 minutes) ──────────────
+
+const otpStore = new Map(); // email → { code, expiresAt }
 
 function generateOtp() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
-function getPortalUrl(req) {
-  // Use FRONTEND_URL env var or derive from request origin
-  return process.env.FRONTEND_URL || `${req.protocol}://${req.get('host')}`;
+function cleanExpiredOtps() {
+  for (const [key, val] of otpStore) {
+    if (val.expiresAt < Date.now()) otpStore.delete(key);
+  }
+}
+
+function getPortalUrl() {
+  return process.env.FRONTEND_URL || 'https://frontend-production-b430.up.railway.app';
 }
 
 // ── POST /api/users/invite ─────────────────────────────────────────────
 
 router.post('/invite', requireAdmin, async (req, res, next) => {
   try {
-    const { email, role, invite_type, customer_id } = req.body;
+    const { email, role, invite_type, customer_id, full_name } = req.body;
 
-    // Validation
-    if (!email) {
-      return res.status(400).json({ error: 'email is required' });
+    if (!email || !full_name) {
+      return res.status(400).json({ error: 'Email and full name are required' });
     }
     if (!invite_type || !['customer', 'tech'].includes(invite_type)) {
       return res.status(400).json({ error: 'invite_type must be "customer" or "tech"' });
@@ -39,31 +44,40 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
     }
 
     const finalRole = invite_type === 'customer' ? 'user' : role;
+    const lowerEmail = email.toLowerCase();
     const supabase = getServiceSupabase();
 
-    // Check if user already exists in auth
+    // Check if user already exists
     const { data: existingUsers } = await supabase
       .from('users')
-      .select('id, email')
-      .eq('email', email)
+      .select('id, email, auth_id')
+      .eq('email', lowerEmail)
       .limit(1);
 
-    if (existingUsers && existingUsers.length > 0) {
+    if (existingUsers && existingUsers.length > 0 && existingUsers[0].auth_id) {
       return res.status(409).json({ error: 'A user with this email already exists' });
     }
 
-    // Create auth user (email not confirmed) or reuse existing
+    // Clean up orphaned user record if it exists without auth_id
+    if (existingUsers && existingUsers.length > 0 && !existingUsers[0].auth_id) {
+      await supabase.from('users').delete().eq('id', existingUsers[0].id);
+    }
+
+    // Create user in Supabase Auth with email_confirm: true
+    const tempPassword = `TempInvite_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     let authUserId;
+
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email,
-      email_confirm: false,
+      email: lowerEmail,
+      password: tempPassword,
+      email_confirm: true,
+      user_metadata: { full_name, role: finalRole },
     });
 
     if (authError) {
       if (authError.message?.includes('already been registered')) {
-        // Reuse existing auth user — happens when a previous invite partially failed
         const { data: { users: authUsers } } = await supabase.auth.admin.listUsers();
-        const existing = authUsers?.find(u => u.email === email);
+        const existing = authUsers?.find(u => u.email === lowerEmail);
         if (!existing) {
           return res.status(409).json({ error: 'A user with this email already exists but could not be found' });
         }
@@ -74,10 +88,6 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
     } else {
       authUserId = authData.user.id;
     }
-
-    // Generate OTP and hash it
-    const otp = generateOtp();
-    const otpHash = await bcrypt.hash(otp, 10);
 
     // Look up customer name if customer invite
     let customerName = null;
@@ -90,36 +100,14 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
       customerName = customer?.name || null;
     }
 
-    // Create invitation record
-    const { error: inviteError } = await supabase
-      .from('user_invitations')
-      .insert({
-        email,
-        role: finalRole,
-        invite_type,
-        customer_id: invite_type === 'customer' ? customer_id : null,
-        otp_hash: otpHash,
-        auth_user_id: authUserId,
-        status: 'pending',
-        expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
-        created_by: req.user?.id || null,
-      });
-
-    if (inviteError) {
-      console.error('Failed to create invitation:', inviteError);
-      // Clean up: delete the auth user we just created
-      await supabase.auth.admin.deleteUser(authUserId);
-      return res.status(500).json({ error: 'Failed to create invitation record' });
-    }
-
     // Create or update user profile row
     const { error: profileError } = await supabase
       .from('users')
       .upsert({
         auth_id: authUserId,
-        email,
+        email: lowerEmail,
         role: finalRole,
-        full_name: '',
+        full_name,
         customer_id: invite_type === 'customer' ? customer_id : null,
         customer_name: customerName,
       }, { onConflict: 'auth_id' });
@@ -128,33 +116,76 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
       console.error('Failed to create user profile:', profileError);
     }
 
-    // Send invitation email via Resend
-    const portalUrl = getPortalUrl(req);
-
-    const emailHtml = invite_type === 'customer'
-      ? customerInviteTemplate({ otp, portalUrl, companyName: customerName })
-      : techInviteTemplate({ otp, portalUrl, role: finalRole });
-
-    const emailSubject = invite_type === 'customer'
-      ? `You've been invited to ${customerName || 'PortalIT'}`
-      : `Welcome to the PortalIT team`;
+    // Send welcome email via Resend
+    const portalUrl = getPortalUrl();
+    const inviteUrl = `${portalUrl}/accept-invite?email=${encodeURIComponent(lowerEmail)}`;
 
     try {
       await sendEmail({
-        to: email,
-        subject: emailSubject,
-        body: emailHtml,
+        to: lowerEmail,
+        subject: `You're invited to PortalIT — Activate your account`,
+        body: welcomeEmailTemplate({
+          firstName: full_name.split(' ')[0],
+          inviteUrl,
+          invitedBy: req.user?.email,
+          customerName: invite_type === 'customer' ? customerName : null,
+          role: invite_type === 'tech' ? finalRole : null,
+        }),
       });
     } catch (emailErr) {
-      console.error('Failed to send invitation email:', emailErr);
-      // Don't fail the whole request — invitation is created, email can be resent
+      console.error('Failed to send welcome email:', emailErr.message);
     }
 
     res.json({
       success: true,
-      user: { id: authUserId, email },
+      user: { id: authUserId, email: lowerEmail },
       message: 'Invitation sent successfully',
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ── POST /api/users/send-otp ───────────────────────────────────────────
+
+router.post('/send-otp', async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const lowerEmail = email.toLowerCase();
+    const supabase = getServiceSupabase();
+
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, full_name')
+      .eq('email', lowerEmail)
+      .limit(1);
+
+    if (!users || users.length === 0) {
+      return res.status(404).json({ error: 'No account found with this email' });
+    }
+
+    const code = generateOtp();
+    otpStore.set(lowerEmail, { code, expiresAt: Date.now() + 10 * 60 * 1000 });
+    cleanExpiredOtps();
+
+    const firstName = users[0].full_name?.split(' ')[0] || 'there';
+
+    try {
+      await sendEmail({
+        to: lowerEmail,
+        subject: `${code} — Your PortalIT verification code`,
+        body: otpEmailTemplate({ code, firstName }),
+      });
+    } catch (emailErr) {
+      console.error('Failed to send OTP email:', emailErr.message);
+      return res.status(500).json({ error: 'Failed to send verification code. Please try again.' });
+    }
+
+    res.json({ success: true, email: lowerEmail });
   } catch (error) {
     next(error);
   }
@@ -164,140 +195,47 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
 
 router.post('/verify-otp', async (req, res, next) => {
   try {
-    const { email, otp } = req.body;
-
-    if (!email || !otp) {
-      return res.status(400).json({ error: 'email and otp are required' });
+    const { email, code } = req.body;
+    if (!email || !code) {
+      return res.status(400).json({ error: 'Email and code are required' });
     }
+
+    const lowerEmail = email.toLowerCase();
+    const stored = otpStore.get(lowerEmail);
+
+    if (!stored) {
+      return res.status(400).json({ error: 'No verification code found. Please request a new one.' });
+    }
+    if (Date.now() > stored.expiresAt) {
+      otpStore.delete(lowerEmail);
+      return res.status(400).json({ error: 'Code has expired. Please request a new one.' });
+    }
+    if (stored.code !== code.trim()) {
+      return res.status(400).json({ error: 'Invalid code. Please check and try again.' });
+    }
+
+    // Code is valid — consume it
+    otpStore.delete(lowerEmail);
 
     const supabase = getServiceSupabase();
 
-    // Find pending invitation
-    const { data: invitations, error: lookupError } = await supabase
-      .from('user_invitations')
-      .select('*')
-      .eq('email', email)
-      .eq('status', 'pending')
-      .order('created_date', { ascending: false })
-      .limit(1);
-
-    if (lookupError || !invitations || invitations.length === 0) {
-      return res.status(404).json({ error: 'No pending invitation found for this email' });
-    }
-
-    const invitation = invitations[0];
-
-    // Check expiration
-    if (new Date(invitation.expires_at) < new Date()) {
-      await supabase
-        .from('user_invitations')
-        .update({ status: 'expired', updated_date: new Date().toISOString() })
-        .eq('id', invitation.id);
-      return res.status(410).json({ error: 'This invitation has expired. Please request a new one.' });
-    }
-
-    // Verify OTP
-    const isValid = await bcrypt.compare(otp, invitation.otp_hash);
-    if (!isValid) {
-      return res.status(401).json({ error: 'Invalid verification code' });
-    }
-
-    // Confirm email in Supabase Auth
-    if (invitation.auth_user_id) {
-      const { error: confirmError } = await supabase.auth.admin.updateUserById(
-        invitation.auth_user_id,
-        { email_confirm: true }
-      );
-      if (confirmError) {
-        console.error('Failed to confirm email:', confirmError);
-      }
-    }
-
-    // Generate a short-lived token for the set-password step
-    const otpToken = await bcrypt.hash(`${email}:${Date.now()}`, 8);
-
-    // Store token temporarily on the invitation
-    await supabase
-      .from('user_invitations')
-      .update({
-        status: 'accepted',
-        otp_hash: await bcrypt.hash(otpToken, 10),
-        updated_date: new Date().toISOString(),
-      })
-      .eq('id', invitation.id);
-
-    res.json({
-      success: true,
-      otp_token: otpToken,
-      message: 'Email verified successfully. Please set your password.',
+    // Generate a magic link token (server-side only, not emailed)
+    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+      type: 'magiclink',
+      email: lowerEmail,
     });
-  } catch (error) {
-    next(error);
-  }
-});
 
-// ── POST /api/users/set-password ───────────────────────────────────────
-
-router.post('/set-password', async (req, res, next) => {
-  try {
-    const { email, password, otp_token } = req.body;
-
-    if (!email || !password || !otp_token) {
-      return res.status(400).json({ error: 'email, password, and otp_token are required' });
+    if (linkError) {
+      console.error('Magic link generation failed:', linkError);
+      return res.status(500).json({ error: 'Could not create session' });
     }
 
-    if (password.length < 8) {
-      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    const hashedToken = linkData?.properties?.hashed_token;
+    if (!hashedToken) {
+      return res.status(500).json({ error: 'Could not generate auth token' });
     }
 
-    const supabase = getServiceSupabase();
-
-    // Find the accepted invitation
-    const { data: invitations } = await supabase
-      .from('user_invitations')
-      .select('*')
-      .eq('email', email)
-      .eq('status', 'accepted')
-      .order('updated_date', { ascending: false })
-      .limit(1);
-
-    if (!invitations || invitations.length === 0) {
-      return res.status(404).json({ error: 'No verified invitation found. Please verify your email first.' });
-    }
-
-    const invitation = invitations[0];
-
-    // Verify the otp_token
-    const isValidToken = await bcrypt.compare(otp_token, invitation.otp_hash);
-    if (!isValidToken) {
-      return res.status(401).json({ error: 'Invalid or expired session. Please verify your email again.' });
-    }
-
-    // Set password in Supabase Auth
-    if (invitation.auth_user_id) {
-      const { error: pwError } = await supabase.auth.admin.updateUserById(
-        invitation.auth_user_id,
-        { password }
-      );
-
-      if (pwError) {
-        return res.status(500).json({ error: 'Failed to set password: ' + pwError.message });
-      }
-    }
-
-    // Clear the otp_hash so the token can't be reused
-    await supabase
-      .from('user_invitations')
-      .update({
-        otp_hash: 'used',
-        updated_date: new Date().toISOString(),
-      })
-      .eq('id', invitation.id);
-
-    res.json({
-      success: true,
-      message: 'Password set successfully. You can now sign in.',
-    });
+    res.json({ success: true, token: hashedToken, email: lowerEmail });
   } catch (error) {
     next(error);
   }
@@ -308,82 +246,107 @@ router.post('/set-password', async (req, res, next) => {
 router.post('/resend-invite', requireAdmin, async (req, res, next) => {
   try {
     const { email } = req.body;
-
     if (!email) {
-      return res.status(400).json({ error: 'email is required' });
+      return res.status(400).json({ error: 'Email is required' });
     }
 
+    const lowerEmail = email.toLowerCase();
     const supabase = getServiceSupabase();
 
-    // Find the most recent invitation
-    const { data: invitations } = await supabase
-      .from('user_invitations')
-      .select('*')
-      .eq('email', email)
-      .order('created_date', { ascending: false })
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, full_name')
+      .eq('email', lowerEmail)
       .limit(1);
 
-    if (!invitations || invitations.length === 0) {
-      return res.status(404).json({ error: 'No invitation found for this email' });
+    if (!users || users.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
     }
 
-    const invitation = invitations[0];
-
-    // Generate new OTP
-    const otp = generateOtp();
-    const otpHash = await bcrypt.hash(otp, 10);
-
-    // Update invitation with new OTP and expiry
-    await supabase
-      .from('user_invitations')
-      .update({
-        otp_hash: otpHash,
-        status: 'pending',
-        expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
-        updated_date: new Date().toISOString(),
-      })
-      .eq('id', invitation.id);
-
-    // Look up customer name
-    let customerName = null;
-    if (invitation.customer_id) {
-      const { data: customer } = await supabase
-        .from('customers')
-        .select('name')
-        .eq('id', invitation.customer_id)
-        .single();
-      customerName = customer?.name || null;
-    }
-
-    // Re-send email
-    const portalUrl = getPortalUrl(req);
-    const emailHtml = invitation.invite_type === 'customer'
-      ? customerInviteTemplate({ otp, portalUrl, companyName: customerName })
-      : techInviteTemplate({ otp, portalUrl, role: invitation.role });
+    const portalUrl = getPortalUrl();
+    const inviteUrl = `${portalUrl}/accept-invite?email=${encodeURIComponent(lowerEmail)}`;
 
     await sendEmail({
-      to: email,
-      subject: 'Your PortalIT invitation code',
-      body: emailHtml,
+      to: lowerEmail,
+      subject: `You're invited to PortalIT — Activate your account`,
+      body: welcomeEmailTemplate({
+        firstName: users[0].full_name?.split(' ')[0] || 'there',
+        inviteUrl,
+        invitedBy: req.user?.email,
+      }),
     });
 
-    res.json({ success: true, message: 'Invitation resent successfully' });
+    res.json({ success: true, email: lowerEmail });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ── GET /api/users/auth-details ───────────────────────────────────────
+
+router.get('/auth-details', requireAdmin, async (_req, res, next) => {
+  try {
+    const supabase = getServiceSupabase();
+    const { data: { users }, error } = await supabase.auth.admin.listUsers({ perPage: 100 });
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    const details = {};
+    for (const user of users) {
+      details[user.id] = {
+        last_sign_in_at: user.last_sign_in_at || null,
+        created_at: user.created_at,
+        email_confirmed_at: user.email_confirmed_at || null,
+        invited_at: user.invited_at || null,
+        banned_until: user.banned_until || null,
+        provider: user.app_metadata?.provider || 'email',
+        providers: user.app_metadata?.providers || ['email'],
+      };
+    }
+
+    res.json({ details });
   } catch (error) {
     next(error);
   }
 });
 
 // ── GET /api/users/email-status ────────────────────────────────────────
-// Health check for Resend configuration
+// NOTE: Must be before /:id routes to avoid matching "email-status" as :id
 
 router.get('/email-status', requireAdmin, async (_req, res) => {
-  const hasResendKey = !!process.env.RESEND_API_KEY;
-  const emailFrom = process.env.EMAIL_FROM || 'PortalIT <noreply@portalit.app>';
-
   res.json({
-    configured: hasResendKey,
-    from: emailFrom,
+    configured: isEmailConfigured(),
+    from: process.env.EMAIL_FROM || 'PortalIT <noreply@portalit.app>',
   });
+});
+
+// ── GET /api/users/:id/sign-ins ──────────────────────────────────────
+
+router.get('/:id/sign-ins', requireAdmin, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const supabase = getServiceSupabase();
+
+    const { data, error } = await supabase.rpc('get_user_sign_ins', {
+      user_uuid: id,
+      max_entries: 20,
+    });
+
+    if (error) {
+      // Gracefully handle missing database function
+      if (error.message?.includes('Could not find the function')) {
+        return res.json({ sessions: [], hint: 'Run the SQL migration: supabase/migrations/003_add_sign_in_tracking.sql' });
+      }
+      console.error('Error fetching sign-ins:', error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ sessions: data || [] });
+  } catch (error) {
+    next(error);
+  }
 });
 
 export { router as usersRouter };
