@@ -1,36 +1,148 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import Breadcrumbs from '../components/ui/breadcrumbs';
-import { 
-  Cloud, 
-  Users, 
-  Shield, 
+import {
+  Cloud,
+  Users,
+  Shield,
   HardDrive,
-  RefreshCw,
   Search,
   Building2,
   CheckCircle2,
   XCircle,
-  AlertCircle
+  ChevronDown,
+  Monitor,
+  Smartphone,
+  ArrowLeft,
+  ExternalLink,
+  Wifi,
+  WifiOff,
+  Server,
+  Layers,
 } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
-function JumpCloudTab() {
+// ── Service Definitions ──────────────────────────────────────────────
+
+const SERVICES = [
+  {
+    id: 'jumpcloud',
+    name: 'JumpCloud',
+    description: 'Identity & access management',
+    icon: Shield,
+    color: 'emerald',
+    gradient: 'from-emerald-500 to-teal-600',
+    lightBg: 'bg-emerald-50',
+    lightText: 'text-emerald-700',
+    lightBorder: 'border-emerald-200',
+  },
+  {
+    id: 'spanning',
+    name: 'Unitrends Backup',
+    description: 'Cloud-to-cloud backup protection',
+    icon: HardDrive,
+    color: 'blue',
+    gradient: 'from-blue-500 to-indigo-600',
+    lightBg: 'bg-blue-50',
+    lightText: 'text-blue-700',
+    lightBorder: 'border-blue-200',
+  },
+  {
+    id: 'datto',
+    name: 'Datto RMM',
+    description: 'Remote monitoring & management',
+    icon: Monitor,
+    color: 'violet',
+    gradient: 'from-violet-500 to-purple-600',
+    lightBg: 'bg-violet-50',
+    lightText: 'text-violet-700',
+    lightBorder: 'border-violet-200',
+  },
+];
+
+// ── Stat Card ────────────────────────────────────────────────────────
+
+function StatCard({ icon: Icon, label, value, color = 'slate' }) {
+  const colorMap = {
+    emerald: 'bg-emerald-50 text-emerald-600',
+    blue: 'bg-blue-50 text-blue-600',
+    violet: 'bg-violet-50 text-violet-600',
+    amber: 'bg-amber-50 text-amber-600',
+    red: 'bg-red-50 text-red-600',
+    slate: 'bg-slate-100 text-slate-600',
+  };
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-4">
+      <div className="flex items-center gap-3">
+        <div className={cn('p-2 rounded-lg', colorMap[color])}>
+          <Icon className="w-4 h-4" />
+        </div>
+        <div>
+          <p className="text-2xl font-bold text-slate-900">{value}</p>
+          <p className="text-xs text-slate-500">{label}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Data Table ───────────────────────────────────────────────────────
+
+function DataTable({ columns, data, emptyMessage }) {
+  if (data.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <Layers className="w-8 h-8 mx-auto mb-3 text-slate-300" />
+        <p className="text-sm text-slate-500">{emptyMessage}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-slate-100">
+            {columns.map((col) => (
+              <th key={col.key} className="text-left py-3 px-4 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                {col.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-50">
+          {data.map((row, i) => (
+            <tr key={row.id || i} className="hover:bg-slate-50/50 transition-colors">
+              {columns.map((col) => (
+                <td key={col.key} className="py-3 px-4">
+                  {col.render ? col.render(row) : row[col.key]}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {data.length >= 50 && (
+        <div className="text-center py-3 border-t border-slate-100">
+          <p className="text-xs text-slate-400">Showing first 50 results</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── JumpCloud Detail ─────────────────────────────────────────────────
+
+function JumpCloudDetail({ customers }) {
   const [search, setSearch] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState('all');
-
-  const { data: customers = [] } = useQuery({
-    queryKey: ['customers'],
-    queryFn: () => client.entities.Customer.list('-created_date', 500),
-  });
+  const svc = SERVICES[0];
 
   const { data: mappings = [] } = useQuery({
     queryKey: ['jumpcloud-mappings'],
@@ -47,89 +159,62 @@ function JumpCloudTab() {
     queryFn: () => client.entities.SaaSLicense.filter({ source: 'jumpcloud' }, '-created_date', 500),
   });
 
+  const mappedCustomerIds = mappings.map(m => m.customer_id);
+  const mappedCustomers = customers.filter(c => mappedCustomerIds.includes(c.id));
+
   const filteredContacts = contacts.filter(c => {
-    const matchesSearch = !search || 
+    const matchesSearch = !search ||
       c.full_name?.toLowerCase().includes(search.toLowerCase()) ||
       c.email?.toLowerCase().includes(search.toLowerCase());
     const matchesCustomer = selectedCustomer === 'all' || c.customer_id === selectedCustomer;
     return matchesSearch && matchesCustomer;
   });
 
-  const mappedCustomerIds = mappings.map(m => m.customer_id);
-  const mappedCustomers = customers.filter(c => mappedCustomerIds.includes(c.id));
-
   if (isLoading) {
-    return <div className="space-y-4">{[1,2,3].map(i => <Skeleton key={i} className="h-16 w-full" />)}</div>;
+    return <div className="space-y-4">{[1, 2, 3].map(i => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}</div>;
   }
+
+  const columns = [
+    {
+      key: 'full_name', label: 'User',
+      render: (row) => (
+        <div className="flex items-center gap-3">
+          <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white bg-gradient-to-br', svc.gradient)}>
+            {(row.full_name?.charAt(0) || '?').toUpperCase()}
+          </div>
+          <div>
+            <p className="font-medium text-sm text-slate-900">{row.full_name || 'Unknown'}</p>
+            <p className="text-xs text-slate-400">{row.email}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'customer_id', label: 'Customer',
+      render: (row) => {
+        const customer = customers.find(c => c.id === row.customer_id);
+        return <span className="text-sm text-slate-600">{customer?.name || 'Unassigned'}</span>;
+      },
+    },
+    {
+      key: 'title', label: 'Title',
+      render: (row) => <span className="text-sm text-slate-500">{row.title || '-'}</span>,
+    },
+  ];
 
   return (
     <div className="space-y-6">
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Building2 className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{mappings.length}</p>
-                <p className="text-sm text-slate-500">Organizations</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Users className="w-5 h-5 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{contacts.length}</p>
-                <p className="text-sm text-slate-500">Total Users</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <Cloud className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{licenses.length}</p>
-                <p className="text-sm text-slate-500">SSO Apps</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-amber-100 rounded-lg">
-                <Shield className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{licenses.reduce((sum, l) => sum + (l.assigned_users || 0), 0)}</p>
-                <p className="text-sm text-slate-500">License Assignments</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatCard icon={Building2} label="Organizations" value={mappings.length} color="emerald" />
+        <StatCard icon={Users} label="Total Users" value={contacts.length} color="blue" />
+        <StatCard icon={Cloud} label="SSO Apps" value={licenses.length} color="violet" />
+        <StatCard icon={Shield} label="License Assignments" value={licenses.reduce((sum, l) => sum + (l.assigned_users || 0), 0)} color="amber" />
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-4 flex-wrap">
+      <div className="flex gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input 
-            placeholder="Search users..." 
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+          <Input placeholder="Search users..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
         <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
           <SelectTrigger className="w-[200px]">
@@ -144,63 +229,27 @@ function JumpCloudTab() {
         </Select>
       </div>
 
-      {/* Users Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>JumpCloud Users</CardTitle>
-          <CardDescription>Users synced from JumpCloud directory</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {filteredContacts.length === 0 ? (
-            <p className="text-center text-slate-500 py-8">No JumpCloud users found. Configure JumpCloud in Settings to sync users.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Name</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Email</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Customer</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Title</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredContacts.slice(0, 50).map(contact => {
-                    const customer = customers.find(c => c.id === contact.customer_id);
-                    return (
-                      <tr key={contact.id} className="border-b hover:bg-slate-50">
-                        <td className="py-3 px-4 font-medium">{contact.full_name}</td>
-                        <td className="py-3 px-4 text-slate-600">{contact.email}</td>
-                        <td className="py-3 px-4">
-                          <Badge variant="outline">{customer?.name || 'Unknown'}</Badge>
-                        </td>
-                        <td className="py-3 px-4 text-slate-500">{contact.title || '-'}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {filteredContacts.length > 50 && (
-                <p className="text-center text-sm text-slate-500 py-4">
-                  Showing 50 of {filteredContacts.length} users
-                </p>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+          <p className="text-sm font-semibold text-slate-700">JumpCloud Users</p>
+          <Badge variant="secondary" className="text-xs">{filteredContacts.length}</Badge>
+        </div>
+        <DataTable
+          columns={columns}
+          data={filteredContacts.slice(0, 50)}
+          emptyMessage="No JumpCloud users found. Configure JumpCloud in Settings."
+        />
+      </div>
     </div>
   );
 }
 
-function SpanningTab() {
+// ── Spanning/Unitrends Detail ────────────────────────────────────────
+
+function SpanningDetail({ customers }) {
   const [search, setSearch] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState('all');
-
-  const { data: customers = [] } = useQuery({
-    queryKey: ['customers'],
-    queryFn: () => client.entities.Customer.list('-created_date', 500),
-  });
+  const svc = SERVICES[1];
 
   const { data: mappings = [], isLoading } = useQuery({
     queryKey: ['spanning-mappings'],
@@ -217,90 +266,67 @@ function SpanningTab() {
     queryFn: () => client.entities.Contact.filter({ source: 'spanning' }, '-created_date', 1000),
   });
 
+  const mappedCustomerIds = mappings.map(m => m.customer_id);
+  const mappedCustomers = customers.filter(c => mappedCustomerIds.includes(c.id));
+
   const filteredMappings = mappings.filter(m => {
     const customer = customers.find(c => c.id === m.customer_id);
-    const matchesSearch = !search || 
+    const matchesSearch = !search ||
       m.spanning_tenant_name?.toLowerCase().includes(search.toLowerCase()) ||
       customer?.name?.toLowerCase().includes(search.toLowerCase());
     const matchesCustomer = selectedCustomer === 'all' || m.customer_id === selectedCustomer;
     return matchesSearch && matchesCustomer;
   });
 
-  const mappedCustomerIds = mappings.map(m => m.customer_id);
-  const mappedCustomers = customers.filter(c => mappedCustomerIds.includes(c.id));
-
   if (isLoading) {
-    return <div className="space-y-4">{[1,2,3].map(i => <Skeleton key={i} className="h-16 w-full" />)}</div>;
+    return <div className="space-y-4">{[1, 2, 3].map(i => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}</div>;
   }
+
+  const domainColumns = [
+    {
+      key: 'spanning_tenant_name', label: 'Domain',
+      render: (row) => (
+        <div className="flex items-center gap-3">
+          <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br', svc.gradient)}>
+            <HardDrive className="w-4 h-4 text-white" />
+          </div>
+          <span className="font-medium text-sm text-slate-900">{row.spanning_tenant_name}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'customer_id', label: 'Customer',
+      render: (row) => {
+        const customer = customers.find(c => c.id === row.customer_id);
+        return <span className="text-sm text-slate-600">{customer?.name || 'Unknown'}</span>;
+      },
+    },
+    {
+      key: 'last_synced', label: 'Last Synced',
+      render: (row) => <span className="text-sm text-slate-500">{row.last_synced ? new Date(row.last_synced).toLocaleDateString() : 'Never'}</span>,
+    },
+    {
+      key: 'users', label: 'Users',
+      render: (row) => {
+        const count = contacts.filter(c => c.customer_id === row.customer_id).length;
+        return <Badge className={cn(svc.lightBg, svc.lightText, 'border', svc.lightBorder)}>{count}</Badge>;
+      },
+    },
+  ];
 
   return (
     <div className="space-y-6">
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Building2 className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{mappings.length}</p>
-                <p className="text-sm text-slate-500">Domains</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Users className="w-5 h-5 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{contacts.length}</p>
-                <p className="text-sm text-slate-500">Backup Users</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <HardDrive className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{licenses.length}</p>
-                <p className="text-sm text-slate-500">Backup Licenses</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-amber-100 rounded-lg">
-                <Shield className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{licenses.reduce((sum, l) => sum + (l.assigned_users || 0), 0)}</p>
-                <p className="text-sm text-slate-500">Protected Users</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatCard icon={Building2} label="Domains" value={mappings.length} color="blue" />
+        <StatCard icon={Users} label="Backup Users" value={contacts.length} color="violet" />
+        <StatCard icon={HardDrive} label="Backup Licenses" value={licenses.length} color="emerald" />
+        <StatCard icon={Shield} label="Protected Users" value={licenses.reduce((sum, l) => sum + (l.assigned_users || 0), 0)} color="amber" />
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-4 flex-wrap">
+      <div className="flex gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input 
-            placeholder="Search domains..." 
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+          <Input placeholder="Search domains..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
         <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
           <SelectTrigger className="w-[200px]">
@@ -315,111 +341,28 @@ function SpanningTab() {
         </Select>
       </div>
 
-      {/* Domains Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Unitrends Backup Domains</CardTitle>
-          <CardDescription>Spanning backup domains and their status</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {filteredMappings.length === 0 ? (
-            <p className="text-center text-slate-500 py-8">No Unitrends domains found. Configure Unitrends in Settings to sync domains.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Domain</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Customer</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Last Synced</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Users</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredMappings.map(mapping => {
-                    const customer = customers.find(c => c.id === mapping.customer_id);
-                    const domainContacts = contacts.filter(c => c.customer_id === mapping.customer_id);
-                    return (
-                      <tr key={mapping.id} className="border-b hover:bg-slate-50">
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-2">
-                            <HardDrive className="w-4 h-4 text-slate-400" />
-                            <span className="font-medium">{mapping.spanning_tenant_name}</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <Badge variant="outline">{customer?.name || 'Unknown'}</Badge>
-                        </td>
-                        <td className="py-3 px-4 text-slate-500">
-                          {mapping.last_synced ? new Date(mapping.last_synced).toLocaleDateString() : 'Never'}
-                        </td>
-                        <td className="py-3 px-4">
-                          <Badge className="bg-purple-100 text-purple-700">{domainContacts.length} users</Badge>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Backup Users */}
-      {contacts.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Backup Users</CardTitle>
-            <CardDescription>Users with Spanning backup protection</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Name</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Email</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Customer</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {contacts.filter(c => {
-                    const matchesSearch = !search || 
-                      c.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-                      c.email?.toLowerCase().includes(search.toLowerCase());
-                    const matchesCustomer = selectedCustomer === 'all' || c.customer_id === selectedCustomer;
-                    return matchesSearch && matchesCustomer;
-                  }).slice(0, 50).map(contact => {
-                    const customer = customers.find(c => c.id === contact.customer_id);
-                    return (
-                      <tr key={contact.id} className="border-b hover:bg-slate-50">
-                        <td className="py-3 px-4 font-medium">{contact.full_name}</td>
-                        <td className="py-3 px-4 text-slate-600">{contact.email}</td>
-                        <td className="py-3 px-4">
-                          <Badge variant="outline">{customer?.name || 'Unknown'}</Badge>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+          <p className="text-sm font-semibold text-slate-700">Backup Domains</p>
+          <Badge variant="secondary" className="text-xs">{filteredMappings.length}</Badge>
+        </div>
+        <DataTable
+          columns={domainColumns}
+          data={filteredMappings}
+          emptyMessage="No Unitrends domains found. Configure Unitrends in Settings."
+        />
+      </div>
     </div>
   );
 }
 
-function DattoTab() {
+// ── Datto RMM Detail ─────────────────────────────────────────────────
+
+function DattoDetail({ customers }) {
   const [search, setSearch] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState('all');
-
-  const { data: customers = [] } = useQuery({
-    queryKey: ['customers'],
-    queryFn: () => client.entities.Customer.list('-created_date', 500),
-  });
+  const [statusFilter, setStatusFilter] = useState('all');
+  const svc = SERVICES[2];
 
   const { data: mappings = [] } = useQuery({
     queryKey: ['datto-mappings'],
@@ -431,93 +374,110 @@ function DattoTab() {
     queryFn: () => client.entities.Device.list('-created_date', 1000),
   });
 
-  const filteredDevices = devices.filter(d => {
-    const matchesSearch = !search || 
-      d.hostname?.toLowerCase().includes(search.toLowerCase()) ||
-      d.os?.toLowerCase().includes(search.toLowerCase());
-    const matchesCustomer = selectedCustomer === 'all' || d.customer_id === selectedCustomer;
-    return matchesSearch && matchesCustomer;
-  });
-
   const mappedCustomerIds = mappings.map(m => m.customer_id);
   const mappedCustomers = customers.filter(c => mappedCustomerIds.includes(c.id));
 
   const onlineDevices = devices.filter(d => d.status === 'online').length;
   const offlineDevices = devices.filter(d => d.status === 'offline').length;
 
+  const filteredDevices = devices.filter(d => {
+    const matchesSearch = !search ||
+      d.hostname?.toLowerCase().includes(search.toLowerCase()) ||
+      d.os?.toLowerCase().includes(search.toLowerCase());
+    const matchesCustomer = selectedCustomer === 'all' || d.customer_id === selectedCustomer;
+    const matchesStatus = statusFilter === 'all' || d.status === statusFilter;
+    return matchesSearch && matchesCustomer && matchesStatus;
+  });
+
   if (isLoading) {
-    return <div className="space-y-4">{[1,2,3].map(i => <Skeleton key={i} className="h-16 w-full" />)}</div>;
+    return <div className="space-y-4">{[1, 2, 3].map(i => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}</div>;
   }
+
+  const columns = [
+    {
+      key: 'hostname', label: 'Device',
+      render: (row) => (
+        <div className="flex items-center gap-3">
+          <div className={cn(
+            'w-8 h-8 rounded-lg flex items-center justify-center',
+            row.status === 'online' ? 'bg-emerald-50' : 'bg-red-50'
+          )}>
+            {row.device_type === 'server' ? (
+              <Server className={cn('w-4 h-4', row.status === 'online' ? 'text-emerald-600' : 'text-red-500')} />
+            ) : (
+              <Monitor className={cn('w-4 h-4', row.status === 'online' ? 'text-emerald-600' : 'text-red-500')} />
+            )}
+          </div>
+          <div>
+            <p className="font-medium text-sm text-slate-900">{row.hostname}</p>
+            <p className="text-xs text-slate-400">{row.os || 'Unknown OS'}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'customer_id', label: 'Customer',
+      render: (row) => {
+        const customer = customers.find(c => c.id === row.customer_id);
+        return <span className="text-sm text-slate-600">{customer?.name || 'Unknown'}</span>;
+      },
+    },
+    {
+      key: 'device_type', label: 'Type',
+      render: (row) => (
+        <Badge className="bg-slate-100 text-slate-600 border border-slate-200 capitalize text-xs">
+          {row.device_type || 'device'}
+        </Badge>
+      ),
+    },
+    {
+      key: 'status', label: 'Status',
+      render: (row) => (
+        row.status === 'online' ? (
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Online
+          </span>
+        ) : row.status === 'offline' ? (
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-red-600">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500" /> Offline
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500">
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-400" /> Unknown
+          </span>
+        )
+      ),
+    },
+    {
+      key: 'last_seen', label: 'Last Seen',
+      render: (row) => <span className="text-sm text-slate-500">{row.last_seen ? new Date(row.last_seen).toLocaleDateString() : '-'}</span>,
+    },
+  ];
 
   return (
     <div className="space-y-6">
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Building2 className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{mappings.length}</p>
-                <p className="text-sm text-slate-500">Sites</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <HardDrive className="w-5 h-5 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{devices.length}</p>
-                <p className="text-sm text-slate-500">Total Devices</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{onlineDevices}</p>
-                <p className="text-sm text-slate-500">Online</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-red-100 rounded-lg">
-                <XCircle className="w-5 h-5 text-red-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{offlineDevices}</p>
-                <p className="text-sm text-slate-500">Offline</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatCard icon={Building2} label="Sites" value={mappings.length} color="violet" />
+        <StatCard icon={Monitor} label="Total Devices" value={devices.length} color="blue" />
+        <StatCard icon={Wifi} label="Online" value={onlineDevices} color="emerald" />
+        <StatCard icon={WifiOff} label="Offline" value={offlineDevices} color="red" />
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-4 flex-wrap">
+      <div className="flex gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input 
-            placeholder="Search devices..." 
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+          <Input placeholder="Search devices..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="All Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="online">Online</SelectItem>
+            <SelectItem value="offline">Offline</SelectItem>
+          </SelectContent>
+        </Select>
         <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
           <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="All Customers" />
@@ -531,109 +491,171 @@ function DattoTab() {
         </Select>
       </div>
 
-      {/* Devices Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Datto RMM Devices</CardTitle>
-          <CardDescription>Managed devices from Datto RMM</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {filteredDevices.length === 0 ? (
-            <p className="text-center text-slate-500 py-8">No devices found. Configure Datto RMM in Settings to sync devices.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Hostname</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Customer</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">OS</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Type</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Status</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Last Seen</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredDevices.slice(0, 50).map(device => {
-                    const customer = customers.find(c => c.id === device.customer_id);
-                    return (
-                      <tr key={device.id} className="border-b hover:bg-slate-50">
-                        <td className="py-3 px-4 font-medium">{device.hostname}</td>
-                        <td className="py-3 px-4">
-                          <Badge variant="outline">{customer?.name || 'Unknown'}</Badge>
-                        </td>
-                        <td className="py-3 px-4 text-slate-600 text-sm">{device.os || '-'}</td>
-                        <td className="py-3 px-4">
-                          <Badge className="bg-slate-100 text-slate-700 capitalize">{device.device_type}</Badge>
-                        </td>
-                        <td className="py-3 px-4">
-                          {device.status === 'online' ? (
-                            <Badge className="bg-green-100 text-green-700">Online</Badge>
-                          ) : device.status === 'offline' ? (
-                            <Badge className="bg-red-100 text-red-700">Offline</Badge>
-                          ) : (
-                            <Badge className="bg-slate-100 text-slate-700">Unknown</Badge>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-slate-500 text-sm">
-                          {device.last_seen ? new Date(device.last_seen).toLocaleDateString() : '-'}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {filteredDevices.length > 50 && (
-                <p className="text-center text-sm text-slate-500 py-4">
-                  Showing 50 of {filteredDevices.length} devices
-                </p>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+          <p className="text-sm font-semibold text-slate-700">Devices</p>
+          <Badge variant="secondary" className="text-xs">{filteredDevices.length}</Badge>
+        </div>
+        <DataTable
+          columns={columns}
+          data={filteredDevices.slice(0, 50)}
+          emptyMessage="No devices found. Configure Datto RMM in Settings."
+        />
+      </div>
     </div>
   );
 }
 
+// ── Main Services Page ───────────────────────────────────────────────
+
 export default function Services() {
+  const [activeService, setActiveService] = useState(null);
+
+  const { data: customers = [] } = useQuery({
+    queryKey: ['customers'],
+    queryFn: () => client.entities.Customer.list('-created_date', 500),
+  });
+
+  // Fetch counts for service cards
+  const { data: jcMappings = [] } = useQuery({
+    queryKey: ['jumpcloud-mappings'],
+    queryFn: () => client.entities.JumpCloudMapping.list('-created_date', 500),
+  });
+  const { data: spanMappings = [] } = useQuery({
+    queryKey: ['spanning-mappings'],
+    queryFn: () => client.entities.SpanningMapping.list('-created_date', 500),
+  });
+  const { data: dattoMappings = [] } = useQuery({
+    queryKey: ['datto-mappings'],
+    queryFn: () => client.entities.DattoSiteMapping.list('-created_date', 500),
+  });
+
+  const serviceCounts = {
+    jumpcloud: jcMappings.length,
+    spanning: spanMappings.length,
+    datto: dattoMappings.length,
+  };
+
+  const activeSvc = SERVICES.find(s => s.id === activeService);
+
   return (
     <div className="space-y-6">
-      <Breadcrumbs items={[{ label: 'Services' }]} />
-      
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Services</h1>
-        <p className="text-slate-500 mt-1">View all integrated service data across your customers</p>
-      </div>
+      <Breadcrumbs items={activeService
+        ? [{ label: 'Services', onClick: () => setActiveService(null) }, { label: activeSvc?.name }]
+        : [{ label: 'Services' }]
+      } />
 
-      <Tabs defaultValue="jumpcloud" className="space-y-6">
-        <TabsList className="bg-white border border-slate-200/50">
-          <TabsTrigger value="jumpcloud" className="gap-2">
-            <Shield className="w-4 h-4" />
-            JumpCloud
-          </TabsTrigger>
-          <TabsTrigger value="spanning" className="gap-2">
-            <HardDrive className="w-4 h-4" />
-            Unitrends Backup
-          </TabsTrigger>
-          <TabsTrigger value="datto" className="gap-2">
-            <Cloud className="w-4 h-4" />
-            Datto RMM
-          </TabsTrigger>
-        </TabsList>
+      {!activeService ? (
+        <>
+          {/* Header */}
+          <div>
+            <h1 className="text-2xl font-semibold text-slate-900">Services</h1>
+            <p className="text-slate-500 mt-1">Manage and monitor your integrated service platforms</p>
+          </div>
 
-        <TabsContent value="jumpcloud">
-          <JumpCloudTab />
-        </TabsContent>
+          {/* Service Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {SERVICES.map((svc) => {
+              const Icon = svc.icon;
+              const count = serviceCounts[svc.id];
+              const isConnected = count > 0;
 
-        <TabsContent value="spanning">
-          <SpanningTab />
-        </TabsContent>
+              return (
+                <button
+                  key={svc.id}
+                  onClick={() => setActiveService(svc.id)}
+                  className={cn(
+                    'group relative bg-white rounded-2xl border p-6 text-left transition-all duration-200',
+                    'hover:shadow-lg hover:border-slate-300 hover:-translate-y-0.5',
+                    'focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2',
+                    'border-slate-200'
+                  )}
+                >
+                  {/* Status dot */}
+                  <div className="absolute top-4 right-4">
+                    {isConnected ? (
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Connected
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-500 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                        Not configured
+                      </span>
+                    )}
+                  </div>
 
-        <TabsContent value="datto">
-          <DattoTab />
-        </TabsContent>
-      </Tabs>
+                  {/* Icon */}
+                  <div className={cn(
+                    'w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br mb-4',
+                    svc.gradient,
+                    'group-hover:scale-110 transition-transform duration-200'
+                  )}>
+                    <Icon className="w-6 h-6 text-white" />
+                  </div>
+
+                  {/* Info */}
+                  <h3 className="font-semibold text-slate-900 text-lg">{svc.name}</h3>
+                  <p className="text-sm text-slate-500 mt-1">{svc.description}</p>
+
+                  {/* Bottom stats */}
+                  <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-sm text-slate-400">
+                      {isConnected
+                        ? `${count} ${svc.id === 'jumpcloud' ? 'org' : svc.id === 'spanning' ? 'domain' : 'site'}${count !== 1 ? 's' : ''} mapped`
+                        : 'Configure in Settings'}
+                    </span>
+                    <ChevronDown className="w-4 h-4 text-slate-400 -rotate-90 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Overview stats */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6">
+            <h2 className="text-sm font-semibold text-slate-700 mb-4">Platform Overview</h2>
+            <div className="grid grid-cols-3 gap-6 text-center">
+              <div>
+                <p className="text-3xl font-bold text-slate-900">{Object.values(serviceCounts).reduce((a, b) => a + b, 0)}</p>
+                <p className="text-xs text-slate-500 mt-1">Total Connections</p>
+              </div>
+              <div>
+                <p className="text-3xl font-bold text-slate-900">{Object.values(serviceCounts).filter(c => c > 0).length}</p>
+                <p className="text-xs text-slate-500 mt-1">Active Services</p>
+              </div>
+              <div>
+                <p className="text-3xl font-bold text-slate-900">{customers.length}</p>
+                <p className="text-xs text-slate-500 mt-1">Customers</p>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Back button + Service header */}
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => setActiveService(null)} className="shrink-0">
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <div className="flex items-center gap-3">
+              <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br', activeSvc.gradient)}>
+                <activeSvc.icon className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-semibold text-slate-900">{activeSvc.name}</h1>
+                <p className="text-sm text-slate-500">{activeSvc.description}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Service Detail */}
+          {activeService === 'jumpcloud' && <JumpCloudDetail customers={customers} />}
+          {activeService === 'spanning' && <SpanningDetail customers={customers} />}
+          {activeService === 'datto' && <DattoDetail customers={customers} />}
+        </>
+      )}
     </div>
   );
 }
