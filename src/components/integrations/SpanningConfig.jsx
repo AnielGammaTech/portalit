@@ -94,6 +94,13 @@ export default function SpanningConfig() {
     fetchLastSync();
   }, [fetchLastSync]);
 
+  // Auto-detect configured status from existing mappings
+  useEffect(() => {
+    if (mappings.length > 0 && configStatus === 'not_configured') {
+      setConfigStatus('connected');
+    }
+  }, [mappings.length]);
+
   const testConnection = async () => {
     setTesting(true);
     setErrorDetails(null);

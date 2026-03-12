@@ -26,11 +26,9 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
   // Parse cached data from mapping (instant, no API call)
   const cachedEdrData = React.useMemo(() => {
     if (!edrMapping?.cached_data) return null;
-    try {
-      return JSON.parse(edrMapping.cached_data);
-    } catch (e) {
-      return null;
-    }
+    return typeof edrMapping.cached_data === 'string'
+      ? (() => { try { return JSON.parse(edrMapping.cached_data); } catch { return null; } })()
+      : edrMapping.cached_data;
   }, [edrMapping?.cached_data]);
 
   // Use live data if available, otherwise cached

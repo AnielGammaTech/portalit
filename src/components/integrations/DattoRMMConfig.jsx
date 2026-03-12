@@ -102,6 +102,13 @@ export default function DattoRMMConfig() {
     fetchLastSync();
   }, [fetchLastSync]);
 
+  // Auto-detect configured status from existing mappings
+  useEffect(() => {
+    if (mappings.length > 0 && configStatus === CONNECTION_STATES.NOT_CONFIGURED) {
+      setConfigStatus(CONNECTION_STATES.CONNECTED);
+    }
+  }, [mappings.length]);
+
   const testConnection = async () => {
     setTesting(true);
     setErrorDetails(null);

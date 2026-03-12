@@ -78,6 +78,13 @@ export default function CoveDataConfig() {
     fetchLastSync();
   }, [fetchLastSync]);
 
+  // Auto-detect configured status from existing mappings
+  useEffect(() => {
+    if (mappings.length > 0 && configStatus === 'not_configured') {
+      setConfigStatus('connected');
+    }
+  }, [mappings.length]);
+
   const handleTestConnection = async () => {
     setTesting(true);
     setErrorDetails(null);

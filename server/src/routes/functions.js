@@ -23,6 +23,8 @@ import { scheduledSpanningSync } from '../functions/scheduledSpanningSync.js';
 import { syncRocketCyber } from '../functions/syncRocketCyber.js';
 import { syncCoveData } from '../functions/syncCoveData.js';
 import { syncDarkWebID } from '../functions/syncDarkWebID.js';
+import { syncUniFiDevices } from '../functions/syncUniFiDevices.js';
+import { syncSaaSAlerts } from '../functions/syncSaaSAlerts.js';
 import { autoSuspendUnusedLicenses } from '../functions/autoSuspendUnusedLicenses.js';
 import { licenseRenewalReminder } from '../functions/licenseRenewalReminder.js';
 
@@ -48,6 +50,8 @@ const functionMap = {
   syncRocketCyber,
   syncCoveData,
   syncDarkWebID,
+  syncUniFiDevices,
+  syncSaaSAlerts,
   autoSuspendUnusedLicenses,
   licenseRenewalReminder,
 };

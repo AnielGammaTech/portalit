@@ -85,12 +85,11 @@ export async function syncDattoEDR(body, user) {
     // Return cached data if available
     if (mapping.cached_data) {
       try {
-        const cached = JSON.parse(mapping.cached_data);
         return {
           success: true,
           cached: true,
           last_synced: mapping.last_synced,
-          data: cached
+          data: mapping.cached_data
         };
       } catch (e) {
         // Cache invalid
@@ -199,7 +198,7 @@ export async function syncDattoEDR(body, user) {
     // Cache the data for future quick loads
     await supabase.from('datto_edr_mappings').update({
       last_synced: new Date().toISOString(),
-      cached_data: JSON.stringify(responseData)
+      cached_data: responseData
     }).eq('id', mapping.id);
 
     return {

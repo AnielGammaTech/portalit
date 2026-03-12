@@ -74,11 +74,13 @@ const ENTITY_TABLE_MAP = {
   RecurringBillLineItem: 'recurring_bill_line_items',
   RocketCyberIncident: 'rocket_cyber_incidents',
   RocketCyberMapping: 'rocket_cyber_mappings',
+  SaaSAlertsMapping: 'saas_alerts_mappings',
   SaaSLicense: 'saas_licenses',
   Settings: 'settings',
   SpanningMapping: 'spanning_mappings',
   SyncLog: 'sync_logs',
   Ticket: 'tickets',
+  UniFiMapping: 'unifi_mappings',
   User: 'users',
   VendorBilling: 'vendor_billings',
 };

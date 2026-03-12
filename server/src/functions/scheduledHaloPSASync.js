@@ -82,9 +82,14 @@ export async function scheduledHaloPSASync(_body, _user) {
       customersSynced += toCreate.length;
     }
 
-    for (const item of toUpdate) {
-      await supabase.from('customers').update(item.data).eq('id', item.id);
-      customersSynced++;
+    // Parallel update customers (batches of 20)
+    const CUST_BATCH = 20;
+    for (let i = 0; i < toUpdate.length; i += CUST_BATCH) {
+      const batch = toUpdate.slice(i, i + CUST_BATCH);
+      await Promise.allSettled(
+        batch.map(item => supabase.from('customers').update(item.data).eq('id', item.id))
+      );
+      customersSynced += batch.length;
     }
 
     // ========== SYNC CONTACTS FOR EACH CUSTOMER ==========
@@ -93,40 +98,67 @@ export async function scheduledHaloPSASync(_body, _user) {
       .select('*')
       .eq('source', 'halopsa');
 
-    for (const customer of (allCustomers || [])) {
-      try {
-        const data = await haloGet(`Users?client_id=${customer.external_id}&page_size=500`, config);
-        const users = extractRecords(data, 'users');
+    // Process customers in parallel batches of 5 (API-call-heavy, so limit concurrency)
+    const CUSTOMER_CONCURRENCY = 5;
+    for (let i = 0; i < (allCustomers || []).length; i += CUSTOMER_CONCURRENCY) {
+      const customerBatch = allCustomers.slice(i, i + CUSTOMER_CONCURRENCY);
+      const results = await Promise.allSettled(
+        customerBatch.map(async (customer) => {
+          const data = await haloGet(`Users?client_id=${customer.external_id}&page_size=500`, config);
+          const users = extractRecords(data, 'users');
 
-        const { data: existingContacts } = await supabase
-          .from('contacts')
-          .select('*')
-          .eq('customer_id', customer.id);
+          const { data: existingContacts } = await supabase
+            .from('contacts')
+            .select('*')
+            .eq('customer_id', customer.id);
 
-        const existingByHaloId = Object.fromEntries(
-          (existingContacts || []).filter(c => c.halopsa_id).map(c => [c.halopsa_id, c]),
-        );
+          const existingByHaloId = Object.fromEntries(
+            (existingContacts || []).filter(c => c.halopsa_id).map(c => [c.halopsa_id, c]),
+          );
 
-        for (const haloUser of users) {
-          const contactPayload = mapHaloUserToContact(haloUser, customer.id);
-          const existing = existingByHaloId[String(haloUser.id)];
+          const toCreateContacts = [];
+          const toUpdateContacts = [];
 
-          if (existing) {
-            await supabase.from('contacts').update(contactPayload).eq('id', existing.id);
-          } else {
-            const { error } = await supabase.from('contacts').insert(contactPayload);
-            if (error) throw new Error(error.message);
+          for (const haloUser of users) {
+            const contactPayload = mapHaloUserToContact(haloUser, customer.id);
+            const existing = existingByHaloId[String(haloUser.id)];
+            if (existing) {
+              toUpdateContacts.push({ id: existing.id, data: contactPayload });
+            } else {
+              toCreateContacts.push(contactPayload);
+            }
           }
-          contactsSynced++;
-        }
 
-        await supabase
-          .from('customers')
-          .update({ total_users: users.length })
-          .eq('id', customer.id);
-      } catch (e) {
-        errors.push({ customer: customer.name, error: e.message });
-      }
+          // Bulk insert new contacts
+          if (toCreateContacts.length > 0) {
+            await supabase.from('contacts').insert(toCreateContacts);
+          }
+
+          // Parallel update existing contacts (batches of 20)
+          const CONTACT_BATCH = 20;
+          for (let j = 0; j < toUpdateContacts.length; j += CONTACT_BATCH) {
+            const batch = toUpdateContacts.slice(j, j + CONTACT_BATCH);
+            await Promise.allSettled(
+              batch.map(item => supabase.from('contacts').update(item.data).eq('id', item.id))
+            );
+          }
+
+          await supabase
+            .from('customers')
+            .update({ total_users: users.length })
+            .eq('id', customer.id);
+
+          return users.length;
+        })
+      );
+
+      results.forEach((r, idx) => {
+        if (r.status === 'fulfilled') {
+          contactsSynced += r.value;
+        } else {
+          errors.push({ customer: customerBatch[idx].name, error: r.reason?.message });
+        }
+      });
     }
 
     // Update sync log

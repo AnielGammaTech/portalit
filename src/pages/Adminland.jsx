@@ -22,6 +22,8 @@ import BullPhishIDConfig from '../components/integrations/BullPhishIDConfig';
 import DattoEDRConfig from '../components/integrations/DattoEDRConfig';
 import RocketCyberConfig from '../components/integrations/RocketCyberConfig';
 import CoveDataConfig from '../components/integrations/CoveDataConfig';
+import UniFiConfig from '../components/integrations/UniFiConfig';
+import SaaSAlertsConfig from '../components/integrations/SaaSAlertsConfig';
 
 import {
   Shield,
@@ -44,6 +46,8 @@ import {
   Fish,
   Rocket,
   HardDrive,
+  Wifi,
+  ShieldAlert,
   Zap,
   RefreshCw,
   Mail,
@@ -67,6 +71,13 @@ const INTEGRATION_CATEGORIES = [
       { id: 'datto-rmm', label: 'Datto RMM', desc: 'Sync devices and map Datto sites', icon: Monitor, iconBg: 'bg-blue-50', iconColor: 'text-blue-600', mappingKey: 'datto_mappings', mappingEntity: 'DattoSiteMapping' },
       { id: 'datto-edr', label: 'Datto EDR', desc: 'Endpoint detection & response', icon: Shield, iconBg: 'bg-cyan-50', iconColor: 'text-cyan-600', mappingKey: 'edr_mappings', mappingEntity: 'DattoEDRMapping' },
       { id: 'rocketcyber', label: 'RocketCyber SOC', desc: 'Security incidents and alerts', icon: Rocket, iconBg: 'bg-orange-50', iconColor: 'text-orange-600', mappingKey: 'rocketcyber_mappings', mappingEntity: 'RocketCyberMapping' },
+      { id: 'unifi', label: 'UniFi Network', desc: 'Sync firewalls and network devices', icon: Wifi, iconBg: 'bg-sky-50', iconColor: 'text-sky-600', mappingKey: 'unifi_mappings', mappingEntity: 'UniFiMapping' },
+    ],
+  },
+  {
+    title: 'SAAS SECURITY',
+    items: [
+      { id: 'saas-alerts', label: 'SaaS Alerts', desc: 'Monitor SaaS app security events', icon: ShieldAlert, iconBg: 'bg-violet-50', iconColor: 'text-violet-600', mappingKey: 'saas_alerts_mappings', mappingEntity: 'SaaSAlertsMapping' },
     ],
   },
   {
@@ -105,6 +116,8 @@ const INTEGRATION_COMPONENTS = {
   'jumpcloud': JumpCloudConfig,
   'spanning': SpanningConfig,
   'cove': CoveDataConfig,
+  'unifi': UniFiConfig,
+  'saas-alerts': SaaSAlertsConfig,
   'darkweb': DarkWebIDConfig,
   'bullphish': BullPhishIDConfig,
 };
@@ -118,6 +131,8 @@ function IntegrationsPanel() {
   const { data: edrMappings = [] } = useQuery({ queryKey: ['edr_mappings'], queryFn: () => client.entities.DattoEDRMapping.list() });
   const { data: rocketcyberMappings = [] } = useQuery({ queryKey: ['rocketcyber_mappings'], queryFn: () => client.entities.RocketCyberMapping.list() });
   const { data: coveMappings = [] } = useQuery({ queryKey: ['cove_mappings'], queryFn: () => client.entities.CoveDataMapping.list() });
+  const { data: unifiMappings = [] } = useQuery({ queryKey: ['unifi_mappings'], queryFn: () => client.entities.UniFiMapping.list() });
+  const { data: saasAlertsMappings = [] } = useQuery({ queryKey: ['saas_alerts_mappings'], queryFn: () => client.entities.SaaSAlertsMapping.list() });
 
   const mappingCounts = {
     datto_mappings: dattoMappings.length,
@@ -126,6 +141,8 @@ function IntegrationsPanel() {
     edr_mappings: edrMappings.length,
     rocketcyber_mappings: rocketcyberMappings.length,
     cove_mappings: coveMappings.length,
+    unifi_mappings: unifiMappings.length,
+    saas_alerts_mappings: saasAlertsMappings.length,
   };
 
   if (activeIntegration) {

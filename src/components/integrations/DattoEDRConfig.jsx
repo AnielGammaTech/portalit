@@ -75,6 +75,13 @@ export default function DattoEDRConfig() {
     } catch (_err) { /* sync logs may not exist */ }
   }, []);
 
+  // Auto-detect configured status from existing mappings
+  useEffect(() => {
+    if (mappings.length > 0 && configStatus === 'not_configured') {
+      setConfigStatus('connected');
+    }
+  }, [mappings.length]);
+
   useEffect(() => {
     fetchLastSync();
   }, [fetchLastSync]);

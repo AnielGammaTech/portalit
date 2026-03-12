@@ -43,71 +43,90 @@ export async function syncHaloPSAContacts(body, _user) {
     const users = extractRecords(data, 'users');
 
     const syncedHaloPSAIds = new Set();
-    let recordsSynced = 0;
-    let recordsFailed = 0;
+    const toCreate = [];
+    const toUpdate = [];
 
-    // Upsert contacts
     for (const haloUser of users) {
-      try {
-        const haloPSAId = String(haloUser.id);
-        syncedHaloPSAIds.add(haloPSAId);
-        const contactPayload = mapHaloUserToContact(haloUser, dbCustomer.id);
-        const existing = existingContactMap.get(haloPSAId);
-
-        if (existing) {
-          await supabase.from('contacts').update(contactPayload).eq('id', existing.id);
-        } else {
-          const { error } = await supabase.from('contacts').insert(contactPayload);
-          if (error) throw new Error(error.message);
-        }
-        recordsSynced++;
-      } catch (err) {
-        console.error(`[HaloPSA] Error syncing user ${haloUser.id}: ${err.message}`);
-        recordsFailed++;
+      const haloPSAId = String(haloUser.id);
+      syncedHaloPSAIds.add(haloPSAId);
+      const contactPayload = mapHaloUserToContact(haloUser, dbCustomer.id);
+      const existing = existingContactMap.get(haloPSAId);
+      if (existing) {
+        toUpdate.push({ id: existing.id, data: contactPayload });
+      } else {
+        toCreate.push(contactPayload);
       }
     }
 
-    // Handle removed contacts
+    let recordsSynced = 0;
+    let recordsFailed = 0;
+
+    // Bulk insert new contacts
+    if (toCreate.length > 0) {
+      const { error } = await supabase.from('contacts').insert(toCreate);
+      if (error) {
+        console.error(`[HaloPSA] Bulk insert error: ${error.message}`);
+        recordsFailed += toCreate.length;
+      } else {
+        recordsSynced += toCreate.length;
+      }
+    }
+
+    // Parallel update existing contacts (batches of 20)
+    const BATCH_SIZE = 20;
+    for (let i = 0; i < toUpdate.length; i += BATCH_SIZE) {
+      const batch = toUpdate.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map(item => supabase.from('contacts').update(item.data).eq('id', item.id))
+      );
+      results.forEach(r => {
+        if (r.status === 'fulfilled' && !r.value.error) recordsSynced++;
+        else recordsFailed++;
+      });
+    }
+
+    // Handle removed contacts (parallel)
     const missingContacts = (existingContacts || []).filter(
       c => c.halopsa_id && !syncedHaloPSAIds.has(c.halopsa_id),
     );
     let recordsDeleted = 0;
     let recordsFlagged = 0;
 
-    for (const contact of missingContacts) {
-      try {
-        const { data: licenses } = await supabase
-          .from('license_assignments')
-          .select('id')
-          .eq('contact_id', contact.id)
-          .eq('status', 'active')
-          .limit(1);
+    if (missingContacts.length > 0) {
+      const removalResults = await Promise.allSettled(
+        missingContacts.map(async (contact) => {
+          const { data: licenses } = await supabase
+            .from('license_assignments')
+            .select('id')
+            .eq('contact_id', contact.id)
+            .eq('status', 'active')
+            .limit(1);
 
-        if (licenses?.length) {
-          // Contact has active licenses — flag, don't delete
-          await supabase.from('activities').insert({
-            type: 'license_revoked',
-            title: 'User Removed from HaloPSA with Active Licenses',
-            description: `${contact.full_name} (${contact.email || 'no email'}) removed from HaloPSA but has active license(s).`,
-            entity_type: 'customer',
-            entity_id: dbCustomer.id,
-            entity_name: dbCustomer.name,
-            metadata: JSON.stringify({
-              contact_id: contact.id,
-              contact_name: contact.full_name,
-              contact_email: contact.email,
-              license_count: licenses.length,
-              action_needed: 'Review and revoke licenses if appropriate',
-            }),
-          });
-          recordsFlagged++;
-        } else {
-          await supabase.from('contacts').delete().eq('id', contact.id);
-          recordsDeleted++;
-        }
-      } catch (err) {
-        console.error(`[HaloPSA] Error processing removed contact ${contact.id}: ${err.message}`);
-      }
+          if (licenses?.length) {
+            await supabase.from('activities').insert({
+              type: 'license_revoked',
+              title: 'User Removed from HaloPSA with Active Licenses',
+              description: `${contact.full_name} (${contact.email || 'no email'}) removed from HaloPSA but has active license(s).`,
+              entity_type: 'customer',
+              entity_id: dbCustomer.id,
+              entity_name: dbCustomer.name,
+              metadata: JSON.stringify({
+                contact_id: contact.id,
+                contact_name: contact.full_name,
+                contact_email: contact.email,
+                license_count: licenses.length,
+                action_needed: 'Review and revoke licenses if appropriate',
+              }),
+            });
+            return 'flagged';
+          } else {
+            await supabase.from('contacts').delete().eq('id', contact.id);
+            return 'deleted';
+          }
+        })
+      );
+      recordsDeleted = removalResults.filter(r => r.status === 'fulfilled' && r.value === 'deleted').length;
+      recordsFlagged = removalResults.filter(r => r.status === 'fulfilled' && r.value === 'flagged').length;
     }
 
     // Update customer total_users

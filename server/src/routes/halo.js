@@ -161,19 +161,24 @@ router.post('/sync', requireAdmin, async (_req, res, next) => {
         recordsSynced += toCreate.length;
       }
 
-      // Update existing
-      for (const item of toUpdate) {
-        try {
-          const { error } = await supabase
-            .from('customers')
-            .update(item.data)
-            .eq('id', item.id);
-          if (error) throw new Error(error.message);
-          recordsSynced++;
-        } catch (err) {
-          errors.push(`Update ${item.id}: ${err.message}`);
-          recordsFailed++;
-        }
+      // Parallel update existing customers (batches of 20)
+      const BATCH_SIZE = 20;
+      for (let i = 0; i < toUpdate.length; i += BATCH_SIZE) {
+        const batch = toUpdate.slice(i, i + BATCH_SIZE);
+        const results = await Promise.allSettled(
+          batch.map(item =>
+            supabase.from('customers').update(item.data).eq('id', item.id)
+          )
+        );
+        results.forEach((r, idx) => {
+          if (r.status === 'fulfilled' && !r.value.error) {
+            recordsSynced++;
+          } else {
+            const errMsg = r.status === 'rejected' ? r.reason?.message : r.value?.error?.message;
+            errors.push(`Update ${batch[idx].id}: ${errMsg}`);
+            recordsFailed++;
+          }
+        });
       }
 
       // Update sync log
@@ -261,7 +266,7 @@ router.post('/sync/customer', requireAdmin, async (req, res, next) => {
       dbCustomer = data;
     }
 
-    // 3. Sync contacts for this customer
+    // 3. Sync contacts for this customer (batched for performance)
     const usersData = await haloGet(`Users?client_id=${customer_id}&page_size=500`, config);
     const haloUsers = extractRecords(usersData, 'users');
 
@@ -275,48 +280,74 @@ router.post('/sync/customer', requireAdmin, async (req, res, next) => {
     );
 
     const syncedIds = new Set();
-    let contactsSynced = 0;
-    let contactsFailed = 0;
+    const toCreate = [];
+    const toUpdate = [];
 
     for (const haloUser of haloUsers) {
-      try {
-        const haloPSAId = String(haloUser.id);
-        syncedIds.add(haloPSAId);
-        const contactPayload = mapHaloUserToContact(haloUser, dbCustomer.id);
-        const existingContact = existingContactMap.get(haloPSAId);
+      const haloPSAId = String(haloUser.id);
+      syncedIds.add(haloPSAId);
+      const contactPayload = mapHaloUserToContact(haloUser, dbCustomer.id);
+      const existingContact = existingContactMap.get(haloPSAId);
 
-        if (existingContact) {
-          await supabase.from('contacts').update(contactPayload).eq('id', existingContact.id);
-        } else {
-          const { error } = await supabase.from('contacts').insert(contactPayload);
-          if (error) throw new Error(error.message);
-        }
-        contactsSynced++;
-      } catch (err) {
-        console.error(`[HaloPSA] Error syncing user ${haloUser.id}: ${err.message}`);
-        contactsFailed++;
+      if (existingContact) {
+        toUpdate.push({ id: existingContact.id, data: contactPayload });
+      } else {
+        toCreate.push(contactPayload);
       }
     }
 
-    // 4. Handle removed contacts (those in DB but not in HaloPSA anymore)
+    let contactsSynced = 0;
+    let contactsFailed = 0;
+
+    // Bulk insert new contacts
+    if (toCreate.length > 0) {
+      const { error } = await supabase.from('contacts').insert(toCreate);
+      if (error) {
+        console.error(`[HaloPSA] Bulk insert error: ${error.message}`);
+        contactsFailed += toCreate.length;
+      } else {
+        contactsSynced += toCreate.length;
+      }
+    }
+
+    // Parallel update existing contacts (batches of 20)
+    const BATCH_SIZE = 20;
+    for (let i = 0; i < toUpdate.length; i += BATCH_SIZE) {
+      const batch = toUpdate.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map(item =>
+          supabase.from('contacts').update(item.data).eq('id', item.id)
+        )
+      );
+      results.forEach(r => {
+        if (r.status === 'fulfilled' && !r.value.error) contactsSynced++;
+        else contactsFailed++;
+      });
+    }
+
+    // 4. Handle removed contacts (parallel license checks)
     const removedContacts = (existingContacts || []).filter(
       c => c.halopsa_id && !syncedIds.has(c.halopsa_id)
     );
     let contactsDeleted = 0;
 
-    for (const contact of removedContacts) {
-      // Check for active license assignments before deleting
-      const { data: licenses } = await supabase
-        .from('license_assignments')
-        .select('id')
-        .eq('contact_id', contact.id)
-        .eq('status', 'active')
-        .limit(1);
-
-      if (!licenses?.length) {
-        await supabase.from('contacts').delete().eq('id', contact.id);
-        contactsDeleted++;
-      }
+    if (removedContacts.length > 0) {
+      const removalResults = await Promise.allSettled(
+        removedContacts.map(async (contact) => {
+          const { data: licenses } = await supabase
+            .from('license_assignments')
+            .select('id')
+            .eq('contact_id', contact.id)
+            .eq('status', 'active')
+            .limit(1);
+          if (!licenses?.length) {
+            await supabase.from('contacts').delete().eq('id', contact.id);
+            return 'deleted';
+          }
+          return 'kept';
+        })
+      );
+      contactsDeleted = removalResults.filter(r => r.status === 'fulfilled' && r.value === 'deleted').length;
     }
 
     // 5. Update customer total_users
@@ -377,25 +408,46 @@ router.post('/sync/contacts', requireAdmin, async (req, res, next) => {
       (existingContacts || []).map(c => [c.halopsa_id, c])
     );
 
+    const toCreate = [];
+    const toUpdate = [];
+
+    for (const haloUser of haloUsers) {
+      const contactPayload = mapHaloUserToContact(haloUser, customer.id);
+      const existing = existingMap.get(String(haloUser.id));
+      if (existing) {
+        toUpdate.push({ id: existing.id, data: contactPayload });
+      } else {
+        toCreate.push(contactPayload);
+      }
+    }
+
     let synced = 0;
     let failed = 0;
 
-    for (const haloUser of haloUsers) {
-      try {
-        const contactPayload = mapHaloUserToContact(haloUser, customer.id);
-        const existing = existingMap.get(String(haloUser.id));
-
-        if (existing) {
-          await supabase.from('contacts').update(contactPayload).eq('id', existing.id);
-        } else {
-          const { error } = await supabase.from('contacts').insert(contactPayload);
-          if (error) throw new Error(error.message);
-        }
-        synced++;
-      } catch (err) {
-        console.error(`[HaloPSA] Contact sync error: ${err.message}`);
-        failed++;
+    // Bulk insert new contacts
+    if (toCreate.length > 0) {
+      const { error } = await supabase.from('contacts').insert(toCreate);
+      if (error) {
+        console.error(`[HaloPSA] Bulk insert error: ${error.message}`);
+        failed += toCreate.length;
+      } else {
+        synced += toCreate.length;
       }
+    }
+
+    // Parallel update existing contacts (batches of 20)
+    const BATCH_SIZE = 20;
+    for (let i = 0; i < toUpdate.length; i += BATCH_SIZE) {
+      const batch = toUpdate.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map(item =>
+          supabase.from('contacts').update(item.data).eq('id', item.id)
+        )
+      );
+      results.forEach(r => {
+        if (r.status === 'fulfilled' && !r.value.error) synced++;
+        else failed++;
+      });
     }
 
     // Update customer total_users

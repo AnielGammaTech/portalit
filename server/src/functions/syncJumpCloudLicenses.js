@@ -104,12 +104,11 @@ export async function syncJumpCloudLicenses(body, user) {
     // Return cached data if available
     if (mapping.cached_data) {
       try {
-        const cached = JSON.parse(mapping.cached_data);
         return {
           success: true,
           cached: true,
           last_synced: mapping.last_synced,
-          ...cached
+          ...mapping.cached_data
         };
       } catch (e) {
         // Cache invalid
@@ -522,14 +521,14 @@ export async function syncJumpCloudLicenses(body, user) {
       .from('jump_cloud_mappings')
       .update({
         last_synced: new Date().toISOString(),
-        cached_data: JSON.stringify({
+        cached_data: {
           totalUsers,
           ssoApps: applications?.length || 0,
           usersCreated,
           usersUpdated,
           licensesCreated: created,
           licensesUpdated: updated
-        })
+        }
       })
       .eq('id', mapping.id);
 

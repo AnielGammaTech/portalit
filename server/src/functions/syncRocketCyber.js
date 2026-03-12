@@ -59,7 +59,7 @@ function buildIncidentData(incident, customerId) {
     hostname: incident.hostname || incident.agent?.hostname || '',
     detected_at: incident.createdAt || incident.eventTime,
     resolved_at: incident.resolvedAt || null,
-    raw_data: JSON.stringify(incident)
+    raw_data: incident
   };
 }
 
@@ -271,7 +271,7 @@ export async function syncRocketCyber(body, user) {
     }
 
     const mapping = mappings[0];
-    const rcAccountId = mapping.rocketcyber_account_id;
+    const rcAccountId = mapping.rc_account_id;
 
     const allIncidents = await fetchOpenIncidents(rcAccountId);
     console.log(`Found ${allIncidents.length} incidents for account ${rcAccountId}`);
@@ -345,7 +345,7 @@ export async function syncRocketCyber(body, user) {
 
     for (const mapping of allMappings) {
       try {
-        const rcAccountId = mapping.rocketcyber_account_id;
+        const rcAccountId = mapping.rc_account_id;
         const allIncidents = await fetchOpenIncidents(rcAccountId);
 
         const { data: existingIncidents } = await supabase
@@ -386,8 +386,8 @@ export async function syncRocketCyber(body, user) {
           .eq('id', mapping.id);
 
       } catch (err) {
-        console.error(`Error syncing account ${mapping.rocketcyber_account_id}:`, err.message);
-        errors.push({ account: mapping.rocketcyber_account_name, error: err.message });
+        console.error(`Error syncing account ${mapping.rc_account_id}:`, err.message);
+        errors.push({ account: mapping.rc_account_name, error: err.message });
       }
     }
 

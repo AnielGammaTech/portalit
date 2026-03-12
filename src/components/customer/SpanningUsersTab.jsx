@@ -51,11 +51,11 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
   // Load cached data from the mapping entity (instant, no API call)
   const cachedStats = useMemo(() => {
     if (!spanningMapping?.cached_data) return null;
-    try {
-      return { ...JSON.parse(spanningMapping.cached_data), fromCache: true, last_synced: spanningMapping.last_synced };
-    } catch (e) {
-      return null;
-    }
+    const data = typeof spanningMapping.cached_data === 'string'
+      ? (() => { try { return JSON.parse(spanningMapping.cached_data); } catch { return null; } })()
+      : spanningMapping.cached_data;
+    if (!data) return null;
+    return { ...data, fromCache: true, last_synced: spanningMapping.last_synced };
   }, [spanningMapping?.cached_data, spanningMapping?.last_synced]);
 
   // Live data query - only runs when user clicks refresh

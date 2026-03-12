@@ -117,16 +117,12 @@ export async function syncCoveData(body, user) {
     }
 
     try {
-      const data = JSON.parse(mapping.cached_data);
       return {
         success: true,
-        data,
+        data: mapping.cached_data,
         last_synced: mapping.last_synced,
         fromCache: true
       };
-    } catch (e) {
-      return { success: false, error: 'Invalid cached data' };
-    }
   }
 
   // Sync customer data
@@ -221,7 +217,7 @@ export async function syncCoveData(body, user) {
       await supabase
         .from('cove_data_mappings')
         .update({
-          cached_data: JSON.stringify(cachedData),
+          cached_data: cachedData,
           last_synced: new Date().toISOString()
         })
         .eq('id', mapping.id);

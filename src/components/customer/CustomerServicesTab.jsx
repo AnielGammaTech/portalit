@@ -18,7 +18,9 @@ import {
   Fish,
   Monitor,
   Loader2,
-  DollarSign
+  DollarSign,
+  Wifi,
+  ShieldAlert
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -35,6 +37,8 @@ import SpanningUsersTab from './SpanningUsersTab';
 import DevicesTab from './DevicesTab';
 import DattoEDRTab from './DattoEDRTab';
 import RocketCyberTab from './RocketCyberTab';
+import UniFiTab from './UniFiTab';
+import SaaSAlertsTab from './SaaSAlertsTab';
 
 export default function CustomerServicesTab({ 
   customerId, 
@@ -171,10 +175,32 @@ export default function CustomerServicesTab({
     enabled: !!customerId
   });
 
+  // Fetch UniFi mapping for this customer
+  const { data: unifiMapping } = useQuery({
+    queryKey: ['unifi-mapping', customerId],
+    queryFn: async () => {
+      const mappings = await client.entities.UniFiMapping.filter({ customer_id: customerId });
+      return mappings[0] || null;
+    },
+    enabled: !!customerId
+  });
+
+  // Fetch SaaS Alerts mapping for this customer
+  const { data: saasAlertsMapping } = useQuery({
+    queryKey: ['saas-alerts-mapping', customerId],
+    queryFn: async () => {
+      const mappings = await client.entities.SaaSAlertsMapping.filter({ customer_id: customerId });
+      return mappings[0] || null;
+    },
+    enabled: !!customerId
+  });
+
   const hasBullPhish = bullphishReports.length > 0;
   const hasDarkWeb = !!darkwebMapping || darkwebReports.length > 0;
   const hasEDR = !!edrMapping;
   const hasRocketCyber = !!rocketcyberMapping;
+  const hasUniFi = !!unifiMapping;
+  const hasSaaSAlerts = !!saasAlertsMapping;
 
   const updateSyncStatus = (service, status, error = null) => {
     setSyncStatuses(prev => ({
@@ -370,11 +396,9 @@ export default function CustomerServicesTab({
   // Get cached JumpCloud stats
   const jumpcloudCachedStats = React.useMemo(() => {
     if (!jumpcloudMapping?.cached_data) return null;
-    try {
-      return JSON.parse(jumpcloudMapping.cached_data);
-    } catch (e) {
-      return null;
-    }
+    return typeof jumpcloudMapping.cached_data === 'string'
+      ? (() => { try { return JSON.parse(jumpcloudMapping.cached_data); } catch { return null; } })()
+      : jumpcloudMapping.cached_data;
   }, [jumpcloudMapping?.cached_data]);
 
   const handleSyncSpanning = async () => {
@@ -482,6 +506,14 @@ export default function CustomerServicesTab({
             <TabsTrigger value="rocketcyber" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
               <Shield className="w-3.5 h-3.5 text-orange-500" />
               RocketCyber
+            </TabsTrigger>
+            <TabsTrigger value="firewall" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
+              <Wifi className="w-3.5 h-3.5 text-sky-500" />
+              Firewall
+            </TabsTrigger>
+            <TabsTrigger value="saas-alerts" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
+              <ShieldAlert className="w-3.5 h-3.5 text-violet-500" />
+              SaaS Alerts
             </TabsTrigger>
           </TabsList>
         </div>
@@ -737,6 +769,24 @@ export default function CustomerServicesTab({
           ) : (
             <EmptyState icon={Shield} title="RocketCyber not configured" description="Go to Adminland > Integrations to map this customer's RocketCyber account." />
           )}
+        </TabsContent>
+
+        {/* Firewall / UniFi Tab */}
+        <TabsContent value="firewall">
+          <UniFiTab
+            customerId={customerId}
+            unifiMapping={unifiMapping}
+            queryClient={queryClient}
+          />
+        </TabsContent>
+
+        {/* SaaS Alerts Tab */}
+        <TabsContent value="saas-alerts">
+          <SaaSAlertsTab
+            customerId={customerId}
+            saasAlertsMapping={saasAlertsMapping}
+            queryClient={queryClient}
+          />
         </TabsContent>
       </Tabs>
 

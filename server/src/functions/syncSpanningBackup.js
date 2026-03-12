@@ -234,12 +234,11 @@ export async function syncSpanningBackup(body, user) {
 
     if (mapping.cached_data) {
       try {
-        const cached = JSON.parse(mapping.cached_data);
         return {
           success: true,
           cached: true,
           last_synced: mapping.last_synced,
-          ...cached
+          ...mapping.cached_data
         };
       } catch (e) {
         // Cache invalid, return empty
@@ -289,7 +288,7 @@ export async function syncSpanningBackup(body, user) {
     await supabase
       .from('spanning_mappings')
       .update({
-        cached_data: JSON.stringify(responseData),
+        cached_data: responseData,
         last_synced: new Date().toISOString()
       })
       .eq('id', mapping.id);
@@ -473,7 +472,7 @@ export async function syncSpanningBackup(body, user) {
       .from('spanning_mappings')
       .update({
         last_synced: new Date().toISOString(),
-        cached_data: JSON.stringify(cacheData)
+        cached_data: cacheData
       })
       .eq('id', mapping.id);
 
@@ -559,7 +558,7 @@ export async function syncSpanningBackup(body, user) {
       .from('spanning_mappings')
       .update({
         last_synced: new Date().toISOString(),
-        cached_data: JSON.stringify(cacheData)
+        cached_data: cacheData
       })
       .eq('id', mapping.id);
 
@@ -632,7 +631,7 @@ export async function syncSpanningBackup(body, user) {
           .from('spanning_mappings')
           .update({
             last_synced: new Date().toISOString(),
-            cached_data: JSON.stringify(cacheData)
+            cached_data: cacheData
           })
           .eq('id', mapping.id);
 

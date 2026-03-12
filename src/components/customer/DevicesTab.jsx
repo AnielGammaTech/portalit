@@ -75,7 +75,9 @@ export default function DevicesTab({ customerId, customerExternalId }) {
     staleTime: 1000 * 60 * 5
   });
 
-  const cachedData = mappings[0]?.cached_data ? JSON.parse(mappings[0].cached_data) : null;
+  const cachedData = mappings[0]?.cached_data
+    ? (typeof mappings[0].cached_data === 'string' ? JSON.parse(mappings[0].cached_data) : mappings[0].cached_data)
+    : null;
   const lastSynced = mappings[0]?.last_synced;
 
   const syncDevices = async () => {

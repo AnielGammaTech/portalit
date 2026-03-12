@@ -252,7 +252,7 @@ export async function syncDattoRMMDevices(body, user) {
 
     return {
       success: true,
-      cached: JSON.parse(mapping.cached_data),
+      cached: mapping.cached_data,
       last_synced: mapping.last_synced
     };
   }
@@ -398,7 +398,7 @@ export async function syncDattoRMMDevices(body, user) {
 
       await supabase.from('datto_site_mappings').update({
         last_synced: new Date().toISOString(),
-        cached_data: JSON.stringify(cachedData)
+        cached_data: cachedData
       }).eq('id', mapping.id);
     }
 
