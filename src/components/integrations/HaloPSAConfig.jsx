@@ -71,6 +71,9 @@ export default function HaloPSAConfig() {
     }
   }, []);
 
+  // Track whether config comes from env vars (backend) vs settings table (UI)
+  const [envConfigured, setEnvConfigured] = useState(false);
+
   useEffect(() => {
     loadSettings();
     fetchLastSync();
@@ -79,6 +82,22 @@ export default function HaloPSAConfig() {
   const loadSettings = async () => {
     try {
       setLoading(true);
+
+      // 1. Check backend status first — detects env var configuration
+      try {
+        const status = await client.halo.getStatus();
+        if (status.configured) {
+          setEnvConfigured(true);
+          setConfigStatus(CONNECTION_STATES.CONFIGURED);
+          if (status.customerCount > 0) {
+            setConfigStatus(CONNECTION_STATES.CONNECTED);
+          }
+        }
+      } catch (_statusErr) {
+        // Status endpoint may not be available, continue with settings table
+      }
+
+      // 2. Load from settings table for UI fields
       const settingsList = await client.entities.Settings.list();
       if (settingsList.length > 0) {
         const s = settingsList[0];
@@ -96,8 +115,6 @@ export default function HaloPSAConfig() {
 
         if (hasCreds && s.halopsa_auth_url && s.halopsa_api_url) {
           setConfigStatus(CONNECTION_STATES.CONFIGURED);
-        } else if (!hasCreds) {
-          setConfigStatus(CONNECTION_STATES.NOT_CONFIGURED);
         }
       }
     } catch (error) {
@@ -199,8 +216,8 @@ export default function HaloPSAConfig() {
     );
   }
 
-  const isConfigured = settings.halopsa_client_id && settings.halopsa_client_secret &&
-                       settings.halopsa_auth_url && settings.halopsa_api_url;
+  const isConfigured = envConfigured || (settings.halopsa_client_id && settings.halopsa_client_secret &&
+                       settings.halopsa_auth_url && settings.halopsa_api_url);
 
   const statusDisplay = getConnectionStatusDisplay(configStatus);
 
@@ -250,6 +267,14 @@ export default function HaloPSAConfig() {
             </CollapsibleContent>
           </div>
         </Collapsible>
+      )}
+
+      {/* Env var notice */}
+      {envConfigured && !hasExistingCredentials && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-blue-50 border border-blue-200 text-sm text-blue-700">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          Credentials configured via environment variables. UI fields below are optional overrides.
+        </div>
       )}
 
       {/* API Settings Form */}
