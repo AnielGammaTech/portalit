@@ -110,31 +110,34 @@ export async function getHaloToken(config) {
     params.set('tenant', cfg.tenant);
   }
 
-  // HaloPSA token endpoint is at {authUrl}/token — auto-append if needed
-  const tokenUrl = cfg.authUrl.endsWith('/token')
-    ? cfg.authUrl
-    : `${cfg.authUrl.replace(/\/$/, '')}/token`;
+  const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
 
-  const response = await fetch(tokenUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params.toString(),
-  });
+  // Try auth URL as-is first (matches QuoteIT pattern)
+  let authUrl = cfg.authUrl;
+  let authRes = await fetch(authUrl, { method: 'POST', headers, body: params.toString() });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    clearTokenCache();
-    throw new Error(`HaloPSA auth failed (${response.status}): ${errorText}`);
+  // If we get HTML back (login page), retry with /token suffix
+  const ct = authRes.headers.get('content-type') || '';
+  const isHtml = ct.includes('text/html') || ct.includes('application/xhtml');
+  if ((!authRes.ok || isHtml) && !authUrl.endsWith('/token')) {
+    const retryUrl = authUrl.endsWith('/') ? `${authUrl}token` : `${authUrl}/token`;
+    const retryRes = await fetch(retryUrl, { method: 'POST', headers, body: params.toString() });
+    if (retryRes.ok) {
+      authRes = retryRes;
+    }
   }
 
-  const contentType = response.headers.get('content-type') || '';
-  if (!contentType.includes('application/json')) {
-    const text = await response.text();
+  if (!authRes.ok) {
+    const errText = await authRes.text();
     clearTokenCache();
-    throw new Error(`HaloPSA auth returned unexpected content-type (${contentType}): ${text.slice(0, 200)}`);
+    throw new Error(`HaloPSA auth failed (${authRes.status}): ${errText.substring(0, 300)}`);
   }
 
-  const data = await response.json();
+  const data = await authRes.json();
+  if (!data.access_token) {
+    clearTokenCache();
+    throw new Error('HaloPSA returned no access_token');
+  }
   cachedToken = data.access_token;
   // Token usually lasts 3600 s — cache for 55 min to be safe
   tokenExpiresAt = Date.now() + 55 * 60 * 1000;

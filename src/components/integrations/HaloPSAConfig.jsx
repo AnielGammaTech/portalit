@@ -2,210 +2,131 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { client, supabase } from '@/api/client';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Loader2, CheckCircle2, RefreshCw, XCircle, Eye, EyeOff, Clock, ChevronDown, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle2, RefreshCw, XCircle, Clock, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from 'date-fns';
 
-const MASKED_PLACEHOLDER = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
-
-const CONNECTION_STATES = {
-  CONNECTED: 'connected',
-  CONFIGURED: 'configured',
-  NOT_CONFIGURED: 'not_configured',
-};
-
-function getConnectionStatusDisplay(status) {
-  switch (status) {
-    case CONNECTION_STATES.CONNECTED:
-      return { color: 'bg-emerald-500', label: 'Connected', bgClass: 'bg-emerald-50 border-emerald-200', textClass: 'text-emerald-700' };
-    case CONNECTION_STATES.CONFIGURED:
-      return { color: 'bg-amber-500', label: 'Configured', bgClass: 'bg-amber-50 border-amber-200', textClass: 'text-amber-700' };
-    default:
-      return { color: 'bg-slate-300', label: 'Not configured', bgClass: 'bg-slate-50 border-slate-200', textClass: 'text-slate-500' };
-  }
-}
+const ENV_VARS = [
+  'HALOPSA_CLIENT_ID',
+  'HALOPSA_CLIENT_SECRET',
+  'HALOPSA_TENANT',
+  'HALOPSA_AUTH_URL',
+  'HALOPSA_API_URL',
+];
 
 export default function HaloPSAConfig() {
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [configStatus, setConfigStatus] = useState(CONNECTION_STATES.NOT_CONFIGURED);
+  const [configured, setConfigured] = useState(false);
+  const [customerCount, setCustomerCount] = useState(0);
   const [lastSyncTime, setLastSyncTime] = useState(null);
-  const [errorDetails, setErrorDetails] = useState(null);
-  const [showErrorDetails, setShowErrorDetails] = useState(false);
 
-  // Credential masking state
-  const [showClientId, setShowClientId] = useState(false);
-  const [showClientSecret, setShowClientSecret] = useState(false);
-  const [hasExistingCredentials, setHasExistingCredentials] = useState(false);
+  // Test connection state
+  const [testStatus, setTestStatus] = useState('idle'); // idle | loading | success | error
+  const [testMessage, setTestMessage] = useState(null);
+  const [testDebug, setTestDebug] = useState(null);
 
-  const [settings, setSettings] = useState({
-    halopsa_client_id: '',
-    halopsa_client_secret: '',
-    halopsa_tenant: '',
-    halopsa_auth_url: '',
-    halopsa_api_url: ''
-  });
+  // Sync state
+  const [syncing, setSyncing] = useState(false);
 
-  // Track which fields have been modified by user to avoid sending masked values
-  const [dirtyFields, setDirtyFields] = useState(new Set());
+  // Excluded IDs
+  const [excludedIds, setExcludedIds] = useState('');
+  const [savingExcluded, setSavingExcluded] = useState(false);
 
-  const fetchLastSync = useCallback(async () => {
+  const fetchStatus = useCallback(async () => {
     try {
-      const { data } = await supabase
-        .from('sync_logs')
-        .select('completed_at')
-        .eq('source', 'halopsa')
-        .eq('status', 'success')
-        .order('completed_at', { ascending: false })
-        .limit(1);
-      if (data && data.length > 0) {
-        setLastSyncTime(data[0].completed_at);
+      const status = await client.halo.getStatus();
+      setConfigured(status.configured);
+      setCustomerCount(status.customerCount || 0);
+      if (status.lastSync?.completed_at) {
+        setLastSyncTime(status.lastSync.completed_at);
       }
     } catch (_err) {
-      // Sync logs table may not exist yet, silently ignore
+      setConfigured(false);
     }
   }, []);
 
-  // Track whether config comes from env vars (backend) vs settings table (UI)
-  const [envConfigured, setEnvConfigured] = useState(false);
+  const fetchExcludedIds = useCallback(async () => {
+    try {
+      const settingsList = await client.entities.Settings.list();
+      if (settingsList.length > 0 && settingsList[0].halopsa_excluded_ids) {
+        setExcludedIds(settingsList[0].halopsa_excluded_ids);
+      }
+    } catch (_err) {
+      // Settings table may not have this field yet
+    }
+  }, []);
 
   useEffect(() => {
-    loadSettings();
-    fetchLastSync();
-  }, [fetchLastSync]);
-
-  const loadSettings = async () => {
-    try {
+    const init = async () => {
       setLoading(true);
+      await Promise.all([fetchStatus(), fetchExcludedIds()]);
+      setLoading(false);
+    };
+    init();
+  }, [fetchStatus, fetchExcludedIds]);
 
-      // 1. Check backend status first — detects env var configuration
-      try {
-        const status = await client.halo.getStatus();
-        if (status.configured) {
-          setEnvConfigured(true);
-          setConfigStatus(CONNECTION_STATES.CONFIGURED);
-          if (status.customerCount > 0) {
-            setConfigStatus(CONNECTION_STATES.CONNECTED);
-          }
-        }
-      } catch (_statusErr) {
-        // Status endpoint may not be available, continue with settings table
-      }
+  const handleTestConnection = async () => {
+    try {
+      setTestStatus('loading');
+      setTestMessage(null);
+      setTestDebug(null);
 
-      // 2. Load from settings table for UI fields
-      const settingsList = await client.entities.Settings.list();
-      if (settingsList.length > 0) {
-        const s = settingsList[0];
-        const hasCreds = !!(s.halopsa_client_id && s.halopsa_client_secret);
-        setHasExistingCredentials(hasCreds);
+      const result = await client.halo.testConnection();
 
-        setSettings({
-          ...s,
-          halopsa_client_id: s.halopsa_client_id || '',
-          halopsa_client_secret: s.halopsa_client_secret || '',
-          halopsa_tenant: s.halopsa_tenant || '',
-          halopsa_auth_url: s.halopsa_auth_url || '',
-          halopsa_api_url: s.halopsa_api_url || ''
-        });
-
-        if (hasCreds && s.halopsa_auth_url && s.halopsa_api_url) {
-          setConfigStatus(CONNECTION_STATES.CONFIGURED);
-        }
+      if (result.success) {
+        setTestStatus('success');
+        setTestMessage(result.message || 'Connection successful!');
+        toast.success(result.message || 'Connection successful!');
+      } else {
+        setTestStatus('error');
+        setTestMessage(result.error || 'Connection failed');
+        setTestDebug(result.debug || null);
+        toast.error(result.error || 'Connection failed');
       }
     } catch (error) {
-      toast.error('Failed to load settings');
-      setErrorDetails(error.message || 'Unknown error loading settings');
-    } finally {
-      setLoading(false);
+      setTestStatus('error');
+      setTestMessage(error.message || 'Connection test failed');
+      toast.error('Connection failed');
     }
   };
 
-  const handleChange = (field, value) => {
-    setSettings(prev => ({ ...prev, [field]: value }));
-    setDirtyFields(prev => new Set([...prev, field]));
+  const handleSync = async () => {
+    try {
+      setSyncing(true);
+      const result = await client.halo.syncAll();
+
+      if (result.success) {
+        toast.success(result.message || `Synced ${result.recordsSynced} customers`);
+        // Refresh status to update counts
+        await fetchStatus();
+      } else {
+        toast.error(result.error || 'Sync failed');
+      }
+    } catch (error) {
+      toast.error(error.message || 'Sync failed');
+    } finally {
+      setSyncing(false);
+    }
   };
 
-  const handleSave = async () => {
+  const handleSaveExcludedIds = async () => {
     try {
-      setSaving(true);
-      setErrorDetails(null);
-
-      // Build the update payload, only sending dirty secret fields
-      const payload = { ...settings };
-      if (hasExistingCredentials && !dirtyFields.has('halopsa_client_id')) {
-        delete payload.halopsa_client_id;
-      }
-      if (hasExistingCredentials && !dirtyFields.has('halopsa_client_secret')) {
-        delete payload.halopsa_client_secret;
-      }
-
+      setSavingExcluded(true);
       const settingsList = await client.entities.Settings.list();
+      const payload = { halopsa_excluded_ids: excludedIds };
+
       if (settingsList.length > 0) {
         await client.entities.Settings.update(settingsList[0].id, payload);
       } else {
         await client.entities.Settings.create(payload);
       }
-      setHasExistingCredentials(true);
-      setDirtyFields(new Set());
-      toast.success('Settings saved successfully');
-
-      // Auto-test connection after save
-      await handleTestConnection({ silent: false });
+      toast.success('Excluded IDs saved');
     } catch (error) {
-      toast.error('Failed to save settings');
-      setErrorDetails(error.message || 'Unknown error saving settings');
+      toast.error('Failed to save excluded IDs');
     } finally {
-      setSaving(false);
+      setSavingExcluded(false);
     }
-  };
-
-  const handleTestConnection = async ({ silent = false } = {}) => {
-    try {
-      setTesting(true);
-      setErrorDetails(null);
-
-      // Use the dedicated HaloPSA test endpoint
-      let result;
-      try {
-        result = await client.halo.testConnection();
-      } catch {
-        // Fall back to the functions endpoint
-        const resp = await client.functions.invoke('syncHaloPSACustomers', { action: 'test_connection' });
-        result = resp.data || resp;
-      }
-
-      if (result.success) {
-        setConfigStatus(CONNECTION_STATES.CONNECTED);
-        if (!silent) toast.success(result.message || 'Connection successful!');
-      } else {
-        const errorMsg = result.error || 'Connection failed';
-        setConfigStatus(CONNECTION_STATES.CONFIGURED);
-        setErrorDetails(errorMsg);
-        if (!silent) toast.error(errorMsg);
-      }
-    } catch (error) {
-      const errorMsg = error.message || 'Connection test failed';
-      setConfigStatus(CONNECTION_STATES.CONFIGURED);
-      setErrorDetails(errorMsg);
-      if (!silent) toast.error('Connection failed');
-    } finally {
-      setTesting(false);
-    }
-  };
-
-  const getMaskedValue = (fieldName, showRaw) => {
-    const value = settings[fieldName];
-    if (!value) return '';
-    if (showRaw) return value;
-    if (hasExistingCredentials && !dirtyFields.has(fieldName)) {
-      return MASKED_PLACEHOLDER;
-    }
-    return value;
   };
 
   if (loading) {
@@ -216,158 +137,140 @@ export default function HaloPSAConfig() {
     );
   }
 
-  const isConfigured = envConfigured || (settings.halopsa_client_id && settings.halopsa_client_secret &&
-                       settings.halopsa_auth_url && settings.halopsa_api_url);
-
-  const statusDisplay = getConnectionStatusDisplay(configStatus);
-
   return (
     <div className="space-y-5">
       {/* Connection Status Header */}
-      <div className={cn("flex items-center justify-between px-4 py-3 rounded-lg border", statusDisplay.bgClass)}>
-        <div className="flex items-center gap-3">
-          <div className={cn("w-2.5 h-2.5 rounded-full", statusDisplay.color)} />
-          <span className={cn("text-sm font-medium", statusDisplay.textClass)}>
-            {statusDisplay.label}
-          </span>
-          {configStatus === CONNECTION_STATES.CONNECTED && (
-            <Badge className="bg-emerald-100 text-emerald-700 text-xs font-normal">
-              <CheckCircle2 className="w-3 h-3 mr-1" />
-              HaloPSA
-            </Badge>
+      {configured ? (
+        <div className="flex items-center justify-between px-4 py-3 rounded-lg border bg-emerald-50 border-emerald-200">
+          <div className="flex items-center gap-3">
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+            <span className="text-sm font-medium text-emerald-700">
+              {customerCount > 0 ? `Connected — ${customerCount} customers synced` : 'Configured'}
+            </span>
+          </div>
+          {lastSyncTime && (
+            <div className="flex items-center gap-1.5 text-xs text-slate-500">
+              <Clock className="w-3.5 h-3.5" />
+              Last synced: {formatDistanceToNow(new Date(lastSyncTime), { addSuffix: true })}
+            </div>
           )}
         </div>
-        {lastSyncTime && (
-          <div className="flex items-center gap-1.5 text-xs text-slate-500">
-            <Clock className="w-3.5 h-3.5" />
-            Last synced: {formatDistanceToNow(new Date(lastSyncTime), { addSuffix: true })}
-          </div>
-        )}
-      </div>
-
-      {/* Error Details (collapsible) */}
-      {errorDetails && (
-        <Collapsible open={showErrorDetails} onOpenChange={setShowErrorDetails}>
-          <div className="border border-red-200 bg-red-50 rounded-lg overflow-hidden">
-            <CollapsibleTrigger asChild>
-              <button className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-red-700 hover:bg-red-100 transition-colors">
-                <div className="flex items-center gap-2">
-                  <XCircle className="w-4 h-4" />
-                  Connection error detected
-                </div>
-                <ChevronDown className={cn("w-4 h-4 transition-transform", showErrorDetails && "rotate-180")} />
-              </button>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="px-4 pb-3 pt-1 border-t border-red-200">
-                <pre className="text-xs text-red-600 whitespace-pre-wrap font-mono bg-red-100/50 rounded p-2">
-                  {errorDetails}
-                </pre>
-              </div>
-            </CollapsibleContent>
-          </div>
-        </Collapsible>
-      )}
-
-      {/* Env var notice */}
-      {envConfigured && !hasExistingCredentials && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-blue-50 border border-blue-200 text-sm text-blue-700">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          Credentials configured via environment variables. UI fields below are optional overrides.
+      ) : (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border bg-amber-50 border-amber-200">
+          <AlertCircle className="w-4 h-4 text-amber-600" />
+          <span className="text-sm font-medium text-amber-700">
+            Missing environment variables — configure in Railway dashboard
+          </span>
         </div>
       )}
 
-      {/* API Settings Form */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label className="text-sm text-slate-600">Client ID</Label>
-          <div className="relative mt-1.5">
-            <Input
-              type={showClientId ? "text" : "password"}
-              value={getMaskedValue('halopsa_client_id', showClientId)}
-              onChange={(e) => handleChange('halopsa_client_id', e.target.value)}
-              onFocus={() => {
-                if (hasExistingCredentials && !dirtyFields.has('halopsa_client_id')) {
-                  handleChange('halopsa_client_id', '');
-                }
-              }}
-              placeholder="Enter Client ID"
-              className="pr-10"
-            />
-            <button
-              type="button"
-              onClick={() => setShowClientId(prev => !prev)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-            >
-              {showClientId ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            </button>
+      {/* Env var checkmarks — matches QuoteIT pattern */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {ENV_VARS.map(envVar => (
+          <div
+            key={envVar}
+            className={cn(
+              "flex items-center gap-1.5 p-2 rounded-lg border",
+              configured
+                ? "bg-green-50 border-green-200"
+                : "bg-slate-50 border-slate-200"
+            )}
+          >
+            {configured ? (
+              <CheckCircle2 className="w-3 h-3 text-green-600 shrink-0" />
+            ) : (
+              <XCircle className="w-3 h-3 text-slate-400 shrink-0" />
+            )}
+            <span className={cn(
+              "text-[10px] font-medium truncate",
+              configured ? "text-green-800" : "text-slate-500"
+            )}>
+              {envVar}
+            </span>
           </div>
-        </div>
-        <div>
-          <Label className="text-sm text-slate-600">Client Secret</Label>
-          <div className="relative mt-1.5">
-            <Input
-              type={showClientSecret ? "text" : "password"}
-              value={getMaskedValue('halopsa_client_secret', showClientSecret)}
-              onChange={(e) => handleChange('halopsa_client_secret', e.target.value)}
-              onFocus={() => {
-                if (hasExistingCredentials && !dirtyFields.has('halopsa_client_secret')) {
-                  handleChange('halopsa_client_secret', '');
-                }
-              }}
-              placeholder="Enter Client Secret"
-              className="pr-10"
-            />
-            <button
-              type="button"
-              onClick={() => setShowClientSecret(prev => !prev)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-            >
-              {showClientSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            </button>
-          </div>
-        </div>
-        <div>
-          <Label className="text-sm text-slate-600">Auth URL</Label>
-          <Input
-            type="url"
-            value={settings.halopsa_auth_url}
-            onChange={(e) => handleChange('halopsa_auth_url', e.target.value)}
-            placeholder="https://yourcompany.halopsa.com/auth/token"
-            className="mt-1.5"
-          />
-        </div>
-        <div>
-          <Label className="text-sm text-slate-600">API URL</Label>
-          <Input
-            type="url"
-            value={settings.halopsa_api_url}
-            onChange={(e) => handleChange('halopsa_api_url', e.target.value)}
-            placeholder="https://yourcompany.halopsa.com/api"
-            className="mt-1.5"
-          />
-        </div>
+        ))}
       </div>
+      <p className="text-xs text-slate-500">
+        Credentials configured via Railway environment variables.
+      </p>
 
-      {/* Actions */}
-      <div className="flex items-center gap-3 pt-2">
-        <Button
-          onClick={handleSave}
-          disabled={saving}
-          className="bg-slate-900 hover:bg-slate-800"
-        >
-          {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-          {saving ? 'Saving & Testing...' : 'Save'}
-        </Button>
-        <Button
-          onClick={() => handleTestConnection()}
-          disabled={testing || !isConfigured}
-          variant="outline"
-        >
-          <RefreshCw className={cn("w-4 h-4 mr-2", testing && "animate-spin")} />
-          Test Connection
-        </Button>
-      </div>
+      {/* Excluded IDs */}
+      {configured && (
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-slate-700">
+            Excluded Customer IDs (comma separated)
+          </label>
+          <div className="flex gap-2">
+            <Input
+              value={excludedIds}
+              onChange={(e) => setExcludedIds(e.target.value)}
+              placeholder="123, 456"
+              className="text-xs flex-1"
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSaveExcludedIds}
+              disabled={savingExcluded}
+            >
+              {savingExcluded ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      {configured && (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleTestConnection}
+            disabled={testStatus === 'loading'}
+            className="flex-1"
+          >
+            {testStatus === 'loading' ? (
+              <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+            ) : testStatus === 'success' ? (
+              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-green-600" />
+            ) : testStatus === 'error' ? (
+              <AlertCircle className="w-3.5 h-3.5 mr-1.5 text-red-600" />
+            ) : (
+              <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+            )}
+            Test Connection
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSync}
+            disabled={syncing}
+            className="flex-1"
+          >
+            <RefreshCw className={cn("w-3.5 h-3.5 mr-1.5", syncing && "animate-spin")} />
+            Sync Now
+          </Button>
+        </div>
+      )}
+
+      {/* Test result message */}
+      {testMessage && (
+        <div className={cn(
+          "text-xs p-3 rounded-lg border",
+          testStatus === 'success'
+            ? "bg-green-50 border-green-200 text-green-800"
+            : testStatus === 'error'
+              ? "bg-red-50 border-red-200 text-red-800"
+              : "bg-slate-50 border-slate-200 text-slate-800"
+        )}>
+          <p className="font-medium">{testMessage}</p>
+          {testDebug && (
+            <pre className="mt-2 text-[10px] bg-white/50 p-2 rounded overflow-x-auto whitespace-pre-wrap">
+              {typeof testDebug === 'string' ? testDebug : JSON.stringify(testDebug, null, 2)}
+            </pre>
+          )}
+        </div>
+      )}
     </div>
   );
 }
