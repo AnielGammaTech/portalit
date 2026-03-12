@@ -235,7 +235,7 @@ export async function syncHaloPSAInvoices(body, _user) {
                 description: line.item_shortdescription || line.item_longdescription || line.linked_item?.name || 'Item',
                 quantity: parseFloat(line.qty_order || line.quantity || 1),
                 unit_price: parseFloat(line.unit_price || 0),
-                net_amount: parseFloat(line.net_amount || 0),
+                total: parseFloat(line.net_amount || line.total || 0),
                 tax: parseFloat(line.tax_amount || 0),
                 item_code: line.item_code || ''
               }).select().single();

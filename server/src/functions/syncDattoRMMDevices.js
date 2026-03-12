@@ -425,9 +425,9 @@ export async function syncDattoRMMDevices(body, user) {
       try {
         const siteUid = mapping.datto_site_id;
 
-        // Datto RMM API: /site/{siteUid}/devices - with pagination
+        // Datto RMM API: /site/{siteUid}/devices - with pagination (0-based)
         let allDevices = [];
-        let page = 1;
+        let page = 0;
         const pageSize = 250;
 
         while (true) {

@@ -193,7 +193,7 @@ export default function RocketCyberTab({ customer }) {
             RocketCyber SOC
           </h3>
           <p className="text-sm text-slate-500">
-            Account: {mapping.rocketcyber_account_name}
+            Account: {mapping.rc_account_name}
             {mapping.last_synced && (
               <span className="ml-2">
                 • Last sync: {new Date(mapping.last_synced).toLocaleString()}

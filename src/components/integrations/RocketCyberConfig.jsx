@@ -127,8 +127,8 @@ export default function RocketCyberConfig() {
       await client.entities.RocketCyberMapping.create({
         customer_id: customer.id,
         customer_name: customer.name,
-        rocketcyber_account_id: String(rcAccount.id),
-        rocketcyber_account_name: rcAccount.name
+        rc_account_id: String(rcAccount.id),
+        rc_account_name: rcAccount.name
       });
       toast.success(`Mapped ${rcAccount.name} to ${customer.name}`);
       refetchMappings();
@@ -199,8 +199,8 @@ export default function RocketCyberConfig() {
           await client.entities.RocketCyberMapping.create({
             customer_id: match.customer.id,
             customer_name: match.customer.name,
-            rocketcyber_account_id: String(account.id),
-            rocketcyber_account_name: account.name
+            rc_account_id: String(account.id),
+            rc_account_name: account.name
           });
           mapped++;
         }
@@ -243,7 +243,7 @@ export default function RocketCyberConfig() {
     }
   };
 
-  const mappedAccountIds = new Set(mappings.map(m => m.rocketcyber_account_id));
+  const mappedAccountIds = new Set(mappings.map(m => m.rc_account_id));
   const unmappedAccounts = accounts.filter(a => !mappedAccountIds.has(String(a.id)));
   const filteredAccounts = unmappedAccounts.filter(a => 
     a.name?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -253,7 +253,7 @@ export default function RocketCyberConfig() {
   const filteredMappings = mappings.filter(mapping => {
     if (!mappingSearchTerm) return true;
     const customerName = (mapping.customer_name || '').toLowerCase();
-    const accountName = (mapping.rocketcyber_account_name || '').toLowerCase();
+    const accountName = (mapping.rc_account_name || '').toLowerCase();
     const query = mappingSearchTerm.toLowerCase();
     return customerName.includes(query) || accountName.includes(query);
   });
@@ -420,7 +420,7 @@ export default function RocketCyberConfig() {
                       <div>
                         <p className="font-medium">{mapping.customer_name}</p>
                         <p className="text-sm text-slate-500">
-                          RC Account: {mapping.rocketcyber_account_name} ({mapping.rocketcyber_account_id})
+                          RC Account: {mapping.rc_account_name} ({mapping.rc_account_id})
                         </p>
                       </div>
                     </div>
