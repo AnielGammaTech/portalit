@@ -3,12 +3,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '../utils';
+import { motion, AnimatePresence } from 'framer-motion';
+import { staggerContainer, staggerItem, fadeInUp } from '@/lib/motion';
 import Breadcrumbs from '../components/ui/breadcrumbs';
-import { 
-  Building2, 
-  Plus, 
-  Search, 
-  Filter,
+import {
+  Building2,
+  Plus,
+  Search,
+  X,
   Users,
   ChevronRight,
   MoreVertical,
@@ -17,7 +19,8 @@ import {
   RefreshCw,
   AlertCircle,
   FileText,
-  DollarSign
+  DollarSign,
+  Loader2
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,8 +47,22 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonGrid } from "@/components/ui/shimmer-skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
+
+const STATUS_COLORS = {
+  active: { bg: 'bg-success/15', text: 'text-success', dot: 'bg-success' },
+  inactive: { bg: 'bg-zinc-100 dark:bg-zinc-800', text: 'text-zinc-500', dot: 'bg-zinc-400' },
+  suspended: { bg: 'bg-destructive/15', text: 'text-destructive', dot: 'bg-destructive' },
+};
+
+const FILTER_CHIPS = [
+  { value: 'all', label: 'All' },
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+  { value: 'suspended', label: 'Suspended' },
+];
 
 export default function Customers() {
   const navigate = useNavigate();
@@ -176,7 +193,6 @@ export default function Customers() {
     return matchesSearch && matchesStatus;
   });
 
-  // Calculate stats per customer
   const getCustomerStats = (customerId) => {
     const customerContracts = contracts.filter(c => c.customer_id === customerId && c.status === 'active');
     const customerTickets = tickets.filter(t => t.customer_id === customerId && ['new', 'open', 'in_progress'].includes(t.status));
@@ -185,129 +201,163 @@ export default function Customers() {
     return { contracts: customerContracts.length, tickets: customerTickets.length, mrr };
   };
 
+  const activeCount = customers.filter(c => c.status === 'active').length;
+
   return (
     <div className="space-y-6">
       <Breadcrumbs items={[{ label: 'Customers' }]} />
-      
+
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <motion.div
+        {...fadeInUp}
+        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+      >
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Customers</h1>
-          <p className="text-slate-500 mt-1">{customers.length} total customers</p>
+          <h1 className="text-2xl font-semibold text-foreground">Customers</h1>
+          <p className="text-muted-foreground mt-1">
+            {customers.length} total &middot; {activeCount} active
+          </p>
         </div>
         <div className="flex gap-3">
-          <Button 
+          <Button
             onClick={handleSyncHaloPSA}
             disabled={isSyncing}
             variant="outline"
-            className="border-slate-200"
           >
-            <RefreshCw className={cn("w-4 h-4 mr-2", isSyncing && "animate-spin")} />
+            {isSyncing ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4 mr-2" />
+            )}
             Sync HaloPSA
           </Button>
-          <Button 
-            onClick={() => handleOpenDialog()}
-            className="bg-purple-600 hover:bg-purple-700"
-          >
+          <Button onClick={() => handleOpenDialog()}>
             <Plus className="w-4 h-4 mr-2" />
             Add Customer
           </Button>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+      {/* Search + Filter Chips */}
+      <motion.div {...fadeInUp} className="space-y-3">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Search customers..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-10 pr-10 h-10 rounded-hero-md bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 focus:bg-white dark:focus:bg-zinc-800 transition-colors duration-[250ms]"
           />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-40">
-            <Filter className="w-4 h-4 mr-2" />
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
-            <SelectItem value="suspended">Suspended</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        <div className="flex gap-2">
+          {FILTER_CHIPS.map((chip) => (
+            <button
+              key={chip.value}
+              onClick={() => setStatusFilter(chip.value)}
+              className={cn(
+                'px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-[250ms] ease-out active:scale-[0.97]',
+                statusFilter === chip.value
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-zinc-100 dark:bg-zinc-800 text-muted-foreground hover:bg-zinc-200 dark:hover:bg-zinc-700'
+              )}
+            >
+              {chip.label}
+            </button>
+          ))}
+        </div>
+      </motion.div>
 
       {/* Customer List */}
       {isLoading ? (
-        <div className="space-y-3">
-          {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="h-20 rounded-lg" />
-          ))}
-        </div>
+        <SkeletonGrid count={6} cols={2} className="grid-cols-1 lg:grid-cols-2" />
       ) : filteredCustomers.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200/50 p-12 text-center">
-          <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-slate-900 mb-2">No customers found</h3>
-          <p className="text-slate-500 mb-6">
-            {searchQuery || statusFilter !== 'all' 
-              ? 'Try adjusting your filters' 
-              : 'Get started by adding your first customer'}
-          </p>
-        </div>
+        <EmptyState
+          icon={Building2}
+          title="No customers found"
+          description={
+            searchQuery || statusFilter !== 'all'
+              ? 'Try adjusting your search or filters'
+              : 'Get started by adding your first customer'
+          }
+          action={!searchQuery && statusFilter === 'all' ? {
+            label: 'Add Customer',
+            onClick: () => handleOpenDialog()
+          } : undefined}
+        />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <motion.div
+          variants={staggerContainer}
+          initial="initial"
+          animate="animate"
+          className="grid grid-cols-1 lg:grid-cols-2 gap-3"
+        >
           {filteredCustomers.map((customer) => {
             const stats = getCustomerStats(customer.id);
+            const statusStyle = STATUS_COLORS[customer.status] || STATUS_COLORS.active;
             return (
-              <div
+              <motion.div
                 key={customer.id}
+                variants={staggerItem}
+                whileHover={{ y: -2 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => navigate(createPageUrl(`CustomerDetail?id=${customer.id}`))}
-                className="flex items-center gap-3 bg-white rounded-xl border border-slate-200/50 p-3 hover:border-purple-200 hover:shadow-sm transition-all group cursor-pointer"
+                className="flex items-center gap-3 bg-card rounded-[14px] border border-border/50 p-3.5 hover:shadow-hero-md transition-all duration-[250ms] group cursor-pointer"
               >
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-100 to-purple-50 flex items-center justify-center flex-shrink-0">
+                {/* Avatar */}
+                <div className="w-10 h-10 rounded-hero-md bg-primary/10 flex items-center justify-center flex-shrink-0">
                   {customer.logo_url ? (
                     <img src={customer.logo_url} alt={customer.name} className="w-6 h-6 rounded" />
                   ) : (
-                    <Building2 className="w-5 h-5 text-purple-600" />
+                    <Building2 className="w-5 h-5 text-primary" />
                   )}
                 </div>
 
+                {/* Name + Status */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="font-medium text-slate-900 truncate text-sm">{customer.name}</p>
-                    <Badge className={cn(
-                      'text-[10px] px-1.5 py-0',
-                      customer.status === 'active' && 'bg-emerald-100 text-emerald-700',
-                      customer.status === 'inactive' && 'bg-slate-100 text-slate-600',
-                      customer.status === 'suspended' && 'bg-red-100 text-red-700'
-                    )}>
+                    <p className="font-medium text-foreground truncate text-sm">{customer.name}</p>
+                    <Badge
+                      variant="dot"
+                      dotColor={statusStyle.dot}
+                      className="text-[10px] px-1.5 py-0 h-5"
+                    >
                       {customer.status || 'active'}
                     </Badge>
                   </div>
+                  {customer.email && (
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">{customer.email}</p>
+                  )}
                 </div>
 
+                {/* Stats */}
                 <div className="hidden sm:flex items-center gap-2 text-xs">
-                  <div className="flex items-center gap-1 px-2 py-1 bg-slate-100 rounded-md" title="Contracts">
-                    <FileText className="w-3 h-3 text-slate-500" />
-                    <span className="font-medium text-slate-700">{stats.contracts}</span>
+                  <div className="flex items-center gap-1 px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded-full" title="Contracts">
+                    <FileText className="w-3 h-3 text-muted-foreground" />
+                    <span className="font-medium">{stats.contracts}</span>
                   </div>
-                  <div className="flex items-center gap-1 px-2 py-1 bg-slate-100 rounded-md" title="Open Tickets">
-                    <AlertCircle className="w-3 h-3 text-slate-500" />
-                    <span className="font-medium text-slate-700">{stats.tickets}</span>
+                  <div className="flex items-center gap-1 px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded-full" title="Open Tickets">
+                    <AlertCircle className="w-3 h-3 text-muted-foreground" />
+                    <span className="font-medium">{stats.tickets}</span>
                   </div>
-                  <div className="flex items-center gap-1 px-2 py-1 bg-emerald-50 rounded-md" title="Monthly Revenue">
-                    <DollarSign className="w-3 h-3 text-emerald-600" />
-                    <span className="font-medium text-emerald-700">${stats.mrr.toLocaleString()}</span>
+                  <div className="flex items-center gap-1 px-2 py-1 bg-success/10 rounded-full" title="Monthly Revenue">
+                    <DollarSign className="w-3 h-3 text-success" />
+                    <span className="font-medium text-success">${stats.mrr.toLocaleString()}</span>
                   </div>
                 </div>
 
+                {/* Actions */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0">
-                      <MoreVertical className="w-4 h-4 text-slate-400" />
+                    <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <MoreVertical className="w-4 h-4 text-muted-foreground" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
@@ -318,8 +368,8 @@ export default function Customers() {
                       <Pencil className="w-4 h-4 mr-2" />
                       Edit
                     </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      className="text-red-600"
+                    <DropdownMenuItem
+                      className="text-destructive"
                       onClick={(e) => {
                         e.stopPropagation();
                         deleteMutation.mutate(customer.id);
@@ -331,11 +381,11 @@ export default function Customers() {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-purple-600 flex-shrink-0" />
-              </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
+              </motion.div>
             );
           })}
-        </div>
+        </motion.div>
       )}
 
       {/* Error Dialog */}
@@ -343,12 +393,14 @@ export default function Customers() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <div className="flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600" />
+              <div className="w-9 h-9 rounded-full bg-destructive/15 flex items-center justify-center">
+                <AlertCircle className="w-5 h-5 text-destructive" />
+              </div>
               <DialogTitle>Sync Error</DialogTitle>
             </div>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-slate-700">{syncError}</p>
+            <p className="text-sm text-muted-foreground">{syncError}</p>
             <div className="flex justify-end">
               <Button variant="outline" onClick={() => setErrorDialogOpen(false)}>
                 Close
@@ -387,8 +439,8 @@ export default function Customers() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
-                <Select 
-                  value={formData.status} 
+                <Select
+                  value={formData.status}
                   onValueChange={(value) => setFormData({ ...formData, status: value })}
                 >
                   <SelectTrigger>
@@ -434,11 +486,13 @@ export default function Customers() {
               <Button type="button" variant="outline" onClick={handleCloseDialog}>
                 Cancel
               </Button>
-              <Button 
-                type="submit" 
-                className="bg-purple-600 hover:bg-purple-700"
+              <Button
+                type="submit"
                 disabled={createMutation.isPending || updateMutation.isPending}
               >
+                {(createMutation.isPending || updateMutation.isPending) && (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                )}
                 {editingCustomer ? 'Update' : 'Create'}
               </Button>
             </div>

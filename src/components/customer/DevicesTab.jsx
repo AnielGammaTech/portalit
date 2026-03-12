@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
+import { motion } from 'framer-motion';
+import { staggerContainer, staggerItem, fadeInUp } from '@/lib/motion';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { SkeletonStats, SkeletonTable } from "@/components/ui/shimmer-skeleton";
+import { AnimatedCounter } from "@/components/ui/animated-counter";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Monitor,
   Laptop,
@@ -17,7 +22,9 @@ import {
   XCircle,
   Clock,
   User,
-  StickyNote
+  StickyNote,
+  Loader2,
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
@@ -34,10 +41,17 @@ const deviceIcons = {
 };
 
 const statusConfig = {
-  online: { icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-100', label: 'Online' },
-  offline: { icon: XCircle, color: 'text-red-500', bg: 'bg-red-100', label: 'Offline' },
-  unknown: { icon: Clock, color: 'text-slate-400', bg: 'bg-slate-100', label: 'Unknown' }
+  online: { icon: CheckCircle2, color: 'text-success', bg: 'bg-success/10', label: 'Online' },
+  offline: { icon: XCircle, color: 'text-destructive', bg: 'bg-destructive/10', label: 'Offline' },
+  unknown: { icon: Clock, color: 'text-muted-foreground', bg: 'bg-muted', label: 'Unknown' }
 };
+
+const STAT_CARDS = [
+  { key: 'total', icon: Monitor, label: 'Total Devices', color: 'text-primary', bg: 'bg-primary/10' },
+  { key: 'online', icon: CheckCircle2, label: 'Online', color: 'text-success', bg: 'bg-success/10' },
+  { key: 'offline', icon: XCircle, label: 'Offline', color: 'text-destructive', bg: 'bg-destructive/10' },
+  { key: 'servers', icon: Server, label: 'Servers', color: 'text-[#7828C8]', bg: 'bg-[#7828C8]/10' },
+];
 
 export default function DevicesTab({ customerId, customerExternalId }) {
   const [search, setSearch] = useState('');
@@ -58,10 +72,9 @@ export default function DevicesTab({ customerId, customerExternalId }) {
     queryKey: ['datto_mappings', customerId],
     queryFn: () => client.entities.DattoSiteMapping.filter({ customer_id: customerId }),
     enabled: !!customerId,
-    staleTime: 1000 * 60 * 5 // Cache for 5 minutes
+    staleTime: 1000 * 60 * 5
   });
 
-  // Get cached data from mapping
   const cachedData = mappings[0]?.cached_data ? JSON.parse(mappings[0].cached_data) : null;
   const lastSynced = mappings[0]?.last_synced;
 
@@ -72,7 +85,7 @@ export default function DevicesTab({ customerId, customerExternalId }) {
     }
     setSyncing(true);
     try {
-      const response = await client.functions.invoke('syncDattoRMMDevices', { 
+      const response = await client.functions.invoke('syncDattoRMMDevices', {
         action: 'sync_devices',
         customer_id: customerId
       });
@@ -91,7 +104,7 @@ export default function DevicesTab({ customerId, customerExternalId }) {
   };
 
   const filteredDevices = devices.filter(device => {
-    const matchesSearch = !search || 
+    const matchesSearch = !search ||
       device.hostname?.toLowerCase().includes(search.toLowerCase()) ||
       device.ip_address?.includes(search) ||
       device.serial_number?.toLowerCase().includes(search.toLowerCase());
@@ -101,197 +114,157 @@ export default function DevicesTab({ customerId, customerExternalId }) {
   });
 
   const deviceCounts = {
-    total: devices.length,
-    online: devices.filter(d => d.status === 'online').length,
-    offline: devices.filter(d => d.status === 'offline').length,
-    byType: devices.reduce((acc, d) => {
-      acc[d.device_type] = (acc[d.device_type] || 0) + 1;
-      return acc;
-    }, {})
+    total: cachedData?.total_devices ?? devices.length,
+    online: cachedData?.online_count ?? devices.filter(d => d.status === 'online').length,
+    offline: cachedData?.offline_count ?? devices.filter(d => d.status === 'offline').length,
+    servers: cachedData?.server_count ?? devices.filter(d => d.device_type === 'server').length,
   };
 
-  // Show loading while checking mappings
+  // Shimmer loading while checking mappings
   if (loadingMappings) {
     return (
-      <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
-        <RefreshCw className="w-8 h-8 text-slate-300 animate-spin mx-auto mb-4" />
-        <p className="text-slate-500">Checking Datto RMM configuration...</p>
+      <div className="space-y-6">
+        <SkeletonStats count={4} className="grid-cols-2 lg:grid-cols-4" />
+        <SkeletonTable rows={5} cols={4} />
       </div>
     );
   }
 
   if (mappings.length === 0) {
     return (
-      <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
-        <Monitor className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-slate-900 mb-2">No Datto RMM Site Mapped</h3>
-        <p className="text-slate-500 mb-4">
-          This customer doesn't have a Datto RMM site linked. Go to Settings to map a site.
-        </p>
-      </div>
+      <EmptyState
+        icon={Monitor}
+        title="No Datto RMM Site Mapped"
+        description="This customer doesn't have a Datto RMM site linked. Go to Adminland > Integrations to map a site."
+      />
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Stats Cards - Use cached data if available, otherwise fall back to device list */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-              <Monitor className="w-5 h-5 text-blue-600" />
+      {/* Stats Cards — Animated counters */}
+      <motion.div
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+        className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+      >
+        {STAT_CARDS.map(stat => (
+          <motion.div
+            key={stat.key}
+            variants={staggerItem}
+            className="bg-card rounded-[14px] border shadow-hero-sm p-4 hover:shadow-hero-md transition-all duration-[250ms]"
+          >
+            <div className="flex items-center gap-3">
+              <div className={cn('w-10 h-10 rounded-hero-md flex items-center justify-center', stat.bg)}>
+                <stat.icon className={cn('w-5 h-5', stat.color)} />
+              </div>
+              <div>
+                <AnimatedCounter value={deviceCounts[stat.key]} className="text-2xl font-bold text-foreground" />
+                <p className="text-xs text-muted-foreground">{stat.label}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-2xl font-bold text-slate-900">{cachedData?.total_devices ?? deviceCounts.total}</p>
-              <p className="text-xs text-slate-500">Total Devices</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-slate-900">{cachedData?.online_count ?? deviceCounts.online}</p>
-              <p className="text-xs text-slate-500">Online</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
-              <XCircle className="w-5 h-5 text-red-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-slate-900">{cachedData?.offline_count ?? deviceCounts.offline}</p>
-              <p className="text-xs text-slate-500">Offline</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-              <Server className="w-5 h-5 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-slate-900">{cachedData?.server_count ?? deviceCounts.byType?.server ?? 0}</p>
-              <p className="text-xs text-slate-500">Servers</p>
-            </div>
-          </div>
-        </div>
-      </div>
+          </motion.div>
+        ))}
+      </motion.div>
 
-      {/* Last synced info */}
+      {/* Last synced */}
       {lastSynced && (
-        <p className="text-xs text-slate-400 text-right">
+        <p className="text-xs text-muted-foreground text-right">
           Last synced: {format(parseISO(lastSynced), 'MMM d, yyyy h:mm a')}
         </p>
       )}
 
       {/* Filters & Actions */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4">
+      <motion.div {...fadeInUp} className="bg-card rounded-[14px] border shadow-hero-sm p-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Search by hostname, IP, or serial..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
+              className="pl-9 pr-9 rounded-hero-md bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800"
             />
+            {search && (
+              <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white"
-          >
-            <option value="all">All Types</option>
-            <option value="desktop">Desktops</option>
-            <option value="laptop">Laptops</option>
-            <option value="server">Servers</option>
-            <option value="network">Network</option>
-            <option value="printer">Printers</option>
-            <option value="other">Other</option>
-          </select>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white"
-          >
-            <option value="all">All Status</option>
-            <option value="online">Online</option>
-            <option value="offline">Offline</option>
-          </select>
-          <Button
-            onClick={syncDevices}
-            disabled={syncing}
-            className="gap-2 bg-blue-600 hover:bg-blue-700"
-          >
-            <RefreshCw className={cn("w-4 h-4", syncing && "animate-spin")} />
+          {/* Filter chips */}
+          <div className="flex gap-2">
+            {['all', 'online', 'offline'].map(s => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={cn(
+                  'px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-[250ms] active:scale-[0.97] capitalize',
+                  statusFilter === s
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'bg-zinc-100 dark:bg-zinc-800 text-muted-foreground hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                )}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+          <Button onClick={syncDevices} disabled={syncing}>
+            {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
             Sync Devices
           </Button>
         </div>
-      </div>
+      </motion.div>
 
       {/* Device List */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div className="bg-card rounded-[14px] border shadow-hero-sm overflow-hidden">
         {isLoading ? (
-          <div className="p-12 text-center">
-            <RefreshCw className="w-8 h-8 text-slate-300 animate-spin mx-auto mb-4" />
-            <p className="text-slate-500">Loading devices...</p>
-          </div>
+          <SkeletonTable rows={5} cols={4} className="shadow-none border-0" />
         ) : filteredDevices.length === 0 ? (
-          <div className="p-12 text-center">
-            <Monitor className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <p className="text-slate-500">No devices found</p>
-            <Button
-              onClick={syncDevices}
-              disabled={syncing}
-              variant="outline"
-              className="mt-4 gap-2"
-            >
-              <RefreshCw className={cn("w-4 h-4", syncing && "animate-spin")} />
-              Sync from Datto RMM
-            </Button>
-          </div>
+          <EmptyState
+            icon={Monitor}
+            title="No devices found"
+            description={search ? 'Try adjusting your search' : 'Sync from Datto RMM to populate devices'}
+            action={!search ? { label: 'Sync from Datto RMM', onClick: syncDevices } : undefined}
+          />
         ) : (
-          <div className="divide-y divide-slate-100">
+          <motion.div
+            variants={staggerContainer}
+            initial="initial"
+            animate="animate"
+            className="divide-y divide-border/50"
+          >
             {filteredDevices.map(device => {
               const DeviceIcon = deviceIcons[device.device_type] || Monitor;
               const status = statusConfig[device.status] || statusConfig.unknown;
               const StatusIcon = status.icon;
 
               return (
-                <div 
-                  key={device.id} 
-                  className="p-4 hover:bg-slate-50 transition-colors cursor-pointer"
+                <motion.div
+                  key={device.id}
+                  variants={staggerItem}
+                  whileHover={{ backgroundColor: 'rgba(0,0,0,0.02)' }}
+                  className="p-4 cursor-pointer transition-colors duration-[250ms]"
                   onClick={() => setSelectedDevice(device)}
                 >
                   <div className="flex items-center gap-4">
-                    <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", status.bg)}>
-                      <DeviceIcon className={cn("w-6 h-6", status.color)} />
+                    <div className={cn("w-11 h-11 rounded-hero-md flex items-center justify-center", status.bg)}>
+                      <DeviceIcon className={cn("w-5 h-5", status.color)} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="font-semibold text-slate-900">{device.hostname}</p>
-                        <Badge className={cn(
-                          "text-xs",
-                          device.status === 'online' && "bg-emerald-100 text-emerald-700",
-                          device.status === 'offline' && "bg-red-100 text-red-700",
-                          device.status === 'unknown' && "bg-slate-100 text-slate-600"
-                        )}>
-                          <StatusIcon className="w-3 h-3 mr-1" />
+                        <p className="font-semibold text-foreground">{device.hostname}</p>
+                        <Badge
+                          variant={device.status === 'online' ? 'flat-success' : device.status === 'offline' ? 'flat-destructive' : 'secondary'}
+                          className="text-[11px] gap-1"
+                        >
+                          <StatusIcon className="w-3 h-3" />
                           {status.label}
                         </Badge>
-                        {device.notes && (
-                          <StickyNote className="w-3.5 h-3.5 text-amber-500" />
-                        )}
-                        {device.assigned_user_id && (
-                          <User className="w-3.5 h-3.5 text-purple-500" />
-                        )}
+                        {device.notes && <StickyNote className="w-3.5 h-3.5 text-warning" />}
+                        {device.assigned_user_id && <User className="w-3.5 h-3.5 text-[#7828C8]" />}
                       </div>
-                      <div className="flex items-center gap-4 text-sm text-slate-500 mt-1">
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
                         {device.os && <span>{device.os}</span>}
                         {device.ip_address && <span>{device.ip_address}</span>}
                         {device.last_user && (
@@ -302,21 +275,21 @@ export default function DevicesTab({ customerId, customerExternalId }) {
                         )}
                       </div>
                     </div>
-                    <div className="text-right text-sm">
+                    <div className="text-right text-sm hidden sm:block">
                       {device.last_seen && (
-                        <p className="text-slate-500">
+                        <p className="text-muted-foreground">
                           Last seen: {format(parseISO(device.last_seen), 'MMM d, h:mm a')}
                         </p>
                       )}
                       {device.serial_number && (
-                        <p className="text-slate-400 text-xs mt-1">S/N: {device.serial_number}</p>
+                        <p className="text-muted-foreground/60 text-xs mt-1">S/N: {device.serial_number}</p>
                       )}
                     </div>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
-          </div>
+          </motion.div>
         )}
       </div>
 

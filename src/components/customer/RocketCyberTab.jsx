@@ -120,8 +120,8 @@ export default function RocketCyberTab({ customer }) {
         action: 'sync_incidents',
         customer_id: customer.id
       });
-      if (result.data.success) {
-        toast.success(`Synced ${result.data.recordsSynced} incidents`);
+      if (result.success) {
+        toast.success(`Synced ${result.recordsSynced} incidents`);
         refetchIncidents();
       }
     } catch (error) {

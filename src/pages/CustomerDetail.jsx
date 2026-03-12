@@ -4,9 +4,11 @@ import { client } from '@/api/client';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
+import { motion } from 'framer-motion';
+import { fadeInUp, staggerContainer, staggerItem } from '@/lib/motion';
 import Breadcrumbs from '../components/ui/breadcrumbs';
-import { 
-  Building2, 
+import {
+  Building2,
   ArrowLeft,
   Mail,
   Phone,
@@ -30,12 +32,16 @@ import {
   BarChart3,
   Receipt,
   Shield,
-  Clock
+  Clock,
+  Loader2
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonStats, SkeletonTable } from "@/components/ui/shimmer-skeleton";
+import { AnimatedCounter } from "@/components/ui/animated-counter";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from 'date-fns';
 import LicenseAssignmentModal from '../components/saas/LicenseAssignmentModal';
@@ -436,26 +442,36 @@ export default function CustomerDetail() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-8 w-32" />
-        <Skeleton className="h-48 rounded-2xl" />
-        <Skeleton className="h-96 rounded-2xl" />
+        <Skeleton className="h-6 w-40" />
+        {/* Header skeleton */}
+        <div className="rounded-[14px] bg-card border shadow-hero-sm p-6 space-y-4">
+          <div className="flex items-center gap-4">
+            <Skeleton className="w-14 h-14 rounded-hero-lg" />
+            <div className="space-y-2 flex-1">
+              <Skeleton className="h-7 w-56" />
+              <Skeleton className="h-4 w-80" />
+            </div>
+          </div>
+          <SkeletonStats count={5} className="grid-cols-2 sm:grid-cols-5" />
+        </div>
+        {/* Tabs skeleton */}
+        <Skeleton className="h-10 w-full rounded-hero-lg" />
+        <SkeletonTable rows={6} cols={4} />
       </div>
     );
   }
 
   if (!customer) {
     return (
-      <div className="text-center py-12">
-        <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-        <h2 className="text-xl font-semibold text-slate-900 mb-2">Account Not Found</h2>
-        <p className="text-slate-500 mb-6">We couldn't find your account. Please contact support.</p>
-        <Link to={createPageUrl('Dashboard')}>
-          <Button>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
-          </Button>
-        </Link>
-      </div>
+      <EmptyState
+        icon={Building2}
+        title="Account Not Found"
+        description="We couldn't find your account. Please contact support."
+        action={{
+          label: 'Back to Dashboard',
+          onClick: () => window.location.href = createPageUrl('Dashboard'),
+        }}
+      />
     );
   }
 
@@ -478,114 +494,122 @@ export default function CustomerDetail() {
       
       {/* Header with Sync - Admin only */}
       {isAdmin && (
-        <div className="flex items-center justify-end gap-2">
+        <motion.div {...fadeInUp} className="flex items-center justify-end gap-2">
           <Link to={createPageUrl(`CustomerPortalPreview?id=${customerId}`)}>
             <Button variant="outline" size="sm" className="gap-2">
               <Eye className="w-4 h-4" />
               View as Customer
             </Button>
           </Link>
-          <Button 
+          <Button
             onClick={handleSyncCustomer}
             disabled={isSyncing}
             variant="outline"
             className="gap-2"
             size="sm"
           >
-            <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
+            {isSyncing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
             {isSyncing ? 'Syncing...' : 'Sync All'}
           </Button>
-        </div>
+        </motion.div>
       )}
 
-      {/* Account Header - Modern & Clean */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-center gap-6">
-          {/* Logo & Name */}
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center flex-shrink-0 shadow-lg shadow-slate-500/20">
-              {customer.logo_url ? (
-                <img src={customer.logo_url} alt={customer.name} className="w-10 h-10 rounded-xl object-cover" />
-              ) : (
-                <Building2 className="w-7 h-7 text-white" />
-              )}
-            </div>
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold text-slate-900">{customer.name}</h1>
-                <Badge className={cn(
-                  "font-medium",
-                  customer.status === 'active' && "bg-emerald-100 text-emerald-700 border-emerald-200",
-                  customer.status === 'inactive' && "bg-slate-100 text-slate-600",
-                  customer.status === 'suspended' && "bg-red-100 text-red-700"
-                )}>
-                  {customer.status || 'Active'}
-                </Badge>
-              </div>
-              <div className="flex flex-wrap items-center gap-4 mt-1.5 text-sm text-slate-500">
-                {customer.email && (
-                  <a href={`mailto:${customer.email}`} className="flex items-center gap-1.5 hover:text-slate-700 transition-colors">
-                    <Mail className="w-3.5 h-3.5" />
-                    {customer.email}
-                  </a>
-                )}
-                {customer.phone && (
-                  <a href={`tel:${customer.phone}`} className="flex items-center gap-1.5 hover:text-slate-700 transition-colors">
-                    <Phone className="w-3.5 h-3.5" />
-                    {customer.phone}
-                  </a>
-                )}
-                {customer.address && (
-                  <span className="flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5" />
-                    {customer.address}
+      {/* Account Header — HeroUI-inspired */}
+      <motion.div
+        {...fadeInUp}
+        className="relative bg-card rounded-[14px] border shadow-hero-md overflow-hidden"
+      >
+        {/* Gradient accent line */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-primary/60 to-primary/20" />
+
+        <div className="p-6">
+          <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
+            {/* Logo & Name */}
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-hero-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                {customer.logo_url ? (
+                  <img src={customer.logo_url} alt={customer.name} className="w-10 h-10 rounded-hero-md object-cover" />
+                ) : (
+                  <span className="text-2xl font-bold text-primary">
+                    {customer.name?.charAt(0)?.toUpperCase() || 'C'}
                   </span>
                 )}
               </div>
+              <div>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl font-bold text-foreground">{customer.name}</h1>
+                  <Badge
+                    variant={customer.status === 'active' ? 'flat-success' : customer.status === 'suspended' ? 'flat-destructive' : 'secondary'}
+                    className="capitalize"
+                  >
+                    {customer.status || 'Active'}
+                  </Badge>
+                </div>
+                <div className="flex flex-wrap items-center gap-4 mt-1.5 text-sm text-muted-foreground">
+                  {customer.email && (
+                    <a href={`mailto:${customer.email}`} className="flex items-center gap-1.5 hover:text-foreground transition-colors duration-[250ms]">
+                      <Mail className="w-3.5 h-3.5" />
+                      {customer.email}
+                    </a>
+                  )}
+                  {customer.phone && (
+                    <a href={`tel:${customer.phone}`} className="flex items-center gap-1.5 hover:text-foreground transition-colors duration-[250ms]">
+                      <Phone className="w-3.5 h-3.5" />
+                      {customer.phone}
+                    </a>
+                  )}
+                  {customer.address && (
+                    <span className="flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5" />
+                      {customer.address}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Quick Stats - Compact Pills */}
-          <div className="flex flex-wrap gap-2">
+          {/* Quick Stats — Animated counters */}
+          <motion.div
+            variants={staggerContainer}
+            initial="initial"
+            animate="animate"
+            className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-6"
+          >
             {[
-              { icon: Users, value: contacts.length, label: 'Team', color: 'blue' },
-              { icon: FileText, value: contracts.filter(c => c.status === 'active').length, label: 'Contracts', color: 'orange' },
-              { icon: HelpCircle, value: tickets.length, label: 'Tickets', color: 'amber' },
-              { icon: Cloud, value: licenses.length, label: 'Apps', color: 'indigo' },
-              { icon: Monitor, value: devices.length, label: 'Devices', color: 'cyan' },
+              { icon: Users, value: contacts.length, label: 'Team', color: 'text-primary', bg: 'bg-primary/10' },
+              { icon: FileText, value: contracts.filter(c => c.status === 'active').length, label: 'Contracts', color: 'text-warning', bg: 'bg-warning/10' },
+              { icon: HelpCircle, value: tickets.length, label: 'Tickets', color: 'text-destructive', bg: 'bg-destructive/10' },
+              { icon: Cloud, value: licenses.length, label: 'Apps', color: 'text-[#7828C8]', bg: 'bg-[#7828C8]/10' },
+              { icon: Monitor, value: devices.length, label: 'Devices', color: 'text-success', bg: 'bg-success/10' },
             ].map(stat => (
-              <div 
+              <motion.div
                 key={stat.label}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-xl border transition-all cursor-default",
-                  stat.color === 'blue' && "bg-blue-50 border-blue-100",
-                  stat.color === 'orange' && "bg-orange-50 border-orange-100",
-                  stat.color === 'amber' && "bg-amber-50 border-amber-100",
-                  stat.color === 'indigo' && "bg-indigo-50 border-indigo-100",
-                  stat.color === 'cyan' && "bg-cyan-50 border-cyan-100"
-                )}
+                variants={staggerItem}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-hero-md border border-border/50 bg-card hover:shadow-hero-sm transition-all duration-[250ms] cursor-default"
               >
-                <stat.icon className={cn(
-                  "w-4 h-4",
-                  stat.color === 'blue' && "text-blue-600",
-                  stat.color === 'orange' && "text-orange-600",
-                  stat.color === 'amber' && "text-amber-600",
-                  stat.color === 'indigo' && "text-indigo-600",
-                  stat.color === 'cyan' && "text-cyan-600"
-                )} />
-                <span className="font-bold text-slate-900">{stat.value}</span>
-                <span className="text-xs text-slate-500">{stat.label}</span>
-              </div>
+                <div className={cn('w-8 h-8 rounded-hero-sm flex items-center justify-center', stat.bg)}>
+                  <stat.icon className={cn('w-4 h-4', stat.color)} />
+                </div>
+                <div>
+                  <AnimatedCounter value={stat.value} className="text-lg font-bold text-foreground" />
+                  <p className="text-[11px] text-muted-foreground leading-none mt-0.5">{stat.label}</p>
+                </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
-      </div>
+      </motion.div>
 
 
 
-      {/* Tabs - Clean minimal design */}
+      {/* Tabs — HeroUI-inspired with animated styling */}
       <Tabs defaultValue="overview" className="space-y-6" id="customer-tabs">
-        <TabsList className="bg-slate-100/80 border-0 rounded-xl p-1 flex gap-0.5 h-auto overflow-x-auto">
+        <TabsList className="bg-zinc-100 dark:bg-zinc-800/80 border-0 rounded-hero-lg p-1 flex gap-1 h-auto overflow-x-auto scrollbar-hide">
           {[
             { value: 'overview', icon: Building2, label: 'Overview' },
             { value: 'billing', icon: DollarSign, label: 'Billing' },
@@ -594,10 +618,10 @@ export default function CustomerDetail() {
             { value: 'quotes', icon: FileText, label: 'Quotes' },
             { value: 'tickets', icon: HelpCircle, label: 'Tickets' },
           ].map(tab => (
-            <TabsTrigger 
+            <TabsTrigger
               key={tab.value}
-              value={tab.value} 
-              className="gap-2 py-2 px-4 rounded-lg text-slate-600 font-medium transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm hover:text-slate-900 whitespace-nowrap"
+              value={tab.value}
+              className="gap-2 py-2 px-4 rounded-hero-sm text-zinc-500 dark:text-zinc-400 font-medium transition-all duration-[250ms] data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:text-foreground data-[state=active]:shadow-sm hover:text-foreground whitespace-nowrap"
             >
               <tab.icon className="w-4 h-4" />
               <span className="text-sm">{tab.label}</span>
