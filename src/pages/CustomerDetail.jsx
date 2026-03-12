@@ -371,6 +371,7 @@ export default function CustomerDetail() {
     try {
       // Sync HaloPSA if customer is from HaloPSA
       if (customer?.source === 'halopsa' && customer?.external_id) {
+        // Sync customer record (address, phone, email, etc.)
         try {
           const res = await client.functions.invoke('syncHaloPSACustomers', {
             action: 'sync_customer',
@@ -379,6 +380,26 @@ export default function CustomerDetail() {
           if (res.success) results.push('HaloPSA');
           else errors.push('HaloPSA');
         } catch (e) { errors.push('HaloPSA'); }
+
+        // Sync contacts/team members
+        try {
+          const res = await client.functions.invoke('syncHaloPSAContacts', {
+            action: 'sync_customer',
+            customer_id: customer.external_id
+          });
+          if (res.success) results.push(`Team (${res.recordsSynced || 0})`);
+          else errors.push('Contacts');
+        } catch (e) { errors.push('Contacts'); }
+
+        // Sync tickets
+        try {
+          const res = await client.functions.invoke('syncHaloPSATickets', {
+            action: 'sync_customer',
+            customer_id: customer.external_id
+          });
+          if (res.success) results.push(`Tickets (${res.recordsSynced || 0})`);
+          else errors.push('Tickets');
+        } catch (e) { errors.push('Tickets'); }
       }
 
       // Sync JumpCloud if mapped

@@ -449,8 +449,8 @@ export default function CustomerServicesTab({
     <div className="space-y-6">
       <Tabs defaultValue="recurring" className="space-y-4">
         {/* Service Tabs — HeroUI-inspired pill tabs */}
-        <div className="overflow-x-auto scrollbar-hide">
-          <TabsList className="bg-zinc-100 dark:bg-zinc-800/80 border-0 p-1 h-auto inline-flex gap-1 rounded-hero-lg w-auto min-w-max">
+        <div className="overflow-x-auto scrollbar-hide flex justify-center">
+          <TabsList className="bg-zinc-100 dark:bg-zinc-800/80 border-0 p-1 h-auto inline-flex gap-1 rounded-hero-lg w-auto min-w-max mx-auto">
             <TabsTrigger value="recurring" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
               <DollarSign className="w-3.5 h-3.5" />
               Recurring
