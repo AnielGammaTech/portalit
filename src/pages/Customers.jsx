@@ -153,12 +153,12 @@ export default function Customers() {
   const handleSyncHaloPSA = async () => {
     try {
       setIsSyncing(true);
-      const response = await client.functions.invoke('syncHaloPSACustomers', { action: 'sync_now' });
-      if (response.data.success) {
-        toast.success(`Sync completed! ${response.data.recordsSynced} records synced.`);
+      const result = await client.halo.syncAll();
+      if (result.success) {
+        toast.success(result.message || `Sync completed! ${result.recordsSynced || 0} records synced.`);
         queryClient.invalidateQueries({ queryKey: ['customers'] });
       } else {
-        setSyncError(response.data.error || 'Sync failed');
+        setSyncError(result.error || 'Sync failed');
         setErrorDialogOpen(true);
       }
     } catch (error) {
