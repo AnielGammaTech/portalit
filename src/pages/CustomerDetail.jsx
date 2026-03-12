@@ -370,97 +370,77 @@ export default function CustomerDetail() {
     const errors = [];
 
     try {
-      // Sync HaloPSA if customer is from HaloPSA
+      // Build all sync tasks in parallel for speed
+      const syncTasks = [];
+
+      // HaloPSA syncs — all run in parallel (contacts, tickets, contracts, invoices)
       if (customer?.source === 'halopsa' && customer?.external_id) {
-        // Sync customer record (address, phone, email, etc.)
-        try {
-          const res = await client.functions.invoke('syncHaloPSACustomers', {
-            action: 'sync_customer',
-            customer_id: customer.external_id
-          });
-          if (res.success) results.push('HaloPSA');
-          else errors.push('HaloPSA');
-        } catch (e) { errors.push('HaloPSA'); }
+        const haloId = customer.external_id;
 
-        // Sync contacts/team members
-        try {
-          const res = await client.functions.invoke('syncHaloPSAContacts', {
-            action: 'sync_customer',
-            customer_id: customer.external_id
-          });
-          if (res.success) results.push(`Team (${res.recordsSynced || 0})`);
-          else { console.error('HaloPSA contacts sync failed:', res); errors.push('Contacts'); }
-        } catch (e) { console.error('HaloPSA contacts sync error:', e); errors.push('Contacts'); }
+        // Customer record first (fast, updates address/phone)
+        syncTasks.push(
+          client.functions.invoke('syncHaloPSACustomers', { action: 'sync_customer', customer_id: haloId })
+            .then(res => res.success ? results.push('HaloPSA') : errors.push('HaloPSA'))
+            .catch(() => errors.push('HaloPSA'))
+        );
 
-        // Sync tickets
-        try {
-          const res = await client.functions.invoke('syncHaloPSATickets', {
-            action: 'sync_customer',
-            customer_id: customer.external_id
-          });
-          if (res.success) results.push(`Tickets (${res.recordsSynced || 0})`);
-          else { console.error('HaloPSA tickets sync failed:', res); errors.push('Tickets'); }
-        } catch (e) { console.error('HaloPSA tickets sync error:', e); errors.push('Tickets'); }
-
-        // Sync contracts
-        try {
-          const res = await client.functions.invoke('syncHaloPSAContracts', {
-            action: 'sync_customer',
-            customer_id: customer.external_id
-          });
-          if (res.success) results.push(`Contracts (${res.recordsSynced || 0})`);
-          else { console.error('HaloPSA contracts sync failed:', res); errors.push('Contracts'); }
-        } catch (e) { console.error('HaloPSA contracts sync error:', e); errors.push('Contracts'); }
-
-        // Sync invoices with line items
-        try {
-          const res = await client.functions.invoke('syncHaloPSAInvoices', {
-            action: 'sync_customer_full',
-            customer_id: customer.external_id
-          });
-          if (res.success) results.push(`Invoices (${res.recordsSynced || 0})`);
-          else { console.error('HaloPSA invoices sync failed:', res); errors.push('Invoices'); }
-        } catch (e) { console.error('HaloPSA invoices sync error:', e); errors.push('Invoices'); }
+        // Contacts, tickets, contracts, invoices — all in parallel
+        syncTasks.push(
+          client.functions.invoke('syncHaloPSAContacts', { action: 'sync_customer', customer_id: haloId })
+            .then(res => res.success ? results.push(`Team (${res.recordsSynced || 0})`) : errors.push('Contacts'))
+            .catch(() => errors.push('Contacts'))
+        );
+        syncTasks.push(
+          client.functions.invoke('syncHaloPSATickets', { action: 'sync_customer', customer_id: haloId })
+            .then(res => res.success ? results.push(`Tickets (${res.recordsSynced || 0})`) : errors.push('Tickets'))
+            .catch(() => errors.push('Tickets'))
+        );
+        syncTasks.push(
+          client.functions.invoke('syncHaloPSAContracts', { action: 'sync_customer', customer_id: haloId })
+            .then(res => res.success ? results.push(`Contracts (${res.recordsSynced || 0})`) : errors.push('Contracts'))
+            .catch(() => errors.push('Contracts'))
+        );
+        // Use fast sync (no line items) — line items fetched on-demand when expanding
+        syncTasks.push(
+          client.functions.invoke('syncHaloPSAInvoices', { action: 'sync_customer', customer_id: haloId })
+            .then(res => res.success ? results.push(`Invoices (${res.recordsSynced || 0})`) : errors.push('Invoices'))
+            .catch(() => errors.push('Invoices'))
+        );
       }
 
-      // Sync JumpCloud if mapped
-      const jcMappings = await client.entities.JumpCloudMapping.filter({ customer_id: customerId });
+      // Check integration mappings in parallel
+      const [jcMappings, spanningMappings, dattoMappings] = await Promise.all([
+        client.entities.JumpCloudMapping.filter({ customer_id: customerId }).catch(() => []),
+        client.entities.SpanningMapping.filter({ customer_id: customerId }).catch(() => []),
+        client.entities.DattoSiteMapping.filter({ customer_id: customerId }).catch(() => []),
+      ]);
+
       if (jcMappings.length > 0) {
-        try {
-          const res = await client.functions.invoke('syncJumpCloudLicenses', {
-            action: 'sync_licenses',
-            customer_id: customerId
-          });
-          if (res.success) results.push('JumpCloud');
-          else errors.push('JumpCloud');
-        } catch (e) { errors.push('JumpCloud'); }
+        syncTasks.push(
+          client.functions.invoke('syncJumpCloudLicenses', { action: 'sync_licenses', customer_id: customerId })
+            .then(res => res.success ? results.push('JumpCloud') : errors.push('JumpCloud'))
+            .catch(() => errors.push('JumpCloud'))
+        );
       }
 
-      // Sync Spanning if mapped
-      const spanningMappings = await client.entities.SpanningMapping.filter({ customer_id: customerId });
       if (spanningMappings.length > 0) {
-        try {
-          const res = await client.functions.invoke('syncSpanningBackup', {
-            action: 'sync_licenses',
-            customer_id: customerId
-          });
-          if (res.success) results.push('Spanning');
-          else errors.push('Spanning');
-        } catch (e) { errors.push('Spanning'); }
+        syncTasks.push(
+          client.functions.invoke('syncSpanningBackup', { action: 'sync_licenses', customer_id: customerId })
+            .then(res => res.success ? results.push('Spanning') : errors.push('Spanning'))
+            .catch(() => errors.push('Spanning'))
+        );
       }
 
-      // Sync Datto if mapped
-      const dattoMappings = await client.entities.DattoSiteMapping.filter({ customer_id: customerId });
       if (dattoMappings.length > 0) {
-        try {
-          const res = await client.functions.invoke('syncDattoRMMDevices', {
-            action: 'sync_devices',
-            customer_id: customerId
-          });
-          if (res.success) results.push('Datto');
-          else errors.push('Datto');
-        } catch (e) { errors.push('Datto'); }
+        syncTasks.push(
+          client.functions.invoke('syncDattoRMMDevices', { action: 'sync_devices', customer_id: customerId })
+            .then(res => res.success ? results.push('Datto') : errors.push('Datto'))
+            .catch(() => errors.push('Datto'))
+        );
       }
+
+      // Execute all sync tasks in parallel
+      await Promise.allSettled(syncTasks);
 
       if (results.length > 0) {
         toast.success(`Synced: ${results.join(', ')}`);
