@@ -13,7 +13,8 @@ import {
   HardDrive,
   XCircle,
   ChevronDown,
-  Clock
+  Clock,
+  Wand2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ export default function CoveDataConfig() {
   const [mappingCustomerId, setMappingCustomerId] = useState(null);
   const [mappingDialogOpen, setMappingDialogOpen] = useState(false);
   const [partnerSearchTerm, setPartnerSearchTerm] = useState('');
+  const [automapping, setAutomapping] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -169,6 +171,82 @@ export default function CoveDataConfig() {
     }
   };
 
+  // Calculate suggested match for a partner based on name similarity
+  const getSuggestedMatch = (partnerName) => {
+    const nameLower = partnerName.toLowerCase().trim();
+    let bestMatch = null;
+    let bestScore = 0;
+
+    for (const customer of customers) {
+      const customerNameLower = customer.name.toLowerCase().trim();
+
+      if (nameLower === customerNameLower) {
+        return { customer, score: 100 };
+      }
+
+      if (nameLower.includes(customerNameLower) || customerNameLower.includes(nameLower)) {
+        const score = Math.round((Math.min(nameLower.length, customerNameLower.length) / Math.max(nameLower.length, customerNameLower.length)) * 100);
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = customer;
+        }
+      }
+
+      const nameWords = nameLower.split(/[\s,.-]+/).filter(w => w.length > 2);
+      const customerWords = customerNameLower.split(/[\s,.-]+/).filter(w => w.length > 2);
+      const matchingWords = nameWords.filter(sw => customerWords.some(cw => cw.includes(sw) || sw.includes(cw)));
+
+      if (matchingWords.length > 0) {
+        const score = Math.round((matchingWords.length / Math.max(nameWords.length, customerWords.length)) * 100);
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = customer;
+        }
+      }
+    }
+
+    return bestMatch && bestScore >= 50 ? { customer: bestMatch, score: bestScore } : null;
+  };
+
+  const autoMapPartners = async () => {
+    if (partners.length === 0) {
+      toast.error('Load partners first before auto-mapping');
+      return;
+    }
+    setAutomapping(true);
+    let mapped = 0;
+    try {
+      const mappedCustomerIds = new Set(mappings.map(m => m.customer_id));
+      const mappedPartnerIds = new Set(mappings.map(m => m.cove_partner_id));
+
+      for (const partner of partners) {
+        if (mappedPartnerIds.has(partner.id)) continue;
+        const match = getSuggestedMatch(partner.name);
+        if (match && !mappedCustomerIds.has(match.customer.id)) {
+          await client.entities.CoveDataMapping.create({
+            customer_id: match.customer.id,
+            customer_name: match.customer.name,
+            cove_partner_id: partner.id,
+            cove_partner_name: partner.name
+          });
+          mappedCustomerIds.add(match.customer.id);
+          mappedPartnerIds.add(partner.id);
+          mapped++;
+        }
+      }
+      if (mapped > 0) {
+        toast.success(`Auto-mapped ${mapped} partners to customers!`);
+        refetchMappings();
+      } else {
+        toast.info('No new matches found. Partners may already be mapped or names don\'t match.');
+      }
+    } catch (error) {
+      toast.error('Auto-map failed: ' + error.message);
+    } finally {
+      setAutomapping(false);
+    }
+  };
+
   const getMappingForCustomer = (customerId) => {
     return mappings.find(m => m.customer_id === customerId);
   };
@@ -281,16 +359,30 @@ export default function CoveDataConfig() {
               <CardTitle>Customer Mappings</CardTitle>
               <CardDescription>Map your customers to Cove partners</CardDescription>
             </div>
-            <Button 
-              onClick={handleLoadPartners}
-              disabled={loadingPartners}
-              variant="outline"
-              size="sm"
-              className="gap-2"
-            >
-              <RefreshCw className={cn("w-4 h-4", loadingPartners && "animate-spin")} />
-              Load Partners
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleLoadPartners}
+                disabled={loadingPartners}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+              >
+                <RefreshCw className={cn("w-4 h-4", loadingPartners && "animate-spin")} />
+                Load Partners
+              </Button>
+              {partners.length > 0 && (
+                <Button
+                  onClick={autoMapPartners}
+                  disabled={automapping}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                >
+                  <Wand2 className={cn("w-4 h-4", automapping && "animate-spin")} />
+                  {automapping ? 'Mapping...' : 'Auto-Map All'}
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>

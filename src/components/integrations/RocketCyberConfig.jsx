@@ -19,7 +19,8 @@ import {
   ChevronRight,
   Trash2,
   Clock,
-  ChevronDown
+  ChevronDown,
+  Wand2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
@@ -37,6 +38,7 @@ export default function RocketCyberConfig() {
   const [errorDetails, setErrorDetails] = useState(null);
   const [showErrorDetails, setShowErrorDetails] = useState(false);
   const [mappingPage, setMappingPage] = useState(1);
+  const [automapping, setAutomapping] = useState(false);
   const mappingsPerPage = 10;
 
   const queryClient = useQueryClient();
@@ -78,11 +80,11 @@ export default function RocketCyberConfig() {
       const result = await client.functions.invoke('syncRocketCyber', {
         action: 'test_connection'
       });
-      if (result.data.success) {
+      if (result.success) {
         setConfigStatus('connected');
         toast.success('RocketCyber API connection successful');
       } else {
-        const errMsg = result.data.error || 'Connection failed';
+        const errMsg = result.error || 'Connection failed';
         setConfigStatus('configured');
         setErrorDetails(errMsg);
         toast.error(errMsg);
@@ -109,9 +111,9 @@ export default function RocketCyberConfig() {
         action: 'list_accounts',
         msp_account_id: mspAccountId
       });
-      if (result.data.success) {
-        setAccounts(result.data.customers || []);
-        toast.success(`Found ${result.data.customers?.length || 0} customer accounts`);
+      if (result.success) {
+        setAccounts(result.customers || []);
+        toast.success(`Found ${result.customers?.length || 0} customer accounts`);
       }
     } catch (error) {
       toast.error('Failed to list accounts: ' + error.message);
@@ -145,6 +147,77 @@ export default function RocketCyberConfig() {
     }
   };
 
+  // Calculate suggested match for an account based on name similarity
+  const getSuggestedMatch = (accountName) => {
+    const nameLower = accountName.toLowerCase().trim();
+    let bestMatch = null;
+    let bestScore = 0;
+
+    for (const customer of customers) {
+      const customerNameLower = customer.name.toLowerCase().trim();
+
+      if (nameLower === customerNameLower) {
+        return { customer, score: 100 };
+      }
+
+      if (nameLower.includes(customerNameLower) || customerNameLower.includes(nameLower)) {
+        const score = Math.round((Math.min(nameLower.length, customerNameLower.length) / Math.max(nameLower.length, customerNameLower.length)) * 100);
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = customer;
+        }
+      }
+
+      const nameWords = nameLower.split(/[\s,.-]+/).filter(w => w.length > 2);
+      const customerWords = customerNameLower.split(/[\s,.-]+/).filter(w => w.length > 2);
+      const matchingWords = nameWords.filter(sw => customerWords.some(cw => cw.includes(sw) || sw.includes(cw)));
+
+      if (matchingWords.length > 0) {
+        const score = Math.round((matchingWords.length / Math.max(nameWords.length, customerWords.length)) * 100);
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = customer;
+        }
+      }
+    }
+
+    return bestMatch && bestScore >= 50 ? { customer: bestMatch, score: bestScore } : null;
+  };
+
+  const autoMapAccounts = async () => {
+    if (accounts.length === 0) {
+      toast.error('Load accounts first before auto-mapping');
+      return;
+    }
+    setAutomapping(true);
+    let mapped = 0;
+    try {
+      const unmapped = accounts.filter(a => !mappedAccountIds.has(String(a.id)));
+      for (const account of unmapped) {
+        const match = getSuggestedMatch(account.name);
+        if (match && !mappings.some(m => m.customer_id === match.customer.id)) {
+          await client.entities.RocketCyberMapping.create({
+            customer_id: match.customer.id,
+            customer_name: match.customer.name,
+            rocketcyber_account_id: String(account.id),
+            rocketcyber_account_name: account.name
+          });
+          mapped++;
+        }
+      }
+      if (mapped > 0) {
+        toast.success(`Auto-mapped ${mapped} accounts to customers!`);
+        refetchMappings();
+      } else {
+        toast.info('No new matches found. Accounts may already be mapped or names don\'t match.');
+      }
+    } catch (error) {
+      toast.error('Auto-map failed: ' + error.message);
+    } finally {
+      setAutomapping(false);
+    }
+  };
+
   const syncAll = async () => {
     setIsLoading(true);
     setErrorDetails(null);
@@ -152,12 +225,12 @@ export default function RocketCyberConfig() {
       const result = await client.functions.invoke('syncRocketCyber', {
         action: 'sync_all'
       });
-      if (result.data.success) {
-        toast.success(`Synced ${result.data.recordsSynced} incidents`);
+      if (result.success) {
+        toast.success(`Synced ${result.recordsSynced} incidents`);
         queryClient.invalidateQueries(['rocketcyber_incidents']);
         fetchLastSync();
       } else {
-        const errMsg = result.data.error || 'Sync failed';
+        const errMsg = result.error || 'Sync failed';
         setErrorDetails(errMsg);
         toast.error(errMsg);
       }
@@ -291,6 +364,16 @@ export default function RocketCyberConfig() {
               <Button onClick={listAccounts} disabled={isLoading}>
                 {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'List Accounts'}
               </Button>
+              {accounts.length > 0 && (
+                <Button
+                  onClick={autoMapAccounts}
+                  disabled={automapping}
+                  variant="outline"
+                >
+                  <Wand2 className={cn("w-4 h-4 mr-2", automapping && "animate-spin")} />
+                  {automapping ? 'Mapping...' : 'Auto-Map All'}
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>

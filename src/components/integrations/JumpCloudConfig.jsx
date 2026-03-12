@@ -23,7 +23,8 @@ import {
   Cloud,
   Clock,
   XCircle,
-  ChevronDown
+  ChevronDown,
+  Wand2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
@@ -65,6 +66,7 @@ export default function JumpCloudConfig() {
   const [lastSyncTime, setLastSyncTime] = useState(null);
   const [errorDetails, setErrorDetails] = useState(null);
   const [showErrorDetails, setShowErrorDetails] = useState(false);
+  const [automapping, setAutomapping] = useState(false);
   const itemsPerPage = 10;
   const mappingsPerPage = 10;
 
@@ -257,6 +259,82 @@ export default function JumpCloudConfig() {
     return customer?.name || 'Unknown';
   };
 
+  // Calculate suggested match for an org based on name similarity
+  const getSuggestedMatch = (orgName) => {
+    const nameLower = orgName.toLowerCase().trim();
+    let bestMatch = null;
+    let bestScore = 0;
+
+    for (const customer of customers) {
+      const customerNameLower = customer.name.toLowerCase().trim();
+
+      if (nameLower === customerNameLower) {
+        return { customer, score: 100 };
+      }
+
+      if (nameLower.includes(customerNameLower) || customerNameLower.includes(nameLower)) {
+        const score = Math.round((Math.min(nameLower.length, customerNameLower.length) / Math.max(nameLower.length, customerNameLower.length)) * 100);
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = customer;
+        }
+      }
+
+      const nameWords = nameLower.split(/[\s,.-]+/).filter(w => w.length > 2);
+      const customerWords = customerNameLower.split(/[\s,.-]+/).filter(w => w.length > 2);
+      const matchingWords = nameWords.filter(sw => customerWords.some(cw => cw.includes(sw) || sw.includes(cw)));
+
+      if (matchingWords.length > 0) {
+        const score = Math.round((matchingWords.length / Math.max(nameWords.length, customerWords.length)) * 100);
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = customer;
+        }
+      }
+    }
+
+    return bestMatch && bestScore >= 50 ? { customer: bestMatch, score: bestScore } : null;
+  };
+
+  const autoMapOrgs = async () => {
+    if (jumpcloudOrgs.length === 0) {
+      toast.error('Load organizations first before auto-mapping');
+      return;
+    }
+    setAutomapping(true);
+    let mapped = 0;
+    try {
+      const mappedOrgIds = new Set(mappings.map(m => m.jumpcloud_org_id));
+      const mappedCustomerIds = new Set(mappings.map(m => m.customer_id));
+
+      for (const org of jumpcloudOrgs) {
+        const orgId = String(org.id);
+        if (mappedOrgIds.has(orgId)) continue;
+        const match = getSuggestedMatch(org.name);
+        if (match && !mappedCustomerIds.has(match.customer.id)) {
+          await client.entities.JumpCloudMapping.create({
+            customer_id: match.customer.id,
+            jumpcloud_org_id: orgId,
+            jumpcloud_org_name: org.name
+          });
+          mappedOrgIds.add(orgId);
+          mappedCustomerIds.add(match.customer.id);
+          mapped++;
+        }
+      }
+      if (mapped > 0) {
+        toast.success(`Auto-mapped ${mapped} organizations to customers!`);
+        refetchMappings();
+      } else {
+        toast.info('No new matches found. Organizations may already be mapped or names don\'t match.');
+      }
+    } catch (error) {
+      toast.error('Auto-map failed: ' + error.message);
+    } finally {
+      setAutomapping(false);
+    }
+  };
+
   // Filter and paginate existing mappings
   const filteredMappings = mappings.filter(mapping => {
     if (!mappingSearchQuery) return true;
@@ -375,6 +453,16 @@ export default function JumpCloudConfig() {
           <RefreshCw className={cn("w-4 h-4 mr-2", loadingOrgs && "animate-spin")} />
           {showMappingView ? 'Refresh Orgs' : 'Load Organizations'}
         </Button>
+        {jumpcloudOrgs.length > 0 && (
+          <Button
+            onClick={autoMapOrgs}
+            disabled={automapping}
+            variant="outline"
+          >
+            <Wand2 className={cn("w-4 h-4 mr-2", automapping && "animate-spin")} />
+            {automapping ? 'Mapping...' : 'Auto-Map All'}
+          </Button>
+        )}
         {mappings.length > 0 && (
           <Button
             onClick={syncAllLicenses}
@@ -556,9 +644,10 @@ export default function JumpCloudConfig() {
               <table className="w-full">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
-                    <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-1/3">JumpCloud Org</th>
-                    <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-20">Users</th>
-                    <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-1/3">Customer</th>
+                    <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-1/4">JumpCloud Org</th>
+                    <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-16">Users</th>
+                    <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-1/4">Customer</th>
+                    <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-1/4">Suggested Match</th>
                     <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-20"></th>
                   </tr>
                 </thead>
@@ -567,6 +656,7 @@ export default function JumpCloudConfig() {
                     const orgId = String(org.id);
                     const existingMapping = mappings.find(m => m.jumpcloud_org_id === orgId);
                     const selectedCustomerId = orgSelections[orgId] || '';
+                    const suggestedMatch = !existingMapping ? getSuggestedMatch(org.name) : null;
 
                     return (
                       <tr key={orgId} className="hover:bg-slate-50">
@@ -600,11 +690,26 @@ export default function JumpCloudConfig() {
                             </Select>
                           )}
                         </td>
+                        <td className="px-4 py-3">
+                          {!existingMapping && suggestedMatch ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-slate-700">{suggestedMatch.customer.name}</span>
+                              <Badge className={cn(
+                                "text-xs font-normal",
+                                suggestedMatch.score === 100 ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                              )}>
+                                {suggestedMatch.score}%
+                              </Badge>
+                            </div>
+                          ) : !existingMapping ? (
+                            <span className="text-sm text-slate-400">{'\u2014'}</span>
+                          ) : null}
+                        </td>
                         <td className="px-4 py-3 text-right">
-                          {!existingMapping && selectedCustomerId ? (
+                          {!existingMapping && (selectedCustomerId || suggestedMatch) ? (
                             <Button
                               size="sm"
-                              onClick={() => applyMapping(org, selectedCustomerId)}
+                              onClick={() => applyMapping(org, selectedCustomerId || suggestedMatch?.customer.id)}
                               className="bg-green-600 hover:bg-green-700 text-white text-xs h-7 px-3"
                             >
                               Apply

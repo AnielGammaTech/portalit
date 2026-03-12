@@ -18,7 +18,8 @@ import {
   Loader2,
   XCircle,
   ChevronDown,
-  Clock
+  Clock,
+  Wand2
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { toast } from 'sonner';
@@ -40,6 +41,7 @@ export default function DattoEDRConfig() {
   const [syncing, setSyncing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [testing, setTesting] = useState(false);
+  const [automapping, setAutomapping] = useState(false);
   const [configStatus, setConfigStatus] = useState('not_configured');
   const [lastSyncTime, setLastSyncTime] = useState(null);
   const [errorDetails, setErrorDetails] = useState(null);
@@ -177,8 +179,84 @@ export default function DattoEDRConfig() {
     }
   };
 
+  // Calculate suggested match for a tenant based on name similarity
+  const getSuggestedMatch = (tenantName) => {
+    const nameLower = tenantName.toLowerCase().trim();
+    let bestMatch = null;
+    let bestScore = 0;
+
+    for (const customer of customers) {
+      const customerNameLower = customer.name.toLowerCase().trim();
+
+      if (nameLower === customerNameLower) {
+        return { customer, score: 100 };
+      }
+
+      if (nameLower.includes(customerNameLower) || customerNameLower.includes(nameLower)) {
+        const score = Math.round((Math.min(nameLower.length, customerNameLower.length) / Math.max(nameLower.length, customerNameLower.length)) * 100);
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = customer;
+        }
+      }
+
+      const nameWords = nameLower.split(/[\s,.-]+/).filter(w => w.length > 2);
+      const customerWords = customerNameLower.split(/[\s,.-]+/).filter(w => w.length > 2);
+      const matchingWords = nameWords.filter(sw => customerWords.some(cw => cw.includes(sw) || sw.includes(cw)));
+
+      if (matchingWords.length > 0) {
+        const score = Math.round((matchingWords.length / Math.max(nameWords.length, customerWords.length)) * 100);
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = customer;
+        }
+      }
+    }
+
+    return bestMatch && bestScore >= 50 ? { customer: bestMatch, score: bestScore } : null;
+  };
+
+  const autoMapTenants = async () => {
+    if (edrTenants.length === 0) {
+      toast.error('Load tenants first before auto-mapping');
+      return;
+    }
+    setAutomapping(true);
+    let mapped = 0;
+    try {
+      const mappedCustomerIds = new Set(mappings.map(m => m.customer_id));
+      const mappedTenantSet = new Set(mappings.map(m => m.edr_tenant_id));
+
+      for (const tenant of edrTenants) {
+        if (mappedTenantSet.has(tenant.id)) continue;
+        const match = getSuggestedMatch(tenant.name);
+        if (match && !mappedCustomerIds.has(match.customer.id)) {
+          await client.entities.DattoEDRMapping.create({
+            customer_id: match.customer.id,
+            customer_name: match.customer.name,
+            edr_tenant_id: tenant.id,
+            edr_tenant_name: tenant.name
+          });
+          mappedCustomerIds.add(match.customer.id);
+          mappedTenantSet.add(tenant.id);
+          mapped++;
+        }
+      }
+      if (mapped > 0) {
+        toast.success(`Auto-mapped ${mapped} tenants to customers!`);
+        refetchMappings();
+      } else {
+        toast.info('No new matches found. Tenants may already be mapped or names don\'t match.');
+      }
+    } catch (error) {
+      toast.error('Auto-map failed: ' + error.message);
+    } finally {
+      setAutomapping(false);
+    }
+  };
+
   // Filter customers
-  const filteredCustomers = customers.filter(c => 
+  const filteredCustomers = customers.filter(c =>
     c.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
   
@@ -277,6 +355,16 @@ export default function DattoEDRConfig() {
                 {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
                 {edrTenants.length > 0 ? 'Refresh Tenants' : 'Load Tenants'}
               </Button>
+              {edrTenants.length > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={autoMapTenants}
+                  disabled={automapping}
+                >
+                  <Wand2 className={cn("w-4 h-4 mr-2", automapping && "animate-spin")} />
+                  {automapping ? 'Mapping...' : 'Auto-Map All'}
+                </Button>
+              )}
               {mappings.length > 0 && (
                 <Button onClick={syncAll} disabled={syncing}>
                   {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
