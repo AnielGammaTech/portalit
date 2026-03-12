@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { client, supabase } from '@/api/client';
+import { client } from '@/api/client';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -25,9 +25,6 @@ import {
   Clock,
   ChevronDown,
   Key,
-  Eye,
-  EyeOff,
-  Save,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
@@ -66,9 +63,7 @@ export default function UniFiConfig() {
   const [lastSyncTime, setLastSyncTime] = useState(null);
   const [errorDetails, setErrorDetails] = useState(null);
   const [showErrorDetails, setShowErrorDetails] = useState(false);
-  const [apiKey, setApiKey] = useState('');
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [savingKey, setSavingKey] = useState(false);
+  // API key is set via environment variable (unifi_api_key)
   const itemsPerPage = 10;
   const mappingsPerPage = 10;
 
@@ -84,22 +79,7 @@ export default function UniFiConfig() {
     queryFn: () => client.entities.UniFiMapping.list(),
   });
 
-  // Load saved API key
-  useEffect(() => {
-    const loadKey = async () => {
-      try {
-        const { data } = await supabase
-          .from('settings')
-          .select('value')
-          .eq('key', 'unifi_api_key')
-          .single();
-        if (data?.value) {
-          setApiKey(data.value);
-        }
-      } catch { /* no key saved yet */ }
-    };
-    loadKey();
-  }, []);
+  // No need to load API key — it's an environment variable on the backend
 
   // Auto-detect configured status from existing mappings
   useEffect(() => {
@@ -108,28 +88,7 @@ export default function UniFiConfig() {
     }
   }, [mappings.length]);
 
-  const saveApiKey = async () => {
-    if (!apiKey.trim()) return;
-    setSavingKey(true);
-    try {
-      const { data: existing } = await supabase
-        .from('settings')
-        .select('id')
-        .eq('key', 'unifi_api_key')
-        .single();
-
-      if (existing) {
-        await supabase.from('settings').update({ value: apiKey.trim() }).eq('key', 'unifi_api_key');
-      } else {
-        await supabase.from('settings').insert({ key: 'unifi_api_key', value: apiKey.trim() });
-      }
-      toast.success('API key saved!');
-    } catch (error) {
-      toast.error('Failed to save API key');
-    } finally {
-      setSavingKey(false);
-    }
-  };
+  // API key managed via Railway environment variable
 
   const testConnection = async () => {
     setTesting(true);
@@ -320,32 +279,15 @@ export default function UniFiConfig() {
         </Collapsible>
       )}
 
-      {/* API Key Configuration */}
-      <div className="bg-slate-50 rounded-lg p-4 space-y-3">
+      {/* API Key Info */}
+      <div className="bg-slate-50 rounded-lg p-4">
         <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
           <Key className="w-4 h-4" /> UniFi API Key
         </div>
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Input
-              type={showApiKey ? 'text' : 'password'}
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Enter your UniFi Site Manager API key"
-              className="pr-10"
-            />
-            <button
-              onClick={() => setShowApiKey(!showApiKey)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-200 rounded"
-            >
-              {showApiKey ? <EyeOff className="w-4 h-4 text-slate-400" /> : <Eye className="w-4 h-4 text-slate-400" />}
-            </button>
-          </div>
-          <Button onClick={saveApiKey} disabled={savingKey || !apiKey.trim()} variant="outline" size="sm">
-            <Save className="w-4 h-4 mr-1" /> Save
-          </Button>
-        </div>
-        <p className="text-xs text-slate-500">Get your API key from <a href="https://developer.ui.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">developer.ui.com</a></p>
+        <p className="text-xs text-slate-500 mt-1">
+          API key is configured via environment variable (<code className="bg-slate-200 px-1 rounded">unifi_api_key</code>).
+          Get your key from <a href="https://developer.ui.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">developer.ui.com</a>
+        </p>
       </div>
 
       {/* Actions */}

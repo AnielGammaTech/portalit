@@ -2,13 +2,8 @@ import { getServiceSupabase } from '../lib/supabase.js';
 
 const UNIFI_API_BASE = 'https://api.ui.com';
 
-async function getUniFiApiKey(supabase) {
-  const { data } = await supabase
-    .from('settings')
-    .select('value')
-    .eq('key', 'unifi_api_key')
-    .single();
-  return data?.value || process.env.UNIFI_API_KEY || null;
+async function getUniFiApiKey() {
+  return process.env.unifi_api_key || process.env.UNIFI_API_KEY || null;
 }
 
 async function unifiApiCall(apiKey, endpoint, method = 'GET') {
@@ -57,7 +52,7 @@ export async function syncUniFiDevices(params) {
   const { action } = params;
   const supabase = getServiceSupabase();
 
-  const apiKey = await getUniFiApiKey(supabase);
+  const apiKey = await getUniFiApiKey();
   if (!apiKey) {
     return { success: false, error: 'UniFi API key not configured. Set it in Admin > Integrations.' };
   }
