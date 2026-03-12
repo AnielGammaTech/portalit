@@ -127,7 +127,7 @@ export default function DeviceDetailModal({ device, open, onClose, customerId })
             </div>
             <div>
               <p className="text-slate-500">Operating System</p>
-              <p className="font-medium text-slate-900">{device.os || '—'}</p>
+              <p className="font-medium text-slate-900">{device.operating_system || '—'}</p>
             </div>
             <div>
               <p className="text-slate-500">IP Address</p>

@@ -430,6 +430,10 @@ export async function syncSpanningBackup(body, user) {
     const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?page_size=1000`);
     const spanningUsers = parseUsersResponse(usersResponse);
 
+    // Get domain info for cache data
+    const allDomains = await unitrendsApiCall('/v2/spanning/domains?page_size=500');
+    const domainInfo = allDomains.find(d => d.id === mapping.spanning_tenant_id);
+
     // Get existing contacts
     const { data: existingContacts } = await supabase
       .from('contacts')
@@ -463,10 +467,14 @@ export async function syncSpanningBackup(body, user) {
       // NEVER create new contacts - Spanning only attaches to existing contacts
     }
 
-    // Update last_synced timestamp
+    // Build and persist cache data so it's available on next page load
+    const cacheData = buildCacheData(spanningUsers, domainInfo);
     await supabase
       .from('spanning_mappings')
-      .update({ last_synced: new Date().toISOString() })
+      .update({
+        last_synced: new Date().toISOString(),
+        cached_data: JSON.stringify(cacheData)
+      })
       .eq('id', mapping.id);
 
     return {
@@ -577,18 +585,18 @@ export async function syncSpanningBackup(body, user) {
     let synced = 0;
     let errors = 0;
 
+    // Pre-fetch all domains once for cache data
+    let allDomains = [];
+    try {
+      allDomains = await unitrendsApiCall('/v2/spanning/domains?page_size=500');
+    } catch (e) {
+      console.error('Failed to fetch domains for cache:', e.message);
+    }
+
     for (const mapping of (allMappings || [])) {
       try {
         const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?page_size=1000`);
-
-        let users = [];
-        if (Array.isArray(usersResponse)) {
-          users = usersResponse[0]?.users || usersResponse;
-        } else if (usersResponse?.users) {
-          users = Array.isArray(usersResponse.users) && usersResponse.users[0]?.users
-            ? usersResponse.users[0].users
-            : usersResponse.users;
-        }
+        const users = parseUsersResponse(usersResponse);
 
         // Sync contacts
         const { data: existingContacts } = await supabase
@@ -616,9 +624,16 @@ export async function syncSpanningBackup(body, user) {
           }
         }
 
+        // Build and persist cache data
+        const domainInfo = allDomains.find(d => d.id === mapping.spanning_tenant_id);
+        const cacheData = buildCacheData(users, domainInfo);
+
         await supabase
           .from('spanning_mappings')
-          .update({ last_synced: new Date().toISOString() })
+          .update({
+            last_synced: new Date().toISOString(),
+            cached_data: JSON.stringify(cacheData)
+          })
           .eq('id', mapping.id);
 
         synced++;

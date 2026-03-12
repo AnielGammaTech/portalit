@@ -265,7 +265,7 @@ export default function DevicesTab({ customerId, customerExternalId }) {
                         {device.assigned_user_id && <User className="w-3.5 h-3.5 text-[#7828C8]" />}
                       </div>
                       <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-                        {device.os && <span>{device.os}</span>}
+                        {device.operating_system && <span>{device.operating_system}</span>}
                         {device.ip_address && <span>{device.ip_address}</span>}
                         {device.last_user && (
                           <span className="flex items-center gap-1">

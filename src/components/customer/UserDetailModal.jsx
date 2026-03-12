@@ -275,7 +275,7 @@ export default function UserDetailModal({ contact, open, onClose, customerId }) 
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-slate-900">{device.hostname}</p>
-                      <p className="text-sm text-slate-500">{device.os || device.device_type}</p>
+                      <p className="text-sm text-slate-500">{device.operating_system || device.device_type}</p>
                     </div>
                     <Badge 
                       className={device.status === 'online' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}

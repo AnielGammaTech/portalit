@@ -58,7 +58,7 @@ async function dattoApiCall(accessToken, endpoint) {
 // Helper to check if device data has changed
 function hasDeviceChanged(existing, newData) {
   if (!existing) return true;
-  const fieldsToCheck = ['hostname', 'os', 'ip_address', 'status', 'last_seen'];
+  const fieldsToCheck = ['hostname', 'operating_system', 'ip_address', 'status', 'last_seen', 'online_status'];
   return fieldsToCheck.some(field => existing[field] !== newData[field]);
 }
 
@@ -317,8 +317,8 @@ export async function syncDattoRMMDevices(body, user) {
         .eq('datto_site_id', siteUid);
       const existingDevices = existingDevicesData || [];
 
-      const existingByDattoId = {};
-      existingDevices.forEach(d => { existingByDattoId[d.datto_id] = d; });
+      const existingByExternalId = {};
+      existingDevices.forEach(d => { existingByExternalId[d.external_id] = d; });
 
       const dattoDeviceIds = new Set();
 
@@ -326,7 +326,7 @@ export async function syncDattoRMMDevices(body, user) {
         const deviceUid = device.uid || device.id;
         const dattoId = String(deviceUid);
         dattoDeviceIds.add(dattoId);
-        const existing = existingByDattoId[dattoId];
+        const existing = existingByExternalId[dattoId];
 
         // Convert lastSeen timestamp to ISO string if it's a number
         let lastSeenStr = null;
@@ -344,19 +344,22 @@ export async function syncDattoRMMDevices(body, user) {
         if (deviceType === 'server') serverCount++;
         else workstationCount++;
 
-        // Build device data from list endpoint
+        // Build device data matching DB schema columns exactly
         const deviceData = {
           customer_id,
-          datto_id: dattoId,
+          external_id: dattoId,
+          source: 'datto_rmm',
+          name: device.hostname || device.name || 'Unknown',
           datto_site_id: siteUid,
           hostname: device.hostname || device.name || 'Unknown',
-          description: device.description || '',
+          notes: device.description || '',
           device_type: deviceType,
-          os: device.operatingSystem || '',
+          operating_system: device.operatingSystem || '',
           ip_address: device.intIpAddress || device.extIpAddress || '',
           last_seen: lastSeenStr,
           last_user: device.lastLoggedInUser || '',
-          status: isOnline ? 'online' : 'offline'
+          status: isOnline ? 'online' : 'offline',
+          online_status: isOnline ? 'online' : 'offline'
         };
 
         // Skip if no changes
@@ -367,15 +370,18 @@ export async function syncDattoRMMDevices(body, user) {
         if (existing) {
           await supabase.from('devices').update(deviceData).eq('id', existing.id);
         } else {
-          const { data: created, error } = await supabase.from('devices').insert(deviceData).select().single();
-          if (error) throw new Error(error.message);
+          const { error } = await supabase.from('devices').insert(deviceData).select().single();
+          if (error) {
+            console.error(`Failed to insert device ${dattoId}: ${error.message}`);
+            throw new Error(error.message);
+          }
         }
         totalSynced++;
       }
 
       // Delete devices no longer in Datto
       for (const existing of existingDevices) {
-        if (!dattoDeviceIds.has(existing.datto_id)) {
+        if (!dattoDeviceIds.has(existing.external_id)) {
           await supabase.from('devices').delete().eq('id', existing.id);
           totalSynced++;
         }
@@ -451,8 +457,8 @@ export async function syncDattoRMMDevices(body, user) {
           .eq('datto_site_id', siteUid);
         const existingDevices = existingDevicesData || [];
 
-        const existingByDattoId = {};
-        existingDevices.forEach(d => { existingByDattoId[d.datto_id] = d; });
+        const existingByExternalId = {};
+        existingDevices.forEach(d => { existingByExternalId[d.external_id] = d; });
 
         const dattoDeviceIds = new Set();
 
@@ -460,7 +466,7 @@ export async function syncDattoRMMDevices(body, user) {
           const deviceUid = device.uid || device.id;
           const dattoId = String(deviceUid);
           dattoDeviceIds.add(dattoId);
-          const existing = existingByDattoId[dattoId];
+          const existing = existingByExternalId[dattoId];
 
           // Convert lastSeen timestamp to ISO string if it's a number
           let lastSeenStr = null;
@@ -469,19 +475,22 @@ export async function syncDattoRMMDevices(body, user) {
             lastSeenStr = typeof lastSeen === 'number' ? new Date(lastSeen).toISOString() : lastSeen;
           }
 
-          // Build device data from list endpoint
+          // Build device data matching DB schema columns exactly
           const deviceData = {
             customer_id: mapping.customer_id,
-            datto_id: dattoId,
+            external_id: dattoId,
+            source: 'datto_rmm',
+            name: device.hostname || device.name || 'Unknown',
             datto_site_id: siteUid,
             hostname: device.hostname || device.name || 'Unknown',
-            description: device.description || '',
+            notes: device.description || '',
             device_type: mapDeviceType(device.deviceType?.category),
-            os: device.operatingSystem || '',
+            operating_system: device.operatingSystem || '',
             ip_address: device.intIpAddress || device.extIpAddress || '',
             last_seen: lastSeenStr,
             last_user: device.lastLoggedInUser || '',
-            status: device.online ? 'online' : 'offline'
+            status: device.online ? 'online' : 'offline',
+            online_status: device.online ? 'online' : 'offline'
           };
 
           // Skip if no changes
@@ -492,15 +501,18 @@ export async function syncDattoRMMDevices(body, user) {
           if (existing) {
             await supabase.from('devices').update(deviceData).eq('id', existing.id);
           } else {
-            const { data: created, error } = await supabase.from('devices').insert(deviceData).select().single();
-            if (error) throw new Error(error.message);
+            const { error } = await supabase.from('devices').insert(deviceData).select().single();
+            if (error) {
+              console.error(`Failed to insert device ${dattoId}: ${error.message}`);
+              throw new Error(error.message);
+            }
           }
           totalSynced++;
         }
 
         // Delete devices no longer in Datto
         for (const existing of existingDevices) {
-          if (!dattoDeviceIds.has(existing.datto_id)) {
+          if (!dattoDeviceIds.has(existing.external_id)) {
             await supabase.from('devices').delete().eq('id', existing.id);
             totalSynced++;
           }
