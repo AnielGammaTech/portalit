@@ -59,7 +59,7 @@ export default function HaloPSAConfig() {
       const { data } = await supabase
         .from('sync_logs')
         .select('completed_at')
-        .eq('integration_type', 'halopsa')
+        .eq('source', 'halopsa')
         .eq('status', 'success')
         .order('completed_at', { ascending: false })
         .limit(1);
@@ -151,27 +151,31 @@ export default function HaloPSAConfig() {
     try {
       setTesting(true);
       setErrorDetails(null);
-      const response = await client.functions.invoke('syncHaloPSACustomers', { action: 'test_connection' });
-      if (response.data.success) {
+
+      // Use the dedicated HaloPSA test endpoint
+      let result;
+      try {
+        result = await client.halo.testConnection();
+      } catch {
+        // Fall back to the functions endpoint
+        const resp = await client.functions.invoke('syncHaloPSACustomers', { action: 'test_connection' });
+        result = resp.data || resp;
+      }
+
+      if (result.success) {
         setConfigStatus(CONNECTION_STATES.CONNECTED);
-        if (!silent) {
-          toast.success('Connection successful!');
-        }
+        if (!silent) toast.success(result.message || 'Connection successful!');
       } else {
-        const errorMsg = response.data.error || 'Connection failed';
+        const errorMsg = result.error || 'Connection failed';
         setConfigStatus(CONNECTION_STATES.CONFIGURED);
         setErrorDetails(errorMsg);
-        if (!silent) {
-          toast.error(errorMsg);
-        }
+        if (!silent) toast.error(errorMsg);
       }
     } catch (error) {
       const errorMsg = error.message || 'Connection test failed';
       setConfigStatus(CONNECTION_STATES.CONFIGURED);
       setErrorDetails(errorMsg);
-      if (!silent) {
-        toast.error('Connection failed');
-      }
+      if (!silent) toast.error('Connection failed');
     } finally {
       setTesting(false);
     }

@@ -1,79 +1,11 @@
 import { getServiceSupabase } from '../lib/supabase.js';
+import { getHaloConfig, haloGet, extractRecords } from '../lib/halopsa.js';
 
-// Helper: Authenticate with HaloPSA via OAuth 2.0 Client Credentials
-async function authenticateWithHaloPSA(authUrl, clientId, clientSecret) {
-  const tokenResponse = await fetch(authUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'client_credentials',
-      client_id: clientId,
-      client_secret: clientSecret,
-      scope: 'all'
-    })
-  });
-
-  if (!tokenResponse.ok) {
-    const errorText = await tokenResponse.text();
-    throw new Error(`HaloPSA auth failed: ${tokenResponse.status} - ${errorText}`);
-  }
-
-  const tokenData = await tokenResponse.json();
-  if (!tokenData.access_token) {
-    throw new Error('No access token received from HaloPSA');
-  }
-
-  return tokenData.access_token;
-}
-
-// Helper: Build HaloPSA API URL
-function buildUrl(baseUrl, endpoint) {
-  return `${baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'}${endpoint}`;
-}
-
-// Helper: Fetch from HaloPSA
-async function fetchHalo(url, accessToken, clientId) {
-  console.log(`Fetching: ${url}`);
-  const response = await fetch(url, {
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Client-ID': clientId
-    }
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`HaloPSA API error ${response.status}: ${text}`);
-  }
-
-  const data = await response.json();
-  console.log(`Response keys: ${Object.keys(data)}`);
-  return data;
-}
-
-export async function syncHaloPSAContracts(body, user) {
+export async function syncHaloPSAContracts(body, _user) {
   const supabase = getServiceSupabase();
-
   const { action, customer_id } = body;
+  const config = await getHaloConfig();
 
-  const { data: settingsList } = await supabase.from('settings').select('*');
-  const settings = (settingsList || [])[0];
-  if (!settings) {
-    const err = new Error('HaloPSA settings not configured');
-    err.statusCode = 400;
-    throw err;
-  }
-
-  const accessToken = await authenticateWithHaloPSA(
-    settings.halopsa_auth_url,
-    settings.halopsa_client_id,
-    settings.halopsa_client_secret
-  );
-
-  const apiUrl = settings.halopsa_api_url;
-  const haloClientId = settings.halopsa_client_id;
-
-  // Action: sync_customer - sync contracts for a specific customer
   if (action === 'sync_customer') {
     if (!customer_id) {
       const err = new Error('customer_id is required');
@@ -98,18 +30,8 @@ export async function syncHaloPSAContracts(body, user) {
     console.log(`Found customer: ${dbCustomer.name} (id: ${dbCustomer.id})`);
 
     // Fetch contracts from HaloPSA for this client
-    const url = buildUrl(apiUrl, `ClientContract?client_id=${customer_id}&pageinate=false`);
-    const data = await fetchHalo(url, accessToken, haloClientId);
-
-    // Extract contracts array
-    let contracts = [];
-    if (Array.isArray(data)) {
-      contracts = data;
-    } else if (data.contracts) {
-      contracts = data.contracts;
-    } else if (data.records) {
-      contracts = data.records;
-    }
+    const data = await haloGet(`ClientContract?client_id=${customer_id}&pageinate=false`, config);
+    const contracts = extractRecords(data, 'contracts');
 
     console.log(`Found ${contracts.length} contracts for client ${customer_id}`);
     console.log(`First contract sample: ${JSON.stringify(contracts[0] || {})}`);

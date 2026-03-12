@@ -1,53 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
-
-// Helper: Authenticate with HaloPSA via OAuth 2.0 Client Credentials
-async function authenticateWithHaloPSA(authUrl, clientId, clientSecret) {
-  const tokenResponse = await fetch(authUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'client_credentials',
-      client_id: clientId,
-      client_secret: clientSecret,
-      scope: 'all'
-    })
-  });
-
-  if (!tokenResponse.ok) {
-    const errorText = await tokenResponse.text();
-    throw new Error(`HaloPSA auth failed: ${tokenResponse.status} - ${errorText}`);
-  }
-
-  const tokenData = await tokenResponse.json();
-  if (!tokenData.access_token) {
-    throw new Error('No access token received from HaloPSA');
-  }
-
-  return tokenData.access_token;
-}
-
-// Helper: Build HaloPSA API URL
-function buildUrl(baseUrl, endpoint) {
-  return `${baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'}${endpoint}`;
-}
-
-// Helper: Fetch from HaloPSA with rate limiting
-async function fetchHalo(url, accessToken, clientId) {
-  await new Promise(resolve => setTimeout(resolve, 300));
-
-  const response = await fetch(url, {
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Client-ID': clientId
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error(`HaloPSA API error: ${response.status}`);
-  }
-
-  return await response.json();
-}
+import { getHaloConfig, haloGet, extractRecords } from '../lib/halopsa.js';
 
 // Helper: Parse HaloPSA date (handles various formats including OLE dates)
 function parseHaloDate(dateValue) {
@@ -126,27 +78,10 @@ function transformInvoice(haloInvoice, customerId) {
   };
 }
 
-export async function syncHaloPSAInvoices(body, user) {
+export async function syncHaloPSAInvoices(body, _user) {
   const supabase = getServiceSupabase();
-
   const { action, customer_id } = body;
-
-  const { data: settingsList } = await supabase.from('settings').select('*');
-  const settings = (settingsList || [])[0];
-  if (!settings) {
-    const err = new Error('HaloPSA settings not configured');
-    err.statusCode = 400;
-    throw err;
-  }
-
-  const accessToken = await authenticateWithHaloPSA(
-    settings.halopsa_auth_url,
-    settings.halopsa_client_id,
-    settings.halopsa_client_secret
-  );
-
-  const apiUrl = settings.halopsa_api_url;
-  const haloClientId = settings.halopsa_client_id;
+  const config = await getHaloConfig();
 
   if (action === 'sync_customer') {
     if (!customer_id) {
@@ -171,19 +106,8 @@ export async function syncHaloPSAInvoices(body, user) {
     // Use a single page request with reasonable limit for quick sync
     console.log(`Quick sync for customer ${customer_id}`);
 
-    const url = buildUrl(apiUrl, `Invoice?client_id=${customer_id}&page_size=200&page_no=1`);
-    console.log(`Fetching: ${url}`);
-    const data = await fetchHalo(url, accessToken, haloClientId);
-
-    // Extract invoices array
-    let invoices = [];
-    if (Array.isArray(data)) {
-      invoices = data;
-    } else if (data.invoices) {
-      invoices = data.invoices;
-    } else if (data.records) {
-      invoices = data.records;
-    }
+    const data = await haloGet(`Invoice?client_id=${customer_id}&page_size=200&page_no=1`, config);
+    const invoices = extractRecords(data, 'invoices');
 
     console.log(`Found ${invoices.length} invoices for client ${customer_id}`);
 
@@ -256,17 +180,8 @@ export async function syncHaloPSAInvoices(body, user) {
     let hasMore = true;
 
     while (hasMore) {
-      const url = buildUrl(apiUrl, `Invoice?client_id=${customer_id}&page_size=100&page_no=${page}`);
-      const data = await fetchHalo(url, accessToken, haloClientId);
-
-      let pageInvoices = [];
-      if (Array.isArray(data)) {
-        pageInvoices = data;
-      } else if (data.invoices) {
-        pageInvoices = data.invoices;
-      } else if (data.records) {
-        pageInvoices = data.records;
-      }
+      const data = await haloGet(`Invoice?client_id=${customer_id}&page_size=100&page_no=${page}`, config);
+      const pageInvoices = extractRecords(data, 'invoices');
 
       if (pageInvoices.length === 0) {
         hasMore = false;
@@ -304,8 +219,7 @@ export async function syncHaloPSAInvoices(body, user) {
 
         // Fetch line items for full sync
         try {
-          const invoiceDetailUrl = buildUrl(apiUrl, `Invoice/${haloInvoice.id}`);
-          const invoiceDetail = await fetchHalo(invoiceDetailUrl, accessToken, haloClientId);
+          const invoiceDetail = await haloGet(`Invoice/${haloInvoice.id}`, config);
           const lineItems = invoiceDetail.lines || invoiceDetail.lineitems || invoiceDetail.items || [];
 
           if (lineItems.length > 0) {

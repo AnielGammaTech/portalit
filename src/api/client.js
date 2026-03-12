@@ -352,6 +352,29 @@ const users = {
   },
 };
 
+// ── HaloPSA ─────────────────────────────────────────────────────────────
+
+const halo = {
+  async getStatus() {
+    return apiFetch('/api/halo/status', { method: 'GET' });
+  },
+  async testConnection() {
+    return apiFetch('/api/halo/test');
+  },
+  async syncAll() {
+    return apiFetch('/api/halo/sync');
+  },
+  async syncCustomer(customerId) {
+    return apiFetch('/api/halo/sync/customer', { body: { customer_id: customerId } });
+  },
+  async syncContacts(customerId) {
+    return apiFetch('/api/halo/sync/contacts', { body: { customer_id: customerId } });
+  },
+  async getHaloCustomers() {
+    return apiFetch('/api/halo/customers', { method: 'GET' });
+  },
+};
+
 // ── App Logs ───────────────────────────────────────────────────────────
 
 const appLogs = {
@@ -370,5 +393,6 @@ export const client = {
   integrations,
   agents,
   users,
+  halo,
   appLogs,
 };

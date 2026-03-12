@@ -1,73 +1,11 @@
 import { getServiceSupabase } from '../lib/supabase.js';
-
-// Helper: Extract HaloPSA access token via OAuth 2.0 Client Credentials flow
-async function authenticateWithHaloPSA(authUrl, clientId, clientSecret) {
-  const tokenResponse = await fetch(authUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'client_credentials',
-      client_id: clientId,
-      client_secret: clientSecret,
-      scope: 'all'
-    })
-  });
-
-  if (!tokenResponse.ok) {
-    const errorText = await tokenResponse.text();
-    throw new Error(`HaloPSA auth failed: ${tokenResponse.status} - ${errorText}`);
-  }
-
-  const tokenData = await tokenResponse.json();
-  if (!tokenData.access_token) {
-    throw new Error('No access token received from HaloPSA');
-  }
-
-  return tokenData.access_token;
-}
-
-// Helper: Build HaloPSA API URL
-function buildHaloPsaApiUrl(baseUrl, endpoint) {
-  return `${baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'}${endpoint}`;
-}
-
-// Helper: Fetch from HaloPSA with rate limiting and error handling
-async function fetchFromHaloPSA(url, accessToken, clientId) {
-  await new Promise(resolve => setTimeout(resolve, 500)); // Rate limiting
-
-  const response = await fetch(url, {
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Client-ID': clientId
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error(`HaloPSA API error: ${response.status}`);
-  }
-
-  return await response.json();
-}
-
-// Helper: Extract recurring bills array from various HaloPSA response formats
-function extractRecurringBillsFromResponse(data) {
-  if (Array.isArray(data)) return data;
-  if (data.invoices) return data.invoices;
-  if (data.recurringInvoices) return data.recurringInvoices;
-  if (data.pageDetails?.pageResult) return data.pageDetails.pageResult;
-  if (data.records) return data.records;
-  return [];
-}
+import { getHaloConfig, haloGet, extractRecords } from '../lib/halopsa.js';
 
 // Helper: Fetch line items for a specific recurring invoice
-async function fetchLineItemsForBill(billId, baseUrl, accessToken, clientId) {
+async function fetchLineItemsForBill(billId, config) {
   try {
-    const url = buildHaloPsaApiUrl(baseUrl, `RecurringInvoiceLineItem?recurringinvoice_id=${billId}`);
-    const data = await fetchFromHaloPSA(url, accessToken, clientId);
-    if (Array.isArray(data)) return data;
-    if (data.line_items) return data.line_items;
-    if (data.LineItems) return data.LineItems;
-    return [];
+    const data = await haloGet(`RecurringInvoiceLineItem?recurringinvoice_id=${billId}`, config);
+    return extractRecords(data, 'line_items');
   } catch (err) {
     console.log(`Could not fetch line items for bill ${billId}: ${err.message}`);
     return [];
@@ -109,38 +47,13 @@ function transformLineItem(haloLineItem, recurringBillId) {
   };
 }
 
-export async function syncHaloPSARecurringBills(body, user) {
+export async function syncHaloPSARecurringBills(body, _user) {
   const supabase = getServiceSupabase();
-
   const { action, customer_id } = body;
-
-  const { data: settingsList } = await supabase.from('settings').select('*');
-  const settings = (settingsList || [])[0];
-  if (!settings) {
-    const err = new Error('HaloPSA settings not configured');
-    err.statusCode = 400;
-    throw err;
-  }
-
-  let accessToken;
-  try {
-    accessToken = await authenticateWithHaloPSA(
-      settings.halopsa_auth_url,
-      settings.halopsa_client_id,
-      settings.halopsa_client_secret
-    );
-  } catch (authError) {
-    const err = new Error(authError.message);
-    err.statusCode = 401;
-    throw err;
-  }
-
-  const apiUrl = settings.halopsa_api_url;
-  const clientId = settings.halopsa_client_id;
+  const config = await getHaloConfig();
 
   if (action === 'test_connection') {
-    const url = buildHaloPsaApiUrl(apiUrl, 'RecurringInvoice?page_number=1&page_size=1');
-    await fetchFromHaloPSA(url, accessToken, clientId);
+    await haloGet('RecurringInvoice?page_number=1&page_size=1', config);
     return { success: true, message: 'HaloPSA connection successful!' };
   }
 
@@ -173,10 +86,8 @@ export async function syncHaloPSARecurringBills(body, user) {
       if (!dbCustomer) throw new Error('Customer not found in database');
 
       // Extract: Fetch recurring bills WITH line items included
-      const url = buildHaloPsaApiUrl(apiUrl, `RecurringInvoice?client_id=${customer_id}&page_size=1000&includelines=true`);
-      const data = await fetchFromHaloPSA(url, accessToken, clientId);
-      console.log(`Response sample: ${JSON.stringify(data).substring(0, 2000)}`);
-      const recurringBills = extractRecurringBillsFromResponse(data);
+      const data = await haloGet(`RecurringInvoice?client_id=${customer_id}&page_size=1000&includelines=true`, config);
+      const recurringBills = extractRecords(data, 'invoices');
 
       // Transform & Load: Process each bill
       for (const haloBill of recurringBills) {
@@ -281,9 +192,8 @@ export async function syncHaloPSARecurringBills(body, user) {
 
       // Extract: Paginate through HaloPSA recurring invoices
       while (hasMore) {
-        const url = buildHaloPsaApiUrl(apiUrl, `RecurringInvoice?page_number=${pageNumber}&page_size=500`);
-        const data = await fetchFromHaloPSA(url, accessToken, clientId);
-        const recurringBills = extractRecurringBillsFromResponse(data);
+        const data = await haloGet(`RecurringInvoice?page_number=${pageNumber}&page_size=500`, config);
+        const recurringBills = extractRecords(data, 'invoices');
 
         if (recurringBills.length === 0) {
           hasMore = false;
@@ -303,7 +213,7 @@ export async function syncHaloPSARecurringBills(body, user) {
             const billPayload = transformRecurringBill(haloBill, customerId);
 
             // Extract: Fetch line items
-            const lineItems = await fetchLineItemsForBill(haloBill.id, apiUrl, accessToken, clientId);
+            const lineItems = await fetchLineItemsForBill(haloBill.id, config);
 
             // Determine if creating or updating
             const billKey = `${haloBill.id}:${customerId}`;

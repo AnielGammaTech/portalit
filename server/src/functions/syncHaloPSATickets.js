@@ -1,50 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
-
-async function authenticateWithHaloPSA(authUrl, clientId, clientSecret) {
-  const tokenResponse = await fetch(authUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'client_credentials',
-      client_id: clientId,
-      client_secret: clientSecret,
-      scope: 'all'
-    })
-  });
-
-  if (!tokenResponse.ok) {
-    const errorText = await tokenResponse.text();
-    throw new Error(`HaloPSA auth failed: ${tokenResponse.status} - ${errorText}`);
-  }
-
-  const tokenData = await tokenResponse.json();
-  if (!tokenData.access_token) {
-    throw new Error('No access token received from HaloPSA');
-  }
-
-  return tokenData.access_token;
-}
-
-function buildHaloPsaApiUrl(baseUrl, endpoint) {
-  return `${baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'}${endpoint}`;
-}
-
-async function fetchFromHaloPSA(url, accessToken, clientId) {
-  await new Promise(resolve => setTimeout(resolve, 500));
-
-  const response = await fetch(url, {
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Client-ID': clientId
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error(`HaloPSA API error: ${response.status}`);
-  }
-
-  return await response.json();
-}
+import { getHaloConfig, haloGet, extractRecords } from '../lib/halopsa.js';
 
 function transformTicket(haloTicket, customerId) {
   const statusMap = {
@@ -108,34 +63,10 @@ function transformTicket(haloTicket, customerId) {
   };
 }
 
-export async function syncHaloPSATickets(body, user) {
+export async function syncHaloPSATickets(body, _user) {
   const supabase = getServiceSupabase();
-
   const { action, customer_id } = body;
-
-  const { data: settingsList } = await supabase.from('settings').select('*');
-  const settings = (settingsList || [])[0];
-  if (!settings) {
-    const err = new Error('HaloPSA settings not configured');
-    err.statusCode = 400;
-    throw err;
-  }
-
-  let accessToken;
-  try {
-    accessToken = await authenticateWithHaloPSA(
-      settings.halopsa_auth_url,
-      settings.halopsa_client_id,
-      settings.halopsa_client_secret
-    );
-  } catch (authError) {
-    const err = new Error(authError.message);
-    err.statusCode = 401;
-    throw err;
-  }
-
-  const apiUrl = settings.halopsa_api_url;
-  const clientId = settings.halopsa_client_id;
+  const config = await getHaloConfig();
 
   if (action === 'sync_customer') {
     if (!customer_id) {
@@ -162,11 +93,9 @@ export async function syncHaloPSATickets(body, user) {
       const dbCustomer = (allCustomers || []).find(c => c.external_id === String(customer_id) && c.source === 'halopsa');
       if (!dbCustomer) throw new Error(`Customer not found in database for external_id: ${customer_id}`);
 
-      // Fetch all tickets for this client using the external HaloPSA ID (no page_size limit to get all including resolved)
-      const url = buildHaloPsaApiUrl(apiUrl, `Tickets?client_id=${customer_id}&page_size=200&order=dateoccurred&orderdesc=true`);
-      const data = await fetchFromHaloPSA(url, accessToken, clientId);
-
-      const tickets = Array.isArray(data) ? data : (data.tickets || data.records || []);
+      // Fetch all tickets for this client
+      const data = await haloGet(`Tickets?client_id=${customer_id}&page_size=200&order=dateoccurred&orderdesc=true`, config);
+      const tickets = extractRecords(data, 'tickets');
       console.log(`Found ${tickets.length} tickets for customer ${customer_id}`);
 
       // Log first ticket to see status field structure
