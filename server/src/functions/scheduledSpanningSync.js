@@ -237,17 +237,19 @@ export async function scheduledSpanningSync(body, user) {
         }
       }
 
-      // Build and persist cache data so the customer tab always has it
+      // Build and persist cache data using RPC for reliability
       const domainInfo = allDomains.find(d => d.id === mapping.spanning_tenant_id);
       const cacheData = buildCacheData(users, domainInfo);
 
-      await supabase
-        .from('spanning_mappings')
-        .update({
-          last_synced: new Date().toISOString(),
-          cached_data: cacheData,
-        })
-        .eq('id', mapping.id);
+      const { error: cacheErr } = await supabase.rpc('write_mapping_cache', {
+        p_table: 'spanning_mappings',
+        p_mapping_id: mapping.id,
+        p_cached_data: cacheData,
+        p_last_synced: new Date().toISOString(),
+      });
+      if (cacheErr) {
+        console.error(`[Spanning scheduled] cache write failed for ${mapping.id}:`, cacheErr.message);
+      }
 
       results.push({
         customer: customer?.name,

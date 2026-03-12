@@ -284,14 +284,16 @@ export async function syncSpanningBackup(body, user) {
 
     const responseData = buildCacheData(users, domainInfo);
 
-    // Cache the data for future quick loads
-    await supabase
-      .from('spanning_mappings')
-      .update({
-        cached_data: responseData,
-        last_synced: new Date().toISOString()
-      })
-      .eq('id', mapping.id);
+    // Cache the data for future quick loads using RPC for reliability
+    const { error: cacheErr } = await supabase.rpc('write_mapping_cache', {
+      p_table: 'spanning_mappings',
+      p_mapping_id: mapping.id,
+      p_cached_data: responseData,
+      p_last_synced: new Date().toISOString(),
+    });
+    if (cacheErr) {
+      console.error('[Spanning] list_users cache write failed:', cacheErr.message);
+    }
 
     return responseData;
   }
@@ -468,13 +470,15 @@ export async function syncSpanningBackup(body, user) {
 
     // Build and persist cache data so it's available on next page load
     const cacheData = buildCacheData(spanningUsers, domainInfo);
-    await supabase
-      .from('spanning_mappings')
-      .update({
-        last_synced: new Date().toISOString(),
-        cached_data: cacheData
-      })
-      .eq('id', mapping.id);
+    const { error: cacheErr } = await supabase.rpc('write_mapping_cache', {
+      p_table: 'spanning_mappings',
+      p_mapping_id: mapping.id,
+      p_cached_data: cacheData,
+      p_last_synced: new Date().toISOString(),
+    });
+    if (cacheErr) {
+      console.error('[Spanning] sync_users cache write failed:', cacheErr.message);
+    }
 
     return {
       success: true,
@@ -553,14 +557,16 @@ export async function syncSpanningBackup(body, user) {
     // Build cache data
     const cacheData = buildCacheData(users, domainInfo);
 
-    // Update last_synced and cached_data
-    await supabase
-      .from('spanning_mappings')
-      .update({
-        last_synced: new Date().toISOString(),
-        cached_data: cacheData
-      })
-      .eq('id', mapping.id);
+    // Write cache using RPC for reliability
+    const { error: cacheErr } = await supabase.rpc('write_mapping_cache', {
+      p_table: 'spanning_mappings',
+      p_mapping_id: mapping.id,
+      p_cached_data: cacheData,
+      p_last_synced: new Date().toISOString(),
+    });
+    if (cacheErr) {
+      console.error('[Spanning] sync_licenses cache write failed:', cacheErr.message);
+    }
 
     return {
       success: true,
@@ -623,17 +629,19 @@ export async function syncSpanningBackup(body, user) {
           }
         }
 
-        // Build and persist cache data
+        // Build and persist cache data using RPC
         const domainInfo = allDomains.find(d => d.id === mapping.spanning_tenant_id);
         const cacheData = buildCacheData(users, domainInfo);
 
-        await supabase
-          .from('spanning_mappings')
-          .update({
-            last_synced: new Date().toISOString(),
-            cached_data: cacheData
-          })
-          .eq('id', mapping.id);
+        const { error: cacheErr } = await supabase.rpc('write_mapping_cache', {
+          p_table: 'spanning_mappings',
+          p_mapping_id: mapping.id,
+          p_cached_data: cacheData,
+          p_last_synced: new Date().toISOString(),
+        });
+        if (cacheErr) {
+          console.error(`[Spanning] sync_all cache write failed for ${mapping.id}:`, cacheErr.message);
+        }
 
         synced++;
       } catch (e) {

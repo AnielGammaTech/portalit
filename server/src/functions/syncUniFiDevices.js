@@ -163,12 +163,15 @@ export async function syncUniFiDevices(params) {
 
       const cachedData = { devices, summary, synced_at: new Date().toISOString() };
 
-      const { error: updateErr } = await supabase
-        .from('unifi_mappings')
-        .update({ cached_data: cachedData, last_synced: new Date().toISOString() })
-        .eq('id', mapping.id);
-
-      if (updateErr) throw new Error(updateErr.message);
+      const { error: cacheErr } = await supabase.rpc('write_mapping_cache', {
+        p_table: 'unifi_mappings',
+        p_mapping_id: mapping.id,
+        p_cached_data: cachedData,
+        p_last_synced: new Date().toISOString(),
+      });
+      if (cacheErr) {
+        console.error('[UniFi] cache write failed:', cacheErr.message);
+      }
 
       return { success: true, recordsSynced: devices.length, summary };
     } catch (error) {
@@ -218,13 +221,15 @@ export async function syncUniFiDevices(params) {
 
           const cachedData = { devices, summary, synced_at: new Date().toISOString() };
 
-          const { error: updateErr } = await supabase
-            .from('unifi_mappings')
-            .update({ cached_data: cachedData, last_synced: new Date().toISOString() })
-            .eq('id', mapping.id);
+          const { error: cacheErr } = await supabase.rpc('write_mapping_cache', {
+            p_table: 'unifi_mappings',
+            p_mapping_id: mapping.id,
+            p_cached_data: cachedData,
+            p_last_synced: new Date().toISOString(),
+          });
 
-          if (updateErr) {
-            errors.push({ customer: mapping.customer_name, error: updateErr.message });
+          if (cacheErr) {
+            errors.push({ customer: mapping.customer_name, error: cacheErr.message });
           } else {
             synced++;
           }
