@@ -110,7 +110,12 @@ export async function getHaloToken(config) {
     params.set('tenant', cfg.tenant);
   }
 
-  const response = await fetch(cfg.authUrl, {
+  // HaloPSA token endpoint is at {authUrl}/token — auto-append if needed
+  const tokenUrl = cfg.authUrl.endsWith('/token')
+    ? cfg.authUrl
+    : `${cfg.authUrl.replace(/\/$/, '')}/token`;
+
+  const response = await fetch(tokenUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: params.toString(),
@@ -120,6 +125,13 @@ export async function getHaloToken(config) {
     const errorText = await response.text();
     clearTokenCache();
     throw new Error(`HaloPSA auth failed (${response.status}): ${errorText}`);
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    const text = await response.text();
+    clearTokenCache();
+    throw new Error(`HaloPSA auth returned unexpected content-type (${contentType}): ${text.slice(0, 200)}`);
   }
 
   const data = await response.json();
