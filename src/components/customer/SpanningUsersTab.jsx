@@ -66,7 +66,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
         action: 'list_users',
         customer_id: customerId
       });
-      return response.data;
+      return response;
     },
     enabled: false, // Don't run automatically
     staleTime: 5 * 60 * 1000
