@@ -45,11 +45,11 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
         action: 'sync_customer',
         customer_id: customerId
       });
-      if (response.data.success) {
-        setLiveEdrData(response.data.data);
+      if (response.success) {
+        setLiveEdrData(response.data);
         toast.success(`EDR data refreshed`);
       } else {
-        toast.error(response.data.error || 'Sync failed');
+        toast.error(response.error || 'Sync failed');
       }
     } catch (error) {
       toast.error(error.message);

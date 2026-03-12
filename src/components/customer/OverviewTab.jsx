@@ -260,11 +260,11 @@ export default function OverviewTab({
         action: 'sync_customer',
         customer_id: customer.external_id 
       });
-      if (response.data.success) {
-        toast.success(`Synced ${response.data.recordsSynced} contacts`);
+      if (response.success) {
+        toast.success(`Synced ${response.recordsSynced} contacts`);
         queryClient.invalidateQueries({ queryKey: ['contacts', customerId] });
       } else {
-        toast.error(response.data.error || 'Sync failed');
+        toast.error(response.error || 'Sync failed');
       }
     } catch (error) {
       toast.error(error.message);
@@ -285,14 +285,14 @@ export default function OverviewTab({
         ...newTicket,
         conversation_transcript: conversationTranscript || null
       });
-      if (response.data.success) {
+      if (response.success) {
         toast.success('Support ticket created!');
         setShowTicketModal(false);
         setNewTicket({ summary: '', details: '', priority: 'medium' });
         setConversationTranscript('');
         queryClient.invalidateQueries({ queryKey: ['tickets', customerId] });
       } else {
-        toast.error(response.data.error || 'Failed to create ticket');
+        toast.error(response.error || 'Failed to create ticket');
       }
     } catch (error) {
       toast.error(error.message);

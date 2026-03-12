@@ -76,12 +76,12 @@ export default function DevicesTab({ customerId, customerExternalId }) {
         action: 'sync_devices',
         customer_id: customerId
       });
-      if (response.data.success) {
-        toast.success(`Synced ${response.data.recordsSynced} devices from Datto RMM`);
+      if (response.success) {
+        toast.success(`Synced ${response.recordsSynced} devices from Datto RMM`);
         queryClient.invalidateQueries({ queryKey: ['devices', customerId] });
         queryClient.invalidateQueries({ queryKey: ['datto_mappings', customerId] });
       } else {
-        toast.error(response.data.error || 'Sync failed');
+        toast.error(response.error || 'Sync failed');
       }
     } catch (error) {
       toast.error(error.message);

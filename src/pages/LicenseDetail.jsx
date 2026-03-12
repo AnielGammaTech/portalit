@@ -652,11 +652,11 @@ export default function LicenseDetail() {
         action: 'sync_users', 
         customer_id: software.customer_id 
       });
-      if (response.data.success) {
-        toast.success(`Synced ${response.data.totalJumpCloudUsers} users: ${response.data.created} new, ${response.data.matched} matched!`);
+      if (response.success) {
+        toast.success(`Synced ${response.totalJumpCloudUsers} users: ${response.created} new, ${response.matched} matched!`);
         queryClient.invalidateQueries({ queryKey: ['contacts', software.customer_id] });
       } else {
-        toast.error(response.data.error || 'User sync failed');
+        toast.error(response.error || 'User sync failed');
       }
     } catch (error) {
       toast.error(error.message);
@@ -672,11 +672,11 @@ export default function LicenseDetail() {
             action: 'sync_users', 
             customer_id: software.customer_id 
           });
-          if (response.data.success) {
-            toast.success(`Synced ${response.data.totalSpanningUsers} users: ${response.data.updated} updated, ${response.data.matched} matched!`);
+          if (response.success) {
+            toast.success(`Synced ${response.totalSpanningUsers} users: ${response.updated} updated, ${response.matched} matched!`);
             queryClient.invalidateQueries({ queryKey: ['contacts', software.customer_id] });
           } else {
-            toast.error(response.data.error || 'User sync failed');
+            toast.error(response.error || 'User sync failed');
           }
         } catch (error) {
           toast.error(error.message);

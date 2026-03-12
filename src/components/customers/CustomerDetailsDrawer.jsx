@@ -25,11 +25,11 @@ export default function CustomerDetailsDrawer({ customer, isOpen, onClose }) {
         action: 'sync_contacts',
         customer_id: customer?.external_id
       });
-      if (response.data.success) {
+      if (response.success) {
         toast.success('Contacts synced successfully');
         refetchContacts();
       } else {
-        toast.error(response.data.error || 'Failed to sync contacts');
+        toast.error(response.error || 'Failed to sync contacts');
       }
     } catch (error) {
       toast.error(error.message || 'Error syncing contacts');
@@ -45,10 +45,10 @@ export default function CustomerDetailsDrawer({ customer, isOpen, onClose }) {
         action: 'sync_address',
         customer_id: customer?.external_id
       });
-      if (response.data.success) {
+      if (response.success) {
         toast.success('Address synced successfully');
       } else {
-        toast.error(response.data.error || 'Failed to sync address');
+        toast.error(response.error || 'Failed to sync address');
       }
     } catch (error) {
       toast.error(error.message || 'Error syncing address');

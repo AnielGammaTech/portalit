@@ -189,13 +189,13 @@ export default function CustomerServicesTab({
         action: 'sync_customer',
         customer_id: customer.external_id
       });
-      if (response.data.success) {
+      if (response.success) {
         updateSyncStatus('halopsa', 'success');
-        toast.success(`HaloPSA: Synced ${response.data.recordsSynced || 0} contacts`);
+        toast.success(`HaloPSA: Synced ${response.recordsSynced || 0} contacts`);
         queryClient.invalidateQueries();
       } else {
-        updateSyncStatus('halopsa', 'error', response.data.error);
-        toast.error(response.data.error || 'HaloPSA sync failed');
+        updateSyncStatus('halopsa', 'error', response.error);
+        toast.error(response.error || 'HaloPSA sync failed');
       }
     } catch (error) {
       updateSyncStatus('halopsa', 'error', error.message);
@@ -214,13 +214,13 @@ export default function CustomerServicesTab({
         action: 'sync_devices',
         customer_id: customerId
       });
-      if (response.data.success) {
+      if (response.success) {
         updateSyncStatus('datto', 'success');
-        toast.success(`Datto: Synced ${response.data.recordsSynced || 0} devices`);
+        toast.success(`Datto: Synced ${response.recordsSynced || 0} devices`);
         queryClient.invalidateQueries();
       } else {
-        updateSyncStatus('datto', 'error', response.data.error);
-        toast.error(response.data.error || 'Datto sync failed');
+        updateSyncStatus('datto', 'error', response.error);
+        toast.error(response.error || 'Datto sync failed');
       }
     } catch (error) {
       updateSyncStatus('datto', 'error', error.message);
@@ -244,11 +244,11 @@ export default function CustomerServicesTab({
             action: 'sync_customer',
             customer_id: customer.external_id
           });
-          if (res.data.success) {
+          if (res.success) {
             updateSyncStatus('halopsa', 'success');
-            results.push(`HaloPSA (${res.data.recordsSynced || 0} contacts)`);
+            results.push(`HaloPSA (${res.recordsSynced || 0} contacts)`);
           } else {
-            updateSyncStatus('halopsa', 'error', res.data.error);
+            updateSyncStatus('halopsa', 'error', res.error);
             errors.push('HaloPSA');
           }
         } catch (e) {
@@ -265,11 +265,11 @@ export default function CustomerServicesTab({
             action: 'sync_devices',
             customer_id: customerId
           });
-          if (res.data.success) {
+          if (res.success) {
             updateSyncStatus('datto', 'success');
-            results.push(`Datto (${res.data.recordsSynced || 0} devices)`);
+            results.push(`Datto (${res.recordsSynced || 0} devices)`);
           } else {
-            updateSyncStatus('datto', 'error', res.data.error);
+            updateSyncStatus('datto', 'error', res.error);
             errors.push('Datto');
           }
         } catch (e) {
@@ -286,11 +286,11 @@ export default function CustomerServicesTab({
             action: 'sync_licenses',
             customer_id: customerId
           });
-          if (res.data.success) {
+          if (res.success) {
             updateSyncStatus('jumpcloud', 'success');
-            results.push(`JumpCloud (${res.data.contactsCreated + res.data.contactsUpdated || 0} users)`);
+            results.push(`JumpCloud (${(res.contactsCreated || 0) + (res.contactsUpdated || 0)} users)`);
           } else {
-            updateSyncStatus('jumpcloud', 'error', res.data.error);
+            updateSyncStatus('jumpcloud', 'error', res.error);
             errors.push('JumpCloud');
           }
         } catch (e) {
@@ -307,11 +307,11 @@ export default function CustomerServicesTab({
             action: 'sync_licenses',
             customer_id: customerId
           });
-          if (res.data.success) {
+          if (res.success) {
             updateSyncStatus('spanning', 'success');
-            results.push(`Spanning (${res.data.contactsUpdated || 0} users)`);
+            results.push(`Spanning (${res.contactsUpdated || 0} users)`);
           } else {
-            updateSyncStatus('spanning', 'error', res.data.error);
+            updateSyncStatus('spanning', 'error', res.error);
             errors.push('Spanning');
           }
         } catch (e) {
@@ -345,13 +345,13 @@ export default function CustomerServicesTab({
         action: 'sync_licenses',
         customer_id: customerId
       });
-      if (response.data.success) {
+      if (response.success) {
         toast.success('JumpCloud data synced!');
         queryClient.invalidateQueries({ queryKey: ['jumpcloud-contacts', customerId] });
         queryClient.invalidateQueries({ queryKey: ['jumpcloud-licenses', customerId] });
         queryClient.invalidateQueries({ queryKey: ['jumpcloud-mapping', customerId] });
       } else {
-        toast.error(response.data.error || 'Sync failed');
+        toast.error(response.error || 'Sync failed');
       }
     } catch (error) {
       toast.error(error.message);
@@ -378,12 +378,12 @@ export default function CustomerServicesTab({
         action: 'sync_licenses',
         customer_id: customerId
       });
-      if (response.data.success) {
+      if (response.success) {
         toast.success('Unitrends data synced!');
         queryClient.invalidateQueries({ queryKey: ['spanning-contacts', customerId] });
         queryClient.invalidateQueries({ queryKey: ['spanning-licenses', customerId] });
       } else {
-        toast.error(response.data.error || 'Sync failed');
+        toast.error(response.error || 'Sync failed');
       }
     } catch (error) {
       toast.error(error.message);
@@ -497,16 +497,16 @@ export default function CustomerServicesTab({
                     onClick={async () => {
                       try {
                         setIsSyncing(true);
-                        const response = await client.functions.invoke('syncHaloPSARecurringBills', { 
+                        const response = await client.functions.invoke('syncHaloPSARecurringBills', {
                           action: 'sync_customer',
-                          customer_id: customer.external_id 
+                          customer_id: customer.external_id
                         });
-                        if (response.data.success) {
-                          toast.success(`Synced!`);
+                        if (response.success) {
+                          toast.success(`Synced ${response.recordsSynced || 0} recurring bills!`);
                           queryClient.invalidateQueries({ queryKey: ['recurring_bills', customerId] });
                           queryClient.invalidateQueries({ queryKey: ['line_items', customerId] });
                         } else {
-                          toast.error(response.data.error || 'Sync failed');
+                          toast.error(response.error || 'Sync failed');
                         }
                       } catch (error) {
                         toast.error(error.message || 'An error occurred');

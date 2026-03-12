@@ -106,12 +106,12 @@ export default function JumpCloudConfig() {
     setErrorDetails(null);
     try {
       const response = await client.functions.invoke('syncJumpCloudLicenses', { action: 'test_connection' });
-      if (response.data.success) {
+      if (response.success) {
         setConfigStatus(CONNECTION_STATES.CONNECTED);
-        setIsMsp(!!response.data.isMsp);
+        setIsMsp(!!response.isMsp);
         toast.success('Connected to JumpCloud!');
       } else {
-        const errMsg = response.data.error || 'Connection failed';
+        const errMsg = response.error || 'Connection failed';
         setConfigStatus(CONNECTION_STATES.CONFIGURED);
         setErrorDetails(errMsg);
         toast.error(errMsg);
@@ -131,12 +131,12 @@ export default function JumpCloudConfig() {
     setErrorDetails(null);
     try {
       const response = await client.functions.invoke('syncJumpCloudLicenses', { action: 'list_organizations' });
-      if (response.data.success) {
-        setJumpcloudOrgs(response.data.organizations);
+      if (response.success) {
+        setJumpcloudOrgs(response.organizations);
         setShowMappingView(true);
         setCurrentPage(1);
       } else {
-        const errMsg = response.data.error || 'Failed to load organizations';
+        const errMsg = response.error || 'Failed to load organizations';
         setErrorDetails(errMsg);
         toast.error(errMsg);
       }
@@ -181,13 +181,13 @@ export default function JumpCloudConfig() {
     setErrorDetails(null);
     try {
       const response = await client.functions.invoke('syncJumpCloudLicenses', { action: 'sync_all' });
-      if (response.data.success) {
-        toast.success(`Synced ${response.data.created} new, ${response.data.updated} updated licenses!`);
+      if (response.success) {
+        toast.success(`Synced ${response.created} new, ${response.updated} updated licenses!`);
         queryClient.invalidateQueries({ queryKey: ['licenses'] });
         refetchMappings();
         fetchLastSync();
       } else {
-        const errMsg = response.data.error || 'Sync failed';
+        const errMsg = response.error || 'Sync failed';
         setErrorDetails(errMsg);
         toast.error(errMsg);
       }
@@ -208,12 +208,12 @@ export default function JumpCloudConfig() {
         action: 'sync_licenses',
         customer_id: customerId
       });
-      if (response.data.success) {
-        toast.success(`Synced ${response.data.totalUsers} users, ${response.data.ssoApps} SSO apps!`);
+      if (response.success) {
+        toast.success(`Synced ${response.totalUsers} users, ${response.ssoApps} SSO apps!`);
         queryClient.invalidateQueries({ queryKey: ['licenses'] });
         refetchMappings();
       } else {
-        const errMsg = response.data.error || 'Sync failed';
+        const errMsg = response.error || 'Sync failed';
         setErrorDetails(errMsg);
         toast.error(errMsg);
       }
@@ -234,12 +234,12 @@ export default function JumpCloudConfig() {
         action: 'sync_users',
         customer_id: customerId
       });
-      if (response.data.success) {
-        toast.success(`Synced ${response.data.totalJumpCloudUsers} users: ${response.data.created} new, ${response.data.matched} matched!`);
+      if (response.success) {
+        toast.success(`Synced ${response.totalJumpCloudUsers} users: ${response.created} new, ${response.matched} matched!`);
         queryClient.invalidateQueries({ queryKey: ['contacts'] });
         refetchMappings();
       } else {
-        const errMsg = response.data.error || 'User sync failed';
+        const errMsg = response.error || 'User sync failed';
         setErrorDetails(errMsg);
         toast.error(errMsg);
       }

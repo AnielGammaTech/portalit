@@ -143,13 +143,13 @@ export default function HaloPSASection() {
       setTesting(true);
       setErrorDetails(null);
       const response = await client.functions.invoke('syncHaloPSACustomers', { action: 'test_connection' });
-      if (response.data.success) {
+      if (response.success) {
         setConfigStatus(CONNECTION_STATES.CONNECTED);
         if (!silent) {
           toast.success('HaloPSA connection successful!');
         }
       } else {
-        const errMsg = response.data.error || 'Connection test failed';
+        const errMsg = response.error || 'Connection test failed';
         setConfigStatus(CONNECTION_STATES.CONFIGURED);
         setErrorDetails(errMsg);
         if (!silent) {

@@ -107,12 +107,12 @@ export default function DattoRMMConfig() {
     setErrorDetails(null);
     try {
       const response = await client.functions.invoke('syncDattoRMMDevices', { action: 'test_connection' });
-      if (response.data.success) {
+      if (response.success) {
         setConfigStatus(CONNECTION_STATES.CONNECTED);
-        setConnectedAccount(response.data.account);
-        toast.success(`Connected to ${response.data.account?.name || 'Datto RMM'}`);
+        setConnectedAccount(response.account);
+        toast.success(`Connected to ${response.account?.name || 'Datto RMM'}`);
       } else {
-        const errMsg = response.data.error || 'Connection failed';
+        const errMsg = response.error || 'Connection failed';
         setConfigStatus(CONNECTION_STATES.CONFIGURED);
         setErrorDetails(errMsg);
         toast.error(errMsg);
@@ -132,12 +132,12 @@ export default function DattoRMMConfig() {
     setErrorDetails(null);
     try {
       const response = await client.functions.invoke('syncDattoRMMDevices', { action: 'list_sites' });
-      if (response.data.success) {
-        setDattoSites(response.data.sites);
+      if (response.success) {
+        setDattoSites(response.sites);
         setShowMappingView(true);
         setCurrentPage(1);
       } else {
-        const errMsg = response.data.error || 'Failed to load sites';
+        const errMsg = response.error || 'Failed to load sites';
         setErrorDetails(errMsg);
         toast.error(errMsg);
       }
@@ -254,15 +254,15 @@ export default function DattoRMMConfig() {
     setErrorDetails(null);
     try {
       const response = await client.functions.invoke('syncDattoRMMDevices', { action: 'automap' });
-      if (response.data.success) {
-        if (response.data.mappedCount > 0) {
-          toast.success(`Auto-mapped ${response.data.mappedCount} sites to customers!`);
+      if (response.success) {
+        if (response.mappedCount > 0) {
+          toast.success(`Auto-mapped ${response.mappedCount} sites to customers!`);
         } else {
           toast.info('No new matches found. Sites may already be mapped or names don\'t match.');
         }
         refetchMappings();
       } else {
-        const errMsg = response.data.error || 'Auto-map failed';
+        const errMsg = response.error || 'Auto-map failed';
         setErrorDetails(errMsg);
         toast.error(errMsg);
       }
@@ -280,12 +280,12 @@ export default function DattoRMMConfig() {
     setErrorDetails(null);
     try {
       const response = await client.functions.invoke('syncDattoRMMDevices', { action: 'sync_all' });
-      if (response.data.success) {
-        toast.success(`Synced ${response.data.recordsSynced} devices!`);
+      if (response.success) {
+        toast.success(`Synced ${response.recordsSynced} devices!`);
         queryClient.invalidateQueries({ queryKey: ['devices'] });
         fetchLastSync();
       } else {
-        const errMsg = response.data.error || 'Sync failed';
+        const errMsg = response.error || 'Sync failed';
         setErrorDetails(errMsg);
         toast.error(errMsg);
       }

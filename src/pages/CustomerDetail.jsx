@@ -366,11 +366,11 @@ export default function CustomerDetail() {
       // Sync HaloPSA if customer is from HaloPSA
       if (customer?.source === 'halopsa' && customer?.external_id) {
         try {
-          const res = await client.functions.invoke('syncHaloPSACustomers', { 
+          const res = await client.functions.invoke('syncHaloPSACustomers', {
             action: 'sync_customer',
-            customer_id: customer.external_id 
+            customer_id: customer.external_id
           });
-          if (res.data.success) results.push('HaloPSA');
+          if (res.success) results.push('HaloPSA');
           else errors.push('HaloPSA');
         } catch (e) { errors.push('HaloPSA'); }
       }
@@ -383,7 +383,7 @@ export default function CustomerDetail() {
             action: 'sync_licenses',
             customer_id: customerId
           });
-          if (res.data.success) results.push('JumpCloud');
+          if (res.success) results.push('JumpCloud');
           else errors.push('JumpCloud');
         } catch (e) { errors.push('JumpCloud'); }
       }
@@ -396,7 +396,7 @@ export default function CustomerDetail() {
             action: 'sync_licenses',
             customer_id: customerId
           });
-          if (res.data.success) results.push('Spanning');
+          if (res.success) results.push('Spanning');
           else errors.push('Spanning');
         } catch (e) { errors.push('Spanning'); }
       }
@@ -409,7 +409,7 @@ export default function CustomerDetail() {
             action: 'sync_site',
             site_id: dattoMappings[0].datto_site_id
           });
-          if (res.data.success) results.push('Datto');
+          if (res.success) results.push('Datto');
           else errors.push('Datto');
         } catch (e) { errors.push('Datto'); }
       }
@@ -650,11 +650,11 @@ export default function CustomerDetail() {
                                             action: 'sync_customer',
                                             customer_id: customer.external_id 
                                           });
-                                          if (response.data.success) {
+                                          if (response.success) {
                                             toast.success(`Synced contracts!`);
                                             queryClient.invalidateQueries({ queryKey: ['contracts', customerId] });
                                           } else {
-                                            toast.error(response.data.error || 'Sync failed');
+                                            toast.error(response.error || 'Sync failed');
                                           }
                                         } catch (error) {
                                           toast.error(error.message || 'An error occurred');
@@ -726,16 +726,16 @@ export default function CustomerDetail() {
                                       e.stopPropagation();
                                       try {
                                         setIsSyncing(true);
-                                        const response = await client.functions.invoke('syncHaloPSAInvoices', { 
+                                        const response = await client.functions.invoke('syncHaloPSAInvoices', {
                                           action: 'sync_customer',
-                                          customer_id: customer.external_id 
+                                          customer_id: customer.external_id
                                         });
-                                        if (response.data.success) {
-                                          toast.success(`Synced ${response.data.recordsSynced} invoices!`);
+                                        if (response.success) {
+                                          toast.success(`Synced ${response.recordsSynced} invoices!`);
                                           queryClient.invalidateQueries({ queryKey: ['invoices', customerId] });
                                           queryClient.invalidateQueries({ queryKey: ['invoice_line_items', customerId] });
                                         } else {
-                                          toast.error(response.data.error || 'Sync failed');
+                                          toast.error(response.error || 'Sync failed');
                                         }
                                       } catch (error) {
                                         toast.error(error.message || 'An error occurred during sync');
@@ -1560,11 +1560,11 @@ export default function CustomerDetail() {
                                         action: 'sync_customer',
                                         customer_id: customer.external_id 
                                       });
-                                      if (response.data.success) {
-                                        toast.success(`Synced ${response.data.recordsSynced} tickets!`);
+                                      if (response.success) {
+                                        toast.success(`Synced ${response.recordsSynced} tickets!`);
                                         queryClient.invalidateQueries({ queryKey: ['tickets', customerId] });
                                       } else {
-                                        toast.error(response.data.error || 'Sync failed');
+                                        toast.error(response.error || 'Sync failed');
                                       }
                                     } catch (error) {
                                       toast.error(error.message || 'An error occurred during sync');

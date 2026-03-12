@@ -83,11 +83,11 @@ export default function CoveDataConfig() {
       const response = await client.functions.invoke('syncCoveData', {
         action: 'test_connection'
       });
-      if (response.data.success) {
+      if (response.success) {
         setConfigStatus('connected');
         toast.success('Connected to Cove API');
       } else {
-        const errMsg = response.data.error || 'Connection failed';
+        const errMsg = response.error || 'Connection failed';
         setConfigStatus('configured');
         setErrorDetails(errMsg);
         toast.error(errMsg);
@@ -108,11 +108,11 @@ export default function CoveDataConfig() {
       const response = await client.functions.invoke('syncCoveData', {
         action: 'list_partners'
       });
-      if (response.data.success) {
-        setPartners(response.data.partners || []);
-        toast.success(`Found ${response.data.partners?.length || 0} partners`);
+      if (response.success) {
+        setPartners(response.partners || []);
+        toast.success(`Found ${response.partners?.length || 0} partners`);
       } else {
-        toast.error(response.data.error || 'Failed to load partners');
+        toast.error(response.error || 'Failed to load partners');
       }
     } catch (error) {
       toast.error(error.message);

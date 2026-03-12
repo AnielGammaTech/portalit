@@ -101,12 +101,12 @@ export default function SpanningConfig() {
       const response = await client.functions.invoke('syncSpanningBackup', {
         action: 'test_connection'
       });
-      if (response.data.success) {
+      if (response.success) {
         setConfigStatus('connected');
-        setConnectionMeta({ totalCustomers: response.data.totalCustomers });
+        setConnectionMeta({ totalCustomers: response.totalCustomers });
         toast.success('Connected to Unitrends MSP!');
       } else {
-        const errMsg = response.data.error || 'Connection failed';
+        const errMsg = response.error || 'Connection failed';
         setConfigStatus('configured');
         setErrorDetails(errMsg);
         toast.error(errMsg);
@@ -125,12 +125,12 @@ export default function SpanningConfig() {
     setLoadingDomains(true);
     try {
       const response = await client.functions.invoke('syncSpanningBackup', { action: 'list_domains' });
-      if (response.data.success) {
-        setSpanningDomains(response.data.domains);
+      if (response.success) {
+        setSpanningDomains(response.domains);
         setShowMappingView(true);
         setCurrentPage(1);
       } else {
-        toast.error(response.data.error || 'Failed to load domains');
+        toast.error(response.error || 'Failed to load domains');
       }
     } catch (error) {
       toast.error(error.message);
@@ -173,12 +173,12 @@ export default function SpanningConfig() {
         action: 'sync_licenses', 
         customer_id: customerId 
       });
-      if (response.data.success) {
-        toast.success(`Synced ${response.data.totalUsers} users!`);
+      if (response.success) {
+        toast.success(`Synced ${response.totalUsers} users!`);
         queryClient.invalidateQueries({ queryKey: ['licenses'] });
         refetchMappings();
       } else {
-        toast.error(response.data.error || 'Sync failed');
+        toast.error(response.error || 'Sync failed');
       }
     } catch (error) {
       toast.error(error.message);
@@ -194,12 +194,12 @@ export default function SpanningConfig() {
         action: 'sync_users', 
         customer_id: customerId 
       });
-      if (response.data.success) {
-        toast.success(`Synced ${response.data.totalSpanningUsers} users: ${response.data.created} new, ${response.data.matched} matched!`);
+      if (response.success) {
+        toast.success(`Synced ${response.totalSpanningUsers} users: ${response.created} new, ${response.matched} matched!`);
         queryClient.invalidateQueries({ queryKey: ['contacts'] });
         refetchMappings();
       } else {
-        toast.error(response.data.error || 'User sync failed');
+        toast.error(response.error || 'User sync failed');
       }
     } catch (error) {
       toast.error(error.message);
@@ -213,13 +213,13 @@ export default function SpanningConfig() {
     setErrorDetails(null);
     try {
       const response = await client.functions.invoke('syncSpanningBackup', { action: 'sync_all' });
-      if (response.data.success) {
-        toast.success(`Synced ${response.data.synced} tenants!`);
+      if (response.success) {
+        toast.success(`Synced ${response.synced} tenants!`);
         queryClient.invalidateQueries({ queryKey: ['licenses'] });
         refetchMappings();
         fetchLastSync();
       } else {
-        const errMsg = response.data.error || 'Sync failed';
+        const errMsg = response.error || 'Sync failed';
         setErrorDetails(errMsg);
         toast.error(errMsg);
       }

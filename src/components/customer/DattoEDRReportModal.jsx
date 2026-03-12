@@ -45,9 +45,9 @@ export default function DattoEDRReportModal({ open, onOpenChange, edrData, tenan
           report_id: reportGenerated.id
         });
         
-        if (response.data.success && response.data.report) {
-          setReportGenerated(response.data.report);
-          if (response.data.report.status === 'complete') {
+        if (response.success && response.report) {
+          setReportGenerated(response.report);
+          if (response.report.status === 'complete') {
             toast.success('Report is ready for download!');
           }
         }
@@ -73,11 +73,11 @@ export default function DattoEDRReportModal({ open, onOpenChange, edrData, tenan
         end_date: endDate
       });
 
-      if (response.data.success) {
-        setReportGenerated(response.data.report);
+      if (response.success) {
+        setReportGenerated(response.report);
         toast.success('Report generation started!');
       } else {
-        toast.error(response.data.error || 'Failed to generate report');
+        toast.error(response.error || 'Failed to generate report');
       }
     } catch (error) {
       console.error('Report generation error:', error);
@@ -97,12 +97,12 @@ export default function DattoEDRReportModal({ open, onOpenChange, edrData, tenan
         report_id: reportGenerated.id
       });
       
-      if (response.data.success && response.data.report) {
-        setReportGenerated(response.data.report);
-        if (response.data.report.status === 'complete') {
+      if (response.success && response.report) {
+        setReportGenerated(response.report);
+        if (response.report.status === 'complete') {
           toast.success('Report is ready!');
         } else {
-          toast.info(`Report status: ${response.data.report.status}`);
+          toast.info(`Report status: ${response.report.status}`);
         }
       }
     } catch (error) {

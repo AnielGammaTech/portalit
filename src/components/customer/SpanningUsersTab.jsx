@@ -141,8 +141,8 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
         action: 'list_sharepoint_sites',
         customer_id: customerId
       });
-      if (response.data.success) {
-        setSharePointSites(response.data.sites || []);
+      if (response.success) {
+        setSharePointSites(response.sites || []);
       }
     } catch (error) {
       console.error('Failed to fetch SharePoint sites:', error);
@@ -159,8 +159,8 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
         action: 'list_teams_channels',
         customer_id: customerId
       });
-      if (response.data.success) {
-        setTeamsChannels(response.data.teams || []);
+      if (response.success) {
+        setTeamsChannels(response.teams || []);
       }
     } catch (error) {
       console.error('Failed to fetch Teams channels:', error);

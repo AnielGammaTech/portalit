@@ -68,11 +68,11 @@ export default function AdminTicketsPanel() {
       const response = await client.functions.invoke('syncHaloPSATickets', { 
         action: 'sync_all'
       });
-      if (response.data.success) {
-        toast.success(`Synced ${response.data.recordsSynced} tickets`);
+      if (response.success) {
+        toast.success(`Synced ${response.recordsSynced} tickets`);
         queryClient.invalidateQueries({ queryKey: ['all-tickets'] });
       } else {
-        toast.error(response.data.error || 'Sync failed');
+        toast.error(response.error || 'Sync failed');
       }
     } catch (error) {
       toast.error(error.message);
@@ -90,13 +90,13 @@ export default function AdminTicketsPanel() {
     setIsCreating(true);
     try {
       const response = await client.functions.invoke('createHaloPSATicket', newTicket);
-      if (response.data.success) {
+      if (response.success) {
         toast.success('Ticket created successfully');
         setShowCreateModal(false);
         setNewTicket({ customer_id: '', summary: '', details: '', priority: 'medium' });
         queryClient.invalidateQueries({ queryKey: ['all-tickets'] });
       } else {
-        toast.error(response.data.error || 'Failed to create ticket');
+        toast.error(response.error || 'Failed to create ticket');
       }
     } catch (error) {
       toast.error(error.message);

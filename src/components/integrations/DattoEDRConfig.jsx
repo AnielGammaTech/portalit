@@ -83,11 +83,11 @@ export default function DattoEDRConfig() {
     setErrorDetails(null);
     try {
       const response = await client.functions.invoke('syncDattoEDR', { action: 'test_connection' });
-      if (response.data.success) {
+      if (response.success) {
         setConfigStatus('connected');
         toast.success('Connected to Datto EDR');
       } else {
-        const errMsg = response.data.error || 'Connection failed';
+        const errMsg = response.error || 'Connection failed';
         setConfigStatus('configured');
         setErrorDetails(errMsg);
         toast.error(errMsg);
@@ -107,11 +107,11 @@ export default function DattoEDRConfig() {
     setLoading(true);
     try {
       const response = await client.functions.invoke('syncDattoEDR', { action: 'list_tenants' });
-      if (response.data.success) {
-        setEdrTenants(response.data.tenants || []);
-        toast.success(`Found ${response.data.tenants?.length || 0} EDR tenants`);
+      if (response.success) {
+        setEdrTenants(response.tenants || []);
+        toast.success(`Found ${response.tenants?.length || 0} EDR tenants`);
       } else {
-        toast.error(response.data.error || 'Failed to fetch tenants');
+        toast.error(response.error || 'Failed to fetch tenants');
       }
     } catch (error) {
       const errMsg = error.message || 'Failed to connect to Datto EDR';
@@ -159,12 +159,12 @@ export default function DattoEDRConfig() {
     setErrorDetails(null);
     try {
       const response = await client.functions.invoke('syncDattoEDR', { action: 'sync_all' });
-      if (response.data.success) {
-        toast.success(`Synced ${response.data.synced || 0} customers`);
+      if (response.success) {
+        toast.success(`Synced ${response.synced || 0} customers`);
         refetchMappings();
         fetchLastSync();
       } else {
-        const errMsg = response.data.error || 'Sync failed';
+        const errMsg = response.error || 'Sync failed';
         setErrorDetails(errMsg);
         toast.error(errMsg);
       }
