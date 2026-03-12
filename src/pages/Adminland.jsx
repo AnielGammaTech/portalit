@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
 import { createPageUrl } from '../utils';
 
+import HaloPSAConfig from '../components/integrations/HaloPSAConfig';
 import DattoRMMConfig from '../components/integrations/DattoRMMConfig';
 import JumpCloudConfig from '../components/integrations/JumpCloudConfig';
 import SpanningConfig from '../components/integrations/SpanningConfig';
@@ -46,6 +47,7 @@ import {
   Zap,
   RefreshCw,
   Mail,
+  Ticket,
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -53,6 +55,12 @@ import {
 // ═══════════════════════════════════════════════════════════════════════
 
 const INTEGRATION_CATEGORIES = [
+  {
+    title: 'PSA & TICKETING',
+    items: [
+      { id: 'halopsa', label: 'HaloPSA', desc: 'Sync customers, contacts, contracts & tickets', icon: Ticket, iconBg: 'bg-indigo-50', iconColor: 'text-indigo-600' },
+    ],
+  },
   {
     title: 'RMM & SECURITY',
     items: [
@@ -90,6 +98,7 @@ const INTEGRATION_CATEGORIES = [
 ];
 
 const INTEGRATION_COMPONENTS = {
+  'halopsa': HaloPSAConfig,
   'datto-rmm': DattoRMMConfig,
   'datto-edr': DattoEDRConfig,
   'rocketcyber': RocketCyberConfig,
