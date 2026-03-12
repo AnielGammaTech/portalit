@@ -27,6 +27,24 @@ export async function syncDattoEDR(body, user) {
     return `${url}${separator}access_token=${DATTO_EDR_API_TOKEN}`;
   };
 
+  // Action: Test connection
+  if (action === 'test_connection') {
+    try {
+      const testRes = await fetch(addAuth(`${DATTO_EDR_BASE_URL}/targets`), { headers });
+      if (!testRes.ok) {
+        return { success: false, error: `EDR API returned ${testRes.status}: ${testRes.statusText}` };
+      }
+      const data = await testRes.json();
+      const targetsArray = data.data || data.targets || data || [];
+      return {
+        success: true,
+        message: `Connected to Datto EDR — ${targetsArray.length} tenants found`
+      };
+    } catch (error) {
+      return { success: false, error: error.message || 'Failed to connect to Datto EDR API' };
+    }
+  }
+
   if (action === 'list_tenants') {
     const targetsRes = await fetch(addAuth(`${DATTO_EDR_BASE_URL}/targets`), { headers });
 
