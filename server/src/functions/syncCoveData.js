@@ -116,13 +116,12 @@ export async function syncCoveData(body, user) {
       return { success: false, error: 'No cached data available' };
     }
 
-    try {
-      return {
-        success: true,
-        data: mapping.cached_data,
-        last_synced: mapping.last_synced,
-        fromCache: true
-      };
+    return {
+      success: true,
+      data: mapping.cached_data,
+      last_synced: mapping.last_synced,
+      fromCache: true
+    };
   }
 
   // Sync customer data
