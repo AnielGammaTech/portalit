@@ -147,11 +147,11 @@ export default function UniFiConfig() {
         unifi_site_id: String(site.id),
         unifi_site_name: site.name,
       });
-      toast.success(`Mapped ${site.name} successfully!`);
+      toast.success(`Mapped host ${site.name} successfully!`);
       refetchMappings();
       setSiteSelections(prev => ({ ...prev, [site.id]: '' }));
     } catch (error) {
-      toast.error(`Failed to map site: ${error.message}`);
+      toast.error(`Failed to map host: ${error.message}`);
     }
   };
 
@@ -298,7 +298,7 @@ export default function UniFiConfig() {
         </Button>
         <Button onClick={loadUnifiSites} disabled={loadingSites} variant="outline">
           <RefreshCw className={cn("w-4 h-4 mr-2", loadingSites && "animate-spin")} />
-          {showMappingView ? 'Refresh Sites' : 'Load Sites'}
+          {showMappingView ? 'Refresh Hosts' : 'Load Hosts'}
         </Button>
         {mappings.length > 0 && (
           <Button onClick={syncAllDevices} disabled={syncing} className="bg-slate-900 hover:bg-slate-800">
@@ -312,22 +312,22 @@ export default function UniFiConfig() {
       <div className="border-t border-slate-200 pt-5">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h4 className="font-medium text-slate-900">Site Mappings</h4>
-            <p className="text-sm text-slate-500">Map UniFi sites to your customers</p>
+            <h4 className="font-medium text-slate-900">Host Mappings</h4>
+            <p className="text-sm text-slate-500">Map UniFi consoles/gateways to your customers</p>
           </div>
         </div>
 
         {!showMappingView ? (
           mappings.length === 0 ? (
             <p className="text-sm text-slate-500 py-4 text-center">
-              No sites mapped yet. Click "Load Sites" to link UniFi sites to customers.
+              No hosts mapped yet. Click "Load Hosts" to link UniFi consoles to customers.
             </p>
           ) : (
             <div className="space-y-3">
               <div className="relative">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <Input
-                  placeholder="Search mapped customers or sites..."
+                  placeholder="Search mapped customers or hosts..."
                   value={mappingSearchQuery}
                   onChange={(e) => { setMappingSearchQuery(e.target.value); setMappingPage(1); }}
                   className="pl-9 h-9 text-sm"
@@ -375,7 +375,7 @@ export default function UniFiConfig() {
                 <div className="relative">
                   <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <Input
-                    placeholder="Search sites..."
+                    placeholder="Search hosts..."
                     value={searchQuery}
                     onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                     className="pl-9 w-56 h-9 text-sm"
@@ -400,7 +400,7 @@ export default function UniFiConfig() {
               <table className="w-full">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
-                    <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-1/3">UniFi Site</th>
+                    <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-1/3">UniFi Host</th>
                     <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-1/4">Customer</th>
                     <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-1/3">Suggested Match</th>
                     <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-20"></th>

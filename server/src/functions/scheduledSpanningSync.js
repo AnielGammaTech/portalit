@@ -60,10 +60,85 @@ async function unitrendsApiCall(endpoint) {
 }
 
 function formatStorage(bytes) {
-  if (!bytes || bytes === 0) return null;
+  if (!bytes || bytes === 0) return '0 B';
   if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(2)} GB`;
   if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(2)} MB`;
   return `${(bytes / 1024).toFixed(2)} KB`;
+}
+
+function formatUser(u) {
+  const storageInfo = u.storageInformation || {};
+  const mailBytes = storageInfo.protectedMailBytes || u.mailStorageBytes || u.exchangeStorageBytes || 0;
+  const driveBytes = storageInfo.protectedBytes || u.driveStorageBytes || u.oneDriveStorageBytes || 0;
+  const totalBytes = mailBytes + driveBytes;
+
+  const hasBackupData = totalBytes > 0;
+  const isAssigned = u.isAssigned === true || u.assigned === true || u.isLicensed === true;
+  const hasSuccessBackup = u.lastBackupStatusTotal === 'success';
+  const isProtected = hasBackupData || isAssigned || hasSuccessBackup;
+
+  return {
+    email: u.email || u.userPrincipalName || 'Unknown',
+    displayName: u.displayName || u.email || 'Unknown',
+    isProtected,
+    backupStatus: u.lastBackupStatusTotal || 'unknown',
+    mailStorage: formatStorage(mailBytes),
+    driveStorage: formatStorage(driveBytes),
+    totalStorage: formatStorage(totalBytes),
+    totalStorageBytes: totalBytes,
+    mailStorageBytes: mailBytes,
+    driveStorageBytes: driveBytes,
+    userType: u.userType || u.type || 'standard',
+    lastBackupDate: u.lastBackupDate || null,
+  };
+}
+
+function buildCacheData(users, domainInfo) {
+  const formattedUsers = users.map(formatUser);
+  const domainStorage = domainInfo?.storageInformation || {};
+  const lastBackup = domainInfo?.lastBackup || {};
+  const backupStatus7Days = domainInfo?.backupStatusLastSevenDays || {};
+
+  return {
+    success: true,
+    total: users.length,
+    users: formattedUsers,
+    numberOfStandardLicensesTotal: domainInfo?.numberOfStandardLicensesTotal || 0,
+    numberOfProtectedStandardUsers: domainInfo?.numberOfProtectedStandardUsers || 0,
+    numberOfArchivedLicensesTotal: domainInfo?.numberOfArchivedLicensesTotal || 0,
+    numberOfProtectedArchivedUsers: domainInfo?.numberOfProtectedArchivedUsers || 0,
+    numberOfUsers: domainInfo?.numberOfUsers || 0,
+    numberOfProtectedUsers: domainInfo?.numberOfProtectedUsers || 0,
+    numberOfSharedMailboxesTotal: domainInfo?.numberOfSharedMailboxesTotal || 0,
+    numberOfProtectedSharedMailboxes: domainInfo?.numberOfProtectedSharedMailboxes || 0,
+    numberOfProtectedSharePointSites: domainInfo?.numberOfProtectedSharePointSites || 0,
+    numberOfUnprotectedSharePointSites: domainInfo?.numberOfUnprotectedSharePointSites || 0,
+    numberOfProtectedTeamChannels: domainInfo?.numberOfProtectedTeamChannels || 0,
+    numberOfUnprotectedTeamChannels: domainInfo?.numberOfUnprotectedTeamChannels || 0,
+    totalProtectedBytes: domainStorage.protectedBytes || 0,
+    totalUsedBytes: domainStorage.usedBytes || 0,
+    totalProtectedStorage: formatStorage(domainStorage.protectedBytes || 0),
+    totalUsedStorage: formatStorage(domainStorage.usedBytes || 0),
+    lastBackupStatus: lastBackup.status || 'unknown',
+    lastBackupTimestamp: lastBackup.timestamp || null,
+    sharePointBackupStatus: lastBackup.sharePoint?.status || 'unknown',
+    sharePointLastBackup: lastBackup.sharePoint?.timestamp || null,
+    teamsBackupStatus: lastBackup.teams?.status || 'unknown',
+    teamsLastBackup: lastBackup.teams?.timestamp || null,
+    backupStatus7Days: {
+      mail: backupStatus7Days.totalForMail || 'unknown',
+      calendar: backupStatus7Days.totalForCalendar || 'unknown',
+      contacts: backupStatus7Days.totalForContact || 'unknown',
+      drive: backupStatus7Days.totalForDrive || 'unknown',
+      sharePoint: backupStatus7Days.totalForSharePoint || 'unknown',
+      teams: backupStatus7Days.totalForTeams || 'unknown',
+    },
+    overallBackupStatus7Days: domainInfo?.backupStatusLastSevenDaysTotal || 'unknown',
+    domainName: domainInfo?.name || 'unknown',
+    domainId: domainInfo?.id || 'unknown',
+    expirationDate: domainInfo?.expirationDate || null,
+    origin: domainInfo?.origin || 'unknown',
+  };
 }
 
 export async function scheduledSpanningSync(body, user) {
@@ -76,6 +151,14 @@ export async function scheduledSpanningSync(body, user) {
 
   if (!allMappings || allMappings.length === 0) {
     return { success: true, message: 'No Spanning mappings found', synced: 0 };
+  }
+
+  // Pre-fetch all domains once for cache data
+  let allDomains = [];
+  try {
+    allDomains = await unitrendsApiCall('/v2/spanning/domains?page_size=500');
+  } catch (e) {
+    console.error('Failed to fetch domains for cache:', e.message);
   }
 
   let synced = 0;
@@ -154,10 +237,16 @@ export async function scheduledSpanningSync(body, user) {
         }
       }
 
-      // Update last_synced
+      // Build and persist cache data so the customer tab always has it
+      const domainInfo = allDomains.find(d => d.id === mapping.spanning_tenant_id);
+      const cacheData = buildCacheData(users, domainInfo);
+
       await supabase
         .from('spanning_mappings')
-        .update({ last_synced: new Date().toISOString() })
+        .update({
+          last_synced: new Date().toISOString(),
+          cached_data: cacheData,
+        })
         .eq('id', mapping.id);
 
       results.push({
