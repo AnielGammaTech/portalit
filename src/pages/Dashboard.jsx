@@ -208,9 +208,9 @@ function CustomerDashboard({ customer }) {
   const { data: orphanedUserAlerts = [] } = useQuery({
     queryKey: ['orphaned_user_alerts', customerId],
     queryFn: async () => {
-      const activities = await client.entities.Activity.filter({ 
+      const activities = await client.entities.Activity.filter({
         entity_id: customerId,
-        type: 'license_revoked'
+        entity_type: 'license_revoked'
       });
       // Filter to only recent ones (last 30 days) that mention HaloPSA removal
       const recentAlerts = activities.filter(a => 

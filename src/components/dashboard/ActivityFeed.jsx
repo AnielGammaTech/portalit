@@ -212,7 +212,7 @@ export default function ActivityFeed({ limit = 20, showFilters = true, compact =
       ) : (
         <div className="space-y-1">
           {filteredActivities.map((activity, index) => {
-            const config = ACTIVITY_ICONS[activity.type] || { icon: Clock, color: 'bg-slate-100 text-slate-600' };
+            const config = ACTIVITY_ICONS[activity.action] || ACTIVITY_ICONS[activity.entity_type] || { icon: Clock, color: 'bg-slate-100 text-slate-600' };
             const Icon = config.icon;
             
             return (

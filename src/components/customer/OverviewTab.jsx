@@ -198,9 +198,9 @@ export default function OverviewTab({
   const { data: orphanedUserAlerts = [] } = useQuery({
     queryKey: ['orphaned_user_alerts', customerId],
     queryFn: async () => {
-      const activities = await client.entities.Activity.filter({ 
+      const activities = await client.entities.Activity.filter({
         entity_id: customerId,
-        type: 'license_revoked'
+        entity_type: 'license_revoked'
       });
       // Filter to only those that mention HaloPSA removal
       const recentAlerts = activities.filter(a => 
