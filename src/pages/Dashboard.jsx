@@ -668,26 +668,18 @@ export default function Dashboard() {
   const [customer, setCustomer] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const { data: customers = [] } = useQuery({
+  const { data: customers = [], isSuccess: customersLoaded } = useQuery({
     queryKey: ['customers'],
     queryFn: () => client.entities.Customer.list('-created_date', 500),
+    staleTime: 1000 * 60 * 5,
   });
 
+  // Load user once on mount
   useEffect(() => {
     const loadUser = async () => {
       try {
         const currentUser = await client.auth.me();
         setUser(currentUser);
-        
-        // For non-admin users, use their assigned customer_id ONLY
-        if (currentUser?.role !== 'admin') {
-          if (currentUser?.customer_id && customers.length > 0) {
-            const matched = customers.find(c => c.id === currentUser.customer_id);
-            setCustomer(matched || null);
-          } else if (!currentUser?.customer_id) {
-            setCustomer(null); // No customer_id = no customer
-          }
-        }
         setIsLoading(false);
       } catch (error) {
         console.error('Failed to load user', error);
@@ -695,7 +687,21 @@ export default function Dashboard() {
       }
     };
     loadUser();
-  }, [customers]);
+  }, []);
+
+  // Match customer when both user and customers are available
+  // Use customersLoaded (boolean) instead of customers array to avoid infinite loop
+  useEffect(() => {
+    if (!user || user.role === 'admin') return;
+    if (!customersLoaded || customers.length === 0) return;
+
+    if (user.customer_id) {
+      const matched = customers.find(c => c.id === user.customer_id);
+      setCustomer(matched || null);
+    } else {
+      setCustomer(null);
+    }
+  }, [user, customersLoaded, customers.length]);
 
   if (isLoading) {
     return (

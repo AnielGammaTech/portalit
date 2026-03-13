@@ -1,6 +1,7 @@
 import { getServiceSupabase } from '../lib/supabase.js';
 
-const SAAS_ALERTS_BASE = 'https://app.saasalerts.com/api';
+// SaaS Alerts production API — Google Cloud Function (from official Swagger spec)
+const SAAS_ALERTS_BASE = 'https://us-central1-the-byway-248217.cloudfunctions.net/reportApi/api/v1';
 
 async function saasAlertsApiCall(endpoint, { method = 'GET', body } = {}) {
   const apiKey = process.env.SAAS_ALERTS_API_KEY;
@@ -9,7 +10,7 @@ async function saasAlertsApiCall(endpoint, { method = 'GET', body } = {}) {
   const options = {
     method,
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
+      'api_key': apiKey,              // SaaS Alerts uses api_key header (NOT Bearer)
       'Content-Type': 'application/json',
       'Accept': 'application/json'
     }
@@ -17,7 +18,10 @@ async function saasAlertsApiCall(endpoint, { method = 'GET', body } = {}) {
 
   if (body) options.body = JSON.stringify(body);
 
-  const response = await fetch(`${SAAS_ALERTS_BASE}${endpoint}`, options);
+  const url = `${SAAS_ALERTS_BASE}${endpoint}`;
+  console.log(`[SaaSAlerts] ${method} ${url}`);
+
+  const response = await fetch(url, options);
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -63,11 +67,12 @@ export async function syncSaaSAlerts(body, _user) {
   // Test connection
   if (action === 'test_connection') {
     try {
-      // Try to list customers/tenants
-      const data = await saasAlertsApiCall('/settings/customerlist');
-      const customers = Array.isArray(data) ? data : (data.customers || data.tenants || []);
+      // Use the /customers endpoint (from Swagger spec)
+      const data = await saasAlertsApiCall('/customers');
+      const customers = Array.isArray(data) ? data : (data.customers || data.tenants || data.data || []);
       return {
         success: true,
+        message: `Connected! Found ${customers.length} customers.`,
         totalCustomers: customers.length
       };
     } catch (e) {
@@ -78,15 +83,15 @@ export async function syncSaaSAlerts(body, _user) {
   // List SaaS Alerts customers/tenants for mapping
   if (action === 'list_customers') {
     try {
-      const data = await saasAlertsApiCall('/settings/customerlist');
-      const customers = Array.isArray(data) ? data : (data.customers || data.tenants || []);
+      const data = await saasAlertsApiCall('/customers');
+      const customers = Array.isArray(data) ? data : (data.customers || data.tenants || data.data || []);
 
       return {
         success: true,
         customers: customers.map(c => ({
-          id: c.id || c.customer_id || c.tenant_id,
-          name: c.name || c.customer_name || c.tenant_name || 'Unknown',
-          email: c.email || c.admin_email || '',
+          id: c.id || c.customer_id || c.tenant_id || c._id,
+          name: c.name || c.customer_name || c.tenant_name || c.customerName || 'Unknown',
+          email: c.email || c.admin_email || c.adminEmail || '',
           status: c.status || 'active'
         }))
       };
@@ -160,29 +165,32 @@ export async function syncSaaSAlerts(body, _user) {
 
       let events = [];
       try {
-        const eventsData = await saasAlertsApiCall('/reports/event/query', {
+        // Use /reports/events/query POST endpoint (from Swagger spec)
+        const eventsData = await saasAlertsApiCall('/reports/events/query', {
           method: 'POST',
           body: {
-            customer_id: mapping.saas_alerts_customer_id,
-            from: sevenDaysAgo.toISOString(),
-            to: now.toISOString(),
-            page_size: 500
+            customerId: mapping.saas_alerts_customer_id,
+            start: sevenDaysAgo.toISOString(),
+            end: now.toISOString(),
+            size: 500,
+            timeSort: 'desc'
           }
         });
         events = Array.isArray(eventsData)
           ? eventsData
-          : (eventsData.events || eventsData.data || eventsData.results || []);
+          : (eventsData.events || eventsData.data || eventsData.results || eventsData.hits || []);
       } catch (queryErr) {
-        // Fallback: try simpler events endpoint
+        console.error('[SaaSAlerts] POST /reports/events/query failed:', queryErr.message);
+        // Fallback: try GET /reports/events endpoint
         try {
           const fallbackData = await saasAlertsApiCall(
-            `/reports/events?customer_id=${mapping.saas_alerts_customer_id}&days=7&limit=500`
+            `/reports/events?customerId=${mapping.saas_alerts_customer_id}&start=${sevenDaysAgo.toISOString()}&end=${now.toISOString()}&size=500&timeSort=desc`
           );
           events = Array.isArray(fallbackData)
             ? fallbackData
-            : (fallbackData.events || fallbackData.data || []);
-        } catch {
-          console.error('[SaaSAlerts] Both event endpoints failed:', queryErr.message);
+            : (fallbackData.events || fallbackData.data || fallbackData.hits || []);
+        } catch (fallbackErr) {
+          console.error('[SaaSAlerts] GET /reports/events also failed:', fallbackErr.message);
           events = [];
         }
       }
@@ -238,18 +246,19 @@ export async function syncSaaSAlerts(body, _user) {
 
         let events = [];
         try {
-          const eventsData = await saasAlertsApiCall('/reports/event/query', {
+          const eventsData = await saasAlertsApiCall('/reports/events/query', {
             method: 'POST',
             body: {
-              customer_id: mapping.saas_alerts_customer_id,
-              from: sevenDaysAgo.toISOString(),
-              to: now.toISOString(),
-              page_size: 500
+              customerId: mapping.saas_alerts_customer_id,
+              start: sevenDaysAgo.toISOString(),
+              end: now.toISOString(),
+              size: 500,
+              timeSort: 'desc'
             }
           });
           events = Array.isArray(eventsData)
             ? eventsData
-            : (eventsData.events || eventsData.data || eventsData.results || []);
+            : (eventsData.events || eventsData.data || eventsData.results || eventsData.hits || []);
         } catch {
           events = [];
         }

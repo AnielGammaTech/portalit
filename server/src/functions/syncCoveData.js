@@ -190,11 +190,20 @@ export async function syncCoveData(body, user) {
     try {
       const { visa } = await coveLogin(partner, username, apiToken);
 
+      console.log(`[Cove] Fetching devices for partner ${mapping.cove_partner_id} (customer: ${customer_id})`);
+
       const devicesResult = await coveApiCall('EnumerateAccountStatistics', {
-        partnerId: parseInt(mapping.cove_partner_id)
+        query: {
+          PartnerId: parseInt(mapping.cove_partner_id)
+        }
       }, visa);
 
-      const devices = devicesResult.result || [];
+      // coveApiCall returns data.result — handle both array and object formats
+      const devices = Array.isArray(devicesResult)
+        ? devicesResult
+        : (devicesResult?.result || []);
+
+      console.log(`[Cove] Got ${devices.length} devices for partner ${mapping.cove_partner_id}`);
 
       let totalDevices = devices.length;
       let activeDevices = 0;
@@ -297,10 +306,16 @@ export async function syncCoveData(body, user) {
       const { visa } = await coveLogin(partner, username, apiToken);
 
       const devicesResult = await coveApiCall('EnumerateAccountStatistics', {
-        partnerId: parseInt(mapping.cove_partner_id)
+        query: {
+          PartnerId: parseInt(mapping.cove_partner_id)
+        }
       }, visa);
 
-      const devices = (devicesResult.result || []).map(d => ({
+      const rawDevices = Array.isArray(devicesResult)
+        ? devicesResult
+        : (devicesResult?.result || []);
+
+      const devices = rawDevices.map(d => ({
         id: d.AccountId || d.Id,
         name: d.AccountName || d.Name || d.ComputerName,
         osType: d.OsType,
