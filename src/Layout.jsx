@@ -16,6 +16,7 @@ import {
   Menu,
   CreditCard,
   MoreHorizontal,
+  Coins,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import {
@@ -256,7 +257,7 @@ export default function Layout({ children, currentPageName }) {
   const adminNavigation = useMemo(() => [
     { name: 'Dashboard', page: 'Dashboard', icon: LayoutDashboard },
     { name: 'Customers', page: 'Customers', icon: Building2 },
-    { name: 'Services', page: 'Services', icon: Cloud },
+    { name: 'LootIT', page: 'LootIT', icon: Coins },
   ], []);
 
   const customerNavigation = useMemo(() => [
@@ -273,7 +274,7 @@ export default function Layout({ children, currentPageName }) {
   const adminBottomTabs = useMemo(() => [
     { name: 'Dashboard', page: 'Dashboard', icon: LayoutDashboard },
     { name: 'Customers', page: 'Customers', icon: Building2 },
-    { name: 'Services', page: 'Services', icon: Cloud },
+    { name: 'LootIT', page: 'LootIT', icon: Coins },
     { name: 'Billing', page: 'Billing', icon: CreditCard },
   ], []);
 

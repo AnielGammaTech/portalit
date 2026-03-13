@@ -70,6 +70,8 @@ const ENTITY_TABLE_MAP = {
   PortalSettings: 'portal_settings',
   Quote: 'quotes',
   QuoteItem: 'quote_items',
+  ReconciliationRule: 'reconciliation_rules',
+  ReconciliationReview: 'reconciliation_reviews',
   RecurringBill: 'recurring_bills',
   RecurringBillLineItem: 'recurring_bill_line_items',
   RocketCyberIncident: 'rocket_cyber_incidents',
