@@ -32,15 +32,38 @@ async function coveApiCall(method, params = {}, visa = null) {
   return data.result || data;
 }
 
-// Login and get visa token
+// Login and get visa token + partner ID
+// NOTE: The Cove Login response puts `visa` at the TOP LEVEL of the JSON-RPC
+// response (data.visa), NOT inside data.result. The coveApiCall helper strips
+// the top-level fields, so we make a direct fetch here instead.
 async function coveLogin(partner, username, apiToken) {
-  const result = await coveApiCall('Login', {
-    partner: partner,
-    username: username,
-    password: apiToken
+  const body = {
+    jsonrpc: '2.0',
+    method: 'Login',
+    params: { partner, username, password: apiToken },
+    id: Date.now().toString(),
+  };
+
+  const response = await fetch(COVE_API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
   });
 
-  return result.visa;
+  const data = await response.json();
+
+  if (data.error) {
+    throw new Error(data.error.message || 'Cove login failed');
+  }
+
+  const visa = data.visa;
+  const partnerId = data.result?.result?.PartnerId ?? null;
+
+  if (!visa) {
+    throw new Error('Login succeeded but no visa token returned');
+  }
+
+  return { visa, partnerId };
 }
 
 // Format bytes to human readable
@@ -70,8 +93,8 @@ export async function syncCoveData(body, user) {
   // Test connection
   if (action === 'test_connection') {
     try {
-      await coveLogin(partner, username, apiToken);
-      return { success: true, message: 'Connected to Cove API successfully' };
+      const { visa, partnerId } = await coveLogin(partner, username, apiToken);
+      return { success: true, message: `Connected to Cove API successfully (Partner ID: ${partnerId})` };
     } catch (error) {
       return { success: false, error: error.message };
     }
@@ -80,10 +103,10 @@ export async function syncCoveData(body, user) {
   // List all partners/companies
   if (action === 'list_partners') {
     try {
-      const visa = await coveLogin(partner, username, apiToken);
+      const { visa, partnerId } = await coveLogin(partner, username, apiToken);
 
       const result = await coveApiCall('EnumeratePartners', {
-        parentPartnerId: null
+        parentPartnerId: partnerId
       }, visa);
 
       const partners = (result.result || []).map(p => ({
@@ -142,7 +165,7 @@ export async function syncCoveData(body, user) {
     }
 
     try {
-      const visa = await coveLogin(partner, username, apiToken);
+      const { visa } = await coveLogin(partner, username, apiToken);
 
       const devicesResult = await coveApiCall('EnumerateAccountStatistics', {
         partnerId: parseInt(mapping.cove_partner_id)
@@ -248,7 +271,7 @@ export async function syncCoveData(body, user) {
     }
 
     try {
-      const visa = await coveLogin(partner, username, apiToken);
+      const { visa } = await coveLogin(partner, username, apiToken);
 
       const devicesResult = await coveApiCall('EnumerateAccountStatistics', {
         partnerId: parseInt(mapping.cove_partner_id)
