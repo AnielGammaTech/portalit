@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from './utils';
 import { client } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/lib/AuthContext';
 import {
   LayoutDashboard,
   Building2,
@@ -224,10 +225,8 @@ function MobileDrawerNav({ navigation, currentPageName, primaryColor, user, isAd
 }
 
 export default function Layout({ children, currentPageName }) {
-  const [user, setUser] = useState(null);
-  const [customer, setCustomer] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, isLoadingAuth } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   // Fetch portal settings
@@ -240,28 +239,18 @@ export default function Layout({ children, currentPageName }) {
   const portalSettings = portalSettingsData[0] || {};
   const primaryColor = portalSettings.primary_color || DEFAULT_PRIMARY;
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const currentUser = await client.auth.me();
-        setUser(currentUser);
-        setIsAdmin(currentUser?.role === 'admin');
+  // Fetch customer for non-admin users (uses stable customer_id from auth context)
+  const { data: customer = null } = useQuery({
+    queryKey: ['layout_customer', user?.customer_id],
+    queryFn: async () => {
+      const allCustomers = await client.entities.Customer.list();
+      return allCustomers.find(c => c.id === user.customer_id) || null;
+    },
+    enabled: !!user && !isAdmin && !!user.customer_id,
+    staleTime: 1000 * 60 * 10,
+  });
 
-        if (currentUser?.role !== 'admin' && currentUser?.customer_id) {
-          const allCustomers = await client.entities.Customer.list();
-          const userCustomer = allCustomers.find(c => c.id === currentUser.customer_id);
-          if (userCustomer) {
-            setCustomer(userCustomer);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load data', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadData();
-  }, []);
+  const isLoading = isLoadingAuth;
 
   // Navigation definitions
   const adminNavigation = useMemo(() => [

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
+import { useAuth } from '@/lib/AuthContext';
 import { 
   Building2, 
   FileText, 
@@ -664,9 +665,7 @@ function CustomerDashboard({ customer }) {
 
 // Main Dashboard - Routes based on user role
 export default function Dashboard() {
-  const [user, setUser] = useState(null);
-  const [customer, setCustomer] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, isLoadingAuth } = useAuth();
 
   const { data: customers = [], isSuccess: customersLoaded } = useQuery({
     queryKey: ['customers'],
@@ -674,34 +673,15 @@ export default function Dashboard() {
     staleTime: 1000 * 60 * 5,
   });
 
-  // Load user once on mount
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const currentUser = await client.auth.me();
-        setUser(currentUser);
-        setIsLoading(false);
-      } catch (error) {
-        console.error('Failed to load user', error);
-        setIsLoading(false);
-      }
-    };
-    loadUser();
-  }, []);
+  // Match customer from the loaded customers list (derived, no useEffect needed)
+  const customer = useMemo(() => {
+    if (!user || user.role === 'admin') return null;
+    if (!customersLoaded || customers.length === 0) return null;
+    if (!user.customer_id) return null;
+    return customers.find(c => c.id === user.customer_id) || null;
+  }, [user, customersLoaded, customers.length, user?.customer_id]);
 
-  // Match customer when both user and customers are available
-  // Use customersLoaded (boolean) instead of customers array to avoid infinite loop
-  useEffect(() => {
-    if (!user || user.role === 'admin') return;
-    if (!customersLoaded || customers.length === 0) return;
-
-    if (user.customer_id) {
-      const matched = customers.find(c => c.id === user.customer_id);
-      setCustomer(matched || null);
-    } else {
-      setCustomer(null);
-    }
-  }, [user, customersLoaded, customers.length]);
+  const isLoading = isLoadingAuth;
 
   if (isLoading) {
     return (
