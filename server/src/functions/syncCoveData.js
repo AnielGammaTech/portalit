@@ -77,14 +77,21 @@ function formatBytes(bytes) {
 
 // Cove API column codes (from N-able documentation)
 // See: https://documentation.n-able.com/covedataprotection/USERGUIDE/documentation/Content/service-management/json-api/API-column-codes.htm
-const COVE_COLUMNS = ['I18', 'I32', 'I14', 'F15', 'F00', 'F03', 'F06'];
-//  I18 = Computer Name
-//  I32 = OS Type (1=workstation, 2=server, 0=undefined)
-//  I14 = Used Storage (bytes)
-//  F15 = Last Session Timestamp (unix)
-//  F00 = Last Session Status (1=InProcess, 2=Failed, 3=NoData, 5=Completed, 6=Interrupted, 7=NotStarted, 8=CompletedWithErrors, 9=InProgressWithFaults, 10=OverQuota, 11=NoSelection, 12=Restarted)
-//  F03 = Last Session Selected Size (bytes)
-//  F06 = Last Session Errors Count
+// NOTE: Session columns (F-prefix) MUST be scoped to a data source.
+// D9 = "Total" (aggregate across all data sources), D1 = Files & Folders, D2 = System State.
+// Format: D{sourceId}F{columnId} e.g. D9F00 = Total Last Session Status
+const COVE_COLUMNS = [
+  'I18',    // Computer Name
+  'I32',    // OS Type (1=workstation, 2=server, 0=undefined)
+  'I14',    // Used Storage (bytes)
+  'I6',     // Timestamp (last activity)
+  'D9F00',  // Total — Last Session Status
+  'D9F15',  // Total — Last Session Timestamp
+  'D9F03',  // Total — Last Session Selected Size (bytes)
+  'D9F06',  // Total — Last Session Errors Count
+  'D1F00',  // Files & Folders — Last Session Status (fallback)
+  'D1F15',  // Files & Folders — Last Session Timestamp (fallback)
+];
 
 const SESSION_STATUS_MAP = {
   1: 'InProcess', 2: 'Failed', 3: 'NoData', 5: 'Completed',
@@ -256,16 +263,17 @@ export async function syncCoveData(body, user) {
         // Parse Settings array if present (Cove returns column-coded data)
         const s = parseSettings(d.Settings);
 
-        // Extract fields — try both flat fields and Settings column codes
+        // Extract fields — try flat fields first, then Settings column codes
+        // Session columns use data-source prefix: D9 = Total, D1 = Files & Folders (fallback)
         const computerName = d.AccountName || d.Name || d.ComputerName || s['I18'] || 'Unknown';
         const osTypeRaw = d.OsType || s['I32'];
         const osType = OS_TYPE_MAP[osTypeRaw] || osTypeRaw || 'Unknown';
         const usedStorage = parseInt(d.UsedStorage || s['I14'] || 0, 10);
-        const protectedSize = parseInt(d.SelectedSize || s['F03'] || 0, 10);
-        const lastBackupTs = d.LastSessionTimestamp || s['F15'] || null;
-        const statusCode = d.LastSessionStatus || s['F00'];
+        const protectedSize = parseInt(d.SelectedSize || s['D9F03'] || 0, 10);
+        const lastBackupTs = d.LastSessionTimestamp || s['D9F15'] || s['D1F15'] || null;
+        const statusCode = d.LastSessionStatus || s['D9F00'] || s['D1F00'];
         const lastSessionStatus = SESSION_STATUS_MAP[statusCode] || statusCode || 'Unknown';
-        const errors = parseInt(d.SessionErrors || s['F06'] || 0, 10);
+        const errors = parseInt(d.SessionErrors || s['D9F06'] || 0, 10);
 
         // Determine active state — Cove devices without "Flags" containing " integrityCheckAccountMissedBackupAlertSent" are generally active
         const isActive = d.AccountState === 'Active' || d.State === 1 ||
@@ -372,17 +380,18 @@ export async function syncCoveData(body, user) {
 
       const devices = rawDevices.map(d => {
         const s = parseSettings(d.Settings);
-        const statusCode = d.LastSessionStatus || s['F00'];
+        // Session columns: D9 = Total (aggregate), D1 = Files & Folders (fallback)
+        const statusCode = d.LastSessionStatus || s['D9F00'] || s['D1F00'];
         return {
           id: d.AccountId || d.Id,
           name: d.AccountName || d.Name || d.ComputerName || s['I18'] || 'Unknown',
           osType: OS_TYPE_MAP[d.OsType || s['I32']] || d.OsType || s['I32'] || 'Unknown',
           state: d.AccountState || (d.State === 1 ? 'Active' : 'Inactive'),
-          lastBackup: d.LastSessionTimestamp || s['F15'],
+          lastBackup: d.LastSessionTimestamp || s['D9F15'] || s['D1F15'],
           lastBackupStatus: SESSION_STATUS_MAP[statusCode] || statusCode || 'Unknown',
           usedStorage: formatBytes(parseInt(d.UsedStorage || s['I14'] || 0, 10)),
-          protectedSize: formatBytes(parseInt(d.SelectedSize || s['F03'] || 0, 10)),
-          errors: parseInt(d.SessionErrors || s['F06'] || 0, 10),
+          protectedSize: formatBytes(parseInt(d.SelectedSize || s['D9F03'] || 0, 10)),
+          errors: parseInt(d.SessionErrors || s['D9F06'] || 0, 10),
           warnings: d.SessionWarnings || 0
         };
       });
