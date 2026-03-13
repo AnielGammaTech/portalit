@@ -21,7 +21,7 @@ export default function LootIT() {
   };
 
   return (
-    <div className="min-h-screen bg-pink-50/40">
+    <div className="min-h-screen" style={{ backgroundColor: '#FDF2F8' }}>
       {/* Header */}
       <div className="bg-white/60 backdrop-blur-sm border-b border-pink-100 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">

@@ -25,6 +25,7 @@ import { syncCoveData } from '../functions/syncCoveData.js';
 import { syncDarkWebID } from '../functions/syncDarkWebID.js';
 import { syncUniFiDevices } from '../functions/syncUniFiDevices.js';
 import { syncSaaSAlerts } from '../functions/syncSaaSAlerts.js';
+import { syncPax8Subscriptions } from '../functions/syncPax8Subscriptions.js';
 import { autoSuspendUnusedLicenses } from '../functions/autoSuspendUnusedLicenses.js';
 import { licenseRenewalReminder } from '../functions/licenseRenewalReminder.js';
 import { testAIConnection } from '../functions/testAIConnection.js';
@@ -53,6 +54,7 @@ const functionMap = {
   syncDarkWebID,
   syncUniFiDevices,
   syncSaaSAlerts,
+  syncPax8Subscriptions,
   autoSuspendUnusedLicenses,
   licenseRenewalReminder,
   testAIConnection,

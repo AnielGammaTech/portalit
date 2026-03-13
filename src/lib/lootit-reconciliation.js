@@ -59,6 +59,16 @@ const VENDOR_EXTRACTORS = {
     if (typeof data.totalAgents === 'number') return data.totalAgents;
     return null;
   },
+
+  pax8: (data) => {
+    if (!data) return null;
+    if (typeof data.totalQuantity === 'number') return data.totalQuantity;
+    if (typeof data.totalSubscriptions === 'number') return data.totalSubscriptions;
+    if (Array.isArray(data.products)) {
+      return data.products.reduce((sum, p) => sum + (p.quantity || 0), 0);
+    }
+    return null;
+  },
 };
 
 /**
@@ -81,6 +91,7 @@ export const INTEGRATION_MAPPING_ENTITIES = {
   datto_edr: 'DattoEDRMapping',
   unifi: 'UniFiMapping',
   rocket_cyber: 'RocketCyberMapping',
+  pax8: 'Pax8Mapping',
 };
 
 export const INTEGRATION_LABELS = {
@@ -91,6 +102,7 @@ export const INTEGRATION_LABELS = {
   datto_edr: 'Datto EDR',
   unifi: 'UniFi Network',
   rocket_cyber: 'RocketCyber',
+  pax8: 'Pax8',
 };
 
 // ── Rule matching ──────────────────────────────────────────────────────

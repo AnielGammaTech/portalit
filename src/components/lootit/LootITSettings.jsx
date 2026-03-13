@@ -16,6 +16,7 @@ const DEFAULT_VENDOR_PATHS = {
   datto_edr: 'total_devices',
   unifi: 'total_devices',
   rocket_cyber: 'total_agents',
+  pax8: 'totalQuantity',
 };
 
 const TEMPLATE_RULES = [
@@ -24,6 +25,7 @@ const TEMPLATE_RULES = [
   { integration_key: 'spanning', match_pattern: 'Spanning', label: 'Spanning Backup', vendor_count_path: 'numberOfUsers' },
   { integration_key: 'jumpcloud', match_pattern: 'JumpCloud', label: 'JumpCloud Users', vendor_count_path: 'totalUsers' },
   { integration_key: 'rocket_cyber', match_pattern: 'RocketCyber', label: 'RocketCyber Agents', vendor_count_path: 'total_agents' },
+  { integration_key: 'pax8', match_pattern: 'Microsoft 365', label: 'Microsoft 365 Licences', vendor_count_path: 'totalQuantity' },
 ];
 
 const EMPTY_FORM = {

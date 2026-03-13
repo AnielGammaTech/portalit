@@ -67,6 +67,7 @@ const ENTITY_TABLE_MAP = {
   InvoiceLineItem: 'invoice_line_items',
   JumpCloudMapping: 'jump_cloud_mappings',
   LicenseAssignment: 'license_assignments',
+  Pax8Mapping: 'pax8_mappings',
   PortalSettings: 'portal_settings',
   Quote: 'quotes',
   QuoteItem: 'quote_items',

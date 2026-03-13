@@ -24,6 +24,7 @@ import RocketCyberConfig from '../components/integrations/RocketCyberConfig';
 import CoveDataConfig from '../components/integrations/CoveDataConfig';
 import UniFiConfig from '../components/integrations/UniFiConfig';
 import SaaSAlertsConfig from '../components/integrations/SaaSAlertsConfig';
+import Pax8Config from '../components/integrations/Pax8Config';
 import AIConfig from '../components/integrations/AIConfig';
 
 import {
@@ -33,6 +34,7 @@ import {
   MessageSquare,
   Image,
   Upload,
+  ShoppingCart,
   Palette,
   Save,
   Code,
@@ -96,6 +98,12 @@ const INTEGRATION_CATEGORIES = [
     ],
   },
   {
+    title: 'MARKETPLACE & LICENSING',
+    items: [
+      { id: 'pax8', label: 'Pax8', desc: 'Sync Microsoft 365, Azure & cloud subscriptions', icon: ShoppingCart, iconBg: 'bg-pink-50', iconColor: 'text-pink-600', mappingKey: 'pax8_mappings', mappingEntity: 'Pax8Mapping' },
+    ],
+  },
+  {
     title: 'SECURITY AWARENESS',
     items: [
       { id: 'darkweb', label: 'Dark Web ID', desc: 'Monitor dark web compromises', icon: AlertTriangle, iconBg: 'bg-red-50', iconColor: 'text-red-600' },
@@ -129,6 +137,7 @@ const INTEGRATION_COMPONENTS = {
   'darkweb': DarkWebIDConfig,
   'bullphish': BullPhishIDConfig,
   'ai': AIConfig,
+  'pax8': Pax8Config,
 };
 
 function IntegrationsPanel() {
@@ -142,6 +151,7 @@ function IntegrationsPanel() {
   const { data: coveMappings = [] } = useQuery({ queryKey: ['cove_mappings'], queryFn: () => client.entities.CoveDataMapping.list() });
   const { data: unifiMappings = [] } = useQuery({ queryKey: ['unifi_mappings'], queryFn: () => client.entities.UniFiMapping.list() });
   const { data: saasAlertsMappings = [] } = useQuery({ queryKey: ['saas_alerts_mappings'], queryFn: () => client.entities.SaaSAlertsMapping.list() });
+  const { data: pax8Mappings = [] } = useQuery({ queryKey: ['pax8_mappings'], queryFn: () => client.entities.Pax8Mapping.list() });
 
   const mappingCounts = {
     datto_mappings: dattoMappings.length,
@@ -152,6 +162,7 @@ function IntegrationsPanel() {
     cove_mappings: coveMappings.length,
     unifi_mappings: unifiMappings.length,
     saas_alerts_mappings: saasAlertsMappings.length,
+    pax8_mappings: pax8Mappings.length,
   };
 
   if (activeIntegration) {
