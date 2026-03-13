@@ -89,19 +89,16 @@ export async function syncHaloPSAContracts(body, _user) {
 
       const contractPayload = {
         customer_id: dbCustomer.id,
-        customer_name: dbCustomer.name,
         name: haloContract.contractname || haloContract.ref || haloContract.client_name || haloContract.name || `Contract ${haloContract.id}`,
         external_id: String(haloContract.id),
         source: 'halopsa',
-        type: contractType,
+        contract_type: contractType,
         status: contractStatus,
         start_date: parseDate(haloContract.start_date || haloContract.startdate),
         end_date: parseDate(haloContract.end_date || haloContract.enddate),
-        renewal_date: parseDate(haloContract.next_invoice_date || haloContract.renewaldate || haloContract.renewal_date),
         billing_cycle: billingCycle,
         value: parseFloat(haloContract.periodchargeamount || haloContract.contractvalue || haloContract.value || haloContract.monthlyvalue || 0) || 0,
-        description: haloContract.notes || haloContract.description || '',
-        auto_renew: haloContract.autorenew === true || haloContract.auto_renew === true || false,
+        notes: haloContract.notes || haloContract.description || '',
       };
 
       const existing = existingByExternalId[String(haloContract.id)];

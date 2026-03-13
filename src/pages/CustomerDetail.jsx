@@ -1585,7 +1585,7 @@ export default function CustomerDetail() {
                               <div className="space-y-2">
                                 {tickets
                                   .filter(t => ticketFilter === 'all' || t.status === ticketFilter)
-                                  .sort((a, b) => new Date(b.date_opened || 0) - new Date(a.date_opened || 0))
+                                  .sort((a, b) => new Date(b.created_date || 0) - new Date(a.created_date || 0))
                                   .slice((ticketPage - 1) * 10, ticketPage * 10)
                                   .map(ticket => (
                                     <div key={ticket.id} className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
@@ -1608,21 +1608,21 @@ export default function CustomerDetail() {
                                       </div>
                                       <div className="flex-1 min-w-0">
                                         <p className="font-semibold text-slate-900 truncate">
-                                          #{ticket.ticket_number} - {ticket.summary}
+                                          #{ticket.external_id} - {ticket.subject}
                                         </p>
                                         <div className="flex items-center gap-2 mt-1 text-sm text-slate-500">
-                                          {ticket.requested_by && (
-                                            <span>By: {ticket.requested_by}</span>
+                                          {ticket.contact_name && (
+                                            <span>By: {ticket.contact_name}</span>
                                           )}
-                                          {ticket.requested_by && ticket.assigned_to && <span>•</span>}
+                                          {ticket.contact_name && ticket.assigned_to && <span>•</span>}
                                           {ticket.assigned_to && (
                                             <span className="text-purple-600 font-medium">
                                               Tech: {ticket.assigned_to}
                                             </span>
                                           )}
-                                          {(ticket.requested_by || ticket.assigned_to) && ticket.date_opened && <span>•</span>}
-                                          {ticket.date_opened && (
-                                            <span>{format(parseISO(ticket.date_opened), 'MMM d, yyyy')}</span>
+                                          {(ticket.contact_name || ticket.assigned_to) && ticket.created_date && <span>•</span>}
+                                          {ticket.created_date && (
+                                            <span>{format(parseISO(ticket.created_date), 'MMM d, yyyy')}</span>
                                           )}
                                         </div>
                                       </div>

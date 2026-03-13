@@ -411,6 +411,7 @@ export default function CustomerServicesTab({
       });
       if (response.success) {
         toast.success('Unitrends data synced!');
+        queryClient.invalidateQueries({ queryKey: ['spanning-mapping', customerId] });
         queryClient.invalidateQueries({ queryKey: ['spanning-contacts', customerId] });
         queryClient.invalidateQueries({ queryKey: ['spanning-licenses', customerId] });
       } else {

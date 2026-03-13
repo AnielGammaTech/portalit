@@ -47,19 +47,18 @@ function transformTicket(haloTicket, customerId) {
 
   return {
     customer_id: customerId,
-    halopsa_id: String(haloTicket.id),
-    ticket_number: String(haloTicket.id || haloTicket.ticketnumber || ''),
-    summary: haloTicket.summary || haloTicket.Summary || '',
-    details: haloTicket.details || haloTicket.Details || '',
-    status: status,
+    external_id: String(haloTicket.id),
+    source: 'halopsa',
+    subject: haloTicket.summary || haloTicket.Summary || '',
+    description: haloTicket.details || haloTicket.Details || '',
+    status,
     priority: priorityMap[String(haloTicket.priority_id)] || haloTicket.priority?.toLowerCase?.() || 'medium',
     ticket_type: haloTicket.tickettype_name || haloTicket.tickettype || '',
     assigned_to: haloTicket.agent_name || haloTicket.agent || '',
-    requested_by: haloTicket.user_name || haloTicket.username || '',
-    requested_by_email: haloTicket.user_email || '',
-    date_opened: haloTicket.dateoccurred || haloTicket.datecreated || null,
-    date_closed: haloTicket.dateclosed || null,
-    last_updated: haloTicket.lastupdate || haloTicket.lastupdated || null
+    contact_name: haloTicket.user_name || haloTicket.username || '',
+    contact_email: haloTicket.user_email || '',
+    created_date: haloTicket.dateoccurred || haloTicket.datecreated || null,
+    closed_at: haloTicket.dateclosed || null,
   };
 }
 
@@ -107,10 +106,11 @@ export async function syncHaloPSATickets(body, _user) {
         try {
           const ticketPayload = transformTicket(haloTicket, dbCustomer.id);
 
-          let existingQuery = supabase.from('tickets').select('*');
-          existingQuery = existingQuery.eq('halopsa_id', ticketPayload.halopsa_id);
-          existingQuery = existingQuery.eq('customer_id', dbCustomer.id);
-          const { data: existingTicketArr } = await existingQuery;
+          const { data: existingTicketArr } = await supabase
+            .from('tickets')
+            .select('*')
+            .eq('external_id', ticketPayload.external_id)
+            .eq('customer_id', dbCustomer.id);
           const existingTicket = (existingTicketArr || [])[0];
 
           if (existingTicket) {
