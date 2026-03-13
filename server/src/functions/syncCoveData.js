@@ -105,16 +105,39 @@ export async function syncCoveData(body, user) {
     try {
       const { visa, partnerId } = await coveLogin(partner, username, apiToken);
 
-      const result = await coveApiCall('EnumeratePartners', {
+      // EnumeratePartners returns IDs but Name is often null.
+      // We must call GetPartnerInfoById per partner to get actual names.
+      const enumResult = await coveApiCall('EnumeratePartners', {
         parentPartnerId: partnerId
       }, visa);
 
-      const partners = (result.result || []).map(p => ({
-        id: p.Id?.toString() || p.PartnerId?.toString(),
-        name: p.Name || p.CompanyName,
-        level: p.Level,
-        createdAt: p.CreationTime
-      }));
+      const partnerList = enumResult.result || [];
+
+      // Fetch full info for each partner (Name comes from GetPartnerInfoById)
+      const partners = await Promise.all(
+        partnerList.map(async (p) => {
+          const id = p.Id;
+          let name = p.Name;
+
+          if (!name) {
+            try {
+              const infoResult = await coveApiCall('GetPartnerInfoById', {
+                partnerId: id
+              }, visa);
+              name = infoResult.result?.Name || `Partner ${id}`;
+            } catch {
+              name = `Partner ${id}`;
+            }
+          }
+
+          return {
+            id: id?.toString(),
+            name,
+            level: p.Level,
+            createdAt: p.CreationTime
+          };
+        })
+      );
 
       return { success: true, partners };
     } catch (error) {
