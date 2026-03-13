@@ -3,14 +3,30 @@ import { getServiceSupabase } from '../lib/supabase.js';
 // SaaS Alerts production API — Google Cloud Function (from official Swagger spec)
 const SAAS_ALERTS_BASE = 'https://us-central1-the-byway-248217.cloudfunctions.net/reportApi/api/v1';
 
+// Decode the API key if it's base64-encoded (SaaS Alerts issues keys in base64 format)
+function resolveApiKey() {
+  const raw = process.env.SAAS_ALERTS_API_KEY;
+  if (!raw) return null;
+
+  // If it looks like base64 (only base64 chars and reasonable length), decode it
+  if (/^[A-Za-z0-9+/=]+$/.test(raw) && raw.length > 40) {
+    try {
+      return Buffer.from(raw, 'base64').toString('utf-8');
+    } catch {
+      return raw;
+    }
+  }
+  return raw;
+}
+
 async function saasAlertsApiCall(endpoint, { method = 'GET', body } = {}) {
-  const apiKey = process.env.SAAS_ALERTS_API_KEY;
+  const apiKey = resolveApiKey();
   if (!apiKey) throw new Error('SaaS Alerts API key not configured');
 
   const options = {
     method,
     headers: {
-      'api_key': apiKey,              // SaaS Alerts uses api_key header (NOT Bearer)
+      'api_key': apiKey,              // SaaS Alerts uses api_key header (Swagger spec)
       'Content-Type': 'application/json',
       'Accept': 'application/json'
     }
