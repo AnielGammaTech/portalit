@@ -24,6 +24,7 @@ import RocketCyberConfig from '../components/integrations/RocketCyberConfig';
 import CoveDataConfig from '../components/integrations/CoveDataConfig';
 import UniFiConfig from '../components/integrations/UniFiConfig';
 import SaaSAlertsConfig from '../components/integrations/SaaSAlertsConfig';
+import AIConfig from '../components/integrations/AIConfig';
 
 import {
   Shield,
@@ -52,6 +53,7 @@ import {
   RefreshCw,
   Mail,
   Ticket,
+  Brain,
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -101,6 +103,12 @@ const INTEGRATION_CATEGORIES = [
     ],
   },
   {
+    title: 'AI & AUTOMATION',
+    items: [
+      { id: 'ai', label: 'AI Provider', desc: 'Choose between OpenAI and Claude AI', icon: Brain, iconBg: 'bg-gradient-to-br from-amber-50 to-orange-50', iconColor: 'text-amber-600' },
+    ],
+  },
+  {
     title: 'GAMMASTACK ECOSYSTEM',
     items: [
       { id: 'external-api', label: 'External API Access', desc: 'Generate API keys for external apps', icon: Zap, iconBg: 'bg-amber-50', iconColor: 'text-amber-600' },
@@ -120,6 +128,7 @@ const INTEGRATION_COMPONENTS = {
   'saas-alerts': SaaSAlertsConfig,
   'darkweb': DarkWebIDConfig,
   'bullphish': BullPhishIDConfig,
+  'ai': AIConfig,
 };
 
 function IntegrationsPanel() {

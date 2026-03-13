@@ -5,7 +5,7 @@ const COVE_API_URL = 'https://api.backup.management/jsonapi';
 // Make JSON-RPC call to Cove API
 async function coveApiCall(method, params = {}, visa = null) {
   const body = {
-    jsonrpc: '4.0',
+    jsonrpc: '2.0',
     method,
     params,
     id: Date.now().toString()

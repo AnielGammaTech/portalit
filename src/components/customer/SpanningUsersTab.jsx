@@ -1,18 +1,20 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { client } from '@/api/client';
-import { toast } from 'sonner';
-import { Link } from 'react-router-dom';
-import { createPageUrl } from '../../utils';
-import { 
-  Users, 
-  HardDrive, 
-  CheckCircle2, 
-  RefreshCw,
+import { motion } from 'framer-motion';
+import { staggerContainer, staggerItem, fadeInUp } from '@/lib/motion';
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { SkeletonStats, SkeletonTable } from "@/components/ui/shimmer-skeleton";
+import { AnimatedCounter } from "@/components/ui/animated-counter";
+import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Users,
   Archive,
   Mail,
-  ExternalLink,
-  Shield,
+  CheckCircle2,
+  RefreshCw,
   Search,
   ChevronLeft,
   ChevronRight,
@@ -22,15 +24,44 @@ import {
   Calendar,
   FolderOpen,
   Database,
-  Cloud
+  Cloud,
+  Shield,
+  HardDrive,
+  Loader2
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { toast } from 'sonner';
+import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+
+// ── Stat Card Configs ────────────────────────────────────────────────────
+
+const USER_STATS = [
+  { key: 'standard', icon: Users, label: 'Standard Users', color: 'text-primary', bg: 'bg-primary/10' },
+  { key: 'archived', icon: Archive, label: 'Archived', color: 'text-[#7828C8]', bg: 'bg-[#7828C8]/10' },
+  { key: 'shared', icon: Mail, label: 'Shared Mailboxes', color: 'text-[#06B6D4]', bg: 'bg-[#06B6D4]/10' },
+  { key: 'total', icon: CheckCircle2, label: 'Total Protected', color: 'text-success', bg: 'bg-success/10' },
+];
+
+const SERVICE_STATS = [
+  { key: 'sharepoint', icon: Globe, label: 'SharePoint Sites', color: 'text-[#2563EB]', bg: 'bg-[#2563EB]/10', clickable: true },
+  { key: 'teams', icon: MessageSquare, label: 'Teams Channels', color: 'text-[#6366F1]', bg: 'bg-[#6366F1]/10', clickable: true },
+  { key: 'storage', icon: Database, label: 'Protected Data', color: 'text-muted-foreground', bg: 'bg-muted' },
+  { key: 'backup', icon: Shield, label: '7-Day Backup', color: 'text-[#059669]', bg: 'bg-[#059669]/10' },
+];
+
+const BACKUP_SERVICES = [
+  { key: 'mail', label: 'Mail' },
+  { key: 'drive', label: 'Drive' },
+  { key: 'sharePoint', label: 'SP' },
+  { key: 'teams', label: 'Teams' },
+  { key: 'calendar', label: 'Cal' },
+  { key: 'contacts', label: 'Cont' },
+];
+
+const ITEMS_PER_PAGE = 15;
+
+// ── Component ────────────────────────────────────────────────────────────
 
 export default function SpanningUsersTab({ customerId, spanningMapping, queryClient }) {
   const [syncingSpanning, setSyncingSpanning] = useState(false);
@@ -44,11 +75,8 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
   const [loadingSharePoint, setLoadingSharePoint] = useState(false);
   const [loadingTeams, setLoadingTeams] = useState(false);
 
-  const ITEMS_PER_PAGE = 15;
+  // ── Cached data from mapping (instant, no API call) ──────────────────
 
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  // Load cached data from the mapping entity (instant, no API call)
   const cachedStats = useMemo(() => {
     if (!spanningMapping?.cached_data) return null;
     const data = typeof spanningMapping.cached_data === 'string'
@@ -58,65 +86,47 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
     return { ...data, fromCache: true, last_synced: spanningMapping.last_synced };
   }, [spanningMapping?.cached_data, spanningMapping?.last_synced]);
 
-  // Live data query - only runs when user clicks refresh
+  // ── Live data query (manual refresh only) ────────────────────────────
+
   const { data: liveSpanningData, refetch, isFetching } = useQuery({
     queryKey: ['spanning-live-users', customerId],
-    queryFn: async () => {
-      const response = await client.functions.invoke('syncSpanningBackup', {
-        action: 'list_users',
-        customer_id: customerId
-      });
-      return response;
-    },
-    enabled: false, // Don't run automatically
+    queryFn: () => client.functions.invoke('syncSpanningBackup', {
+      action: 'list_users',
+      customer_id: customerId
+    }),
+    enabled: false,
     staleTime: 5 * 60 * 1000
   });
 
-  // Use live data if available, otherwise cached
   const spanningData = liveSpanningData || cachedStats;
-  // Only show loading spinner on initial load if no cached data
-  const isLoading = !spanningData && isFetching;
 
-  // Fetch Spanning licenses for this customer
+  // ── Licenses & contacts for user matching ────────────────────────────
+
   const { data: spanningLicenses = [] } = useQuery({
     queryKey: ['spanning-licenses', customerId],
-    queryFn: async () => {
-      const licenses = await client.entities.SaaSLicense.filter({ 
-        customer_id: customerId,
-        source: 'spanning'
-      });
-      return licenses;
-    },
+    queryFn: () => client.entities.SaaSLicense.filter({ customer_id: customerId, source: 'spanning' }),
     enabled: !!customerId
   });
 
-  // Fetch contacts for this customer to match with Spanning users
   const { data: contacts = [] } = useQuery({
     queryKey: ['customer-contacts', customerId],
-    queryFn: async () => {
-      const contactsList = await client.entities.Contact.filter({ customer_id: customerId });
-      return contactsList;
-    },
+    queryFn: () => client.entities.Contact.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
-  // Create email-to-contact map
   const contactsByEmail = useMemo(() => {
     const map = {};
-    contacts.forEach(c => {
-      if (c.email) map[c.email.toLowerCase()] = c;
-    });
+    contacts.forEach(c => { if (c.email) map[c.email.toLowerCase()] = c; });
     return map;
   }, [contacts]);
 
+  // ── Handlers ─────────────────────────────────────────────────────────
+
   const handleSyncSpanning = async () => {
     setSyncingSpanning(true);
-    setIsRefreshing(true);
     try {
-      // Fetch fresh user data (this also updates the cache in backend)
       const result = await refetch();
       if (result.data?.success) {
-        // Invalidate mapping query to pick up new cached_data and last_synced
         queryClient?.invalidateQueries({ queryKey: ['spanning-mapping', customerId] });
         queryClient?.invalidateQueries({ queryKey: ['spanning-contacts', customerId] });
         queryClient?.invalidateQueries({ queryKey: ['spanning-licenses', customerId] });
@@ -129,7 +139,6 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
       toast.error('Failed to sync Spanning data');
     } finally {
       setSyncingSpanning(false);
-      setIsRefreshing(false);
     }
   };
 
@@ -141,9 +150,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
         action: 'list_sharepoint_sites',
         customer_id: customerId
       });
-      if (response.success) {
-        setSharePointSites(response.sites || []);
-      }
+      if (response.success) setSharePointSites(response.sites || []);
     } catch (error) {
       console.error('Failed to fetch SharePoint sites:', error);
     } finally {
@@ -159,9 +166,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
         action: 'list_teams_channels',
         customer_id: customerId
       });
-      if (response.success) {
-        setTeamsChannels(response.teams || []);
-      }
+      if (response.success) setTeamsChannels(response.teams || []);
     } catch (error) {
       console.error('Failed to fetch Teams channels:', error);
     } finally {
@@ -169,460 +174,383 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
     }
   };
 
-  // Show loading only if no cached data at all
+  // ── Empty state ──────────────────────────────────────────────────────
+
   if (!spanningData && !cachedStats) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 gap-4">
-        <Cloud className="w-12 h-12 text-slate-300" />
-        <p className="text-slate-500">No cached data available</p>
-        <Button 
-          onClick={handleSyncSpanning}
-          disabled={syncingSpanning}
-          className="gap-2"
-        >
-          <RefreshCw className={cn("w-4 h-4", syncingSpanning && "animate-spin")} />
-          Sync from Spanning
-        </Button>
-      </div>
+      <EmptyState
+        icon={Cloud}
+        title="No Spanning Data"
+        description="No cached data available. Click sync to fetch data from Spanning Backup."
+        action={{ label: 'Sync from Spanning', onClick: handleSyncSpanning }}
+      />
     );
   }
 
+  // ── Computed values ──────────────────────────────────────────────────
+
   const stats = spanningData || {};
-  
-  // Calculate stats from domain-level data
-  const standardLicenses = stats.numberOfStandardLicensesTotal || 0;
+
   const protectedStandard = stats.numberOfProtectedStandardUsers || 0;
-  const archivedLicenses = stats.numberOfArchivedLicensesTotal || 0;
+  const standardLicenses = stats.numberOfStandardLicensesTotal || 0;
   const protectedArchived = stats.numberOfProtectedArchivedUsers || 0;
-  const sharedMailboxes = stats.numberOfSharedMailboxesTotal || 0;
+  const archivedLicenses = stats.numberOfArchivedLicensesTotal || 0;
   const protectedShared = stats.numberOfProtectedSharedMailboxes || 0;
-  const totalUsers = stats.numberOfUsers || 0;
+  const sharedMailboxes = stats.numberOfSharedMailboxesTotal || 0;
   const totalProtected = stats.numberOfProtectedUsers || 0;
+  const totalUsers = stats.numberOfUsers || 0;
 
-  // Find license IDs for each type
-  const standardLicense = spanningLicenses.find(l => l.license_type === 'Standard Users');
-  const archivedLicense = spanningLicenses.find(l => l.license_type === 'Archived Users');
-  const sharedLicense = spanningLicenses.find(l => l.license_type === 'Shared Mailboxes');
-
-  const categoryConfig = {
-    standard: { 
-      title: 'Standard Users', 
-      count: protectedStandard, 
-      total: standardLicenses,
-      icon: Users, 
-      color: 'purple',
-      description: 'Regular M365 user backups',
-      licenseId: standardLicense?.id
-    },
-    archived: { 
-      title: 'Archived Users', 
-      count: protectedArchived, 
-      total: archivedLicenses,
-      icon: Archive, 
-      color: 'amber',
-      description: 'Departed user data retention',
-      licenseId: archivedLicense?.id
-    },
-    shared: { 
-      title: 'Shared Mailboxes', 
-      count: protectedShared, 
-      total: sharedMailboxes,
-      icon: Mail, 
-      color: 'cyan',
-      description: 'Shared/resource mailbox backups',
-      licenseId: sharedLicense?.id
-    }
+  const userCounts = {
+    standard: protectedStandard,
+    archived: protectedArchived,
+    shared: protectedShared,
+    total: totalProtected,
   };
 
+  const userSubtitles = {
+    standard: `${standardLicenses} licenses`,
+    archived: `${archivedLicenses} licenses`,
+    shared: `${sharedMailboxes} total`,
+    total: `${totalUsers} total users`,
+  };
+
+  const serviceCounts = {
+    sharepoint: stats.numberOfProtectedSharePointSites || 0,
+    teams: stats.numberOfProtectedTeamChannels || 0,
+    backup: stats.backupStatus7Days
+      ? Object.values(stats.backupStatus7Days).filter(v => v === 'success').length
+      : 0,
+  };
+
+  const backupTotalCount = stats.backupStatus7Days
+    ? Object.keys(stats.backupStatus7Days).length
+    : 0;
+
+  const serviceSubtitles = {
+    sharepoint: stats.sharePointBackupStatus || '',
+    teams: stats.teamsBackupStatus || '',
+    storage: `Used: ${stats.totalUsedStorage || '0 B'}`,
+    backup: backupTotalCount > 0 ? `of ${backupTotalCount} services` : '',
+  };
+
+  // Users table
+  const users = stats.users || [];
+  const filteredUsers = users
+    .filter(u => {
+      if (!searchTerm) return true;
+      const term = searchTerm.toLowerCase();
+      return u.email?.toLowerCase().includes(term) || u.displayName?.toLowerCase().includes(term);
+    })
+    .sort((a, b) => (b.totalStorageBytes || 0) - (a.totalStorageBytes || 0));
+
+  const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  // ── Render ───────────────────────────────────────────────────────────
+
   return (
-    <div className="space-y-4">
-      {/* Domain Info */}
-      <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-2xl border border-blue-100 p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-blue-600 uppercase tracking-wide">Spanning Backup Domain</p>
-            <p className="text-xl font-bold text-slate-900 mt-1">{stats.domainName || 'Loading...'}</p>
-            <div className="flex items-center gap-4 mt-1 text-sm text-slate-500">
-              <span>Origin: {stats.origin || 'M365'}</span>
-              {stats.expirationDate && (
-                <span>Expires: {new Date(stats.expirationDate).toLocaleDateString()}</span>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {stats.fromCache && stats.last_synced && (
-              <span className="text-xs text-slate-400">
-                Cached {new Date(stats.last_synced).toLocaleDateString()}
-              </span>
-            )}
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleSyncSpanning}
-              disabled={syncingSpanning}
-              className="gap-2"
-            >
-              <RefreshCw className={cn("w-4 h-4", syncingSpanning && "animate-spin")} />
-              {stats.fromCache ? 'Refresh' : 'Sync'}
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats Grid - Users */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 h-full">
-          <CardContent className="pt-4">
+    <div className="space-y-6">
+      {/* User Stats Cards */}
+      <motion.div
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+        className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+      >
+        {USER_STATS.map(stat => (
+          <motion.div
+            key={stat.key}
+            variants={staggerItem}
+            className="bg-card rounded-[14px] border shadow-hero-sm p-4 hover:shadow-hero-md transition-all duration-[250ms]"
+          >
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-200 rounded-lg">
-                <Users className="w-5 h-5 text-purple-700" />
+              <div className={cn('w-10 h-10 rounded-hero-md flex items-center justify-center', stat.bg)}>
+                <stat.icon className={cn('w-5 h-5', stat.color)} />
               </div>
               <div>
-                <p className="text-2xl font-bold text-purple-900">{protectedStandard}</p>
-                <p className="text-sm text-purple-600">Standard Users</p>
-                <p className="text-xs text-purple-500">{standardLicenses} licenses</p>
+                <AnimatedCounter value={userCounts[stat.key]} className="text-2xl font-bold text-foreground" />
+                <p className="text-xs text-muted-foreground">{stat.label}</p>
+                <p className="text-[10px] text-muted-foreground/60">{userSubtitles[stat.key]}</p>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </motion.div>
+        ))}
+      </motion.div>
 
-        <Card className="bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200 h-full">
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-amber-200 rounded-lg">
-                <Archive className="w-5 h-5 text-amber-700" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-amber-900">{protectedArchived}</p>
-                <p className="text-sm text-amber-600">Archived Users</p>
-                <p className="text-xs text-amber-500">{archivedLicenses} licenses</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-cyan-200 h-full">
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-cyan-200 rounded-lg">
-                <Mail className="w-5 h-5 text-cyan-700" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-cyan-900">{protectedShared}</p>
-                <p className="text-sm text-cyan-600">Shared Mailboxes</p>
-                <p className="text-xs text-cyan-500">{sharedMailboxes} total</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200 h-full">
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-200 rounded-lg">
-                <CheckCircle2 className="w-5 h-5 text-green-700" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-green-900">{totalProtected}</p>
-                <p className="text-sm text-green-600">Total Protected</p>
-                <p className="text-xs text-green-500">{totalUsers} total users</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* SharePoint & Teams Stats */}
+      {/* Service Stats Cards */}
       {stats.domainName && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card 
-            className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 h-full cursor-pointer hover:shadow-md transition-shadow"
-            onClick={handleOpenSharePointModal}
-          >
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-200 rounded-lg">
-                  <Globe className="w-5 h-5 text-blue-700" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-blue-900">{stats.numberOfProtectedSharePointSites || 0}</p>
-                  <p className="text-sm text-blue-600">SharePoint Sites</p>
-                  {stats.sharePointBackupStatus && (
-                    <Badge className={cn(
-                      "text-[10px] mt-1",
-                      stats.sharePointBackupStatus === 'success' ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
-                    )}>
-                      {stats.sharePointBackupStatus}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <motion.div
+          variants={staggerContainer}
+          initial="initial"
+          animate="animate"
+          className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+        >
+          {SERVICE_STATS.map(stat => {
+            const isClickable = stat.clickable;
+            const handleClick = stat.key === 'sharepoint'
+              ? handleOpenSharePointModal
+              : stat.key === 'teams'
+                ? handleOpenTeamsModal
+                : undefined;
 
-          <Card 
-            className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 h-full cursor-pointer hover:shadow-md transition-shadow"
-            onClick={handleOpenTeamsModal}
-          >
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-indigo-200 rounded-lg">
-                  <MessageSquare className="w-5 h-5 text-indigo-700" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-indigo-900">{stats.numberOfProtectedTeamChannels || 0}</p>
-                  <p className="text-sm text-indigo-600">Teams Channels</p>
-                  {stats.teamsBackupStatus && (
-                    <Badge className={cn(
-                      "text-[10px] mt-1",
-                      stats.teamsBackupStatus === 'success' ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
-                    )}>
-                      {stats.teamsBackupStatus}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200 h-full">
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-slate-200 rounded-lg">
-                  <Database className="w-5 h-5 text-slate-700" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-slate-900">{stats.totalProtectedStorage || '0 B'}</p>
-                  <p className="text-sm text-slate-600">Protected Data</p>
-                  <p className="text-xs text-slate-500">Used: {stats.totalUsedStorage || '0 B'}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* 7-Day Backup Status */}
-          {stats.backupStatus7Days && (
-            <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200 h-full">
-              <CardContent className="pt-4">
-                <p className="text-xs font-medium text-emerald-600 uppercase mb-2">7-Day Status</p>
-                <div className="grid grid-cols-3 gap-1 text-[10px]">
-                  {[
-                    { key: 'mail', icon: Mail, label: 'Mail' },
-                    { key: 'drive', icon: FolderOpen, label: 'Drive' },
-                    { key: 'sharePoint', icon: Globe, label: 'SP' },
-                    { key: 'teams', icon: MessageSquare, label: 'Teams' },
-                    { key: 'calendar', icon: Calendar, label: 'Cal' },
-                    { key: 'contacts', icon: Users, label: 'Cont' }
-                  ].map(({ key, icon: Icon, label }) => (
-                    <div key={key} className="flex items-center gap-1">
-                      <div className={cn(
-                        "w-2 h-2 rounded-full",
-                        stats.backupStatus7Days[key] === 'success' ? "bg-green-500" : "bg-amber-500"
-                      )} />
-                      <span className="text-emerald-700">{label}</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
-
-
-
-      {/* Users List */}
-      {stats.users && stats.users.length > 0 && (() => {
-        const filteredUsers = stats.users
-          .filter(u => {
-            // Search filter
-            const matchesSearch = u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              u.displayName?.toLowerCase().includes(searchTerm.toLowerCase());
-            
-            return matchesSearch;
-          })
-          .sort((a, b) => b.totalStorageBytes - a.totalStorageBytes);
-        
-        const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
-        const paginatedUsers = filteredUsers.slice(
-          (currentPage - 1) * ITEMS_PER_PAGE,
-          currentPage * ITEMS_PER_PAGE
-        );
-
-        return (
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5 text-blue-600" />
-                  All Spanning Users ({filteredUsers.length})
-                </CardTitle>
-                <div className="relative w-64">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <Input
-                    placeholder="Search users..."
-                    value={searchTerm}
-                    onChange={(e) => {
-                      setSearchTerm(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="pl-9"
-                  />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="border rounded-lg overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-slate-50">
-                      <TableHead>User</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Mail</TableHead>
-                      <TableHead className="text-right">Drive</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedUsers.map((user, idx) => {
-                      const matchedContact = contactsByEmail[user.email?.toLowerCase()];
-                      return (
-                        <TableRow 
-                          key={idx} 
-                          className="cursor-pointer hover:bg-slate-50"
-                          onClick={() => setSelectedUser({ ...user, contact: matchedContact })}
-                        >
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-medium text-sm">
-                                {user.displayName?.charAt(0)?.toUpperCase() || '?'}
-                              </div>
-                              <div>
-                                <p className="font-medium text-slate-900">{user.displayName}</p>
-                                <p className="text-xs text-slate-500">{user.email}</p>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className="bg-green-100 text-green-700 gap-1">
-                              <Shield className="w-3 h-3" />
-                              Protected
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <span className="font-mono text-sm text-slate-700">{user.mailStorage}</span>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <span className="font-mono text-sm text-slate-700">{user.driveStorage}</span>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <span className="font-mono text-sm font-semibold text-slate-900">{user.totalStorage}</span>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <p className="text-sm text-slate-500">
-                    Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredUsers.length)} of {filteredUsers.length}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </Button>
-                    <span className="text-sm text-slate-600">
-                      Page {currentPage} of {totalPages}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                      disabled={currentPage === totalPages}
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </Button>
+            return (
+              <motion.div
+                key={stat.key}
+                variants={staggerItem}
+                className={cn(
+                  'bg-card rounded-[14px] border shadow-hero-sm p-4 hover:shadow-hero-md transition-all duration-[250ms]',
+                  isClickable && 'cursor-pointer'
+                )}
+                onClick={handleClick}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={cn('w-10 h-10 rounded-hero-md flex items-center justify-center', stat.bg)}>
+                    <stat.icon className={cn('w-5 h-5', stat.color)} />
+                  </div>
+                  <div>
+                    {stat.key === 'storage' ? (
+                      <p className="text-2xl font-bold text-foreground">{stats.totalProtectedStorage || '0 B'}</p>
+                    ) : stat.key === 'backup' ? (
+                      <>
+                        <AnimatedCounter value={serviceCounts.backup} className="text-2xl font-bold text-foreground" />
+                        {stats.backupStatus7Days && (
+                          <div className="flex items-center gap-1 mt-0.5">
+                            {BACKUP_SERVICES.map(svc => (
+                              <div
+                                key={svc.key}
+                                className={cn(
+                                  'w-2 h-2 rounded-full',
+                                  stats.backupStatus7Days[svc.key] === 'success' ? 'bg-success' : 'bg-warning'
+                                )}
+                                title={`${svc.label}: ${stats.backupStatus7Days[svc.key]}`}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <AnimatedCounter value={serviceCounts[stat.key]} className="text-2xl font-bold text-foreground" />
+                    )}
+                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+                    {serviceSubtitles[stat.key] && (
+                      <p className="text-[10px] text-muted-foreground/60">{serviceSubtitles[stat.key]}</p>
+                    )}
                   </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        );
-      })()}
+              </motion.div>
+            );
+          })}
+        </motion.div>
+      )}
 
-      {/* User Detail Modal */}
+      {/* Domain info + Last synced */}
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">{stats.domainName}</span>
+          {stats.origin && <span className="ml-2">• {stats.origin}</span>}
+          {stats.expirationDate && (
+            <span className="ml-2">• Expires {new Date(stats.expirationDate).toLocaleDateString()}</span>
+          )}
+        </p>
+        {stats.fromCache && stats.last_synced && (
+          <p className="text-xs text-muted-foreground text-right">
+            Last synced: {new Date(stats.last_synced).toLocaleDateString('en-US', {
+              month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit'
+            })}
+          </p>
+        )}
+      </div>
+
+      {/* Search & Sync Bar */}
+      <motion.div {...fadeInUp} className="bg-card rounded-[14px] border shadow-hero-sm p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search users by name or email..."
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              className="pl-9 pr-9 rounded-hero-md bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          <Button onClick={handleSyncSpanning} disabled={syncingSpanning}>
+            {syncingSpanning
+              ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              : <RefreshCw className="w-4 h-4 mr-2" />}
+            Sync Spanning
+          </Button>
+        </div>
+      </motion.div>
+
+      {/* Users Table */}
+      <div className="bg-card rounded-[14px] border shadow-hero-sm overflow-hidden">
+        {users.length === 0 ? (
+          <EmptyState
+            icon={Users}
+            title="No users found"
+            description="Sync from Spanning to populate the user list"
+            action={{ label: 'Sync from Spanning', onClick: handleSyncSpanning }}
+          />
+        ) : filteredUsers.length === 0 ? (
+          <EmptyState
+            icon={Search}
+            title="No matching users"
+            description="Try adjusting your search term"
+          />
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead>User</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Mail</TableHead>
+                    <TableHead className="text-right">Drive</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedUsers.map((user, idx) => {
+                    const matchedContact = contactsByEmail[user.email?.toLowerCase()];
+                    return (
+                      <TableRow
+                        key={user.email || idx}
+                        className="cursor-pointer hover:bg-muted/30 transition-colors duration-[250ms]"
+                        onClick={() => setSelectedUser({ ...user, contact: matchedContact })}
+                      >
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium text-sm">
+                              {user.displayName?.charAt(0)?.toUpperCase() || '?'}
+                            </div>
+                            <div>
+                              <p className="font-medium text-foreground">{user.displayName}</p>
+                              <p className="text-xs text-muted-foreground">{user.email}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="flat-success" className="text-[11px] gap-1">
+                            <Shield className="w-3 h-3" />
+                            Protected
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span className="font-mono text-sm text-muted-foreground">{user.mailStorage}</span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span className="font-mono text-sm text-muted-foreground">{user.driveStorage}</span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span className="font-mono text-sm font-semibold text-foreground">{user.totalStorage}</span>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border/50">
+                <p className="text-sm text-muted-foreground">
+                  Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filteredUsers.length)} of {filteredUsers.length}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* ── User Detail Modal ─────────────────────────────────────────── */}
       <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Spanning User Details</DialogTitle>
           </DialogHeader>
-          
           {selectedUser && (
             <div className="space-y-4">
-              {/* User Header */}
-              <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg">
-                <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold text-lg">
+              <div className="flex items-center gap-4 p-4 bg-muted rounded-hero-md">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
                   {selectedUser.displayName?.charAt(0)?.toUpperCase() || '?'}
                 </div>
                 <div>
-                  <p className="font-semibold text-slate-900">{selectedUser.displayName}</p>
-                  <p className="text-sm text-slate-500">{selectedUser.email}</p>
+                  <p className="font-semibold text-foreground">{selectedUser.displayName}</p>
+                  <p className="text-sm text-muted-foreground">{selectedUser.email}</p>
                 </div>
               </div>
 
-              {/* Storage Breakdown */}
               <div className="space-y-3">
-                <h4 className="font-medium text-slate-900">Storage Usage</h4>
+                <h4 className="font-medium text-foreground">Storage Usage</h4>
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="p-3 bg-blue-50 rounded-lg text-center">
-                    <Mail className="w-5 h-5 text-blue-600 mx-auto mb-1" />
-                    <p className="text-lg font-bold text-blue-900">{selectedUser.mailStorage}</p>
-                    <p className="text-xs text-blue-600">Mail</p>
-                  </div>
-                  <div className="p-3 bg-purple-50 rounded-lg text-center">
-                    <HardDrive className="w-5 h-5 text-purple-600 mx-auto mb-1" />
-                    <p className="text-lg font-bold text-purple-900">{selectedUser.driveStorage}</p>
-                    <p className="text-xs text-purple-600">Drive</p>
-                  </div>
-                  <div className="p-3 bg-green-50 rounded-lg text-center">
-                    <CheckCircle2 className="w-5 h-5 text-green-600 mx-auto mb-1" />
-                    <p className="text-lg font-bold text-green-900">{selectedUser.totalStorage}</p>
-                    <p className="text-xs text-green-600">Total</p>
-                  </div>
+                  {[
+                    { icon: Mail, value: selectedUser.mailStorage, label: 'Mail', color: 'text-[#2563EB]', bg: 'bg-[#2563EB]/10' },
+                    { icon: HardDrive, value: selectedUser.driveStorage, label: 'Drive', color: 'text-[#7828C8]', bg: 'bg-[#7828C8]/10' },
+                    { icon: CheckCircle2, value: selectedUser.totalStorage, label: 'Total', color: 'text-success', bg: 'bg-success/10' },
+                  ].map(item => (
+                    <div key={item.label} className={cn('p-3 rounded-hero-md text-center', item.bg)}>
+                      <item.icon className={cn('w-5 h-5 mx-auto mb-1', item.color)} />
+                      <p className="text-lg font-bold text-foreground">{item.value}</p>
+                      <p className="text-xs text-muted-foreground">{item.label}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              {/* Status */}
-              <div className="p-3 bg-green-50 rounded-lg flex items-center gap-2">
-                <Shield className="w-5 h-5 text-green-600" />
-                <span className="text-green-700 font-medium">Protected by Spanning Backup</span>
+              <div className="p-3 bg-success/10 rounded-hero-md flex items-center gap-2">
+                <Shield className="w-5 h-5 text-success" />
+                <span className="text-success font-medium">Protected by Spanning Backup</span>
               </div>
 
-              {/* HaloPSA Match */}
               {selectedUser.contact ? (
-                <div className="p-4 border border-blue-200 bg-blue-50 rounded-lg">
+                <div className="p-4 border border-primary/20 bg-primary/5 rounded-hero-md">
                   <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle2 className="w-4 h-4 text-blue-600" />
-                    <span className="font-medium text-blue-900">Matched to HaloPSA Contact</span>
+                    <CheckCircle2 className="w-4 h-4 text-primary" />
+                    <span className="font-medium text-foreground">Matched to HaloPSA Contact</span>
                   </div>
-                  <div className="text-sm text-blue-700 space-y-1">
-                    <p><strong>Name:</strong> {selectedUser.contact.full_name}</p>
-                    {selectedUser.contact.title && <p><strong>Title:</strong> {selectedUser.contact.title}</p>}
-                    {selectedUser.contact.phone && <p><strong>Phone:</strong> {selectedUser.contact.phone}</p>}
+                  <div className="text-sm text-muted-foreground space-y-1">
+                    <p><strong className="text-foreground">Name:</strong> {selectedUser.contact.full_name}</p>
+                    {selectedUser.contact.title && <p><strong className="text-foreground">Title:</strong> {selectedUser.contact.title}</p>}
+                    {selectedUser.contact.phone && <p><strong className="text-foreground">Phone:</strong> {selectedUser.contact.phone}</p>}
                   </div>
                 </div>
               ) : (
-                <div className="p-4 border border-slate-200 bg-slate-50 rounded-lg">
-                  <p className="text-sm text-slate-500">No matching contact found in HaloPSA</p>
+                <div className="p-4 border border-border bg-muted rounded-hero-md">
+                  <p className="text-sm text-muted-foreground">No matching contact found in HaloPSA</p>
                 </div>
               )}
             </div>
@@ -630,31 +558,27 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
         </DialogContent>
       </Dialog>
 
-      {/* SharePoint Sites Modal */}
+      {/* ── SharePoint Sites Modal ────────────────────────────────────── */}
       <Dialog open={sharePointModalOpen} onOpenChange={setSharePointModalOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Globe className="w-5 h-5 text-blue-600" />
+              <Globe className="w-5 h-5 text-[#2563EB]" />
               SharePoint Sites
             </DialogTitle>
           </DialogHeader>
-          
           <div className="flex-1 overflow-auto">
             {loadingSharePoint ? (
               <div className="flex items-center justify-center py-12">
-                <RefreshCw className="w-6 h-6 animate-spin text-slate-400" />
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
               </div>
             ) : sharePointSites.length === 0 ? (
-              <div className="text-center py-12 text-slate-500">
-                <Globe className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                <p>No SharePoint sites found</p>
-              </div>
+              <EmptyState icon={Globe} title="No SharePoint sites found" description="No sites returned from Spanning API" />
             ) : (
-              <div className="border rounded-lg overflow-hidden">
+              <div className="border rounded-hero-md overflow-hidden">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-slate-50">
+                    <TableRow className="bg-muted/50">
                       <TableHead>Site</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Storage</TableHead>
@@ -664,17 +588,11 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
                     {sharePointSites.map((site, idx) => (
                       <TableRow key={idx}>
                         <TableCell>
-                          <div>
-                            <p className="font-medium text-slate-900">{site.name}</p>
-                            {site.url && (
-                              <p className="text-xs text-slate-500 truncate max-w-[300px]">{site.url}</p>
-                            )}
-                          </div>
+                          <p className="font-medium text-foreground">{site.name}</p>
+                          {site.url && <p className="text-xs text-muted-foreground truncate max-w-[300px]">{site.url}</p>}
                         </TableCell>
                         <TableCell>
-                          <Badge className={cn(
-                            site.isProtected ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"
-                          )}>
+                          <Badge variant={site.isProtected ? 'flat-success' : 'secondary'} className="text-[11px]">
                             {site.isProtected ? 'Protected' : 'Not Protected'}
                           </Badge>
                         </TableCell>
@@ -691,31 +609,27 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
         </DialogContent>
       </Dialog>
 
-      {/* Teams Channels Modal */}
+      {/* ── Teams Channels Modal ──────────────────────────────────────── */}
       <Dialog open={teamsModalOpen} onOpenChange={setTeamsModalOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 text-indigo-600" />
+              <MessageSquare className="w-5 h-5 text-[#6366F1]" />
               Teams
             </DialogTitle>
           </DialogHeader>
-          
           <div className="flex-1 overflow-auto">
             {loadingTeams ? (
               <div className="flex items-center justify-center py-12">
-                <RefreshCw className="w-6 h-6 animate-spin text-slate-400" />
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
               </div>
             ) : teamsChannels.length === 0 ? (
-              <div className="text-center py-12 text-slate-500">
-                <MessageSquare className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                <p>No Teams found</p>
-              </div>
+              <EmptyState icon={MessageSquare} title="No Teams found" description="No teams returned from Spanning API" />
             ) : (
-              <div className="border rounded-lg overflow-hidden">
+              <div className="border rounded-hero-md overflow-hidden">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-slate-50">
+                    <TableRow className="bg-muted/50">
                       <TableHead>Team</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Storage</TableHead>
@@ -725,17 +639,11 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
                     {teamsChannels.map((team, idx) => (
                       <TableRow key={idx}>
                         <TableCell>
-                          <div>
-                            <p className="font-medium text-slate-900">{team.name}</p>
-                            {team.description && (
-                              <p className="text-xs text-slate-500 truncate max-w-[300px]">{team.description}</p>
-                            )}
-                          </div>
+                          <p className="font-medium text-foreground">{team.name}</p>
+                          {team.description && <p className="text-xs text-muted-foreground truncate max-w-[300px]">{team.description}</p>}
                         </TableCell>
                         <TableCell>
-                          <Badge className={cn(
-                            team.isProtected ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"
-                          )}>
+                          <Badge variant={team.isProtected ? 'flat-success' : 'secondary'} className="text-[11px]">
                             {team.isProtected ? 'Protected' : 'Not Protected'}
                           </Badge>
                         </TableCell>

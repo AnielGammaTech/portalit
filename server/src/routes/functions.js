@@ -27,6 +27,7 @@ import { syncUniFiDevices } from '../functions/syncUniFiDevices.js';
 import { syncSaaSAlerts } from '../functions/syncSaaSAlerts.js';
 import { autoSuspendUnusedLicenses } from '../functions/autoSuspendUnusedLicenses.js';
 import { licenseRenewalReminder } from '../functions/licenseRenewalReminder.js';
+import { testAIConnection } from '../functions/testAIConnection.js';
 
 const functionMap = {
   syncHaloPSACustomers,
@@ -54,6 +55,7 @@ const functionMap = {
   syncSaaSAlerts,
   autoSuspendUnusedLicenses,
   licenseRenewalReminder,
+  testAIConnection,
 };
 
 const router = Router();
