@@ -3,7 +3,8 @@ import { getServiceSupabase } from '../lib/supabase.js';
 // SaaS Alerts production API — Google Cloud Function (from official Swagger spec)
 const SAAS_ALERTS_BASE = 'https://us-central1-the-byway-248217.cloudfunctions.net/reportApi/api/v1';
 
-// Decode the API key if it's base64-encoded (SaaS Alerts issues keys in base64 format)
+// SaaS Alerts API key — the dashboard provides a base64-encoded key.
+// We try the decoded version first (uuid:secret format), then raw base64 as fallback.
 function resolveApiKey() {
   const raw = process.env.SAAS_ALERTS_API_KEY;
   if (!raw) return null;
@@ -11,11 +12,16 @@ function resolveApiKey() {
   // If it looks like base64 (only base64 chars and reasonable length), decode it
   if (/^[A-Za-z0-9+/=]+$/.test(raw) && raw.length > 40) {
     try {
-      return Buffer.from(raw, 'base64').toString('utf-8');
-    } catch {
-      return raw;
-    }
+      const decoded = Buffer.from(raw, 'base64').toString('utf-8');
+      // Verify it decoded to something sensible (uuid:secret format)
+      if (decoded.includes(':') && decoded.length > 10) {
+        console.log(`[SaaSAlerts] Using decoded API key (${decoded.length} chars)`);
+        return decoded;
+      }
+    } catch { /* fall through to raw */ }
   }
+
+  console.log(`[SaaSAlerts] Using raw API key (${raw.length} chars)`);
   return raw;
 }
 
@@ -41,10 +47,17 @@ async function saasAlertsApiCall(endpoint, { method = 'GET', body } = {}) {
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.error(`[SaaSAlerts] ${response.status} response from ${method} ${endpoint}:`, errorText);
     throw new Error(`SaaS Alerts API error: ${response.status} - ${errorText}`);
   }
 
-  return response.json();
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    console.error('[SaaSAlerts] Non-JSON response:', text.slice(0, 200));
+    throw new Error('SaaS Alerts returned non-JSON response');
+  }
 }
 
 function categorizeSeverity(events) {
@@ -60,6 +73,60 @@ function categorizeSeverity(events) {
   }
 
   return summary;
+}
+
+// Fetch events for a customer using GET /reports/events (simple params)
+// with fallback to POST /reports/events/query (Elasticsearch DSL)
+async function fetchCustomerEvents(saasCustomerId, startDate, endDate) {
+  // Primary: GET /reports/events with query parameters (per Swagger spec)
+  const params = new URLSearchParams({
+    customerId: saasCustomerId,
+    start: startDate.toISOString(),
+    end: endDate.toISOString(),
+    size: '500',
+    timeSort: 'desc'
+  });
+
+  try {
+    const data = await saasAlertsApiCall(`/reports/events?${params}`);
+    const events = Array.isArray(data)
+      ? data
+      : (data.events || data.data || data.hits || data.results || []);
+    console.log(`[SaaSAlerts] GET /reports/events returned ${events.length} events`);
+    return events;
+  } catch (getErr) {
+    console.error('[SaaSAlerts] GET /reports/events failed:', getErr.message);
+  }
+
+  // Fallback: POST /reports/events/query with Elasticsearch DSL body
+  try {
+    const data = await saasAlertsApiCall('/reports/events/query', {
+      method: 'POST',
+      body: {
+        body: {
+          query: {
+            bool: {
+              must: [
+                { term: { 'customer.id': saasCustomerId } },
+                { range: { time: { gte: startDate.toISOString(), lte: endDate.toISOString() } } }
+              ]
+            }
+          },
+          sort: [{ time: 'desc' }],
+          size: 500
+        }
+      }
+    });
+    const events = Array.isArray(data)
+      ? data
+      : (data.events || data.data || data.hits || data.results || []);
+    console.log(`[SaaSAlerts] POST /reports/events/query returned ${events.length} events`);
+    return events;
+  } catch (postErr) {
+    console.error('[SaaSAlerts] POST /reports/events/query failed:', postErr.message);
+  }
+
+  return [];
 }
 
 function formatEvent(event) {
@@ -80,20 +147,23 @@ export async function syncSaaSAlerts(body, _user) {
   const supabase = getServiceSupabase();
   const { action, customer_id } = body;
 
-  // Test connection
+  // Test connection — try /customers first, fall back to /reports/customers
   if (action === 'test_connection') {
-    try {
-      // Use the /customers endpoint (from Swagger spec)
-      const data = await saasAlertsApiCall('/customers');
-      const customers = Array.isArray(data) ? data : (data.customers || data.tenants || data.data || []);
-      return {
-        success: true,
-        message: `Connected! Found ${customers.length} customers.`,
-        totalCustomers: customers.length
-      };
-    } catch (e) {
-      return { success: false, error: e.message };
+    for (const endpoint of ['/customers', '/reports/customers']) {
+      try {
+        const data = await saasAlertsApiCall(endpoint);
+        const customers = Array.isArray(data) ? data : (data.customers || data.tenants || data.data || []);
+        return {
+          success: true,
+          message: `Connected! Found ${customers.length} customers.`,
+          totalCustomers: customers.length
+        };
+      } catch (e) {
+        console.error(`[SaaSAlerts] ${endpoint} failed:`, e.message);
+        // Try next endpoint
+      }
     }
+    return { success: false, error: 'Could not connect to SaaS Alerts API. Check your API key in Settings.' };
   }
 
   // List SaaS Alerts customers/tenants for mapping
@@ -179,37 +249,7 @@ export async function syncSaaSAlerts(body, _user) {
       const now = new Date();
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-      let events = [];
-      try {
-        // Use /reports/events/query POST endpoint (from Swagger spec)
-        const eventsData = await saasAlertsApiCall('/reports/events/query', {
-          method: 'POST',
-          body: {
-            customerId: mapping.saas_alerts_customer_id,
-            start: sevenDaysAgo.toISOString(),
-            end: now.toISOString(),
-            size: 500,
-            timeSort: 'desc'
-          }
-        });
-        events = Array.isArray(eventsData)
-          ? eventsData
-          : (eventsData.events || eventsData.data || eventsData.results || eventsData.hits || []);
-      } catch (queryErr) {
-        console.error('[SaaSAlerts] POST /reports/events/query failed:', queryErr.message);
-        // Fallback: try GET /reports/events endpoint
-        try {
-          const fallbackData = await saasAlertsApiCall(
-            `/reports/events?customerId=${mapping.saas_alerts_customer_id}&start=${sevenDaysAgo.toISOString()}&end=${now.toISOString()}&size=500&timeSort=desc`
-          );
-          events = Array.isArray(fallbackData)
-            ? fallbackData
-            : (fallbackData.events || fallbackData.data || fallbackData.hits || []);
-        } catch (fallbackErr) {
-          console.error('[SaaSAlerts] GET /reports/events also failed:', fallbackErr.message);
-          events = [];
-        }
-      }
+      const events = await fetchCustomerEvents(mapping.saas_alerts_customer_id, sevenDaysAgo, now);
 
       const summary = categorizeSeverity(events);
       const recentEvents = events
@@ -260,24 +300,7 @@ export async function syncSaaSAlerts(body, _user) {
         const now = new Date();
         const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-        let events = [];
-        try {
-          const eventsData = await saasAlertsApiCall('/reports/events/query', {
-            method: 'POST',
-            body: {
-              customerId: mapping.saas_alerts_customer_id,
-              start: sevenDaysAgo.toISOString(),
-              end: now.toISOString(),
-              size: 500,
-              timeSort: 'desc'
-            }
-          });
-          events = Array.isArray(eventsData)
-            ? eventsData
-            : (eventsData.events || eventsData.data || eventsData.results || eventsData.hits || []);
-        } catch {
-          events = [];
-        }
+        const events = await fetchCustomerEvents(mapping.saas_alerts_customer_id, sevenDaysAgo, now);
 
         const summary = categorizeSeverity(events);
         const recentEvents = events
