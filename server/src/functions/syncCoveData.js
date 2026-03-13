@@ -75,6 +75,38 @@ function formatBytes(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
+// Cove API column codes (from N-able documentation)
+// See: https://documentation.n-able.com/covedataprotection/USERGUIDE/documentation/Content/service-management/json-api/API-column-codes.htm
+const COVE_COLUMNS = ['I18', 'I32', 'I14', 'F15', 'F00', 'F03', 'F06'];
+//  I18 = Computer Name
+//  I32 = OS Type (1=workstation, 2=server, 0=undefined)
+//  I14 = Used Storage (bytes)
+//  F15 = Last Session Timestamp (unix)
+//  F00 = Last Session Status (1=InProcess, 2=Failed, 3=NoData, 5=Completed, 6=Interrupted, 7=NotStarted, 8=CompletedWithErrors, 9=InProgressWithFaults, 10=OverQuota, 11=NoSelection, 12=Restarted)
+//  F03 = Last Session Selected Size (bytes)
+//  F06 = Last Session Errors Count
+
+const SESSION_STATUS_MAP = {
+  1: 'InProcess', 2: 'Failed', 3: 'NoData', 5: 'Completed',
+  6: 'Interrupted', 7: 'NotStarted', 8: 'CompletedWithErrors',
+  9: 'InProgressWithFaults', 10: 'OverQuota', 11: 'NoSelection', 12: 'Restarted'
+};
+
+const OS_TYPE_MAP = { 0: 'Unknown', 1: 'Workstation', 2: 'Server' };
+
+// Parse Cove API Settings array into a flat object
+// Settings: [{"I18":"ComputerName"}, {"I14":"12345"}] → { I18: "ComputerName", I14: "12345" }
+function parseSettings(settings) {
+  if (!Array.isArray(settings)) return {};
+  const flat = {};
+  for (const entry of settings) {
+    for (const [k, v] of Object.entries(entry)) {
+      flat[k] = v;
+    }
+  }
+  return flat;
+}
+
 export async function syncCoveData(body, user) {
   const supabase = getServiceSupabase();
   const { action, customer_id } = body;
@@ -194,7 +226,10 @@ export async function syncCoveData(body, user) {
 
       const devicesResult = await coveApiCall('EnumerateAccountStatistics', {
         query: {
-          PartnerId: parseInt(mapping.cove_partner_id)
+          PartnerId: parseInt(mapping.cove_partner_id),
+          SelectionMode: 'Merged',
+          Columns: COVE_COLUMNS,
+          RecordsCount: 250
         }
       }, visa);
 
@@ -204,6 +239,9 @@ export async function syncCoveData(body, user) {
         : (devicesResult?.result || []);
 
       console.log(`[Cove] Got ${devices.length} devices for partner ${mapping.cove_partner_id}`);
+      if (devices.length > 0) {
+        console.log(`[Cove] Sample device keys:`, Object.keys(devices[0]));
+      }
 
       let totalDevices = devices.length;
       let activeDevices = 0;
@@ -215,36 +253,50 @@ export async function syncCoveData(body, user) {
       let lastBackupFailed = 0;
 
       const deviceDetails = devices.map(d => {
-        const lastSessionStatus = d.LastSessionStatus || d.OsType;
-        const isActive = d.AccountState === 'Active' || d.State === 1;
+        // Parse Settings array if present (Cove returns column-coded data)
+        const s = parseSettings(d.Settings);
+
+        // Extract fields — try both flat fields and Settings column codes
+        const computerName = d.AccountName || d.Name || d.ComputerName || s['I18'] || 'Unknown';
+        const osTypeRaw = d.OsType || s['I32'];
+        const osType = OS_TYPE_MAP[osTypeRaw] || osTypeRaw || 'Unknown';
+        const usedStorage = parseInt(d.UsedStorage || s['I14'] || 0, 10);
+        const protectedSize = parseInt(d.SelectedSize || s['F03'] || 0, 10);
+        const lastBackupTs = d.LastSessionTimestamp || s['F15'] || null;
+        const statusCode = d.LastSessionStatus || s['F00'];
+        const lastSessionStatus = SESSION_STATUS_MAP[statusCode] || statusCode || 'Unknown';
+        const errors = parseInt(d.SessionErrors || s['F06'] || 0, 10);
+
+        // Determine active state — Cove devices without "Flags" containing " integrityCheckAccountMissedBackupAlertSent" are generally active
+        const isActive = d.AccountState === 'Active' || d.State === 1 ||
+          !(d.Flags || []).includes('integrityCheckAccountMissedBackupAlertSent');
 
         if (isActive) activeDevices++;
 
-        if (d.SessionErrors > 0 || lastSessionStatus === 'Failed') {
+        if (errors > 0 || lastSessionStatus === 'Failed' || lastSessionStatus === 'CompletedWithErrors') {
           devicesWithErrors++;
           lastBackupFailed++;
-        } else if (d.SessionWarnings > 0) {
-          devicesWithWarnings++;
-          lastBackupSuccess++;
         } else if (lastSessionStatus === 'Completed') {
           lastBackupSuccess++;
+        } else if (lastSessionStatus === 'InProcess' || lastSessionStatus === 'InProgressWithFaults') {
+          // In progress — don't count as success or failure
+        } else if (lastSessionStatus !== 'Unknown' && lastSessionStatus !== 'NoData' && lastSessionStatus !== 'NotStarted') {
+          devicesWithWarnings++;
         }
 
-        const usedStorage = d.UsedStorage || d.SelectedSize || 0;
-        const protectedSize = d.SelectedSize || d.DataSourcesSelectedSize || 0;
         totalStorageUsed += usedStorage;
         totalProtectedSize += protectedSize;
 
         return {
           id: d.AccountId || d.Id,
-          name: d.AccountName || d.Name || d.ComputerName,
-          osType: d.OsType,
+          name: computerName,
+          osType,
           state: isActive ? 'active' : 'inactive',
-          lastBackup: d.LastSessionTimestamp,
+          lastBackup: lastBackupTs,
           lastBackupStatus: lastSessionStatus,
           usedStorage: formatBytes(usedStorage),
           protectedSize: formatBytes(protectedSize),
-          errors: d.SessionErrors || 0,
+          errors,
           warnings: d.SessionWarnings || 0
         };
       });
@@ -255,7 +307,7 @@ export async function syncCoveData(body, user) {
         inactiveDevices: totalDevices - activeDevices,
         devicesWithErrors,
         devicesWithWarnings,
-        healthyDevices: totalDevices - devicesWithErrors - devicesWithWarnings,
+        healthyDevices: Math.max(0, totalDevices - devicesWithErrors - devicesWithWarnings),
         totalStorageUsed: formatBytes(totalStorageUsed),
         totalStorageUsedBytes: totalStorageUsed,
         totalProtectedSize: formatBytes(totalProtectedSize),
@@ -307,7 +359,10 @@ export async function syncCoveData(body, user) {
 
       const devicesResult = await coveApiCall('EnumerateAccountStatistics', {
         query: {
-          PartnerId: parseInt(mapping.cove_partner_id)
+          PartnerId: parseInt(mapping.cove_partner_id),
+          SelectionMode: 'Merged',
+          Columns: COVE_COLUMNS,
+          RecordsCount: 250
         }
       }, visa);
 
@@ -315,18 +370,22 @@ export async function syncCoveData(body, user) {
         ? devicesResult
         : (devicesResult?.result || []);
 
-      const devices = rawDevices.map(d => ({
-        id: d.AccountId || d.Id,
-        name: d.AccountName || d.Name || d.ComputerName,
-        osType: d.OsType,
-        state: d.AccountState || (d.State === 1 ? 'Active' : 'Inactive'),
-        lastBackup: d.LastSessionTimestamp,
-        lastBackupStatus: d.LastSessionStatus,
-        usedStorage: formatBytes(d.UsedStorage || 0),
-        protectedSize: formatBytes(d.SelectedSize || 0),
-        errors: d.SessionErrors || 0,
-        warnings: d.SessionWarnings || 0
-      }));
+      const devices = rawDevices.map(d => {
+        const s = parseSettings(d.Settings);
+        const statusCode = d.LastSessionStatus || s['F00'];
+        return {
+          id: d.AccountId || d.Id,
+          name: d.AccountName || d.Name || d.ComputerName || s['I18'] || 'Unknown',
+          osType: OS_TYPE_MAP[d.OsType || s['I32']] || d.OsType || s['I32'] || 'Unknown',
+          state: d.AccountState || (d.State === 1 ? 'Active' : 'Inactive'),
+          lastBackup: d.LastSessionTimestamp || s['F15'],
+          lastBackupStatus: SESSION_STATUS_MAP[statusCode] || statusCode || 'Unknown',
+          usedStorage: formatBytes(parseInt(d.UsedStorage || s['I14'] || 0, 10)),
+          protectedSize: formatBytes(parseInt(d.SelectedSize || s['F03'] || 0, 10)),
+          errors: parseInt(d.SessionErrors || s['F06'] || 0, 10),
+          warnings: d.SessionWarnings || 0
+        };
+      });
 
       return { success: true, devices };
     } catch (error) {
