@@ -20,7 +20,8 @@ import {
   Loader2,
   DollarSign,
   Wifi,
-  ShieldAlert
+  ShieldAlert,
+  Database
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -39,6 +40,7 @@ import DattoEDRTab from './DattoEDRTab';
 import RocketCyberTab from './RocketCyberTab';
 import UniFiTab from './UniFiTab';
 import SaaSAlertsTab from './SaaSAlertsTab';
+import CoveTab from './CoveTab';
 
 export default function CustomerServicesTab({ 
   customerId, 
@@ -195,12 +197,23 @@ export default function CustomerServicesTab({
     enabled: !!customerId
   });
 
+  // Fetch Cove Data Protection mapping for this customer
+  const { data: coveMapping } = useQuery({
+    queryKey: ['cove-mapping', customerId],
+    queryFn: async () => {
+      const mappings = await client.entities.CoveDataMapping.filter({ customer_id: customerId });
+      return mappings[0] || null;
+    },
+    enabled: !!customerId
+  });
+
   const hasBullPhish = bullphishReports.length > 0;
   const hasDarkWeb = !!darkwebMapping || darkwebReports.length > 0;
   const hasEDR = !!edrMapping;
   const hasRocketCyber = !!rocketcyberMapping;
   const hasUniFi = !!unifiMapping;
   const hasSaaSAlerts = !!saasAlertsMapping;
+  const hasCove = !!coveMapping;
 
   const updateSyncStatus = (service, status, error = null) => {
     setSyncStatuses(prev => ({
@@ -516,6 +529,10 @@ export default function CustomerServicesTab({
               <ShieldAlert className="w-3.5 h-3.5 text-violet-500" />
               SaaS Alerts
             </TabsTrigger>
+            <TabsTrigger value="cove" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
+              <Database className="w-3.5 h-3.5 text-teal-500" />
+              Cove
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -788,6 +805,19 @@ export default function CustomerServicesTab({
             saasAlertsMapping={saasAlertsMapping}
             queryClient={queryClient}
           />
+        </TabsContent>
+
+        {/* Cove Data Protection Tab */}
+        <TabsContent value="cove">
+          {hasCove ? (
+            <CoveTab
+              customerId={customerId}
+              coveMapping={coveMapping}
+              queryClient={queryClient}
+            />
+          ) : (
+            <EmptyState icon={Database} title="Cove not configured" description="Go to Adminland > Integrations to map this customer's Cove partner." />
+          )}
         </TabsContent>
       </Tabs>
 
