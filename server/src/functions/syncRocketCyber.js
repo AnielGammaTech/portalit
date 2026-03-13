@@ -317,10 +317,30 @@ export async function syncRocketCyber(body, user) {
       }
     }
 
-    // Update mapping last_synced
+    // Build cached_data summary for fast frontend reads
+    const allDbIncidents = await supabase
+      .from('rocket_cyber_incidents')
+      .select('*')
+      .eq('customer_id', customer_id);
+    const allCustomerIncidents = allDbIncidents.data || [];
+
+    const cachedData = {
+      totalIncidents: allCustomerIncidents.length,
+      openIncidents: allCustomerIncidents.filter(i => i.status === 'open' || i.status === 'investigating').length,
+      resolvedIncidents: allCustomerIncidents.filter(i => i.status === 'resolved' || i.status === 'closed').length,
+      bySeverity: {
+        critical: allCustomerIncidents.filter(i => i.severity === 'critical').length,
+        high: allCustomerIncidents.filter(i => i.severity === 'high').length,
+        medium: allCustomerIncidents.filter(i => i.severity === 'medium').length,
+        low: allCustomerIncidents.filter(i => i.severity === 'low').length,
+        informational: allCustomerIncidents.filter(i => i.severity === 'informational').length,
+      }
+    };
+
+    // Update mapping last_synced + cached_data
     await supabase
       .from('rocket_cyber_mappings')
-      .update({ last_synced: new Date().toISOString() })
+      .update({ last_synced: new Date().toISOString(), cached_data: cachedData })
       .eq('id', mapping.id);
 
     return {
@@ -380,9 +400,29 @@ export async function syncRocketCyber(body, user) {
           }
         }
 
+        // Build cached_data summary
+        const allDbIncidents = await supabase
+          .from('rocket_cyber_incidents')
+          .select('*')
+          .eq('customer_id', mapping.customer_id);
+        const allCustomerIncidents = allDbIncidents.data || [];
+
+        const cachedData = {
+          totalIncidents: allCustomerIncidents.length,
+          openIncidents: allCustomerIncidents.filter(i => i.status === 'open' || i.status === 'investigating').length,
+          resolvedIncidents: allCustomerIncidents.filter(i => i.status === 'resolved' || i.status === 'closed').length,
+          bySeverity: {
+            critical: allCustomerIncidents.filter(i => i.severity === 'critical').length,
+            high: allCustomerIncidents.filter(i => i.severity === 'high').length,
+            medium: allCustomerIncidents.filter(i => i.severity === 'medium').length,
+            low: allCustomerIncidents.filter(i => i.severity === 'low').length,
+            informational: allCustomerIncidents.filter(i => i.severity === 'informational').length,
+          }
+        };
+
         await supabase
           .from('rocket_cyber_mappings')
-          .update({ last_synced: new Date().toISOString() })
+          .update({ last_synced: new Date().toISOString(), cached_data: cachedData })
           .eq('id', mapping.id);
 
       } catch (err) {
