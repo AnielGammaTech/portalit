@@ -82,12 +82,6 @@ export default function CustomerServicesTab({
     queryKey: ['spanning-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.SpanningMapping.filter({ customer_id: customerId });
-      console.log('[SpanningDebug] Raw mappings from DB:', JSON.stringify({
-        count: mappings.length,
-        first_keys: mappings[0] ? Object.keys(mappings[0]) : null,
-        has_cached_data: mappings[0] ? !!mappings[0].cached_data : null,
-        cached_data_type: mappings[0] ? typeof mappings[0].cached_data : null,
-      }));
       return mappings[0] || null;
     },
     enabled: !!customerId,

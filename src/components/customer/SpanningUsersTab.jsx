@@ -50,15 +50,6 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
 
   // Load cached data from the mapping entity (instant, no API call)
   const cachedStats = useMemo(() => {
-    console.log('[SpanningDebug] spanningMapping:', JSON.stringify({
-      id: spanningMapping?.id,
-      customer_id: spanningMapping?.customer_id,
-      has_cached_data: !!spanningMapping?.cached_data,
-      cached_data_type: typeof spanningMapping?.cached_data,
-      cached_data_keys: spanningMapping?.cached_data ? Object.keys(spanningMapping.cached_data).slice(0, 5) : null,
-      last_synced: spanningMapping?.last_synced,
-      all_keys: spanningMapping ? Object.keys(spanningMapping) : null,
-    }));
     if (!spanningMapping?.cached_data) return null;
     const data = typeof spanningMapping.cached_data === 'string'
       ? (() => { try { return JSON.parse(spanningMapping.cached_data); } catch { return null; } })()

@@ -56,18 +56,24 @@ export default function UserDetailModal({ contact, open, onClose, customerId }) 
   // Check if company has JumpCloud or Spanning configured
   const { data: jumpcloudMapping } = useQuery({
     queryKey: ['jumpcloud-mapping', customerId],
-    queryFn: () => client.entities.JumpCloudMapping.filter({ customer_id: customerId }),
+    queryFn: async () => {
+      const mappings = await client.entities.JumpCloudMapping.filter({ customer_id: customerId });
+      return mappings[0] || null;
+    },
     enabled: !!customerId
   });
 
   const { data: spanningMapping } = useQuery({
     queryKey: ['spanning-mapping', customerId],
-    queryFn: () => client.entities.SpanningMapping.filter({ customer_id: customerId }),
+    queryFn: async () => {
+      const mappings = await client.entities.SpanningMapping.filter({ customer_id: customerId });
+      return mappings[0] || null;
+    },
     enabled: !!customerId
   });
 
-  const hasJumpCloud = jumpcloudMapping?.length > 0;
-  const hasSpanning = spanningMapping?.length > 0;
+  const hasJumpCloud = !!jumpcloudMapping;
+  const hasSpanning = !!spanningMapping;
   const hasAnyIntegration = hasJumpCloud || hasSpanning;
 
   if (!contact) return null;
