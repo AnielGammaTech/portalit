@@ -21,25 +21,40 @@ async function getAuthToken() {
   return session?.access_token || null;
 }
 
-async function apiFetch(path, { method = 'POST', body } = {}) {
+async function apiFetch(path, { method = 'POST', body, timeout = 60000 } = {}) {
   const token = await getAuthToken();
   const headers = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    method,
-    headers,
-    body: body != null ? JSON.stringify(body) : undefined,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-  const data = await response.json();
-  if (!response.ok) {
-    const error = new Error(data.error || 'Request failed');
-    error.status = response.status;
-    error.data = data;
-    throw error;
+  try {
+    const response = await fetch(`${apiBaseUrl}${path}`, {
+      method,
+      headers,
+      body: body != null ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      const error = new Error(data.error || 'Request failed');
+      error.status = response.status;
+      error.data = data;
+      throw error;
+    }
+    return data;
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      const error = new Error('Request timed out');
+      error.status = 408;
+      throw error;
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
-  return data;
 }
 
 // ── Entity → Table Mapping ────────────────────────────────────────────
@@ -389,6 +404,22 @@ const appLogs = {
   },
 };
 
+// ── Cron Jobs ─────────────────────────────────────────────────────────
+
+const cronJobs = {
+  async getJobs() {
+    return apiFetch('/api/cron/jobs', { method: 'GET' });
+  },
+  async getHistory(jobName, limit = 50) {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (jobName) params.set('job_name', jobName);
+    return apiFetch(`/api/cron/history?${params}`, { method: 'GET' });
+  },
+  async runJob(jobName) {
+    return apiFetch('/api/cron/run', { body: { job_name: jobName }, timeout: 120000 });
+  },
+};
+
 // ── Exported Client ────────────────────────────────────────────────────
 
 export const client = {
@@ -400,4 +431,5 @@ export const client = {
   users,
   halo,
   appLogs,
+  cronJobs,
 };
