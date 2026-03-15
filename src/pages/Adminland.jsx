@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
 import { createPageUrl } from '../utils';
 
+import CronJobsPanel from '../components/admin/CronJobsPanel';
 import HaloPSAConfig from '../components/integrations/HaloPSAConfig';
 import DattoRMMConfig from '../components/integrations/DattoRMMConfig';
 import JumpCloudConfig from '../components/integrations/JumpCloudConfig';
@@ -56,6 +57,7 @@ import {
   Mail,
   Ticket,
   Brain,
+  Clock,
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -530,6 +532,7 @@ const MENU_GROUPS = [
   { title: 'Appearance', items: [{ id: 'branding', label: 'Branding', desc: 'Portal name, logo & colors', icon: Palette, iconBg: 'bg-violet-50', iconColor: 'text-violet-600' }] },
   { title: 'Integrations', items: [{ id: 'integrations', label: 'Integrations', desc: 'RMM, security & backup services', icon: Link2, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600' }] },
   { title: 'Communication', items: [{ id: 'email', label: 'Email (Resend)', desc: 'Configure email sending via Resend API', icon: Mail, iconBg: 'bg-pink-50', iconColor: 'text-pink-600' }] },
+  { title: 'Automation', items: [{ id: 'cron', label: 'Scheduled Jobs', desc: 'Cron job status, history & manual runs', icon: Clock, iconBg: 'bg-sky-50', iconColor: 'text-sky-600' }] },
   { title: 'Developer', items: [{ id: 'api', label: 'API Documentation', desc: 'API docs & external access keys', icon: Code, iconBg: 'bg-orange-50', iconColor: 'text-orange-600' }] },
   { title: 'Support', items: [{ id: 'feedback', label: 'User Feedback', desc: 'Review and respond to feedback', icon: MessageSquare, iconBg: 'bg-pink-50', iconColor: 'text-pink-600' }] },
 ];
@@ -571,6 +574,7 @@ export default function Adminland() {
       case 'users': return <div className="bg-white rounded-2xl border border-slate-200 p-6"><UserAssignmentPanel /></div>;
       case 'branding': return <BrandingPanel />;
       case 'integrations': return <IntegrationsPanel />;
+      case 'cron': return <div className="bg-white rounded-2xl border border-slate-200 p-6"><CronJobsPanel /></div>;
       case 'email': return <ResendEmailConfig />;
       case 'api': return <ApiDocsPanel />;
       case 'feedback': return <div className="bg-white rounded-2xl border border-slate-200 p-6"><FeedbackPanel /></div>;
