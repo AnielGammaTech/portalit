@@ -83,7 +83,7 @@ export async function syncHaloPSAInvoices(body, _user) {
   const { action, customer_id } = body;
   const config = await getHaloConfig();
 
-  if (action === 'sync_customer') {
+  if (action === 'sync_customer' || action === 'sync_customer_full') {
     if (!customer_id) {
       const err = new Error('customer_id is required');
       err.statusCode = 400;
@@ -91,10 +91,9 @@ export async function syncHaloPSAInvoices(body, _user) {
     }
 
     // Find customer in database
-    let customerQuery = supabase.from('customers').select('*');
-    customerQuery = customerQuery.eq('external_id', String(customer_id));
-    customerQuery = customerQuery.eq('source', 'halopsa');
-    const { data: customers } = await customerQuery;
+    const { data: customers } = await supabase.from('customers').select('*')
+      .eq('external_id', String(customer_id))
+      .eq('source', 'halopsa');
     const dbCustomer = (customers || [])[0];
     if (!dbCustomer) {
       const err = new Error('Customer not found in database');
@@ -102,166 +101,189 @@ export async function syncHaloPSAInvoices(body, _user) {
       throw err;
     }
 
-    // Fetch invoices from HaloPSA for this specific customer only
-    // Use a single page request with reasonable limit for quick sync
-    console.log(`Quick sync for customer ${customer_id}`);
-
-    const data = await haloGet(`Invoice?client_id=${customer_id}&page_size=200&page_no=1`, config);
-    const invoices = extractRecords(data, 'invoices');
-
-    console.log(`Found ${invoices.length} invoices for client ${customer_id}`);
-
-    let recordsSynced = 0;
-    let recordsFailed = 0;
-
-    // Process invoices in parallel batches for speed
-    const batchSize = 10;
-    for (let i = 0; i < invoices.length; i += batchSize) {
-      const batch = invoices.slice(i, i + batchSize);
-
-      await Promise.all(batch.map(async (haloInvoice) => {
-        try {
-          const invoicePayload = transformInvoice(haloInvoice, dbCustomer.id);
-
-          // Check if invoice exists
-          let existingQuery = supabase.from('invoices').select('*');
-          existingQuery = existingQuery.eq('halopsa_id', String(haloInvoice.id));
-          existingQuery = existingQuery.eq('customer_id', dbCustomer.id);
-          const { data: existing } = await existingQuery;
-
-          if ((existing || []).length > 0) {
-            await supabase.from('invoices').update(invoicePayload).eq('id', existing[0].id).select().single();
-          } else {
-            const { error } = await supabase.from('invoices').insert(invoicePayload).select().single();
-            if (error) throw new Error(error.message);
-          }
-
-          recordsSynced++;
-        } catch (err) {
-          console.log(`Error syncing invoice ${haloInvoice.id}: ${err.message}`);
-          recordsFailed++;
-        }
-      }));
-    }
-
-    return {
-      success: true,
-      recordsSynced,
-      recordsFailed,
-      message: `Synced ${recordsSynced} invoices`
-    };
-  }
-
-  // Full sync with line items - use this for comprehensive sync
-  if (action === 'sync_customer_full') {
-    if (!customer_id) {
-      const err = new Error('customer_id is required');
-      err.statusCode = 400;
-      throw err;
-    }
-
-    // Find customer in database
-    let customerQuery = supabase.from('customers').select('*');
-    customerQuery = customerQuery.eq('external_id', String(customer_id));
-    customerQuery = customerQuery.eq('source', 'halopsa');
-    const { data: customers } = await customerQuery;
-    const dbCustomer = (customers || [])[0];
-    if (!dbCustomer) {
-      const err = new Error('Customer not found in database');
-      err.statusCode = 404;
-      throw err;
-    }
-
-    // Fetch ALL invoices with pagination
-    console.log(`Full sync with line items for customer ${customer_id}`);
+    // Fetch all invoices with pagination
+    console.log(`[HaloPSA] Syncing invoices + line items for customer ${customer_id}`);
 
     let allInvoices = [];
     let page = 1;
-    let hasMore = true;
 
-    while (hasMore) {
-      const data = await haloGet(`Invoice?client_id=${customer_id}&page_size=100&page_no=${page}`, config);
+    while (true) {
+      const data = await haloGet(`Invoice?client_id=${customer_id}&page_size=200&page_no=${page}`, config);
       const pageInvoices = extractRecords(data, 'invoices');
-
-      if (pageInvoices.length === 0) {
-        hasMore = false;
-      } else {
-        allInvoices = allInvoices.concat(pageInvoices);
-        page++;
-        if (page > 50) hasMore = false;
-      }
+      if (pageInvoices.length === 0) break;
+      allInvoices = allInvoices.concat(pageInvoices);
+      if (pageInvoices.length < 200 || page > 50) break;
+      page++;
     }
 
-    const invoices = allInvoices;
-    console.log(`Total invoices: ${invoices.length}`);
+    console.log(`[HaloPSA] Found ${allInvoices.length} invoices for client ${customer_id}`);
+
+    // Batch-fetch existing invoices for this customer (avoid N+1)
+    const { data: existingInvoices } = await supabase.from('invoices').select('id, halopsa_id')
+      .eq('customer_id', dbCustomer.id);
+    const existingMap = new Map((existingInvoices || []).map(i => [i.halopsa_id, i.id]));
 
     let recordsSynced = 0;
     let recordsFailed = 0;
 
-    for (const haloInvoice of invoices) {
-      try {
-        const invoicePayload = transformInvoice(haloInvoice, dbCustomer.id);
+    const toCreate = [];
+    const toUpdate = [];
 
-        let existingQuery = supabase.from('invoices').select('*');
-        existingQuery = existingQuery.eq('halopsa_id', String(haloInvoice.id));
-        existingQuery = existingQuery.eq('customer_id', dbCustomer.id);
-        const { data: existing } = await existingQuery;
-
-        let dbInvoiceId;
-        if ((existing || []).length > 0) {
-          await supabase.from('invoices').update(invoicePayload).eq('id', existing[0].id).select().single();
-          dbInvoiceId = existing[0].id;
-        } else {
-          const { data: created, error } = await supabase.from('invoices').insert(invoicePayload).select().single();
-          if (error) throw new Error(error.message);
-          dbInvoiceId = created.id;
-        }
-
-        // Fetch line items for full sync
-        try {
-          const invoiceDetail = await haloGet(`Invoice/${haloInvoice.id}`, config);
-          const lineItems = invoiceDetail.lines || invoiceDetail.lineitems || invoiceDetail.items || [];
-
-          if (lineItems.length > 0) {
-            const { data: existingItems } = await supabase.from('invoice_line_items').select('*').eq('invoice_id', dbInvoiceId);
-            for (const item of (existingItems || [])) {
-              await supabase.from('invoice_line_items').delete().eq('id', item.id);
-            }
-
-            for (const line of lineItems) {
-              const { error } = await supabase.from('invoice_line_items').insert({
-                invoice_id: dbInvoiceId,
-                halopsa_id: String(line.id || `${haloInvoice.id}-${lineItems.indexOf(line)}`),
-                description: line.item_shortdescription || line.item_longdescription || line.linked_item?.name || 'Item',
-                quantity: parseFloat(line.qty_order || line.quantity || 1),
-                unit_price: parseFloat(line.unit_price || 0),
-                total: parseFloat(line.net_amount || line.total || 0),
-                tax: parseFloat(line.tax_amount || 0),
-                item_code: line.item_code || ''
-              }).select().single();
-              if (error) throw new Error(error.message);
-            }
-          }
-        } catch (lineErr) {
-          console.log(`Could not fetch line items for invoice ${haloInvoice.id}: ${lineErr.message}`);
-        }
-
-        recordsSynced++;
-      } catch (err) {
-        console.log(`Error syncing invoice ${haloInvoice.id}: ${err.message}`);
-        recordsFailed++;
+    for (const haloInvoice of allInvoices) {
+      const invoicePayload = transformInvoice(haloInvoice, dbCustomer.id);
+      const existingId = existingMap.get(String(haloInvoice.id));
+      if (existingId) {
+        toUpdate.push({ id: existingId, data: invoicePayload, haloId: haloInvoice.id });
+      } else {
+        toCreate.push({ payload: invoicePayload, haloId: haloInvoice.id });
       }
     }
+
+    // Bulk create new invoices
+    let createdInvoices = [];
+    if (toCreate.length > 0) {
+      const { data: created, error } = await supabase.from('invoices')
+        .insert(toCreate.map(c => c.payload)).select();
+      if (error) throw new Error(error.message);
+      createdInvoices = created || [];
+      recordsSynced += createdInvoices.length;
+    }
+
+    // Batch update existing invoices (parallel batches of 20)
+    const BATCH_SIZE = 20;
+    for (let i = 0; i < toUpdate.length; i += BATCH_SIZE) {
+      const batch = toUpdate.slice(i, i + BATCH_SIZE);
+      await Promise.allSettled(
+        batch.map(item => supabase.from('invoices').update(item.data).eq('id', item.id))
+      );
+      recordsSynced += batch.length;
+    }
+
+    // ── Sync line items for all invoices ──
+    // Build a map of haloId -> dbInvoiceId
+    const invoiceIdMap = new Map();
+    for (let i = 0; i < createdInvoices.length; i++) {
+      invoiceIdMap.set(String(toCreate[i].haloId), createdInvoices[i].id);
+    }
+    for (const upd of toUpdate) {
+      invoiceIdMap.set(String(upd.haloId), upd.id);
+    }
+
+    // Fetch line items from HaloPSA for each invoice (batched, 5 concurrent)
+    const allDbInvoiceIds = [...invoiceIdMap.values()];
+    const allNewLineItems = [];
+    const CONCURRENCY = 5;
+
+    for (let i = 0; i < allInvoices.length; i += CONCURRENCY) {
+      const batch = allInvoices.slice(i, i + CONCURRENCY);
+      const results = await Promise.allSettled(
+        batch.map(async (haloInvoice) => {
+          try {
+            const detail = await haloGet(`Invoice/${haloInvoice.id}`, config);
+            const lines = detail.lines || detail.lineitems || detail.items || [];
+            const dbInvoiceId = invoiceIdMap.get(String(haloInvoice.id));
+            if (!dbInvoiceId || lines.length === 0) return [];
+
+            return lines.map((line, idx) => ({
+              invoice_id: dbInvoiceId,
+              halopsa_id: String(line.id || `${haloInvoice.id}-${idx}`),
+              description: line.item_shortdescription || line.item_longdescription || line.linked_item?.name || 'Item',
+              quantity: parseFloat(line.qty_order || line.quantity || 1),
+              unit_price: parseFloat(line.unit_price || 0),
+              total: parseFloat(line.net_amount || line.total || 0),
+              tax: parseFloat(line.tax_amount || 0),
+              item_code: line.item_code || ''
+            }));
+          } catch (err) {
+            console.log(`[HaloPSA] Could not fetch line items for invoice ${haloInvoice.id}: ${err.message}`);
+            return [];
+          }
+        })
+      );
+      for (const r of results) {
+        if (r.status === 'fulfilled' && r.value.length > 0) {
+          allNewLineItems.push(...r.value);
+        }
+      }
+    }
+
+    // Bulk delete old line items for all synced invoices, then bulk insert new ones
+    if (allDbInvoiceIds.length > 0) {
+      await supabase.from('invoice_line_items').delete().in('invoice_id', allDbInvoiceIds);
+    }
+    if (allNewLineItems.length > 0) {
+      // Insert in batches of 500 to avoid payload limits
+      for (let i = 0; i < allNewLineItems.length; i += 500) {
+        const batch = allNewLineItems.slice(i, i + 500);
+        const { error } = await supabase.from('invoice_line_items').insert(batch);
+        if (error) console.error(`[HaloPSA] Line items insert error: ${error.message}`);
+      }
+    }
+
+    console.log(`[HaloPSA] Synced ${recordsSynced} invoices, ${allNewLineItems.length} line items`);
 
     return {
       success: true,
       recordsSynced,
       recordsFailed,
-      message: `Synced ${recordsSynced} invoices with line items`
+      lineItemsSynced: allNewLineItems.length,
+      message: `Synced ${recordsSynced} invoices with ${allNewLineItems.length} line items`
     };
   }
 
-  const err = new Error('Invalid action. Use: sync_customer or sync_customer_full');
+  if (action === 'sync_now') {
+    // Nightly sync: iterate all HaloPSA customers and sync invoices + line items
+    const { data: allCustomers } = await supabase.from('customers').select('id, external_id, name')
+      .eq('source', 'halopsa');
+
+    if (!allCustomers || allCustomers.length === 0) {
+      return { success: true, message: 'No HaloPSA customers found', recordsSynced: 0 };
+    }
+
+    console.log(`[HaloPSA] Nightly invoice sync for ${allCustomers.length} customers`);
+
+    let totalSynced = 0;
+    let totalFailed = 0;
+    let totalLineItems = 0;
+    const CONCURRENCY = 3;
+
+    for (let i = 0; i < allCustomers.length; i += CONCURRENCY) {
+      const batch = allCustomers.slice(i, i + CONCURRENCY);
+      const results = await Promise.allSettled(
+        batch.map(async (cust) => {
+          try {
+            const result = await syncHaloPSAInvoices(
+              { action: 'sync_customer', customer_id: cust.external_id },
+              _user
+            );
+            return result;
+          } catch (err) {
+            console.error(`[HaloPSA] Invoice sync failed for ${cust.name}: ${err.message}`);
+            return { recordsSynced: 0, recordsFailed: 1, lineItemsSynced: 0 };
+          }
+        })
+      );
+      for (const r of results) {
+        if (r.status === 'fulfilled') {
+          totalSynced += r.value.recordsSynced || 0;
+          totalFailed += r.value.recordsFailed || 0;
+          totalLineItems += r.value.lineItemsSynced || 0;
+        } else {
+          totalFailed++;
+        }
+      }
+    }
+
+    return {
+      success: true,
+      recordsSynced: totalSynced,
+      recordsFailed: totalFailed,
+      lineItemsSynced: totalLineItems,
+      message: `Synced ${totalSynced} invoices, ${totalLineItems} line items across ${allCustomers.length} customers`
+    };
+  }
+
+  const err = new Error('Invalid action. Use: sync_customer, sync_customer_full, or sync_now');
   err.statusCode = 400;
   throw err;
 }

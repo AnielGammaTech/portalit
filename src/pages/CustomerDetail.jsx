@@ -380,7 +380,6 @@ export default function CustomerDetail() {
             .then(res => res.success ? results.push(`Contracts (${res.recordsSynced || 0})`) : errors.push('Contracts'))
             .catch(() => errors.push('Contracts'))
         );
-        // Use fast sync (no line items) — line items fetched on-demand when expanding
         syncTasks.push(
           client.functions.invoke('syncHaloPSAInvoices', { action: 'sync_customer', customer_id: haloId })
             .then(res => res.success ? results.push(`Invoices (${res.recordsSynced || 0})`) : errors.push('Invoices'))
