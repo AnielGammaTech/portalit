@@ -145,27 +145,34 @@ const INTEGRATION_COMPONENTS = {
 function IntegrationsPanel() {
   const [activeIntegration, setActiveIntegration] = useState(null);
 
-  const { data: dattoMappings = [] } = useQuery({ queryKey: ['datto_mappings'], queryFn: () => client.entities.DattoSiteMapping.list() });
-  const { data: jumpcloudMappings = [] } = useQuery({ queryKey: ['jumpcloud_mappings'], queryFn: () => client.entities.JumpCloudMapping.list() });
-  const { data: spanningMappings = [] } = useQuery({ queryKey: ['spanning_mappings'], queryFn: () => client.entities.SpanningMapping.list() });
-  const { data: edrMappings = [] } = useQuery({ queryKey: ['edr_mappings'], queryFn: () => client.entities.DattoEDRMapping.list() });
-  const { data: rocketcyberMappings = [] } = useQuery({ queryKey: ['rocketcyber_mappings'], queryFn: () => client.entities.RocketCyberMapping.list() });
-  const { data: coveMappings = [] } = useQuery({ queryKey: ['cove_mappings'], queryFn: () => client.entities.CoveDataMapping.list() });
-  const { data: unifiMappings = [] } = useQuery({ queryKey: ['unifi_mappings'], queryFn: () => client.entities.UniFiMapping.list() });
-  const { data: saasAlertsMappings = [] } = useQuery({ queryKey: ['saas_alerts_mappings'], queryFn: () => client.entities.SaaSAlertsMapping.list() });
-  const { data: pax8Mappings = [] } = useQuery({ queryKey: ['pax8_mappings'], queryFn: () => client.entities.Pax8Mapping.list() });
-
-  const mappingCounts = {
-    datto_mappings: dattoMappings.length,
-    jumpcloud_mappings: jumpcloudMappings.length,
-    spanning_mappings: spanningMappings.length,
-    edr_mappings: edrMappings.length,
-    rocketcyber_mappings: rocketcyberMappings.length,
-    cove_mappings: coveMappings.length,
-    unifi_mappings: unifiMappings.length,
-    saas_alerts_mappings: saasAlertsMappings.length,
-    pax8_mappings: pax8Mappings.length,
-  };
+  // Single query to fetch all mapping counts (instead of 9 full-table fetches)
+  const { data: mappingCounts = {} } = useQuery({
+    queryKey: ['integration_mapping_counts'],
+    queryFn: async () => {
+      const [datto, jumpcloud, spanning, edr, rocketcyber, cove, unifi, saasAlerts, pax8] = await Promise.all([
+        client.entities.DattoSiteMapping.count(),
+        client.entities.JumpCloudMapping.count(),
+        client.entities.SpanningMapping.count(),
+        client.entities.DattoEDRMapping.count(),
+        client.entities.RocketCyberMapping.count(),
+        client.entities.CoveDataMapping.count(),
+        client.entities.UniFiMapping.count(),
+        client.entities.SaaSAlertsMapping.count(),
+        client.entities.Pax8Mapping.count(),
+      ]);
+      return {
+        datto_mappings: datto,
+        jumpcloud_mappings: jumpcloud,
+        spanning_mappings: spanning,
+        edr_mappings: edr,
+        rocketcyber_mappings: rocketcyber,
+        cove_mappings: cove,
+        unifi_mappings: unifi,
+        saas_alerts_mappings: saasAlerts,
+        pax8_mappings: pax8,
+      };
+    },
+  });
 
   if (activeIntegration) {
     const allItems = INTEGRATION_CATEGORIES.flatMap(c => c.items);

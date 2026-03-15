@@ -134,14 +134,9 @@ export default function CustomerDetail() {
 
   const { data: lineItems = [], isLoading: loadingLineItems } = useQuery({
     queryKey: ['line_items', customerId],
-    queryFn: async () => {
-      const allItems = [];
-      for (const bill of recurringBills) {
-        const items = await client.entities.RecurringBillLineItem.filter({ recurring_bill_id: bill.id });
-        allItems.push(...items);
-      }
-      return allItems;
-    },
+    queryFn: () => client.entities.RecurringBillLineItem.filterIn(
+      'recurring_bill_id', recurringBills.map(b => b.id)
+    ),
     enabled: !!customerId && recurringBills.length > 0
   });
 
@@ -171,40 +166,25 @@ export default function CustomerDetail() {
 
   const { data: quoteItems = [], isLoading: loadingQuoteItems } = useQuery({
         queryKey: ['quote_items', customerId],
-        queryFn: async () => {
-          const allItems = [];
-          for (const quote of quotes) {
-            const items = await client.entities.QuoteItem.filter({ quote_id: quote.id });
-            allItems.push(...items);
-          }
-          return allItems;
-        },
+        queryFn: () => client.entities.QuoteItem.filterIn(
+          'quote_id', quotes.map(q => q.id)
+        ),
         enabled: !!customerId && quotes.length > 0
       });
 
       const { data: invoiceLineItems = [], isLoading: loadingInvoiceLineItems } = useQuery({
         queryKey: ['invoice_line_items', customerId],
-        queryFn: async () => {
-          const allItems = [];
-          for (const invoice of invoices) {
-            const items = await client.entities.InvoiceLineItem.filter({ invoice_id: invoice.id });
-            allItems.push(...items);
-          }
-          return allItems;
-        },
+        queryFn: () => client.entities.InvoiceLineItem.filterIn(
+          'invoice_id', invoices.map(i => i.id)
+        ),
         enabled: !!customerId && invoices.length > 0
       });
 
   const { data: contractItems = [], isLoading: loadingContractItems } = useQuery({
     queryKey: ['contract_items', customerId],
-    queryFn: async () => {
-      const allItems = [];
-      for (const contract of contracts) {
-        const items = await client.entities.ContractItem.filter({ contract_id: contract.id });
-        allItems.push(...items);
-      }
-      return allItems;
-    },
+    queryFn: () => client.entities.ContractItem.filterIn(
+      'contract_id', contracts.map(c => c.id)
+    ),
     enabled: !!customerId && contracts.length > 0
   });
 

@@ -4,7 +4,28 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+  },
+  global: {
+    fetch: (url, options = {}) => {
+      // 15s timeout for all Supabase REST calls
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      return fetch(url, { ...options, signal: controller.signal })
+        .finally(() => clearTimeout(timeoutId));
+    },
+  },
+  db: {
+    schema: 'public',
+  },
+  realtime: {
+    params: { eventsPerSecond: 2 },
+  },
+});
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -16,9 +37,31 @@ function toSnakeCase(str) {
     .replace(/__/g, '_');
 }
 
+// Cache the auth token to avoid calling getSession() on every API request.
+// Supabase's onAuthStateChange keeps it up to date automatically.
+let _cachedToken = null;
+let _tokenExpiresAt = 0;
+
+supabase.auth.onAuthStateChange((_event, session) => {
+  _cachedToken = session?.access_token || null;
+  // Cache until 60s before expiry (Supabase tokens are typically 3600s)
+  _tokenExpiresAt = session?.expires_at
+    ? (session.expires_at * 1000) - 60000
+    : 0;
+});
+
 async function getAuthToken() {
+  // Use cached token if still valid
+  if (_cachedToken && Date.now() < _tokenExpiresAt) {
+    return _cachedToken;
+  }
+  // Fallback: fetch fresh session (cold start or expired)
   const { data: { session } } = await supabase.auth.getSession();
-  return session?.access_token || null;
+  _cachedToken = session?.access_token || null;
+  _tokenExpiresAt = session?.expires_at
+    ? (session.expires_at * 1000) - 60000
+    : 0;
+  return _cachedToken;
 }
 
 async function apiFetch(path, { method = 'POST', body, timeout = 60000 } = {}) {
@@ -121,9 +164,8 @@ function createEntityHandler(entityName) {
         query = query.order(col, { ascending: !desc });
       }
 
-      if (limit) {
-        query = query.limit(limit);
-      }
+      // Default limit prevents unbounded table scans on large tables
+      query = query.limit(limit || 1000);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -152,6 +194,37 @@ function createEntityHandler(entityName) {
       const { data, error } = await query;
       if (error) throw error;
       return data || [];
+    },
+
+    async filterIn(column, values, sortField, limit) {
+      if (!values || values.length === 0) return [];
+      let query = supabase.from(tableName).select('*').in(column, values);
+
+      if (sortField) {
+        const desc = sortField.startsWith('-');
+        const col = desc ? sortField.slice(1) : sortField;
+        query = query.order(col, { ascending: !desc });
+      }
+
+      if (limit) {
+        query = query.limit(limit);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+
+    async count(filters) {
+      let query = supabase.from(tableName).select('*', { count: 'exact', head: true });
+      if (filters && typeof filters === 'object') {
+        for (const [key, value] of Object.entries(filters)) {
+          query = query.eq(key, value);
+        }
+      }
+      const { count, error } = await query;
+      if (error) throw error;
+      return count || 0;
     },
 
     async create(record) {
