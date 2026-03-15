@@ -584,7 +584,7 @@ export default function CustomerDetail() {
             {[
               { icon: Users, value: contacts.length, label: 'Team', color: 'text-primary', bg: 'bg-primary/10' },
               { icon: FileText, value: contracts.filter(c => c.status === 'active').length, label: 'Contracts', color: 'text-warning', bg: 'bg-warning/10' },
-              { icon: HelpCircle, value: tickets.length, label: 'Tickets', color: 'text-destructive', bg: 'bg-destructive/10' },
+              { icon: HelpCircle, value: customer?.total_tickets || tickets.length, label: 'Tickets', color: 'text-destructive', bg: 'bg-destructive/10' },
               { icon: Cloud, value: licenses.length, label: 'Apps', color: 'text-[#7828C8]', bg: 'bg-[#7828C8]/10' },
               { icon: Monitor, value: devices.length, label: 'Devices', color: 'text-success', bg: 'bg-success/10' },
             ].map(stat => (

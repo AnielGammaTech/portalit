@@ -92,10 +92,14 @@ export async function syncHaloPSATickets(body, _user) {
       const dbCustomer = (allCustomers || []).find(c => c.external_id === String(customer_id) && c.source === 'halopsa');
       if (!dbCustomer) throw new Error(`Customer not found in database for external_id: ${customer_id}`);
 
-      // Fetch all tickets for this client
-      const data = await haloGet(`Tickets?client_id=${customer_id}&page_size=200&order=dateoccurred&orderdesc=true`, config);
+      // Fetch tickets for this client (most recent 200)
+      const data = await haloGet(`Tickets?client_id=${customer_id}&pageinate=true&page_size=200&page_no=1&order=dateoccurred&orderdesc=true`, config);
       const tickets = extractRecords(data, 'tickets');
-      console.log(`Found ${tickets.length} tickets for customer ${customer_id}`);
+      const totalTicketCount = data.record_count || data.recordCount || data.total_count || tickets.length;
+      console.log(`Found ${tickets.length} tickets (total: ${totalTicketCount}) for customer ${customer_id}`);
+
+      // Save the true total ticket count from HaloPSA on the customer record
+      await supabase.from('customers').update({ total_tickets: totalTicketCount }).eq('id', dbCustomer.id);
 
       // Log first ticket to see status field structure
       if (tickets.length > 0) {

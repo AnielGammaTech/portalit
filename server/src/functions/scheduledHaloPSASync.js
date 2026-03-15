@@ -299,10 +299,12 @@ export async function scheduledHaloPSASync(_body, _user) {
           // ─── tickets ───
           try {
             const ticketData = await haloGet(
-              `Tickets?client_id=${customer.external_id}&page_size=200&order=dateoccurred&orderdesc=true`,
+              `Tickets?client_id=${customer.external_id}&pageinate=true&page_size=200&page_no=1&order=dateoccurred&orderdesc=true`,
               config,
             );
             const haloTickets = extractRecords(ticketData, 'tickets');
+            const totalTicketCount = ticketData.record_count || ticketData.recordCount || ticketData.total_count || haloTickets.length;
+            await supabase.from('customers').update({ total_tickets: totalTicketCount }).eq('id', customer.id);
 
             const { data: existingTickets } = await supabase
               .from('tickets')
