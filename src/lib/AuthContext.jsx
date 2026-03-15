@@ -1,7 +1,18 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
 import { supabase } from '@/api/client';
 
 const AuthContext = createContext();
+
+// Race a promise against a timeout — rejects if the promise doesn't
+// settle within `ms` milliseconds.
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Auth check timed out')), ms)
+    ),
+  ]);
+}
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -10,6 +21,7 @@ export const AuthProvider = ({ children }) => {
   const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(false);
   const [authError, setAuthError] = useState(null);
   const [appPublicSettings, setAppPublicSettings] = useState(null);
+  const initialCheckDone = useRef(false);
 
   useEffect(() => {
     checkUserAuth();
@@ -17,7 +29,8 @@ export const AuthProvider = ({ children }) => {
     // Listen for auth state changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
+        // Skip SIGNED_IN during initial load — checkUserAuth handles it
+        if (event === 'SIGNED_IN' && session?.user && initialCheckDone.current) {
           await loadUserProfile(session.user);
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
@@ -68,20 +81,30 @@ export const AuthProvider = ({ children }) => {
       setIsLoadingAuth(true);
       setAuthError(null);
 
-      const { data: { session } } = await supabase.auth.getSession();
+      // 5-second timeout — if session check hangs (stale cookies,
+      // network issues), stop waiting and send user to login.
+      const { data: { session } } = await withTimeout(
+        supabase.auth.getSession(),
+        5000
+      );
 
       if (session?.user) {
-        await loadUserProfile(session.user);
+        await withTimeout(loadUserProfile(session.user), 5000);
       } else {
         setIsAuthenticated(false);
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      setAuthError({
-        type: 'auth_required',
-        message: 'Authentication required',
-      });
+      // On timeout or error, clear the stale session so the user
+      // isn't stuck in a loop on next reload.
+      if (error.message === 'Auth check timed out') {
+        console.warn('Auth timed out — clearing stale session');
+        await supabase.auth.signOut().catch(() => {});
+      }
+      setIsAuthenticated(false);
+      setAuthError(null);
     } finally {
+      initialCheckDone.current = true;
       setIsLoadingAuth(false);
     }
   };
