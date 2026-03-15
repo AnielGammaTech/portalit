@@ -1,0 +1,16 @@
+{
+  "version": "2.0",
+  "technicalLevel": "technical",
+  "preferredStyle": {
+    "verbosity": "moderate",
+    "codeComments": false,
+    "explanations": false
+  },
+  "domains": [
+    "javascript",
+    "vite",
+    "react"
+  ],
+  "suggestedBy": "ecc-tools-repo-analysis",
+  "createdAt": "2026-03-15T22:39:00.344Z"
+}
