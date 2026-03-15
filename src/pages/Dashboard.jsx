@@ -261,16 +261,9 @@ function CustomerDashboard({ customer }) {
 
   const { data: lineItems = [] } = useQuery({
     queryKey: ['line_items', customerId],
-    queryFn: async () => {
-      if (recurringBills.length === 0) return [];
-      // Fetch all line items in parallel
-      const results = await Promise.all(
-        recurringBills.map(bill => 
-          client.entities.RecurringBillLineItem.filter({ recurring_bill_id: bill.id })
-        )
-      );
-      return results.flat();
-    },
+    queryFn: () => client.entities.RecurringBillLineItem.filterIn(
+      'recurring_bill_id', recurringBills.map(b => b.id)
+    ),
     enabled: !!customerId && recurringBills.length > 0,
     staleTime: 1000 * 60 * 5
   });
@@ -284,16 +277,9 @@ function CustomerDashboard({ customer }) {
 
   const { data: invoiceLineItems = [] } = useQuery({
     queryKey: ['invoice_line_items', customerId],
-    queryFn: async () => {
-      if (invoices.length === 0) return [];
-      // Fetch all invoice items in parallel
-      const results = await Promise.all(
-        invoices.slice(0, 10).map(invoice => 
-          client.entities.InvoiceLineItem.filter({ invoice_id: invoice.id })
-        )
-      );
-      return results.flat();
-    },
+    queryFn: () => client.entities.InvoiceLineItem.filterIn(
+      'invoice_id', invoices.map(i => i.id)
+    ),
     enabled: !!customerId && invoices.length > 0,
     staleTime: 1000 * 60 * 5
   });
