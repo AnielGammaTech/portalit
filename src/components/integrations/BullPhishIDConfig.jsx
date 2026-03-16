@@ -187,14 +187,33 @@ Convert all dates to YYYY-MM-DD format.`,
         
         // Auto-fill customer from extracted name if not already selected
         if (data.customer_name && !selectedCustomer) {
-          const matchedCustomer = customers.find(c => {
-            const normalizedCustomerName = c.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const extractedWords = data.customer_name.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 1);
+          let bestMatch = null;
+          let bestScore = 0;
+
+          for (const c of customers) {
+            const customerWords = c.name.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 1);
+            const matchingWords = extractedWords.filter(ew =>
+              customerWords.some(cw => cw.includes(ew) || ew.includes(cw))
+            );
+            const score = matchingWords.length / Math.max(extractedWords.length, 1);
+            if (score > bestScore && score >= 0.4) {
+              bestScore = score;
+              bestMatch = c;
+            }
+          }
+
+          if (!bestMatch) {
             const normalizedExtracted = data.customer_name.toLowerCase().replace(/[^a-z0-9]/g, '');
-            return normalizedCustomerName.includes(normalizedExtracted) || 
-                   normalizedExtracted.includes(normalizedCustomerName);
-          });
-          if (matchedCustomer) {
-            setSelectedCustomer(matchedCustomer.id);
+            bestMatch = customers.find(c => {
+              const normalizedName = c.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+              return normalizedName.includes(normalizedExtracted) ||
+                     normalizedExtracted.includes(normalizedName);
+            });
+          }
+
+          if (bestMatch) {
+            setSelectedCustomer(bestMatch.id);
           }
         }
         

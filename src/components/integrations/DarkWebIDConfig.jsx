@@ -653,15 +653,37 @@ If you cannot find a specific field, use 0 for numbers and empty array for lists
       if (result) {
         setExtractedData({ ...result, pdf_url: file_url });
 
+        // Auto-match customer using fuzzy word-token matching
         if (result.customer_name && !selectedCustomer) {
-          const matchedCustomer = customers.find(c => {
-            const normalizedCustomerName = c.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const extractedWords = result.customer_name.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 1);
+          let bestMatch = null;
+          let bestScore = 0;
+
+          for (const c of customers) {
+            const customerWords = c.name.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 1);
+            // Count how many extracted words appear in the customer name (or vice versa)
+            const matchingWords = extractedWords.filter(ew =>
+              customerWords.some(cw => cw.includes(ew) || ew.includes(cw))
+            );
+            const score = matchingWords.length / Math.max(extractedWords.length, 1);
+            if (score > bestScore && score >= 0.4) {
+              bestScore = score;
+              bestMatch = c;
+            }
+          }
+
+          // Also try simple substring match as fallback
+          if (!bestMatch) {
             const normalizedExtracted = result.customer_name.toLowerCase().replace(/[^a-z0-9]/g, '');
-            return normalizedCustomerName.includes(normalizedExtracted) ||
-                   normalizedExtracted.includes(normalizedCustomerName);
-          });
-          if (matchedCustomer) {
-            setSelectedCustomer(matchedCustomer.id);
+            bestMatch = customers.find(c => {
+              const normalizedName = c.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+              return normalizedName.includes(normalizedExtracted) ||
+                     normalizedExtracted.includes(normalizedName);
+            });
+          }
+
+          if (bestMatch) {
+            setSelectedCustomer(bestMatch.id);
           }
         }
 
@@ -696,6 +718,22 @@ If you cannot find a specific field, use 0 for numbers and empty array for lists
         pdfUrl = file_url;
       }
 
+      // Build the report_data JSONB with all extracted info
+      const reportData = extractedData
+        ? {
+            total_compromises: extractedData.total_compromises || 0,
+            new_compromises: extractedData.new_compromises || 0,
+            critical_count: extractedData.critical_count || 0,
+            high_count: extractedData.high_count || 0,
+            medium_count: extractedData.medium_count || 0,
+            low_count: extractedData.low_count || 0,
+            compromised_emails: extractedData.compromised_emails || [],
+            breach_sources: extractedData.breach_sources || [],
+            compromises_detail: extractedData.compromises_detail || [],
+            customer_name_extracted: extractedData.customer_name || null,
+          }
+        : null;
+
       await client.entities.DarkWebIDReport.create({
         customer_id: selectedCustomer,
         customer_name: customer?.name,
@@ -703,6 +741,7 @@ If you cannot find a specific field, use 0 for numbers and empty array for lists
         report_period_start: periodStart || null,
         report_period_end: periodEnd || null,
         pdf_url: pdfUrl,
+        report_data: reportData,
         total_compromises: extractedData?.total_compromises || 0,
         new_compromises: extractedData?.new_compromises || 0,
         critical_count: extractedData?.critical_count || 0,
@@ -711,7 +750,7 @@ If you cannot find a specific field, use 0 for numbers and empty array for lists
         low_count: extractedData?.low_count || 0,
         compromised_emails: extractedData?.compromised_emails ? JSON.stringify(extractedData.compromised_emails) : null,
         breach_sources: extractedData?.breach_sources ? JSON.stringify(extractedData.breach_sources) : null,
-        compromises_detail: extractedData?.compromises_detail ? JSON.stringify(extractedData.compromises_detail) : null
+        compromises_detail: extractedData?.compromises_detail ? JSON.stringify(extractedData.compromises_detail) : null,
       });
 
       toast.success('Report saved successfully');

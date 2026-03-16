@@ -384,7 +384,7 @@ const integrations = {
     },
 
     async InvokeLLM(params) {
-      return apiFetch('/api/llm/invoke', { body: params });
+      return apiFetch('/api/llm/invoke', { body: params, timeout: 180000 });
     },
   },
 };
