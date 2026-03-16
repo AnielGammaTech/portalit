@@ -57,7 +57,19 @@ export function useReconciliationData(customerId) {
     mappingQueries[key] = mappingQueryResults[idx];
   });
 
-  // 5. Fetch reviews (all or for specific customer)
+  // 5. Fetch Pax8 line-item overrides (manual mappings)
+  const { data: pax8Overrides = [], isLoading: loadingOverrides } = useQuery({
+    queryKey: customerId
+      ? ['pax8_line_item_overrides', customerId]
+      : ['pax8_line_item_overrides_all'],
+    queryFn: () =>
+      customerId
+        ? client.entities.Pax8LineItemOverride.filter({ customer_id: customerId })
+        : client.entities.Pax8LineItemOverride.list(),
+    staleTime: 1000 * 60 * 2,
+  });
+
+  // 6. Fetch reviews (all or for specific customer)
   const { data: reviews = [], isLoading: loadingReviews } = useQuery({
     queryKey: customerId
       ? ['reconciliation_reviews', customerId]
@@ -74,6 +86,7 @@ export function useReconciliationData(customerId) {
     loadingCustomers ||
     loadingBills ||
     loadingLineItems ||
+    loadingOverrides ||
     loadingReviews ||
     Object.values(mappingQueries).some((q) => q.isLoading);
 
@@ -166,7 +179,17 @@ export function useReconciliationData(customerId) {
     return grouped;
   }, [reviews]);
 
-  // 10. Compute reconciliation for each customer (or just one)
+  // 10. Group Pax8 overrides by customer
+  const overridesByCustomer = useMemo(() => {
+    const grouped = {};
+    for (const ov of pax8Overrides) {
+      if (!grouped[ov.customer_id]) grouped[ov.customer_id] = [];
+      grouped[ov.customer_id].push(ov);
+    }
+    return grouped;
+  }, [pax8Overrides]);
+
+  // 11. Compute reconciliation for each customer (or just one)
   const reconciliations = useMemo(() => {
     if (isLoading || rules.length === 0) return {};
 
@@ -183,8 +206,9 @@ export function useReconciliationData(customerId) {
       const recon = reconcileCustomer(custLineItems, custMappings, rules, custReviews);
 
       // Auto-reconcile Pax8 subscriptions (one tile per subscription)
+      const custOverrides = overridesByCustomer[customer.id] || [];
       const pax8Recon = custMappings.pax8
-        ? reconcilePax8Subscriptions(custLineItems, custMappings.pax8, custReviews)
+        ? reconcilePax8Subscriptions(custLineItems, custMappings.pax8, custReviews, custOverrides)
         : [];
 
       // Only include customers that have at least some data to reconcile
@@ -209,6 +233,7 @@ export function useReconciliationData(customerId) {
     lineItemsByCustomer,
     mappingsByCustomer,
     reviewsByCustomer,
+    overridesByCustomer,
   ]);
 
   // 11. Global summary across all customers

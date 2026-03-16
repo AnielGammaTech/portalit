@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { ArrowLeft, Filter, Check, X, ChevronRight, RotateCcw, RefreshCw, AlertTriangle } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, Filter, Check, X, ChevronRight, RotateCcw, RefreshCw, AlertTriangle, Link2, Search, Trash2 } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
+import { client } from '@/api/client';
 import { useReconciliationData } from '@/hooks/useReconciliationData';
 import { useReconciliationReviews } from '@/hooks/useReconciliationReviews';
 import { getDiscrepancySummary, getDiscrepancyMessage } from '@/lib/lootit-reconciliation';
@@ -14,8 +15,51 @@ export default function LootITCustomerDetail({ customer, onBack }) {
   const [detailItem, setDetailItem] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
+  const [mappingProduct, setMappingProduct] = useState(null); // product name being mapped
+
   const { reconciliations, isLoading } = useReconciliationData(customer.id);
   const { markReviewed, dismiss, resetReview, isSaving } = useReconciliationReviews(customer.id);
+
+  // Fetch all line items for this customer (for the mapping picker)
+  const { data: allLineItems = [] } = useQuery({
+    queryKey: ['recurring_bill_line_items_customer', customer.id],
+    queryFn: async () => {
+      const bills = await client.entities.RecurringBill.filter({ customer_id: customer.id });
+      if (bills.length === 0) return [];
+      const billIds = bills.map((b) => b.id);
+      return client.entities.RecurringBillLineItem.filterIn('recurring_bill_id', billIds);
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Fetch existing overrides for this customer
+  const { data: existingOverrides = [] } = useQuery({
+    queryKey: ['pax8_line_item_overrides', customer.id],
+    queryFn: () => client.entities.Pax8LineItemOverride.filter({ customer_id: customer.id }),
+    staleTime: 1000 * 60 * 2,
+  });
+
+  const handleSaveMapping = async (productName, lineItemId) => {
+    await client.entities.Pax8LineItemOverride.create({
+      customer_id: customer.id,
+      pax8_product_name: productName,
+      line_item_id: lineItemId,
+    });
+    await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides', customer.id] });
+    await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides_all'] });
+    setMappingProduct(null);
+  };
+
+  const handleRemoveMapping = async (productName) => {
+    const toRemove = existingOverrides.filter(
+      (o) => o.pax8_product_name.toLowerCase() === productName.toLowerCase()
+    );
+    for (const ov of toRemove) {
+      await client.entities.Pax8LineItemOverride.delete(ov.id);
+    }
+    await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides', customer.id] });
+    await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides_all'] });
+  };
 
   const handleSync = async () => {
     setIsSyncing(true);
@@ -185,6 +229,11 @@ export default function LootITCustomerDetail({ customer, onBack }) {
                 onDismiss={handleDismiss}
                 onReset={resetReview}
                 onDetails={setDetailItem}
+                onMapLineItem={setMappingProduct}
+                onRemoveMapping={handleRemoveMapping}
+                hasOverride={existingOverrides.some(
+                  (o) => o.pax8_product_name.toLowerCase() === recon.productName.toLowerCase()
+                )}
                 isSaving={isSaving}
               />
             ))}
@@ -197,6 +246,16 @@ export default function LootITCustomerDetail({ customer, onBack }) {
         <DetailDrawer
           reconciliation={detailItem}
           onClose={() => setDetailItem(null)}
+        />
+      )}
+
+      {/* Line Item Mapping Picker */}
+      {mappingProduct && (
+        <LineItemPicker
+          productName={mappingProduct}
+          lineItems={allLineItems}
+          onSelect={(lineItemId) => handleSaveMapping(mappingProduct, lineItemId)}
+          onClose={() => setMappingProduct(null)}
         />
       )}
     </div>
@@ -344,7 +403,7 @@ const PAX8_STATUS_BORDER = {
   missing_from_psa: 'border-l-red-500',
 };
 
-function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, isSaving }) {
+function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, onMapLineItem, onRemoveMapping, hasOverride, isSaving }) {
   const {
     ruleId, productName, vendorQty, totalVendorQty, psaQty,
     difference, status, matchedLineItems, billingTerm, price,
@@ -381,7 +440,29 @@ function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, 
       {isMissing && (
         <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3 flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
-          <p className="text-xs font-medium text-red-700">PSA Not Billing — no matching line item in HaloPSA</p>
+          <p className="text-xs font-medium text-red-700 flex-1">PSA Not Billing — no matching line item in HaloPSA</p>
+          <button
+            onClick={() => onMapLineItem?.(productName)}
+            className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded bg-red-600 text-white hover:bg-red-700 transition-colors flex-shrink-0"
+          >
+            <Link2 className="w-3 h-3" />
+            Map
+          </button>
+        </div>
+      )}
+
+      {/* Override badge */}
+      {hasOverride && !isMissing && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mb-3 flex items-center gap-2">
+          <Link2 className="w-4 h-4 text-blue-500 flex-shrink-0" />
+          <p className="text-xs font-medium text-blue-700 flex-1">Manually mapped line item</p>
+          <button
+            onClick={() => onRemoveMapping?.(productName)}
+            className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors flex-shrink-0"
+          >
+            <Trash2 className="w-3 h-3" />
+            Unmap
+          </button>
         </div>
       )}
 
@@ -469,6 +550,15 @@ function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, 
             Reset
           </button>
         )}
+        {!isMissing && !hasOverride && (
+          <button
+            onClick={() => onMapLineItem?.(productName)}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
+          >
+            <Link2 className="w-3.5 h-3.5" />
+            Map
+          </button>
+        )}
         <button
           onClick={() => onDetails?.(recon)}
           className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg text-slate-500 hover:bg-slate-50 transition-colors"
@@ -476,6 +566,88 @@ function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, 
           Details
           <ChevronRight className="w-3.5 h-3.5" />
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Line Item Picker Dialog ─────────────────────────────────────────
+
+function LineItemPicker({ productName, lineItems, onSelect, onClose }) {
+  const [search, setSearch] = useState('');
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    const items = lineItems.filter((li) => li.description && li.quantity > 0);
+    if (!q) return items;
+    return items.filter((li) => (li.description || '').toLowerCase().includes(q));
+  }, [lineItems, search]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/30" />
+      <div
+        className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-slate-200">
+          <h3 className="font-semibold text-slate-900 text-sm">
+            Map Line Item
+          </h3>
+          <p className="text-xs text-slate-500 mt-1">
+            Select a HaloPSA billing line item for <span className="font-medium text-slate-700">{productName}</span>
+          </p>
+        </div>
+
+        {/* Search */}
+        <div className="px-6 py-3 border-b border-slate-100">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search line items…"
+              className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-300 focus:border-pink-400"
+              autoFocus
+            />
+          </div>
+        </div>
+
+        {/* Line item list */}
+        <div className="max-h-80 overflow-y-auto">
+          {filtered.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-8">No line items found</p>
+          ) : (
+            filtered.map((li) => (
+              <button
+                key={li.id}
+                onClick={() => onSelect(li.id)}
+                className="w-full text-left px-6 py-3 hover:bg-pink-50 border-b border-slate-50 transition-colors"
+              >
+                <p className="text-sm font-medium text-slate-700 truncate">
+                  {li.description?.replace(/\s*\$recurringbillingdate\s*/gi, '').trim()}
+                </p>
+                <div className="flex gap-4 mt-0.5 text-xs text-slate-400">
+                  <span>Qty: {li.quantity}</span>
+                  {li.unit_price > 0 && <span>Price: ${parseFloat(li.unit_price).toFixed(2)}</span>}
+                  {li.total > 0 && <span>Total: ${parseFloat(li.total).toFixed(2)}</span>}
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-3 border-t border-slate-200 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-xs font-medium rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -307,8 +307,10 @@ function findPsaMatchesForProduct(productName, lineItems) {
  * Returns one result per individual Pax8 subscription (not grouped).
  * Status comparison is done at the product level (total Pax8 qty for
  * all subs of the same product vs total PSA qty).
+ *
+ * @param {Array} overrides – pax8_line_item_overrides for this customer
  */
-export function reconcilePax8Subscriptions(lineItems, pax8Mapping, reviews = []) {
+export function reconcilePax8Subscriptions(lineItems, pax8Mapping, reviews = [], overrides = []) {
   if (!pax8Mapping?.cached_data?.products) return [];
 
   const products = pax8Mapping.cached_data.products || [];
@@ -316,10 +318,26 @@ export function reconcilePax8Subscriptions(lineItems, pax8Mapping, reviews = [])
     reviews.filter((r) => r.rule_id?.startsWith('pax8:')).map((r) => [r.rule_id, r])
   );
 
+  // Build override lookup: product name → [line_item_id, ...]
+  const overrideMap = {};
+  for (const ov of overrides) {
+    const key = (ov.pax8_product_name || '').toLowerCase();
+    if (!overrideMap[key]) overrideMap[key] = [];
+    overrideMap[key].push(ov.line_item_id);
+  }
+  const lineItemById = Object.fromEntries(lineItems.map((li) => [li.id, li]));
+
   const results = [];
 
   for (const product of products) {
-    const matchedLineItems = findPsaMatchesForProduct(product.name, lineItems);
+    // Check manual overrides first, then fall back to auto-matching
+    const overrideIds = overrideMap[(product.name || '').toLowerCase()] || [];
+    const overrideItems = overrideIds
+      .map((id) => lineItemById[id])
+      .filter(Boolean);
+    const matchedLineItems = overrideItems.length > 0
+      ? overrideItems
+      : findPsaMatchesForProduct(product.name, lineItems);
     const psaQty = matchedLineItems.reduce((sum, li) => sum + (parseFloat(li.quantity) || 0), 0);
     const hasPsaData = matchedLineItems.length > 0;
     const totalVendorQty = product.quantity || 0;
