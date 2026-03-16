@@ -13,6 +13,42 @@ function authHeaders(token) {
   };
 }
 
+/**
+ * Extract domains array from DMARC API response (handles multiple formats).
+ */
+function extractDomains(data) {
+  if (Array.isArray(data)) return data;
+  if (data?.domains && Array.isArray(data.domains)) return data.domains;
+  if (data?.data && Array.isArray(data.data)) return data.data;
+  return [];
+}
+
+/**
+ * Fetch domains for a DMARC account — tries multiple endpoint formats.
+ */
+async function fetchDomainsForAccount(accountId, headers) {
+  // Try endpoints in order of likelihood
+  const endpoints = [
+    `/accounts/${accountId}/domains`,
+    `/accounts/${accountId}/domains.json`,
+  ];
+
+  for (const endpoint of endpoints) {
+    try {
+      const res = await fetch(`${DMARC_API_BASE}${endpoint}`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        const domains = extractDomains(data);
+        if (domains.length > 0) return domains;
+      }
+    } catch {
+      // try next endpoint
+    }
+  }
+
+  return [];
+}
+
 export async function syncDmarcReport(body, user) {
   const supabase = getServiceSupabase();
   const { action, customer_id } = body;
@@ -43,12 +79,13 @@ export async function syncDmarcReport(body, user) {
     }
   }
 
-  // ── List accounts (for admin mapping UI) ─────────────────────────────
+  // ── List accounts with domains (for admin mapping UI) ────────────────
   if (action === 'list_accounts') {
     try {
       const res = await fetch(`${DMARC_API_BASE}/accounts`, { headers });
       if (!res.ok) {
-        return { success: false, error: `Failed to fetch accounts: ${res.status}` };
+        const errText = await res.text();
+        return { success: false, error: `Failed to fetch accounts: ${res.status} — ${errText}` };
       }
       const data = await res.json();
       const owned = (data.owned_accounts || []).map(a => ({ ...a, ownership: 'owned' }));
@@ -58,14 +95,17 @@ export async function syncDmarcReport(body, user) {
       // For each account, fetch domains
       const accountsWithDomains = await Promise.all(
         accounts.map(async (account) => {
-          try {
-            const domRes = await fetch(`${DMARC_API_BASE}/accounts/${account.id}/domains.json`, { headers });
-            if (domRes.ok) {
-              const domains = await domRes.json();
-              return { ...account, domains: Array.isArray(domains) ? domains : [], domainCount: Array.isArray(domains) ? domains.length : 0 };
-            }
-          } catch { /* ignore */ }
-          return { ...account, domains: [], domainCount: 0 };
+          const domains = await fetchDomainsForAccount(account.id, headers);
+          return {
+            ...account,
+            domains: domains.map(d => ({
+              id: d.id,
+              address: d.address || d.name || d.domain,
+              slug: d.slug || '',
+              dmarc_status: d.dmarc_status || d.status || 'unknown',
+            })),
+            domainCount: domains.length,
+          };
         })
       );
 
@@ -85,7 +125,7 @@ export async function syncDmarcReport(body, user) {
       .eq('customer_id', customer_id);
 
     if (!mappings?.length) {
-      return { success: false, error: 'Customer not mapped to DMARC Report account' };
+      return { success: false, error: 'Customer not mapped to DMARC Report domain' };
     }
 
     const mapping = mappings[0];
@@ -97,7 +137,7 @@ export async function syncDmarcReport(body, user) {
     };
   }
 
-  // ── Sync customer ────────────────────────────────────────────────────
+  // ── Sync customer (domain-level) ───────────────────────────────────
   if (action === 'sync_customer') {
     if (!customer_id) return { success: false, error: 'customer_id required' };
 
@@ -107,23 +147,20 @@ export async function syncDmarcReport(body, user) {
       .eq('customer_id', customer_id);
 
     if (!mappings?.length) {
-      return { success: false, error: 'Customer not mapped to DMARC Report account' };
+      return { success: false, error: 'Customer not mapped to DMARC Report domain' };
     }
 
     const mapping = mappings[0];
     const accountId = mapping.dmarc_account_id;
+    const domainId = mapping.dmarc_domain_id;
 
     // Fetch domains for this account
-    let domains = [];
-    try {
-      const domRes = await fetch(`${DMARC_API_BASE}/accounts/${accountId}/domains.json`, { headers });
-      if (domRes.ok) {
-        const domData = await domRes.json();
-        domains = Array.isArray(domData) ? domData : [];
-      }
-    } catch (e) {
-      console.error('Failed to fetch DMARC domains:', e.message);
-    }
+    const allDomains = await fetchDomainsForAccount(accountId, headers);
+
+    // Filter to the specific mapped domain(s), or use all if no domain specified
+    const domains = domainId
+      ? allDomains.filter(d => String(d.id) === String(domainId))
+      : allDomains;
 
     // Fetch aggregate report stats for each domain (last 30 days)
     const now = new Date();
@@ -144,13 +181,13 @@ export async function syncDmarcReport(body, user) {
 
         return {
           id: domain.id,
-          address: domain.address,
-          slug: domain.slug,
-          dmarc_status: domain.dmarc_status,
-          mta_sts_status: domain.mta_sts_status,
-          rua_report: domain.rua_report,
-          ruf_report: domain.ruf_report,
-          parked_domain: domain.parked_domain,
+          address: domain.address || domain.name || domain.domain,
+          slug: domain.slug || '',
+          dmarc_status: domain.dmarc_status || domain.status || 'unknown',
+          mta_sts_status: domain.mta_sts_status || null,
+          rua_report: domain.rua_report || null,
+          ruf_report: domain.ruf_report || null,
+          parked_domain: domain.parked_domain || false,
           tags: domain.tags || [],
           stats: stats || { compliant: 0, non_compliant: 0, forwarded: 0, total: 0, none: 0, quarantine: 0, reject: 0 },
         };

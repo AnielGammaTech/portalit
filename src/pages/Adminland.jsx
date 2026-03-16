@@ -31,6 +31,7 @@ import InkyConfig from '../components/integrations/InkyConfig';
 import ThreeCXConfig from '../components/integrations/ThreeCXConfig';
 import DmarcReportConfig from '../components/integrations/DmarcReportConfig';
 import VultrConfig from '../components/integrations/VultrConfig';
+import VPenTestConfig from '../components/integrations/VPenTestConfig';
 
 import {
   Shield,
@@ -66,6 +67,7 @@ import {
   Phone,
   Globe,
   Server,
+  Crosshair,
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -86,6 +88,7 @@ const INTEGRATION_CATEGORIES = [
       { id: 'datto-edr', label: 'Datto EDR', desc: 'Endpoint detection & response', icon: Shield, iconBg: 'bg-cyan-50', iconColor: 'text-cyan-600', mappingKey: 'edr_mappings', mappingEntity: 'DattoEDRMapping' },
       { id: 'rocketcyber', label: 'RocketCyber SOC', desc: 'Security incidents and alerts', icon: Rocket, iconBg: 'bg-orange-50', iconColor: 'text-orange-600', mappingKey: 'rocketcyber_mappings', mappingEntity: 'RocketCyberMapping' },
       { id: 'unifi', label: 'UniFi Network', desc: 'Sync firewalls and network devices', icon: Wifi, iconBg: 'bg-sky-50', iconColor: 'text-sky-600', mappingKey: 'unifi_mappings', mappingEntity: 'UniFiMapping' },
+      { id: 'vpentest', label: 'vPenTest', desc: 'Automated network penetration testing', icon: Crosshair, iconBg: 'bg-rose-50', iconColor: 'text-rose-600', mappingKey: 'vpentest_mappings', mappingEntity: 'VPenTestMapping' },
     ],
   },
   {
@@ -130,7 +133,7 @@ const INTEGRATION_CATEGORIES = [
   {
     title: 'VOIP & CLOUD',
     items: [
-      { id: 'threecx', label: '3CX', desc: 'Per-customer VoIP extension sync', icon: Phone, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600', mappingKey: 'threecx_mappings', mappingEntity: 'ThreeCXMapping' },
+      { id: 'threecx', label: '3CX', desc: 'Per-customer VoIP extension sync', icon: Phone, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600', mappingKey: 'threecx_reports_count', mappingEntity: 'ThreeCXReport' },
       { id: 'vultr', label: 'Vultr', desc: 'Map cloud instances to customers for 3CX hosting', icon: Server, iconBg: 'bg-blue-50', iconColor: 'text-blue-600', mappingKey: 'vultr_mappings', mappingEntity: 'VultrMapping' },
     ],
   },
@@ -164,6 +167,7 @@ const INTEGRATION_COMPONENTS = {
   'threecx': ThreeCXConfig,
   'dmarc': DmarcReportConfig,
   'vultr': VultrConfig,
+  'vpentest': VPenTestConfig,
   'ai': AIConfig,
   'pax8': Pax8Config,
 };
@@ -175,19 +179,21 @@ function IntegrationsPanel() {
   const { data: mappingCounts = {} } = useQuery({
     queryKey: ['integration_mapping_counts'],
     queryFn: async () => {
-      const [datto, jumpcloud, spanning, edr, rocketcyber, cove, unifi, saasAlerts, pax8, threecx, dmarc, vultr] = await Promise.all([
-        client.entities.DattoSiteMapping.count(),
-        client.entities.JumpCloudMapping.count(),
-        client.entities.SpanningMapping.count(),
-        client.entities.DattoEDRMapping.count(),
-        client.entities.RocketCyberMapping.count(),
-        client.entities.CoveDataMapping.count(),
-        client.entities.UniFiMapping.count(),
-        client.entities.SaaSAlertsMapping.count(),
-        client.entities.Pax8Mapping.count(),
-        client.entities.ThreeCXMapping.count(),
-        client.entities.DmarcReportMapping.count(),
-        client.entities.VultrMapping.count(),
+      const safeCount = (fn) => fn().catch(() => 0);
+      const [datto, jumpcloud, spanning, edr, rocketcyber, cove, unifi, saasAlerts, pax8, threecx, dmarc, vultr, vpentest] = await Promise.all([
+        safeCount(() => client.entities.DattoSiteMapping.count()),
+        safeCount(() => client.entities.JumpCloudMapping.count()),
+        safeCount(() => client.entities.SpanningMapping.count()),
+        safeCount(() => client.entities.DattoEDRMapping.count()),
+        safeCount(() => client.entities.RocketCyberMapping.count()),
+        safeCount(() => client.entities.CoveDataMapping.count()),
+        safeCount(() => client.entities.UniFiMapping.count()),
+        safeCount(() => client.entities.SaaSAlertsMapping.count()),
+        safeCount(() => client.entities.Pax8Mapping.count()),
+        safeCount(() => client.entities.ThreeCXReport.count()),
+        safeCount(() => client.entities.DmarcReportMapping.count()),
+        safeCount(() => client.entities.VultrMapping.count()),
+        safeCount(() => client.entities.VPenTestMapping.count()),
       ]);
       return {
         datto_mappings: datto,
@@ -199,9 +205,10 @@ function IntegrationsPanel() {
         unifi_mappings: unifi,
         saas_alerts_mappings: saasAlerts,
         pax8_mappings: pax8,
-        threecx_mappings: threecx,
+        threecx_reports_count: threecx,
         dmarc_mappings: dmarc,
         vultr_mappings: vultr,
+        vpentest_mappings: vpentest,
       };
     },
   });

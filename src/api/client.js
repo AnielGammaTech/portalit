@@ -152,6 +152,7 @@ const ENTITY_TABLE_MAP = {
   DmarcReportMapping: 'dmarc_report_mappings',
   Ticket: 'tickets',
   UniFiMapping: 'unifi_mappings',
+  VPenTestMapping: 'vpentest_mappings',
   VultrMapping: 'vultr_mappings',
   User: 'users',
   VendorBilling: 'vendor_billings',

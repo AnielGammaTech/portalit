@@ -32,6 +32,7 @@ import { sync3CX } from '../functions/sync3CX.js';
 import { testAIConnection } from '../functions/testAIConnection.js';
 import { syncDmarcReport } from '../functions/syncDmarcReport.js';
 import { syncVultr } from '../functions/syncVultr.js';
+import { syncVPenTest } from '../functions/syncVPenTest.js';
 
 const functionMap = {
   syncHaloPSACustomers,
@@ -64,6 +65,7 @@ const functionMap = {
   testAIConnection,
   syncDmarcReport,
   syncVultr,
+  syncVPenTest,
 };
 
 const router = Router();

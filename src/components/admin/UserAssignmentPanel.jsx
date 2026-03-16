@@ -23,6 +23,7 @@ import {
   Pencil,
   RefreshCw,
   RotateCcw,
+  Loader2,
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -104,6 +105,10 @@ export default function UserAssignmentPanel() {
   const [expandedUserId, setExpandedUserId] = useState(null);
   const [activeUserMenu, setActiveUserMenu] = useState(null);
   const [isInviting, setIsInviting] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editAvatarUrl, setEditAvatarUrl] = useState('');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const { data: allUsers = [], isLoading: loadingUsers } = useQuery({
     queryKey: ['all-users'],
@@ -201,6 +206,43 @@ export default function UserAssignmentPanel() {
       toast.error('Failed to invite user: ' + error.message);
     } finally {
       setIsInviting(false);
+    }
+  };
+
+  const openEditProfile = (user) => {
+    setEditingUser(user);
+    setEditName(user.full_name || '');
+    setEditAvatarUrl(user.avatar_url || '');
+    setActiveUserMenu(null);
+  };
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingAvatar(true);
+    try {
+      const { file_url } = await client.integrations.Core.UploadFile({ file });
+      setEditAvatarUrl(file_url);
+      toast.success('Avatar uploaded');
+    } catch (error) {
+      toast.error('Failed to upload avatar: ' + error.message);
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!editingUser) return;
+    try {
+      await client.entities.User.update(editingUser.id, {
+        full_name: editName,
+        avatar_url: editAvatarUrl || null,
+      });
+      toast.success('Profile updated');
+      queryClient.invalidateQueries({ queryKey: ['all-users'] });
+      setEditingUser(null);
+    } catch (error) {
+      toast.error('Failed to update: ' + error.message);
     }
   };
 
@@ -349,9 +391,7 @@ export default function UserAssignmentPanel() {
                               )}
                               <button
                                 className="w-full px-3.5 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
-                                onClick={() => {
-                                  setActiveUserMenu(null);
-                                }}
+                                onClick={() => openEditProfile(user)}
                               >
                                 <Pencil className="w-3.5 h-3.5 text-slate-400" />
                                 Edit Profile
@@ -612,6 +652,108 @@ export default function UserAssignmentPanel() {
             <Button variant="outline" onClick={() => setInviteType(null)}>Cancel</Button>
             <Button onClick={handleInviteUser} disabled={!inviteName || !inviteEmail || isInviting} className="bg-purple-600 hover:bg-purple-700 gap-2">
               <UserPlus className="w-4 h-4" /> {isInviting ? 'Sending...' : 'Send Invitation'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Profile Dialog */}
+      <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="w-5 h-5 text-slate-600" /> Edit Profile
+            </DialogTitle>
+            <DialogDescription>
+              Update name and avatar for {editingUser?.email}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5">
+            {/* Avatar */}
+            <div className="flex flex-col items-center gap-3">
+              <div className="relative">
+                {editAvatarUrl ? (
+                  <img
+                    src={editAvatarUrl}
+                    alt="Avatar"
+                    className="w-20 h-20 rounded-full object-cover border-2 border-slate-200"
+                  />
+                ) : (
+                  <div className={cn(
+                    'w-20 h-20 rounded-full flex items-center justify-center text-white font-bold text-2xl',
+                    editingUser?.role === 'admin' ? 'bg-purple-500' :
+                    editingUser?.role === 'sales' ? 'bg-blue-500' :
+                    'bg-green-500'
+                  )}>
+                    {(editingUser?.full_name?.charAt(0) || editingUser?.email?.charAt(0) || '?').toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarUpload}
+                    disabled={uploadingAvatar}
+                  />
+                  <span className={cn(
+                    'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors',
+                    uploadingAvatar
+                      ? 'bg-slate-100 text-slate-400 cursor-wait'
+                      : 'bg-white text-slate-700 hover:bg-slate-50 cursor-pointer'
+                  )}>
+                    {uploadingAvatar ? (
+                      <><Loader2 className="w-3 h-3 animate-spin" /> Uploading...</>
+                    ) : (
+                      'Upload Photo'
+                    )}
+                  </span>
+                </label>
+                {editAvatarUrl && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-red-500 hover:text-red-600 h-8"
+                    onClick={() => setEditAvatarUrl('')}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Name */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Full Name</label>
+              <Input
+                type="text"
+                placeholder="Full name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+              />
+            </div>
+
+            {/* Email (read-only) */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Email</label>
+              <Input
+                type="email"
+                value={editingUser?.email || ''}
+                disabled
+                className="bg-slate-50 text-slate-500"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingUser(null)}>Cancel</Button>
+            <Button
+              onClick={handleSaveProfile}
+              disabled={!editName.trim()}
+              className="bg-slate-900 hover:bg-slate-800 gap-2"
+            >
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>

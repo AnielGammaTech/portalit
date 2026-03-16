@@ -11,6 +11,9 @@ import {
   Globe,
   Shield,
   Search,
+  ChevronDown,
+  ChevronRight,
+  AtSign,
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +26,7 @@ export default function DmarcReportConfig() {
   const [testResult, setTestResult] = useState(null);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [accounts, setAccounts] = useState([]);
+  const [expandedAccountId, setExpandedAccountId] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [mappingInProgress, setMappingInProgress] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -67,7 +71,13 @@ export default function DmarcReportConfig() {
       const res = await client.functions.invoke('syncDmarcReport', { action: 'list_accounts' });
       if (res.success) {
         setAccounts(res.accounts || []);
-        toast.success(`Loaded ${res.accounts?.length || 0} accounts`);
+        const totalDomains = (res.accounts || []).reduce((s, a) => s + (a.domainCount || 0), 0);
+        toast.success(`Loaded ${res.accounts?.length || 0} accounts with ${totalDomains} domains`);
+        // Auto-expand the first account if it has domains
+        const firstWithDomains = (res.accounts || []).find(a => a.domainCount > 0);
+        if (firstWithDomains) {
+          setExpandedAccountId(firstWithDomains.id);
+        }
       } else {
         toast.error(res.error);
       }
@@ -78,19 +88,21 @@ export default function DmarcReportConfig() {
     }
   };
 
-  const handleMapAccount = async (account, customerId) => {
+  const handleMapDomain = async (account, domain, customerId) => {
     const customer = customers.find(c => c.id === customerId);
     if (!customer) return;
 
-    setMappingInProgress(account.id);
+    setMappingInProgress(`${account.id}-${domain.id}`);
     try {
       await client.entities.DmarcReportMapping.create({
         customer_id: customerId,
         customer_name: customer.name,
         dmarc_account_id: String(account.id),
         dmarc_account_name: account.title,
+        dmarc_domain_id: String(domain.id),
+        dmarc_domain_name: domain.address,
       });
-      toast.success(`Mapped ${account.title} → ${customer.name}`);
+      toast.success(`Mapped ${domain.address} → ${customer.name}`);
       queryClient.invalidateQueries({ queryKey: ['dmarc_report_mappings'] });
     } catch (e) {
       toast.error(e.message);
@@ -102,26 +114,34 @@ export default function DmarcReportConfig() {
   const handleAutoMap = async () => {
     let mapped = 0;
     for (const account of accounts) {
-      if (mappings.find(m => m.dmarc_account_id === String(account.id))) continue;
+      for (const domain of (account.domains || [])) {
+        // Skip already-mapped domains
+        if (mappings.find(m => m.dmarc_domain_id === String(domain.id))) continue;
 
-      const match = customers.find(c =>
-        c.name.toLowerCase().includes(account.title.toLowerCase()) ||
-        account.title.toLowerCase().includes(c.name.toLowerCase())
-      );
-      if (match && !mappings.find(m => m.customer_id === match.id)) {
-        try {
-          await client.entities.DmarcReportMapping.create({
-            customer_id: match.id,
-            customer_name: match.name,
-            dmarc_account_id: String(account.id),
-            dmarc_account_name: account.title,
-          });
-          mapped++;
-        } catch { /* skip */ }
+        // Try to match domain address to a customer name
+        const domainName = (domain.address || '').toLowerCase().replace(/\.\w+$/, '');
+        const match = customers.find(c => {
+          const custName = c.name.toLowerCase();
+          return custName.includes(domainName) || domainName.includes(custName);
+        });
+
+        if (match && !mappings.find(m => m.customer_id === match.id && m.dmarc_domain_id === String(domain.id))) {
+          try {
+            await client.entities.DmarcReportMapping.create({
+              customer_id: match.id,
+              customer_name: match.name,
+              dmarc_account_id: String(account.id),
+              dmarc_account_name: account.title,
+              dmarc_domain_id: String(domain.id),
+              dmarc_domain_name: domain.address,
+            });
+            mapped++;
+          } catch { /* skip */ }
+        }
       }
     }
     if (mapped > 0) {
-      toast.success(`Auto-mapped ${mapped} accounts`);
+      toast.success(`Auto-mapped ${mapped} domains`);
       queryClient.invalidateQueries({ queryKey: ['dmarc_report_mappings'] });
     } else {
       toast.info('No new matches found');
@@ -172,17 +192,23 @@ export default function DmarcReportConfig() {
     }
   };
 
-  const unmappedAccounts = accounts.filter(a => !mappings.find(m => m.dmarc_account_id === String(a.id)));
-  const filteredAccounts = searchTerm
-    ? unmappedAccounts.filter(a => a.title.toLowerCase().includes(searchTerm.toLowerCase()))
-    : unmappedAccounts;
+  // Check if a domain is already mapped
+  const isDomainMapped = (domainId) => mappings.some(m => m.dmarc_domain_id === String(domainId));
 
+  // Filter customers for dropdowns
   const filteredCustomers = customerSearch
     ? customers.filter(c =>
-        c.name.toLowerCase().includes(customerSearch.toLowerCase()) &&
-        !mappings.find(m => m.customer_id === c.id)
+        c.name.toLowerCase().includes(customerSearch.toLowerCase())
       )
-    : customers.filter(c => !mappings.find(m => m.customer_id === c.id));
+    : customers;
+
+  // Filter accounts by search
+  const filteredAccounts = searchTerm
+    ? accounts.filter(a =>
+        a.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (a.domains || []).some(d => (d.address || '').toLowerCase().includes(searchTerm.toLowerCase()))
+      )
+    : accounts;
 
   return (
     <div className="space-y-6">
@@ -206,12 +232,12 @@ export default function DmarcReportConfig() {
         </div>
       </div>
 
-      {/* Account Mapping */}
+      {/* Domain Mapping */}
       <div className="bg-white rounded-xl border p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-sm font-semibold text-slate-900">Account Mapping</h3>
-            <p className="text-xs text-slate-500 mt-0.5">Map DMARC Report accounts to your customers</p>
+            <h3 className="text-sm font-semibold text-slate-900">Domain Mapping</h3>
+            <p className="text-xs text-slate-500 mt-0.5">Map DMARC domains to your customers (expand accounts to see domains)</p>
           </div>
           <div className="flex gap-2">
             {accounts.length > 0 && (
@@ -227,47 +253,136 @@ export default function DmarcReportConfig() {
           </div>
         </div>
 
-        {/* Unmapped accounts */}
-        {accounts.length > 0 && unmappedAccounts.length > 0 && (
+        {/* Accounts with expandable domains */}
+        {accounts.length > 0 && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-3">
-              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Unmapped Accounts ({unmappedAccounts.length})</h4>
-              <div className="relative flex-1 max-w-xs">
-                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <Input
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  placeholder="Filter accounts..."
-                  className="h-7 text-xs pl-8"
-                />
-              </div>
-            </div>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {filteredAccounts.map(account => (
-                <div key={account.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Globe className="w-4 h-4 text-slate-400" />
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">{account.title}</p>
-                      <p className="text-xs text-slate-500">{account.domainCount || 0} domains</p>
-                    </div>
-                  </div>
-                  <select
-                    className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white max-w-[200px]"
-                    onChange={e => {
-                      if (e.target.value) handleMapAccount(account, e.target.value);
-                      e.target.value = '';
-                    }}
-                    defaultValue=""
-                    disabled={mappingInProgress === account.id}
-                  >
-                    <option value="">Map to customer…</option>
-                    {filteredCustomers.slice(0, 50).map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
+              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Accounts ({accounts.length})
+              </h4>
+              {accounts.length > 3 && (
+                <div className="relative flex-1 max-w-xs">
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    placeholder="Filter accounts or domains..."
+                    className="h-7 text-xs pl-8"
+                  />
                 </div>
-              ))}
+              )}
+            </div>
+            <div className="space-y-2 max-h-[500px] overflow-y-auto">
+              {filteredAccounts.map(account => {
+                const isExpanded = expandedAccountId === account.id;
+                const unmappedDomains = (account.domains || []).filter(d => !isDomainMapped(d.id));
+                const mappedDomainsCount = (account.domains || []).length - unmappedDomains.length;
+
+                return (
+                  <div key={account.id} className="border rounded-lg overflow-hidden">
+                    {/* Account header — click to expand */}
+                    <button
+                      className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
+                      onClick={() => setExpandedAccountId(isExpanded ? null : account.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        {isExpanded
+                          ? <ChevronDown className="w-4 h-4 text-slate-400" />
+                          : <ChevronRight className="w-4 h-4 text-slate-400" />
+                        }
+                        <Globe className="w-4 h-4 text-slate-500" />
+                        <div>
+                          <p className="text-sm font-medium text-slate-900">{account.title}</p>
+                          <p className="text-xs text-slate-500">
+                            {account.domainCount || 0} domain{(account.domainCount || 0) !== 1 ? 's' : ''}
+                            {mappedDomainsCount > 0 && (
+                              <span className="text-emerald-600 ml-1">
+                                · {mappedDomainsCount} mapped
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-[10px]">
+                        {account.ownership}
+                      </Badge>
+                    </button>
+
+                    {/* Expanded domains list */}
+                    {isExpanded && (
+                      <div className="border-t divide-y divide-slate-50">
+                        {(account.domains || []).length === 0 ? (
+                          <div className="p-4 text-center text-xs text-slate-400">
+                            No domains found under this account. Domains may need to be added in dmarcreport.com first.
+                          </div>
+                        ) : (
+                          (account.domains || []).map(domain => {
+                            const mapped = isDomainMapped(domain.id);
+                            const existingMapping = mappings.find(m => m.dmarc_domain_id === String(domain.id));
+
+                            return (
+                              <div
+                                key={domain.id}
+                                className={cn(
+                                  'flex items-center justify-between px-4 py-2.5 pl-12',
+                                  mapped ? 'bg-emerald-50/50' : 'hover:bg-slate-50'
+                                )}
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <AtSign className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium text-slate-900 truncate">{domain.address}</p>
+                                    <div className="flex items-center gap-2">
+                                      {domain.dmarc_status === 'dmarc_record_published' ? (
+                                        <Badge variant="flat-success" className="text-[9px] py-0">DMARC Active</Badge>
+                                      ) : (
+                                        <Badge variant="flat-warning" className="text-[9px] py-0">
+                                          {(domain.dmarc_status || 'unknown').replace(/_/g, ' ')}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {mapped ? (
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <Badge variant="flat-success" className="text-[10px]">
+                                      → {existingMapping?.customer_name}
+                                    </Badge>
+                                    <Button
+                                      onClick={() => handleUnmap(existingMapping?.id)}
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 w-7 p-0 text-red-500 hover:text-red-600"
+                                    >
+                                      <Unlink className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <select
+                                    className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white max-w-[200px] shrink-0"
+                                    onChange={e => {
+                                      if (e.target.value) handleMapDomain(account, domain, e.target.value);
+                                      e.target.value = '';
+                                    }}
+                                    defaultValue=""
+                                    disabled={mappingInProgress === `${account.id}-${domain.id}`}
+                                  >
+                                    <option value="">Map to customer…</option>
+                                    {filteredCustomers.slice(0, 50).map(c => (
+                                      <option key={c.id} value={c.id}>{c.name}</option>
+                                    ))}
+                                  </select>
+                                )}
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -276,7 +391,7 @@ export default function DmarcReportConfig() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Mapped Accounts ({mappings.length})
+              Mapped Domains ({mappings.length})
             </h4>
             {mappings.length > 0 && (
               <Button onClick={handleSyncAll} disabled={syncing} variant="outline" size="sm" className="gap-2">
@@ -290,7 +405,7 @@ export default function DmarcReportConfig() {
               <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
             </div>
           ) : mappings.length === 0 ? (
-            <p className="text-sm text-slate-500 py-4 text-center">No accounts mapped yet. Load accounts above to get started.</p>
+            <p className="text-sm text-slate-500 py-4 text-center">No domains mapped yet. Load accounts above, expand them, and map individual domains.</p>
           ) : (
             <div className="space-y-2">
               {mappings.map(mapping => {
@@ -299,15 +414,16 @@ export default function DmarcReportConfig() {
                   <div key={mapping.id} className="flex items-center justify-between p-3 border rounded-lg hover:shadow-sm transition-shadow">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
-                        <Globe className="w-4 h-4 text-emerald-600" />
+                        <AtSign className="w-4 h-4 text-emerald-600" />
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-slate-900 truncate">{mapping.customer_name}</p>
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs text-slate-500">{mapping.dmarc_account_name}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-xs text-slate-500">{mapping.dmarc_domain_name || mapping.dmarc_account_name}</p>
+                          <span className="text-[10px] text-slate-400">({mapping.dmarc_account_name})</span>
                           {cached && (
                             <Badge variant="flat-success" className="text-[10px]">
-                              {cached.totalDomains || 0} domains · {cached.complianceRate || 0}% compliance
+                              {cached.totalDomains || 0} domain{(cached.totalDomains || 0) !== 1 ? 's' : ''} · {cached.complianceRate || 0}% compliance
                             </Badge>
                           )}
                         </div>
