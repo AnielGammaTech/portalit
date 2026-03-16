@@ -948,7 +948,7 @@ If you cannot find a specific field, use 0 for numbers and empty array for lists
 
       {/* Upload Modal */}
       <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
-        <DialogContent className="max-w-2xl w-[92vw] overflow-visible" style={{ zIndex: 9999 }}>
+        <DialogContent className="max-w-2xl w-[92vw] max-h-[90vh] flex flex-col overflow-hidden" style={{ zIndex: 9999 }}>
           {/* Header */}
           <div className="bg-gradient-to-r from-red-600 to-red-700 -m-6 mb-0 p-5 rounded-t-lg">
             <DialogHeader>
@@ -960,7 +960,7 @@ If you cannot find a specific field, use 0 for numbers and empty array for lists
             </DialogHeader>
           </div>
 
-          <div className="space-y-5 pt-5">
+          <div className="space-y-5 pt-5 overflow-y-auto flex-1 min-h-0">
             {/* Customer Select */}
             <div>
               <Label className="text-sm font-medium">Customer</Label>
@@ -1120,29 +1120,30 @@ If you cannot find a specific field, use 0 for numbers and empty array for lists
               </div>
             )}
 
-            {/* Actions */}
-            <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
-              <Button variant="outline" onClick={resetForm}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSaveReport}
-                disabled={isUploading || !selectedCustomer || !reportDate}
-                className="bg-red-600 hover:bg-red-700"
-              >
-                {isUploading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Save Report
-                  </>
-                )}
-              </Button>
-            </div>
+          </div>
+
+          {/* Actions — fixed footer outside scrollable area */}
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 -mx-6 -mb-6 px-6 pb-6 bg-white rounded-b-lg">
+            <Button variant="outline" onClick={resetForm}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveReport}
+              disabled={isUploading || !selectedCustomer || !reportDate}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Save Report
+                </>
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
