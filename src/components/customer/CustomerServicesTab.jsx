@@ -588,24 +588,30 @@ export default function CustomerServicesTab({
 
         {/* Recurring Services Tab */}
         <TabsContent value="recurring">
-          <motion.div {...fadeInUp} className="space-y-4">
-            {/* Summary Card */}
-            <div className="bg-card rounded-[14px] border shadow-hero-sm p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-hero-md bg-primary/10 flex items-center justify-center">
-                    <DollarSign className="w-6 h-6 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-primary uppercase tracking-wide">Monthly Recurring</p>
-                    <p className="text-3xl font-bold text-foreground mt-0.5">
-                      ${lineItems.reduce((sum, item) => sum + (item.net_amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </p>
-                    <p className="text-sm text-muted-foreground">{lineItems.length} services</p>
+          <motion.div {...fadeInUp} className="space-y-5">
+            {/* Hero Summary */}
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 p-6 text-white shadow-lg">
+              <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-white/5 blur-2xl" />
+              <div className="absolute bottom-0 left-0 w-32 h-32 rounded-full bg-white/5 blur-2xl" />
+              <div className="relative flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-widest text-white/60 mb-1">Monthly Recurring</p>
+                  <p className="text-4xl font-extrabold tracking-tight">
+                    ${lineItems.reduce((sum, item) => sum + (item.net_amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </p>
+                  <div className="flex items-center gap-3 mt-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-medium backdrop-blur-sm">
+                      <HardDrive className="w-3 h-3" />
+                      {lineItems.length} service{lineItems.length !== 1 ? 's' : ''}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-medium backdrop-blur-sm">
+                      <DollarSign className="w-3 h-3" />
+                      {lineItems.filter(i => i.net_amount > 0).length} billable
+                    </span>
                   </div>
                 </div>
                 {customer?.source === 'halopsa' && (
-                  <Button
+                  <button
                     onClick={async () => {
                       try {
                         setIsSyncing(true);
@@ -627,60 +633,87 @@ export default function CustomerServicesTab({
                       }
                     }}
                     disabled={isSyncing}
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
+                    className="inline-flex items-center gap-2 rounded-xl bg-white/15 hover:bg-white/25 backdrop-blur-sm px-4 py-2.5 text-xs font-semibold text-white transition-all disabled:opacity-50"
                   >
                     {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                    Sync
-                  </Button>
+                    {isSyncing ? 'Syncing…' : 'Sync'}
+                  </button>
                 )}
               </div>
             </div>
 
             {/* Services List */}
-            <div className="bg-card rounded-[14px] border shadow-hero-sm overflow-hidden">
-              <div className="px-6 py-3 border-b border-border/50">
-                <h3 className="font-semibold text-foreground text-sm">Active Services</h3>
-              </div>
-              {lineItems.length === 0 ? (
-                <EmptyState
-                  icon={HardDrive}
-                  title="No recurring services"
-                  description={customer?.source === 'halopsa' ? 'Click "Sync" to pull from HaloPSA' : 'No recurring services found for this customer'}
-                />
-              ) : (
-                <motion.div variants={staggerContainer} initial="initial" animate="animate" className="divide-y divide-border/50">
-                  {lineItems.map((item) => (
-                    <motion.div
-                      key={item.id}
-                      variants={staggerItem}
-                      className="px-6 py-4 flex items-center gap-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors duration-[250ms]"
-                    >
-                      <div className="w-10 h-10 rounded-hero-md bg-[#7828C8]/10 flex items-center justify-center flex-shrink-0">
-                        <HardDrive className="w-5 h-5 text-[#7828C8]" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-foreground">{item.description?.replace(/\s*\$recurringbillingdate\s*/gi, '').trim()}</p>
-                        <p className="text-sm text-muted-foreground mt-0.5">Qty: {item.quantity}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-foreground">${(item.net_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-                        <p className="text-xs text-muted-foreground/60">/month</p>
-                      </div>
-                    </motion.div>
-                  ))}
+            {lineItems.length === 0 ? (
+              <EmptyState
+                icon={HardDrive}
+                title="No recurring services"
+                description={customer?.source === 'halopsa' ? 'Click "Sync" to pull from HaloPSA' : 'No recurring services found for this customer'}
+              />
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between px-1">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Active Services</h3>
+                  <p className="text-xs text-muted-foreground">{lineItems.length} items</p>
+                </div>
+                <motion.div variants={staggerContainer} initial="initial" animate="animate" className="space-y-2">
+                  {lineItems.map((item) => {
+                    const amount = item.net_amount || 0;
+                    const isCredit = amount < 0;
+                    return (
+                      <motion.div
+                        key={item.id}
+                        variants={staggerItem}
+                        className="group flex items-center gap-4 rounded-xl bg-card border border-border/60 px-5 py-4 hover:border-purple-200 hover:shadow-md dark:hover:border-purple-800 transition-all duration-200"
+                      >
+                        <div className={cn(
+                          "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors",
+                          isCredit
+                            ? "bg-emerald-50 dark:bg-emerald-900/20"
+                            : "bg-violet-50 dark:bg-violet-900/20 group-hover:bg-violet-100 dark:group-hover:bg-violet-900/30"
+                        )}>
+                          <HardDrive className={cn(
+                            "w-4.5 h-4.5",
+                            isCredit ? "text-emerald-500" : "text-violet-500"
+                          )} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm text-foreground truncate">
+                            {item.description?.replace(/\s*\$recurringbillingdate\s*/gi, '').trim()}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="inline-flex items-center rounded-md bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                              Qty {item.quantity}
+                            </span>
+                            {item.unit_price > 0 && (
+                              <span className="text-[10px] text-muted-foreground/60">
+                                @ ${parseFloat(item.unit_price).toLocaleString('en-US', { minimumFractionDigits: 2 })}/ea
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className={cn(
+                            "text-sm font-bold tabular-nums",
+                            isCredit ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"
+                          )}>
+                            {isCredit ? '-' : ''}${Math.abs(amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground/50 font-medium">per month</p>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </motion.div>
-              )}
-              {lineItems.length > 0 && (
-                <div className="px-6 py-4 bg-zinc-50 dark:bg-zinc-800/50 border-t border-border/50 flex items-center justify-between">
-                  <p className="text-sm font-medium text-muted-foreground">Total Monthly</p>
-                  <p className="text-lg font-bold text-foreground">
+
+                {/* Footer total */}
+                <div className="flex items-center justify-between rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-border/40 px-5 py-3.5 mt-3">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Monthly</p>
+                  <p className="text-lg font-extrabold text-foreground tabular-nums">
                     ${lineItems.reduce((sum, item) => sum + (item.net_amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                   </p>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </motion.div>
         </TabsContent>
 

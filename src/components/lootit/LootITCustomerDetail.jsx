@@ -48,7 +48,7 @@ export default function LootITCustomerDetail({ customer, onBack }) {
     await client.entities.Pax8LineItemOverride.create({
       customer_id: customer.id,
       rule_id: ruleId,
-      pax8_product_name: productName,
+      pax8_product_name: productName || null,
       line_item_id: lineItemId,
     });
     await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides', customer.id] });
@@ -84,12 +84,8 @@ export default function LootITCustomerDetail({ customer, onBack }) {
       const path = `${customer.id}/${Date.now()}.${ext}`;
       const { error: uploadErr } = await supabase.storage
         .from('lootit-contracts')
-        .upload(path, file);
+        .upload(path, file, { upsert: false });
       if (uploadErr) throw uploadErr;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('lootit-contracts')
-        .getPublicUrl(path);
 
       await client.entities.LootITContract.create({
         customer_id: customer.id,
@@ -276,6 +272,9 @@ export default function LootITCustomerDetail({ customer, onBack }) {
               onDetails={setDetailItem}
               onEditRule={setEditingRule}
               onSaveNotes={(ruleId, notes) => saveNotes(ruleId, notes)}
+              onMapLineItem={(ruleId, label) => setMappingRecon({ ruleId, productName: label })}
+              onRemoveMapping={(ruleId) => handleRemoveMapping(ruleId)}
+              hasOverride={existingOverrides.some((o) => o.rule_id === recon.rule.id)}
               isSaving={isSaving}
             />
           ))}

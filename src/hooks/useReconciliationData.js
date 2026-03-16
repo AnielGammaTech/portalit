@@ -129,11 +129,12 @@ export function useReconciliationData(customerId) {
         }
         for (const [custId, report] of Object.entries(byCustomer)) {
           if (!result[custId]) result[custId] = {};
+          const rd = report.report_data || {};
           result[custId][integrationKey] = {
             customer_id: custId,
             cached_data: {
-              total_emails_sent: report.total_emails_sent || 0,
-              user_count: report.total_emails_sent || 0,
+              total_emails_sent: rd.total_emails_sent || 0,
+              user_count: rd.total_emails_sent || 0,
             },
           };
         }
@@ -203,10 +204,10 @@ export function useReconciliationData(customerId) {
       const custMappings = mappingsByCustomer[customer.id] || {};
       const custReviews = reviewsByCustomer[customer.id] || [];
 
-      const recon = reconcileCustomer(custLineItems, custMappings, rules, custReviews);
+      const custOverrides = overridesByCustomer[customer.id] || [];
+      const recon = reconcileCustomer(custLineItems, custMappings, rules, custReviews, custOverrides);
 
       // Auto-reconcile Pax8 subscriptions (one tile per subscription)
-      const custOverrides = overridesByCustomer[customer.id] || [];
       const pax8Recon = custMappings.pax8
         ? reconcilePax8Subscriptions(custLineItems, custMappings.pax8, custReviews, custOverrides)
         : [];

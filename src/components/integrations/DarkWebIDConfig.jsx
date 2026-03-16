@@ -109,6 +109,8 @@ function APISyncTab() {
   const [showErrorDetails, setShowErrorDetails] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
+  const [fetchingIP, setFetchingIP] = useState(false);
+  const [serverIP, setServerIP] = useState(null);
   const [syncingId, setSyncingId] = useState(null);
   const [syncingAll, setSyncingAll] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -134,6 +136,23 @@ function APISyncTab() {
     !mappings.some(m => m.customer_id === c.id)
   );
 
+  const getServerIP = async () => {
+    setFetchingIP(true);
+    try {
+      const response = await client.functions.invoke('syncDarkWebID', {
+        action: 'get_outgoing_ip',
+      });
+      if (response.outgoing_ip) {
+        setServerIP(response.outgoing_ip);
+        toast.success(`Server IP: ${response.outgoing_ip}`);
+      }
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setFetchingIP(false);
+    }
+  };
+
   const testConnection = async () => {
     setTesting(true);
     setTestResult(null);
@@ -142,6 +161,9 @@ function APISyncTab() {
       const response = await client.functions.invoke('syncDarkWebID', {
         action: 'test_connection',
       });
+      if (response.outgoing_ip) {
+        setServerIP(response.outgoing_ip);
+      }
       if (response.success) {
         setTestResult(response);
         setOrgs(response.organizations || []);
@@ -310,17 +332,45 @@ function APISyncTab() {
         </Collapsible>
       )}
 
-      {/* Info */}
-      <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-        <p className="text-sm text-red-800">
-          <strong>API Integration:</strong> Connect to the Dark Web ID API to automatically sync compromised credentials.
-          Requires <code className="bg-red-100 px-1 rounded text-xs">DARKWEBID_USERNAME</code> and <code className="bg-red-100 px-1 rounded text-xs">DARKWEBID_PASSWORD</code> environment variables,
-          plus IP whitelisting in your Dark Web ID portal.
-        </p>
+      {/* Setup Guide */}
+      <div className="bg-gradient-to-br from-red-50 to-orange-50 border border-red-200 rounded-xl p-5 space-y-4">
+        <p className="text-sm font-semibold text-red-900">Setup Instructions</p>
+        <ol className="text-sm text-red-800 space-y-2 list-decimal list-inside">
+          <li>Click <strong>"Get Server IP"</strong> below to find the backend's outgoing IP address</li>
+          <li>Whitelist that IP in your <strong>Dark Web ID portal</strong> → Settings → API Access</li>
+          <li>Set <code className="bg-red-100 px-1.5 py-0.5 rounded text-xs font-mono">DARKWEBID_USERNAME</code> and <code className="bg-red-100 px-1.5 py-0.5 rounded text-xs font-mono">DARKWEBID_PASSWORD</code> in Railway env vars</li>
+          <li>Click <strong>"Test Connection"</strong> to verify everything works</li>
+        </ol>
+
+        {/* Server IP Display */}
+        {serverIP && (
+          <div className="flex items-center gap-3 bg-white/80 rounded-lg border border-red-200 p-3">
+            <Key className="w-5 h-5 text-red-500 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-xs text-red-600 font-medium">Server Outgoing IP (whitelist this)</p>
+              <p className="text-lg font-mono font-bold text-slate-900 tracking-wide">{serverIP}</p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs"
+              onClick={() => {
+                navigator.clipboard.writeText(serverIP);
+                toast.success('IP copied to clipboard');
+              }}
+            >
+              Copy
+            </Button>
+          </div>
+        )}
       </div>
 
-      {/* Test Connection */}
-      <div className="flex items-center gap-3">
+      {/* Action Buttons */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <Button variant="outline" onClick={getServerIP} disabled={fetchingIP}>
+          <Globe className={cn("w-4 h-4 mr-2", fetchingIP && "animate-pulse")} />
+          {fetchingIP ? 'Fetching...' : 'Get Server IP'}
+        </Button>
         <Button variant="outline" onClick={testConnection} disabled={testing}>
           <RefreshCw className={cn("w-4 h-4 mr-2", testing && "animate-spin")} />
           Test Connection
@@ -329,11 +379,6 @@ function APISyncTab() {
           <Badge className="bg-emerald-100 text-emerald-700">
             <CheckCircle2 className="w-3 h-3 mr-1" />
             Connected — {testResult.organizations?.length || 0} organizations
-          </Badge>
-        )}
-        {testResult?.outgoing_ip && (
-          <Badge variant="outline" className="text-slate-500">
-            Server IP: {testResult.outgoing_ip}
           </Badge>
         )}
       </div>

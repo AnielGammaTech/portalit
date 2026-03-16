@@ -32,20 +32,41 @@ async function fetchCompromises(organizationUuid, authHeader) {
   return response.json();
 }
 
+async function getOutgoingIP() {
+  try {
+    const ipResponse = await fetch('https://api.ipify.org?format=json');
+    const ipData = await ipResponse.json();
+    return ipData.ip;
+  } catch {
+    return 'unknown';
+  }
+}
+
 export async function syncDarkWebID(body, user) {
   const supabase = getServiceSupabase();
   const { action, customer_id } = body;
-  const authHeader = getDarkWebIDAuth();
+
+  // get_outgoing_ip: no credentials needed — just returns the server's outgoing IP
+  if (action === 'get_outgoing_ip') {
+    const outgoingIP = await getOutgoingIP();
+    return { success: true, outgoing_ip: outgoingIP };
+  }
 
   if (action === 'test_connection') {
-    // First get our outgoing IP
-    let outgoingIP = 'unknown';
+    // Always fetch the outgoing IP first (no credentials needed)
+    const outgoingIP = await getOutgoingIP();
+
+    // Then try auth — return IP even if credentials are missing
+    let authHeader;
     try {
-      const ipResponse = await fetch('https://api.ipify.org?format=json');
-      const ipData = await ipResponse.json();
-      outgoingIP = ipData.ip;
-    } catch (e) {
-      // ignore
+      authHeader = getDarkWebIDAuth();
+    } catch (credError) {
+      return {
+        success: false,
+        error: credError.message,
+        outgoing_ip: outgoingIP,
+        hint: 'Set DARKWEBID_USERNAME and DARKWEBID_PASSWORD environment variables, then whitelist this IP in your Dark Web ID portal settings.',
+      };
     }
 
     // Test the API connection
@@ -53,8 +74,8 @@ export async function syncDarkWebID(body, user) {
       const response = await fetch(`${DARKWEB_BASE_URL}/api/organizations.json`, {
         headers: {
           'Authorization': authHeader,
-          'Accept': 'application/json'
-        }
+          'Accept': 'application/json',
+        },
       });
 
       const text = await response.text();
@@ -64,7 +85,7 @@ export async function syncDarkWebID(body, user) {
           success: false,
           error: `API returned ${response.status}`,
           outgoing_ip: outgoingIP,
-          hint: 'Make sure this IP is whitelisted in Dark Web ID settings'
+          hint: 'Make sure this IP is whitelisted in Dark Web ID settings',
         };
       }
 
@@ -73,26 +94,29 @@ export async function syncDarkWebID(body, user) {
         return {
           success: true,
           organizations: data,
-          outgoing_ip: outgoingIP
+          outgoing_ip: outgoingIP,
         };
-      } catch (parseError) {
+      } catch {
         const preview = text.substring(0, 500);
         return {
           success: false,
           error: 'Received HTML instead of JSON - likely not authenticated',
           outgoing_ip: outgoingIP,
           response_preview: preview,
-          hint: 'Make sure this IP is whitelisted in Dark Web ID settings and API access is enabled for your user'
+          hint: 'Make sure this IP is whitelisted in Dark Web ID settings and API access is enabled for your user',
         };
       }
     } catch (error) {
       return {
         success: false,
         error: error.message,
-        outgoing_ip: outgoingIP
+        outgoing_ip: outgoingIP,
       };
     }
   }
+
+  // All other actions require credentials
+  const authHeader = getDarkWebIDAuth();
 
   if (action === 'list_organizations') {
     const response = await fetch(`${DARKWEB_BASE_URL}/api/organizations.json`, {

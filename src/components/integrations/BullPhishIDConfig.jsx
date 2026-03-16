@@ -239,28 +239,38 @@ Convert all dates to YYYY-MM-DD format.`,
         pdfUrl = file_url;
       }
 
+      // The table stores extracted metrics inside a single `report_data` JSONB column.
+      const reportData = extractedData
+        ? {
+            report_period_start: periodStart || extractedData.report_period_start || null,
+            report_period_end: periodEnd || extractedData.report_period_end || null,
+            total_campaigns: extractedData.total_campaigns || 0,
+            total_emails_sent: extractedData.total_emails_sent || 0,
+            total_opened: extractedData.total_opened || 0,
+            total_clicked: extractedData.total_clicked || 0,
+            total_reported: extractedData.total_reported || 0,
+            total_submitted_data: extractedData.total_submitted_data || 0,
+            phish_prone_percentage: extractedData.phish_prone_percentage || 0,
+            training_completion_rate: extractedData.training_completion_rate || 0,
+            open_rate: extractedData.open_rate || 0,
+            click_rate: extractedData.click_rate || 0,
+            report_rate: extractedData.report_rate || 0,
+            users_who_opened: extractedData.users_who_opened || [],
+            users_who_clicked: extractedData.users_who_clicked || [],
+            users_who_reported: extractedData.users_who_reported || [],
+            campaigns: extractedData.campaigns || [],
+          }
+        : {
+            report_period_start: periodStart || null,
+            report_period_end: periodEnd || null,
+          };
+
       await client.entities.BullPhishIDReport.create({
         customer_id: selectedCustomer,
         customer_name: customer?.name,
         report_date: reportDate,
-        report_period_start: periodStart || null,
-        report_period_end: periodEnd || null,
-        pdf_url: pdfUrl,
-        total_campaigns: extractedData?.total_campaigns || 0,
-        total_emails_sent: extractedData?.total_emails_sent || 0,
-        total_opened: extractedData?.total_opened || 0,
-        total_clicked: extractedData?.total_clicked || 0,
-        total_reported: extractedData?.total_reported || 0,
-        total_submitted_data: extractedData?.total_submitted_data || 0,
-        phish_prone_percentage: extractedData?.phish_prone_percentage || 0,
-        training_completion_rate: extractedData?.training_completion_rate || 0,
-        open_rate: extractedData?.open_rate || 0,
-        click_rate: extractedData?.click_rate || 0,
-        report_rate: extractedData?.report_rate || 0,
-        users_who_opened: extractedData?.users_who_opened ? JSON.stringify(extractedData.users_who_opened) : null,
-        users_who_clicked: extractedData?.users_who_clicked ? JSON.stringify(extractedData.users_who_clicked) : null,
-        users_who_reported: extractedData?.users_who_reported ? JSON.stringify(extractedData.users_who_reported) : null,
-        campaign_details: extractedData?.campaigns ? JSON.stringify(extractedData.campaigns) : null
+        report_data: reportData,
+        file_url: pdfUrl || null,
       });
 
       toast.success('Report saved successfully');
@@ -388,55 +398,58 @@ Convert all dates to YYYY-MM-DD format.`,
                 </TableCell>
               </TableRow>
             ) : (
-              reports.map(report => (
-                <TableRow key={report.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Building2 className="w-4 h-4 text-slate-400" />
-                      <span className="font-medium">{report.customer_name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {format(new Date(report.report_date), 'MMM d, yyyy')}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={report.phish_prone_percentage > 20 ? "destructive" : report.phish_prone_percentage > 10 ? "outline" : "default"}>
-                      {report.phish_prone_percentage}%
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{report.total_emails_sent?.toLocaleString() || 0}</TableCell>
-                  <TableCell>
-                    <span className="text-red-600 font-medium">{report.total_clicked || 0}</span>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={report.training_completion_rate >= 90 ? "default" : "outline"}>
-                      {report.training_completion_rate}%
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      {report.pdf_url && (
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => window.open(report.pdf_url, '_blank')}
+              reports.map(report => {
+                const d = report.report_data || {};
+                return (
+                  <TableRow key={report.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-slate-400" />
+                        <span className="font-medium">{report.customer_name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {format(new Date(report.report_date), 'MMM d, yyyy')}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={(d.phish_prone_percentage || 0) > 20 ? "destructive" : (d.phish_prone_percentage || 0) > 10 ? "outline" : "default"}>
+                        {d.phish_prone_percentage || 0}%
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{(d.total_emails_sent || 0).toLocaleString()}</TableCell>
+                    <TableCell>
+                      <span className="text-red-600 font-medium">{d.total_clicked || 0}</span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={(d.training_completion_rate || 0) >= 90 ? "default" : "outline"}>
+                        {d.training_completion_rate || 0}%
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {report.file_url && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => window.open(report.file_url, '_blank')}
+                          >
+                            <Eye className="w-3 h-3 mr-1" />
+                            View
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleDeleteReport(report.id)}
                         >
-                          <Eye className="w-3 h-3 mr-1" />
-                          View
+                          <Trash2 className="w-3 h-3" />
                         </Button>
-                      )}
-                      <Button 
-                        size="sm" 
-                        variant="ghost"
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => handleDeleteReport(report.id)}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -444,18 +457,26 @@ Convert all dates to YYYY-MM-DD format.`,
 
       {/* Upload Modal */}
       <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
-        <DialogContent className="max-w-lg" style={{ zIndex: 9999 }}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Upload className="w-5 h-5 text-orange-600" />
-              Upload BullPhish ID Report
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-4">
+        <DialogContent className="max-w-xl p-0 overflow-hidden" style={{ zIndex: 9999 }}>
+          {/* Header */}
+          <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-6 py-5 text-white">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <Upload className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold">Upload BullPhish ID Report</h2>
+                <p className="text-xs text-white/70">Upload a PDF and we'll extract the data automatically</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="px-6 py-5 space-y-5">
+            {/* Customer */}
             <div>
-              <Label>Customer</Label>
+              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Customer</Label>
               <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
-                <SelectTrigger className="mt-1.5">
+                <SelectTrigger className="mt-1.5 h-10 rounded-lg">
                   <SelectValue placeholder="Select customer..." />
                 </SelectTrigger>
                 <SelectContent style={{ zIndex: 10000 }}>
@@ -468,121 +489,174 @@ Convert all dates to YYYY-MM-DD format.`,
               </Select>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <Label>Report Date</Label>
-                <Input 
-                  type="date" 
-                  value={reportDate}
-                  onChange={(e) => setReportDate(e.target.value)}
-                  className="mt-1.5"
-                />
-              </div>
-              <div>
-                <Label>Period Start</Label>
-                <Input 
-                  type="date" 
-                  value={periodStart}
-                  onChange={(e) => setPeriodStart(e.target.value)}
-                  className="mt-1.5"
-                />
-              </div>
-              <div>
-                <Label>Period End</Label>
-                <Input 
-                  type="date" 
-                  value={periodEnd}
-                  onChange={(e) => setPeriodEnd(e.target.value)}
-                  className="mt-1.5"
-                />
+            {/* Dates */}
+            <div>
+              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Dates</Label>
+              <div className="grid grid-cols-3 gap-3 mt-1.5">
+                <div>
+                  <p className="text-[10px] text-muted-foreground mb-1">Report Date</p>
+                  <Input
+                    type="date"
+                    value={reportDate}
+                    onChange={(e) => setReportDate(e.target.value)}
+                    className="h-9 rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground mb-1">Period Start</p>
+                  <Input
+                    type="date"
+                    value={periodStart}
+                    onChange={(e) => setPeriodStart(e.target.value)}
+                    className="h-9 rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground mb-1">Period End</p>
+                  <Input
+                    type="date"
+                    value={periodEnd}
+                    onChange={(e) => setPeriodEnd(e.target.value)}
+                    className="h-9 rounded-lg text-sm"
+                  />
+                </div>
               </div>
             </div>
 
+            {/* PDF Upload */}
             <div>
-              <Label>PDF Report</Label>
-              <div className="mt-1.5 border-2 border-dashed border-slate-200 rounded-lg p-4 text-center">
+              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">PDF Report</Label>
+              <div className="mt-1.5">
                 {selectedFile ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <FileText className="w-5 h-5 text-orange-600" />
-                    <span className="text-sm font-medium">{selectedFile.name}</span>
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
+                  <div className="flex items-center gap-3 rounded-xl border border-orange-200 bg-orange-50/50 px-4 py-3">
+                    <div className="w-9 h-9 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
+                      <FileText className="w-4.5 h-4.5 text-orange-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-800 truncate">{selectedFile.name}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        {(selectedFile.size / 1024).toFixed(0)} KB · PDF
+                      </p>
+                    </div>
+                    <button
                       onClick={() => {
                         setSelectedFile(null);
                         setExtractedData(null);
                       }}
+                      className="flex-shrink-0 rounded-lg p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
                     >
-                      Remove
-                    </Button>
+                      <XCircle className="w-4 h-4" />
+                    </button>
                   </div>
                 ) : (
-                  <label className="cursor-pointer">
-                    <input 
-                      type="file" 
+                  <label className="cursor-pointer block">
+                    <input
+                      type="file"
                       accept=".pdf"
                       onChange={handleFileSelect}
                       className="hidden"
                     />
-                    <div className="text-slate-500">
-                      <Upload className="w-8 h-8 mx-auto mb-2 text-slate-400" />
-                      <p className="text-sm">Click to select PDF</p>
+                    <div className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 hover:border-orange-300 hover:bg-orange-50/30 py-8 transition-colors">
+                      <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
+                        <Upload className="w-5 h-5 text-slate-400" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-slate-600">Click to select PDF</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">or drag and drop your report</p>
+                      </div>
                     </div>
                   </label>
                 )}
               </div>
             </div>
 
+            {/* Extracting spinner */}
             {isExtracting && (
-              <div className="flex items-center justify-center gap-2 py-3 text-slate-600">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="text-sm">Extracting data from PDF...</span>
-              </div>
-            )}
-
-            {extractedData && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3 max-h-48 overflow-y-auto">
-                <p className="text-sm font-medium text-green-800 mb-2">Extracted Data:</p>
-                <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-xs">
-                  <div>Campaigns: <strong>{extractedData.total_campaigns || 0}</strong></div>
-                  <div>Emails Sent: <strong>{extractedData.total_emails_sent || 0}</strong></div>
-                  <div>Opened: <strong>{extractedData.total_opened || 0}</strong></div>
-                  <div>Clicked: <strong className="text-red-600">{extractedData.total_clicked || 0}</strong></div>
-                  <div>Reported: <strong className="text-green-600">{extractedData.total_reported || 0}</strong></div>
-                  <div>Submitted Data: <strong className="text-red-600">{extractedData.total_submitted_data || 0}</strong></div>
-                  <div>Phish-Prone: <strong>{extractedData.phish_prone_percentage || 0}%</strong></div>
-                  <div>Open Rate: <strong>{extractedData.open_rate || 0}%</strong></div>
-                  <div>Click Rate: <strong>{extractedData.click_rate || 0}%</strong></div>
+              <div className="flex items-center gap-3 rounded-xl bg-blue-50 border border-blue-100 px-4 py-3">
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
                 </div>
-                {extractedData.users_who_clicked?.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-green-200">
-                    <p className="text-xs text-green-700 font-medium">Users who clicked: {extractedData.users_who_clicked.length}</p>
-                  </div>
-                )}
-                {extractedData.users_who_opened?.length > 0 && (
-                  <p className="text-xs text-green-700">Users who opened: {extractedData.users_who_opened.length}</p>
-                )}
+                <div>
+                  <p className="text-sm font-medium text-blue-800">Extracting data from PDF…</p>
+                  <p className="text-[10px] text-blue-500 mt-0.5">This may take a few seconds</p>
+                </div>
               </div>
             )}
 
-            <div className="flex justify-end gap-3 pt-4">
-              <Button variant="outline" onClick={resetForm}>
-                Cancel
-              </Button>
-              <Button onClick={handleSaveReport} disabled={isUploading || !selectedCustomer || !reportDate}>
-                {isUploading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Save Report
-                  </>
-                )}
-              </Button>
-            </div>
+            {/* Extracted Data */}
+            {extractedData && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 overflow-hidden">
+                <div className="px-4 py-2.5 bg-emerald-100/50 border-b border-emerald-200">
+                  <p className="text-xs font-semibold text-emerald-800 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                    Data Extracted Successfully
+                  </p>
+                </div>
+                <div className="p-4">
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { label: 'Campaigns', value: extractedData.total_campaigns || 0 },
+                      { label: 'Emails Sent', value: extractedData.total_emails_sent || 0 },
+                      { label: 'Opened', value: extractedData.total_opened || 0 },
+                      { label: 'Clicked', value: extractedData.total_clicked || 0, danger: true },
+                      { label: 'Reported', value: extractedData.total_reported || 0, success: true },
+                      { label: 'Submitted Data', value: extractedData.total_submitted_data || 0, danger: true },
+                      { label: 'Phish-Prone %', value: `${extractedData.phish_prone_percentage || 0}%` },
+                      { label: 'Open Rate', value: `${extractedData.open_rate || 0}%` },
+                      { label: 'Click Rate', value: `${extractedData.click_rate || 0}%` },
+                    ].map((stat) => (
+                      <div key={stat.label} className="bg-white rounded-lg px-3 py-2 border border-emerald-100">
+                        <p className="text-[10px] text-slate-400 font-medium">{stat.label}</p>
+                        <p className={cn(
+                          'text-sm font-bold mt-0.5',
+                          stat.danger ? 'text-red-600' : stat.success ? 'text-emerald-600' : 'text-slate-800'
+                        )}>
+                          {stat.value}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  {(extractedData.users_who_clicked?.length > 0 || extractedData.users_who_opened?.length > 0) && (
+                    <div className="flex gap-3 mt-3 pt-3 border-t border-emerald-100">
+                      {extractedData.users_who_clicked?.length > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-[10px] font-semibold text-red-700">
+                          {extractedData.users_who_clicked.length} clicked
+                        </span>
+                      )}
+                      {extractedData.users_who_opened?.length > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                          {extractedData.users_who_opened.length} opened
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+            <Button variant="outline" onClick={resetForm} className="rounded-lg">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveReport}
+              disabled={isUploading || !selectedCustomer || !reportDate}
+              className="rounded-lg bg-orange-600 hover:bg-orange-700 text-white gap-2"
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4" />
+                  Save Report
+                </>
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

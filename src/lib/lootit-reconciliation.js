@@ -207,18 +207,32 @@ export function matchLineItemToRules(lineItem, rules) {
  * @param {Object} mappings  – { integration_key: { cached_data } } per integration
  * @param {Array}  rules     – all active reconciliation_rules
  * @param {Array}  reviews   – reconciliation_reviews for this customer
+ * @param {Array}  overrides – manual line-item overrides (from pax8_line_item_overrides table)
  *
  * @returns {Array} reconciliation results, one per rule
  */
-export function reconcileCustomer(lineItems, mappings, rules, reviews = []) {
+export function reconcileCustomer(lineItems, mappings, rules, reviews = [], overrides = []) {
   const activeRules = rules.filter((r) => r.is_active);
   const reviewMap = Object.fromEntries(
     reviews.map((r) => [r.rule_id, r])
   );
 
+  // Build override lookup: rule_id → [line_item_id, ...]
+  const overrideMap = {};
+  for (const ov of overrides) {
+    const key = ov.rule_id || '';
+    if (!overrideMap[key]) overrideMap[key] = [];
+    overrideMap[key].push(ov.line_item_id);
+  }
+  const lineItemById = Object.fromEntries(lineItems.map((li) => [li.id, li]));
+
   return activeRules.map((rule) => {
-    // 1. Sum PSA quantities from matching line items
-    const matched = lineItems.filter((li) => lineItemMatchesRule(li, rule));
+    // 1. Check for manual overrides first, then fall back to pattern matching
+    const overrideIds = overrideMap[rule.id] || [];
+    const overrideItems = overrideIds.map((id) => lineItemById[id]).filter(Boolean);
+    const matched = overrideItems.length > 0
+      ? overrideItems
+      : lineItems.filter((li) => lineItemMatchesRule(li, rule));
     const psaQty = matched.reduce((sum, li) => sum + (parseFloat(li.quantity) || 0), 0);
     const hasPsaData = matched.length > 0;
 

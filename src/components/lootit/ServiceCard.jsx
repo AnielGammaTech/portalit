@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { Check, X, ChevronRight, RotateCcw, Settings2, StickyNote, Save } from 'lucide-react';
+import { Check, X, ChevronRight, RotateCcw, Settings2, StickyNote, Save, Link2, Trash2 } from 'lucide-react';
 import ReconciliationBadge from './ReconciliationBadge';
 import { getDiscrepancyMessage } from '@/lib/lootit-reconciliation';
 
@@ -21,6 +21,9 @@ export default function ServiceCard({
   onReset,
   onEditRule,
   onSaveNotes,
+  onMapLineItem,
+  onRemoveMapping,
+  hasOverride,
   isSaving,
 }) {
   const { rule, psaQty, vendorQty, difference, status, review } = reconciliation;
@@ -94,6 +97,21 @@ export default function ServiceCard({
           </p>
         </div>
       </div>
+
+      {/* Override badge */}
+      {hasOverride && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mb-3 flex items-center gap-2">
+          <Link2 className="w-4 h-4 text-blue-500 flex-shrink-0" />
+          <p className="text-xs font-medium text-blue-700 flex-1">Manually mapped line item</p>
+          <button
+            onClick={() => onRemoveMapping?.(reconciliation.rule.id)}
+            className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors flex-shrink-0"
+          >
+            <Trash2 className="w-3 h-3" />
+            Unmap
+          </button>
+        </div>
+      )}
 
       {/* Notes inline */}
       {(showNotes || hasNotes) && (
@@ -195,6 +213,15 @@ export default function ServiceCard({
             title="Add note"
           >
             <StickyNote className="w-3.5 h-3.5" />
+          </button>
+        )}
+        {onMapLineItem && !hasOverride && (
+          <button
+            onClick={() => onMapLineItem?.(reconciliation.rule.id, reconciliation.rule.label)}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
+          >
+            <Link2 className="w-3.5 h-3.5" />
+            Map
           </button>
         )}
         <button

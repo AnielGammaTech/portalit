@@ -40,38 +40,43 @@ export default function BullPhishTab({ customerId }) {
   });
 
   // Sort by report date descending
-  const sortedReports = [...reports].sort((a, b) => 
+  const sortedReports = [...reports].sort((a, b) =>
     new Date(b.report_date) - new Date(a.report_date)
   );
 
   const latestReport = sortedReports[0];
   const previousReport = sortedReports[1];
 
-  // Parse JSON user arrays
-  const parseUserList = (jsonString) => {
-    if (!jsonString) return [];
-    try {
-      return JSON.parse(jsonString);
-    } catch {
-      return [];
-    }
+  // Helper to read a metric from report_data JSONB
+  const rd = (report, field, fallback = 0) => {
+    if (!report) return fallback;
+    const data = report.report_data || {};
+    return data[field] ?? fallback;
+  };
+
+  // Parse user arrays — stored as JSON arrays inside report_data
+  const parseUserList = (val) => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val;
+    try { return JSON.parse(val); } catch { return []; }
   };
 
   const openUserList = (type, report) => {
+    const data = report?.report_data || {};
     let users = [];
     let title = '';
-    
+
     if (type === 'opened') {
-      users = parseUserList(report.users_who_opened);
+      users = parseUserList(data.users_who_opened);
       title = 'Users Who Opened';
     } else if (type === 'clicked') {
-      users = parseUserList(report.users_who_clicked);
+      users = parseUserList(data.users_who_clicked);
       title = 'Users Who Clicked';
     } else if (type === 'reported') {
-      users = parseUserList(report.users_who_reported);
+      users = parseUserList(data.users_who_reported);
       title = 'Users Who Reported';
     }
-    
+
     setUserListModal({ open: true, type, title, users, report });
   };
 
@@ -106,8 +111,8 @@ export default function BullPhishTab({ customerId }) {
     );
   }
 
-  const phishTrend = getTrend(previousReport?.phish_prone_percentage, latestReport?.phish_prone_percentage, false);
-  const trainingTrend = getTrend(latestReport?.training_completion_rate, previousReport?.training_completion_rate);
+  const phishTrend = getTrend(rd(previousReport, 'phish_prone_percentage'), rd(latestReport, 'phish_prone_percentage'), false);
+  const trainingTrend = getTrend(rd(latestReport, 'training_completion_rate'), rd(previousReport, 'training_completion_rate'));
 
   return (
     <div className="space-y-6">
@@ -127,11 +132,11 @@ export default function BullPhishTab({ customerId }) {
                   </p>
                 </div>
               </div>
-              {latestReport.pdf_url && (
-                <Button 
-                  variant="outline" 
+              {latestReport.file_url && (
+                <Button
+                  variant="outline"
                   size="sm"
-                  onClick={() => window.open(latestReport.pdf_url, '_blank')}
+                  onClick={() => window.open(latestReport.file_url, '_blank')}
                 >
                   <Eye className="w-4 h-4 mr-2" />
                   View Report
@@ -145,10 +150,10 @@ export default function BullPhishTab({ customerId }) {
             {/* Phish-Prone Percentage */}
             <Card className={cn(
               "border-2",
-              latestReport.phish_prone_percentage > 20 
-                ? "border-red-200 bg-red-50/50" 
-                : latestReport.phish_prone_percentage > 10 
-                  ? "border-amber-200 bg-amber-50/50" 
+              rd(latestReport, 'phish_prone_percentage') > 20
+                ? "border-red-200 bg-red-50/50"
+                : rd(latestReport, 'phish_prone_percentage') > 10
+                  ? "border-amber-200 bg-amber-50/50"
                   : "border-green-200 bg-green-50/50"
             )}>
               <CardContent className="pt-4">
@@ -157,13 +162,13 @@ export default function BullPhishTab({ customerId }) {
                     <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Phish-Prone</p>
                     <p className={cn(
                       "text-3xl font-bold mt-1",
-                      latestReport.phish_prone_percentage > 20 
-                        ? "text-red-600" 
-                        : latestReport.phish_prone_percentage > 10 
-                          ? "text-amber-600" 
+                      rd(latestReport, 'phish_prone_percentage') > 20
+                        ? "text-red-600"
+                        : rd(latestReport, 'phish_prone_percentage') > 10
+                          ? "text-amber-600"
                           : "text-green-600"
                     )}>
-                      {latestReport.phish_prone_percentage}%
+                      {rd(latestReport, 'phish_prone_percentage')}%
                     </p>
                     {phishTrend && (
                       <div className={cn(
@@ -181,10 +186,10 @@ export default function BullPhishTab({ customerId }) {
                   </div>
                   <AlertTriangle className={cn(
                     "w-5 h-5",
-                    latestReport.phish_prone_percentage > 20 
-                      ? "text-red-500" 
-                      : latestReport.phish_prone_percentage > 10 
-                        ? "text-amber-500" 
+                    rd(latestReport, 'phish_prone_percentage') > 20
+                      ? "text-red-500"
+                      : rd(latestReport, 'phish_prone_percentage') > 10
+                        ? "text-amber-500"
                         : "text-green-500"
                   )} />
                 </div>
@@ -198,10 +203,10 @@ export default function BullPhishTab({ customerId }) {
                   <div>
                     <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Emails Sent</p>
                     <p className="text-3xl font-bold text-slate-900 mt-1">
-                      {latestReport.total_emails_sent?.toLocaleString() || 0}
+                      {rd(latestReport, 'total_emails_sent').toLocaleString()}
                     </p>
                     <p className="text-xs text-slate-400 mt-1">
-                      {latestReport.total_campaigns || 0} campaigns
+                      {rd(latestReport, 'total_campaigns')} campaigns
                     </p>
                   </div>
                   <Mail className="w-5 h-5 text-blue-500" />
@@ -210,7 +215,7 @@ export default function BullPhishTab({ customerId }) {
             </Card>
 
             {/* Clicked (Failed) - Clickable */}
-            <Card 
+            <Card
               className="border-2 border-red-100 cursor-pointer hover:shadow-md transition-shadow"
               onClick={() => openUserList('clicked', latestReport)}
             >
@@ -219,11 +224,11 @@ export default function BullPhishTab({ customerId }) {
                   <div>
                     <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Clicked</p>
                     <p className="text-3xl font-bold text-red-600 mt-1">
-                      {latestReport.total_clicked || 0}
+                      {rd(latestReport, 'total_clicked')}
                     </p>
                     <p className="text-xs text-slate-400 mt-1">
-                      {latestReport.total_emails_sent > 0 
-                        ? ((latestReport.total_clicked / latestReport.total_emails_sent) * 100).toFixed(1) 
+                      {rd(latestReport, 'total_emails_sent') > 0
+                        ? ((rd(latestReport, 'total_clicked') / rd(latestReport, 'total_emails_sent')) * 100).toFixed(1)
                         : 0}% click rate
                     </p>
                   </div>
@@ -238,10 +243,10 @@ export default function BullPhishTab({ customerId }) {
             {/* Training Completion */}
             <Card className={cn(
               "border-2",
-              latestReport.training_completion_rate >= 90 
-                ? "border-green-200 bg-green-50/50" 
-                : latestReport.training_completion_rate >= 70 
-                  ? "border-amber-200 bg-amber-50/50" 
+              rd(latestReport, 'training_completion_rate') >= 90
+                ? "border-green-200 bg-green-50/50"
+                : rd(latestReport, 'training_completion_rate') >= 70
+                  ? "border-amber-200 bg-amber-50/50"
                   : "border-red-200 bg-red-50/50"
             )}>
               <CardContent className="pt-4">
@@ -250,13 +255,13 @@ export default function BullPhishTab({ customerId }) {
                     <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Training</p>
                     <p className={cn(
                       "text-3xl font-bold mt-1",
-                      latestReport.training_completion_rate >= 90 
-                        ? "text-green-600" 
-                        : latestReport.training_completion_rate >= 70 
-                          ? "text-amber-600" 
+                      rd(latestReport, 'training_completion_rate') >= 90
+                        ? "text-green-600"
+                        : rd(latestReport, 'training_completion_rate') >= 70
+                          ? "text-amber-600"
                           : "text-red-600"
                     )}>
-                      {latestReport.training_completion_rate}%
+                      {rd(latestReport, 'training_completion_rate')}%
                     </p>
                     {trainingTrend && (
                       <div className={cn(
@@ -274,10 +279,10 @@ export default function BullPhishTab({ customerId }) {
                   </div>
                   <GraduationCap className={cn(
                     "w-5 h-5",
-                    latestReport.training_completion_rate >= 90 
-                      ? "text-green-500" 
-                      : latestReport.training_completion_rate >= 70 
-                        ? "text-amber-500" 
+                    rd(latestReport, 'training_completion_rate') >= 90
+                      ? "text-green-500"
+                      : rd(latestReport, 'training_completion_rate') >= 70
+                        ? "text-amber-500"
                         : "text-red-500"
                   )} />
                 </div>
@@ -293,31 +298,31 @@ export default function BullPhishTab({ customerId }) {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <button 
+                  <button
                     className="flex items-center justify-between w-full hover:bg-slate-50 p-2 -m-2 rounded-lg transition-colors"
                     onClick={() => openUserList('opened', latestReport)}
                   >
                     <span className="text-sm text-slate-500">Emails Opened</span>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-slate-900">{latestReport.total_opened || 0}</span>
+                      <span className="font-semibold text-slate-900">{rd(latestReport, 'total_opened')}</span>
                       <ChevronRight className="w-4 h-4 text-slate-400" />
                     </div>
                   </button>
-                  <button 
+                  <button
                     className="flex items-center justify-between w-full hover:bg-slate-50 p-2 -m-2 rounded-lg transition-colors"
                     onClick={() => openUserList('reported', latestReport)}
                   >
                     <span className="text-sm text-slate-500">Users Who Reported</span>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-green-600">{latestReport.total_reported || 0}</span>
+                      <span className="font-semibold text-green-600">{rd(latestReport, 'total_reported')}</span>
                       <ChevronRight className="w-4 h-4 text-slate-400" />
                     </div>
                   </button>
-                  {latestReport.report_period_start && latestReport.report_period_end && (
+                  {rd(latestReport, 'report_period_start', null) && rd(latestReport, 'report_period_end', null) && (
                     <div className="flex items-center justify-between pt-2 border-t">
                       <span className="text-sm text-slate-500">Report Period</span>
                       <span className="text-sm text-slate-700">
-                        {format(new Date(latestReport.report_period_start), 'MMM d')} - {format(new Date(latestReport.report_period_end), 'MMM d, yyyy')}
+                        {format(new Date(rd(latestReport, 'report_period_start')), 'MMM d')} - {format(new Date(rd(latestReport, 'report_period_end')), 'MMM d, yyyy')}
                       </span>
                     </div>
                   )}
@@ -353,8 +358,8 @@ export default function BullPhishTab({ customerId }) {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant={report.phish_prone_percentage > 20 ? "destructive" : "outline"}>
-                          {report.phish_prone_percentage}%
+                        <Badge variant={rd(report, 'phish_prone_percentage') > 20 ? "destructive" : "outline"}>
+                          {rd(report, 'phish_prone_percentage')}%
                         </Badge>
                         <ChevronRight className="w-4 h-4 text-slate-400" />
                       </div>
@@ -419,35 +424,35 @@ export default function BullPhishTab({ customerId }) {
           {selectedReport && (
             <div className="space-y-6">
               {/* Period */}
-              {selectedReport.report_period_start && selectedReport.report_period_end && (
+              {rd(selectedReport, 'report_period_start', null) && rd(selectedReport, 'report_period_end', null) && (
                 <div className="text-sm text-slate-500 bg-slate-50 p-3 rounded-lg">
-                  Report Period: {format(new Date(selectedReport.report_period_start), 'MMM d, yyyy')} - {format(new Date(selectedReport.report_period_end), 'MMM d, yyyy')}
+                  Report Period: {format(new Date(rd(selectedReport, 'report_period_start')), 'MMM d, yyyy')} - {format(new Date(rd(selectedReport, 'report_period_end')), 'MMM d, yyyy')}
                 </div>
               )}
 
               {/* Metrics Grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="bg-slate-50 p-3 rounded-lg text-center">
-                  <p className="text-2xl font-bold text-slate-900">{selectedReport.phish_prone_percentage}%</p>
+                  <p className="text-2xl font-bold text-slate-900">{rd(selectedReport, 'phish_prone_percentage')}%</p>
                   <p className="text-xs text-slate-500">Phish-Prone</p>
                 </div>
                 <div className="bg-slate-50 p-3 rounded-lg text-center">
-                  <p className="text-2xl font-bold text-slate-900">{selectedReport.total_emails_sent || 0}</p>
+                  <p className="text-2xl font-bold text-slate-900">{rd(selectedReport, 'total_emails_sent')}</p>
                   <p className="text-xs text-slate-500">Emails Sent</p>
                 </div>
                 <div className="bg-red-50 p-3 rounded-lg text-center cursor-pointer hover:bg-red-100 transition-colors" onClick={() => { setSelectedReport(null); openUserList('clicked', selectedReport); }}>
-                  <p className="text-2xl font-bold text-red-600">{selectedReport.total_clicked || 0}</p>
+                  <p className="text-2xl font-bold text-red-600">{rd(selectedReport, 'total_clicked')}</p>
                   <p className="text-xs text-slate-500">Clicked</p>
                 </div>
                 <div className="bg-green-50 p-3 rounded-lg text-center">
-                  <p className="text-2xl font-bold text-green-600">{selectedReport.training_completion_rate || 0}%</p>
+                  <p className="text-2xl font-bold text-green-600">{rd(selectedReport, 'training_completion_rate')}%</p>
                   <p className="text-xs text-slate-500">Training</p>
                 </div>
               </div>
 
               {/* Clickable User Lists */}
               <div className="space-y-2">
-                <button 
+                <button
                   className="w-full flex items-center justify-between p-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
                   onClick={() => { setSelectedReport(null); openUserList('opened', selectedReport); }}
                 >
@@ -456,11 +461,11 @@ export default function BullPhishTab({ customerId }) {
                     <span className="text-sm font-medium text-slate-700">Users Who Opened</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline">{selectedReport.total_opened || 0}</Badge>
+                    <Badge variant="outline">{rd(selectedReport, 'total_opened')}</Badge>
                     <ChevronRight className="w-4 h-4 text-slate-400" />
                   </div>
                 </button>
-                <button 
+                <button
                   className="w-full flex items-center justify-between p-3 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
                   onClick={() => { setSelectedReport(null); openUserList('clicked', selectedReport); }}
                 >
@@ -469,11 +474,11 @@ export default function BullPhishTab({ customerId }) {
                     <span className="text-sm font-medium text-slate-700">Users Who Clicked</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="destructive">{selectedReport.total_clicked || 0}</Badge>
+                    <Badge variant="destructive">{rd(selectedReport, 'total_clicked')}</Badge>
                     <ChevronRight className="w-4 h-4 text-slate-400" />
                   </div>
                 </button>
-                <button 
+                <button
                   className="w-full flex items-center justify-between p-3 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
                   onClick={() => { setSelectedReport(null); openUserList('reported', selectedReport); }}
                 >
@@ -482,17 +487,17 @@ export default function BullPhishTab({ customerId }) {
                     <span className="text-sm font-medium text-slate-700">Users Who Reported</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge className="bg-green-100 text-green-700">{selectedReport.total_reported || 0}</Badge>
+                    <Badge className="bg-green-100 text-green-700">{rd(selectedReport, 'total_reported')}</Badge>
                     <ChevronRight className="w-4 h-4 text-slate-400" />
                   </div>
                 </button>
               </div>
 
               {/* View PDF */}
-              {selectedReport.pdf_url && (
-                <Button 
+              {selectedReport.file_url && (
+                <Button
                   className="w-full"
-                  onClick={() => window.open(selectedReport.pdf_url, '_blank')}
+                  onClick={() => window.open(selectedReport.file_url, '_blank')}
                 >
                   <Eye className="w-4 h-4 mr-2" />
                   View Full PDF Report
