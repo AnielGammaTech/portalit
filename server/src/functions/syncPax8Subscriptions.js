@@ -205,6 +205,27 @@ export async function syncPax8Subscriptions(body, _user) {
   throw err;
 }
 
+// ── Product name resolver ────────────────────────────────────────────────
+
+// Cache product names across syncs to avoid repeated lookups
+const productNameCache = new Map();
+
+async function resolveProductName(productId) {
+  if (!productId) return 'Unknown';
+  if (productNameCache.has(productId)) return productNameCache.get(productId);
+
+  try {
+    const product = await pax8ApiCall(`/products/${productId}`);
+    const name = product.name || product.productName || productId;
+    productNameCache.set(productId, name);
+    return name;
+  } catch (err) {
+    console.log(`[Pax8] Could not resolve product ${productId}: ${err.message}`);
+    productNameCache.set(productId, productId); // cache the miss too
+    return productId;
+  }
+}
+
 // ── Sync helper ─────────────────────────────────────────────────────────
 
 async function syncCompanySubscriptions(supabase, mapping) {
@@ -218,9 +239,24 @@ async function syncCompanySubscriptions(supabase, mapping) {
       (s) => s.status === 'Active' || s.status === 'active'
     );
 
+    // Collect unique product IDs that need name resolution
+    const productIds = [...new Set(
+      activeSubscriptions
+        .filter(s => !s.productName && !s.product?.name && s.productId)
+        .map(s => s.productId)
+    )];
+
+    // Resolve product names in batches of 5
+    const CONCURRENCY = 5;
+    for (let i = 0; i < productIds.length; i += CONCURRENCY) {
+      const batch = productIds.slice(i, i + CONCURRENCY);
+      await Promise.allSettled(batch.map(id => resolveProductName(id)));
+    }
+
     const byProduct = {};
     for (const sub of activeSubscriptions) {
-      const productName = sub.productName || sub.product?.name || sub.productId || 'Unknown';
+      const productName = sub.productName || sub.product?.name
+        || productNameCache.get(sub.productId) || sub.productId || 'Unknown';
       if (!byProduct[productName]) {
         byProduct[productName] = { name: productName, quantity: 0, subscriptions: [] };
       }
