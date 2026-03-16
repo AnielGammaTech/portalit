@@ -4,6 +4,7 @@ import {
   haloGet,
   extractRecords,
   mapHaloClientToCustomer,
+  fetchSitesByClientId,
 } from '../lib/halopsa.js';
 
 export async function syncHaloPSACustomers(body, _user) {
@@ -34,7 +35,19 @@ export async function syncHaloPSACustomers(body, _user) {
 
     try {
       const clientData = await haloGet(`Client/${customer_id}`, config);
-      const customerData = mapHaloClientToCustomer(clientData);
+
+      // Fetch site data for address resolution
+      let site = null;
+      const siteId = clientData.toplevel_id || clientData.main_site_id;
+      if (siteId) {
+        try {
+          site = await haloGet(`Site/${siteId}`, config);
+        } catch {
+          // Site fetch is best-effort; address will be empty if it fails
+        }
+      }
+
+      const customerData = mapHaloClientToCustomer(clientData, site);
 
       const { data: existingArr } = await supabase
         .from('customers')
@@ -77,7 +90,12 @@ export async function syncHaloPSACustomers(body, _user) {
     const errors = [];
 
     try {
-      // Paginated fetch
+      // Fetch all sites first for address resolution
+      console.log('[HaloPSA] Fetching sites for address data...');
+      const siteMap = await fetchSitesByClientId(config);
+      console.log(`[HaloPSA] Loaded ${Object.keys(siteMap).length} site addresses`);
+
+      // Paginated fetch of clients
       let allClients = [];
       let pageNumber = 1;
       const pageSize = 1000;
@@ -116,7 +134,11 @@ export async function syncHaloPSACustomers(body, _user) {
       for (const client of allClients) {
         if (config.excludedIds.includes(String(client.id))) continue;
         if (client.inactive === true) continue;
-        const customerData = mapHaloClientToCustomer(client);
+
+        // Resolve site for this client (try toplevel_id, then client.id)
+        const site = siteMap[String(client.toplevel_id)] || siteMap[String(client.id)] || null;
+        const customerData = mapHaloClientToCustomer(client, site);
+
         const existing = existingByExternalId[String(client.id)];
         if (existing) {
           toUpdate.push({ id: existing.id, data: customerData });

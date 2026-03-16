@@ -238,15 +238,20 @@ export function extractRecords(data, key) {
 
 /**
  * Map a HaloPSA client object to the PortalIT customers table shape.
+ * Optionally accepts a site object for address resolution (HaloPSA stores
+ * addresses on Sites, not on Clients).
  */
-export function mapHaloClientToCustomer(client) {
+export function mapHaloClientToCustomer(client, site) {
+  // Address fields: prefer site data (where HaloPSA actually stores addresses),
+  // then fall back to client-level fields (some HaloPSA instances do include them).
+  const src = site || client;
   const addressParts = [
-    client.address1 || client.Address1 || '',
-    client.address2 || client.Address2 || '',
-    client.city || client.City || '',
-    client.state || client.State || '',
-    client.postcode || client.Postcode || '',
-    client.country || client.Country || '',
+    src.address1 || src.Address1 || client.address1 || client.Address1 || '',
+    src.address2 || src.Address2 || client.address2 || client.Address2 || '',
+    src.city || src.City || client.city || client.City || '',
+    src.state || src.State || client.state || client.State || '',
+    src.postcode || src.Postcode || client.postcode || client.Postcode || '',
+    src.country || src.Country || client.country || client.Country || '',
   ].filter(Boolean);
 
   return {
@@ -260,6 +265,49 @@ export function mapHaloClientToCustomer(client) {
     address: addressParts.join(', '),
     notes: client.notes || client.Notes || '',
   };
+}
+
+/**
+ * Fetch all HaloPSA sites and return a map of client_id → site object.
+ * Sites contain the physical address for each customer.
+ */
+export async function fetchSitesByClientId(config) {
+  const cfg = config || await getHaloConfig();
+  const siteMap = {};
+
+  let page = 1;
+  const pageSize = 1000;
+
+  while (true) {
+    try {
+      const data = await haloGet(
+        `Site?pageinate=true&page_size=${pageSize}&page_no=${page}`,
+        cfg,
+      );
+      const sites = extractRecords(data, 'sites');
+      if (!sites.length) break;
+
+      for (const site of sites) {
+        const clientId = String(site.client_id || site.clientid || site.toplevel_id || '');
+        if (clientId && !siteMap[clientId]) {
+          // Keep the first (main) site per client
+          siteMap[clientId] = site;
+        }
+      }
+
+      const total = data.record_count || data.recordCount || 0;
+      console.log(`[HaloPSA] Sites page ${page}: ${sites.length} sites (total map: ${Object.keys(siteMap).length})`);
+      if (sites.length < pageSize) break;
+      if (total > 0 && Object.keys(siteMap).length >= total) break;
+      if (page > 20) break;
+      page++;
+    } catch (err) {
+      console.error('[HaloPSA] Failed to fetch sites:', err.message);
+      break;
+    }
+  }
+
+  return siteMap;
 }
 
 /**
