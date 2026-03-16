@@ -79,31 +79,106 @@ export async function syncDarkWebID(body, user) {
       });
 
       const text = await response.text();
+      const contentType = response.headers.get('content-type') || '';
+      const statusCode = response.status;
 
       if (!response.ok) {
         return {
           success: false,
-          error: `API returned ${response.status}`,
+          error: `API returned ${statusCode}: ${text.substring(0, 200)}`,
           outgoing_ip: outgoingIP,
-          hint: 'Make sure this IP is whitelisted in Dark Web ID settings',
+          status_code: statusCode,
+          content_type: contentType,
+          hint: statusCode === 403
+            ? 'IP not whitelisted — add this IP in Dark Web ID portal settings'
+            : 'Make sure this IP is whitelisted in Dark Web ID settings',
         };
       }
 
+      // If response is JSON, parse it
+      if (contentType.includes('json')) {
+        try {
+          const data = JSON.parse(text);
+          return {
+            success: true,
+            organizations: data,
+            outgoing_ip: outgoingIP,
+          };
+        } catch {
+          return {
+            success: false,
+            error: 'Invalid JSON in response',
+            outgoing_ip: outgoingIP,
+            response_preview: text.substring(0, 500),
+          };
+        }
+      }
+
+      // Got HTML back (login page) — try cookie-based auth as fallback
+      // Dark Web ID (Drupal 7) may require session-based login, not just Basic Auth
       try {
-        const data = JSON.parse(text);
-        return {
-          success: true,
-          organizations: data,
-          outgoing_ip: outgoingIP,
-        };
-      } catch {
-        const preview = text.substring(0, 500);
+        const loginResponse = await fetch(`${DARKWEB_BASE_URL}/user/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json',
+          },
+          body: `name=${encodeURIComponent(process.env.DARKWEBID_USERNAME)}&pass=${encodeURIComponent(process.env.DARKWEBID_PASSWORD)}&form_id=user_login&op=Log+in`,
+          redirect: 'manual',
+        });
+
+        // Grab session cookie from login response
+        const setCookies = loginResponse.headers.getSetCookie?.() || [];
+        const cookieHeader = setCookies.map(c => c.split(';')[0]).join('; ');
+
+        if (!cookieHeader) {
+          return {
+            success: false,
+            error: 'Login succeeded but no session cookie returned',
+            outgoing_ip: outgoingIP,
+            status_code: loginResponse.status,
+            hint: 'Dark Web ID may require a different authentication method',
+          };
+        }
+
+        // Retry API call with session cookie
+        const retryResponse = await fetch(`${DARKWEB_BASE_URL}/api/organizations.json`, {
+          headers: {
+            'Cookie': cookieHeader,
+            'Accept': 'application/json',
+          },
+        });
+
+        const retryText = await retryResponse.text();
+        const retryContentType = retryResponse.headers.get('content-type') || '';
+
+        if (retryContentType.includes('json') || retryText.trim().startsWith('[') || retryText.trim().startsWith('{')) {
+          const data = JSON.parse(retryText);
+          return {
+            success: true,
+            organizations: data,
+            outgoing_ip: outgoingIP,
+            auth_method: 'session_cookie',
+          };
+        }
+
         return {
           success: false,
-          error: 'Received HTML instead of JSON - likely not authenticated',
+          error: `Session auth also returned HTML (status ${retryResponse.status})`,
           outgoing_ip: outgoingIP,
-          response_preview: preview,
-          hint: 'Make sure this IP is whitelisted in Dark Web ID settings and API access is enabled for your user',
+          status_code: statusCode,
+          content_type: contentType,
+          response_preview: text.substring(0, 300),
+          hint: 'Check that Web Services is enabled and IP is whitelisted in Dark Web ID portal',
+        };
+      } catch (sessionErr) {
+        return {
+          success: false,
+          error: `Basic Auth returned HTML, session fallback failed: ${sessionErr.message}`,
+          outgoing_ip: outgoingIP,
+          status_code: statusCode,
+          response_preview: text.substring(0, 300),
+          hint: 'Check that Web Services is enabled and IP is whitelisted in Dark Web ID portal',
         };
       }
     } catch (error) {
