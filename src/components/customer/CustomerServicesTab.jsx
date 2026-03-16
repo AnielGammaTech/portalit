@@ -50,9 +50,10 @@ import InkyTab from './InkyTab';
 import ThreeCXTab from './ThreeCXTab';
 import DmarcReportTab from './DmarcReportTab';
 
-export default function CustomerServicesTab({ 
-  customerId, 
-  customer, 
+export default function CustomerServicesTab({
+  customerId,
+  customer,
+  contacts = [],
   lineItems = [],
   expandedBills,
   setExpandedBills,
@@ -551,6 +552,7 @@ export default function CustomerServicesTab({
           <TabsList className="bg-zinc-100 dark:bg-zinc-800/80 border-0 p-1.5 h-auto flex flex-wrap justify-center gap-1 rounded-hero-lg w-full max-w-4xl mx-auto">
             {[
               { value: 'recurring', label: 'Recurring', icon: DollarSign, show: true },
+              { value: 'users', label: 'Users', icon: Users, show: contacts.length > 0 },
               { value: 'devices', label: 'Devices', icon: Monitor, show: hasDevices },
               { value: 'jumpcloud', label: 'JumpCloud', icon: Shield, iconClass: 'text-[#7828C8]', show: hasJumpCloud },
               { value: 'spanning', label: 'Spanning', icon: Cloud, iconClass: 'text-cyan-500', show: hasSpanning },
@@ -695,6 +697,73 @@ export default function CustomerServicesTab({
                       ${lineItems.reduce((sum, item) => sum + (item.net_amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </p>
                   </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </TabsContent>
+
+        {/* Users Tab */}
+        <TabsContent value="users">
+          <motion.div {...fadeInUp} className="space-y-4">
+            {/* Stats */}
+            <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[
+                { icon: Users, label: 'Total Contacts', value: contacts.length, color: 'text-primary', bg: 'bg-primary/10' },
+                { icon: CheckCircle2, label: 'Primary Contacts', value: contacts.filter(c => c.is_primary).length, color: 'text-success', bg: 'bg-success/10' },
+                { icon: Shield, label: 'With Email', value: contacts.filter(c => c.email).length, color: 'text-violet-600', bg: 'bg-violet-500/10' },
+              ].map((stat) => (
+                <motion.div key={stat.label} variants={staggerItem} className="bg-card rounded-[14px] border shadow-hero-sm p-4 hover:shadow-hero-md transition-all duration-[250ms]">
+                  <div className="flex items-center gap-3">
+                    <div className={cn('w-10 h-10 rounded-hero-md flex items-center justify-center', stat.bg)}>
+                      <stat.icon className={cn('w-5 h-5', stat.color)} />
+                    </div>
+                    <div>
+                      <AnimatedCounter value={stat.value} className="text-2xl font-bold text-foreground" />
+                      <p className="text-xs text-muted-foreground">{stat.label}</p>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+
+            {/* Users List */}
+            <div className="bg-card rounded-[14px] border shadow-hero-sm overflow-hidden">
+              <div className="px-5 py-3 border-b border-border/50">
+                <h3 className="font-semibold text-foreground text-sm">Team Members</h3>
+                <p className="text-xs text-muted-foreground">{contacts.length} contacts from HaloPSA</p>
+              </div>
+
+              {contacts.length === 0 ? (
+                <div className="p-3">
+                  <EmptyState icon={Users} title="No contacts" description="No team members found for this customer" />
+                </div>
+              ) : (
+                <div className="divide-y divide-border/40">
+                  {contacts.map((contact) => (
+                    <div
+                      key={contact.id}
+                      className="flex items-center gap-3 px-5 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors duration-150 cursor-pointer"
+                      onClick={() => setSelectedContact(contact)}
+                    >
+                      <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+                        {contact.full_name?.charAt(0) || '?'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm text-foreground truncate">{contact.full_name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{contact.email || contact.title || 'No email'}</p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {contact.is_primary && (
+                          <Badge variant="flat" className="text-[10px]">Primary</Badge>
+                        )}
+                        {contact.phone && (
+                          <span className="text-xs text-muted-foreground hidden sm:block">{contact.phone}</span>
+                        )}
+                        <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

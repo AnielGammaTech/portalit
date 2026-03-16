@@ -116,7 +116,7 @@ function ReportView({ report, searchQuery, setSearchQuery }) {
       </div>
 
       {/* Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-4">
             <div className="flex items-start justify-between">
@@ -152,19 +152,6 @@ function ReportView({ report, searchQuery, setSearchQuery }) {
                 <p className="text-xs text-muted-foreground/70 mt-1">extensions</p>
               </div>
               <UserX className="w-5 h-5 text-orange-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ring Groups</p>
-                <p className="text-3xl font-bold text-foreground mt-1">{report.ring_groups || 0}</p>
-                <p className="text-xs text-muted-foreground/70 mt-1">configured</p>
-              </div>
-              <PhoneForwarded className="w-5 h-5 text-purple-500" />
             </div>
           </CardContent>
         </Card>
@@ -345,7 +332,7 @@ function ApiSyncView({ threecxMapping, customerId, queryClient }) {
 
       {/* Metrics */}
       {cached && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <Card>
             <CardContent className="pt-4">
               <div className="flex items-start justify-between">
@@ -355,18 +342,6 @@ function ApiSyncView({ threecxMapping, customerId, queryClient }) {
                   <p className="text-xs text-muted-foreground/70 mt-1">user extensions</p>
                 </div>
                 <Phone className="w-5 h-5 text-emerald-500" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ring Groups</p>
-                  <p className="text-3xl font-bold text-foreground mt-1">{cached.ring_groups || 0}</p>
-                  <p className="text-xs text-muted-foreground/70 mt-1">configured</p>
-                </div>
-                <PhoneForwarded className="w-5 h-5 text-blue-500" />
               </div>
             </CardContent>
           </Card>

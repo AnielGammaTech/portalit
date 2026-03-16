@@ -157,9 +157,9 @@ async function fetchOpenIncidents(rcAccountId) {
   let page = 1;
   const pageSize = 100;
 
-  // Only sync open incidents
+  // Fetch ALL incidents (not just open) so we capture the full picture
   while (true) {
-    const incidentsData = await rocketCyberApiCall(endpoint, { page, pageSize, status: 'open' });
+    const incidentsData = await rocketCyberApiCall(endpoint, { page, pageSize });
     const pageIncidents = incidentsData.data || [];
 
     if (!pageIncidents || pageIncidents.length === 0) break;

@@ -31,21 +31,29 @@ function categorizeDeviceType(device) {
   if (device.isConsole) return 'firewall';
 
   const shortname = (device.shortname || '').toUpperCase();
-  const model = (device.model || '').toLowerCase();
+  const model = (device.model || '').toUpperCase();
+  const name = (device.name || '').toUpperCase();
 
   // Access Points: U6*, U7*, UAP*, nanoHD, etc.
+  // Check both shortname AND model for AP patterns (some devices have empty shortnames)
   if (shortname.startsWith('U6') || shortname.startsWith('U7') || shortname.startsWith('UAP') ||
-      shortname.startsWith('NANO') || model.includes('ap') || model.includes('access point')) {
+      shortname.startsWith('NANO') ||
+      model.startsWith('U6') || model.startsWith('U7') || model.startsWith('UAP') ||
+      model.includes('NANOHD') || model.includes('FLEXHD') || model.includes('LITE') ||
+      model.includes(' AP') || model.includes('ACCESS POINT') ||
+      name.includes(' AP')) {
     return 'access_point';
   }
-  // Switches: USW*, US-*
-  if (shortname.startsWith('USW') || shortname.startsWith('US') || model.includes('switch')) {
+  // Switches: USW*, US-* (but not U6/U7 which are APs)
+  if (shortname.startsWith('USW') || shortname.startsWith('US') ||
+      model.startsWith('USW') || model.includes('SWITCH')) {
     return 'switch';
   }
-  // Gateways/Firewalls: UDM*, UXG*, USG*, UGW*
+  // Gateways/Firewalls: UDM*, UXG*, USG*, UGW*, UCG*
   if (shortname.startsWith('UDM') || shortname.startsWith('UXG') ||
-      shortname.startsWith('USG') || shortname.startsWith('UGW') ||
-      model.includes('dream') || model.includes('gateway')) {
+      shortname.startsWith('USG') || shortname.startsWith('UGW') || shortname.startsWith('UCG') ||
+      model.startsWith('UDM') || model.startsWith('UXG') || model.startsWith('UCG') ||
+      model.includes('DREAM') || model.includes('GATEWAY') || model.includes('CLOUD')) {
     return 'firewall';
   }
   return 'other';

@@ -628,6 +628,7 @@ function PDFReportsTab() {
   const [isUploading, setIsUploading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedData, setExtractedData] = useState(null);
+  const [excludedExtensions, setExcludedExtensions] = useState(new Set());
   const queryClient = useQueryClient();
 
   const { data: reports = [], isLoading: loadingReports } = useQuery({
@@ -783,6 +784,12 @@ Look for:
         pdfUrl = file_url;
       }
 
+      // Filter out excluded extensions
+      const filteredExtensions = (extractedData?.extensions_detail || [])
+        .filter(ext => !excludedExtensions.has(ext.number || ext.name));
+      const filteredUserCount = filteredExtensions.filter(e => e.type === 'user' || (!e.type && !e.disabled)).length;
+      const filteredTotal = filteredExtensions.length;
+
       await client.entities.ThreeCXReport.create({
         customer_id: selectedCustomer,
         customer_name: customer?.name,
@@ -790,8 +797,8 @@ Look for:
         report_period_start: periodStart || null,
         report_period_end: periodEnd || null,
         pdf_url: pdfUrl,
-        total_extensions: extractedData?.total_extensions || 0,
-        user_extensions: extractedData?.user_extensions || 0,
+        total_extensions: excludedExtensions.size > 0 ? filteredTotal : (extractedData?.total_extensions || 0),
+        user_extensions: excludedExtensions.size > 0 ? filteredUserCount : (extractedData?.user_extensions || 0),
         ring_groups: extractedData?.ring_groups || 0,
         queues: extractedData?.queues || 0,
         trunks: extractedData?.trunks || 0,
@@ -800,7 +807,7 @@ Look for:
         outbound_calls: extractedData?.outbound_calls || 0,
         missed_calls: extractedData?.missed_calls || 0,
         avg_call_duration: extractedData?.avg_call_duration || null,
-        extensions_detail: extractedData?.extensions_detail ? JSON.stringify(extractedData.extensions_detail) : null,
+        extensions_detail: filteredExtensions.length > 0 ? JSON.stringify(filteredExtensions) : null,
         call_stats: extractedData?.call_stats ? JSON.stringify(extractedData.call_stats) : null,
       });
 
@@ -825,6 +832,7 @@ Look for:
     setPeriodEnd('');
     setSelectedFile(null);
     setExtractedData(null);
+    setExcludedExtensions(new Set());
   };
 
   const handleDeleteReport = async (reportId) => {
@@ -1045,27 +1053,84 @@ Look for:
             )}
 
             {extractedData && (
-              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
-                <p className="text-sm font-medium text-emerald-800 mb-2">Extracted Data:</p>
-                {extractedData.customer_name && (
-                  <p className="text-xs text-emerald-700 mb-1">Customer: <strong>{extractedData.customer_name}</strong></p>
-                )}
-                <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-xs">
-                  <div>Total Ext: <strong>{extractedData.total_extensions || 0}</strong></div>
-                  <div>Active Users: <strong>{extractedData.user_extensions || 0}</strong></div>
-                  {extractedData.disabled_extensions > 0 && (
-                    <div>Disabled: <strong className="text-slate-400">{extractedData.disabled_extensions}</strong></div>
+              <div className="space-y-3">
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                  <p className="text-sm font-medium text-emerald-800 mb-2">Extracted Data:</p>
+                  {extractedData.customer_name && (
+                    <p className="text-xs text-emerald-700 mb-1">Customer: <strong>{extractedData.customer_name}</strong></p>
                   )}
-                  {extractedData.ring_groups > 0 && <div>Ring Groups: <strong>{extractedData.ring_groups}</strong></div>}
-                  {extractedData.queues > 0 && <div>Queues: <strong>{extractedData.queues}</strong></div>}
-                  {extractedData.trunks > 0 && <div>Trunks: <strong>{extractedData.trunks}</strong></div>}
-                  {extractedData.total_calls > 0 && <div>Total Calls: <strong>{extractedData.total_calls}</strong></div>}
-                  {extractedData.inbound_calls > 0 && <div>Inbound: <strong>{extractedData.inbound_calls}</strong></div>}
-                  {extractedData.outbound_calls > 0 && <div>Outbound: <strong>{extractedData.outbound_calls}</strong></div>}
-                  {extractedData.missed_calls > 0 && <div>Missed: <strong className="text-orange-600">{extractedData.missed_calls}</strong></div>}
+                  <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-xs">
+                    <div>Total Ext: <strong>{extractedData.total_extensions || 0}</strong></div>
+                    <div>Active Users: <strong>{(extractedData.user_extensions || 0) - excludedExtensions.size}</strong></div>
+                    {excludedExtensions.size > 0 && (
+                      <div>Excluded: <strong className="text-orange-600">{excludedExtensions.size}</strong></div>
+                    )}
+                    {extractedData.disabled_extensions > 0 && (
+                      <div>Disabled: <strong className="text-slate-400">{extractedData.disabled_extensions}</strong></div>
+                    )}
+                    {extractedData.queues > 0 && <div>Queues: <strong>{extractedData.queues}</strong></div>}
+                    {extractedData.trunks > 0 && <div>Trunks: <strong>{extractedData.trunks}</strong></div>}
+                    {extractedData.total_calls > 0 && <div>Total Calls: <strong>{extractedData.total_calls}</strong></div>}
+                    {extractedData.missed_calls > 0 && <div>Missed: <strong className="text-orange-600">{extractedData.missed_calls}</strong></div>}
+                  </div>
                 </div>
+
+                {/* Extension exclusion selector */}
                 {extractedData.extensions_detail?.length > 0 && (
-                  <p className="text-xs text-emerald-700 mt-2">{extractedData.extensions_detail.length} extensions parsed</p>
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="px-3 py-2 bg-slate-50 border-b flex items-center justify-between">
+                      <p className="text-xs font-semibold text-slate-600">
+                        Extensions ({extractedData.extensions_detail.length}) — uncheck to exclude system/shared extensions
+                      </p>
+                      {excludedExtensions.size > 0 && (
+                        <button
+                          className="text-xs text-blue-600 hover:underline"
+                          onClick={() => setExcludedExtensions(new Set())}
+                        >
+                          Include all
+                        </button>
+                      )}
+                    </div>
+                    <div className="max-h-48 overflow-y-auto divide-y divide-slate-100">
+                      {extractedData.extensions_detail.map((ext) => {
+                        const key = ext.number || ext.name;
+                        const isExcluded = excludedExtensions.has(key);
+                        return (
+                          <label
+                            key={key}
+                            className={cn(
+                              "flex items-center gap-3 px-3 py-1.5 cursor-pointer hover:bg-slate-50 transition-colors",
+                              isExcluded && "bg-red-50/50"
+                            )}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={!isExcluded}
+                              onChange={() => {
+                                const next = new Set(excludedExtensions);
+                                if (isExcluded) { next.delete(key); } else { next.add(key); }
+                                setExcludedExtensions(next);
+                              }}
+                              className="rounded border-slate-300"
+                            />
+                            <span className={cn(
+                              "font-mono text-xs w-10 flex-shrink-0",
+                              isExcluded ? "text-slate-400 line-through" : "text-emerald-600 font-semibold"
+                            )}>
+                              {ext.number}
+                            </span>
+                            <span className={cn(
+                              "text-xs flex-1 truncate",
+                              isExcluded ? "text-slate-400 line-through" : "text-slate-700"
+                            )}>
+                              {ext.name || `Ext ${ext.number}`}
+                            </span>
+                            <span className="text-[10px] text-slate-400">{ext.type || 'user'}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
               </div>
             )}

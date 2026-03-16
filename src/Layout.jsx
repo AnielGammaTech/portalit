@@ -56,23 +56,30 @@ function getUserInitials(fullName, email) {
 
 function NavItem({ item, isActive, primaryColor }) {
   const Icon = item.icon;
+  const isLootIT = item.page === 'LootIT';
   return (
     <Link
       to={createPageUrl(item.page) + (item.query || '')}
       className={cn(
         "relative flex items-center gap-2 px-4 h-14 text-sm font-medium transition-colors",
-        isActive
-          ? "text-white"
-          : "text-white/60 hover:text-white hover:bg-white/5"
+        isLootIT
+          ? "text-pink-400 hover:text-pink-300"
+          : isActive
+            ? "text-white"
+            : "text-white/60 hover:text-white hover:bg-white/5"
       )}
+      style={isLootIT ? { textShadow: '0 0 12px rgba(236,72,153,0.6), 0 0 24px rgba(236,72,153,0.3)' } : undefined}
     >
-      <Icon className="w-4 h-4" />
+      <Icon className={cn("w-4 h-4", isLootIT && "text-pink-400 drop-shadow-[0_0_6px_rgba(236,72,153,0.6)]")} />
       <span>{item.name}</span>
       {isActive && (
         <span
           className="absolute bottom-0 left-0 right-0 h-0.5"
-          style={{ backgroundColor: primaryColor }}
+          style={{ backgroundColor: isLootIT ? '#ec4899' : primaryColor }}
         />
+      )}
+      {isLootIT && !isActive && (
+        <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-pink-500/40" />
       )}
     </Link>
   );
@@ -80,20 +87,24 @@ function NavItem({ item, isActive, primaryColor }) {
 
 function MobileBottomTab({ item, isActive, primaryColor }) {
   const Icon = item.icon;
+  const isLootIT = item.page === 'LootIT';
   return (
     <Link
       to={createPageUrl(item.page) + (item.query || '')}
       className={cn(
         "relative flex flex-col items-center justify-center gap-0.5 flex-1 py-2 text-[10px] font-medium transition-colors",
-        isActive
-          ? "text-slate-900"
-          : "text-slate-400"
+        isLootIT
+          ? "text-pink-500"
+          : isActive
+            ? "text-slate-900"
+            : "text-slate-400"
       )}
+      style={isLootIT ? { textShadow: '0 0 8px rgba(236,72,153,0.4)' } : undefined}
     >
       {isActive && (
         <span
           className="absolute top-0 left-2 right-2 h-0.5 rounded-full"
-          style={{ backgroundColor: primaryColor }}
+          style={{ backgroundColor: isLootIT ? '#ec4899' : primaryColor }}
         />
       )}
       <Icon
@@ -145,26 +156,30 @@ function MobileDrawerNav({ navigation, currentPageName, primaryColor, user, isAd
           const isActive = currentPageName === item.page ||
             (item.page === 'CustomerDetail' && currentPageName === 'CustomerDetail');
           const Icon = item.icon;
+          const isLootIT = item.page === 'LootIT';
           return (
             <SheetClose asChild key={item.page + (item.query || '')}>
               <Link
                 to={createPageUrl(item.page) + (item.query || '')}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-white/10 text-white"
-                    : "text-white/60 hover:text-white hover:bg-white/5"
+                  isLootIT
+                    ? "text-pink-400 hover:text-pink-300 hover:bg-pink-500/10"
+                    : isActive
+                      ? "bg-white/10 text-white"
+                      : "text-white/60 hover:text-white hover:bg-white/5"
                 )}
+                style={isLootIT ? { textShadow: '0 0 10px rgba(236,72,153,0.5)' } : undefined}
               >
                 <Icon
-                  className="w-5 h-5"
-                  style={isActive ? { color: primaryColor } : undefined}
+                  className={cn("w-5 h-5", isLootIT && "text-pink-400 drop-shadow-[0_0_6px_rgba(236,72,153,0.6)]")}
+                  style={!isLootIT && isActive ? { color: primaryColor } : undefined}
                 />
                 <span>{item.name}</span>
                 {isActive && (
                   <span
                     className="ml-auto w-1.5 h-1.5 rounded-full"
-                    style={{ backgroundColor: primaryColor }}
+                    style={{ backgroundColor: isLootIT ? '#ec4899' : primaryColor }}
                   />
                 )}
               </Link>

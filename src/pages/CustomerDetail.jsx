@@ -57,6 +57,7 @@ import CustomerAnalytics from '../components/customer/CustomerAnalytics';
 import DevicesTab from '../components/customer/DevicesTab';
 import CustomerServicesTab from '../components/customer/CustomerServicesTab';
 import OverviewTab from '../components/customer/OverviewTab';
+import CustomerMap from '../components/customer/CustomerMap';
 import { UserPlus, Eye } from 'lucide-react';
 import { isCustomerPortal } from '@/lib/portal-mode';
 
@@ -632,6 +633,11 @@ export default function CustomerDetail() {
             </div>
           </div>
 
+          {/* Map */}
+          {customer.address && (
+            <CustomerMap addresses={[customer.address]} />
+          )}
+
           {/* Quick Stats — Animated counters */}
           <motion.div
             variants={staggerContainer}
@@ -969,9 +975,10 @@ export default function CustomerDetail() {
                       </TabsContent>
 
         <TabsContent value="services">
-          <CustomerServicesTab 
+          <CustomerServicesTab
             customerId={customerId}
             customer={customer}
+            contacts={contacts}
             lineItems={lineItems}
             expandedBills={expandedBills}
             setExpandedBills={setExpandedBills}
