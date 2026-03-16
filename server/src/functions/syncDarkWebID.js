@@ -114,39 +114,82 @@ export async function syncDarkWebID(body, user) {
         }
       }
 
-      // Got HTML back (login page) — try cookie-based auth as fallback
-      // Dark Web ID (Drupal 7) may require session-based login, not just Basic Auth
+      // Got HTML back (login page) — try Drupal REST session login + cookie-based auth
       try {
-        const loginResponse = await fetch(`${DARKWEB_BASE_URL}/user/login`, {
+        // Step 1: Try Drupal REST Services login endpoint (returns JSON with session info)
+        const restLoginResponse = await fetch(`${DARKWEB_BASE_URL}/api/user/login.json`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
+            'Content-Type': 'application/json',
             'Accept': 'application/json',
           },
-          body: `name=${encodeURIComponent(process.env.DARKWEBID_USERNAME)}&pass=${encodeURIComponent(process.env.DARKWEBID_PASSWORD)}&form_id=user_login&op=Log+in`,
-          redirect: 'manual',
+          body: JSON.stringify({
+            username: process.env.DARKWEBID_USERNAME,
+            password: process.env.DARKWEBID_PASSWORD,
+          }),
         });
 
-        // Grab session cookie from login response
-        const setCookies = loginResponse.headers.getSetCookie?.() || [];
-        const cookieHeader = setCookies.map(c => c.split(';')[0]).join('; ');
+        const restLoginText = await restLoginResponse.text();
+        let sessionName = '';
+        let sessionId = '';
+        let csrfToken = '';
+
+        // Try to parse REST login response
+        try {
+          const loginData = JSON.parse(restLoginText);
+          sessionName = loginData.session_name || '';
+          sessionId = loginData.sessid || '';
+          csrfToken = loginData.token || '';
+        } catch {
+          // REST login didn't return JSON, try form-based login
+        }
+
+        // If REST login didn't work, try form-based login
+        if (!sessionId) {
+          const formLoginResponse = await fetch(`${DARKWEB_BASE_URL}/user/login`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `name=${encodeURIComponent(process.env.DARKWEBID_USERNAME)}&pass=${encodeURIComponent(process.env.DARKWEBID_PASSWORD)}&form_id=user_login&op=Log+in`,
+            redirect: 'manual',
+          });
+
+          // Extract cookies from raw headers
+          const rawSetCookie = formLoginResponse.headers.get('set-cookie') || '';
+          const allCookies = typeof formLoginResponse.headers.getSetCookie === 'function'
+            ? formLoginResponse.headers.getSetCookie()
+            : rawSetCookie.split(/,(?=\s*\w+=)/).filter(Boolean);
+
+          const cookieParts = allCookies.map(c => c.split(';')[0].trim()).filter(Boolean);
+          if (cookieParts.length > 0) {
+            sessionId = cookieParts.join('; ');
+          }
+        }
+
+        const cookieHeader = sessionId.includes('=') ? sessionId : (sessionName && sessionId ? `${sessionName}=${sessionId}` : '');
 
         if (!cookieHeader) {
           return {
             success: false,
-            error: 'Login succeeded but no session cookie returned',
+            error: 'Could not obtain session from Dark Web ID',
             outgoing_ip: outgoingIP,
-            status_code: loginResponse.status,
-            hint: 'Dark Web ID may require a different authentication method',
+            login_status: restLoginResponse?.status,
+            login_response_preview: restLoginText?.substring(0, 300),
+            hint: 'Verify credentials are correct. Try logging into https://secure.darkwebid.com manually.',
           };
         }
 
-        // Retry API call with session cookie
+        // Retry API call with session cookie + CSRF token
+        const retryHeaders = {
+          'Cookie': cookieHeader,
+          'Accept': 'application/json',
+        };
+        if (csrfToken) {
+          retryHeaders['X-CSRF-Token'] = csrfToken;
+        }
         const retryResponse = await fetch(`${DARKWEB_BASE_URL}/api/organizations.json`, {
-          headers: {
-            'Cookie': cookieHeader,
-            'Accept': 'application/json',
-          },
+          headers: retryHeaders,
         });
 
         const retryText = await retryResponse.text();
