@@ -21,11 +21,17 @@ export default function LootIT() {
   };
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#FDF2F8' }}>
+    <div className="min-h-screen relative overflow-hidden" style={{ backgroundColor: '#FDF2F8' }}>
+      {/* Ambient pink glow — makes LootIT visually distinct from other tools */}
+      <div className="pointer-events-none fixed top-0 left-0 w-full h-full z-0">
+        <div className="absolute top-[-100px] right-[-100px] w-[500px] h-[500px] bg-pink-300/20 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-80px] left-[-80px] w-[400px] h-[400px] bg-rose-300/15 rounded-full blur-[100px]" />
+      </div>
+
       {/* Header */}
-      <div className="bg-white/60 backdrop-blur-sm border-b border-pink-100 sticky top-0 z-30">
+      <div className="bg-white/70 backdrop-blur-md border-b border-pink-100 sticky top-0 z-30 shadow-[0_1px_20px_-5px_rgba(236,72,153,0.1)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-14">
             {/* Logo / Title */}
             <div className="flex items-center gap-3">
               {view === 'customer' && (
@@ -37,11 +43,11 @@ export default function LootIT() {
                 </button>
               )}
               <h1
-                className="text-xl font-extrabold bg-gradient-to-r from-pink-500 to-rose-600 bg-clip-text text-transparent"
+                className="text-xl font-extrabold bg-gradient-to-r from-pink-500 to-rose-600 bg-clip-text text-transparent drop-shadow-sm"
               >
                 LootIT
               </h1>
-              <span className="hidden sm:inline-block text-xs font-medium text-pink-300 bg-pink-50 px-2 py-0.5 rounded-full">
+              <span className="hidden sm:inline-block text-[10px] font-semibold text-pink-400 bg-pink-50 border border-pink-100 px-2 py-0.5 rounded-full uppercase tracking-wider">
                 Billing Reconciliation
               </span>
             </div>
@@ -76,7 +82,7 @@ export default function LootIT() {
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-6">
         {view === 'settings' && <LootITSettings />}
         {view === 'dashboard' && (
           <LootITDashboard onSelectCustomer={handleSelectCustomer} />

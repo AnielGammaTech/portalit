@@ -278,6 +278,37 @@ export default function LootITCustomerDetail({ customer, onBack }) {
     if (file) uploadMutation.mutate(file);
   }, [uploadMutation]);
 
+  // Compute dollar impact from reconciliation data
+  const dollarImpact = useMemo(() => {
+    if (!allRecons.length) return null;
+    let underBilledAmount = 0;
+    let overBilledAmount = 0;
+    let totalMonthlyBilled = 0;
+    for (const r of allRecons) {
+      const price = r.price || 0;
+      const diff = r.difference || 0;
+      if (r.status === 'under' || r.status === 'missing_from_psa') {
+        underBilledAmount += Math.abs(diff) * price;
+      } else if (r.status === 'over') {
+        overBilledAmount += Math.abs(diff) * price;
+      }
+      if (r.psaQty && price) {
+        totalMonthlyBilled += r.psaQty * price;
+      }
+    }
+    return { underBilledAmount, overBilledAmount, totalMonthlyBilled };
+  }, [allRecons]);
+
+  // Count integrations involved
+  const activeIntegrations = useMemo(() => {
+    const keys = new Set();
+    for (const r of recons) {
+      if (r.rule?.integration_key) keys.add(r.rule.integration_key);
+    }
+    if (pax8Recons.length > 0) keys.add('pax8');
+    return keys.size;
+  }, [recons, pax8Recons]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -286,38 +317,91 @@ export default function LootITCustomerDetail({ customer, onBack }) {
     );
   }
 
+  const issueCount = summary ? summary.over + summary.under : 0;
+  const healthPct = summary && summary.total > 0 ? Math.round((summary.matched / summary.total) * 100) : 0;
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={onBack}
-          className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center hover:bg-pink-50 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4 text-slate-600" />
-        </button>
-        <div className="flex-1 min-w-0">
-          <h2 className="text-xl font-bold text-slate-900 truncate">
-            {customer.name}
-          </h2>
+    <div className="space-y-5 relative">
+      {/* Pink ambient glow */}
+      <div className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-pink-400/10 rounded-full blur-[100px]" />
+
+      {/* ── Header Card ── */}
+      <div className="relative bg-gradient-to-br from-white via-white to-pink-50/60 rounded-2xl border border-pink-100 shadow-[0_0_40px_-10px_rgba(236,72,153,0.15)] overflow-hidden">
+        {/* Top bar accent */}
+        <div className="h-1 bg-gradient-to-r from-pink-400 via-rose-400 to-pink-300" />
+
+        <div className="p-5">
+          {/* Row 1: Back + name + actions */}
+          <div className="flex items-center gap-3 mb-4">
+            <button
+              onClick={onBack}
+              className="w-8 h-8 rounded-lg bg-pink-50 border border-pink-100 flex items-center justify-center hover:bg-pink-100 transition-colors flex-shrink-0"
+            >
+              <ArrowLeft className="w-4 h-4 text-pink-500" />
+            </button>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg font-bold text-slate-900 truncate leading-tight">
+                {customer.name}
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {activeIntegrations} integration{activeIntegrations !== 1 ? 's' : ''} · {summary?.total || 0} rules tracked
+                {contracts.length > 0 && <> · {contracts.length} contract{contracts.length !== 1 ? 's' : ''}</>}
+              </p>
+            </div>
+            <button
+              onClick={handleSync}
+              disabled={isSyncing}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-pink-500 text-white hover:bg-pink-600 shadow-sm shadow-pink-200 transition-all disabled:opacity-50"
+            >
+              <RefreshCw className={cn('w-3.5 h-3.5', isSyncing && 'animate-spin')} />
+              {isSyncing ? 'Syncing…' : 'Sync'}
+            </button>
+          </div>
+
+          {/* Row 2: Key metrics inline */}
           {summary && (
-            <p className="text-sm text-slate-500 mt-0.5">
-              {summary.total} services tracked · {summary.matched} matched · {summary.over + summary.under} issue{summary.over + summary.under !== 1 ? 's' : ''}
-            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              <div className="bg-white rounded-xl border border-slate-100 px-3 py-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-2xl font-bold text-slate-900">{summary.total}</span>
+                  <Hash className="w-4 h-4 text-slate-300" />
+                </div>
+                <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide mt-0.5">Services</p>
+              </div>
+              <div className="bg-emerald-50 rounded-xl border border-emerald-100 px-3 py-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-2xl font-bold text-emerald-600">{summary.matched}</span>
+                  <Check className="w-4 h-4 text-emerald-400" />
+                </div>
+                <p className="text-[10px] text-emerald-500 font-medium uppercase tracking-wide mt-0.5">Matched</p>
+              </div>
+              <div className={cn("rounded-xl border px-3 py-2.5", issueCount > 0 ? "bg-red-50 border-red-100" : "bg-white border-slate-100")}>
+                <div className="flex items-center justify-between">
+                  <span className={cn("text-2xl font-bold", issueCount > 0 ? "text-red-600" : "text-slate-900")}>{issueCount}</span>
+                  <AlertTriangle className={cn("w-4 h-4", issueCount > 0 ? "text-red-400" : "text-slate-300")} />
+                </div>
+                <p className={cn("text-[10px] font-medium uppercase tracking-wide mt-0.5", issueCount > 0 ? "text-red-500" : "text-slate-400")}>Issues</p>
+              </div>
+              <div className="bg-white rounded-xl border border-slate-100 px-3 py-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-2xl font-bold text-pink-600">{summary.reviewed}</span>
+                  <CheckCircle2 className="w-4 h-4 text-pink-300" />
+                </div>
+                <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide mt-0.5">Reviewed</p>
+              </div>
+              <div className="bg-white rounded-xl border border-slate-100 px-3 py-2.5">
+                <div className="flex items-center justify-between">
+                  <span className={cn("text-2xl font-bold", healthPct >= 80 ? "text-emerald-600" : healthPct >= 50 ? "text-orange-600" : "text-red-600")}>{healthPct}%</span>
+                </div>
+                <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide mt-0.5">Health</p>
+              </div>
+            </div>
           )}
         </div>
-        <button
-          onClick={handleSync}
-          disabled={isSyncing}
-          className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-pink-50 transition-colors disabled:opacity-50"
-        >
-          <RefreshCw className={cn('w-3.5 h-3.5', isSyncing && 'animate-spin')} />
-          {isSyncing ? 'Syncing…' : 'Sync'}
-        </button>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-pink-50/60 rounded-xl p-1">
+      <div className="flex gap-1 bg-pink-50/60 rounded-xl p-1 shadow-[0_0_20px_-5px_rgba(236,72,153,0.1)]">
         {[
           { key: 'reconciliation', label: 'Reconciliation', icon: RotateCcw },
           { key: 'contract', label: 'Contract', icon: FileText, badge: contracts.length || null },
@@ -425,36 +509,42 @@ export default function LootITCustomerDetail({ customer, onBack }) {
       {/* ── Reconciliation Tab ── */}
       {activeTab === 'reconciliation' && (
         <>
-      {/* Quick Summary */}
-      {summary && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <MiniStat label="Matched" value={summary.matched} color="emerald" />
-          <MiniStat label="Under-billed" value={summary.under} color="red" />
-          <MiniStat label="Over-billed" value={summary.over} color="orange" />
-          <MiniStat label="Reviewed" value={summary.reviewed} color="pink" />
+      {/* Filter + context bar */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex gap-1.5">
+          {[
+            { key: 'all', label: 'All', count: allRecons.filter(r => r.status !== 'no_data').length },
+            { key: 'issues', label: 'Issues', count: issueCount },
+            { key: 'matched', label: 'Matched', count: summary?.matched || 0 },
+            { key: 'reviewed', label: 'Reviewed', count: summary?.reviewed || 0 },
+          ].map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setStatusFilter(f.key)}
+              className={cn(
+                'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors',
+                statusFilter === f.key
+                  ? 'bg-pink-500 text-white shadow-sm shadow-pink-200'
+                  : 'bg-white text-slate-500 border border-slate-200 hover:bg-pink-50'
+              )}
+            >
+              {f.label}
+              <span className={cn(
+                'text-[10px] px-1.5 py-0.5 rounded-full',
+                statusFilter === f.key ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400'
+              )}>
+                {f.count}
+              </span>
+            </button>
+          ))}
         </div>
-      )}
-
-      {/* Filter Bar */}
-      <div className="flex gap-2">
-        {[
-          { key: 'all', label: 'All' },
-          { key: 'issues', label: 'Issues' },
-          { key: 'matched', label: 'Matched' },
-          { key: 'reviewed', label: 'Reviewed' },
-        ].map((f) => (
-          <button
-            key={f.key}
-            onClick={() => setStatusFilter(f.key)}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-              statusFilter === f.key
-                ? 'bg-pink-500 text-white'
-                : 'bg-white text-slate-500 border border-slate-200 hover:bg-pink-50'
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
+        {/* Under-billed alert */}
+        {dollarImpact && dollarImpact.underBilledAmount > 0 && (
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-50 border border-red-100 text-red-600">
+            <DollarSign className="w-3.5 h-3.5" />
+            ${dollarImpact.underBilledAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })} under-billed
+          </div>
+        )}
       </div>
 
       {/* Service Cards */}
@@ -799,21 +889,7 @@ function ContractCard({ contract, extractingId, onDownload, onDelete, onRetryExt
   );
 }
 
-function MiniStat({ label, value, color }) {
-  const colors = {
-    emerald: 'text-emerald-600 bg-emerald-50',
-    red: 'text-red-600 bg-red-50',
-    orange: 'text-orange-600 bg-orange-50',
-    pink: 'text-pink-600 bg-pink-50',
-  };
-
-  return (
-    <div className={`rounded-xl px-4 py-3 ${colors[color]}`}>
-      <p className="text-2xl font-bold">{value}</p>
-      <p className="text-xs font-medium opacity-70">{label}</p>
-    </div>
-  );
-}
+// MiniStat removed — metrics now live in the header card
 
 function DetailDrawer({ reconciliation, onClose }) {
   const isPax8 = !!reconciliation.ruleId;
