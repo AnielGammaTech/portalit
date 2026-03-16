@@ -70,6 +70,18 @@ export function useReconciliationReviews(customerId) {
       status: 'pending',
     });
 
+  const saveNotes = async (ruleId, notes) => {
+    // Update notes on existing review, or create a pending one with notes
+    const existing = reviews.find((r) => r.rule_id === ruleId);
+    return upsertMutation.mutateAsync({
+      ruleId,
+      status: existing?.status || 'pending',
+      notes,
+      psaQty: existing?.psa_qty,
+      vendorQty: existing?.vendor_qty,
+    });
+  };
+
   return {
     reviews,
     isLoading,
@@ -77,6 +89,7 @@ export function useReconciliationReviews(customerId) {
     markReviewed,
     dismiss,
     resetReview,
+    saveNotes,
     isSaving: upsertMutation.isPending,
   };
 }

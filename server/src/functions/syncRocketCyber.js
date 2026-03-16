@@ -1,6 +1,7 @@
 import { getServiceSupabase } from '../lib/supabase.js';
 
 const API_BASE_URL = 'https://api-us.rocketcyber.com/v2';
+const API_V3_BASE_URL = 'https://api-us.rocketcyber.com/v3';
 
 async function rocketCyberApiCall(endpoint, params = {}) {
   const ROCKETCYBER_API_TOKEN = process.env.ROCKETCYBER_API_TOKEN;
@@ -63,30 +64,77 @@ function buildIncidentData(incident, customerId) {
   };
 }
 
-async function fetchAgentCount(rcAccountId) {
-  const data = await rocketCyberApiCall(`/account/${rcAccountId}/agents`);
+async function rocketCyberV3ApiCall(endpoint, params = {}) {
+  const ROCKETCYBER_API_TOKEN = process.env.ROCKETCYBER_API_TOKEN;
+  const url = new URL(`${API_V3_BASE_URL}${endpoint}`);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      url.searchParams.append(key, value);
+    }
+  });
 
-  // API may return { data: [...], totalCount } or just an array
-  if (typeof data.totalCount === 'number') return data.totalCount;
-  if (Array.isArray(data.data)) return data.data.length;
-  if (Array.isArray(data)) return data.length;
+  const response = await fetch(url.toString(), {
+    headers: {
+      'Authorization': `Bearer ${ROCKETCYBER_API_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+  });
 
-  // Paginated fallback
-  let totalAgents = 0;
-  let page = 1;
-  const pageSize = 100;
-
-  while (true) {
-    const pageData = await rocketCyberApiCall(`/account/${rcAccountId}/agents`, { page, pageSize });
-    const agents = pageData.data || pageData || [];
-    if (!Array.isArray(agents) || agents.length === 0) break;
-    totalAgents += agents.length;
-    if (agents.length < pageSize || page >= (pageData.totalPages || 1)) break;
-    page++;
-    if (page > 50) break;
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`RocketCyber v3 API error: ${response.status} - ${error}`);
   }
 
-  return totalAgents;
+  return response.json();
+}
+
+function extractAgentCount(data) {
+  if (typeof data.totalCount === 'number') return data.totalCount;
+  if (typeof data.total === 'number') return data.total;
+  if (data.meta?.totalCount) return data.meta.totalCount;
+  if (data.meta?.total) return data.meta.total;
+  if (data.pagination?.total) return data.pagination.total;
+  if (Array.isArray(data.data) && data.data.length > 0) return data.data.length;
+  if (Array.isArray(data) && data.length > 0) return data.length;
+
+  // Check any key that holds an array
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    for (const key of Object.keys(data)) {
+      if (Array.isArray(data[key]) && data[key].length > 0) {
+        return data[key].length;
+      }
+    }
+  }
+  return 0;
+}
+
+async function fetchAgentCount(rcAccountId) {
+  // Try v3 first, then v2 with multiple endpoint formats
+  const attempts = [
+    { label: 'v3 /agents', fn: () => rocketCyberV3ApiCall('/agents', { accountId: rcAccountId }) },
+    { label: 'v3 /account/agents', fn: () => rocketCyberV3ApiCall(`/account/${rcAccountId}/agents`) },
+    { label: 'v2 /agents', fn: () => rocketCyberApiCall('/agents', { accountId: rcAccountId }) },
+    { label: 'v2 /account/agents', fn: () => rocketCyberApiCall(`/account/${rcAccountId}/agents`) },
+  ];
+
+  for (const { label, fn } of attempts) {
+    try {
+      const data = await fn();
+      const snippet = JSON.stringify(data).slice(0, 500);
+      console.log(`[RocketCyber] ${label} for ${rcAccountId}: ${snippet}`);
+
+      const count = extractAgentCount(data);
+      if (count > 0) {
+        console.log(`[RocketCyber] Found ${count} agents via ${label} for ${rcAccountId}`);
+        return count;
+      }
+    } catch (err) {
+      console.log(`[RocketCyber] ${label} failed for ${rcAccountId}: ${err.message}`);
+    }
+  }
+
+  console.warn(`[RocketCyber] All agent endpoints returned 0 for account ${rcAccountId}`);
+  return 0;
 }
 
 // Cache endpoint probe results to avoid redundant API calls per account
