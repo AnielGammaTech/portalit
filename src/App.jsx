@@ -62,7 +62,8 @@ const AuthenticatedApp = () => {
   }
 
   // On the full portal, redirect customer users to the customer portal
-  if (isFullPortal && CUSTOMER_PORTAL_URL && user?.role === 'customer') {
+  const isStaffUser = user?.role === 'admin' || user?.role === 'sales';
+  if (isFullPortal && CUSTOMER_PORTAL_URL && user && !isStaffUser) {
     window.location.href = CUSTOMER_PORTAL_URL;
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center gap-3">
