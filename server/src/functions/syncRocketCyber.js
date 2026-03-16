@@ -81,13 +81,20 @@ async function fetchAgentCount(rcAccountId) {
   return totalAgents;
 }
 
+// Cache endpoint probe results to avoid redundant API calls per account
+const endpointCache = new Map();
+
 async function fetchOpenIncidents(rcAccountId) {
-  // Determine correct endpoint
-  let endpoint = `/account/${rcAccountId}/incidents`;
-  try {
-    await rocketCyberApiCall(endpoint, { page: 1, pageSize: 1 });
-  } catch (err) {
-    endpoint = `/account/${rcAccountId}/events`;
+  // Determine correct endpoint (cached per account)
+  let endpoint = endpointCache.get(rcAccountId);
+  if (!endpoint) {
+    endpoint = `/account/${rcAccountId}/incidents`;
+    try {
+      await rocketCyberApiCall(endpoint, { page: 1, pageSize: 1 });
+    } catch (err) {
+      endpoint = `/account/${rcAccountId}/events`;
+    }
+    endpointCache.set(rcAccountId, endpoint);
   }
 
   let allIncidents = [];

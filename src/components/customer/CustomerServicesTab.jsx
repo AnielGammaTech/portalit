@@ -265,7 +265,7 @@ export default function CustomerServicesTab({
   };
 
   const handleSyncHaloPSA = async () => {
-    if (!customer?.source === 'halopsa' || !customer?.external_id) return;
+    if (customer?.source !== 'halopsa' || !customer?.external_id) return;
     setSyncingHalo(true);
     updateSyncStatus('halopsa', 'syncing');
     try {

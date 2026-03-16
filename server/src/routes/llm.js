@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { getServiceSupabase } from '../lib/supabase.js';
 
 const router = Router();
@@ -31,20 +31,43 @@ async function getAISettings() {
     .limit(1)
     .single();
 
+  const provider = data?.ai_provider || 'anthropic';
   let model = data?.ai_model || 'claude-sonnet-4-20250514';
-  // Fix legacy incorrect model ID
   if (model === 'claude-haiku-4-20250514') model = 'claude-haiku-4-5-20251001';
 
-  return {
-    provider: data?.ai_provider || 'anthropic',
-    model,
-  };
+  // Validate model matches provider to prevent cross-provider errors
+  if (provider === 'openai' && model.startsWith('claude')) {
+    model = 'gpt-4o';
+  } else if (provider === 'anthropic' && (model.startsWith('gpt') || model.startsWith('o1'))) {
+    model = 'claude-sonnet-4-20250514';
+  }
+
+  return { provider, model };
+}
+
+// Validate URL to prevent SSRF — only allow http(s) to public hosts
+function validateFileUrl(url) {
+  let parsed;
+  try { parsed = new URL(url); } catch { throw new Error('Invalid file URL'); }
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error('Only http/https URLs are allowed');
+  }
+  const hostname = parsed.hostname.toLowerCase();
+  const blocked = [
+    /^localhost$/, /^127\./, /^10\./, /^172\.(1[6-9]|2\d|3[01])\./,
+    /^192\.168\./, /^169\.254\./, /^0\./, /^\[::1\]/, /^metadata\./, /\.internal$/,
+  ];
+  if (blocked.some(re => re.test(hostname))) {
+    throw new Error('URL points to a restricted address');
+  }
+  return url;
 }
 
 async function fetchFileAsBase64(url) {
-  const response = await fetch(url);
+  const safeUrl = validateFileUrl(url);
+  const response = await fetch(safeUrl);
   if (!response.ok) {
-    throw new Error(`Failed to fetch file from ${url}: ${response.status}`);
+    throw new Error(`Failed to fetch file: ${response.status}`);
   }
   const contentType = response.headers.get('content-type') || 'application/pdf';
   const buffer = Buffer.from(await response.arrayBuffer());
@@ -106,12 +129,8 @@ async function invokeOpenAI(prompt, model, jsonSchema, fileUrls) {
           image_url: { url: `data:${contentType};base64,${base64}` },
         });
       } else if (contentType.includes('pdf')) {
-        // OpenAI supports file input via the file object for some models,
-        // but for broad compatibility, include as a URL data reference
-        contentParts.push({
-          type: 'file',
-          file: { filename: 'report.pdf', file_data: `data:application/pdf;base64,${base64}` },
-        });
+        // OpenAI Chat Completions doesn't support PDF natively — skip attachment
+        console.warn('[LLM] OpenAI: PDF files not supported in Chat Completions API, skipping');
       }
     }
   }
@@ -136,7 +155,7 @@ async function invokeOpenAI(prompt, model, jsonSchema, fileUrls) {
   return response.choices[0]?.message?.content || '';
 }
 
-router.post('/invoke', requireAuth, async (req, res, next) => {
+router.post('/invoke', requireAdmin, async (req, res, next) => {
   try {
     const { prompt, file_urls, response_json_schema } = req.body;
 

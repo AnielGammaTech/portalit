@@ -153,10 +153,16 @@ export async function syncHaloPSAInvoices(body, _user) {
     const BATCH_SIZE = 20;
     for (let i = 0; i < toUpdate.length; i += BATCH_SIZE) {
       const batch = toUpdate.slice(i, i + BATCH_SIZE);
-      await Promise.allSettled(
+      const batchResults = await Promise.allSettled(
         batch.map(item => supabase.from('invoices').update(item.data).eq('id', item.id))
       );
-      recordsSynced += batch.length;
+      for (const r of batchResults) {
+        if (r.status === 'fulfilled' && !r.value.error) {
+          recordsSynced++;
+        } else {
+          recordsFailed++;
+        }
+      }
     }
 
     // ── Sync line items for all invoices ──

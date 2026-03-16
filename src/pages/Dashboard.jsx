@@ -259,12 +259,13 @@ function CustomerDashboard({ customer }) {
     staleTime: 1000 * 60 * 5
   });
 
+  const recurringBillIds = recurringBills.map(b => b.id).sort();
   const { data: lineItems = [] } = useQuery({
-    queryKey: ['line_items', customerId],
+    queryKey: ['line_items', customerId, recurringBillIds],
     queryFn: () => client.entities.RecurringBillLineItem.filterIn(
-      'recurring_bill_id', recurringBills.map(b => b.id)
+      'recurring_bill_id', recurringBillIds
     ),
-    enabled: !!customerId && recurringBills.length > 0,
+    enabled: !!customerId && recurringBillIds.length > 0,
     staleTime: 1000 * 60 * 5
   });
 
@@ -275,12 +276,13 @@ function CustomerDashboard({ customer }) {
     staleTime: 1000 * 60 * 5
   });
 
+  const invoiceIds = invoices.map(i => i.id).sort();
   const { data: invoiceLineItems = [] } = useQuery({
-    queryKey: ['invoice_line_items', customerId],
+    queryKey: ['invoice_line_items', customerId, invoiceIds],
     queryFn: () => client.entities.InvoiceLineItem.filterIn(
-      'invoice_id', invoices.map(i => i.id)
+      'invoice_id', invoiceIds
     ),
-    enabled: !!customerId && invoices.length > 0,
+    enabled: !!customerId && invoiceIds.length > 0,
     staleTime: 1000 * 60 * 5
   });
 
@@ -665,7 +667,7 @@ export default function Dashboard() {
     if (!customersLoaded || customers.length === 0) return null;
     if (!user.customer_id) return null;
     return customers.find(c => c.id === user.customer_id) || null;
-  }, [user, customersLoaded, customers.length, user?.customer_id]);
+  }, [user, customersLoaded, customers, user?.customer_id]);
 
   const isLoading = isLoadingAuth;
 

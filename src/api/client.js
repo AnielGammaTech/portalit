@@ -13,8 +13,12 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   global: {
     fetch: (url, options = {}) => {
       // 15s timeout for all Supabase REST calls
+      // Compose with any existing signal to avoid clobbering
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000);
+      if (options.signal) {
+        options.signal.addEventListener('abort', () => controller.abort(), { once: true });
+      }
       return fetch(url, { ...options, signal: controller.signal })
         .finally(() => clearTimeout(timeoutId));
     },

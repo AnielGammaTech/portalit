@@ -19,8 +19,12 @@ export function getServiceSupabase() {
       global: {
         fetch: (fetchUrl, options = {}) => {
           // 30s timeout for server-side Supabase calls
+          // Compose with any existing signal to avoid clobbering
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 30000);
+          if (options.signal) {
+            options.signal.addEventListener('abort', () => controller.abort(), { once: true });
+          }
           return fetch(fetchUrl, { ...options, signal: controller.signal })
             .finally(() => clearTimeout(timeoutId));
         },

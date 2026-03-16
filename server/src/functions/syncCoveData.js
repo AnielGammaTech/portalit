@@ -407,5 +407,138 @@ export async function syncCoveData(body, user) {
     }
   }
 
+  // Sync all customers
+  if (action === 'sync_all') {
+    const { data: allMappings, error } = await supabase
+      .from('cove_data_mappings')
+      .select('id, customer_id, cove_partner_id');
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    if (!allMappings || allMappings.length === 0) {
+      return { success: true, message: 'No Cove mappings found', synced: 0, failed: 0 };
+    }
+
+    // Login once and reuse visa token for all customers
+    let visa;
+    try {
+      const loginResult = await coveLogin(partner, username, apiToken);
+      visa = loginResult.visa;
+    } catch (error) {
+      return { success: false, error: `Cove login failed: ${error.message}` };
+    }
+
+    let synced = 0;
+    let failed = 0;
+    const errors = [];
+
+    for (const mapping of allMappings) {
+      try {
+        const devicesResult = await coveApiCall('EnumerateAccountStatistics', {
+          query: {
+            PartnerId: parseInt(mapping.cove_partner_id),
+            SelectionMode: 'Merged',
+            Columns: COVE_COLUMNS,
+            RecordsCount: 250
+          }
+        }, visa);
+
+        const devices = Array.isArray(devicesResult)
+          ? devicesResult
+          : (devicesResult?.result || []);
+
+        let totalDevices = devices.length;
+        let activeDevices = 0;
+        let devicesWithErrors = 0;
+        let devicesWithWarnings = 0;
+        let totalStorageUsed = 0;
+        let totalProtectedSize = 0;
+        let lastBackupSuccess = 0;
+        let lastBackupFailed = 0;
+
+        const deviceDetails = devices.map(d => {
+          const s = parseSettings(d.Settings);
+          const computerName = d.AccountName || d.Name || d.ComputerName || s['I18'] || 'Unknown';
+          const osTypeRaw = d.OsType || s['I32'];
+          const osType = OS_TYPE_MAP[osTypeRaw] || osTypeRaw || 'Unknown';
+          const usedStorage = parseInt(d.UsedStorage || s['I14'] || 0, 10);
+          const protectedSize = parseInt(d.SelectedSize || s['D9F03'] || 0, 10);
+          const statusCode = d.LastSessionStatus || s['D9F00'] || s['D1F00'];
+          const lastSessionStatus = SESSION_STATUS_MAP[statusCode] || statusCode || 'Unknown';
+          const errors = parseInt(d.SessionErrors || s['D9F06'] || 0, 10);
+          const isActive = d.AccountState === 'Active' || d.State === 1 ||
+            !(d.Flags || []).includes('integrityCheckAccountMissedBackupAlertSent');
+
+          if (isActive) activeDevices++;
+          if (errors > 0 || lastSessionStatus === 'Failed' || lastSessionStatus === 'CompletedWithErrors') {
+            devicesWithErrors++;
+            lastBackupFailed++;
+          } else if (lastSessionStatus === 'Completed') {
+            lastBackupSuccess++;
+          } else if (lastSessionStatus !== 'InProcess' && lastSessionStatus !== 'InProgressWithFaults' &&
+                     lastSessionStatus !== 'Unknown' && lastSessionStatus !== 'NoData' && lastSessionStatus !== 'NotStarted') {
+            devicesWithWarnings++;
+          }
+
+          totalStorageUsed += usedStorage;
+          totalProtectedSize += protectedSize;
+
+          return {
+            id: d.AccountId || d.Id,
+            name: computerName,
+            osType,
+            state: isActive ? 'active' : 'inactive',
+          };
+        });
+
+        const workstationCount = deviceDetails.filter(d => d.osType === 'Workstation').length;
+        const serverCount = deviceDetails.filter(d => d.osType === 'Server').length;
+
+        const cachedData = {
+          totalDevices,
+          workstation_count: workstationCount,
+          server_count: serverCount,
+          activeDevices,
+          inactiveDevices: totalDevices - activeDevices,
+          devicesWithErrors,
+          devicesWithWarnings,
+          healthyDevices: Math.max(0, totalDevices - devicesWithErrors - devicesWithWarnings),
+          totalStorageUsed: formatBytes(totalStorageUsed),
+          totalStorageUsedBytes: totalStorageUsed,
+          totalProtectedSize: formatBytes(totalProtectedSize),
+          totalProtectedSizeBytes: totalProtectedSize,
+          lastBackupSuccess,
+          lastBackupFailed,
+          successRate: totalDevices > 0 ? Math.round((lastBackupSuccess / totalDevices) * 100) : 0,
+          devices: deviceDetails.slice(0, 50),
+          syncedAt: new Date().toISOString()
+        };
+
+        await supabase
+          .from('cove_data_mappings')
+          .update({
+            cached_data: cachedData,
+            last_synced: new Date().toISOString()
+          })
+          .eq('id', mapping.id);
+
+        synced++;
+      } catch (err) {
+        failed++;
+        errors.push(`Customer ${mapping.customer_id}: ${err.message}`);
+      }
+    }
+
+    return {
+      success: true,
+      synced,
+      failed,
+      total: allMappings.length,
+      errors: errors.length > 0 ? errors : undefined
+    };
+  }
+
   return { success: false, error: 'Invalid action' };
 }

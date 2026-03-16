@@ -87,9 +87,11 @@ export async function syncHaloPSATickets(body, _user) {
     const errors = [];
 
     try {
-      // First find the customer using the internal ID passed from frontend
-      const { data: allCustomers } = await supabase.from('customers').select('*');
-      const dbCustomer = (allCustomers || []).find(c => c.external_id === String(customer_id) && c.source === 'halopsa');
+      // Find customer by external_id + source (indexed query instead of full-table scan)
+      const { data: matchedCustomers } = await supabase.from('customers').select('*')
+        .eq('external_id', String(customer_id))
+        .eq('source', 'halopsa');
+      const dbCustomer = (matchedCustomers || [])[0];
       if (!dbCustomer) throw new Error(`Customer not found in database for external_id: ${customer_id}`);
 
       // Fetch tickets for this client (most recent 200)
@@ -106,28 +108,46 @@ export async function syncHaloPSATickets(body, _user) {
         console.log('Sample ticket data:', JSON.stringify(tickets[0], null, 2));
       }
 
+      // Batch-fetch existing tickets for this customer (avoid N+1)
+      const { data: existingTickets } = await supabase.from('tickets').select('id, external_id')
+        .eq('customer_id', dbCustomer.id);
+      const existingMap = new Map((existingTickets || []).map(t => [t.external_id, t.id]));
+
+      const toCreate = [];
+      const toUpdate = [];
+
       for (const haloTicket of tickets) {
         try {
           const ticketPayload = transformTicket(haloTicket, dbCustomer.id);
-
-          const { data: existingTicketArr } = await supabase
-            .from('tickets')
-            .select('*')
-            .eq('external_id', ticketPayload.external_id)
-            .eq('customer_id', dbCustomer.id);
-          const existingTicket = (existingTicketArr || [])[0];
-
-          if (existingTicket) {
-            await supabase.from('tickets').update(ticketPayload).eq('id', existingTicket.id).select().single();
+          const existingId = existingMap.get(ticketPayload.external_id);
+          if (existingId) {
+            toUpdate.push({ id: existingId, data: ticketPayload });
           } else {
-            const { error } = await supabase.from('tickets').insert(ticketPayload).select().single();
-            if (error) throw new Error(error.message);
+            toCreate.push(ticketPayload);
           }
-
-          recordsSynced++;
         } catch (itemError) {
           recordsFailed++;
           errors.push(`Ticket ${haloTicket.id}: ${itemError.message}`);
+        }
+      }
+
+      // Bulk create new tickets
+      if (toCreate.length > 0) {
+        const { error } = await supabase.from('tickets').insert(toCreate);
+        if (error) { recordsFailed += toCreate.length; errors.push(`Bulk insert: ${error.message}`); }
+        else { recordsSynced += toCreate.length; }
+      }
+
+      // Batch update existing tickets (parallel batches of 20)
+      const BATCH_SIZE = 20;
+      for (let i = 0; i < toUpdate.length; i += BATCH_SIZE) {
+        const batch = toUpdate.slice(i, i + BATCH_SIZE);
+        const results = await Promise.allSettled(
+          batch.map(item => supabase.from('tickets').update(item.data).eq('id', item.id))
+        );
+        for (const r of results) {
+          if (r.status === 'fulfilled' && !r.value.error) recordsSynced++;
+          else recordsFailed++;
         }
       }
 

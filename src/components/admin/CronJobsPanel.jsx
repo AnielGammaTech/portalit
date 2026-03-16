@@ -61,6 +61,7 @@ export default function CronJobsPanel() {
     queryKey: ['cron_history', expandedJob],
     queryFn: () => client.cronJobs.getHistory(expandedJob, 20),
     enabled: !!expandedJob,
+    placeholderData: undefined, // prevent stale data flash when switching jobs
   });
 
   const jobs = jobsData?.jobs || [];

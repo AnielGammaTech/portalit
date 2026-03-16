@@ -12,19 +12,47 @@ import { getServiceSupabase } from '../lib/supabase.js';
  *   sync_all         – Sync all mapped customers
  */
 
+// Validate instance URL to prevent SSRF
+function validateInstanceUrl(url) {
+  let parsed;
+  try { parsed = new URL(url); } catch { throw new Error('Invalid instance URL'); }
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error('Only http/https URLs are allowed');
+  }
+  const hostname = parsed.hostname.toLowerCase();
+  const blocked = [
+    /^localhost$/, /^127\./, /^10\./, /^172\.(1[6-9]|2\d|3[01])\./,
+    /^192\.168\./, /^169\.254\./, /^0\./, /^\[::1\]/, /^metadata\./, /\.internal$/,
+  ];
+  if (blocked.some(re => re.test(hostname))) {
+    throw new Error('Instance URL points to a restricted address');
+  }
+  return url;
+}
+
 async function get3CXToken(instanceUrl, apiKey, apiSecret) {
+  validateInstanceUrl(instanceUrl);
   // 3CX v18+ uses /webclient/api/ endpoints with bearer token
   // Try API key auth first (3CX Connect / Cloud)
   const loginUrl = `${instanceUrl.replace(/\/$/, '')}/webclient/api/Login/GetAccessToken`;
 
-  const response = await fetch(loginUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      SecurityCode: apiKey,
-      ...(apiSecret ? { Password: apiSecret } : {})
-    })
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+  let response;
+  try {
+    response = await fetch(loginUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        SecurityCode: apiKey,
+        ...(apiSecret ? { Password: apiSecret } : {})
+      }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -37,12 +65,25 @@ async function get3CXToken(instanceUrl, apiKey, apiSecret) {
 
 async function threecxApiCall(instanceUrl, token, endpoint) {
   const baseUrl = instanceUrl.replace(/\/$/, '');
-  const response = await fetch(`${baseUrl}/webclient/api${endpoint}`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Accept': 'application/json'
-    }
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+  let response;
+  try {
+    response = await fetch(`${baseUrl}/webclient/api${endpoint}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      },
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') throw new Error(`3CX API timeout for ${endpoint}`);
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const errorText = await response.text();

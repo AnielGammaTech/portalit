@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueries } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import {
   INTEGRATION_MAPPING_ENTITIES,
@@ -42,15 +42,20 @@ export function useReconciliationData(customerId) {
     staleTime: 1000 * 60 * 5,
   });
 
-  // 4. Fetch all integration mapping tables
-  const mappingQueries = {};
-  for (const [key, entityName] of Object.entries(INTEGRATION_MAPPING_ENTITIES)) {
-    mappingQueries[key] = useQuery({
+  // 4. Fetch all integration mapping tables (useQueries to avoid hooks-in-loop)
+  const mappingEntries = Object.entries(INTEGRATION_MAPPING_ENTITIES);
+  const mappingQueryResults = useQueries({
+    queries: mappingEntries.map(([key, entityName]) => ({
       queryKey: [`${key}_mappings`],
       queryFn: () => client.entities[entityName].list(),
       staleTime: 1000 * 60 * 5,
-    });
-  }
+    })),
+  });
+  // Build a keyed object from the results array
+  const mappingQueries = {};
+  mappingEntries.forEach(([key], idx) => {
+    mappingQueries[key] = mappingQueryResults[idx];
+  });
 
   // 5. Fetch reviews (all or for specific customer)
   const { data: reviews = [], isLoading: loadingReviews } = useQuery({

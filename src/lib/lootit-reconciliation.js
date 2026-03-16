@@ -261,10 +261,10 @@ export function reconcilePax8Products(lineItems, pax8Mapping) {
     const productName = (product.name || '').toLowerCase();
 
     // Find matching PSA line items by product name substring match
+    // Require product name to be at least 4 chars to avoid false positives on short names
     const matched = lineItems.filter((li) => {
       const desc = (li.description || '').toLowerCase();
-      // Try matching on product name keywords
-      return productName && desc.includes(productName);
+      return productName && productName.length >= 4 && desc.includes(productName);
     });
 
     // If no exact match, try matching key words (e.g. "Business Premium" in both)

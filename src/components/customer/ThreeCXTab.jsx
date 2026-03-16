@@ -25,7 +25,8 @@ import { toast } from 'sonner';
 export default function ThreeCXTab({ customerId, threecxMapping, queryClient: qc }) {
   const [syncing, setSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const queryClient = qc || useQueryClient();
+  const internalQC = useQueryClient();
+  const queryClient = qc || internalQC;
 
   const cached = threecxMapping?.cached_data;
   const extensions = cached?.extensions || [];

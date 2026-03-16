@@ -286,9 +286,10 @@ function GammaStackITPanel() {
   const generateApiKey = async () => {
     setGenerating(true);
     try {
-      const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-      let key = 'gs_';
-      for (let i = 0; i < 32; i++) key += chars.charAt(Math.floor(Math.random() * chars.length));
+      // Use crypto.getRandomValues for cryptographically secure key generation
+      const array = new Uint8Array(32);
+      crypto.getRandomValues(array);
+      const key = 'gs_' + Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
       await client.auth.updateMe({ gammastack_api_key: key });
       setApiKey(key);
       toast.success('New API key generated!');

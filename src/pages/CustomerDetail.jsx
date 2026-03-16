@@ -68,7 +68,7 @@ export default function CustomerDetail() {
   const [showAddContact, setShowAddContact] = useState(false);
   const queryClient = useQueryClient();
   const params = new URLSearchParams(window.location.search);
-  let customerId = params.get('id');
+  const customerIdParam = params.get('id');
 
   useEffect(() => {
     const loadUser = async () => {
@@ -90,16 +90,14 @@ export default function CustomerDetail() {
   });
 
   // If no customerId in URL, use the user's assigned customer_id
-  const customer = customerId 
-    ? customers.find(c => c.id === customerId)
+  const customer = customerIdParam
+    ? customers.find(c => c.id === customerIdParam)
     : user?.customer_id
       ? customers.find(c => c.id === user.customer_id)
       : null;
-  
-  // Update customerId if found through email matching
-  if (!customerId && customer) {
-    customerId = customer.id;
-  }
+
+  // Derive customerId from URL param or matched customer
+  const customerId = customerIdParam || customer?.id || null;
 
   const { data: contracts = [], isLoading: loadingContracts } = useQuery({
     queryKey: ['contracts', customerId],
@@ -132,10 +130,11 @@ export default function CustomerDetail() {
     enabled: !!customerId
   });
 
+  const recurringBillIds = recurringBills.map(b => b.id).sort();
   const { data: lineItems = [], isLoading: loadingLineItems } = useQuery({
-    queryKey: ['line_items', customerId],
+    queryKey: ['line_items', customerId, recurringBillIds],
     queryFn: () => client.entities.RecurringBillLineItem.filterIn(
-      'recurring_bill_id', recurringBills.map(b => b.id)
+      'recurring_bill_id', recurringBillIds
     ),
     enabled: !!customerId && recurringBills.length > 0
   });
@@ -164,26 +163,29 @@ export default function CustomerDetail() {
         enabled: !!customerId
       });
 
+  const quoteIds = quotes.map(q => q.id).sort();
   const { data: quoteItems = [], isLoading: loadingQuoteItems } = useQuery({
-        queryKey: ['quote_items', customerId],
+        queryKey: ['quote_items', customerId, quoteIds],
         queryFn: () => client.entities.QuoteItem.filterIn(
-          'quote_id', quotes.map(q => q.id)
+          'quote_id', quoteIds
         ),
         enabled: !!customerId && quotes.length > 0
       });
 
+      const invoiceIds = invoices.map(i => i.id).sort();
       const { data: invoiceLineItems = [], isLoading: loadingInvoiceLineItems } = useQuery({
-        queryKey: ['invoice_line_items', customerId],
+        queryKey: ['invoice_line_items', customerId, invoiceIds],
         queryFn: () => client.entities.InvoiceLineItem.filterIn(
-          'invoice_id', invoices.map(i => i.id)
+          'invoice_id', invoiceIds
         ),
         enabled: !!customerId && invoices.length > 0
       });
 
+  const contractIds = contracts.map(c => c.id).sort();
   const { data: contractItems = [], isLoading: loadingContractItems } = useQuery({
-    queryKey: ['contract_items', customerId],
+    queryKey: ['contract_items', customerId, contractIds],
     queryFn: () => client.entities.ContractItem.filterIn(
-      'contract_id', contracts.map(c => c.id)
+      'contract_id', contractIds
     ),
     enabled: !!customerId && contracts.length > 0
   });
@@ -280,10 +282,10 @@ export default function CustomerDetail() {
 
   const handleAddSoftware = async (softwareData) => {
     setShowAddSoftware(false);
-    toast.success('Software added!');
-    
+
     // Create the software in the Application catalog
     const newApp = await client.entities.Application.create(softwareData);
+    toast.success('Software added!');
     
     // Pre-populate the query cache for instant load
     queryClient.setQueryData(['application', newApp.id], newApp);

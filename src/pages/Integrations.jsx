@@ -120,27 +120,33 @@ const CATEGORIES = [
 // ── Mapping count queries ────────────────────────────────────────────────
 
 function useMappingCounts() {
-  const { data: datto = [] } = useQuery({ queryKey: ['datto_mappings'], queryFn: () => client.entities.DattoSiteMapping.list() });
-  const { data: edr = [] } = useQuery({ queryKey: ['edr_mappings'], queryFn: () => client.entities.DattoEDRMapping.list() });
-  const { data: rc = [] } = useQuery({ queryKey: ['rocketcyber_mappings'], queryFn: () => client.entities.RocketCyberMapping.list() });
-  const { data: jc = [] } = useQuery({ queryKey: ['jumpcloud_mappings'], queryFn: () => client.entities.JumpCloudMapping.list() });
-  const { data: sp = [] } = useQuery({ queryKey: ['spanning_mappings'], queryFn: () => client.entities.SpanningMapping.list() });
-  const { data: cove = [] } = useQuery({ queryKey: ['cove_mappings'], queryFn: () => client.entities.CoveDataMapping.list() });
-  const { data: unifi = [] } = useQuery({ queryKey: ['unifi_mappings'], queryFn: () => client.entities.UniFiMapping.list() });
-  const { data: saas = [] } = useQuery({ queryKey: ['saas_alerts_mappings'], queryFn: () => client.entities.SaaSAlertsMapping.list() });
-  const { data: threecx = [] } = useQuery({ queryKey: ['threecx_mappings'], queryFn: () => client.entities.ThreeCXMapping.list() });
+  const MAPPING_ENTITIES = [
+    ['DattoSiteMapping', 'datto_mappings'],
+    ['DattoEDRMapping', 'edr_mappings'],
+    ['RocketCyberMapping', 'rocketcyber_mappings'],
+    ['JumpCloudMapping', 'jumpcloud_mappings'],
+    ['SpanningMapping', 'spanning_mappings'],
+    ['CoveDataMapping', 'cove_mappings'],
+    ['UniFiMapping', 'unifi_mappings'],
+    ['SaaSAlertsMapping', 'saas_alerts_mappings'],
+    ['ThreeCXMapping', 'threecx_mappings'],
+  ];
 
-  return {
-    DattoSiteMapping: datto.length,
-    DattoEDRMapping: edr.length,
-    RocketCyberMapping: rc.length,
-    JumpCloudMapping: jc.length,
-    SpanningMapping: sp.length,
-    CoveDataMapping: cove.length,
-    UniFiMapping: unifi.length,
-    SaaSAlertsMapping: saas.length,
-    ThreeCXMapping: threecx.length,
-  };
+  const { data: counts = {} } = useQuery({
+    queryKey: ['mapping_counts'],
+    queryFn: async () => {
+      const results = await Promise.all(
+        MAPPING_ENTITIES.map(async ([entityName, _key]) => {
+          const count = await client.entities[entityName].count();
+          return [entityName, count];
+        })
+      );
+      return Object.fromEntries(results);
+    },
+    staleTime: 1000 * 60 * 2,
+  });
+
+  return counts;
 }
 
 // ── Status badge ─────────────────────────────────────────────────────────

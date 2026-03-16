@@ -1,17 +1,6 @@
 import { getServiceSupabase } from '../lib/supabase.js';
 import { getHaloConfig, haloGet, extractRecords } from '../lib/halopsa.js';
 
-// Helper: Fetch line items for a specific recurring invoice
-async function fetchLineItemsForBill(billId, config) {
-  try {
-    const data = await haloGet(`RecurringInvoiceLineItem?recurringinvoice_id=${billId}`, config);
-    return extractRecords(data, 'line_items');
-  } catch (err) {
-    console.log(`Could not fetch line items for bill ${billId}: ${err.message}`);
-    return [];
-  }
-}
-
 // Transform HaloPSA bill data to RecurringBill schema
 function transformRecurringBill(haloBill, customerId) {
   return {

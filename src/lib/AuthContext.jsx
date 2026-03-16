@@ -95,14 +95,16 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      // On timeout or error, clear the stale session so the user
+      // On timeout, clear the stale session so the user
       // isn't stuck in a loop on next reload.
       if (error.message === 'Auth check timed out') {
         console.warn('Auth timed out — clearing stale session');
         await supabase.auth.signOut().catch(() => {});
+        setAuthError(null);
+      } else {
+        setAuthError(error.message || 'Authentication failed');
       }
       setIsAuthenticated(false);
-      setAuthError(null);
     } finally {
       initialCheckDone.current = true;
       setIsLoadingAuth(false);
