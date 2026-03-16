@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
+import pdfParse from 'pdf-parse';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { getServiceSupabase } from '../lib/supabase.js';
 
@@ -69,11 +70,28 @@ async function getFileContentType(url) {
   return response.headers.get('content-type') || 'application/pdf';
 }
 
+/**
+ * Download a PDF from a URL and extract its text content server-side.
+ * This bypasses the Anthropic 100-page PDF limit entirely.
+ */
+async function extractPdfText(url) {
+  const safeUrl = validateFileUrl(url);
+  const response = await fetch(safeUrl);
+  if (!response.ok) {
+    throw new Error(`Failed to download PDF: ${response.status}`);
+  }
+  const arrayBuffer = await response.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  const parsed = await pdfParse(buffer);
+  const pageCount = parsed.numpages || 0;
+  console.log(`[LLM] Extracted text from PDF: ${pageCount} pages, ${parsed.text.length} chars`);
+  return { text: parsed.text, pageCount };
+}
+
 async function invokeAnthropic(prompt, model, jsonSchema, fileUrls) {
   const anthropic = getAnthropic();
 
   // Build content blocks: files first, then prompt text
-  // Use URL source directly — no base64 conversion needed
   const contentBlocks = [];
 
   if (fileUrls?.length) {
@@ -82,9 +100,11 @@ async function invokeAnthropic(prompt, model, jsonSchema, fileUrls) {
       const contentType = await getFileContentType(safeUrl);
 
       if (contentType.includes('pdf')) {
+        // Extract text server-side to bypass Anthropic's 100-page PDF limit
+        const { text, pageCount } = await extractPdfText(safeUrl);
         contentBlocks.push({
-          type: 'document',
-          source: { type: 'url', url: safeUrl },
+          type: 'text',
+          text: `[PDF Document — ${pageCount} pages]\n\n${text}`,
         });
       } else if (contentType.startsWith('image/')) {
         contentBlocks.push({
@@ -116,7 +136,6 @@ async function invokeOpenAI(prompt, model, jsonSchema, fileUrls) {
   const openai = getOpenAI();
 
   // Build content parts: files first, then prompt text
-  // OpenAI supports image URLs directly, no base64 needed
   const contentParts = [];
 
   if (fileUrls?.length) {
@@ -130,8 +149,12 @@ async function invokeOpenAI(prompt, model, jsonSchema, fileUrls) {
           image_url: { url: safeUrl },
         });
       } else if (contentType.includes('pdf')) {
-        // OpenAI Chat Completions doesn't support PDF natively — skip attachment
-        console.warn('[LLM] OpenAI: PDF files not supported in Chat Completions API, skipping');
+        // Extract text server-side — OpenAI Chat Completions doesn't support PDF natively
+        const { text, pageCount } = await extractPdfText(safeUrl);
+        contentParts.push({
+          type: 'text',
+          text: `[PDF Document — ${pageCount} pages]\n\n${text}`,
+        });
       }
     }
   }
