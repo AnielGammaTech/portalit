@@ -129,6 +129,7 @@ const ENTITY_TABLE_MAP = {
   InkyReport: 'inky_reports',
   InvoiceLineItem: 'invoice_line_items',
   JumpCloudMapping: 'jump_cloud_mappings',
+  LootITContract: 'lootit_contracts',
   LicenseAssignment: 'license_assignments',
   Pax8LineItemOverride: 'pax8_line_item_overrides',
   Pax8Mapping: 'pax8_mappings',

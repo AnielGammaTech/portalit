@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
-import { ArrowLeft, Filter, Check, X, ChevronRight, RotateCcw, RefreshCw, AlertTriangle, Link2, Search, Trash2, StickyNote, Settings2, Save } from 'lucide-react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import React, { useState, useMemo, useRef } from 'react';
+import { ArrowLeft, Filter, Check, X, ChevronRight, RotateCcw, RefreshCw, AlertTriangle, Link2, Search, Trash2, StickyNote, Settings2, Save, Upload, FileText, Download, Loader2 } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
-import { client } from '@/api/client';
+import { client, supabase } from '@/api/client';
 import { useReconciliationData } from '@/hooks/useReconciliationData';
 import { useReconciliationReviews } from '@/hooks/useReconciliationReviews';
+import { useAuth } from '@/lib/AuthContext';
 import { getDiscrepancySummary, getDiscrepancyMessage } from '@/lib/lootit-reconciliation';
 import ServiceCard from './ServiceCard';
 import ReconciliationBadge from './ReconciliationBadge';
@@ -18,6 +19,8 @@ export default function LootITCustomerDetail({ customer, onBack }) {
   const [mappingRecon, setMappingRecon] = useState(null); // { ruleId, productName } being mapped
 
   const [editingRule, setEditingRule] = useState(null); // rule being edited
+  const fileInputRef = useRef(null);
+  const { user } = useAuth();
 
   const { reconciliations, isLoading } = useReconciliationData(customer.id);
   const { markReviewed, dismiss, resetReview, saveNotes, isSaving } = useReconciliationReviews(customer.id);
@@ -66,6 +69,62 @@ export default function LootITCustomerDetail({ customer, onBack }) {
     }
     await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides', customer.id] });
     await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides_all'] });
+  };
+
+  // ── Contracts ──
+  const { data: contracts = [] } = useQuery({
+    queryKey: ['lootit_contracts', customer.id],
+    queryFn: () => client.entities.LootITContract.filter({ customer_id: customer.id }, '-created_date'),
+    staleTime: 1000 * 60 * 2,
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: async (file) => {
+      const ext = file.name.split('.').pop();
+      const path = `${customer.id}/${Date.now()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from('lootit-contracts')
+        .upload(path, file);
+      if (uploadErr) throw uploadErr;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('lootit-contracts')
+        .getPublicUrl(path);
+
+      await client.entities.LootITContract.create({
+        customer_id: customer.id,
+        file_name: file.name,
+        file_url: path,
+        file_size: file.size,
+        uploaded_by: user?.id || null,
+      });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['lootit_contracts', customer.id] }),
+  });
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (file) uploadMutation.mutate(file);
+    e.target.value = '';
+  };
+
+  const handleDownloadContract = async (contract) => {
+    const { data, error } = await supabase.storage
+      .from('lootit-contracts')
+      .download(contract.file_url);
+    if (error) return;
+    const url = URL.createObjectURL(data);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = contract.file_name;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDeleteContract = async (contract) => {
+    await supabase.storage.from('lootit-contracts').remove([contract.file_url]);
+    await client.entities.LootITContract.delete(contract.id);
+    await queryClient.invalidateQueries({ queryKey: ['lootit_contracts', customer.id] });
   };
 
   const handleSync = async () => {
@@ -248,6 +307,69 @@ export default function LootITCustomerDetail({ customer, onBack }) {
           </div>
         </div>
       )}
+
+      {/* Contracts Section */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-slate-700">Contracts</h3>
+          <div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadMutation.isPending}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-pink-50 text-pink-600 hover:bg-pink-100 transition-colors disabled:opacity-50"
+            >
+              {uploadMutation.isPending ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Upload className="w-3.5 h-3.5" />
+              )}
+              {uploadMutation.isPending ? 'Uploading…' : 'Upload'}
+            </button>
+          </div>
+        </div>
+
+        {contracts.length === 0 ? (
+          <div className="bg-white rounded-xl border border-slate-200 p-6 text-center">
+            <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+            <p className="text-xs text-slate-400">No contracts uploaded yet</p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
+            {contracts.map((c) => (
+              <div key={c.id} className="flex items-center gap-3 px-4 py-3">
+                <FileText className="w-5 h-5 text-pink-400 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-700 truncate">{c.file_name}</p>
+                  <p className="text-[10px] text-slate-400">
+                    {c.file_size ? `${(c.file_size / 1024).toFixed(0)} KB` : ''} · {new Date(c.created_date).toLocaleDateString()}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleDownloadContract(c)}
+                  className="text-slate-400 hover:text-pink-500 transition-colors"
+                  title="Download"
+                >
+                  <Download className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleDeleteContract(c)}
+                  className="text-slate-400 hover:text-red-500 transition-colors"
+                  title="Delete"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Details Drawer */}
       {detailItem && (
