@@ -63,35 +63,33 @@ function validateFileUrl(url) {
   return url;
 }
 
-async function fetchFileAsBase64(url) {
+async function getFileContentType(url) {
   const safeUrl = validateFileUrl(url);
-  const response = await fetch(safeUrl);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch file: ${response.status}`);
-  }
-  const contentType = response.headers.get('content-type') || 'application/pdf';
-  const buffer = Buffer.from(await response.arrayBuffer());
-  return { base64: buffer.toString('base64'), contentType };
+  const response = await fetch(safeUrl, { method: 'HEAD' });
+  return response.headers.get('content-type') || 'application/pdf';
 }
 
 async function invokeAnthropic(prompt, model, jsonSchema, fileUrls) {
   const anthropic = getAnthropic();
 
   // Build content blocks: files first, then prompt text
+  // Use URL source directly — no base64 conversion needed
   const contentBlocks = [];
 
   if (fileUrls?.length) {
-    for (const url of fileUrls) {
-      const { base64, contentType } = await fetchFileAsBase64(url);
+    for (const fileUrl of fileUrls) {
+      const safeUrl = validateFileUrl(fileUrl);
+      const contentType = await getFileContentType(safeUrl);
+
       if (contentType.includes('pdf')) {
         contentBlocks.push({
           type: 'document',
-          source: { type: 'base64', media_type: 'application/pdf', data: base64 },
+          source: { type: 'url', url: safeUrl },
         });
       } else if (contentType.startsWith('image/')) {
         contentBlocks.push({
           type: 'image',
-          source: { type: 'base64', media_type: contentType, data: base64 },
+          source: { type: 'url', url: safeUrl },
         });
       }
     }
@@ -118,15 +116,18 @@ async function invokeOpenAI(prompt, model, jsonSchema, fileUrls) {
   const openai = getOpenAI();
 
   // Build content parts: files first, then prompt text
+  // OpenAI supports image URLs directly, no base64 needed
   const contentParts = [];
 
   if (fileUrls?.length) {
-    for (const url of fileUrls) {
-      const { base64, contentType } = await fetchFileAsBase64(url);
+    for (const fileUrl of fileUrls) {
+      const safeUrl = validateFileUrl(fileUrl);
+      const contentType = await getFileContentType(safeUrl);
+
       if (contentType.startsWith('image/')) {
         contentParts.push({
           type: 'image_url',
-          image_url: { url: `data:${contentType};base64,${base64}` },
+          image_url: { url: safeUrl },
         });
       } else if (contentType.includes('pdf')) {
         // OpenAI Chat Completions doesn't support PDF natively — skip attachment
