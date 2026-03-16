@@ -170,25 +170,68 @@ export async function syncDmarcReport(body, user) {
 
     const domainStats = await Promise.all(
       domains.map(async (domain) => {
+        const domId = domain.id;
+        const base = `${DMARC_API_BASE}/accounts/${accountId}/domains/${domId}`;
+
+        // Fetch aggregate stats
         let stats = null;
         try {
-          const statsUrl = `${DMARC_API_BASE}/accounts/${accountId}/domains/${domain.id}/agg_reports/agg_report_stats?q[start_date]=${startDate}&q[end_date]=${endDate}`;
-          const statsRes = await fetch(statsUrl, { headers });
-          if (statsRes.ok) {
-            stats = await statsRes.json();
+          const statsRes = await fetch(`${base}/agg_reports/agg_report_stats?q[start_date]=${startDate}&q[end_date]=${endDate}`, { headers });
+          if (statsRes.ok) stats = await statsRes.json();
+        } catch { /* ignore */ }
+
+        // Fetch top senders / source breakdown
+        let topSources = [];
+        try {
+          const srcRes = await fetch(`${base}/agg_reports/agg_report_sources?q[start_date]=${startDate}&q[end_date]=${endDate}`, { headers });
+          if (srcRes.ok) {
+            const srcData = await srcRes.json();
+            const sources = Array.isArray(srcData) ? srcData : (srcData?.sources || srcData?.data || []);
+            topSources = sources.slice(0, 10).map(s => ({
+              source_ip: s.source_ip || s.ip || '',
+              org: s.org || s.organization || s.source_name || '',
+              hostname: s.hostname || s.reverse_dns || '',
+              count: s.count || s.total || 0,
+              spf_pass: s.spf_pass || s.spf_aligned || 0,
+              dkim_pass: s.dkim_pass || s.dkim_aligned || 0,
+              compliant: s.compliant || 0,
+              non_compliant: s.non_compliant || 0,
+            }));
+          }
+        } catch { /* ignore */ }
+
+        // Fetch domain detail (SPF, DKIM, DMARC records)
+        let dnsRecords = {};
+        try {
+          const detailRes = await fetch(`${base}`, { headers });
+          if (detailRes.ok) {
+            const detail = await detailRes.json();
+            const d = detail?.domain || detail || {};
+            dnsRecords = {
+              spf_record: d.spf_record || d.spf || null,
+              spf_status: d.spf_status || d.spf_valid || null,
+              dkim_record: d.dkim_record || d.dkim || null,
+              dkim_status: d.dkim_status || d.dkim_valid || null,
+              dmarc_record: d.dmarc_record || d.dmarc || null,
+              dmarc_policy: d.dmarc_policy || d.policy || null,
+              bimi_record: d.bimi_record || d.bimi || null,
+              mx_records: d.mx_records || d.mx || null,
+            };
           }
         } catch { /* ignore */ }
 
         return {
-          id: domain.id,
+          id: domId,
           address: domain.address || domain.name || domain.domain,
           slug: domain.slug || '',
           dmarc_status: domain.dmarc_status || domain.status || 'unknown',
           mta_sts_status: domain.mta_sts_status || null,
-          rua_report: domain.rua_report || null,
-          ruf_report: domain.ruf_report || null,
+          rua_report: domain.rua_report ?? null,
+          ruf_report: domain.ruf_report ?? null,
           parked_domain: domain.parked_domain || false,
           tags: domain.tags || [],
+          dns: dnsRecords,
+          top_sources: topSources,
           stats: stats || { compliant: 0, non_compliant: 0, forwarded: 0, total: 0, none: 0, quarantine: 0, reject: 0 },
         };
       })
