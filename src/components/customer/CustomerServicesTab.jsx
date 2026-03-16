@@ -314,7 +314,7 @@ export default function CustomerServicesTab({
       if (response.success) {
         updateSyncStatus('halopsa', 'success');
         toast.success(`HaloPSA: Synced ${response.recordsSynced || 0} contacts`);
-        queryClient.invalidateQueries();
+        queryClient.invalidateQueries({ queryKey: ['contacts', customerId] });
       } else {
         updateSyncStatus('halopsa', 'error', response.error);
         toast.error(response.error || 'HaloPSA sync failed');
@@ -339,7 +339,7 @@ export default function CustomerServicesTab({
       if (response.success) {
         updateSyncStatus('datto', 'success');
         toast.success(`Datto: Synced ${response.recordsSynced || 0} devices`);
-        queryClient.invalidateQueries();
+        queryClient.invalidateQueries({ queryKey: ['devices', customerId] });
       } else {
         updateSyncStatus('datto', 'error', response.error);
         toast.error(response.error || 'Datto sync failed');
@@ -444,7 +444,10 @@ export default function CustomerServicesTab({
 
       if (results.length > 0) {
         toast.success(`Synced: ${results.join(', ')}`);
-        queryClient.invalidateQueries();
+        queryClient.invalidateQueries({ queryKey: ['contacts', customerId] });
+        queryClient.invalidateQueries({ queryKey: ['devices', customerId] });
+        queryClient.invalidateQueries({ queryKey: ['jumpcloud-contacts', customerId] });
+        queryClient.invalidateQueries({ queryKey: ['spanning-contacts', customerId] });
       }
       if (errors.length > 0) {
         toast.error(`Failed: ${errors.join(', ')}`);

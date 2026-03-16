@@ -1,22 +1,88 @@
 import { Router } from 'express';
 import { requireAdmin } from '../middleware/auth.js';
+import { createRateLimiter } from '../middleware/rate-limit.js';
 import { getServiceSupabase } from '../lib/supabase.js';
 import { sendEmail, isEmailConfigured } from '../lib/email.js';
 import { welcomeEmailTemplate, otpEmailTemplate } from '../lib/email-templates.js';
 
 const router = Router();
 
+// ── Input validation helpers ─────────────────────────────────────────
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const VALID_ROLES = ['admin', 'sales', 'user'];
+
+function isValidEmail(email) {
+  return typeof email === 'string' && EMAIL_RE.test(email) && email.length <= 254;
+}
+
+function sanitizeName(name) {
+  if (typeof name !== 'string') return '';
+  // Strip HTML tags and trim whitespace
+  return name.replace(/<[^>]*>/g, '').trim().slice(0, 200);
+}
+
 // ── In-memory OTP store (codes expire after 10 minutes) ──────────────
 
 const otpStore = new Map(); // email → { code, expiresAt }
+
+// ── OTP rate limiting stores ─────────────────────────────────────────
+// email → { count, resetAt } for send and verify separately
+const otpSendLimits = new Map();   // max 5 per email per hour
+const otpVerifyLimits = new Map(); // max 10 per email per hour
+
+const OTP_SEND_WINDOW_MS = 60 * 60 * 1000;   // 1 hour
+const OTP_SEND_MAX = 5;
+const OTP_VERIFY_WINDOW_MS = 60 * 60 * 1000;  // 1 hour
+const OTP_VERIFY_MAX = 10;
+
+function checkEmailRateLimit(store, email, windowMs, max) {
+  const now = Date.now();
+  const entry = store.get(email);
+
+  if (!entry || now > entry.resetAt) {
+    store.set(email, { count: 1, resetAt: now + windowMs });
+    return { allowed: true };
+  }
+
+  if (entry.count >= max) {
+    const retryAfterSeconds = Math.ceil((entry.resetAt - now) / 1000);
+    return { allowed: false, retryAfterSeconds };
+  }
+
+  store.set(email, { ...entry, count: entry.count + 1 });
+  return { allowed: true };
+}
+
+// IP-based brute force rate limiters for OTP endpoints
+const otpSendIpLimiter = createRateLimiter({
+  storeId: 'otp-send-ip',
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 15,
+  message: 'Too many OTP requests from this IP. Please try again later.',
+});
+
+const otpVerifyIpLimiter = createRateLimiter({
+  storeId: 'otp-verify-ip',
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30,
+  message: 'Too many verification attempts from this IP. Please try again later.',
+});
 
 function generateOtp() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
 function cleanExpiredOtps() {
+  const now = Date.now();
   for (const [key, val] of otpStore) {
-    if (val.expiresAt < Date.now()) otpStore.delete(key);
+    if (val.expiresAt < now) otpStore.delete(key);
+  }
+  for (const [key, val] of otpSendLimits) {
+    if (now > val.resetAt) otpSendLimits.delete(key);
+  }
+  for (const [key, val] of otpVerifyLimits) {
+    if (now > val.resetAt) otpVerifyLimits.delete(key);
   }
 }
 
@@ -28,10 +94,14 @@ function getPortalUrl() {
 
 router.post('/invite', requireAdmin, async (req, res, next) => {
   try {
-    const { email, role, invite_type, customer_id, full_name } = req.body;
+    const { email, role, invite_type, customer_id } = req.body;
+    const full_name = sanitizeName(req.body.full_name);
 
     if (!email || !full_name) {
       return res.status(400).json({ error: 'Email and full name are required' });
+    }
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
     }
     if (!invite_type || !['customer', 'tech'].includes(invite_type)) {
       return res.status(400).json({ error: 'invite_type must be "customer" or "tech"' });
@@ -41,6 +111,9 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
     }
     if (invite_type === 'tech' && !['admin', 'sales'].includes(role)) {
       return res.status(400).json({ error: 'role must be "admin" or "sales" for tech invitations' });
+    }
+    if (role && !VALID_ROLES.includes(role)) {
+      return res.status(400).json({ error: `Invalid role. Must be one of: ${VALID_ROLES.join(', ')}` });
     }
 
     const finalRole = invite_type === 'customer' ? 'user' : role;
@@ -148,14 +221,30 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
 
 // ── POST /api/users/send-otp ───────────────────────────────────────────
 
-router.post('/send-otp', async (req, res, next) => {
+router.post('/send-otp', otpSendIpLimiter, async (req, res, next) => {
   try {
     const { email } = req.body;
     if (!email) {
       return res.status(400).json({ error: 'Email is required' });
     }
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
 
     const lowerEmail = email.toLowerCase();
+
+    // Per-email rate limit: max 5 OTP sends per hour
+    const emailLimit = checkEmailRateLimit(
+      otpSendLimits, lowerEmail, OTP_SEND_WINDOW_MS, OTP_SEND_MAX
+    );
+    if (!emailLimit.allowed) {
+      console.warn(`OTP send rate limit exceeded for ${lowerEmail} from IP ${req.ip}`);
+      res.set('Retry-After', String(emailLimit.retryAfterSeconds));
+      return res.status(429).json({
+        error: 'Too many code requests for this email. Please try again later.',
+      });
+    }
+
     const supabase = getServiceSupabase();
 
     const { data: users } = await supabase
@@ -165,12 +254,15 @@ router.post('/send-otp', async (req, res, next) => {
       .limit(1);
 
     if (!users || users.length === 0) {
-      return res.status(404).json({ error: 'No account found with this email' });
+      // Return generic success to prevent email enumeration
+      return res.json({ success: true, email: lowerEmail });
     }
 
     const code = generateOtp();
     otpStore.set(lowerEmail, { code, expiresAt: Date.now() + 10 * 60 * 1000 });
     cleanExpiredOtps();
+
+    console.log(`OTP sent to ${lowerEmail} from IP ${req.ip}`);
 
     const firstName = users[0].full_name?.split(' ')[0] || 'there';
 
@@ -193,14 +285,30 @@ router.post('/send-otp', async (req, res, next) => {
 
 // ── POST /api/users/verify-otp ─────────────────────────────────────────
 
-router.post('/verify-otp', async (req, res, next) => {
+router.post('/verify-otp', otpVerifyIpLimiter, async (req, res, next) => {
   try {
     const { email, code } = req.body;
     if (!email || !code) {
       return res.status(400).json({ error: 'Email and code are required' });
     }
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
 
     const lowerEmail = email.toLowerCase();
+
+    // Per-email rate limit: max 10 verify attempts per hour
+    const emailLimit = checkEmailRateLimit(
+      otpVerifyLimits, lowerEmail, OTP_VERIFY_WINDOW_MS, OTP_VERIFY_MAX
+    );
+    if (!emailLimit.allowed) {
+      console.warn(`OTP verify rate limit exceeded for ${lowerEmail} from IP ${req.ip}`);
+      res.set('Retry-After', String(emailLimit.retryAfterSeconds));
+      return res.status(429).json({
+        error: 'Too many verification attempts. Please try again later.',
+      });
+    }
+
     const stored = otpStore.get(lowerEmail);
 
     if (!stored) {
@@ -210,12 +318,14 @@ router.post('/verify-otp', async (req, res, next) => {
       otpStore.delete(lowerEmail);
       return res.status(400).json({ error: 'Code has expired. Please request a new one.' });
     }
-    if (stored.code !== code.trim()) {
+    if (stored.code !== String(code).trim()) {
+      console.warn(`Invalid OTP attempt for ${lowerEmail} from IP ${req.ip}`);
       return res.status(400).json({ error: 'Invalid code. Please check and try again.' });
     }
 
     // Code is valid — consume it
     otpStore.delete(lowerEmail);
+    console.log(`OTP verified for ${lowerEmail} from IP ${req.ip}`);
 
     const supabase = getServiceSupabase();
 

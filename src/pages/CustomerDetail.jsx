@@ -506,7 +506,13 @@ export default function CustomerDetail() {
 
       if (results.length > 0) {
         toast.success(`Synced: ${results.join(', ')}`);
-        queryClient.invalidateQueries();
+        queryClient.invalidateQueries({ queryKey: ['contracts', customerId] });
+        queryClient.invalidateQueries({ queryKey: ['recurring_bills', customerId] });
+        queryClient.invalidateQueries({ queryKey: ['invoices', customerId] });
+        queryClient.invalidateQueries({ queryKey: ['tickets', customerId] });
+        queryClient.invalidateQueries({ queryKey: ['contacts', customerId] });
+        queryClient.invalidateQueries({ queryKey: ['devices', customerId] });
+        queryClient.invalidateQueries({ queryKey: ['license_assignments', customerId] });
       }
       if (errors.length > 0) {
         toast.error(`Failed: ${errors.join(', ')}`);

@@ -219,23 +219,44 @@ function CustomerDashboard({ customer }) {
         a.title?.includes('Removed from HaloPSA')
       );
       
-      // For each alert, get the contact's license assignments
-      const alertsWithLicenses = await Promise.all(recentAlerts.map(async (alert) => {
+      // Parse metadata for all alerts up front
+      const alertsWithMeta = recentAlerts.map(alert => {
         let metadata = {};
         try { metadata = alert.metadata ? JSON.parse(alert.metadata) : {}; } catch { /* skip malformed */ }
-        if (metadata.contact_id) {
-          const assignments = await client.entities.LicenseAssignment.filter({
-            contact_id: metadata.contact_id,
-            status: 'active'
-          });
-          // Get license details
-          const licenseDetails = await Promise.all(assignments.map(async (a) => {
-            const licenses = await client.entities.SaaSLicense.filter({ id: a.license_id });
-            return licenses[0]?.application_name || 'Unknown License';
-          }));
-          return { ...alert, metadata, licenseNames: licenseDetails };
-        }
-        return { ...alert, metadata, licenseNames: [] };
+        return { ...alert, metadata };
+      });
+
+      // Collect all unique contact IDs to batch-fetch assignments
+      const contactIds = [...new Set(
+        alertsWithMeta.map(a => a.metadata?.contact_id).filter(Boolean)
+      )];
+
+      // Batch-load all license assignments for these contacts at once
+      const allAssignments = contactIds.length > 0
+        ? await client.entities.LicenseAssignment.filterIn('contact_id', contactIds)
+        : [];
+      const activeAssignments = allAssignments.filter(a => a.status === 'active');
+
+      // Batch-load all referenced licenses at once
+      const licenseIds = [...new Set(activeAssignments.map(a => a.license_id).filter(Boolean))];
+      const allLicenses = licenseIds.length > 0
+        ? await client.entities.SaaSLicense.filterIn('id', licenseIds)
+        : [];
+      const licenseMap = Object.fromEntries(allLicenses.map(l => [l.id, l.application_name || 'Unknown License']));
+
+      // Build a map of contact_id -> license names
+      const contactLicenseMap = {};
+      for (const assignment of activeAssignments) {
+        const cid = assignment.contact_id;
+        if (!contactLicenseMap[cid]) contactLicenseMap[cid] = [];
+        contactLicenseMap[cid].push(licenseMap[assignment.license_id] || 'Unknown License');
+      }
+
+      const alertsWithLicenses = alertsWithMeta.map(alert => ({
+        ...alert,
+        licenseNames: alert.metadata?.contact_id
+          ? (contactLicenseMap[alert.metadata.contact_id] || [])
+          : []
       }));
       
       return alertsWithLicenses;
@@ -329,7 +350,12 @@ function CustomerDashboard({ customer }) {
         client.functions.invoke('syncHaloPSAContacts', { action: 'sync_customer', customer_id: customer.external_id }),
       ]);
       toast.success('All data synced successfully!');
-      queryClient.invalidateQueries();
+      queryClient.invalidateQueries({ queryKey: ['contracts', customerId] });
+      queryClient.invalidateQueries({ queryKey: ['recurring_bills', customerId] });
+      queryClient.invalidateQueries({ queryKey: ['invoices', customerId] });
+      queryClient.invalidateQueries({ queryKey: ['tickets', customerId] });
+      queryClient.invalidateQueries({ queryKey: ['contacts', customerId] });
+      queryClient.invalidateQueries({ queryKey: ['orphaned_user_alerts', customerId] });
     } catch (error) {
       toast.error('Sync failed: ' + error.message);
     } finally {

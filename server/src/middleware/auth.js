@@ -36,19 +36,31 @@ export async function requireAuth(req, res, next) {
 }
 
 export async function requireAdmin(req, res, next) {
-  await requireAuth(req, res, () => {
-    if (req.user?.role !== 'admin') {
-      return res.status(403).json({ error: 'Forbidden: Admin access required' });
-    }
-    next();
+  // Use promise-based pattern to avoid nested callback race conditions
+  const authResult = await new Promise((resolve) => {
+    requireAuth(req, res, (err) => resolve(err === undefined ? 'ok' : err));
   });
+
+  // If requireAuth already sent a response, stop here
+  if (authResult !== 'ok') return;
+  if (res.headersSent) return;
+
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden: Admin access required' });
+  }
+  next();
 }
 
 export async function requireAdminOrSales(req, res, next) {
-  await requireAuth(req, res, () => {
-    if (req.user?.role !== 'admin' && req.user?.role !== 'sales') {
-      return res.status(403).json({ error: 'Forbidden: Admin or Sales access required' });
-    }
-    next();
+  const authResult = await new Promise((resolve) => {
+    requireAuth(req, res, (err) => resolve(err === undefined ? 'ok' : err));
   });
+
+  if (authResult !== 'ok') return;
+  if (res.headersSent) return;
+
+  if (req.user?.role !== 'admin' && req.user?.role !== 'sales') {
+    return res.status(403).json({ error: 'Forbidden: Admin or Sales access required' });
+  }
+  next();
 }
