@@ -27,6 +27,8 @@ import UniFiConfig from '../components/integrations/UniFiConfig';
 import SaaSAlertsConfig from '../components/integrations/SaaSAlertsConfig';
 import Pax8Config from '../components/integrations/Pax8Config';
 import AIConfig from '../components/integrations/AIConfig';
+import InkyConfig from '../components/integrations/InkyConfig';
+import ThreeCXConfig from '../components/integrations/ThreeCXConfig';
 
 import {
   Shield,
@@ -58,6 +60,8 @@ import {
   Ticket,
   Brain,
   Clock,
+  ShieldCheck,
+  Phone,
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -110,6 +114,13 @@ const INTEGRATION_CATEGORIES = [
     items: [
       { id: 'darkweb', label: 'Dark Web ID', desc: 'Monitor dark web compromises', icon: AlertTriangle, iconBg: 'bg-red-50', iconColor: 'text-red-600' },
       { id: 'bullphish', label: 'BullPhish ID', desc: 'Phishing simulation reports', icon: Fish, iconBg: 'bg-orange-50', iconColor: 'text-orange-600' },
+      { id: 'inky', label: 'Inky', desc: 'Email protection reports', icon: ShieldCheck, iconBg: 'bg-blue-50', iconColor: 'text-blue-600' },
+    ],
+  },
+  {
+    title: 'VOIP',
+    items: [
+      { id: 'threecx', label: '3CX', desc: 'Per-customer VoIP extension sync', icon: Phone, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600', mappingKey: 'threecx_mappings', mappingEntity: 'ThreeCXMapping' },
     ],
   },
   {
@@ -138,6 +149,8 @@ const INTEGRATION_COMPONENTS = {
   'saas-alerts': SaaSAlertsConfig,
   'darkweb': DarkWebIDConfig,
   'bullphish': BullPhishIDConfig,
+  'inky': InkyConfig,
+  'threecx': ThreeCXConfig,
   'ai': AIConfig,
   'pax8': Pax8Config,
 };
@@ -149,7 +162,7 @@ function IntegrationsPanel() {
   const { data: mappingCounts = {} } = useQuery({
     queryKey: ['integration_mapping_counts'],
     queryFn: async () => {
-      const [datto, jumpcloud, spanning, edr, rocketcyber, cove, unifi, saasAlerts, pax8] = await Promise.all([
+      const [datto, jumpcloud, spanning, edr, rocketcyber, cove, unifi, saasAlerts, pax8, threecx] = await Promise.all([
         client.entities.DattoSiteMapping.count(),
         client.entities.JumpCloudMapping.count(),
         client.entities.SpanningMapping.count(),
@@ -159,6 +172,7 @@ function IntegrationsPanel() {
         client.entities.UniFiMapping.count(),
         client.entities.SaaSAlertsMapping.count(),
         client.entities.Pax8Mapping.count(),
+        client.entities.ThreeCXMapping.count(),
       ]);
       return {
         datto_mappings: datto,
@@ -170,6 +184,7 @@ function IntegrationsPanel() {
         unifi_mappings: unifi,
         saas_alerts_mappings: saasAlerts,
         pax8_mappings: pax8,
+        threecx_mappings: threecx,
       };
     },
   });
