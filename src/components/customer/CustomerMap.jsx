@@ -47,7 +47,9 @@ function buildStaticMapUrl(coordinates, token, mapStyle, width = 800, height = 2
   }
 
   const style = mapStyle || DEFAULT_STYLE;
-  return `https://api.mapbox.com/styles/v1/mapbox/${style}/static/${pins}/${viewport}/${width}x${height}@2x?access_token=${token}&padding=40`;
+  // padding only works with 'auto' viewport
+  const paddingParam = viewport === 'auto' ? '&padding=40' : '';
+  return `https://api.mapbox.com/styles/v1/mapbox/${style}/static/${pins}/${viewport}/${width}x${height}@2x?access_token=${token}${paddingParam}`;
 }
 
 export default function CustomerMap({ addresses = [] }) {

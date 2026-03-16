@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import { toast } from 'sonner';
@@ -136,6 +136,53 @@ export default function CustomerDetail() {
   });
 
   const customerId = resolvedCustomerId;
+
+  // Service tag integration mappings
+  const SERVICE_TAG_MAPPINGS = [
+    { key: 'spanning', label: 'Spanning', entity: 'SpanningMapping', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
+    { key: 'jumpcloud', label: 'JumpCloud', entity: 'JumpCloudMapping', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+    { key: 'datto', label: 'RMM', entity: 'DattoSiteMapping', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+    { key: 'edr', label: 'EDR', entity: 'DattoEDRMapping', color: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400' },
+    { key: 'rocketcyber', label: 'SOC', entity: 'RocketCyberMapping', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
+    { key: 'unifi', label: 'Firewall', entity: 'UniFiMapping', color: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400' },
+    { key: 'threecx', label: 'VoIP', entity: 'ThreeCXReport', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
+    { key: 'dmarc', label: 'DMARC', entity: 'DmarcReportMapping', color: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400' },
+    { key: 'saas_alerts', label: 'SaaS', entity: 'SaaSAlertsMapping', color: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400' },
+    { key: 'pax8', label: 'M365', entity: 'Pax8Mapping', color: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400' },
+    { key: 'cove', label: 'Backup', entity: 'CoveDataMapping', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
+  ];
+
+  const { data: serviceMappingsData } = useQuery({
+    queryKey: ['customer-service-tags', customerId],
+    queryFn: async () => {
+      const results = {};
+      await Promise.allSettled(
+        SERVICE_TAG_MAPPINGS.map(async (svc) => {
+          try {
+            const data = await client.entities[svc.entity].filter({ customer_id: customerId });
+            results[svc.key] = data || [];
+          } catch {
+            results[svc.key] = [];
+          }
+        })
+      );
+      return results;
+    },
+    enabled: !!customerId,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const serviceTags = useMemo(() => {
+    if (!serviceMappingsData) return [];
+    const tags = [];
+    for (const svc of SERVICE_TAG_MAPPINGS) {
+      const mappings = serviceMappingsData[svc.key] || [];
+      if (mappings.length > 0) {
+        tags.push({ key: svc.key, label: svc.label, color: svc.color });
+      }
+    }
+    return tags;
+  }, [serviceMappingsData]);
 
   const { data: contracts = [], isLoading: loadingContracts } = useQuery({
     queryKey: ['contracts', customerId],
@@ -600,7 +647,7 @@ export default function CustomerDetail() {
                 />
               </div>
               <div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-2xl font-bold text-foreground">{customer.name}</h1>
                   <Badge
                     variant={customer.status === 'active' ? 'flat-success' : customer.status === 'suspended' ? 'flat-destructive' : 'secondary'}
@@ -608,6 +655,17 @@ export default function CustomerDetail() {
                   >
                     {customer.status || 'Active'}
                   </Badge>
+                  {serviceTags.map((tag) => (
+                    <span
+                      key={tag.key}
+                      className={cn(
+                        'inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold',
+                        tag.color
+                      )}
+                    >
+                      {tag.label}
+                    </span>
+                  ))}
                 </div>
                 <div className="flex flex-wrap items-center gap-4 mt-1.5 text-sm text-muted-foreground">
                   {customer.email && (

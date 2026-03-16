@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import { useNavigate } from 'react-router-dom';
@@ -49,7 +49,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { SkeletonGrid } from "@/components/ui/shimmer-skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
-import { cn } from "@/lib/utils";
 
 const STATUS_COLORS = {
   active: { bg: 'bg-success/15', text: 'text-success', dot: 'bg-success' },
@@ -104,59 +103,6 @@ export default function Customers() {
     queryKey: ['all_tickets'],
     queryFn: () => client.entities.Ticket.list('-created_date', 1000),
   });
-
-  // Fetch all integration mappings in one batch for service tags
-  const SERVICE_TAG_MAPPINGS = [
-    { key: 'spanning', label: 'Spanning', entity: 'SpanningMapping', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
-    { key: 'jumpcloud', label: 'JumpCloud', entity: 'JumpCloudMapping', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
-    { key: 'datto', label: 'RMM', entity: 'DattoSiteMapping', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-    { key: 'edr', label: 'EDR', entity: 'DattoEDRMapping', color: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400' },
-    { key: 'rocketcyber', label: 'SOC', entity: 'RocketCyberMapping', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
-    { key: 'unifi', label: 'Firewall', entity: 'UniFiMapping', color: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400' },
-    { key: 'threecx', label: 'VoIP', entity: 'ThreeCXReport', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
-    { key: 'dmarc', label: 'DMARC', entity: 'DmarcReportMapping', color: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400' },
-    { key: 'saas_alerts', label: 'SaaS', entity: 'SaaSAlertsMapping', color: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400' },
-    { key: 'pax8', label: 'M365', entity: 'Pax8Mapping', color: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400' },
-    { key: 'cove', label: 'Backup', entity: 'CoveDataMapping', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
-  ];
-
-  const { data: allMappingsData } = useQuery({
-    queryKey: ['customer-service-tags'],
-    queryFn: async () => {
-      const results = {};
-      await Promise.allSettled(
-        SERVICE_TAG_MAPPINGS.map(async (svc) => {
-          try {
-            const data = await client.entities[svc.entity].list('-created_date', 1000);
-            results[svc.key] = data || [];
-          } catch {
-            results[svc.key] = [];
-          }
-        })
-      );
-      return results;
-    },
-    staleTime: 1000 * 60 * 5,
-  });
-
-  // Build a lookup: customerId → list of active service tags
-  const serviceTagsByCustomer = useMemo(() => {
-    if (!allMappingsData) return {};
-    const map = {};
-    for (const svc of SERVICE_TAG_MAPPINGS) {
-      const mappings = allMappingsData[svc.key] || [];
-      for (const m of mappings) {
-        const cid = m.customer_id;
-        if (!cid) continue;
-        if (!map[cid]) map[cid] = [];
-        // Avoid duplicates
-        if (!map[cid].find(t => t.key === svc.key)) {
-          map[cid].push({ key: svc.key, label: svc.label, color: svc.color });
-        }
-      }
-    }
-    return map;
-  }, [allMappingsData]);
 
   const createMutation = useMutation({
     mutationFn: (data) => client.entities.Customer.create(data),
@@ -373,7 +319,7 @@ export default function Customers() {
                   )}
                 </div>
 
-                {/* Name + Status + Service Tags */}
+                {/* Name + Status */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-medium text-foreground truncate text-sm">{customer.name}</p>
@@ -385,22 +331,9 @@ export default function Customers() {
                       {customer.status || 'active'}
                     </Badge>
                   </div>
-                  <div className="flex items-center gap-1 mt-1 flex-wrap">
-                    {(serviceTagsByCustomer[customer.id] || []).map((tag) => (
-                      <span
-                        key={tag.key}
-                        className={cn(
-                          'inline-flex items-center px-1.5 py-0 rounded text-[9px] font-semibold leading-4',
-                          tag.color
-                        )}
-                      >
-                        {tag.label}
-                      </span>
-                    ))}
-                    {(!serviceTagsByCustomer[customer.id] || serviceTagsByCustomer[customer.id].length === 0) && customer.email && (
-                      <p className="text-xs text-muted-foreground truncate">{customer.email}</p>
-                    )}
-                  </div>
+                  {customer.email && (
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">{customer.email}</p>
+                  )}
                 </div>
 
                 {/* Stats */}
