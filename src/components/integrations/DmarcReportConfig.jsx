@@ -41,10 +41,8 @@ import { cn } from "@/lib/utils";
 function CustomerPicker({ customers, mappings, onSelect, disabled }) {
   const [open, setOpen] = useState(false);
 
-  // Exclude customers that are already mapped to a domain
-  const available = customers.filter(c =>
-    !mappings.some(m => m.customer_id === c.id)
-  );
+  // Show all customers — multiple domains can map to the same customer
+  const available = customers;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

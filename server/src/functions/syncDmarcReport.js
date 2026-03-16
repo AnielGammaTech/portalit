@@ -137,7 +137,7 @@ export async function syncDmarcReport(body, user) {
     };
   }
 
-  // ── Sync customer (domain-level) ───────────────────────────────────
+  // ── Sync customer (domain-level, supports multiple mappings) ────────
   if (action === 'sync_customer') {
     if (!customer_id) return { success: false, error: 'customer_id required' };
 
@@ -150,17 +150,28 @@ export async function syncDmarcReport(body, user) {
       return { success: false, error: 'Customer not mapped to DMARC Report domain' };
     }
 
-    const mapping = mappings[0];
-    const accountId = mapping.dmarc_account_id;
-    const domainId = mapping.dmarc_domain_id;
+    // Collect all domains across all mappings for this customer
+    // Group by account to minimize API calls
+    const accountGroups = {};
+    for (const m of mappings) {
+      const key = m.dmarc_account_id;
+      if (!accountGroups[key]) accountGroups[key] = { accountId: key, domainIds: [] };
+      if (m.dmarc_domain_id) accountGroups[key].domainIds.push(m.dmarc_domain_id);
+    }
 
-    // Fetch domains for this account
-    const allDomains = await fetchDomainsForAccount(accountId, headers);
+    let domains = [];
+    for (const group of Object.values(accountGroups)) {
+      const allDomains = await fetchDomainsForAccount(group.accountId, headers);
+      if (group.domainIds.length > 0) {
+        const filtered = allDomains.filter(d => group.domainIds.includes(String(d.id)));
+        domains.push(...filtered);
+      } else {
+        domains.push(...allDomains);
+      }
+    }
 
-    // Filter to the specific mapped domain(s), or use all if no domain specified
-    const domains = domainId
-      ? allDomains.filter(d => String(d.id) === String(domainId))
-      : allDomains;
+    // Use first mapping's accountId for stats API calls
+    const accountId = mappings[0].dmarc_account_id;
 
     // Fetch aggregate report stats for each domain (last 30 days)
     const now = new Date();
@@ -259,11 +270,12 @@ export async function syncDmarcReport(body, user) {
       period: { start: startDate, end: endDate },
     };
 
-    // Cache the data
+    // Cache the data on ALL mappings for this customer
+    const mappingIds = mappings.map(m => m.id);
     await supabase.from('dmarc_report_mappings').update({
       last_synced: new Date().toISOString(),
       cached_data: responseData,
-    }).eq('id', mapping.id);
+    }).in('id', mappingIds);
 
     return { success: true, data: responseData };
   }
