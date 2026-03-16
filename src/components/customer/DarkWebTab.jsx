@@ -191,15 +191,18 @@ export default function DarkWebTab({ customerId }) {
     return '•'.repeat(Math.min(password.length, 12));
   };
 
-  const hasRealPassword = (password) => {
+  const hasRealPassword = (password, source) => {
     if (!password) return false;
     const lower = password.toLowerCase().trim();
-    return lower !== 'n/a' && lower !== 'no password data' && lower !== 'no password' && lower !== '' && lower !== '-';
+    if (lower === 'n/a' || lower === 'no password data' || lower === 'no password' || lower === '' || lower === '-') return false;
+    // LLM sometimes puts the breach source into the password field
+    if (source && lower === source.toLowerCase().trim()) return false;
+    return true;
   };
 
   // Determine effective severity - only critical/high if password is exposed
   const getEffectiveSeverity = (item) => {
-    const hasPassword = hasRealPassword(item.password);
+    const hasPassword = hasRealPassword(item.password, item.source);
     if (!hasPassword) {
       // Without password exposure, downgrade critical/high to medium/low
       if (item.severity === 'critical') return 'medium';
@@ -578,7 +581,7 @@ export default function DarkWebTab({ customerId }) {
                     {/* Password Display */}
                     <div className="flex items-center gap-2 p-2 bg-white/80 rounded-lg border border-slate-200 mt-2">
                       <Key className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                      {hasRealPassword(item.password) ? (
+                      {hasRealPassword(item.password, item.source) ? (
                         <>
                           <code className="text-xs font-mono text-slate-700 flex-1 truncate">
                             {showPasswords[idx] ? item.password : maskPassword(item.password)}
@@ -633,7 +636,7 @@ export default function DarkWebTab({ customerId }) {
                           </div>
                         </td>
                         <td className="p-3">
-                          {hasRealPassword(item.password) ? (
+                          {hasRealPassword(item.password, item.source) ? (
                             <div className="flex items-center gap-2">
                               <code className="text-xs font-mono bg-slate-100 px-2 py-1 rounded">
                                 {showPasswords[`table-${idx}`] ? item.password : maskPassword(item.password)}
@@ -735,7 +738,7 @@ export default function DarkWebTab({ customerId }) {
                                   <span>{item.source || 'Unknown'}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  {hasRealPassword(item.password) ? (
+                                  {hasRealPassword(item.password, item.source) ? (
                                     <>
                                       <code className="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded">
                                         {showPasswords[`user-${email}-${idx}`] ? item.password : maskPassword(item.password)}
@@ -808,7 +811,7 @@ export default function DarkWebTab({ customerId }) {
                     {modalSeverity?.toUpperCase()} SEVERITY
                   </Badge>
                   <p className="text-sm text-slate-600">
-                    {hasRealPassword(selectedCompromise.password) 
+                    {hasRealPassword(selectedCompromise.password, selectedCompromise.source) 
                       ? "This credential was found exposed on the dark web and requires immediate attention."
                       : "This email was found in a data breach. No password was exposed, but monitoring is recommended."}
                   </p>
@@ -823,7 +826,7 @@ export default function DarkWebTab({ customerId }) {
                     </div>
                   </div>
 
-                  {hasRealPassword(selectedCompromise.password) ? (
+                  {hasRealPassword(selectedCompromise.password, selectedCompromise.source) ? (
                     <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
                       <Key className="w-5 h-5 text-slate-400" />
                       <div className="flex-1">
@@ -870,7 +873,7 @@ export default function DarkWebTab({ customerId }) {
                 <div className="pt-4 border-t">
                   <p className="text-sm font-medium text-slate-900 mb-2">Recommended Actions:</p>
                   <ul className="text-sm text-slate-600 space-y-1">
-                    {hasRealPassword(selectedCompromise.password) && (
+                    {hasRealPassword(selectedCompromise.password, selectedCompromise.source) && (
                       <li className="flex items-center gap-2">
                         <CheckCircle2 className="w-4 h-4 text-green-500" />
                         Change password immediately

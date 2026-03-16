@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import { toast } from 'sonner';
@@ -34,7 +34,8 @@ import {
   Receipt,
   Shield,
   Clock,
-  Loader2
+  Loader2,
+  Camera
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -67,6 +68,8 @@ export default function CustomerDetail() {
   const [showAddLicense, setShowAddLicense] = useState(false);
   const [showAddSoftware, setShowAddSoftware] = useState(false);
   const [showAddContact, setShowAddContact] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const logoInputRef = useRef(null);
   const queryClient = useQueryClient();
   const params = new URLSearchParams(window.location.search);
   const customerIdParam = params.get('id');
@@ -90,6 +93,35 @@ export default function CustomerDetail() {
   const resolvedCustomerId = (!isAdmin || isCustomerPortal)
     ? user?.customer_id   // customers always scoped to their own data
     : (customerIdParam || user?.customer_id || null);  // admins can browse any customer
+
+  // Logo upload handler
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !resolvedCustomerId) return;
+
+    // Validate file type and size
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be under 5MB');
+      return;
+    }
+
+    setUploadingLogo(true);
+    try {
+      const { file_url } = await client.integrations.Core.UploadFile({ file });
+      await client.entities.Customer.update(resolvedCustomerId, { logo_url: file_url });
+      queryClient.invalidateQueries({ queryKey: ['customer-detail', resolvedCustomerId] });
+      toast.success('Logo updated');
+    } catch (err) {
+      toast.error(err.message || 'Failed to upload logo');
+    } finally {
+      setUploadingLogo(false);
+      if (logoInputRef.current) logoInputRef.current.value = '';
+    }
+  };
 
   // Fetch only the single customer record (not all customers)
   const { data: customer = null, isLoading: loadingCustomer } = useQuery({
@@ -535,14 +567,36 @@ export default function CustomerDetail() {
           <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
             {/* Logo & Name */}
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-hero-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <div
+                className={cn(
+                  "relative w-14 h-14 rounded-hero-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group",
+                  isAdmin && "cursor-pointer"
+                )}
+                onClick={() => isAdmin && logoInputRef.current?.click()}
+              >
                 {customer.logo_url ? (
-                  <img src={customer.logo_url} alt={customer.name} className="w-10 h-10 rounded-hero-md object-cover" />
+                  <img src={customer.logo_url} alt={customer.name} className="w-14 h-14 rounded-hero-lg object-cover" />
                 ) : (
                   <span className="text-2xl font-bold text-primary">
                     {customer.name?.charAt(0)?.toUpperCase() || 'C'}
                   </span>
                 )}
+                {isAdmin && (
+                  <div className="absolute inset-0 bg-black/50 rounded-hero-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    {uploadingLogo ? (
+                      <Loader2 className="w-5 h-5 text-white animate-spin" />
+                    ) : (
+                      <Camera className="w-5 h-5 text-white" />
+                    )}
+                  </div>
+                )}
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleLogoUpload}
+                />
               </div>
               <div>
                 <div className="flex items-center gap-3">

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { ArrowLeft, Filter, Check, X, ChevronRight, RotateCcw, RefreshCw, AlertTriangle, Link2, Search, Trash2, StickyNote, Settings2, Save, Upload, FileText, Download, Loader2 } from 'lucide-react';
+import { ArrowLeft, Filter, Check, X, ChevronRight, RotateCcw, RefreshCw, AlertTriangle, Link2, Search, Trash2, StickyNote, Settings2, Save, Upload, FileText, Download, Loader2, ChevronDown, DollarSign, Calendar, Users, Building2, Hash } from 'lucide-react';
+import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { client, supabase } from '@/api/client';
@@ -78,6 +79,8 @@ export default function LootITCustomerDetail({ customer, onBack }) {
     staleTime: 1000 * 60 * 2,
   });
 
+  const [extractingId, setExtractingId] = useState(null);
+
   const uploadMutation = useMutation({
     mutationFn: async (file) => {
       const ext = file.name.split('.').pop();
@@ -87,16 +90,90 @@ export default function LootITCustomerDetail({ customer, onBack }) {
         .upload(path, file, { upsert: false });
       if (uploadErr) throw uploadErr;
 
-      await client.entities.LootITContract.create({
+      const contract = await client.entities.LootITContract.create({
         customer_id: customer.id,
         file_name: file.name,
         file_url: path,
         file_size: file.size,
         uploaded_by: user?.id || null,
+        extraction_status: 'pending',
       });
+
+      // Trigger LLM extraction in background for PDFs
+      if (ext.toLowerCase() === 'pdf') {
+        extractContractData(contract);
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['lootit_contracts', customer.id] }),
   });
+
+  const extractContractData = async (contract) => {
+    setExtractingId(contract.id);
+    try {
+      // Get a public URL for the uploaded PDF
+      const { data: { publicUrl } } = supabase.storage
+        .from('lootit-contracts')
+        .getPublicUrl(contract.file_url);
+
+      const result = await client.integrations.Core.InvokeLLM({
+        prompt: `Extract all contract data from this MSSP/IT services agreement PDF. Focus on the pricing addendum/table.`,
+        file_urls: [publicUrl],
+        response_json_schema: {
+          type: "object",
+          properties: {
+            client_name: { type: "string", description: "Client/customer company name" },
+            provider_name: { type: "string", description: "MSP/consultant company name" },
+            agreement_date: { type: "string", description: "Date of agreement (YYYY-MM-DD)" },
+            term_months: { type: "number", description: "Contract term in months" },
+            monthly_total: { type: "number", description: "Total monthly fee" },
+            setup_total: { type: "number", description: "Total one-time setup fee" },
+            hourly_rate: { type: "number", description: "On-site hourly rate" },
+            trip_charge: { type: "number", description: "Trip charge per visit" },
+            line_items: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  product: { type: "string", description: "Product/service name" },
+                  unit: { type: "string", description: "Per what (Endpoint, User, Server, Domain, etc.)" },
+                  quantity: { type: "number", description: "Quantity" },
+                  unit_price: { type: "number", description: "Price per unit per month" },
+                  monthly_total: { type: "number", description: "Line total per month (qty × price)" },
+                  setup_price: { type: "number", description: "One-time setup fee per unit (0 if none)" },
+                  setup_total: { type: "number", description: "Setup total (qty × setup_price)" },
+                }
+              }
+            },
+            auto_renewal: { type: "boolean", description: "Whether contract auto-renews" },
+            cancellation_notice_days: { type: "number", description: "Days notice required for cancellation" },
+            notes: { type: "string", description: "Any important notes or special terms" },
+          }
+        }
+      });
+
+      if (result) {
+        await client.entities.LootITContract.update(contract.id, {
+          extracted_data: result,
+          extraction_status: 'complete',
+        });
+        toast.success('Contract data extracted successfully');
+      } else {
+        await client.entities.LootITContract.update(contract.id, {
+          extraction_status: 'failed',
+        });
+        toast.error('Could not extract contract data');
+      }
+    } catch (err) {
+      console.error('[LootIT] Contract extraction failed:', err);
+      await client.entities.LootITContract.update(contract.id, {
+        extraction_status: 'failed',
+      });
+      toast.error('Contract extraction failed');
+    } finally {
+      setExtractingId(null);
+      queryClient.invalidateQueries({ queryKey: ['lootit_contracts', customer.id] });
+    }
+  };
 
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
@@ -180,6 +257,8 @@ export default function LootITCustomerDetail({ customer, onBack }) {
     });
   };
 
+  const [activeTab, setActiveTab] = useState('reconciliation');
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -218,6 +297,88 @@ export default function LootITCustomerDetail({ customer, onBack }) {
         </button>
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-1 bg-pink-50/60 rounded-xl p-1">
+        {[
+          { key: 'reconciliation', label: 'Reconciliation', icon: RotateCcw },
+          { key: 'contract', label: 'Contract', icon: FileText, badge: contracts.length || null },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={cn(
+              'flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors',
+              activeTab === tab.key
+                ? 'bg-white text-pink-600 shadow-sm'
+                : 'text-slate-500 hover:text-pink-500'
+            )}
+          >
+            <tab.icon className="w-4 h-4" />
+            {tab.label}
+            {tab.badge && (
+              <span className="text-[10px] bg-pink-100 text-pink-600 px-1.5 py-0.5 rounded-full">{tab.badge}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Contract Tab ── */}
+      {activeTab === 'contract' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-700">Contracts</h3>
+              <p className="text-xs text-slate-400">Upload MSSP contracts — line items are extracted automatically</p>
+            </div>
+            <div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadMutation.isPending}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-pink-500 text-white hover:bg-pink-600 transition-colors disabled:opacity-50"
+              >
+                {uploadMutation.isPending ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Upload className="w-3.5 h-3.5" />
+                )}
+                {uploadMutation.isPending ? 'Uploading…' : 'Upload Contract'}
+              </button>
+            </div>
+          </div>
+
+          {contracts.length === 0 ? (
+            <div className="bg-white rounded-xl border border-slate-200 p-10 text-center">
+              <FileText className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+              <p className="text-sm text-slate-500 mb-1">No contracts uploaded yet</p>
+              <p className="text-xs text-slate-400">Upload a PDF and we'll extract the pricing and service details</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {contracts.map((c) => (
+                <ContractCard
+                  key={c.id}
+                  contract={c}
+                  extractingId={extractingId}
+                  onDownload={handleDownloadContract}
+                  onDelete={handleDeleteContract}
+                  onRetryExtract={extractContractData}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Reconciliation Tab ── */}
+      {activeTab === 'reconciliation' && (
+        <>
       {/* Quick Summary */}
       {summary && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -307,68 +468,8 @@ export default function LootITCustomerDetail({ customer, onBack }) {
         </div>
       )}
 
-      {/* Contracts Section */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-slate-700">Contracts</h3>
-          <div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploadMutation.isPending}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-pink-50 text-pink-600 hover:bg-pink-100 transition-colors disabled:opacity-50"
-            >
-              {uploadMutation.isPending ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Upload className="w-3.5 h-3.5" />
-              )}
-              {uploadMutation.isPending ? 'Uploading…' : 'Upload'}
-            </button>
-          </div>
-        </div>
-
-        {contracts.length === 0 ? (
-          <div className="bg-white rounded-xl border border-slate-200 p-6 text-center">
-            <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-            <p className="text-xs text-slate-400">No contracts uploaded yet</p>
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
-            {contracts.map((c) => (
-              <div key={c.id} className="flex items-center gap-3 px-4 py-3">
-                <FileText className="w-5 h-5 text-pink-400 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-700 truncate">{c.file_name}</p>
-                  <p className="text-[10px] text-slate-400">
-                    {c.file_size ? `${(c.file_size / 1024).toFixed(0)} KB` : ''} · {new Date(c.created_date).toLocaleDateString()}
-                  </p>
-                </div>
-                <button
-                  onClick={() => handleDownloadContract(c)}
-                  className="text-slate-400 hover:text-pink-500 transition-colors"
-                  title="Download"
-                >
-                  <Download className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => handleDeleteContract(c)}
-                  className="text-slate-400 hover:text-red-500 transition-colors"
-                  title="Delete"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      </>
+      )}
 
       {/* Details Drawer */}
       {detailItem && (
@@ -395,6 +496,174 @@ export default function LootITCustomerDetail({ customer, onBack }) {
           onSelect={(lineItemId) => handleSaveMapping(mappingRecon.ruleId, mappingRecon.productName, lineItemId)}
           onClose={() => setMappingRecon(null)}
         />
+      )}
+    </div>
+  );
+}
+
+function ContractCard({ contract, extractingId, onDownload, onDelete, onRetryExtract }) {
+  const [expanded, setExpanded] = useState(false);
+  const isExtracting = extractingId === contract.id;
+  const data = contract.extracted_data || {};
+  const hasData = contract.extraction_status === 'complete' && Object.keys(data).length > 0;
+  const lineItems = data.line_items || [];
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      {/* Header row */}
+      <div
+        className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors"
+        onClick={() => hasData && setExpanded(!expanded)}
+      >
+        <FileText className="w-5 h-5 text-pink-400 flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium text-slate-700 truncate">{contract.file_name}</p>
+            {isExtracting && (
+              <span className="inline-flex items-center gap-1 text-[10px] text-pink-500 bg-pink-50 px-2 py-0.5 rounded-full">
+                <Loader2 className="w-3 h-3 animate-spin" /> Extracting…
+              </span>
+            )}
+            {contract.extraction_status === 'complete' && (
+              <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                <Check className="w-3 h-3" /> Extracted
+              </span>
+            )}
+            {contract.extraction_status === 'failed' && (
+              <span className="inline-flex items-center gap-1 text-[10px] text-red-500 bg-red-50 px-2 py-0.5 rounded-full">
+                Failed
+              </span>
+            )}
+          </div>
+          <p className="text-[10px] text-slate-400">
+            {contract.file_size ? `${(contract.file_size / 1024).toFixed(0)} KB` : ''} · {new Date(contract.created_date).toLocaleDateString()}
+            {hasData && data.client_name && <> · {data.client_name}</>}
+            {hasData && data.monthly_total && <> · <span className="font-medium text-slate-600">${Number(data.monthly_total).toLocaleString('en-US', { minimumFractionDigits: 2 })}/mo</span></>}
+          </p>
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {contract.extraction_status === 'failed' && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onRetryExtract(contract); }}
+              className="text-slate-400 hover:text-pink-500 transition-colors p-1"
+              title="Retry extraction"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); onDownload(contract); }}
+            className="text-slate-400 hover:text-pink-500 transition-colors p-1"
+            title="Download"
+          >
+            <Download className="w-4 h-4" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(contract); }}
+            className="text-slate-400 hover:text-red-500 transition-colors p-1"
+            title="Delete"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+          {hasData && (
+            <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", expanded && "rotate-180")} />
+          )}
+        </div>
+      </div>
+
+      {/* Expanded extracted data */}
+      {expanded && hasData && (
+        <div className="border-t border-slate-100 px-4 py-4 space-y-4 bg-slate-50/50">
+          {/* Summary stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[
+              { icon: Building2, label: 'Client', value: data.client_name || '—', raw: true },
+              { icon: DollarSign, label: 'Monthly', value: data.monthly_total ? `$${Number(data.monthly_total).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—', raw: true },
+              { icon: DollarSign, label: 'Setup', value: data.setup_total ? `$${Number(data.setup_total).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—', raw: true },
+              { icon: Calendar, label: 'Date', value: data.agreement_date || '—', raw: true },
+            ].map((s) => (
+              <div key={s.label} className="bg-white rounded-lg border border-slate-200 px-3 py-2">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <s.icon className="w-3 h-3 text-pink-400" />
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wide">{s.label}</p>
+                </div>
+                <p className="text-sm font-semibold text-slate-700 truncate">{s.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Extra info row */}
+          {(data.hourly_rate || data.term_months || data.cancellation_notice_days) && (
+            <div className="flex flex-wrap gap-2 text-[11px]">
+              {data.hourly_rate > 0 && (
+                <span className="bg-white border border-slate-200 rounded px-2 py-1 text-slate-600">
+                  On-site: <strong>${data.hourly_rate}/hr</strong>
+                </span>
+              )}
+              {data.trip_charge > 0 && (
+                <span className="bg-white border border-slate-200 rounded px-2 py-1 text-slate-600">
+                  Trip: <strong>${data.trip_charge}</strong>
+                </span>
+              )}
+              {data.term_months && (
+                <span className="bg-white border border-slate-200 rounded px-2 py-1 text-slate-600">
+                  Term: <strong>{data.term_months} months</strong>
+                </span>
+              )}
+              {data.auto_renewal && (
+                <span className="bg-pink-50 border border-pink-200 rounded px-2 py-1 text-pink-600">
+                  Auto-renews
+                </span>
+              )}
+              {data.cancellation_notice_days && (
+                <span className="bg-white border border-slate-200 rounded px-2 py-1 text-slate-600">
+                  Cancel notice: <strong>{data.cancellation_notice_days} days</strong>
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Line items table */}
+          {lineItems.length > 0 && (
+            <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+              <div className="grid grid-cols-[1fr_60px_70px_80px] gap-1 px-3 py-2 bg-slate-100 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                <span>Product</span>
+                <span className="text-right">Qty</span>
+                <span className="text-right">Unit</span>
+                <span className="text-right">Monthly</span>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {lineItems.map((item, idx) => (
+                  <div key={idx} className="grid grid-cols-[1fr_60px_70px_80px] gap-1 px-3 py-2 items-center">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-slate-700 truncate">{item.product}</p>
+                      {item.unit && <p className="text-[10px] text-slate-400">per {item.unit}</p>}
+                    </div>
+                    <p className="text-xs text-slate-600 text-right">{item.quantity}</p>
+                    <p className="text-xs text-slate-500 text-right">${Number(item.unit_price || 0).toFixed(2)}</p>
+                    <p className="text-xs font-semibold text-slate-700 text-right">${Number(item.monthly_total || 0).toFixed(2)}</p>
+                  </div>
+                ))}
+              </div>
+              {/* Totals footer */}
+              <div className="grid grid-cols-[1fr_60px_70px_80px] gap-1 px-3 py-2 bg-pink-50 border-t border-pink-100">
+                <p className="text-xs font-semibold text-pink-700">Total</p>
+                <p className="text-xs text-right text-pink-600">{lineItems.reduce((s, i) => s + (i.quantity || 0), 0)}</p>
+                <p className="text-xs text-right"></p>
+                <p className="text-xs font-bold text-right text-pink-700">
+                  ${lineItems.reduce((s, i) => s + (i.monthly_total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {data.notes && (
+            <div className="bg-white rounded-lg border border-slate-200 px-3 py-2">
+              <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-1">Notes</p>
+              <p className="text-xs text-slate-600">{data.notes}</p>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

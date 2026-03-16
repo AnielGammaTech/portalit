@@ -142,17 +142,25 @@ export function useReconciliationData(customerId) {
       }
 
       if (integrationKey === 'darkweb') {
-        // DarkWeb: count mappings per customer as domain_count
-        const countByCustomer = {};
+        // DarkWeb: pick latest report per customer, use report_data as cached_data
+        const byCustomer = {};
         for (const row of rows) {
           if (!row.customer_id) continue;
-          countByCustomer[row.customer_id] = (countByCustomer[row.customer_id] || 0) + 1;
+          const prev = byCustomer[row.customer_id];
+          if (!prev || new Date(row.report_date) > new Date(prev.report_date)) {
+            byCustomer[row.customer_id] = row;
+          }
         }
-        for (const [custId, count] of Object.entries(countByCustomer)) {
+        for (const [custId, report] of Object.entries(byCustomer)) {
           if (!result[custId]) result[custId] = {};
+          const rd = report.report_data || {};
           result[custId][integrationKey] = {
             customer_id: custId,
-            cached_data: { domain_count: count },
+            cached_data: {
+              domains_count: rd.domains_count || 0,
+              domains_monitored: rd.domains_monitored || [],
+              domain_count: rd.domains_count || 0,
+            },
           };
         }
         continue;

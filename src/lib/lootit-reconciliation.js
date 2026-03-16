@@ -90,8 +90,10 @@ const VENDOR_EXTRACTORS = {
 
   darkweb: (data) => {
     if (!data) return null;
+    if (typeof data.domains_count === 'number') return data.domains_count;
     if (typeof data.domain_count === 'number') return data.domain_count;
-    return 1; // Each mapping = 1 monitored domain
+    if (Array.isArray(data.domains_monitored)) return data.domains_monitored.length;
+    return 1; // Each mapping/report = 1 monitored domain
   },
 
   bullphish: (data) => {
@@ -149,7 +151,7 @@ export const INTEGRATION_MAPPING_ENTITIES = {
   datto_edr: 'DattoEDRMapping',
   unifi: 'UniFiMapping',
   rocket_cyber: 'RocketCyberMapping',
-  darkweb: 'DarkWebIDMapping',
+  darkweb: 'DarkWebIDReport',
   bullphish: 'BullPhishIDReport',
   threecx: 'ThreeCXMapping',
   inky: 'InkyReport',

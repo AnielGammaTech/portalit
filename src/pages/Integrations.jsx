@@ -18,7 +18,6 @@ import {
   Brain,
   ShieldCheck,
   Phone,
-  Zap,
 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -70,7 +69,7 @@ const CATEGORIES = [
   {
     title: 'RMM & SECURITY',
     items: [
-      { id: 'datto-rmm', name: 'Datto RMM', desc: 'Sync devices and map Datto sites', icon: Monitor, color: 'bg-blue-500', mappingEntity: 'DattoSiteMapping' },
+{ id: 'datto-rmm', name: 'Datto RMM', desc: 'Sync devices and map Datto sites', icon: Monitor, color: 'bg-blue-500', mappingEntity: 'DattoSiteMapping' },
       { id: 'datto-edr', name: 'Datto EDR', desc: 'Endpoint detection & response', icon: Shield, color: 'bg-cyan-500', mappingEntity: 'DattoEDRMapping' },
       { id: 'rocketcyber', name: 'RocketCyber SOC', desc: 'Security incidents and alerts', icon: Rocket, color: 'bg-orange-500', mappingEntity: 'RocketCyberMapping' },
       { id: 'unifi', name: 'UniFi Network', desc: 'Sync firewalls and network devices', icon: Wifi, color: 'bg-sky-500', mappingEntity: 'UniFiMapping' },
