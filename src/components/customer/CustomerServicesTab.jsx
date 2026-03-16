@@ -264,6 +264,17 @@ export default function CustomerServicesTab({
     staleTime: 1000 * 60 * 5
   });
 
+  // Fetch Vultr mapping for this customer (3CX hosting)
+  const { data: vultrMapping } = useQuery({
+    queryKey: ['vultr-mapping', customerId],
+    queryFn: async () => {
+      const mappings = await client.entities.VultrMapping.filter({ customer_id: customerId });
+      return mappings[0] || null;
+    },
+    enabled: !!customerId,
+    staleTime: 1000 * 60 * 5
+  });
+
   const hasDmarc = !!dmarcMapping;
   const has3CX = !!threecxMapping || threecxReports.length > 0;
   const hasInky = inkyReports.length > 0;
@@ -983,6 +994,7 @@ export default function CustomerServicesTab({
             customerId={customerId}
             threecxMapping={threecxMapping}
             threecxReports={threecxReports}
+            vultrMapping={vultrMapping}
             queryClient={queryClient}
           />
         </TabsContent>

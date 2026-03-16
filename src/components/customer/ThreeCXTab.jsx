@@ -22,7 +22,10 @@ import {
   UserX,
   ChevronLeft,
   ChevronRight,
-  Building2
+  Building2,
+  Server,
+  Cpu,
+  HardDrive,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from 'date-fns';
@@ -255,7 +258,7 @@ function ReportView({ report, searchQuery, setSearchQuery }) {
   );
 }
 
-function ApiSyncView({ threecxMapping, customerId, queryClient }) {
+function ApiSyncView({ threecxMapping, vultrMapping, customerId, queryClient }) {
   const [syncing, setSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -329,6 +332,38 @@ function ApiSyncView({ threecxMapping, customerId, queryClient }) {
           </Button>
         </div>
       </div>
+
+      {/* Vultr Hosting Server */}
+      {vultrMapping?.cached_data?.instance && (() => {
+        const inst = vultrMapping.cached_data.instance;
+        return (
+          <Card className="border-blue-100 dark:border-blue-800/50 bg-gradient-to-r from-blue-50/50 to-slate-50/50 dark:from-blue-950/20 dark:to-slate-950/20">
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
+                    <Server className="w-4.5 h-4.5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground">{inst.label}</p>
+                      <Badge className={cn("text-[10px] font-normal", inst.power_status === 'running' ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" : "bg-red-100 text-red-700")}>
+                        {inst.power_status}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{inst.main_ip} {'\u00B7'} {inst.region} {'\u00B7'} {inst.os}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1"><Cpu className="w-3.5 h-3.5" />{inst.vcpu_count} vCPU</span>
+                  <span>{inst.ram_display}</span>
+                  <span className="flex items-center gap-1"><HardDrive className="w-3.5 h-3.5" />{inst.disk_display}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Metrics */}
       {cached && (
@@ -445,7 +480,7 @@ function ApiSyncView({ threecxMapping, customerId, queryClient }) {
   );
 }
 
-export default function ThreeCXTab({ customerId, threecxMapping, threecxReports = [], queryClient: qc }) {
+export default function ThreeCXTab({ customerId, threecxMapping, threecxReports = [], vultrMapping, queryClient: qc }) {
   const [searchQuery, setSearchQuery] = useState('');
   const internalQC = useQueryClient();
   const queryClient = qc || internalQC;
@@ -462,6 +497,7 @@ export default function ThreeCXTab({ customerId, threecxMapping, threecxReports 
     return (
       <ApiSyncView
         threecxMapping={threecxMapping}
+        vultrMapping={vultrMapping}
         customerId={customerId}
         queryClient={queryClient}
       />

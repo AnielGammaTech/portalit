@@ -230,7 +230,7 @@ export function extractRecords(data, key) {
   if (Array.isArray(data)) return data;
   if (key && data[key]) return data[key];
   // Common HaloPSA wrapper keys
-  for (const k of ['clients', 'records', 'users', 'contracts', 'Clients', 'Records', 'Users', 'Contracts', 'invoices', 'tickets']) {
+  for (const k of ['clients', 'records', 'users', 'contracts', 'sites', 'Clients', 'Records', 'Users', 'Contracts', 'Sites', 'invoices', 'tickets']) {
     if (Array.isArray(data[k])) return data[k];
   }
   return [];

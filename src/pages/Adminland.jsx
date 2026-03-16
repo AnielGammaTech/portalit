@@ -29,6 +29,8 @@ import Pax8Config from '../components/integrations/Pax8Config';
 import AIConfig from '../components/integrations/AIConfig';
 import InkyConfig from '../components/integrations/InkyConfig';
 import ThreeCXConfig from '../components/integrations/ThreeCXConfig';
+import DmarcReportConfig from '../components/integrations/DmarcReportConfig';
+import VultrConfig from '../components/integrations/VultrConfig';
 
 import {
   Shield,
@@ -62,6 +64,8 @@ import {
   Clock,
   ShieldCheck,
   Phone,
+  Globe,
+  Server,
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -118,9 +122,16 @@ const INTEGRATION_CATEGORIES = [
     ],
   },
   {
-    title: 'VOIP',
+    title: 'EMAIL SECURITY',
+    items: [
+      { id: 'dmarc', label: 'DMARC Report', desc: 'Domain DMARC compliance monitoring', icon: Globe, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600', mappingKey: 'dmarc_mappings', mappingEntity: 'DmarcReportMapping' },
+    ],
+  },
+  {
+    title: 'VOIP & CLOUD',
     items: [
       { id: 'threecx', label: '3CX', desc: 'Per-customer VoIP extension sync', icon: Phone, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600', mappingKey: 'threecx_mappings', mappingEntity: 'ThreeCXMapping' },
+      { id: 'vultr', label: 'Vultr', desc: 'Map cloud instances to customers for 3CX hosting', icon: Server, iconBg: 'bg-blue-50', iconColor: 'text-blue-600', mappingKey: 'vultr_mappings', mappingEntity: 'VultrMapping' },
     ],
   },
   {
@@ -151,6 +162,8 @@ const INTEGRATION_COMPONENTS = {
   'bullphish': BullPhishIDConfig,
   'inky': InkyConfig,
   'threecx': ThreeCXConfig,
+  'dmarc': DmarcReportConfig,
+  'vultr': VultrConfig,
   'ai': AIConfig,
   'pax8': Pax8Config,
 };
@@ -162,7 +175,7 @@ function IntegrationsPanel() {
   const { data: mappingCounts = {} } = useQuery({
     queryKey: ['integration_mapping_counts'],
     queryFn: async () => {
-      const [datto, jumpcloud, spanning, edr, rocketcyber, cove, unifi, saasAlerts, pax8, threecx] = await Promise.all([
+      const [datto, jumpcloud, spanning, edr, rocketcyber, cove, unifi, saasAlerts, pax8, threecx, dmarc, vultr] = await Promise.all([
         client.entities.DattoSiteMapping.count(),
         client.entities.JumpCloudMapping.count(),
         client.entities.SpanningMapping.count(),
@@ -173,6 +186,8 @@ function IntegrationsPanel() {
         client.entities.SaaSAlertsMapping.count(),
         client.entities.Pax8Mapping.count(),
         client.entities.ThreeCXMapping.count(),
+        client.entities.DmarcReportMapping.count(),
+        client.entities.VultrMapping.count(),
       ]);
       return {
         datto_mappings: datto,
@@ -185,6 +200,8 @@ function IntegrationsPanel() {
         saas_alerts_mappings: saasAlerts,
         pax8_mappings: pax8,
         threecx_mappings: threecx,
+        dmarc_mappings: dmarc,
+        vultr_mappings: vultr,
       };
     },
   });

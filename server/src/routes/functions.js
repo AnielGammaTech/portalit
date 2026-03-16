@@ -31,6 +31,7 @@ import { licenseRenewalReminder } from '../functions/licenseRenewalReminder.js';
 import { sync3CX } from '../functions/sync3CX.js';
 import { testAIConnection } from '../functions/testAIConnection.js';
 import { syncDmarcReport } from '../functions/syncDmarcReport.js';
+import { syncVultr } from '../functions/syncVultr.js';
 
 const functionMap = {
   syncHaloPSACustomers,
@@ -62,6 +63,7 @@ const functionMap = {
   sync3CX,
   testAIConnection,
   syncDmarcReport,
+  syncVultr,
 };
 
 const router = Router();
