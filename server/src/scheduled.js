@@ -14,6 +14,7 @@ import { autoSuspendUnusedLicenses } from './functions/autoSuspendUnusedLicenses
 import { syncHaloPSARecurringBills } from './functions/syncHaloPSARecurringBills.js';
 import { syncHaloPSAInvoices } from './functions/syncHaloPSAInvoices.js';
 
+
 const SYSTEM_USER = { role: 'admin', email: 'system@portalit.app' };
 
 // ── Cron job definitions (used for scheduling + admin dashboard) ─────
@@ -21,6 +22,7 @@ const SYSTEM_USER = { role: 'admin', email: 'system@portalit.app' };
 export const CRON_JOBS = [
   { name: 'scheduledHaloPSASync', label: 'HaloPSA Sync', description: 'Customers, contacts, contracts & tickets', schedule: '0 2 * * *', category: 'halopsa', fn: scheduledHaloPSASync, action: 'sync_now' },
   { name: 'syncHaloPSARecurringBills', label: 'HaloPSA Recurring Bills', description: 'Recurring invoices & line items', schedule: '15 2 * * *', category: 'halopsa', fn: syncHaloPSARecurringBills, action: 'sync_now' },
+  { name: 'syncHaloPSAInvoices', label: 'HaloPSA Invoices', description: 'Invoices & invoice line items', schedule: '30 2 * * *', category: 'halopsa', fn: syncHaloPSAInvoices, action: 'sync_now' },
   { name: 'scheduledDattoSync', label: 'Datto RMM Sync', description: 'RMM devices', schedule: '0 3 * * *', category: 'datto', fn: scheduledDattoSync, action: 'sync_now' },
   { name: 'syncRocketCyber', label: 'RocketCyber Sync', description: 'Security incidents', schedule: '30 3 * * *', category: 'rocketcyber', fn: syncRocketCyber, action: 'sync_all' },
   { name: 'scheduledJumpCloudSync', label: 'JumpCloud Sync', description: 'SSO users', schedule: '0 4 * * *', category: 'jumpcloud', fn: scheduledJumpCloudSync, action: 'sync_now' },
