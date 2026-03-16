@@ -63,6 +63,24 @@ function buildIncidentData(incident, customerId) {
   };
 }
 
+async function fetchAgentCount(rcAccountId) {
+  let totalAgents = 0;
+  let page = 1;
+  const pageSize = 100;
+
+  while (true) {
+    const data = await rocketCyberApiCall(`/account/${rcAccountId}/agents`, { page, pageSize });
+    const agents = data.data || [];
+    totalAgents += agents.length;
+
+    if (agents.length < pageSize || page >= (data.totalPages || 1)) break;
+    page++;
+    if (page > 50) break; // Safety limit
+  }
+
+  return totalAgents;
+}
+
 async function fetchOpenIncidents(rcAccountId) {
   // Determine correct endpoint
   let endpoint = `/account/${rcAccountId}/incidents`;
@@ -317,6 +335,14 @@ export async function syncRocketCyber(body, user) {
       }
     }
 
+    // Fetch agent/device count from RocketCyber API
+    let totalAgents = 0;
+    try {
+      totalAgents = await fetchAgentCount(rcAccountId);
+    } catch (err) {
+      console.error(`Failed to fetch agent count for account ${rcAccountId}:`, err.message);
+    }
+
     // Build cached_data summary for fast frontend reads
     const allDbIncidents = await supabase
       .from('rocket_cyber_incidents')
@@ -325,6 +351,7 @@ export async function syncRocketCyber(body, user) {
     const allCustomerIncidents = allDbIncidents.data || [];
 
     const cachedData = {
+      total_agents: totalAgents,
       totalIncidents: allCustomerIncidents.length,
       openIncidents: allCustomerIncidents.filter(i => i.status === 'open' || i.status === 'investigating').length,
       resolvedIncidents: allCustomerIncidents.filter(i => i.status === 'resolved' || i.status === 'closed').length,
@@ -346,7 +373,8 @@ export async function syncRocketCyber(body, user) {
     return {
       success: true,
       recordsSynced: syncedCount,
-      totalIncidents: allIncidents.length
+      totalIncidents: allIncidents.length,
+      totalAgents
     };
   }
 
@@ -400,6 +428,14 @@ export async function syncRocketCyber(body, user) {
           }
         }
 
+        // Fetch agent/device count from RocketCyber API (all statuses: online + offline + isolated)
+        let totalAgents = 0;
+        try {
+          totalAgents = await fetchAgentCount(rcAccountId);
+        } catch (err) {
+          console.error(`Failed to fetch agent count for account ${rcAccountId}:`, err.message);
+        }
+
         // Build cached_data summary
         const allDbIncidents = await supabase
           .from('rocket_cyber_incidents')
@@ -408,6 +444,7 @@ export async function syncRocketCyber(body, user) {
         const allCustomerIncidents = allDbIncidents.data || [];
 
         const cachedData = {
+          total_agents: totalAgents,
           totalIncidents: allCustomerIncidents.length,
           openIncidents: allCustomerIncidents.filter(i => i.status === 'open' || i.status === 'investigating').length,
           resolvedIncidents: allCustomerIncidents.filter(i => i.status === 'resolved' || i.status === 'closed').length,
