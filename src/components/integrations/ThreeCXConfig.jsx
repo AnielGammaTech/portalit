@@ -54,7 +54,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 
 const TABS = [
   { id: 'api', label: 'API Sync', icon: Globe },
-  { id: 'reports', label: 'PDF Reports', icon: FileText },
+  { id: 'reports', label: 'Reports', icon: FileText },
 ];
 
 export default function ThreeCXConfig() {
@@ -527,8 +527,94 @@ function APISyncTab() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// PDF Reports Tab
+// Reports Tab (CSV + PDF)
 // ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Parse a 3CX extensions CSV export and extract extension counts.
+ * Handles the standard 3CX extensions CSV format with columns:
+ * Number, FirstName, LastName, EmailAddress, Role, Disabled, etc.
+ */
+function parseThreeCXExtensionsCsv(csvText) {
+  const lines = csvText.split('\n').filter(l => l.trim());
+  if (lines.length < 2) return null;
+
+  // Parse header — handle quoted fields with commas inside
+  const parseRow = (line) => {
+    const fields = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (ch === ',' && !inQuotes) {
+        fields.push(current.trim());
+        current = '';
+      } else {
+        current += ch;
+      }
+    }
+    fields.push(current.trim());
+    return fields;
+  };
+
+  const headers = parseRow(lines[0]);
+  const numIdx = headers.findIndex(h => h.toLowerCase() === 'number');
+  const firstIdx = headers.findIndex(h => h.toLowerCase() === 'firstname');
+  const lastIdx = headers.findIndex(h => h.toLowerCase() === 'lastname');
+  const emailIdx = headers.findIndex(h => h.toLowerCase() === 'emailaddress');
+  const roleIdx = headers.findIndex(h => h.toLowerCase() === 'role');
+  const disabledIdx = headers.findIndex(h => h.toLowerCase() === 'disabled');
+  const deptIdx = headers.findIndex(h => h.toLowerCase() === 'department');
+
+  if (numIdx === -1) return null; // Not a valid 3CX extensions CSV
+
+  const extensions = [];
+  for (let i = 1; i < lines.length; i++) {
+    const fields = parseRow(lines[i]);
+    if (!fields[numIdx]) continue;
+
+    const role = roleIdx >= 0 ? fields[roleIdx] : '';
+    const disabled = disabledIdx >= 0 ? fields[disabledIdx] : '0';
+    const firstName = firstIdx >= 0 ? fields[firstIdx] : '';
+    const lastName = lastIdx >= 0 ? fields[lastIdx] : '';
+    const email = emailIdx >= 0 ? fields[emailIdx] : '';
+    const dept = deptIdx >= 0 ? fields[deptIdx] : '';
+
+    const isUser = role.includes('users') || role.includes('system_owners');
+    const isDisabled = disabled === '1';
+
+    extensions.push({
+      number: fields[numIdx],
+      name: [firstName, lastName].filter(Boolean).join(' ') || `Ext ${fields[numIdx]}`,
+      type: isUser ? (isDisabled ? 'disabled' : 'user') : 'system',
+      department: dept || 'DEFAULT',
+      email: email || '',
+      disabled: isDisabled,
+    });
+  }
+
+  const activeUsers = extensions.filter(e => e.type === 'user');
+  const disabledUsers = extensions.filter(e => e.type === 'disabled');
+
+  return {
+    total_extensions: extensions.length,
+    user_extensions: activeUsers.length,
+    disabled_extensions: disabledUsers.length,
+    extensions_detail: extensions.map(e => ({
+      number: e.number,
+      name: e.name,
+      type: e.type,
+      department: e.department,
+    })),
+  };
+}
 
 function PDFReportsTab() {
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -556,21 +642,51 @@ function PDFReportsTab() {
 
   const handleFileSelect = async (e) => {
     const file = e.target.files[0];
-    if (file && file.type === 'application/pdf') {
-      setSelectedFile(file);
-      setExtractedData(null);
+    if (!file) return;
 
-      if (!reportDate) {
-        setReportDate(new Date().toISOString().split('T')[0]);
-      }
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!['pdf', 'csv'].includes(ext)) {
+      toast.error('Please select a PDF or CSV file');
+      return;
+    }
 
-      await extractDataFromFile(file);
+    setSelectedFile(file);
+    setExtractedData(null);
+
+    if (!reportDate) {
+      setReportDate(new Date().toISOString().split('T')[0]);
+    }
+
+    if (ext === 'csv') {
+      await extractDataFromCsv(file);
     } else {
-      toast.error('Please select a PDF file');
+      await extractDataFromPdf(file);
     }
   };
 
-  const extractDataFromFile = async (file) => {
+  const extractDataFromCsv = async (file) => {
+    setIsExtracting(true);
+    try {
+      const text = await file.text();
+      const result = parseThreeCXExtensionsCsv(text);
+
+      if (!result) {
+        toast.error('Could not parse CSV — ensure it\'s a 3CX extensions export');
+        return;
+      }
+
+      setExtractedData(result);
+      toast.success(`Parsed ${result.total_extensions} extensions (${result.user_extensions} active users)`);
+    } catch (error) {
+      const errMsg = error.message || 'Failed to parse CSV';
+      setErrorDetails(errMsg);
+      toast.error(errMsg);
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  const extractDataFromPdf = async (file) => {
     setIsExtracting(true);
     try {
       const { file_url } = await client.integrations.Core.UploadFile({ file });
@@ -588,16 +704,7 @@ Look for:
 - SIP trunks count
 - Call statistics: total calls, inbound, outbound, missed
 - Average call duration
-- Individual extension details if listed (extension number, name, type, department)
-
-Rules:
-- customer_name: Extract the company/customer name from the report header or footer
-- report_date: The report date in YYYY-MM-DD format
-- report_period_start / report_period_end: The date range covered, in YYYY-MM-DD
-- total_extensions: Total extensions including system ones
-- user_extensions: Only user-type extensions (not parking, queues, ring groups)
-- extensions_detail: Array of individual extensions with number, name, type, department if available
-- call_stats: Any call volume data as key-value pairs`,
+- Individual extension details if listed (extension number, name, type, department)`,
         file_urls: [file_url],
         response_json_schema: {
           type: "object",
@@ -670,8 +777,8 @@ Rules:
     try {
       const customer = customers.find(c => c.id === selectedCustomer);
 
-      let pdfUrl = extractedData?.pdf_url;
-      if (!pdfUrl && selectedFile) {
+      let pdfUrl = extractedData?.pdf_url || null;
+      if (!pdfUrl && selectedFile && selectedFile.type === 'application/pdf') {
         const { file_url } = await client.integrations.Core.UploadFile({ file: selectedFile });
         pdfUrl = file_url;
       }
@@ -758,8 +865,8 @@ Rules:
       {/* Info */}
       <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
         <p className="text-sm text-emerald-800">
-          <strong>PDF Upload:</strong> Export 3CX reports as PDF and upload them here.
-          AI will automatically extract extension counts, call statistics, and other metrics for QBR reporting.
+          <strong>Report Upload:</strong> Upload a 3CX extensions CSV export or a PDF report.
+          CSV files are parsed instantly for extension counts. PDF reports use AI extraction for call stats and metrics.
         </p>
       </div>
 
@@ -797,7 +904,7 @@ Rules:
                 <TableCell colSpan={7} className="text-center py-8">
                   <Phone className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                   <p className="text-slate-500">No reports uploaded yet</p>
-                  <p className="text-sm text-slate-400">Upload a 3CX report to get started</p>
+                  <p className="text-sm text-slate-400">Upload a 3CX extensions CSV or PDF report</p>
                 </TableCell>
               </TableRow>
             ) : (
@@ -905,7 +1012,7 @@ Rules:
             </div>
 
             <div>
-              <Label>PDF Report</Label>
+              <Label>Report File</Label>
               <div className="mt-1.5 border-2 border-dashed border-slate-200 rounded-lg p-4 text-center">
                 {selectedFile ? (
                   <div className="flex items-center justify-center gap-2">
@@ -917,10 +1024,11 @@ Rules:
                   </div>
                 ) : (
                   <label className="cursor-pointer">
-                    <input type="file" accept=".pdf" onChange={handleFileSelect} className="hidden" />
+                    <input type="file" accept=".pdf,.csv" onChange={handleFileSelect} className="hidden" />
                     <div className="text-slate-500">
                       <Upload className="w-8 h-8 mx-auto mb-2 text-slate-400" />
-                      <p className="text-sm">Click to select PDF</p>
+                      <p className="text-sm">Click to select CSV or PDF</p>
+                      <p className="text-xs text-slate-400 mt-1">3CX extensions CSV export or PDF report</p>
                     </div>
                   </label>
                 )}
@@ -930,7 +1038,9 @@ Rules:
             {isExtracting && (
               <div className="flex items-center justify-center gap-2 py-3 text-slate-600">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="text-sm">Extracting data from PDF with AI...</span>
+                <span className="text-sm">
+                  {selectedFile?.name?.endsWith('.csv') ? 'Parsing CSV...' : 'Extracting data from PDF with AI...'}
+                </span>
               </div>
             )}
 
@@ -941,18 +1051,21 @@ Rules:
                   <p className="text-xs text-emerald-700 mb-1">Customer: <strong>{extractedData.customer_name}</strong></p>
                 )}
                 <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-xs">
-                  <div>Extensions: <strong>{extractedData.total_extensions || 0}</strong></div>
-                  <div>User Ext: <strong>{extractedData.user_extensions || 0}</strong></div>
-                  <div>Ring Groups: <strong>{extractedData.ring_groups || 0}</strong></div>
-                  <div>Queues: <strong>{extractedData.queues || 0}</strong></div>
-                  <div>Trunks: <strong>{extractedData.trunks || 0}</strong></div>
-                  <div>Total Calls: <strong>{extractedData.total_calls || 0}</strong></div>
-                  <div>Inbound: <strong>{extractedData.inbound_calls || 0}</strong></div>
-                  <div>Outbound: <strong>{extractedData.outbound_calls || 0}</strong></div>
-                  <div>Missed: <strong className="text-orange-600">{extractedData.missed_calls || 0}</strong></div>
+                  <div>Total Ext: <strong>{extractedData.total_extensions || 0}</strong></div>
+                  <div>Active Users: <strong>{extractedData.user_extensions || 0}</strong></div>
+                  {extractedData.disabled_extensions > 0 && (
+                    <div>Disabled: <strong className="text-slate-400">{extractedData.disabled_extensions}</strong></div>
+                  )}
+                  {extractedData.ring_groups > 0 && <div>Ring Groups: <strong>{extractedData.ring_groups}</strong></div>}
+                  {extractedData.queues > 0 && <div>Queues: <strong>{extractedData.queues}</strong></div>}
+                  {extractedData.trunks > 0 && <div>Trunks: <strong>{extractedData.trunks}</strong></div>}
+                  {extractedData.total_calls > 0 && <div>Total Calls: <strong>{extractedData.total_calls}</strong></div>}
+                  {extractedData.inbound_calls > 0 && <div>Inbound: <strong>{extractedData.inbound_calls}</strong></div>}
+                  {extractedData.outbound_calls > 0 && <div>Outbound: <strong>{extractedData.outbound_calls}</strong></div>}
+                  {extractedData.missed_calls > 0 && <div>Missed: <strong className="text-orange-600">{extractedData.missed_calls}</strong></div>}
                 </div>
                 {extractedData.extensions_detail?.length > 0 && (
-                  <p className="text-xs text-emerald-700 mt-2">Extensions detail: {extractedData.extensions_detail.length} entries</p>
+                  <p className="text-xs text-emerald-700 mt-2">{extractedData.extensions_detail.length} extensions parsed</p>
                 )}
               </div>
             )}
