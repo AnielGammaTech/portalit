@@ -64,18 +64,26 @@ function buildIncidentData(incident, customerId) {
 }
 
 async function fetchAgentCount(rcAccountId) {
+  const data = await rocketCyberApiCall(`/account/${rcAccountId}/agents`);
+
+  // API may return { data: [...], totalCount } or just an array
+  if (typeof data.totalCount === 'number') return data.totalCount;
+  if (Array.isArray(data.data)) return data.data.length;
+  if (Array.isArray(data)) return data.length;
+
+  // Paginated fallback
   let totalAgents = 0;
   let page = 1;
   const pageSize = 100;
 
   while (true) {
-    const data = await rocketCyberApiCall(`/account/${rcAccountId}/agents`, { page, pageSize });
-    const agents = data.data || [];
+    const pageData = await rocketCyberApiCall(`/account/${rcAccountId}/agents`, { page, pageSize });
+    const agents = pageData.data || pageData || [];
+    if (!Array.isArray(agents) || agents.length === 0) break;
     totalAgents += agents.length;
-
-    if (agents.length < pageSize || page >= (data.totalPages || 1)) break;
+    if (agents.length < pageSize || page >= (pageData.totalPages || 1)) break;
     page++;
-    if (page > 50) break; // Safety limit
+    if (page > 50) break;
   }
 
   return totalAgents;

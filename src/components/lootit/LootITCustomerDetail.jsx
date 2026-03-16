@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ArrowLeft, Filter, Check, X, ChevronRight, RotateCcw, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Filter, Check, X, ChevronRight, RotateCcw, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { useReconciliationData } from '@/hooks/useReconciliationData';
@@ -368,7 +368,7 @@ function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, 
         <div>
           <h4 className="font-semibold text-slate-900 text-sm">{productName}</h4>
           <p className="text-xs text-slate-400 mt-0.5">
-            Pax8{billingTerm ? ` · ${billingTerm}` : ''}{price > 0 ? ` · $${parseFloat(price).toFixed(2)}/unit` : ''}
+            Pax8{billingTerm ? ` · ${billingTerm}` : ''}{price > 0 ? ` · $${parseFloat(price).toFixed(2)}/unit · $${(parseFloat(price) * vendorQty).toFixed(2)}/mo` : ''}
           </p>
         </div>
         <ReconciliationBadge
@@ -376,6 +376,14 @@ function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, 
           difference={difference}
         />
       </div>
+
+      {/* Not Billed banner */}
+      {isMissing && (
+        <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
+          <p className="text-xs font-medium text-red-700">PSA Not Billing — no matching line item in HaloPSA</p>
+        </div>
+      )}
 
       {/* Quantities */}
       <div className="flex items-center gap-6 mb-3">

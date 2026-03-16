@@ -262,28 +262,43 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = []) {
 
 /**
  * Find PSA line items matching a Pax8 product name.
- * Uses substring match first, then keyword fuzzy match as fallback.
+ * Uses strict substring matching only — tries full name first,
+ * then strips common Pax8 suffixes for a cleaner match.
  */
 function findPsaMatchesForProduct(productName, lineItems) {
-  const name = (productName || '').toLowerCase();
+  const name = (productName || '').toLowerCase().trim();
+  if (name.length < 4) return [];
 
-  // Substring match (require ≥4 chars to avoid false positives)
-  if (name.length >= 4) {
-    const exact = lineItems.filter((li) =>
-      (li.description || '').toLowerCase().includes(name)
+  // 1. Exact substring match on full product name
+  const exact = lineItems.filter((li) =>
+    (li.description || '').toLowerCase().includes(name)
+  );
+  if (exact.length > 0) return exact;
+
+  // 2. Strip common Pax8 suffixes and retry
+  const cleaned = name
+    .replace(/\[new commerce experience\]/gi, '')
+    .replace(/\(new commerce experience\)/gi, '')
+    .replace(/\[nce\]/gi, '')
+    .replace(/- annual/gi, '')
+    .replace(/- monthly/gi, '')
+    .trim();
+
+  if (cleaned.length >= 4 && cleaned !== name) {
+    const stripped = lineItems.filter((li) =>
+      (li.description || '').toLowerCase().includes(cleaned)
     );
-    if (exact.length > 0) return exact;
+    if (stripped.length > 0) return stripped;
   }
 
-  // Keyword fuzzy fallback
-  const keywords = name.split(/\s+/).filter((w) => w.length > 3);
-  if (keywords.length < 2) return [];
-
-  return lineItems.filter((li) => {
-    const desc = (li.description || '').toLowerCase();
-    const hits = keywords.filter((kw) => desc.includes(kw)).length;
-    return hits >= 2 && hits >= keywords.length * 0.5;
+  // 3. Also try matching PSA description against the product name (reverse match)
+  const reverse = lineItems.filter((li) => {
+    const desc = (li.description || '').toLowerCase().trim();
+    return desc.length >= 4 && name.includes(desc);
   });
+  if (reverse.length > 0) return reverse;
+
+  return [];
 }
 
 /**
