@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
-import pdfParse from 'pdf-parse';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const pdfParse = require('pdf-parse');
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { getServiceSupabase } from '../lib/supabase.js';
 
