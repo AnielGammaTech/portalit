@@ -7,7 +7,7 @@ const PROVIDER_CONFIG = {
     envKey: 'ANTHROPIC_API_KEY',
     models: [
       { id: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
-      { id: 'claude-haiku-4-20250514', label: 'Claude Haiku 4' },
+      { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
     ],
   },
   openai: {
@@ -29,7 +29,7 @@ async function testAnthropicConnection() {
 
   const client = new Anthropic({ apiKey });
   const response = await client.messages.create({
-    model: 'claude-haiku-4-20250514',
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: 20,
     messages: [{ role: 'user', content: 'Say "ok" in one word.' }],
   });

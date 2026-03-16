@@ -142,6 +142,7 @@ const ENTITY_TABLE_MAP = {
   SpanningMapping: 'spanning_mappings',
   SyncLog: 'sync_logs',
   ThreeCXMapping: 'threecx_mappings',
+  ThreeCXReport: 'threecx_reports',
   Ticket: 'tickets',
   UniFiMapping: 'unifi_mappings',
   User: 'users',

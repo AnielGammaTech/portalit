@@ -31,19 +31,55 @@ async function getAISettings() {
     .limit(1)
     .single();
 
+  let model = data?.ai_model || 'claude-sonnet-4-20250514';
+  // Fix legacy incorrect model ID
+  if (model === 'claude-haiku-4-20250514') model = 'claude-haiku-4-5-20251001';
+
   return {
     provider: data?.ai_provider || 'anthropic',
-    model: data?.ai_model || 'claude-sonnet-4-20250514',
+    model,
   };
 }
 
-async function invokeAnthropic(prompt, model, jsonSchema) {
+async function fetchFileAsBase64(url) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch file from ${url}: ${response.status}`);
+  }
+  const contentType = response.headers.get('content-type') || 'application/pdf';
+  const buffer = Buffer.from(await response.arrayBuffer());
+  return { base64: buffer.toString('base64'), contentType };
+}
+
+async function invokeAnthropic(prompt, model, jsonSchema, fileUrls) {
   const anthropic = getAnthropic();
+
+  // Build content blocks: files first, then prompt text
+  const contentBlocks = [];
+
+  if (fileUrls?.length) {
+    for (const url of fileUrls) {
+      const { base64, contentType } = await fetchFileAsBase64(url);
+      if (contentType.includes('pdf')) {
+        contentBlocks.push({
+          type: 'document',
+          source: { type: 'base64', media_type: 'application/pdf', data: base64 },
+        });
+      } else if (contentType.startsWith('image/')) {
+        contentBlocks.push({
+          type: 'image',
+          source: { type: 'base64', media_type: contentType, data: base64 },
+        });
+      }
+    }
+  }
+
+  contentBlocks.push({ type: 'text', text: prompt });
 
   const requestParams = {
     model,
-    max_tokens: 4096,
-    messages: [{ role: 'user', content: prompt }],
+    max_tokens: 8192,
+    messages: [{ role: 'user', content: contentBlocks }],
   };
 
   if (jsonSchema) {
@@ -55,10 +91,34 @@ async function invokeAnthropic(prompt, model, jsonSchema) {
   return textContent?.text || '';
 }
 
-async function invokeOpenAI(prompt, model, jsonSchema) {
+async function invokeOpenAI(prompt, model, jsonSchema, fileUrls) {
   const openai = getOpenAI();
 
-  const messages = [{ role: 'user', content: prompt }];
+  // Build content parts: files first, then prompt text
+  const contentParts = [];
+
+  if (fileUrls?.length) {
+    for (const url of fileUrls) {
+      const { base64, contentType } = await fetchFileAsBase64(url);
+      if (contentType.startsWith('image/')) {
+        contentParts.push({
+          type: 'image_url',
+          image_url: { url: `data:${contentType};base64,${base64}` },
+        });
+      } else if (contentType.includes('pdf')) {
+        // OpenAI supports file input via the file object for some models,
+        // but for broad compatibility, include as a URL data reference
+        contentParts.push({
+          type: 'file',
+          file: { filename: 'report.pdf', file_data: `data:application/pdf;base64,${base64}` },
+        });
+      }
+    }
+  }
+
+  contentParts.push({ type: 'text', text: prompt });
+
+  const messages = [{ role: 'user', content: contentParts }];
 
   if (jsonSchema) {
     messages.unshift({
@@ -69,7 +129,7 @@ async function invokeOpenAI(prompt, model, jsonSchema) {
 
   const response = await openai.chat.completions.create({
     model,
-    max_tokens: 4096,
+    max_tokens: 8192,
     messages,
   });
 
@@ -78,7 +138,7 @@ async function invokeOpenAI(prompt, model, jsonSchema) {
 
 router.post('/invoke', requireAuth, async (req, res, next) => {
   try {
-    const { prompt, response_json_schema } = req.body;
+    const { prompt, file_urls, response_json_schema } = req.body;
 
     if (!prompt) {
       return res.status(400).json({ error: 'prompt is required' });
@@ -89,14 +149,19 @@ router.post('/invoke', requireAuth, async (req, res, next) => {
     let responseText;
 
     if (provider === 'openai') {
-      responseText = await invokeOpenAI(prompt, model, response_json_schema);
+      responseText = await invokeOpenAI(prompt, model, response_json_schema, file_urls);
     } else {
-      responseText = await invokeAnthropic(prompt, model, response_json_schema);
+      responseText = await invokeAnthropic(prompt, model, response_json_schema, file_urls);
     }
 
     if (response_json_schema) {
       try {
-        const parsed = JSON.parse(responseText);
+        // Handle cases where the LLM wraps JSON in markdown code blocks
+        let jsonText = responseText.trim();
+        if (jsonText.startsWith('```')) {
+          jsonText = jsonText.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '');
+        }
+        const parsed = JSON.parse(jsonText);
         return res.json(parsed);
       } catch {
         return res.json(responseText);
