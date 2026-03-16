@@ -21,15 +21,16 @@ export default function LootIT() {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden" style={{ backgroundColor: '#FDF2F8' }}>
+    <div className="min-h-[80vh] relative -mx-4 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-6 lg:-mt-8 -mb-4 sm:-mb-6 lg:-mb-8 px-4 sm:px-6 lg:px-8" style={{ backgroundColor: '#FDF2F8' }}>
       {/* Ambient pink glow — makes LootIT visually distinct from other tools */}
-      <div className="pointer-events-none fixed top-0 left-0 w-full h-full z-0">
-        <div className="absolute top-[-100px] right-[-100px] w-[500px] h-[500px] bg-pink-300/20 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-80px] left-[-80px] w-[400px] h-[400px] bg-rose-300/15 rounded-full blur-[100px]" />
+      <div className="pointer-events-none absolute inset-0 overflow-hidden z-0">
+        <div className="absolute top-[-100px] right-[-100px] w-[500px] h-[500px] bg-pink-300/25 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-80px] left-[-80px] w-[400px] h-[400px] bg-rose-300/20 rounded-full blur-[100px]" />
+        <div className="absolute top-[30%] left-[50%] -translate-x-1/2 w-[600px] h-[300px] bg-pink-200/15 rounded-full blur-[100px]" />
       </div>
 
       {/* Header */}
-      <div className="bg-white/70 backdrop-blur-md border-b border-pink-100 sticky top-0 z-30 shadow-[0_1px_20px_-5px_rgba(236,72,153,0.1)]">
+      <div className="relative z-20 bg-white/70 backdrop-blur-md border-b border-pink-100 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 shadow-[0_1px_20px_-5px_rgba(236,72,153,0.15)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-14">
             {/* Logo / Title */}
@@ -82,7 +83,7 @@ export default function LootIT() {
       </div>
 
       {/* Content */}
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <div className="relative z-10 max-w-7xl mx-auto py-6">
         {view === 'settings' && <LootITSettings />}
         {view === 'dashboard' && (
           <LootITDashboard onSelectCustomer={handleSelectCustomer} />
