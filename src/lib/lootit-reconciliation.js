@@ -32,6 +32,14 @@ const VENDOR_EXTRACTORS = {
     return null;
   },
 
+  datto_rmm: (data) => {
+    if (!data) return null;
+    if (typeof data.total_devices === 'number') return data.total_devices;
+    const ws = typeof data.workstation_count === 'number' ? data.workstation_count : 0;
+    const srv = typeof data.server_count === 'number' ? data.server_count : 0;
+    return ws + srv > 0 ? ws + srv : null;
+  },
+
   datto_rmm_workstation: (data) => {
     if (!data) return null;
     if (typeof data.workstation_count === 'number') return data.workstation_count;
@@ -133,6 +141,7 @@ export const INTEGRATION_MAPPING_ENTITIES = {
   cove: 'CoveDataMapping',
   cove_workstation: 'CoveDataMapping',
   cove_server: 'CoveDataMapping',
+  datto_rmm: 'DattoSiteMapping',
   datto_rmm_workstation: 'DattoSiteMapping',
   datto_rmm_server: 'DattoSiteMapping',
   spanning: 'SpanningMapping',
@@ -151,6 +160,7 @@ export const INTEGRATION_LABELS = {
   cove: 'Cove Data Protection',
   cove_workstation: 'Cove Workstations',
   cove_server: 'Cove Servers',
+  datto_rmm: 'Datto RMM',
   datto_rmm_workstation: 'Datto RMM Workstations',
   datto_rmm_server: 'Datto RMM Servers',
   spanning: 'Spanning Backup',
@@ -176,7 +186,9 @@ export function lineItemMatchesRule(lineItem, rule) {
   const value = (lineItem[field] || '').toLowerCase();
   const pattern = (rule.match_pattern || '').toLowerCase();
   if (!pattern) return false;
-  return value.includes(pattern);
+  // Support pipe-separated patterns (OR logic): "JumpCloud|Jump Cloud"
+  const patterns = pattern.split('|').map(p => p.trim()).filter(Boolean);
+  return patterns.some(p => value.includes(p));
 }
 
 /**

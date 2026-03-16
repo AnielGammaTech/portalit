@@ -299,7 +299,7 @@ export async function scheduledHaloPSASync(_body, _user) {
           // ─── tickets ───
           try {
             const ticketData = await haloGet(
-              `Tickets?client_id=${customer.external_id}&pageinate=true&page_size=200&page_no=1&order=dateoccurred&orderdesc=true`,
+              `Tickets?client_id=${customer.external_id}&pageinate=true&page_size=50&page_no=1&order=dateoccurred&orderdesc=true`,
               config,
             );
             const haloTickets = extractRecords(ticketData, 'tickets');

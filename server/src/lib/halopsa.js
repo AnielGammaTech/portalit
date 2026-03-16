@@ -273,6 +273,7 @@ export function mapHaloUserToContact(haloUser, customerId) {
     email: haloUser.emailaddress || haloUser.email || '',
     phone: haloUser.phonenumber || haloUser.phone || '',
     title: haloUser.jobtitle || '',
+    source: 'halopsa',
     is_primary: haloUser.isprimarycontact || false,
   };
 }
