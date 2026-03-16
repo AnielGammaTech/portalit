@@ -318,10 +318,10 @@ export function reconcilePax8Subscriptions(lineItems, pax8Mapping, reviews = [],
     reviews.filter((r) => r.rule_id?.startsWith('pax8:')).map((r) => [r.rule_id, r])
   );
 
-  // Build override lookup: product name → [line_item_id, ...]
+  // Build override lookup: rule_id → [line_item_id, ...]
   const overrideMap = {};
   for (const ov of overrides) {
-    const key = (ov.pax8_product_name || '').toLowerCase();
+    const key = ov.rule_id || '';
     if (!overrideMap[key]) overrideMap[key] = [];
     overrideMap[key].push(ov.line_item_id);
   }
@@ -330,69 +330,59 @@ export function reconcilePax8Subscriptions(lineItems, pax8Mapping, reviews = [],
   const results = [];
 
   for (const product of products) {
-    // Check manual overrides first, then fall back to auto-matching
-    const overrideIds = overrideMap[(product.name || '').toLowerCase()] || [];
-    const overrideItems = overrideIds
-      .map((id) => lineItemById[id])
-      .filter(Boolean);
-    const matchedLineItems = overrideItems.length > 0
-      ? overrideItems
-      : findPsaMatchesForProduct(product.name, lineItems);
-    const psaQty = matchedLineItems.reduce((sum, li) => sum + (parseFloat(li.quantity) || 0), 0);
-    const hasPsaData = matchedLineItems.length > 0;
+    // Auto-match at the product level (fallback when no per-sub override)
+    const autoMatched = findPsaMatchesForProduct(product.name, lineItems);
     const totalVendorQty = product.quantity || 0;
-    const difference = hasPsaData ? psaQty - totalVendorQty : 0;
-
-    let status = 'missing_from_psa';
-    if (hasPsaData) {
-      if (difference === 0) status = 'match';
-      else if (difference > 0) status = 'over';
-      else status = 'under';
-    }
-
     const subs = product.subscriptions || [];
+
+    // Helper: build result for a given ruleId + vendorQty using specific matched items
+    const buildResult = (ruleId, subVendorQty, matched, sub) => {
+      const psaQty = matched.reduce((sum, li) => sum + (parseFloat(li.quantity) || 0), 0);
+      const hasPsaData = matched.length > 0;
+      const difference = hasPsaData ? psaQty - subVendorQty : 0;
+
+      let status = 'missing_from_psa';
+      if (hasPsaData) {
+        if (difference === 0) status = 'match';
+        else if (difference > 0) status = 'over';
+        else status = 'under';
+      }
+
+      return {
+        ruleId,
+        productName: product.name,
+        subscriptionId: sub?.id || null,
+        vendorQty: subVendorQty,
+        totalVendorQty,
+        psaQty: hasPsaData ? psaQty : null,
+        difference,
+        status,
+        matchedLineItems: matched,
+        billingTerm: sub?.billingTerm || '',
+        price: sub?.price || 0,
+        startDate: sub?.startDate || null,
+        review: reviewMap[ruleId] || null,
+        integrationLabel: 'Pax8',
+      };
+    };
 
     // If no subscription detail, emit one tile for the product itself
     if (subs.length === 0) {
       const ruleId = `pax8:${product.name}`;
-      results.push({
-        ruleId,
-        productName: product.name,
-        subscriptionId: null,
-        vendorQty: totalVendorQty,
-        totalVendorQty,
-        psaQty: hasPsaData ? psaQty : null,
-        difference,
-        status,
-        matchedLineItems,
-        billingTerm: '',
-        price: 0,
-        startDate: null,
-        review: reviewMap[ruleId] || null,
-        integrationLabel: 'Pax8',
-      });
+      const overrideIds = overrideMap[ruleId] || [];
+      const overrideItems = overrideIds.map((id) => lineItemById[id]).filter(Boolean);
+      const matched = overrideItems.length > 0 ? overrideItems : autoMatched;
+      results.push(buildResult(ruleId, totalVendorQty, matched, null));
       continue;
     }
 
-    // One tile per subscription — status uses product-level comparison
+    // One tile per subscription — each can have its own override
     for (const sub of subs) {
       const ruleId = `pax8:${sub.id}`;
-      results.push({
-        ruleId,
-        productName: product.name,
-        subscriptionId: sub.id,
-        vendorQty: sub.quantity || 1,
-        totalVendorQty,
-        psaQty: hasPsaData ? psaQty : null,
-        difference,
-        status,
-        matchedLineItems,
-        billingTerm: sub.billingTerm || '',
-        price: sub.price || 0,
-        startDate: sub.startDate || null,
-        review: reviewMap[ruleId] || null,
-        integrationLabel: 'Pax8',
-      });
+      const overrideIds = overrideMap[ruleId] || [];
+      const overrideItems = overrideIds.map((id) => lineItemById[id]).filter(Boolean);
+      const matched = overrideItems.length > 0 ? overrideItems : autoMatched;
+      results.push(buildResult(ruleId, sub.quantity || 1, matched, sub));
     }
   }
 

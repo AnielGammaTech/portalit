@@ -15,7 +15,7 @@ export default function LootITCustomerDetail({ customer, onBack }) {
   const [detailItem, setDetailItem] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const [mappingProduct, setMappingProduct] = useState(null); // product name being mapped
+  const [mappingRecon, setMappingRecon] = useState(null); // { ruleId, productName } being mapped
 
   const { reconciliations, isLoading } = useReconciliationData(customer.id);
   const { markReviewed, dismiss, resetReview, isSaving } = useReconciliationReviews(customer.id);
@@ -39,21 +39,20 @@ export default function LootITCustomerDetail({ customer, onBack }) {
     staleTime: 1000 * 60 * 2,
   });
 
-  const handleSaveMapping = async (productName, lineItemId) => {
+  const handleSaveMapping = async (ruleId, productName, lineItemId) => {
     await client.entities.Pax8LineItemOverride.create({
       customer_id: customer.id,
+      rule_id: ruleId,
       pax8_product_name: productName,
       line_item_id: lineItemId,
     });
     await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides', customer.id] });
     await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides_all'] });
-    setMappingProduct(null);
+    setMappingRecon(null);
   };
 
-  const handleRemoveMapping = async (productName) => {
-    const toRemove = existingOverrides.filter(
-      (o) => o.pax8_product_name.toLowerCase() === productName.toLowerCase()
-    );
+  const handleRemoveMapping = async (ruleId) => {
+    const toRemove = existingOverrides.filter((o) => o.rule_id === ruleId);
     for (const ov of toRemove) {
       await client.entities.Pax8LineItemOverride.delete(ov.id);
     }
@@ -229,11 +228,9 @@ export default function LootITCustomerDetail({ customer, onBack }) {
                 onDismiss={handleDismiss}
                 onReset={resetReview}
                 onDetails={setDetailItem}
-                onMapLineItem={setMappingProduct}
-                onRemoveMapping={handleRemoveMapping}
-                hasOverride={existingOverrides.some(
-                  (o) => o.pax8_product_name.toLowerCase() === recon.productName.toLowerCase()
-                )}
+                onMapLineItem={() => setMappingRecon(recon)}
+                onRemoveMapping={() => handleRemoveMapping(recon.ruleId)}
+                hasOverride={existingOverrides.some((o) => o.rule_id === recon.ruleId)}
                 isSaving={isSaving}
               />
             ))}
@@ -250,12 +247,12 @@ export default function LootITCustomerDetail({ customer, onBack }) {
       )}
 
       {/* Line Item Mapping Picker */}
-      {mappingProduct && (
+      {mappingRecon && (
         <LineItemPicker
-          productName={mappingProduct}
+          productName={mappingRecon.productName}
           lineItems={allLineItems}
-          onSelect={(lineItemId) => handleSaveMapping(mappingProduct, lineItemId)}
-          onClose={() => setMappingProduct(null)}
+          onSelect={(lineItemId) => handleSaveMapping(mappingRecon.ruleId, mappingRecon.productName, lineItemId)}
+          onClose={() => setMappingRecon(null)}
         />
       )}
     </div>
@@ -442,7 +439,7 @@ function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, 
           <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
           <p className="text-xs font-medium text-red-700 flex-1">PSA Not Billing — no matching line item in HaloPSA</p>
           <button
-            onClick={() => onMapLineItem?.(productName)}
+            onClick={() => onMapLineItem?.()}
             className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded bg-red-600 text-white hover:bg-red-700 transition-colors flex-shrink-0"
           >
             <Link2 className="w-3 h-3" />
@@ -457,7 +454,7 @@ function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, 
           <Link2 className="w-4 h-4 text-blue-500 flex-shrink-0" />
           <p className="text-xs font-medium text-blue-700 flex-1">Manually mapped line item</p>
           <button
-            onClick={() => onRemoveMapping?.(productName)}
+            onClick={() => onRemoveMapping?.()}
             className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors flex-shrink-0"
           >
             <Trash2 className="w-3 h-3" />
@@ -552,7 +549,7 @@ function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, 
         )}
         {!isMissing && !hasOverride && (
           <button
-            onClick={() => onMapLineItem?.(productName)}
+            onClick={() => onMapLineItem?.()}
             className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
           >
             <Link2 className="w-3.5 h-3.5" />
