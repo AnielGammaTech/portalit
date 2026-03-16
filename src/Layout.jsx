@@ -288,16 +288,10 @@ export default function Layout({ children, currentPageName }) {
 
   const customerNavigation = useMemo(() => [
     {
-      name: 'Overview',
-      page: 'CustomerDetail',
-      icon: Building2,
-      query: user?.customer_id ? `?id=${user.customer_id}` : '',
-    },
-    {
       name: 'Services',
       page: 'CustomerDetail',
       icon: Cloud,
-      query: user?.customer_id ? `?id=${user.customer_id}&tab=services` : '',
+      query: user?.customer_id ? `?id=${user.customer_id}` : '',
     },
     { name: 'Settings', page: 'CustomerSettings', icon: Settings },
   ], [user?.customer_id]);

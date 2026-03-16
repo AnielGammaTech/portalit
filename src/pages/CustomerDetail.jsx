@@ -56,7 +56,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import CustomerAnalytics from '../components/customer/CustomerAnalytics';
 import DevicesTab from '../components/customer/DevicesTab';
 import CustomerServicesTab from '../components/customer/CustomerServicesTab';
-import OverviewTab from '../components/customer/OverviewTab';
 import CustomerMap from '../components/customer/CustomerMap';
 import { UserPlus, Eye } from 'lucide-react';
 import { isCustomerPortal } from '@/lib/portal-mode';
@@ -738,10 +737,9 @@ export default function CustomerDetail() {
 
 
       {/* Tabs — HeroUI-inspired with animated styling */}
-      <Tabs defaultValue={params.get('tab') || 'overview'} className="space-y-6" id="customer-tabs">
+      <Tabs defaultValue={params.get('tab') || 'services'} className="space-y-6" id="customer-tabs">
         <TabsList className="bg-zinc-100 dark:bg-zinc-800/80 border-0 rounded-hero-lg p-1 flex gap-1 h-auto overflow-x-auto scrollbar-hide">
           {[
-            { value: 'overview', icon: Building2, label: 'Overview' },
             { value: 'billing', icon: DollarSign, label: 'Billing' },
             { value: 'services', icon: Cloud, label: 'Services' },
             { value: 'licenses', icon: Cloud, label: 'SaaS' },
@@ -758,25 +756,6 @@ export default function CustomerDetail() {
             </TabsTrigger>
           ))}
         </TabsList>
-
-        <TabsContent value="overview">
-          <OverviewTab
-            customer={customer}
-            contacts={contacts}
-            contracts={contracts}
-            recurringBills={recurringBills}
-            licenses={licenses}
-            customerId={customerId}
-            queryClient={queryClient}
-            onAddContact={isAdmin ? () => setShowAddContact(true) : undefined}
-            tickets={tickets}
-            devices={devices}
-            licenseAssignments={licenseAssignments}
-            invoices={invoices}
-            quotes={quotes}
-            readOnly={!isAdmin}
-          />
-        </TabsContent>
 
         <TabsContent value="billing">
                         <div className="space-y-6">
