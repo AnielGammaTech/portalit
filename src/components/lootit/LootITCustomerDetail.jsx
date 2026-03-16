@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useRef } from 'react';
-import { ArrowLeft, Filter, Check, X, ChevronRight, RotateCcw, RefreshCw, AlertTriangle, Link2, Search, Trash2, StickyNote, Settings2, Save, Upload, FileText, Download, Loader2, ChevronDown, DollarSign, Calendar, Users, Building2, Hash } from 'lucide-react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
+import { ArrowLeft, Filter, Check, X, ChevronRight, RotateCcw, RefreshCw, AlertTriangle, Link2, Search, Trash2, StickyNote, Settings2, Save, Upload, FileText, Download, Loader2, ChevronDown, DollarSign, Calendar, Users, Building2, Hash, CloudUpload, Sparkles, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
@@ -110,14 +110,15 @@ export default function LootITCustomerDetail({ customer, onBack }) {
   const extractContractData = async (contract) => {
     setExtractingId(contract.id);
     try {
-      // Get a public URL for the uploaded PDF
-      const { data: { publicUrl } } = supabase.storage
+      // Get a signed URL (bucket is private) so the server can download the PDF
+      const { data: signedData, error: signError } = await supabase.storage
         .from('lootit-contracts')
-        .getPublicUrl(contract.file_url);
+        .createSignedUrl(contract.file_url, 300); // 5 min expiry
+      if (signError || !signedData?.signedUrl) throw new Error('Could not create signed URL');
 
       const result = await client.integrations.Core.InvokeLLM({
         prompt: `Extract all contract data from this MSSP/IT services agreement PDF. Focus on the pricing addendum/table.`,
-        file_urls: [publicUrl],
+        file_urls: [signedData.signedUrl],
         response_json_schema: {
           type: "object",
           properties: {
@@ -258,6 +259,24 @@ export default function LootITCustomerDetail({ customer, onBack }) {
   };
 
   const [activeTab, setActiveTab] = useState('reconciliation');
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) uploadMutation.mutate(file);
+  }, [uploadMutation]);
 
   if (isLoading) {
     return (
@@ -324,43 +343,70 @@ export default function LootITCustomerDetail({ customer, onBack }) {
 
       {/* ── Contract Tab ── */}
       {activeTab === 'contract' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-700">Contracts</h3>
-              <p className="text-xs text-slate-400">Upload MSSP contracts — line items are extracted automatically</p>
-            </div>
-            <div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploadMutation.isPending}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-pink-500 text-white hover:bg-pink-600 transition-colors disabled:opacity-50"
-              >
-                {uploadMutation.isPending ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Upload className="w-3.5 h-3.5" />
-                )}
-                {uploadMutation.isPending ? 'Uploading…' : 'Upload Contract'}
-              </button>
-            </div>
-          </div>
+        <div className="space-y-5">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
 
-          {contracts.length === 0 ? (
-            <div className="bg-white rounded-xl border border-slate-200 p-10 text-center">
-              <FileText className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-              <p className="text-sm text-slate-500 mb-1">No contracts uploaded yet</p>
-              <p className="text-xs text-slate-400">Upload a PDF and we'll extract the pricing and service details</p>
-            </div>
+          {/* Upload / Analyzing State */}
+          {(uploadMutation.isPending || extractingId) ? (
+            <UploadProgressCard
+              isUploading={uploadMutation.isPending}
+              isExtracting={!!extractingId}
+            />
           ) : (
+            /* Drag & Drop Upload Zone */
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              className={cn(
+                'relative cursor-pointer rounded-2xl border-2 border-dashed transition-all duration-300 group',
+                isDragging
+                  ? 'border-pink-400 bg-pink-50/80 scale-[1.01]'
+                  : 'border-slate-200 bg-white hover:border-pink-300 hover:bg-pink-50/30'
+              )}
+            >
+              <div className="flex flex-col items-center justify-center py-8 px-6">
+                <div className={cn(
+                  'w-14 h-14 rounded-2xl flex items-center justify-center mb-4 transition-all duration-300',
+                  isDragging
+                    ? 'bg-pink-500 shadow-lg shadow-pink-200'
+                    : 'bg-gradient-to-br from-pink-100 to-rose-100 group-hover:from-pink-200 group-hover:to-rose-200'
+                )}>
+                  <CloudUpload className={cn(
+                    'w-7 h-7 transition-all duration-300',
+                    isDragging ? 'text-white scale-110' : 'text-pink-500'
+                  )} />
+                </div>
+                <p className="text-sm font-semibold text-slate-700 mb-1">
+                  {isDragging ? 'Drop your contract here' : 'Upload MSSP Contract'}
+                </p>
+                <p className="text-xs text-slate-400 text-center max-w-xs">
+                  Drag & drop a PDF or <span className="text-pink-500 font-medium">browse files</span> — we'll automatically extract pricing and line items
+                </p>
+                <div className="flex items-center gap-3 mt-4">
+                  {['PDF', 'DOC', 'XLSX'].map((ext) => (
+                    <span key={ext} className="text-[10px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                      .{ext}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Existing contracts list */}
+          {contracts.length > 0 && (
             <div className="space-y-3">
+              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Uploaded Contracts ({contracts.length})
+              </h4>
               {contracts.map((c) => (
                 <ContractCard
                   key={c.id}
@@ -497,6 +543,90 @@ export default function LootITCustomerDetail({ customer, onBack }) {
           onClose={() => setMappingRecon(null)}
         />
       )}
+    </div>
+  );
+}
+
+function UploadProgressCard({ isUploading, isExtracting }) {
+  const steps = [
+    { key: 'upload', label: 'Uploading file', icon: CloudUpload },
+    { key: 'analyze', label: 'Analyzing document', icon: Sparkles },
+    { key: 'done', label: 'Extraction complete', icon: CheckCircle2 },
+  ];
+
+  const currentStep = isUploading ? 0 : isExtracting ? 1 : 2;
+
+  return (
+    <div className="rounded-2xl border border-pink-200 bg-gradient-to-br from-white via-pink-50/50 to-rose-50/50 overflow-hidden">
+      {/* Animated top bar */}
+      <div className="h-1 bg-pink-100 overflow-hidden">
+        <div className="h-full bg-gradient-to-r from-pink-400 via-rose-400 to-pink-400 animate-[shimmer_2s_ease-in-out_infinite] bg-[length:200%_100%]" />
+      </div>
+
+      <div className="px-6 py-8">
+        {/* Animated icon */}
+        <div className="flex justify-center mb-6">
+          <div className="relative">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center shadow-lg shadow-pink-200/50">
+              {isUploading ? (
+                <CloudUpload className="w-8 h-8 text-white animate-bounce" />
+              ) : (
+                <Sparkles className="w-8 h-8 text-white animate-pulse" />
+              )}
+            </div>
+            <div className="absolute -inset-2 rounded-3xl border-2 border-pink-200 animate-ping opacity-20" />
+          </div>
+        </div>
+
+        {/* Title */}
+        <p className="text-center text-sm font-semibold text-slate-700 mb-1">
+          {isUploading ? 'Uploading your contract…' : 'Analyzing with AI…'}
+        </p>
+        <p className="text-center text-xs text-slate-400 mb-6">
+          {isUploading
+            ? 'Securely transferring your document'
+            : 'Extracting pricing, line items, and contract terms'}
+        </p>
+
+        {/* Progress steps */}
+        <div className="flex items-center justify-center gap-3 max-w-sm mx-auto">
+          {steps.map((step, idx) => {
+            const StepIcon = step.icon;
+            const isActive = idx === currentStep;
+            const isDone = idx < currentStep;
+            return (
+              <div key={step.key} className="flex items-center gap-3">
+                {idx > 0 && (
+                  <div className={cn(
+                    'w-8 h-px transition-colors duration-500',
+                    isDone ? 'bg-pink-400' : 'bg-slate-200'
+                  )} />
+                )}
+                <div className="flex flex-col items-center gap-1.5">
+                  <div className={cn(
+                    'w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-500',
+                    isDone && 'bg-pink-500 text-white',
+                    isActive && 'bg-pink-100 text-pink-600 ring-2 ring-pink-300 ring-offset-1',
+                    !isDone && !isActive && 'bg-slate-100 text-slate-300'
+                  )}>
+                    {isDone ? (
+                      <Check className="w-4 h-4" />
+                    ) : (
+                      <StepIcon className={cn('w-4 h-4', isActive && 'animate-pulse')} />
+                    )}
+                  </div>
+                  <span className={cn(
+                    'text-[10px] font-medium whitespace-nowrap',
+                    isActive ? 'text-pink-600' : isDone ? 'text-slate-500' : 'text-slate-300'
+                  )}>
+                    {step.label}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
