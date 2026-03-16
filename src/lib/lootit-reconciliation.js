@@ -39,6 +39,18 @@ const VENDOR_EXTRACTORS = {
     return null;
   },
 
+  datto_rmm_workstation: (data) => {
+    if (!data) return null;
+    if (typeof data.workstation_count === 'number') return data.workstation_count;
+    return null;
+  },
+
+  datto_rmm_server: (data) => {
+    if (!data) return null;
+    if (typeof data.server_count === 'number') return data.server_count;
+    return null;
+  },
+
   spanning: (data) => {
     if (!data) return null;
     if (typeof data.numberOfUsers === 'number') return data.numberOfUsers;
@@ -102,6 +114,8 @@ export const INTEGRATION_MAPPING_ENTITIES = {
   cove_workstation: 'CoveDataMapping',
   cove_server: 'CoveDataMapping',
   datto_rmm: 'DattoSiteMapping',
+  datto_rmm_workstation: 'DattoSiteMapping',
+  datto_rmm_server: 'DattoSiteMapping',
   spanning: 'SpanningMapping',
   jumpcloud: 'JumpCloudMapping',
   datto_edr: 'DattoEDRMapping',
@@ -115,6 +129,8 @@ export const INTEGRATION_LABELS = {
   cove_workstation: 'Cove Workstations',
   cove_server: 'Cove Servers',
   datto_rmm: 'Datto RMM',
+  datto_rmm_workstation: 'Datto RMM Workstations',
+  datto_rmm_server: 'Datto RMM Servers',
   spanning: 'Spanning Backup',
   jumpcloud: 'JumpCloud',
   datto_edr: 'Datto EDR',
