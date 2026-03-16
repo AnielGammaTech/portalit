@@ -309,8 +309,13 @@ export async function syncCoveData(body, user) {
         };
       });
 
+      const workstationCount = deviceDetails.filter(d => d.osType === 'Workstation').length;
+      const serverCount = deviceDetails.filter(d => d.osType === 'Server').length;
+
       const cachedData = {
         totalDevices,
+        workstation_count: workstationCount,
+        server_count: serverCount,
         activeDevices,
         inactiveDevices: totalDevices - activeDevices,
         devicesWithErrors,

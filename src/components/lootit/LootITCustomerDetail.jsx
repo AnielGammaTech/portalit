@@ -14,7 +14,10 @@ export default function LootITCustomerDetail({ customer, onBack }) {
 
   const customerData = reconciliations[customer.id];
   const recons = customerData?.reconciliations || [];
+  const pax8Recons = customerData?.pax8Reconciliations || [];
   const summary = customerData ? getDiscrepancySummary(recons) : null;
+  const pax8Missing = pax8Recons.filter(r => r.status === 'missing_from_psa');
+  const pax8Issues = pax8Recons.filter(r => r.status === 'over' || r.status === 'under');
 
   const filteredRecons = useMemo(() => {
     if (statusFilter === 'all') return recons.filter((r) => r.status !== 'no_data');
@@ -128,6 +131,25 @@ export default function LootITCustomerDetail({ customer, onBack }) {
         </div>
       )}
 
+      {/* Pax8 / M365 Per-Product Reconciliation */}
+      {pax8Recons.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-slate-700">
+            Pax8 / M365 Licence Reconciliation
+            {pax8Missing.length > 0 && (
+              <span className="ml-2 text-xs font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+                {pax8Missing.length} missing from billing
+              </span>
+            )}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {pax8Recons.map((recon) => (
+              <Pax8ProductCard key={recon.productName} recon={recon} />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Details Drawer */}
       {detailItem && (
         <DetailDrawer
@@ -228,6 +250,75 @@ function DetailDrawer({ reconciliation, onClose }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+const PAX8_STATUS_STYLES = {
+  match: 'border-l-emerald-400',
+  over: 'border-l-orange-400',
+  under: 'border-l-red-400',
+  missing_from_psa: 'border-l-red-500 bg-red-50/50',
+};
+
+function Pax8ProductCard({ recon }) {
+  const { productName, vendorQty, psaQty, difference, status, matchedLineItems } = recon;
+  const isMissing = status === 'missing_from_psa';
+
+  return (
+    <div
+      className={`bg-white rounded-xl border-l-4 border border-slate-200 p-4 transition-all hover:shadow-md ${
+        PAX8_STATUS_STYLES[status] || 'border-l-slate-200'
+      }`}
+    >
+      <div className="flex items-start justify-between mb-2">
+        <h4 className="font-medium text-slate-900 text-sm leading-tight">{productName}</h4>
+        {isMissing ? (
+          <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+            Not Billed
+          </span>
+        ) : status === 'match' ? (
+          <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+            Match
+          </span>
+        ) : status === 'under' ? (
+          <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+            Under {Math.abs(difference)}
+          </span>
+        ) : status === 'over' ? (
+          <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
+            Over +{difference}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="flex items-center gap-4 mb-2">
+        <div className="text-center">
+          <p className="text-lg font-bold text-slate-900">{psaQty !== null ? psaQty : '—'}</p>
+          <p className="text-[9px] uppercase tracking-wider text-slate-400 font-medium">PSA</p>
+        </div>
+        <span className="text-slate-300 text-sm">vs</span>
+        <div className="text-center">
+          <p className="text-lg font-bold text-slate-900">{vendorQty}</p>
+          <p className="text-[9px] uppercase tracking-wider text-slate-400 font-medium">Pax8</p>
+        </div>
+      </div>
+
+      {isMissing && (
+        <p className="text-xs text-red-600 font-medium">
+          Pax8 has {vendorQty} licence{vendorQty !== 1 ? 's' : ''} but no matching Halo line item found
+        </p>
+      )}
+
+      {matchedLineItems.length > 0 && (
+        <div className="mt-2 space-y-1">
+          {matchedLineItems.map((li) => (
+            <div key={li.id} className="text-xs text-slate-500 truncate">
+              {li.description?.replace(/\s*\$recurringbillingdate\s*/gi, '').trim()} · Qty: {li.quantity}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
