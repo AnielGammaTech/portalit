@@ -139,17 +139,17 @@ export default function CustomerDetail() {
 
   // Service tag integration mappings
   const SERVICE_TAG_MAPPINGS = [
-    { key: 'spanning', label: 'Spanning', entity: 'SpanningMapping', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
-    { key: 'jumpcloud', label: 'JumpCloud', entity: 'JumpCloudMapping', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
-    { key: 'datto', label: 'RMM', entity: 'DattoSiteMapping', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-    { key: 'edr', label: 'EDR', entity: 'DattoEDRMapping', color: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400' },
-    { key: 'rocketcyber', label: 'SOC', entity: 'RocketCyberMapping', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
-    { key: 'unifi', label: 'Firewall', entity: 'UniFiMapping', color: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400' },
-    { key: 'threecx', label: 'VoIP', entity: 'ThreeCXReport', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
-    { key: 'dmarc', label: 'DMARC', entity: 'DmarcReportMapping', color: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400' },
-    { key: 'saas_alerts', label: 'SaaS', entity: 'SaaSAlertsMapping', color: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400' },
-    { key: 'pax8', label: 'M365', entity: 'Pax8Mapping', color: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400' },
-    { key: 'cove', label: 'Backup', entity: 'CoveDataMapping', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
+    { key: 'spanning', label: 'Spanning', entity: 'SpanningMapping', dot: 'bg-purple-500', text: 'text-purple-700 dark:text-purple-300' },
+    { key: 'jumpcloud', label: 'JumpCloud', entity: 'JumpCloudMapping', dot: 'bg-green-500', text: 'text-green-700 dark:text-green-300' },
+    { key: 'datto', label: 'RMM', entity: 'DattoSiteMapping', dot: 'bg-blue-500', text: 'text-blue-700 dark:text-blue-300' },
+    { key: 'edr', label: 'EDR', entity: 'DattoEDRMapping', dot: 'bg-cyan-500', text: 'text-cyan-700 dark:text-cyan-300' },
+    { key: 'rocketcyber', label: 'SOC', entity: 'RocketCyberMapping', dot: 'bg-orange-500', text: 'text-orange-700 dark:text-orange-300' },
+    { key: 'unifi', label: 'Firewall', entity: 'UniFiMapping', dot: 'bg-sky-500', text: 'text-sky-700 dark:text-sky-300' },
+    { key: 'threecx', label: 'VoIP', entity: 'ThreeCXReport', dot: 'bg-emerald-500', text: 'text-emerald-700 dark:text-emerald-300' },
+    { key: 'dmarc', label: 'DMARC', entity: 'DmarcReportMapping', dot: 'bg-teal-500', text: 'text-teal-700 dark:text-teal-300' },
+    { key: 'saas_alerts', label: 'SaaS Alerts', entity: 'SaaSAlertsMapping', dot: 'bg-violet-500', text: 'text-violet-700 dark:text-violet-300' },
+    { key: 'pax8', label: 'M365', entity: 'Pax8Mapping', dot: 'bg-pink-500', text: 'text-pink-700 dark:text-pink-300' },
+    { key: 'cove', label: 'Backup', entity: 'CoveDataMapping', dot: 'bg-amber-500', text: 'text-amber-700 dark:text-amber-300' },
   ];
 
   const { data: serviceMappingsData } = useQuery({
@@ -178,7 +178,7 @@ export default function CustomerDetail() {
     for (const svc of SERVICE_TAG_MAPPINGS) {
       const mappings = serviceMappingsData[svc.key] || [];
       if (mappings.length > 0) {
-        tags.push({ key: svc.key, label: svc.label, color: svc.color });
+        tags.push({ key: svc.key, label: svc.label, dot: svc.dot, text: svc.text });
       }
     }
     return tags;
@@ -647,7 +647,7 @@ export default function CustomerDetail() {
                 />
               </div>
               <div>
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-3">
                   <h1 className="text-2xl font-bold text-foreground">{customer.name}</h1>
                   <Badge
                     variant={customer.status === 'active' ? 'flat-success' : customer.status === 'suspended' ? 'flat-destructive' : 'secondary'}
@@ -655,18 +655,25 @@ export default function CustomerDetail() {
                   >
                     {customer.status || 'Active'}
                   </Badge>
-                  {serviceTags.map((tag) => (
-                    <span
-                      key={tag.key}
-                      className={cn(
-                        'inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold',
-                        tag.color
-                      )}
-                    >
-                      {tag.label}
-                    </span>
-                  ))}
                 </div>
+                {serviceTags.length > 0 && (
+                  <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                    {serviceTags.map((tag) => (
+                      <span
+                        key={tag.key}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 pl-1.5 pr-2.5 py-0.5 rounded-full text-[11px] font-medium',
+                          'bg-muted/60 border border-border/50',
+                          'transition-colors hover:bg-muted',
+                          tag.text
+                        )}
+                      >
+                        <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', tag.dot)} />
+                        {tag.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div className="flex flex-wrap items-center gap-4 mt-1.5 text-sm text-muted-foreground">
                   {customer.email && (
                     <a href={`mailto:${customer.email}`} className="flex items-center gap-1.5 hover:text-foreground transition-colors duration-[250ms]">
