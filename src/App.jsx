@@ -61,18 +61,6 @@ const AuthenticatedApp = () => {
     }
   }
 
-  // On the full portal, redirect customer users to the customer portal
-  const isStaffUser = user?.role === 'admin' || user?.role === 'sales';
-  if (isFullPortal && CUSTOMER_PORTAL_URL && user && !isStaffUser) {
-    window.location.href = CUSTOMER_PORTAL_URL;
-    return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center gap-3">
-        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
-        <p className="text-sm text-muted-foreground">Redirecting to your portal...</p>
-      </div>
-    );
-  }
-
   // Block staff users (admin/sales) on the customer portal
   if (isCustomerPortal && (user?.role === 'admin' || user?.role === 'sales')) {
     return <WrongPortalMessage user={user} />;

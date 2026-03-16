@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, KeyRound } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, KeyRound, Shield, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { isCustomerPortal, CUSTOMER_PORTAL_URL } from '@/lib/portal-mode';
 
 // Floating orb component for animated background
 function FloatingOrb({ className, delay = 0 }) {
@@ -39,6 +40,10 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [isResetMode, setIsResetMode] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
+
+  // On the full portal, show portal chooser if customer portal URL is configured
+  const showPortalChooser = !isCustomerPortal && !!CUSTOMER_PORTAL_URL;
+  const [portalChosen, setPortalChosen] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -177,24 +182,68 @@ export default function Login() {
           <div className="mb-8">
             <AnimatePresence mode="wait">
               <motion.div
-                key={isResetMode ? 'reset' : 'login'}
+                key={isResetMode ? 'reset' : showPortalChooser && !portalChosen ? 'chooser' : 'login'}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 10 }}
                 transition={{ duration: 0.2 }}
               >
                 <h1 className="text-3xl font-bold text-foreground tracking-tight">
-                  {isResetMode ? 'Reset password' : 'Welcome back'}
+                  {isResetMode ? 'Reset password' : showPortalChooser && !portalChosen ? 'Welcome to PortalIT' : 'Welcome back'}
                 </h1>
                 <p className="text-muted-foreground mt-2 text-[15px]">
                   {isResetMode
                     ? 'Enter your email and we\'ll send you a reset link.'
+                    : showPortalChooser && !portalChosen
+                    ? 'Select how you\'d like to sign in.'
                     : 'Sign in to your PortalIT account to continue.'}
                 </p>
               </motion.div>
             </AnimatePresence>
           </div>
 
+          {/* Portal Chooser */}
+          {showPortalChooser && !portalChosen ? (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="space-y-3"
+            >
+              <button
+                onClick={() => setPortalChosen(true)}
+                className="w-full bg-card rounded-[20px] shadow-hero-lg border-2 border-border/60 hover:border-primary/50 p-6 text-left transition-all duration-200 hover:shadow-xl group"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
+                    <Shield className="w-6 h-6 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-foreground text-[15px]">Staff &amp; Admin</p>
+                    <p className="text-sm text-muted-foreground mt-0.5">Manage customers, integrations, and settings</p>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0" />
+                </div>
+              </button>
+
+              <button
+                onClick={() => { window.location.href = `${CUSTOMER_PORTAL_URL}/login`; }}
+                className="w-full bg-card rounded-[20px] shadow-hero-lg border-2 border-border/60 hover:border-[#7828C8]/50 p-6 text-left transition-all duration-200 hover:shadow-xl group"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-[#7828C8]/10 flex items-center justify-center shrink-0 group-hover:bg-[#7828C8]/15 transition-colors">
+                    <Building2 className="w-6 h-6 text-[#7828C8]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-foreground text-[15px]">Customer Portal</p>
+                    <p className="text-sm text-muted-foreground mt-0.5">View your services, billing, and support</p>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-muted-foreground/40 group-hover:text-[#7828C8] transition-colors shrink-0" />
+                </div>
+              </button>
+            </motion.div>
+          ) : (
+          <>
           {/* Form card */}
           <div className="bg-card rounded-[20px] shadow-hero-lg border border-border/60 p-7">
             <form onSubmit={isResetMode ? handleResetPassword : handleLogin} className="space-y-5">
@@ -324,6 +373,21 @@ export default function Login() {
               )}
             </AnimatePresence>
           </div>
+
+          {/* Back to portal chooser */}
+          {showPortalChooser && (
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={() => setPortalChosen(false)}
+                className="text-sm text-muted-foreground hover:text-foreground font-medium transition-colors duration-200"
+              >
+                ← Back to portal selection
+              </button>
+            </div>
+          )}
+          </>
+          )}
 
           {/* Footer */}
           <p className="mt-8 text-center text-xs text-muted-foreground/60">
