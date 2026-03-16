@@ -603,6 +603,8 @@ Extraction rules:
 - total_compromises: Total number of compromises (look for large headline numbers, "Total Compromises", or count from the detail table)
 - new_compromises: New compromises this period (look for "New", "Count Changes", or increases)
 - Severity classification: password exposed = "critical", personal data exposed (name, address, phone) = "high", email only = "medium", other = "low"
+- domains_monitored: List of all monitored domains (e.g. "company.com", "company.org") found in the report
+- domains_count: Total number of unique domains being monitored
 - compromised_emails: ALL unique email addresses from compromise entries
 - breach_sources: ALL breach/source names mentioned
 - compromises_detail: EVERY individual compromise with email, password ("N/A" if none), source, breach_date (YYYY-MM-DD), severity
@@ -623,6 +625,12 @@ If you cannot find a specific field, use 0 for numbers and empty array for lists
             high_count: { type: "number", description: "Number of high severity" },
             medium_count: { type: "number", description: "Number of medium severity" },
             low_count: { type: "number", description: "Number of low severity" },
+            domains_monitored: {
+              type: "array",
+              items: { type: "string" },
+              description: "List of monitored domains (e.g. company.com)"
+            },
+            domains_count: { type: "number", description: "Total number of monitored domains" },
             compromised_emails: {
               type: "array",
               items: { type: "string" },
@@ -727,6 +735,8 @@ If you cannot find a specific field, use 0 for numbers and empty array for lists
             high_count: extractedData.high_count || 0,
             medium_count: extractedData.medium_count || 0,
             low_count: extractedData.low_count || 0,
+            domains_monitored: extractedData.domains_monitored || [],
+            domains_count: extractedData.domains_count || extractedData.domains_monitored?.length || 0,
             compromised_emails: extractedData.compromised_emails || [],
             breach_sources: extractedData.breach_sources || [],
             compromises_detail: extractedData.compromises_detail || [],
@@ -835,6 +845,7 @@ If you cannot find a specific field, use 0 for numbers and empty array for lists
               <TableHead>Customer</TableHead>
               <TableHead>Report Date</TableHead>
               <TableHead>Period</TableHead>
+              <TableHead>Domains</TableHead>
               <TableHead>Total</TableHead>
               <TableHead>Critical</TableHead>
               <TableHead>High</TableHead>
@@ -845,13 +856,13 @@ If you cannot find a specific field, use 0 for numbers and empty array for lists
           <TableBody>
             {loadingReports ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8">
+                <TableCell colSpan={9} className="text-center py-8">
                   <Loader2 className="w-5 h-5 animate-spin mx-auto text-slate-400" />
                 </TableCell>
               </TableRow>
             ) : reports.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8">
+                <TableCell colSpan={9} className="text-center py-8">
                   <Shield className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                   <p className="text-slate-500">No reports uploaded yet</p>
                   <p className="text-sm text-slate-400">Upload a Dark Web ID report to get started</p>
@@ -874,6 +885,11 @@ If you cannot find a specific field, use 0 for numbers and empty array for lists
                       ? `${format(new Date(report.report_period_start), 'MM/dd/yy')} - ${format(new Date(report.report_period_end), 'MM/dd/yy')}`
                       : '—'
                     }
+                  </TableCell>
+                  <TableCell>
+                    <span className="font-medium">
+                      {report.report_data?.domains_count || report.report_data?.domains_monitored?.length || 0}
+                    </span>
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline">
@@ -1085,8 +1101,11 @@ If you cannot find a specific field, use 0 for numbers and empty array for lists
                   ))}
                 </div>
 
-                {(extractedData.compromised_emails?.length > 0 || extractedData.breach_sources?.length > 0) && (
-                  <div className="flex gap-4 text-xs text-slate-600 pt-1">
+                {(extractedData.domains_monitored?.length > 0 || extractedData.compromised_emails?.length > 0 || extractedData.breach_sources?.length > 0) && (
+                  <div className="flex flex-wrap gap-4 text-xs text-slate-600 pt-1">
+                    {(extractedData.domains_count > 0 || extractedData.domains_monitored?.length > 0) && (
+                      <span>🌐 {extractedData.domains_count || extractedData.domains_monitored?.length} domains monitored</span>
+                    )}
                     {extractedData.compromised_emails?.length > 0 && (
                       <span>📧 {extractedData.compromised_emails.length} compromised emails</span>
                     )}

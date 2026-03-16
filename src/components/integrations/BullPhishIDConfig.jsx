@@ -394,8 +394,8 @@ Convert all dates to YYYY-MM-DD format.`,
             <TableRow>
               <TableHead>Customer</TableHead>
               <TableHead>Report Date</TableHead>
+              <TableHead>Users</TableHead>
               <TableHead>Phish-Prone %</TableHead>
-              <TableHead>Emails Sent</TableHead>
               <TableHead>Clicked</TableHead>
               <TableHead>Training %</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -431,11 +431,13 @@ Convert all dates to YYYY-MM-DD format.`,
                       {format(new Date(report.report_date), 'MMM d, yyyy')}
                     </TableCell>
                     <TableCell>
+                      <span className="font-medium">{(d.total_emails_sent || 0).toLocaleString()}</span>
+                    </TableCell>
+                    <TableCell>
                       <Badge variant={(d.phish_prone_percentage || 0) > 20 ? "destructive" : (d.phish_prone_percentage || 0) > 10 ? "outline" : "default"}>
                         {d.phish_prone_percentage || 0}%
                       </Badge>
                     </TableCell>
-                    <TableCell>{(d.total_emails_sent || 0).toLocaleString()}</TableCell>
                     <TableCell>
                       <span className="text-red-600 font-medium">{d.total_clicked || 0}</span>
                     </TableCell>
