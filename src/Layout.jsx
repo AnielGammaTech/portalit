@@ -36,6 +36,7 @@ import FloatingAdminland from './components/admin/FloatingAdminland';
 import FeedbackButton from './components/feedback/FeedbackButton';
 import AwaitingAccess from './pages/AwaitingAccess';
 import { isCustomerPortal } from '@/lib/portal-mode';
+import { getFeatures } from '@/lib/permissions';
 
 const DEFAULT_PRIMARY = '#7C3AED';
 
@@ -104,7 +105,7 @@ function MobileBottomTab({ item, isActive, primaryColor }) {
   );
 }
 
-function MobileDrawerNav({ navigation, currentPageName, primaryColor, user, isAdmin, customer, onClose }) {
+function MobileDrawerNav({ navigation, currentPageName, primaryColor, user, isAdmin, isStaff, features, customer, onClose }) {
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: '#1E1048' }}>
       {/* User info at top */}
@@ -133,7 +134,7 @@ function MobileDrawerNav({ navigation, currentPageName, primaryColor, user, isAd
               color: primaryColor,
             }}
           >
-            {isAdmin ? 'Admin' : 'Customer'}
+            {isAdmin ? 'Admin' : isStaff ? 'Sales' : 'Customer'}
           </span>
         </div>
       </div>
@@ -171,8 +172,8 @@ function MobileDrawerNav({ navigation, currentPageName, primaryColor, user, isAd
           );
         })}
 
-        {/* Extra nav items in drawer for admin (hidden in customer portal mode) */}
-        {isAdmin && !isCustomerPortal && (
+        {/* Extra nav items in drawer for staff (hidden in customer portal mode) */}
+        {isStaff && !isCustomerPortal && (
           <>
             <div className="pt-3 pb-1 px-3">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-white/30">
@@ -193,20 +194,22 @@ function MobileDrawerNav({ navigation, currentPageName, primaryColor, user, isAd
                 <span>Billing</span>
               </Link>
             </SheetClose>
-            <SheetClose asChild>
-              <Link
-                to={createPageUrl('Settings')}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                  currentPageName === 'Settings'
-                    ? "bg-white/10 text-white"
-                    : "text-white/60 hover:text-white hover:bg-white/5"
-                )}
-              >
-                <Settings className="w-5 h-5" />
-                <span>Settings</span>
-              </Link>
-            </SheetClose>
+            {isAdmin && (
+              <SheetClose asChild>
+                <Link
+                  to={createPageUrl('Settings')}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                    currentPageName === 'Settings'
+                      ? "bg-white/10 text-white"
+                      : "text-white/60 hover:text-white hover:bg-white/5"
+                  )}
+                >
+                  <Settings className="w-5 h-5" />
+                  <span>Settings</span>
+                </Link>
+              </SheetClose>
+            )}
           </>
         )}
       </nav>
@@ -227,7 +230,10 @@ function MobileDrawerNav({ navigation, currentPageName, primaryColor, user, isAd
 
 export default function Layout({ children, currentPageName }) {
   const { user, isLoadingAuth } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  const userRole = user?.role || 'user';
+  const isAdmin = userRole === 'admin';
+  const isStaff = userRole === 'admin' || userRole === 'sales';
+  const features = getFeatures(userRole);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   // Fetch portal settings
@@ -240,45 +246,61 @@ export default function Layout({ children, currentPageName }) {
   const portalSettings = portalSettingsData[0] || {};
   const primaryColor = portalSettings.primary_color || DEFAULT_PRIMARY;
 
-  // Fetch customer for non-admin users (uses stable customer_id from auth context)
+  // Fetch customer for non-admin users (only their own record)
   const { data: customer = null } = useQuery({
     queryKey: ['layout_customer', user?.customer_id],
     queryFn: async () => {
-      const allCustomers = await client.entities.Customer.list();
-      return allCustomers.find(c => c.id === user.customer_id) || null;
+      const results = await client.entities.Customer.filter({ id: user.customer_id });
+      return results[0] || null;
     },
-    enabled: !!user && !isAdmin && !!user.customer_id,
+    enabled: !!user && !isStaff && !!user.customer_id,
     staleTime: 1000 * 60 * 10,
   });
 
   const isLoading = isLoadingAuth;
 
-  // Navigation definitions
-  const adminNavigation = useMemo(() => [
-    { name: 'Dashboard', page: 'Dashboard', icon: LayoutDashboard },
-    { name: 'Customers', page: 'Customers', icon: Building2 },
-    { name: 'LootIT', page: 'LootIT', icon: Coins },
-  ], []);
+  // Navigation definitions — filtered by role permissions
+  const staffNavigation = useMemo(() => {
+    const items = [
+      { name: 'Dashboard', page: 'Dashboard', icon: LayoutDashboard },
+      { name: 'Customers', page: 'Customers', icon: Building2 },
+    ];
+    if (features.canAccessLootIT) {
+      items.push({ name: 'LootIT', page: 'LootIT', icon: Coins });
+    }
+    return items;
+  }, [features.canAccessLootIT]);
 
   const customerNavigation = useMemo(() => [
     {
-      name: 'My Account',
+      name: 'Overview',
       page: 'CustomerDetail',
-      icon: FileText,
+      icon: Building2,
       query: user?.customer_id ? `?id=${user.customer_id}` : '',
+    },
+    {
+      name: 'Services',
+      page: 'CustomerDetail',
+      icon: Cloud,
+      query: user?.customer_id ? `?id=${user.customer_id}&tab=services` : '',
     },
     { name: 'Settings', page: 'CustomerSettings', icon: Settings },
   ], [user?.customer_id]);
 
-  // Admin mobile bottom tabs (5 items: 4 core + More)
-  const adminBottomTabs = useMemo(() => [
-    { name: 'Dashboard', page: 'Dashboard', icon: LayoutDashboard },
-    { name: 'Customers', page: 'Customers', icon: Building2 },
-    { name: 'LootIT', page: 'LootIT', icon: Coins },
-    { name: 'Billing', page: 'Billing', icon: CreditCard },
-  ], []);
+  // Staff mobile bottom tabs — filtered by role
+  const staffBottomTabs = useMemo(() => {
+    const items = [
+      { name: 'Dashboard', page: 'Dashboard', icon: LayoutDashboard },
+      { name: 'Customers', page: 'Customers', icon: Building2 },
+    ];
+    if (features.canAccessLootIT) {
+      items.push({ name: 'LootIT', page: 'LootIT', icon: Coins });
+    }
+    items.push({ name: 'Billing', page: 'Billing', icon: CreditCard });
+    return items;
+  }, [features.canAccessLootIT]);
 
-  const navigation = (isAdmin && !isCustomerPortal) ? adminNavigation : customerNavigation;
+  const navigation = (isStaff && !isCustomerPortal) ? staffNavigation : customerNavigation;
 
   // Show loading state
   if (isLoading) {
@@ -292,13 +314,13 @@ export default function Layout({ children, currentPageName }) {
     );
   }
 
-  // Block access for non-admin users without customer_id
-  if (user && !isAdmin && !user.customer_id) {
+  // Block access for customer users without customer_id
+  if (user && !isStaff && !user.customer_id) {
     return <AwaitingAccess user={user} />;
   }
 
-  // For non-admin users, redirect Dashboard to CustomerDetail
-  if (!isAdmin && user?.customer_id && currentPageName === 'Dashboard') {
+  // For customer users, redirect Dashboard to CustomerDetail
+  if (!isStaff && user?.customer_id && currentPageName === 'Dashboard') {
     window.location.href = createPageUrl(`CustomerDetail?id=${user.customer_id}`);
     return null;
   }
@@ -339,6 +361,8 @@ export default function Layout({ children, currentPageName }) {
                   primaryColor={primaryColor}
                   user={user}
                   isAdmin={isAdmin}
+                  isStaff={isStaff}
+                  features={features}
                   customer={customer}
                   onClose={() => setMobileDrawerOpen(false)}
                 />
@@ -346,7 +370,7 @@ export default function Layout({ children, currentPageName }) {
             </Sheet>
 
             {/* Logo / Portal name */}
-            <Link to={createPageUrl((isAdmin && !isCustomerPortal) ? 'Dashboard' : 'CustomerDetail') + ((isAdmin && !isCustomerPortal) ? '' : `?id=${user?.customer_id || ''}`)} className="flex items-center gap-2.5">
+            <Link to={createPageUrl((isStaff && !isCustomerPortal) ? 'Dashboard' : 'CustomerDetail') + ((isStaff && !isCustomerPortal) ? '' : `?id=${user?.customer_id || ''}`)} className="flex items-center gap-2.5">
               {portalSettings.logo_url ? (
                 <img
                   src={portalSettings.logo_url}
@@ -361,7 +385,7 @@ export default function Layout({ children, currentPageName }) {
                 />
               )}
               <span className="text-sm font-bold text-white hidden sm:block tracking-tight">
-                {(isAdmin && !isCustomerPortal)
+                {(isStaff && !isCustomerPortal)
                   ? (portalSettings.portal_name || 'PortalIT')
                   : (customer?.name || 'Client Portal')}
               </span>
@@ -398,9 +422,9 @@ export default function Layout({ children, currentPageName }) {
                   <div
                     className={cn(
                       "w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold",
-                      isAdmin ? "text-white" : "bg-purple-100 text-purple-700"
+                      isStaff ? "text-white" : "bg-purple-100 text-purple-700"
                     )}
-                    style={isAdmin ? { backgroundColor: primaryColor } : undefined}
+                    style={isStaff ? { backgroundColor: primaryColor } : undefined}
                   >
                     {userInitials}
                   </div>
@@ -439,13 +463,13 @@ export default function Layout({ children, currentPageName }) {
                           color: primaryColor,
                         }}
                       >
-                        {isAdmin ? 'Administrator' : 'Customer'}
+                        {isAdmin ? 'Administrator' : isStaff ? 'Sales' : 'Customer'}
                       </span>
                     </div>
                   </div>
                 </div>
                 <DropdownMenuSeparator />
-                {!isCustomerPortal && (
+                {isAdmin && !isCustomerPortal && (
                   <>
                     <DropdownMenuItem asChild>
                       <Link to={createPageUrl('Settings')} className="cursor-pointer">
@@ -479,9 +503,9 @@ export default function Layout({ children, currentPageName }) {
       {/* ─── Mobile Bottom Tab Bar ─── */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 lg:hidden z-40">
         <div className="flex items-stretch h-14">
-          {(isAdmin && !isCustomerPortal) ? (
+          {(isStaff && !isCustomerPortal) ? (
             <>
-              {adminBottomTabs.map((item) => {
+              {staffBottomTabs.map((item) => {
                 const isActive = currentPageName === item.page;
                 return (
                   <MobileBottomTab
@@ -522,18 +546,18 @@ export default function Layout({ children, currentPageName }) {
       <footer className="border-t border-slate-200 bg-white py-4 hidden lg:block">
         <div className="max-w-7xl mx-auto px-6 text-center">
           <p className="text-xs text-slate-400">
-            {(isAdmin && !isCustomerPortal)
+            {(isStaff && !isCustomerPortal)
               ? `\u00A9 ${new Date().getFullYear()} ${portalSettings.portal_name || 'PortalIT'}`
               : 'Need help? Contact your IT provider.'}
           </p>
         </div>
       </footer>
 
-      {/* ─── Floating Adminland Button (hidden in customer portal mode) ─── */}
-      {!isCustomerPortal && <FloatingAdminland />}
+      {/* ─── Floating Adminland Button (admin only, hidden in customer portal mode) ─── */}
+      {features.canViewAdminland && !isCustomerPortal && <FloatingAdminland />}
 
-      {/* ─── Feedback Button (non-admin only) ─── */}
-      {!isAdmin && user && customer && (
+      {/* ─── Feedback Button (non-staff only) ─── */}
+      {!isStaff && user && customer && (
         <FeedbackButton user={user} customer={customer} />
       )}
     </div>

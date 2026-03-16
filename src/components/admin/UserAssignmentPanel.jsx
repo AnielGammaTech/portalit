@@ -211,6 +211,27 @@ export default function UserAssignmentPanel() {
 
   return (
     <div className="space-y-6">
+      {/* Role Permissions Reference */}
+      <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
+          <Shield className="w-3.5 h-3.5" /> Role Permissions
+        </h4>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="bg-white rounded-lg border border-purple-100 p-3">
+            <Badge className="bg-purple-100 text-purple-700 border-purple-200 mb-2">Admin</Badge>
+            <p className="text-xs text-slate-600">Full access — Dashboard, Customers, LootIT, Integrations, Settings, User Management</p>
+          </div>
+          <div className="bg-white rounded-lg border border-blue-100 p-3">
+            <Badge className="bg-blue-100 text-blue-700 border-blue-200 mb-2">Sales</Badge>
+            <p className="text-xs text-slate-600">Dashboard, Customers, Billing, Quotes — no LootIT, Integrations, or Settings</p>
+          </div>
+          <div className="bg-white rounded-lg border border-green-100 p-3">
+            <Badge className="bg-green-100 text-green-700 border-green-200 mb-2">Customer</Badge>
+            <p className="text-xs text-slate-600">Own data only — Overview, Billing, Services, SaaS (can add/remove apps), Quotes, Tickets</p>
+          </div>
+        </div>
+      </div>
+
       {/* Invite Buttons */}
       <div className="flex flex-wrap gap-3">
         <Button onClick={() => setInviteType('customer')} variant="outline" className="gap-2">

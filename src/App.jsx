@@ -59,8 +59,8 @@ const AuthenticatedApp = () => {
     }
   }
 
-  // Block admin users on the customer portal
-  if (isCustomerPortal && user?.role === 'admin') {
+  // Block staff users (admin/sales) on the customer portal
+  if (isCustomerPortal && (user?.role === 'admin' || user?.role === 'sales')) {
     return <WrongPortalMessage user={user} />;
   }
 

@@ -40,8 +40,9 @@ export default function CustomerSettings() {
   const { data: customer, isLoading: loadingCustomer } = useQuery({
     queryKey: ['customer', customerId],
     queryFn: async () => {
-      const customers = await client.entities.Customer.list();
-      return customers.find(c => c.id === customerId);
+      // Only fetch own customer record, never list all
+      const results = await client.entities.Customer.filter({ id: customerId });
+      return results[0] || null;
     },
     enabled: !!customerId
   });

@@ -57,6 +57,7 @@ import DevicesTab from '../components/customer/DevicesTab';
 import CustomerServicesTab from '../components/customer/CustomerServicesTab';
 import OverviewTab from '../components/customer/OverviewTab';
 import { UserPlus, Eye } from 'lucide-react';
+import { isCustomerPortal } from '@/lib/portal-mode';
 
 export default function CustomerDetail() {
   const [isSyncing, setIsSyncing] = useState(false);
@@ -84,20 +85,24 @@ export default function CustomerDetail() {
     loadUser();
   }, []);
 
-  const { data: customers = [], isLoading: loadingCustomer } = useQuery({
-    queryKey: ['customers'],
-    queryFn: () => client.entities.Customer.list(),
+  // Security: non-admin users can ONLY access their own customer
+  const isAdmin = user?.role === 'admin';
+  const resolvedCustomerId = (!isAdmin || isCustomerPortal)
+    ? user?.customer_id   // customers always scoped to their own data
+    : (customerIdParam || user?.customer_id || null);  // admins can browse any customer
+
+  // Fetch only the single customer record (not all customers)
+  const { data: customer = null, isLoading: loadingCustomer } = useQuery({
+    queryKey: ['customer-detail', resolvedCustomerId],
+    queryFn: async () => {
+      if (!resolvedCustomerId) return null;
+      const results = await client.entities.Customer.filter({ id: resolvedCustomerId });
+      return results[0] || null;
+    },
+    enabled: !!resolvedCustomerId,
   });
 
-  // If no customerId in URL, use the user's assigned customer_id
-  const customer = customerIdParam
-    ? customers.find(c => c.id === customerIdParam)
-    : user?.customer_id
-      ? customers.find(c => c.id === user.customer_id)
-      : null;
-
-  // Derive customerId from URL param or matched customer
-  const customerId = customerIdParam || customer?.id || null;
+  const customerId = resolvedCustomerId;
 
   const { data: contracts = [], isLoading: loadingContracts } = useQuery({
     queryKey: ['contracts', customerId],
@@ -237,9 +242,6 @@ export default function CustomerDetail() {
   
 
   const isLoading = userLoading || loadingCustomer || loadingContracts || loadingLicenses || loadingApplications || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems || loadingContractItems || loadingContacts || loadingTickets || loadingInvoiceLineItems || loadingAssignments || loadingDevices || loadingJumpcloud || loadingSpanning;
-
-  // Check if current user is admin
-  const isAdmin = user?.role === 'admin';
 
   const handleAssignLicense = async (contactId) => {
     await client.entities.LicenseAssignment.create({
@@ -611,7 +613,7 @@ export default function CustomerDetail() {
 
 
       {/* Tabs — HeroUI-inspired with animated styling */}
-      <Tabs defaultValue="overview" className="space-y-6" id="customer-tabs">
+      <Tabs defaultValue={params.get('tab') || 'overview'} className="space-y-6" id="customer-tabs">
         <TabsList className="bg-zinc-100 dark:bg-zinc-800/80 border-0 rounded-hero-lg p-1 flex gap-1 h-auto overflow-x-auto scrollbar-hide">
           {[
             { value: 'overview', icon: Building2, label: 'Overview' },
@@ -641,12 +643,13 @@ export default function CustomerDetail() {
             licenses={licenses}
             customerId={customerId}
             queryClient={queryClient}
-            onAddContact={() => setShowAddContact(true)}
+            onAddContact={isAdmin ? () => setShowAddContact(true) : undefined}
             tickets={tickets}
             devices={devices}
             licenseAssignments={licenseAssignments}
             invoices={invoices}
             quotes={quotes}
+            readOnly={!isAdmin}
           />
         </TabsContent>
 

@@ -177,7 +177,8 @@ export default function OverviewTab({
   devices = [],
   licenseAssignments = [],
   invoices = [],
-  quotes = []
+  quotes = [],
+  readOnly = false,
 }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [teamPage, setTeamPage] = useState(1);
@@ -532,10 +533,12 @@ export default function OverviewTab({
               <Badge variant="secondary" className="text-xs">{contacts.length}</Badge>
             </div>
             <div className="flex items-center gap-1">
-              <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={(e) => { e.stopPropagation(); onAddContact(); }}>
-                <UserPlus className="w-3.5 h-3.5" />
-              </Button>
-              {customer?.source === 'halopsa' && (
+              {onAddContact && (
+                <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={(e) => { e.stopPropagation(); onAddContact(); }}>
+                  <UserPlus className="w-3.5 h-3.5" />
+                </Button>
+              )}
+              {!readOnly && customer?.source === 'halopsa' && (
                 <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={(e) => { e.stopPropagation(); handleSyncContacts(); }} disabled={isSyncing}>
                   {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
                 </Button>
