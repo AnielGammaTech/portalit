@@ -242,37 +242,32 @@ export function extractRecords(data, key) {
  * addresses on Sites, not on Clients).
  */
 export function mapHaloClientToCustomer(client, site) {
-  // Address fields: prefer site data (where HaloPSA actually stores addresses),
-  // then fall back to client-level fields (some HaloPSA instances do include them).
-  // HaloPSA field names vary across versions and instances — try many variants.
+  // HaloPSA stores addresses on the Site's delivery_address nested object,
+  // NOT on top-level site/client fields. The delivery_address uses:
+  //   line1, line2, line3 (city), line4 (state/country), postcode
+  const addr = site?.delivery_address || site?.invoice_address || {};
+
+  // Also check top-level site/client fields as fallback
   const src = site || {};
 
-  function pick(...keys) {
-    for (const key of keys) {
+  function pick(addrKey, ...fallbackKeys) {
+    // First try delivery_address fields
+    if (addr[addrKey] && String(addr[addrKey]).trim()) return String(addr[addrKey]).trim();
+    // Then try top-level site and client fields
+    for (const key of fallbackKeys) {
       const val = src[key] || client[key];
       if (val && String(val).trim()) return String(val).trim();
     }
     return '';
   }
 
-  const line1 = pick('address1', 'Address1', 'addressline1', 'AddressLine1', 'line1', 'Line1', 'street', 'Street');
-  const line2 = pick('address2', 'Address2', 'addressline2', 'AddressLine2', 'line2', 'Line2');
-  const city = pick('city', 'City', 'town', 'Town');
-  const state = pick('state', 'State', 'county', 'County', 'region', 'Region', 'province', 'Province');
-  const zip = pick('postcode', 'Postcode', 'zip', 'Zip', 'zipcode', 'ZipCode', 'postal_code', 'PostalCode');
-  const country = pick('country', 'Country');
+  const line1 = pick('line1', 'address1', 'Address1', 'street', 'Street');
+  const line2 = pick('line2', 'address2', 'Address2');
+  const city = pick('line3', 'city', 'City', 'town', 'Town');
+  const stateCountry = pick('line4', 'state', 'State', 'county', 'County');
+  const zip = pick('postcode', 'Postcode', 'zip', 'Zip', 'postal_code', 'PostalCode');
 
-  const addressParts = [line1, line2, city, state, zip, country].filter(Boolean);
-
-  // Debug: log first few clients with site data to diagnose field names
-  if (site && addressParts.length === 0) {
-    const siteKeys = Object.keys(site).filter(k =>
-      /addr|line|street|city|town|state|county|zip|post|country/i.test(k)
-    );
-    if (siteKeys.length > 0) {
-      console.log(`[HaloPSA] Site for "${client.name}" has address-like fields: ${siteKeys.join(', ')} → values: ${siteKeys.map(k => `${k}="${site[k]}"`).join(', ')}`);
-    }
-  }
+  const addressParts = [line1, line2, city, stateCountry, zip].filter(Boolean);
 
   return {
     name: client.name || client.Name || `Customer ${client.id}`,
@@ -288,13 +283,69 @@ export function mapHaloClientToCustomer(client, site) {
 }
 
 /**
- * Fetch all HaloPSA sites and return a map of client_id → site object.
- * Sites contain the physical address for each customer.
+ * Fetch HaloPSA site details (with delivery_address) for a list of site IDs.
+ * Returns a map of client_id → site detail object.
+ *
+ * HaloPSA's bulk Site listing does NOT include address data — only the
+ * individual Site/{id} endpoint returns the nested `delivery_address` object.
+ * We batch-fetch site details in parallel (5 at a time) for efficiency.
  */
-export async function fetchSitesByClientId(config) {
+export async function fetchSitesByClientId(config, clients) {
   const cfg = config || await getHaloConfig();
   const siteMap = {};
 
+  // If clients are provided, fetch individual sites by main_site_id (includes address)
+  if (clients && clients.length > 0) {
+    // Collect unique site IDs from clients
+    const siteEntries = [];
+    for (const client of clients) {
+      const siteId = client.main_site_id || client.toplevel_id;
+      if (siteId && siteId > 0) {
+        siteEntries.push({ clientId: String(client.id), siteId });
+      }
+    }
+
+    console.log(`[HaloPSA] Fetching ${siteEntries.length} individual site details for addresses...`);
+
+    // Deduplicate by siteId
+    const uniqueSiteIds = [...new Set(siteEntries.map(e => e.siteId))];
+    const siteDetailsMap = {};
+    let fetched = 0;
+
+    // Batch fetch 5 at a time to respect rate limits
+    for (let i = 0; i < uniqueSiteIds.length; i += 5) {
+      const batch = uniqueSiteIds.slice(i, i + 5);
+      const results = await Promise.allSettled(
+        batch.map(async (siteId) => {
+          const data = await haloGet(`Site/${siteId}`, cfg);
+          return { siteId, data };
+        })
+      );
+      for (const result of results) {
+        if (result.status === 'fulfilled') {
+          siteDetailsMap[result.value.siteId] = result.value.data;
+          fetched++;
+        }
+      }
+    }
+
+    console.log(`[HaloPSA] Fetched ${fetched}/${uniqueSiteIds.length} site details`);
+
+    // Map client_id → site detail
+    for (const entry of siteEntries) {
+      const detail = siteDetailsMap[entry.siteId];
+      if (detail && !siteMap[entry.clientId]) {
+        siteMap[entry.clientId] = detail;
+      }
+    }
+
+    const withAddr = Object.values(siteMap).filter(s => s.delivery_address?.line1).length;
+    console.log(`[HaloPSA] ${withAddr}/${Object.keys(siteMap).length} sites have delivery addresses`);
+
+    return siteMap;
+  }
+
+  // Fallback: bulk fetch (no address data, for backward compat)
   let page = 1;
   const pageSize = 1000;
 
@@ -307,20 +358,9 @@ export async function fetchSitesByClientId(config) {
       const sites = extractRecords(data, 'sites');
       if (!sites.length) break;
 
-      // Log first site's keys for debugging field names
-      if (page === 1 && sites.length > 0) {
-        const sample = sites[0];
-        console.log(`[HaloPSA] Sample site keys: ${Object.keys(sample).join(', ')}`);
-        const addrKeys = Object.keys(sample).filter(k =>
-          /addr|line|street|city|town|state|county|zip|post|country|client/i.test(k)
-        );
-        console.log(`[HaloPSA] Address-related fields: ${addrKeys.map(k => `${k}="${sample[k]}"`).join(', ')}`);
-      }
-
       for (const site of sites) {
         const clientId = String(site.client_id || site.clientid || site.toplevel_id || '');
         if (clientId && !siteMap[clientId]) {
-          // Keep the first (main) site per client
           siteMap[clientId] = site;
         }
       }

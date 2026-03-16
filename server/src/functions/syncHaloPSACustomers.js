@@ -56,10 +56,10 @@ export async function syncHaloPSACustomers(body, _user) {
     try {
       const clientData = await haloGet(`Client/${customer_id}`, config);
 
-      // Fetch site data for address resolution
+      // Fetch site detail for address resolution (delivery_address is on individual site endpoint)
       let site = null;
-      const siteId = clientData.toplevel_id || clientData.main_site_id;
-      if (siteId) {
+      const siteId = clientData.main_site_id || clientData.toplevel_id;
+      if (siteId && siteId > 0) {
         try {
           site = await haloGet(`Site/${siteId}`, config);
         } catch {
@@ -110,12 +110,7 @@ export async function syncHaloPSACustomers(body, _user) {
     const errors = [];
 
     try {
-      // Fetch all sites first for address resolution
-      console.log('[HaloPSA] Fetching sites for address data...');
-      const siteMap = await fetchSitesByClientId(config);
-      console.log(`[HaloPSA] Loaded ${Object.keys(siteMap).length} site addresses`);
-
-      // Paginated fetch of clients
+      // Paginated fetch of clients (must happen first so we can get main_site_id)
       let allClients = [];
       let pageNumber = 1;
       const pageSize = 1000;
@@ -138,6 +133,11 @@ export async function syncHaloPSACustomers(body, _user) {
         pageNumber++;
       }
 
+      // Fetch site details for address resolution (passes clients for main_site_id lookup)
+      console.log('[HaloPSA] Fetching site details for address data...');
+      const siteMap = await fetchSitesByClientId(config, allClients);
+      console.log(`[HaloPSA] Loaded ${Object.keys(siteMap).length} site addresses`);
+
       // Lookup existing
       const { data: existingCustomers } = await supabase
         .from('customers')
@@ -155,8 +155,8 @@ export async function syncHaloPSACustomers(body, _user) {
         if (config.excludedIds.includes(String(client.id))) continue;
         if (client.inactive === true) continue;
 
-        // Resolve site for this client (try toplevel_id, then client.id)
-        const site = siteMap[String(client.toplevel_id)] || siteMap[String(client.id)] || null;
+        // Resolve site for this client (keyed by client.id from fetchSitesByClientId)
+        const site = siteMap[String(client.id)] || null;
         const customerData = mapHaloClientToCustomer(client, site);
 
         const existing = existingByExternalId[String(client.id)];
