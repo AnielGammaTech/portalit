@@ -12,8 +12,10 @@ import Login from '@/pages/Login';
 import AcceptInvite from '@/pages/AcceptInvite';
 import {
   isCustomerPortal,
+  isFullPortal,
   CUSTOMER_ALLOWED_PAGES,
   CUSTOMER_PORTAL_MAIN_PAGE,
+  CUSTOMER_PORTAL_URL,
 } from '@/lib/portal-mode';
 
 const { Pages: AllPages, Layout, mainPage } = pagesConfig;
@@ -57,6 +59,17 @@ const AuthenticatedApp = () => {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     }
+  }
+
+  // On the full portal, redirect customer users to the customer portal
+  if (isFullPortal && CUSTOMER_PORTAL_URL && user?.role === 'customer') {
+    window.location.href = CUSTOMER_PORTAL_URL;
+    return (
+      <div className="fixed inset-0 flex flex-col items-center justify-center gap-3">
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
+        <p className="text-sm text-muted-foreground">Redirecting to your portal...</p>
+      </div>
+    );
   }
 
   // Block staff users (admin/sales) on the customer portal

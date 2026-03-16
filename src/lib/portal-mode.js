@@ -18,3 +18,9 @@ export const CUSTOMER_ALLOWED_PAGES = new Set([
 
 /** Default landing page for customer portal */
 export const CUSTOMER_PORTAL_MAIN_PAGE = 'CustomerDetail';
+
+/**
+ * Customer portal URL — used by the full portal to redirect customer users.
+ * Set VITE_CUSTOMER_PORTAL_URL on the frontend Railway service.
+ */
+export const CUSTOMER_PORTAL_URL = import.meta.env.VITE_CUSTOMER_PORTAL_URL || '';
