@@ -18,6 +18,20 @@ const VENDOR_EXTRACTORS = {
     return null;
   },
 
+  cove_workstation: (data) => {
+    if (!data) return null;
+    if (typeof data.workstation_count === 'number') return data.workstation_count;
+    if (Array.isArray(data.devices)) return data.devices.filter(d => d.osType === 'Workstation').length;
+    return null;
+  },
+
+  cove_server: (data) => {
+    if (!data) return null;
+    if (typeof data.server_count === 'number') return data.server_count;
+    if (Array.isArray(data.devices)) return data.devices.filter(d => d.osType === 'Server').length;
+    return null;
+  },
+
   datto_rmm: (data) => {
     if (!data) return null;
     if (typeof data.total_devices === 'number') return data.total_devices;
@@ -85,6 +99,8 @@ export function extractVendorCount(integrationKey, cachedData) {
 
 export const INTEGRATION_MAPPING_ENTITIES = {
   cove: 'CoveDataMapping',
+  cove_workstation: 'CoveDataMapping',
+  cove_server: 'CoveDataMapping',
   datto_rmm: 'DattoSiteMapping',
   spanning: 'SpanningMapping',
   jumpcloud: 'JumpCloudMapping',
@@ -96,6 +112,8 @@ export const INTEGRATION_MAPPING_ENTITIES = {
 
 export const INTEGRATION_LABELS = {
   cove: 'Cove Data Protection',
+  cove_workstation: 'Cove Workstations',
+  cove_server: 'Cove Servers',
   datto_rmm: 'Datto RMM',
   spanning: 'Spanning Backup',
   jumpcloud: 'JumpCloud',

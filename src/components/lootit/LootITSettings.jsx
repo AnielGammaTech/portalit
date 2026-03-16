@@ -10,6 +10,8 @@ const INTEGRATION_OPTIONS = Object.entries(INTEGRATION_LABELS).map(([key, label]
 
 const DEFAULT_VENDOR_PATHS = {
   cove: 'totalDevices',
+  cove_workstation: 'workstation_count',
+  cove_server: 'server_count',
   datto_rmm: 'total_devices',
   spanning: 'numberOfUsers',
   jumpcloud: 'totalUsers',
@@ -20,7 +22,8 @@ const DEFAULT_VENDOR_PATHS = {
 };
 
 const TEMPLATE_RULES = [
-  { integration_key: 'cove', match_pattern: 'Cove', label: 'Cove Backup', vendor_count_path: 'totalDevices' },
+  { integration_key: 'cove_workstation', match_pattern: 'Per Endpoint', label: 'Cove Workstations', vendor_count_path: 'workstation_count' },
+  { integration_key: 'cove_server', match_pattern: 'Per Server', label: 'Cove Servers', vendor_count_path: 'server_count' },
   { integration_key: 'datto_rmm', match_pattern: 'Managed IT', label: 'Datto RMM - Managed IT', vendor_count_path: 'total_devices' },
   { integration_key: 'spanning', match_pattern: 'Spanning', label: 'Spanning Backup', vendor_count_path: 'numberOfUsers' },
   { integration_key: 'jumpcloud', match_pattern: 'JumpCloud', label: 'JumpCloud Users', vendor_count_path: 'totalUsers' },
