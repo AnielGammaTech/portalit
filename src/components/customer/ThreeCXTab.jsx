@@ -19,31 +19,83 @@ import {
   XCircle,
   FileText,
   Calendar,
-  UserX
+  UserX,
+  ChevronLeft,
+  ChevronRight,
+  Building2
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 
+const ITEMS_PER_PAGE = 15;
+
+/** Safely parse extensions_detail — handles double-encoded JSON strings and arrays */
+function parseExtensionsDetail(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string') {
+    try { return JSON.parse(raw); } catch { return []; }
+  }
+  return [];
+}
+
 function ReportView({ report, searchQuery, setSearchQuery }) {
-  const extensionsDetail = useMemo(() => {
-    if (!report?.extensions_detail) return [];
-    return Array.isArray(report.extensions_detail)
-      ? report.extensions_detail
-      : [];
-  }, [report?.extensions_detail]);
+  const [page, setPage] = useState(0);
 
-  const userExtensions = extensionsDetail.filter(ext => !ext.disabled);
-  const disabledExtensions = extensionsDetail.filter(ext => ext.disabled);
+  const extensionsDetail = useMemo(
+    () => parseExtensionsDetail(report?.extensions_detail),
+    [report?.extensions_detail]
+  );
 
-  const filteredExtensions = extensionsDetail.filter(ext => {
-    if (!searchQuery) return true;
+  const activeExtensions = extensionsDetail.filter(ext => ext.type === 'user');
+  const disabledExtensions = extensionsDetail.filter(ext => ext.type === 'disabled');
+  const systemExtensions = extensionsDetail.filter(ext => ext.type === 'system');
+
+  const filteredExtensions = useMemo(() => {
+    if (!searchQuery) return extensionsDetail;
     const q = searchQuery.toLowerCase();
-    const name = `${ext.firstName || ''} ${ext.lastName || ''}`.toLowerCase();
-    return name.includes(q) ||
-           String(ext.number || '').includes(q) ||
-           (ext.role || '').toLowerCase().includes(q);
-  });
+    return extensionsDetail.filter(ext =>
+      (ext.name || '').toLowerCase().includes(q) ||
+      String(ext.number || '').includes(q) ||
+      (ext.department || '').toLowerCase().includes(q) ||
+      (ext.type || '').toLowerCase().includes(q)
+    );
+  }, [extensionsDetail, searchQuery]);
+
+  // Reset to page 0 when search changes
+  const currentPage = searchQuery ? 0 : page;
+  const totalPages = Math.ceil(filteredExtensions.length / ITEMS_PER_PAGE);
+  const pagedExtensions = filteredExtensions.slice(
+    currentPage * ITEMS_PER_PAGE,
+    (currentPage + 1) * ITEMS_PER_PAGE
+  );
+
+  const getTypeBadge = (type) => {
+    switch (type) {
+      case 'disabled':
+        return (
+          <Badge variant="secondary" className="text-[10px] gap-0.5">
+            <XCircle className="w-2.5 h-2.5" />
+            Disabled
+          </Badge>
+        );
+      case 'system':
+        return (
+          <Badge className="bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-[10px] gap-0.5">
+            <Building2 className="w-2.5 h-2.5" />
+            System
+          </Badge>
+        );
+      default:
+        return (
+          <Badge className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 text-[10px] gap-0.5">
+            <CheckCircle2 className="w-2.5 h-2.5" />
+            Active
+          </Badge>
+        );
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -70,7 +122,7 @@ function ReportView({ report, searchQuery, setSearchQuery }) {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total</p>
-                <p className="text-3xl font-bold text-foreground mt-1">{report.total_extensions || 0}</p>
+                <p className="text-3xl font-bold text-foreground mt-1">{report.total_extensions || extensionsDetail.length}</p>
                 <p className="text-xs text-muted-foreground/70 mt-1">extensions</p>
               </div>
               <Phone className="w-5 h-5 text-emerald-500" />
@@ -83,7 +135,7 @@ function ReportView({ report, searchQuery, setSearchQuery }) {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Active</p>
-                <p className="text-3xl font-bold text-foreground mt-1">{report.user_extensions || 0}</p>
+                <p className="text-3xl font-bold text-foreground mt-1">{report.user_extensions || activeExtensions.length}</p>
                 <p className="text-xs text-muted-foreground/70 mt-1">user extensions</p>
               </div>
               <Users className="w-5 h-5 text-blue-500" />
@@ -118,75 +170,97 @@ function ReportView({ report, searchQuery, setSearchQuery }) {
         </Card>
       </div>
 
-      {/* Extension List */}
+      {/* Extension List — paginated */}
       {extensionsDetail.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Extensions ({extensionsDetail.length})
+                Extensions ({filteredExtensions.length}{searchQuery ? ` of ${extensionsDetail.length}` : ''})
               </CardTitle>
-              {extensionsDetail.length > 5 && (
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
-                  <Input
-                    placeholder="Search..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-8 h-7 text-xs w-40"
-                  />
-                </div>
-              )}
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
+                <Input
+                  placeholder="Search by name, ext, dept..."
+                  value={searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
+                  className="pl-8 h-7 text-xs w-56"
+                />
+              </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-1.5 max-h-96 overflow-y-auto">
-              {filteredExtensions.map((ext, idx) => {
-                const name = `${ext.firstName || ''} ${ext.lastName || ''}`.trim();
-                return (
-                  <div
-                    key={ext.number || idx}
-                    className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
-                  >
-                    <div className={cn(
-                      "w-8 h-8 rounded-full flex items-center justify-center font-medium text-xs flex-shrink-0",
-                      ext.disabled
-                        ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-400"
-                        : "bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300"
-                    )}>
-                      {ext.number || '?'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={cn(
-                        "font-medium text-sm truncate",
-                        ext.disabled ? "text-muted-foreground line-through" : "text-foreground"
-                      )}>
-                        {name || `Ext ${ext.number}`}
-                      </p>
-                      {ext.role && (
-                        <p className="text-xs text-muted-foreground truncate">{ext.role}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {ext.disabled ? (
-                        <Badge variant="secondary" className="text-[10px]">
-                          <XCircle className="w-2.5 h-2.5 mr-0.5" />
-                          Disabled
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 text-[10px]">
-                          <CheckCircle2 className="w-2.5 h-2.5 mr-0.5" />
-                          Active
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-              {filteredExtensions.length === 0 && searchQuery && (
-                <p className="text-sm text-muted-foreground text-center py-4">No extensions match "{searchQuery}"</p>
-              )}
+          <CardContent className="px-0">
+            {/* Table header */}
+            <div className="grid grid-cols-[60px_1fr_120px_100px] gap-2 px-5 py-2 border-b border-border/50 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+              <span>DID</span>
+              <span>Name</span>
+              <span>Department</span>
+              <span className="text-right">Status</span>
             </div>
+
+            {/* Rows */}
+            <div className="divide-y divide-border/30">
+              {pagedExtensions.map((ext, idx) => (
+                <div
+                  key={ext.number || idx}
+                  className="grid grid-cols-[60px_1fr_120px_100px] gap-2 px-5 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors items-center"
+                >
+                  <span className={cn(
+                    "font-mono text-sm font-semibold",
+                    ext.type === 'disabled' ? "text-muted-foreground/50" : "text-emerald-600 dark:text-emerald-400"
+                  )}>
+                    {ext.number}
+                  </span>
+                  <p className={cn(
+                    "text-sm truncate",
+                    ext.type === 'disabled' ? "text-muted-foreground line-through" : "text-foreground font-medium"
+                  )}>
+                    {ext.name || `Ext ${ext.number}`}
+                  </p>
+                  <span className="text-xs text-muted-foreground truncate">
+                    {ext.department || '—'}
+                  </span>
+                  <div className="flex justify-end">
+                    {getTypeBadge(ext.type)}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {filteredExtensions.length === 0 && searchQuery && (
+              <p className="text-sm text-muted-foreground text-center py-6">No extensions match "{searchQuery}"</p>
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && !searchQuery && (
+              <div className="flex items-center justify-between px-5 pt-3 mt-2 border-t border-border/50">
+                <p className="text-xs text-muted-foreground">
+                  {currentPage * ITEMS_PER_PAGE + 1}–{Math.min((currentPage + 1) * ITEMS_PER_PAGE, filteredExtensions.length)} of {filteredExtensions.length}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => p - 1)}
+                    disabled={currentPage === 0}
+                    className="h-7 px-2"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5 mr-1" />
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => p + 1)}
+                    disabled={currentPage >= totalPages - 1}
+                    className="h-7 px-2"
+                  >
+                    Next
+                    <ChevronRight className="w-3.5 h-3.5 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
