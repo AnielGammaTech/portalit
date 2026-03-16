@@ -246,43 +246,57 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = []) {
   });
 }
 
-// ── Pax8 per-product auto-reconciliation ─────────────────────────────
+// ── Pax8 per-subscription auto-reconciliation ────────────────────────
 
 /**
- * Auto-reconcile Pax8 products against PSA line items.
- * Returns one result per Pax8 product, plus flags products missing from PSA.
+ * Find PSA line items matching a Pax8 product name.
+ * Uses substring match first, then keyword fuzzy match as fallback.
  */
-export function reconcilePax8Products(lineItems, pax8Mapping) {
+function findPsaMatchesForProduct(productName, lineItems) {
+  const name = (productName || '').toLowerCase();
+
+  // Substring match (require ≥4 chars to avoid false positives)
+  if (name.length >= 4) {
+    const exact = lineItems.filter((li) =>
+      (li.description || '').toLowerCase().includes(name)
+    );
+    if (exact.length > 0) return exact;
+  }
+
+  // Keyword fuzzy fallback
+  const keywords = name.split(/\s+/).filter((w) => w.length > 3);
+  if (keywords.length < 2) return [];
+
+  return lineItems.filter((li) => {
+    const desc = (li.description || '').toLowerCase();
+    const hits = keywords.filter((kw) => desc.includes(kw)).length;
+    return hits >= 2 && hits >= keywords.length * 0.5;
+  });
+}
+
+/**
+ * Auto-reconcile Pax8 subscriptions against PSA line items.
+ *
+ * Returns one result per individual Pax8 subscription (not grouped).
+ * Status comparison is done at the product level (total Pax8 qty for
+ * all subs of the same product vs total PSA qty).
+ */
+export function reconcilePax8Subscriptions(lineItems, pax8Mapping, reviews = []) {
   if (!pax8Mapping?.cached_data?.products) return [];
 
   const products = pax8Mapping.cached_data.products || [];
+  const reviewMap = Object.fromEntries(
+    reviews.filter((r) => r.rule_id?.startsWith('pax8:')).map((r) => [r.rule_id, r])
+  );
 
-  return products.map((product) => {
-    const productName = (product.name || '').toLowerCase();
+  const results = [];
 
-    // Find matching PSA line items by product name substring match
-    // Require product name to be at least 4 chars to avoid false positives on short names
-    const matched = lineItems.filter((li) => {
-      const desc = (li.description || '').toLowerCase();
-      return productName && productName.length >= 4 && desc.includes(productName);
-    });
-
-    // If no exact match, try matching key words (e.g. "Business Premium" in both)
-    let finalMatched = matched;
-    if (finalMatched.length === 0) {
-      const keywords = productName.split(/\s+/).filter(w => w.length > 3);
-      finalMatched = lineItems.filter((li) => {
-        const desc = (li.description || '').toLowerCase();
-        // Require at least 2 keyword matches for fuzzy matching
-        const matchCount = keywords.filter(kw => desc.includes(kw)).length;
-        return matchCount >= 2 && matchCount >= keywords.length * 0.5;
-      });
-    }
-
-    const psaQty = finalMatched.reduce((sum, li) => sum + (parseFloat(li.quantity) || 0), 0);
-    const vendorQty = product.quantity || 0;
-    const hasPsaData = finalMatched.length > 0;
-    const difference = hasPsaData ? psaQty - vendorQty : 0;
+  for (const product of products) {
+    const matchedLineItems = findPsaMatchesForProduct(product.name, lineItems);
+    const psaQty = matchedLineItems.reduce((sum, li) => sum + (parseFloat(li.quantity) || 0), 0);
+    const hasPsaData = matchedLineItems.length > 0;
+    const totalVendorQty = product.quantity || 0;
+    const difference = hasPsaData ? psaQty - totalVendorQty : 0;
 
     let status = 'missing_from_psa';
     if (hasPsaData) {
@@ -291,16 +305,53 @@ export function reconcilePax8Products(lineItems, pax8Mapping) {
       else status = 'under';
     }
 
-    return {
-      productName: product.name,
-      vendorQty,
-      psaQty: hasPsaData ? psaQty : null,
-      difference,
-      status,
-      matchedLineItems: finalMatched,
-      subscriptions: product.subscriptions || [],
-    };
-  });
+    const subs = product.subscriptions || [];
+
+    // If no subscription detail, emit one tile for the product itself
+    if (subs.length === 0) {
+      const ruleId = `pax8:${product.name}`;
+      results.push({
+        ruleId,
+        productName: product.name,
+        subscriptionId: null,
+        vendorQty: totalVendorQty,
+        totalVendorQty,
+        psaQty: hasPsaData ? psaQty : null,
+        difference,
+        status,
+        matchedLineItems,
+        billingTerm: '',
+        price: 0,
+        startDate: null,
+        review: reviewMap[ruleId] || null,
+        integrationLabel: 'Pax8',
+      });
+      continue;
+    }
+
+    // One tile per subscription — status uses product-level comparison
+    for (const sub of subs) {
+      const ruleId = `pax8:${sub.id}`;
+      results.push({
+        ruleId,
+        productName: product.name,
+        subscriptionId: sub.id,
+        vendorQty: sub.quantity || 1,
+        totalVendorQty,
+        psaQty: hasPsaData ? psaQty : null,
+        difference,
+        status,
+        matchedLineItems,
+        billingTerm: sub.billingTerm || '',
+        price: sub.price || 0,
+        startDate: sub.startDate || null,
+        review: reviewMap[ruleId] || null,
+        integrationLabel: 'Pax8',
+      });
+    }
+  }
+
+  return results;
 }
 
 /**
@@ -313,7 +364,7 @@ export function getDiscrepancySummary(reconciliations) {
     summary.total++;
     if (r.status === 'match') summary.matched++;
     else if (r.status === 'over') summary.over++;
-    else if (r.status === 'under') summary.under++;
+    else if (r.status === 'under' || r.status === 'missing_from_psa') summary.under++;
     else summary.noData++;
 
     if (r.review?.status === 'reviewed' || r.review?.status === 'dismissed') {
@@ -334,9 +385,11 @@ export function getDiscrepancyMessage(reconciliation) {
     case 'match':
       return `Matched — ${psaQty} licences`;
     case 'over':
-      return `You need to remove ${difference} licence${difference !== 1 ? 's' : ''}`;
+      return `You need to add ${difference} licence${difference !== 1 ? 's' : ''} to vendor`;
     case 'under':
-      return `You need to add ${Math.abs(difference)} licence${Math.abs(difference) !== 1 ? 's' : ''}`;
+      return `You need to remove ${Math.abs(difference)} licence${Math.abs(difference) !== 1 ? 's' : ''} from vendor`;
+    case 'missing_from_psa':
+      return `Pax8 has ${vendorQty} licence${vendorQty !== 1 ? 's' : ''} but no matching HaloPSA line item found`;
     case 'no_psa_data':
       return `Vendor shows ${vendorQty} but no PSA line item found`;
     case 'no_vendor_data':

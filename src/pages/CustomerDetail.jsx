@@ -819,6 +819,17 @@ export default function CustomerDetail() {
                                       const isOverdue = invoice.status === 'overdue';
                                       const balance = isPaid ? 0 : (invoice.amount_due || invoice.total || 0);
 
+                                      // Smart invoice label based on line item content
+                                      const invoiceLabel = (() => {
+                                        if (invoiceItems.length === 0) return invoice.invoice_number;
+                                        const descs = invoiceItems.map(i => (i.description || '').toLowerCase());
+                                        const hasTicket = descs.some(d => d.includes('ticket id:') || d.includes('ticket opened'));
+                                        if (hasTicket) return 'Ticket Charge';
+                                        const hasRecurring = descs.some(d => d.includes('business location') || d.includes('managed it - remote only') || d.includes('managed it –'));
+                                        if (hasRecurring) return 'Monthly Recurring';
+                                        return invoice.invoice_number;
+                                      })();
+
                                       return (
                                         <div key={invoice.id}>
                                           {/* Invoice Row */}
@@ -834,7 +845,10 @@ export default function CustomerDetail() {
                                               isExpanded && "rotate-90"
                                             )} />
                                             <div className="font-medium text-gray-900 truncate">
-                                              {invoice.invoice_number}
+                                              {invoiceLabel}
+                                              {invoiceLabel !== invoice.invoice_number && (
+                                                <span className="ml-2 text-xs text-gray-400 font-normal">#{invoice.invoice_number}</span>
+                                              )}
                                             </div>
                                             <div>
                                               <span className={cn(

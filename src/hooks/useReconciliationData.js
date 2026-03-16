@@ -4,7 +4,7 @@ import { client } from '@/api/client';
 import {
   INTEGRATION_MAPPING_ENTITIES,
   reconcileCustomer,
-  reconcilePax8Products,
+  reconcilePax8Subscriptions,
   getDiscrepancySummary,
 } from '@/lib/lootit-reconciliation';
 
@@ -182,9 +182,9 @@ export function useReconciliationData(customerId) {
 
       const recon = reconcileCustomer(custLineItems, custMappings, rules, custReviews);
 
-      // Auto-reconcile Pax8 products per-product
+      // Auto-reconcile Pax8 subscriptions (one tile per subscription)
       const pax8Recon = custMappings.pax8
-        ? reconcilePax8Products(custLineItems, custMappings.pax8)
+        ? reconcilePax8Subscriptions(custLineItems, custMappings.pax8, custReviews)
         : [];
 
       // Only include customers that have at least some data to reconcile

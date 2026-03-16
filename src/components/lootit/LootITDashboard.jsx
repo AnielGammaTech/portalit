@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Search, AlertTriangle, CheckCircle2, TrendingDown, TrendingUp, Database } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useReconciliationData } from '@/hooks/useReconciliationData';
-import ReconciliationBadge from './ReconciliationBadge';
+import { getDiscrepancySummary } from '@/lib/lootit-reconciliation';
 
 export default function LootITDashboard({ onSelectCustomer }) {
   const [search, setSearch] = useState('');
@@ -9,7 +10,15 @@ export default function LootITDashboard({ onSelectCustomer }) {
   const { reconciliations, globalSummary, isLoading } = useReconciliationData();
 
   const customerList = useMemo(() => {
-    const entries = Object.values(reconciliations);
+    const entries = Object.values(reconciliations).map((entry) => {
+      // Combine rule-based + Pax8 for unified summary
+      const allRecons = [
+        ...(entry.reconciliations || []),
+        ...(entry.pax8Reconciliations || []),
+      ];
+      const combined = getDiscrepancySummary(allRecons);
+      return { ...entry, combinedSummary: combined };
+    });
 
     // Filter by search
     const searched = search.trim()
@@ -20,9 +29,10 @@ export default function LootITDashboard({ onSelectCustomer }) {
 
     // Filter by status
     return searched.filter((entry) => {
-      if (filter === 'issues') return entry.summary.over > 0 || entry.summary.under > 0;
-      if (filter === 'matched') return entry.summary.matched > 0 && entry.summary.over === 0 && entry.summary.under === 0;
-      if (filter === 'no_data') return entry.summary.noData > 0;
+      const s = entry.combinedSummary;
+      if (filter === 'issues') return s.over > 0 || s.under > 0;
+      if (filter === 'matched') return s.matched > 0 && s.over === 0 && s.under === 0;
+      if (filter === 'no_data') return s.noData > 0;
       return true;
     });
   }, [reconciliations, search, filter]);
@@ -117,54 +127,77 @@ export default function LootITDashboard({ onSelectCustomer }) {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {customerList.map(({ customer, summary, reconciliations: recons }) => (
-            <button
-              key={customer.id}
-              onClick={() => onSelectCustomer(customer)}
-              className="text-left bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md hover:border-pink-200 transition-all group"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <h3 className="font-semibold text-slate-900 text-sm group-hover:text-pink-600 transition-colors line-clamp-1">
-                  {customer.name}
-                </h3>
-                {(summary.over > 0 || summary.under > 0) && (
-                  <span className="flex-shrink-0 ml-2 inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100 text-red-600 text-xs font-bold">
-                    {summary.over + summary.under}
-                  </span>
-                )}
-              </div>
+          {customerList.map(({ customer, combinedSummary: s }) => {
+            const active = s.total - s.noData;
+            const resolved = s.matched + s.reviewed;
+            const pct = active > 0 ? Math.round((resolved / active) * 100) : 0;
+            const issues = s.over + s.under;
+            const isFullyReconciled = active > 0 && issues === 0;
 
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {recons
-                  .filter((r) => r.status !== 'no_data')
-                  .slice(0, 4)
-                  .map((r) => (
-                    <ReconciliationBadge
-                      key={r.rule.id}
-                      status={r.status}
-                      difference={r.difference}
+            return (
+              <button
+                key={customer.id}
+                onClick={() => onSelectCustomer(customer)}
+                className="text-left bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md hover:border-pink-200 transition-all group"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <h3 className="font-semibold text-slate-900 text-sm group-hover:text-pink-600 transition-colors line-clamp-1">
+                    {customer.name}
+                  </h3>
+                  {isFullyReconciled ? (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+                  ) : issues > 0 ? (
+                    <span className="flex-shrink-0 ml-2 inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100 text-red-600 text-xs font-bold">
+                      {issues}
+                    </span>
+                  ) : null}
+                </div>
+
+                {/* Progress bar */}
+                <div className="mb-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-slate-400">
+                      {active} services
+                    </span>
+                    <span className={cn(
+                      'text-xs font-semibold',
+                      pct === 100 ? 'text-emerald-600' : pct >= 70 ? 'text-orange-500' : 'text-red-500'
+                    )}>
+                      {pct}% reconciled
+                    </span>
+                  </div>
+                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                    {/* Matched (green) */}
+                    <div
+                      className={cn(
+                        'h-full rounded-full transition-all',
+                        pct === 100 ? 'bg-emerald-400' : pct >= 70 ? 'bg-orange-400' : 'bg-red-400'
+                      )}
+                      style={{ width: `${pct}%` }}
                     />
-                  ))}
-                {recons.filter((r) => r.status !== 'no_data').length > 4 && (
-                  <span className="text-xs text-slate-400 self-center">
-                    +{recons.filter((r) => r.status !== 'no_data').length - 4} more
-                  </span>
-                )}
-              </div>
+                  </div>
+                </div>
 
-              <div className="flex items-center gap-3 text-xs text-slate-400">
-                <span>{summary.total} services</span>
-                <span>·</span>
-                {summary.over + summary.under > 0 ? (
-                  <span className="text-red-500 font-medium">
-                    {summary.over + summary.under} issue{summary.over + summary.under !== 1 ? 's' : ''}
-                  </span>
-                ) : (
-                  <span className="text-emerald-500">All matched ✓</span>
-                )}
-              </div>
-            </button>
-          ))}
+                <div className="flex items-center gap-3 text-xs text-slate-400">
+                  <span className="text-emerald-500">{s.matched} matched</span>
+                  {issues > 0 && (
+                    <>
+                      <span>·</span>
+                      <span className="text-red-500 font-medium">
+                        {issues} issue{issues !== 1 ? 's' : ''}
+                      </span>
+                    </>
+                  )}
+                  {s.reviewed > 0 && (
+                    <>
+                      <span>·</span>
+                      <span className="text-pink-500">{s.reviewed} reviewed</span>
+                    </>
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
