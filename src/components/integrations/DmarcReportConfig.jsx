@@ -246,7 +246,8 @@ export default function DmarcReportConfig() {
     }
   };
 
-  const isDomainMapped = (domainId) => mappings.some(m => m.dmarc_domain_id === String(domainId));
+  const getDomainMappings = (domainId) => mappings.filter(m => m.dmarc_domain_id === String(domainId));
+  const isDomainMapped = (domainId) => getDomainMappings(domainId).length > 0;
 
   const filteredAccounts = searchTerm
     ? accounts.filter(a =>
@@ -379,72 +380,77 @@ export default function DmarcReportConfig() {
                         ) : (
                           <div className="divide-y divide-slate-100">
                             {accountDomains.map(domain => {
-                              const mapped = isDomainMapped(domain.id);
-                              const existingMapping = mappings.find(m => m.dmarc_domain_id === String(domain.id));
+                              const domainMappings = getDomainMappings(domain.id);
+                              const hasMappings = domainMappings.length > 0;
                               const isLoading = mappingInProgress === `${account.id}-${domain.id}`;
 
                               return (
                                 <div
                                   key={domain.id}
                                   className={cn(
-                                    'flex items-center justify-between px-4 py-3 pl-14 transition-colors',
-                                    mapped ? 'bg-emerald-50/40' : 'hover:bg-slate-50/70'
+                                    'px-4 py-3 pl-14 transition-colors',
+                                    hasMappings ? 'bg-emerald-50/40' : 'hover:bg-slate-50/70'
                                   )}
                                 >
-                                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                                    <div className={cn(
-                                      "w-7 h-7 rounded-lg flex items-center justify-center shrink-0",
-                                      mapped ? "bg-emerald-100" : "bg-slate-100"
-                                    )}>
-                                      <AtSign className={cn(
-                                        "w-3.5 h-3.5",
-                                        mapped ? "text-emerald-600" : "text-slate-400"
-                                      )} />
-                                    </div>
-                                    <div className="min-w-0">
-                                      <p className="text-sm font-medium text-slate-900 truncate">{domain.address}</p>
-                                      <div className="flex items-center gap-1.5 mt-0.5">
-                                        {domain.dmarc_status === 'dmarc_record_published' ? (
-                                          <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[9px] py-0 px-1.5 font-medium">
-                                            <CheckCircle2 className="w-2.5 h-2.5 mr-0.5" />
-                                            DMARC Active
-                                          </Badge>
-                                        ) : (
-                                          <Badge className="bg-amber-100 text-amber-700 border-0 text-[9px] py-0 px-1.5 font-medium">
-                                            {(domain.dmarc_status || 'unknown').replace(/_/g, ' ')}
-                                          </Badge>
-                                        )}
-                                        {mapped && existingMapping && (
-                                          <span className="text-[10px] text-emerald-600 font-medium">
-                                            → {existingMapping.customer_name}
-                                          </span>
-                                        )}
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                                      <div className={cn(
+                                        "w-7 h-7 rounded-lg flex items-center justify-center shrink-0",
+                                        hasMappings ? "bg-emerald-100" : "bg-slate-100"
+                                      )}>
+                                        <AtSign className={cn(
+                                          "w-3.5 h-3.5",
+                                          hasMappings ? "text-emerald-600" : "text-slate-400"
+                                        )} />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="text-sm font-medium text-slate-900 truncate">{domain.address}</p>
+                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                          {domain.dmarc_status === 'dmarc_record_published' ? (
+                                            <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[9px] py-0 px-1.5 font-medium">
+                                              <CheckCircle2 className="w-2.5 h-2.5 mr-0.5" />
+                                              DMARC Active
+                                            </Badge>
+                                          ) : (
+                                            <Badge className="bg-amber-100 text-amber-700 border-0 text-[9px] py-0 px-1.5 font-medium">
+                                              {(domain.dmarc_status || 'unknown').replace(/_/g, ' ')}
+                                            </Badge>
+                                          )}
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
 
-                                  <div className="flex items-center gap-2 shrink-0 ml-3">
-                                    {isLoading ? (
-                                      <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
-                                    ) : mapped ? (
-                                      <Button
-                                        onClick={() => handleUnmap(existingMapping?.id)}
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 px-2 gap-1.5 text-xs text-red-500 hover:text-red-600 hover:bg-red-50"
-                                      >
-                                        <Unlink className="w-3.5 h-3.5" />
-                                        Unmap
-                                      </Button>
-                                    ) : (
+                                    <div className="flex items-center gap-2 shrink-0 ml-3">
+                                      {isLoading && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
                                       <CustomerPicker
                                         customers={customers}
                                         mappings={mappings}
                                         onSelect={(custId) => handleMapDomain(account, domain, custId)}
                                         disabled={!!mappingInProgress}
                                       />
-                                    )}
+                                    </div>
                                   </div>
+
+                                  {/* Show all existing mappings for this domain */}
+                                  {hasMappings && (
+                                    <div className="flex flex-wrap gap-1.5 mt-2 ml-10">
+                                      {domainMappings.map(m => (
+                                        <span
+                                          key={m.id}
+                                          className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 rounded-md px-2 py-0.5 text-[11px] font-medium"
+                                        >
+                                          → {m.customer_name}
+                                          <button
+                                            onClick={() => handleUnmap(m.id)}
+                                            className="ml-0.5 text-emerald-500 hover:text-red-500 transition-colors"
+                                            title="Remove mapping"
+                                          >
+                                            <Unlink className="w-3 h-3" />
+                                          </button>
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })}
