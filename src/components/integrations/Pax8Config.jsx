@@ -51,7 +51,7 @@ export default function Pax8Config() {
   const handleTestConnection = async () => {
     setTesting(true);
     try {
-      const result = await client.functions.call('syncPax8Subscriptions', { action: 'test_connection' });
+      const result = await client.functions.invoke('syncPax8Subscriptions', { action: 'test_connection' });
       if (result.success) {
         toast.success(result.message);
       } else {
@@ -68,7 +68,7 @@ export default function Pax8Config() {
   const handleLoadCompanies = async () => {
     setLoadingCompanies(true);
     try {
-      const result = await client.functions.call('syncPax8Subscriptions', { action: 'list_companies' });
+      const result = await client.functions.invoke('syncPax8Subscriptions', { action: 'list_companies' });
       if (result.success) {
         setPax8Companies(result.companies || []);
         setShowMapping(true);
@@ -149,7 +149,7 @@ export default function Pax8Config() {
   const handleSyncAll = async () => {
     setSyncing(true);
     try {
-      const result = await client.functions.call('syncPax8Subscriptions', { action: 'sync_all' });
+      const result = await client.functions.invoke('syncPax8Subscriptions', { action: 'sync_all' });
       if (result.success) {
         toast.success(`Synced ${result.synced} companies (${result.errors} errors)`);
         refetchMappings();
