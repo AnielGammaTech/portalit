@@ -231,6 +231,14 @@ export default function CustomerServicesTab({
     staleTime: 1000 * 60 * 5
   });
 
+  // Fetch 3CX reports for this customer (CSV/PDF uploads)
+  const { data: threecxReports = [] } = useQuery({
+    queryKey: ['threecx-reports', customerId],
+    queryFn: () => client.entities.ThreeCXReport.filter({ customer_id: customerId }),
+    enabled: !!customerId,
+    staleTime: 1000 * 60 * 5
+  });
+
   // Fetch Pax8 mapping for this customer
   const { data: pax8Mapping } = useQuery({
     queryKey: ['pax8-mapping', customerId],
@@ -242,7 +250,7 @@ export default function CustomerServicesTab({
     staleTime: 1000 * 60 * 5
   });
 
-  const has3CX = !!threecxMapping;
+  const has3CX = !!threecxMapping || threecxReports.length > 0;
   const hasInky = inkyReports.length > 0;
   const hasBullPhish = bullphishReports.length > 0;
   const hasDarkWeb = !!darkwebMapping || darkwebReports.length > 0;
@@ -890,6 +898,7 @@ export default function CustomerServicesTab({
           <ThreeCXTab
             customerId={customerId}
             threecxMapping={threecxMapping}
+            threecxReports={threecxReports}
             queryClient={queryClient}
           />
         </TabsContent>
