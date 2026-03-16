@@ -893,7 +893,7 @@ If you cannot find a specific field, use 0 for numbers and empty array for lists
 
       {/* Upload Modal */}
       <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
-        <DialogContent className="max-w-2xl overflow-visible" style={{ zIndex: 9999 }}>
+        <DialogContent className="max-w-2xl w-[92vw] overflow-visible" style={{ zIndex: 9999 }}>
           {/* Header */}
           <div className="bg-gradient-to-r from-red-600 to-red-700 -m-6 mb-0 p-5 rounded-t-lg">
             <DialogHeader>

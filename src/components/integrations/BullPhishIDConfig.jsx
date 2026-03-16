@@ -457,7 +457,7 @@ Convert all dates to YYYY-MM-DD format.`,
 
       {/* Upload Modal */}
       <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
-        <DialogContent className="max-w-xl p-0 overflow-hidden" style={{ zIndex: 9999 }}>
+        <DialogContent className="max-w-2xl w-[92vw] p-0 overflow-hidden" style={{ zIndex: 9999 }}>
           {/* Header */}
           <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-6 py-5 text-white">
             <div className="flex items-center gap-3">
