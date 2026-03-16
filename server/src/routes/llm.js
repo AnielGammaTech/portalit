@@ -1,9 +1,7 @@
 import { Router } from 'express';
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const pdfParse = require('pdf-parse');
+import { PDFParse } from 'pdf-parse';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { getServiceSupabase } from '../lib/supabase.js';
 
@@ -75,6 +73,7 @@ async function getFileContentType(url) {
 /**
  * Download a PDF from a URL and extract its text content server-side.
  * This bypasses the Anthropic 100-page PDF limit entirely.
+ * Uses pdf-parse v2.4.5 PDFParse class API.
  */
 async function extractPdfText(url) {
   const safeUrl = validateFileUrl(url);
@@ -84,10 +83,12 @@ async function extractPdfText(url) {
   }
   const arrayBuffer = await response.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
-  const parsed = await pdfParse(buffer);
-  const pageCount = parsed.numpages || 0;
-  console.log(`[LLM] Extracted text from PDF: ${pageCount} pages, ${parsed.text.length} chars`);
-  return { text: parsed.text, pageCount };
+  const parser = new PDFParse({ data: new Uint8Array(buffer) });
+  const result = await parser.getText();
+  const pageCount = result.total || 0;
+  const text = result.text || '';
+  console.log(`[LLM] Extracted text from PDF: ${pageCount} pages, ${text.length} chars`);
+  return { text, pageCount };
 }
 
 async function invokeAnthropic(prompt, model, jsonSchema, fileUrls) {
