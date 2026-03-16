@@ -4,6 +4,7 @@ import { client } from '@/api/client';
 import {
   INTEGRATION_MAPPING_ENTITIES,
   reconcileCustomer,
+  reconcilePax8Products,
   getDiscrepancySummary,
 } from '@/lib/lootit-reconciliation';
 
@@ -97,6 +98,47 @@ export function useReconciliationData(customerId) {
     const result = {};
     for (const [integrationKey, query] of Object.entries(mappingQueries)) {
       const rows = query.data || [];
+
+      if (integrationKey === 'bullphish') {
+        // BullPhish: pick latest report per customer, wrap as cached_data
+        const byCustomer = {};
+        for (const row of rows) {
+          if (!row.customer_id) continue;
+          const prev = byCustomer[row.customer_id];
+          if (!prev || new Date(row.report_date) > new Date(prev.report_date)) {
+            byCustomer[row.customer_id] = row;
+          }
+        }
+        for (const [custId, report] of Object.entries(byCustomer)) {
+          if (!result[custId]) result[custId] = {};
+          result[custId][integrationKey] = {
+            customer_id: custId,
+            cached_data: {
+              total_emails_sent: report.total_emails_sent || 0,
+              user_count: report.total_emails_sent || 0,
+            },
+          };
+        }
+        continue;
+      }
+
+      if (integrationKey === 'darkweb') {
+        // DarkWeb: count mappings per customer as domain_count
+        const countByCustomer = {};
+        for (const row of rows) {
+          if (!row.customer_id) continue;
+          countByCustomer[row.customer_id] = (countByCustomer[row.customer_id] || 0) + 1;
+        }
+        for (const [custId, count] of Object.entries(countByCustomer)) {
+          if (!result[custId]) result[custId] = {};
+          result[custId][integrationKey] = {
+            customer_id: custId,
+            cached_data: { domain_count: count },
+          };
+        }
+        continue;
+      }
+
       for (const row of rows) {
         if (!row.customer_id) continue;
         if (!result[row.customer_id]) result[row.customer_id] = {};
@@ -134,14 +176,21 @@ export function useReconciliationData(customerId) {
       const custReviews = reviewsByCustomer[customer.id] || [];
 
       const recon = reconcileCustomer(custLineItems, custMappings, rules, custReviews);
+
+      // Auto-reconcile Pax8 products per-product
+      const pax8Recon = custMappings.pax8
+        ? reconcilePax8Products(custLineItems, custMappings.pax8)
+        : [];
+
       // Only include customers that have at least some data to reconcile
       const hasData = recon.some(
         (r) => r.status !== 'no_data'
       );
-      if (hasData || custLineItems.length > 0) {
+      if (hasData || custLineItems.length > 0 || pax8Recon.length > 0) {
         results[customer.id] = {
           customer,
           reconciliations: recon,
+          pax8Reconciliations: pax8Recon,
           summary: getDiscrepancySummary(recon),
         };
       }
@@ -163,8 +212,9 @@ export function useReconciliationData(customerId) {
     return {
       totalCustomers: all.length,
       customersWithIssues: all.filter(
-        (c) => c.summary.over > 0 || c.summary.under > 0
+        (c) => c.summary.over > 0 || c.summary.under > 0 || (c.pax8Reconciliations || []).some(r => r.status !== 'match')
       ).length,
+      pax8MissingFromPsa: all.reduce((s, c) => s + (c.pax8Reconciliations || []).filter(r => r.status === 'missing_from_psa').length, 0),
       totalMatched: all.reduce((s, c) => s + c.summary.matched, 0),
       totalOver: all.reduce((s, c) => s + c.summary.over, 0),
       totalUnder: all.reduce((s, c) => s + c.summary.under, 0),

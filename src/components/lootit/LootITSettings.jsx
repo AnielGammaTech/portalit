@@ -17,21 +17,26 @@ const DEFAULT_VENDOR_PATHS = {
   datto_rmm_server: 'server_count',
   spanning: 'numberOfUsers',
   jumpcloud: 'totalUsers',
-  datto_edr: 'total_devices',
+  datto_edr: 'hostCount',
   unifi: 'total_devices',
   rocket_cyber: 'total_agents',
+  darkweb: 'domain_count',
+  bullphish: 'total_emails_sent',
   pax8: 'totalQuantity',
 };
 
 const TEMPLATE_RULES = [
-  { integration_key: 'cove_workstation', match_pattern: 'Per Endpoint', label: 'Cove Workstations', vendor_count_path: 'workstation_count' },
-  { integration_key: 'cove_server', match_pattern: 'Per Server', label: 'Cove Servers', vendor_count_path: 'server_count' },
-  { integration_key: 'datto_rmm_workstation', match_pattern: 'Managed IT', label: 'Datto RMM Workstations', vendor_count_path: 'workstation_count' },
+  { integration_key: 'datto_rmm_workstation', match_pattern: 'Managed IT - Remote Only', label: 'Datto RMM Workstations', vendor_count_path: 'workstation_count' },
   { integration_key: 'datto_rmm_server', match_pattern: 'Managed Server', label: 'Datto RMM Servers', vendor_count_path: 'server_count' },
-  { integration_key: 'spanning', match_pattern: 'Spanning', label: 'Spanning Backup', vendor_count_path: 'numberOfUsers' },
-  { integration_key: 'jumpcloud', match_pattern: 'JumpCloud', label: 'JumpCloud Users', vendor_count_path: 'totalUsers' },
   { integration_key: 'rocket_cyber', match_pattern: 'RocketCyber', label: 'RocketCyber Agents', vendor_count_path: 'total_agents' },
-  { integration_key: 'pax8', match_pattern: 'Microsoft 365', label: 'Microsoft 365 Licences', vendor_count_path: 'totalQuantity' },
+  { integration_key: 'jumpcloud', match_pattern: 'Jump Cloud Platform Plus', label: 'JumpCloud Users', vendor_count_path: 'totalUsers' },
+  { integration_key: 'bullphish', match_pattern: 'Bullphish User License', label: 'BullPhish Users', vendor_count_path: 'total_emails_sent' },
+  { integration_key: 'darkweb', match_pattern: 'Darkweb lD', label: 'Dark Web ID Domains', vendor_count_path: 'domain_count' },
+  { integration_key: 'datto_edr', match_pattern: 'Advanced Threat Protection', label: 'Datto EDR - ATP', vendor_count_path: 'hostCount' },
+  { integration_key: 'datto_edr', match_pattern: 'EDR', label: 'Datto EDR', vendor_count_path: 'hostCount' },
+  { integration_key: 'spanning', match_pattern: 'Spanning - Per User', label: 'Spanning Backup', vendor_count_path: 'numberOfUsers' },
+  { integration_key: 'cove_workstation', match_pattern: 'Cove Doto Protection - Per Endpoint', label: 'Cove Workstations', vendor_count_path: 'workstation_count' },
+  { integration_key: 'cove_server', match_pattern: 'Cove Doto Protection - Per Server', label: 'Cove Servers', vendor_count_path: 'server_count' },
 ];
 
 const EMPTY_FORM = {

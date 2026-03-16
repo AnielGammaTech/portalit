@@ -67,8 +67,9 @@ const VENDOR_EXTRACTORS = {
 
   datto_edr: (data) => {
     if (!data) return null;
+    if (typeof data.hostCount === 'number') return data.hostCount;
     if (typeof data.total_devices === 'number') return data.total_devices;
-    if (Array.isArray(data.devices)) return data.devices.length;
+    if (Array.isArray(data.hosts)) return data.hosts.length;
     return null;
   },
 
@@ -83,6 +84,19 @@ const VENDOR_EXTRACTORS = {
     if (!data) return null;
     if (typeof data.total_agents === 'number') return data.total_agents;
     if (typeof data.totalAgents === 'number') return data.totalAgents;
+    return null;
+  },
+
+  darkweb: (data) => {
+    if (!data) return null;
+    if (typeof data.domain_count === 'number') return data.domain_count;
+    return 1; // Each mapping = 1 monitored domain
+  },
+
+  bullphish: (data) => {
+    if (!data) return null;
+    if (typeof data.total_emails_sent === 'number') return data.total_emails_sent;
+    if (typeof data.user_count === 'number') return data.user_count;
     return null;
   },
 
@@ -121,6 +135,8 @@ export const INTEGRATION_MAPPING_ENTITIES = {
   datto_edr: 'DattoEDRMapping',
   unifi: 'UniFiMapping',
   rocket_cyber: 'RocketCyberMapping',
+  darkweb: 'DarkWebIDMapping',
+  bullphish: 'BullPhishIDReport',
   pax8: 'Pax8Mapping',
 };
 
@@ -136,6 +152,8 @@ export const INTEGRATION_LABELS = {
   datto_edr: 'Datto EDR',
   unifi: 'UniFi Network',
   rocket_cyber: 'RocketCyber',
+  darkweb: 'Dark Web ID',
+  bullphish: 'BullPhish ID',
   pax8: 'Pax8',
 };
 
@@ -216,6 +234,63 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = []) {
       matchedLineItems: matched,
       review,
       integrationLabel: INTEGRATION_LABELS[rule.integration_key] || rule.integration_key,
+    };
+  });
+}
+
+// ── Pax8 per-product auto-reconciliation ─────────────────────────────
+
+/**
+ * Auto-reconcile Pax8 products against PSA line items.
+ * Returns one result per Pax8 product, plus flags products missing from PSA.
+ */
+export function reconcilePax8Products(lineItems, pax8Mapping) {
+  if (!pax8Mapping?.cached_data?.products) return [];
+
+  const products = pax8Mapping.cached_data.products || [];
+
+  return products.map((product) => {
+    const productName = (product.name || '').toLowerCase();
+
+    // Find matching PSA line items by product name substring match
+    const matched = lineItems.filter((li) => {
+      const desc = (li.description || '').toLowerCase();
+      // Try matching on product name keywords
+      return productName && desc.includes(productName);
+    });
+
+    // If no exact match, try matching key words (e.g. "Business Premium" in both)
+    let finalMatched = matched;
+    if (finalMatched.length === 0) {
+      const keywords = productName.split(/\s+/).filter(w => w.length > 3);
+      finalMatched = lineItems.filter((li) => {
+        const desc = (li.description || '').toLowerCase();
+        // Require at least 2 keyword matches for fuzzy matching
+        const matchCount = keywords.filter(kw => desc.includes(kw)).length;
+        return matchCount >= 2 && matchCount >= keywords.length * 0.5;
+      });
+    }
+
+    const psaQty = finalMatched.reduce((sum, li) => sum + (parseFloat(li.quantity) || 0), 0);
+    const vendorQty = product.quantity || 0;
+    const hasPsaData = finalMatched.length > 0;
+    const difference = hasPsaData ? psaQty - vendorQty : 0;
+
+    let status = 'missing_from_psa';
+    if (hasPsaData) {
+      if (difference === 0) status = 'match';
+      else if (difference > 0) status = 'over';
+      else status = 'under';
+    }
+
+    return {
+      productName: product.name,
+      vendorQty,
+      psaQty: hasPsaData ? psaQty : null,
+      difference,
+      status,
+      matchedLineItems: finalMatched,
+      subscriptions: product.subscriptions || [],
     };
   });
 }
