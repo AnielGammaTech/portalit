@@ -149,6 +149,7 @@ const ENTITY_TABLE_MAP = {
   SyncLog: 'sync_logs',
   ThreeCXMapping: 'threecx_mappings',
   ThreeCXReport: 'threecx_reports',
+  DmarcReportMapping: 'dmarc_report_mappings',
   Ticket: 'tickets',
   UniFiMapping: 'unifi_mappings',
   User: 'users',

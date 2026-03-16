@@ -146,7 +146,24 @@ export async function syncDattoEDR(body, user) {
     }
 
     let hosts = allAgents.filter(a => a.locationId === targetId);
-    console.log(`Found ${hosts.length} agents with locationId=${targetId} out of ${allAgents.length} total`);
+    if (hosts.length === 0) {
+      hosts = allAgents.filter(a => a.targetId === targetId);
+    }
+    if (hosts.length === 0) {
+      hosts = allAgents.filter(a => (a.location_id || a.organizationId) === targetId);
+    }
+    console.log(`Found ${hosts.length} agents matching targetId=${targetId} out of ${allAgents.length} total`);
+    // Log sample agent keys for debugging if no match found
+    if (hosts.length === 0 && allAgents.length > 0) {
+      const sample = allAgents[0];
+      console.log('Sample agent keys:', Object.keys(sample));
+      console.log('Sample agent location fields:', {
+        locationId: sample.locationId,
+        targetId: sample.targetId,
+        location_id: sample.location_id,
+        organizationId: sample.organizationId
+      });
+    }
 
     const targetStats = targetData ? {
       agentCount: targetData.agentCount || 0,
@@ -392,19 +409,98 @@ export async function syncDattoEDR(body, user) {
     const { data: allMappingsData } = await supabase.from('datto_edr_mappings').select('*');
     const allMappings = allMappingsData || [];
     let synced = 0;
+    let failed = 0;
 
     for (const mapping of allMappings) {
       try {
+        const targetId = mapping.edr_tenant_id;
+        if (!targetId) { failed++; continue; }
+
+        const targetUrl = addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}`);
+        const targetRes = await fetch(targetUrl, { headers }).catch(() => null);
+
+        let targetData = null;
+        if (targetRes?.ok) {
+          const raw = await targetRes.text();
+          try { targetData = JSON.parse(raw); } catch(e) { /* ignore */ }
+        }
+
+        const agentsUrl = addAuth(`${DATTO_EDR_BASE_URL}/agents`);
+        const agentsRes = await fetch(agentsUrl, { headers }).catch(() => null);
+
+        let allAgents = [];
+        if (agentsRes?.ok) {
+          const raw = await agentsRes.text();
+          try {
+            allAgents = JSON.parse(raw);
+            if (!Array.isArray(allAgents)) {
+              allAgents = allAgents?.data || [];
+            }
+          } catch(e) { /* ignore */ }
+        }
+
+        // Try multiple matching strategies for agents
+        let hosts = allAgents.filter(a => a.locationId === targetId);
+        if (hosts.length === 0) {
+          hosts = allAgents.filter(a => a.targetId === targetId);
+        }
+        if (hosts.length === 0) {
+          hosts = allAgents.filter(a => (a.location_id || a.organizationId) === targetId);
+        }
+
+        const targetStats = targetData ? {
+          agentCount: targetData.agentCount || 0,
+          activeAgentCount: targetData.activeAgentCount || 0,
+          alertCount: parseInt(targetData.alertCount) || 0,
+          totalAddressCount: targetData.totalAddressCount || 0,
+          lastScannedOn: targetData.lastScannedOn
+        } : null;
+
+        const hostCount = hosts.length || targetStats?.agentCount || 0;
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const activeHosts = hosts.filter(h => {
+          if (h.heartbeat) return new Date(h.heartbeat) > twentyFourHoursAgo;
+          return h.active === true;
+        });
+        const activeCount = activeHosts.length || targetStats?.activeAgentCount || 0;
+        const alertCount = targetStats?.alertCount || 0;
+
+        const responseData = {
+          hostCount,
+          activeHostCount: activeCount,
+          hosts: hosts.slice(0, 100).map(h => {
+            const heartbeatDate = h.heartbeat ? new Date(h.heartbeat) : null;
+            const isOnline = heartbeatDate ? heartbeatDate > twentyFourHoursAgo : h.active === true;
+            return {
+              id: h.id,
+              hostname: h.hostname || h.name,
+              ip: h.ip || h.ipstring,
+              os: h.os,
+              online: isOnline,
+              lastSeen: h.heartbeat
+            };
+          }),
+          alertCount,
+          criticalAlerts: 0,
+          mediumAlerts: 0,
+          lowAlerts: 0,
+          lastScannedOn: targetStats?.lastScannedOn,
+          targetStats
+        };
+
         await supabase.from('datto_edr_mappings').update({
-          last_synced: new Date().toISOString()
+          last_synced: new Date().toISOString(),
+          cached_data: responseData
         }).eq('id', mapping.id);
         synced++;
+        console.log(`EDR sync_all: synced ${mapping.customer_name} — ${hostCount} agents`);
       } catch (e) {
         console.error(`Failed to sync ${mapping.customer_name}:`, e);
+        failed++;
       }
     }
 
-    return { success: true, synced };
+    return { success: true, synced, failed, total: allMappings.length };
   }
 
   if (action === 'get_tenant_stats') {

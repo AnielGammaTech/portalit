@@ -153,7 +153,7 @@ export const INTEGRATION_MAPPING_ENTITIES = {
   rocket_cyber: 'RocketCyberMapping',
   darkweb: 'DarkWebIDReport',
   bullphish: 'BullPhishIDReport',
-  threecx: 'ThreeCXMapping',
+  threecx: 'ThreeCXReport',
   inky: 'InkyReport',
   pax8: 'Pax8Mapping',
 };

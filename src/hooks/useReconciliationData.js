@@ -166,6 +166,32 @@ export function useReconciliationData(customerId) {
         continue;
       }
 
+      if (integrationKey === 'threecx') {
+        // ThreeCX: pick latest report per customer, build cached_data from report columns
+        const byCustomer = {};
+        for (const row of rows) {
+          if (!row.customer_id) continue;
+          const prev = byCustomer[row.customer_id];
+          if (!prev || new Date(row.report_date || row.created_date || '') > new Date(prev.report_date || prev.created_date || '')) {
+            byCustomer[row.customer_id] = row;
+          }
+        }
+        for (const [custId, report] of Object.entries(byCustomer)) {
+          if (!result[custId]) result[custId] = {};
+          result[custId][integrationKey] = {
+            customer_id: custId,
+            cached_data: {
+              user_extensions: report.user_extensions || 0,
+              total_extensions: report.total_extensions || 0,
+              ring_groups: report.ring_groups || 0,
+              queues: report.queues || 0,
+              trunks: report.trunks || 0,
+            },
+          };
+        }
+        continue;
+      }
+
       for (const row of rows) {
         if (!row.customer_id) continue;
         if (!result[row.customer_id]) result[row.customer_id] = {};

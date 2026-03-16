@@ -38,7 +38,7 @@ import AwaitingAccess from './pages/AwaitingAccess';
 import { isCustomerPortal } from '@/lib/portal-mode';
 import { getFeatures } from '@/lib/permissions';
 
-const DEFAULT_PRIMARY = '#7C3AED';
+const DEFAULT_PRIMARY = '#5B21B6';
 
 function getUserInitials(fullName, email) {
   if (fullName && fullName.trim()) {
@@ -107,7 +107,7 @@ function MobileBottomTab({ item, isActive, primaryColor }) {
 
 function MobileDrawerNav({ navigation, currentPageName, primaryColor, user, isAdmin, isStaff, features, customer, onClose }) {
   return (
-    <div className="flex flex-col h-full" style={{ backgroundColor: '#1E1048' }}>
+    <div className="flex flex-col h-full" style={{ backgroundColor: '#13082E' }}>
       {/* User info at top */}
       <div className="p-4 border-b border-white/10">
         <div className="flex items-center gap-3">
@@ -342,7 +342,7 @@ export default function Layout({ children, currentPageName }) {
       `}</style>
 
       {/* ─── Fixed Top Header ─── */}
-      <header className="fixed top-0 left-0 right-0 h-14 text-white z-40" style={{ backgroundColor: '#1E1048' }}>
+      <header className="fixed top-0 left-0 right-0 h-14 text-white z-40" style={{ backgroundColor: '#13082E' }}>
         <div className="flex items-center justify-between h-full px-4 sm:px-6 max-w-full">
 
           {/* Left: Mobile hamburger + Logo */}

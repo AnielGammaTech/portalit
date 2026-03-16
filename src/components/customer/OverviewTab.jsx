@@ -22,7 +22,10 @@ import {
   CheckCircle2,
   AlertCircle,
   Clock,
-  Loader2
+  Loader2,
+  UserCheck,
+  UserMinus,
+  Package
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -54,7 +57,7 @@ const STAT_COLORS = {
   blue: { icon: 'text-primary', bg: 'bg-primary/10' },
   green: { icon: 'text-success', bg: 'bg-success/10' },
   orange: { icon: 'text-warning', bg: 'bg-warning/10' },
-  purple: { icon: 'text-[#7828C8]', bg: 'bg-[#7828C8]/10' },
+  purple: { icon: 'text-[#5B21B6]', bg: 'bg-[#5B21B6]/10' },
 };
 
 const StatCard = ({ icon: Icon, label, value, subtext, color = 'purple', delay = 0 }) => {
@@ -304,37 +307,51 @@ export default function OverviewTab({
 
   return (
     <div className="space-y-6">
-      {/* Quick Action - Create Ticket */}
+      {/* Quick Actions - Onboard / Offboard / Hardware Request */}
       {customer?.source === 'halopsa' && (
-        <motion.div {...fadeInUp} className="bg-card rounded-[14px] border shadow-hero-sm p-5">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-hero-md bg-primary/10 flex items-center justify-center">
-                <HelpCircle className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground">Need Help?</h3>
-                <p className="text-sm text-muted-foreground">Chat with our AI assistant or submit a ticket</p>
-              </div>
+        <motion.div {...fadeInUp} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <button
+            onClick={() => setShowTicketModal(true)}
+            className="group flex items-center gap-4 p-4 bg-card rounded-[14px] border shadow-hero-sm hover:shadow-hero-md hover:border-emerald-200 transition-all duration-[250ms]"
+          >
+            <div className="w-11 h-11 rounded-hero-md bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
+              <UserCheck className="w-5 h-5 text-emerald-600" />
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={handleOpenSupport}
-                variant="outline"
-                className="gap-2"
-              >
-                <Bot className="w-4 h-4" />
-                Chat with AI
-              </Button>
-              <Button
-                onClick={() => setShowTicketModal(true)}
-                className="gap-2"
-              >
-                <Send className="w-4 h-4" />
-                Submit Ticket
-              </Button>
+            <div className="text-left">
+              <p className="font-semibold text-foreground text-sm">Onboard User</p>
+              <p className="text-xs text-muted-foreground">New hire setup & licenses</p>
             </div>
-          </div>
+          </button>
+          <button
+            onClick={() => {
+              setNewTicket(prev => ({ ...prev, summary: 'Offboard User Request' }));
+              setShowTicketModal(true);
+            }}
+            className="group flex items-center gap-4 p-4 bg-card rounded-[14px] border shadow-hero-sm hover:shadow-hero-md hover:border-red-200 transition-all duration-[250ms]"
+          >
+            <div className="w-11 h-11 rounded-hero-md bg-red-100 flex items-center justify-center group-hover:bg-red-200 transition-colors">
+              <UserMinus className="w-5 h-5 text-red-600" />
+            </div>
+            <div className="text-left">
+              <p className="font-semibold text-foreground text-sm">Offboard User</p>
+              <p className="text-xs text-muted-foreground">Remove access & licenses</p>
+            </div>
+          </button>
+          <button
+            onClick={() => {
+              setNewTicket(prev => ({ ...prev, summary: 'Hardware / Quote Request' }));
+              setShowTicketModal(true);
+            }}
+            className="group flex items-center gap-4 p-4 bg-card rounded-[14px] border shadow-hero-sm hover:shadow-hero-md hover:border-blue-200 transition-all duration-[250ms]"
+          >
+            <div className="w-11 h-11 rounded-hero-md bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+              <Package className="w-5 h-5 text-blue-600" />
+            </div>
+            <div className="text-left">
+              <p className="font-semibold text-foreground text-sm">Request Hardware</p>
+              <p className="text-xs text-muted-foreground">Equipment & quotes</p>
+            </div>
+          </button>
         </motion.div>
       )}
 
@@ -592,9 +609,9 @@ export default function OverviewTab({
               return (
                 <div className="space-y-2">
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-[#7828C8]/10 rounded-hero-sm p-3 text-center">
-                      <p className="text-lg font-bold text-[#7828C8]">${totalCost.toLocaleString()}</p>
-                      <p className="text-xs text-[#7828C8]/80">Spend</p>
+                    <div className="bg-[#5B21B6]/10 rounded-hero-sm p-3 text-center">
+                      <p className="text-lg font-bold text-[#5B21B6]">${totalCost.toLocaleString()}</p>
+                      <p className="text-xs text-[#5B21B6]/80">Spend</p>
                     </div>
                     <div className={cn("rounded-hero-sm p-3 text-center", utilizationRate >= 70 ? "bg-success/10" : "bg-warning/10")}>
                       <p className={cn("text-lg font-bold", utilizationRate >= 70 ? "text-success" : "text-warning")}>{utilizationRate.toFixed(0)}%</p>

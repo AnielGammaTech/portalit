@@ -24,7 +24,8 @@ import {
   Database,
   Package,
   ShieldCheck,
-  Phone
+  Phone,
+  Globe
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -47,6 +48,7 @@ import CoveTab from './CoveTab';
 import Pax8Tab from './Pax8Tab';
 import InkyTab from './InkyTab';
 import ThreeCXTab from './ThreeCXTab';
+import DmarcReportTab from './DmarcReportTab';
 
 export default function CustomerServicesTab({ 
   customerId, 
@@ -250,6 +252,18 @@ export default function CustomerServicesTab({
     staleTime: 1000 * 60 * 5
   });
 
+  // Fetch DMARC Report mapping for this customer
+  const { data: dmarcMapping } = useQuery({
+    queryKey: ['dmarc-mapping', customerId],
+    queryFn: async () => {
+      const mappings = await client.entities.DmarcReportMapping.filter({ customer_id: customerId });
+      return mappings[0] || null;
+    },
+    enabled: !!customerId,
+    staleTime: 1000 * 60 * 5
+  });
+
+  const hasDmarc = !!dmarcMapping;
   const has3CX = !!threecxMapping || threecxReports.length > 0;
   const hasInky = inkyReports.length > 0;
   const hasBullPhish = bullphishReports.length > 0;
@@ -550,6 +564,7 @@ export default function CustomerServicesTab({
               { value: 'm365', label: 'M365', icon: Package, iconClass: 'text-blue-500', show: hasPax8 },
               { value: 'cove', label: 'Cove', icon: Database, iconClass: 'text-teal-500', show: hasCove },
               { value: 'threecx', label: '3CX', icon: Phone, iconClass: 'text-emerald-500', show: has3CX },
+              { value: 'dmarc', label: 'DMARC', icon: Globe, iconClass: 'text-emerald-600', show: hasDmarc },
             ].filter(tab => tab.show).map(tab => {
               const TabIcon = tab.icon;
               return (
@@ -899,6 +914,15 @@ export default function CustomerServicesTab({
             customerId={customerId}
             threecxMapping={threecxMapping}
             threecxReports={threecxReports}
+            queryClient={queryClient}
+          />
+        </TabsContent>
+
+        {/* DMARC Report Tab */}
+        <TabsContent value="dmarc">
+          <DmarcReportTab
+            customerId={customerId}
+            dmarcMapping={dmarcMapping}
             queryClient={queryClient}
           />
         </TabsContent>

@@ -18,6 +18,7 @@ import {
   Brain,
   ShieldCheck,
   Phone,
+  Globe,
 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -36,6 +37,7 @@ import BullPhishIDConfig from '../components/integrations/BullPhishIDConfig';
 import InkyConfig from '../components/integrations/InkyConfig';
 import ThreeCXConfig from '../components/integrations/ThreeCXConfig';
 import AIConfig from '../components/integrations/AIConfig';
+import DmarcReportConfig from '../components/integrations/DmarcReportConfig';
 import { formatDistanceToNow } from 'date-fns';
 
 // ── Config component map ─────────────────────────────────────────────────
@@ -55,6 +57,7 @@ const CONFIG_COMPONENTS = {
   inky: InkyConfig,
   threecx: ThreeCXConfig,
   ai: AIConfig,
+  dmarc: DmarcReportConfig,
 };
 
 // ── Integration categories ───────────────────────────────────────────────
@@ -100,6 +103,12 @@ const CATEGORIES = [
       { id: 'darkweb', name: 'Dark Web ID', desc: 'Monitor dark web compromises', icon: AlertTriangle, color: 'bg-red-500' },
       { id: 'bullphish', name: 'BullPhish ID', desc: 'Phishing simulation reports', icon: Fish, color: 'bg-orange-500' },
       { id: 'inky', name: 'Inky', desc: 'Email protection reports', icon: ShieldCheck, color: 'bg-blue-500' },
+    ],
+  },
+  {
+    title: 'EMAIL SECURITY',
+    items: [
+      { id: 'dmarc', name: 'DMARC Report', desc: 'Domain DMARC compliance monitoring', icon: Globe, color: 'bg-emerald-500', mappingEntity: 'DmarcReportMapping' },
     ],
   },
   {
