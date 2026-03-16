@@ -632,18 +632,18 @@ function UploadProgressCard({ isUploading, isExtracting }) {
 }
 
 function ContractCard({ contract, extractingId, onDownload, onDelete, onRetryExtract }) {
-  const [expanded, setExpanded] = useState(false);
   const isExtracting = extractingId === contract.id;
   const data = contract.extracted_data || {};
   const hasData = contract.extraction_status === 'complete' && Object.keys(data).length > 0;
   const lineItems = data.line_items || [];
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
       {/* Header row */}
       <div
         className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors"
-        onClick={() => hasData && setExpanded(!expanded)}
+        onClick={() => hasData && setCollapsed(!collapsed)}
       >
         <FileText className="w-5 h-5 text-pink-400 flex-shrink-0" />
         <div className="flex-1 min-w-0">
@@ -696,13 +696,13 @@ function ContractCard({ contract, extractingId, onDownload, onDelete, onRetryExt
             <Trash2 className="w-4 h-4" />
           </button>
           {hasData && (
-            <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", expanded && "rotate-180")} />
+            <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", !collapsed && "rotate-180")} />
           )}
         </div>
       </div>
 
-      {/* Expanded extracted data */}
-      {expanded && hasData && (
+      {/* Extracted data — visible by default, collapsible */}
+      {!collapsed && hasData && (
         <div className="border-t border-slate-100 px-4 py-4 space-y-4 bg-slate-50/50">
           {/* Summary stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
