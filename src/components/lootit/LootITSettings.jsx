@@ -21,6 +21,7 @@ const DEFAULT_VENDOR_PATHS = {
   rocket_cyber: 'total_agents',
   darkweb: 'domain_count',
   bullphish: 'total_emails_sent',
+  threecx: 'user_extensions',
   inky: 'total_users',
   pax8: 'totalQuantity',
 };
@@ -38,6 +39,7 @@ const TEMPLATE_RULES = [
   { integration_key: 'cove_workstation', match_pattern: 'Cove Doto Protection - Per Endpoint', label: 'Cove Workstations', vendor_count_path: 'workstation_count' },
   { integration_key: 'cove_server', match_pattern: 'Cove Doto Protection - Per Server', label: 'Cove Servers', vendor_count_path: 'server_count' },
   { integration_key: 'inky', match_pattern: 'Inky', label: 'Inky Email Protection', vendor_count_path: 'total_users' },
+  { integration_key: 'threecx', match_pattern: 'GTVoice extension', label: '3CX Extensions', vendor_count_path: 'user_extensions' },
 ];
 
 const EMPTY_FORM = {

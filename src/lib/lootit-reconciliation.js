@@ -93,6 +93,13 @@ const VENDOR_EXTRACTORS = {
     return null;
   },
 
+  threecx: (data) => {
+    if (!data) return null;
+    if (typeof data.user_extensions === 'number') return data.user_extensions;
+    if (typeof data.total_extensions === 'number') return data.total_extensions;
+    return null;
+  },
+
   inky: (data) => {
     if (!data) return null;
     if (typeof data.total_users === 'number') return data.total_users;
@@ -135,6 +142,7 @@ export const INTEGRATION_MAPPING_ENTITIES = {
   rocket_cyber: 'RocketCyberMapping',
   darkweb: 'DarkWebIDMapping',
   bullphish: 'BullPhishIDReport',
+  threecx: 'ThreeCXMapping',
   inky: 'InkyReport',
   pax8: 'Pax8Mapping',
 };
@@ -152,6 +160,7 @@ export const INTEGRATION_LABELS = {
   rocket_cyber: 'RocketCyber',
   darkweb: 'Dark Web ID',
   bullphish: 'BullPhish ID',
+  threecx: '3CX VoIP',
   inky: 'Inky',
   pax8: 'Pax8',
 };

@@ -23,7 +23,8 @@ import {
   ShieldAlert,
   Database,
   Package,
-  ShieldCheck
+  ShieldCheck,
+  Phone
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -45,6 +46,7 @@ import SaaSAlertsTab from './SaaSAlertsTab';
 import CoveTab from './CoveTab';
 import Pax8Tab from './Pax8Tab';
 import InkyTab from './InkyTab';
+import ThreeCXTab from './ThreeCXTab';
 
 export default function CustomerServicesTab({ 
   customerId, 
@@ -218,6 +220,17 @@ export default function CustomerServicesTab({
     enabled: !!customerId
   });
 
+  // Fetch 3CX mapping for this customer
+  const { data: threecxMapping } = useQuery({
+    queryKey: ['threecx-mapping', customerId],
+    queryFn: async () => {
+      const mappings = await client.entities.ThreeCXMapping.filter({ customer_id: customerId });
+      return mappings[0] || null;
+    },
+    enabled: !!customerId,
+    staleTime: 1000 * 60 * 5
+  });
+
   // Fetch Pax8 mapping for this customer
   const { data: pax8Mapping } = useQuery({
     queryKey: ['pax8-mapping', customerId],
@@ -229,6 +242,7 @@ export default function CustomerServicesTab({
     staleTime: 1000 * 60 * 5
   });
 
+  const has3CX = !!threecxMapping;
   const hasInky = inkyReports.length > 0;
   const hasBullPhish = bullphishReports.length > 0;
   const hasDarkWeb = !!darkwebMapping || darkwebReports.length > 0;
@@ -565,6 +579,10 @@ export default function CustomerServicesTab({
               <Database className="w-3.5 h-3.5 text-teal-500" />
               Cove
             </TabsTrigger>
+            <TabsTrigger value="threecx" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
+              <Phone className="w-3.5 h-3.5 text-emerald-500" />
+              3CX
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -872,6 +890,14 @@ export default function CustomerServicesTab({
           ) : (
             <EmptyState icon={Database} title="Cove not configured" description="Go to Adminland > Integrations to map this customer's Cove partner." />
           )}
+        </TabsContent>
+        {/* 3CX VoIP Tab */}
+        <TabsContent value="threecx">
+          <ThreeCXTab
+            customerId={customerId}
+            threecxMapping={threecxMapping}
+            queryClient={queryClient}
+          />
         </TabsContent>
       </Tabs>
 

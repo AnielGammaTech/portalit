@@ -17,6 +17,7 @@ import {
   Rocket,
   Brain,
   ShieldCheck,
+  Phone,
   Zap,
 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +35,7 @@ import SaaSAlertsConfig from '../components/integrations/SaaSAlertsConfig';
 import DarkWebIDConfig from '../components/integrations/DarkWebIDConfig';
 import BullPhishIDConfig from '../components/integrations/BullPhishIDConfig';
 import InkyConfig from '../components/integrations/InkyConfig';
+import ThreeCXConfig from '../components/integrations/ThreeCXConfig';
 import AIConfig from '../components/integrations/AIConfig';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -52,6 +54,7 @@ const CONFIG_COMPONENTS = {
   darkweb: DarkWebIDConfig,
   bullphish: BullPhishIDConfig,
   inky: InkyConfig,
+  threecx: ThreeCXConfig,
   ai: AIConfig,
 };
 
@@ -101,6 +104,12 @@ const CATEGORIES = [
     ],
   },
   {
+    title: 'VOIP',
+    items: [
+      { id: 'threecx', name: '3CX', desc: 'Per-customer VoIP extension sync', icon: Phone, color: 'bg-emerald-500', mappingEntity: 'ThreeCXMapping' },
+    ],
+  },
+  {
     title: 'AI & AUTOMATION',
     items: [
       { id: 'ai', name: 'AI Provider', desc: 'Choose between OpenAI and Claude AI', icon: Brain, color: 'bg-amber-500' },
@@ -119,6 +128,7 @@ function useMappingCounts() {
   const { data: cove = [] } = useQuery({ queryKey: ['cove_mappings'], queryFn: () => client.entities.CoveDataMapping.list() });
   const { data: unifi = [] } = useQuery({ queryKey: ['unifi_mappings'], queryFn: () => client.entities.UniFiMapping.list() });
   const { data: saas = [] } = useQuery({ queryKey: ['saas_alerts_mappings'], queryFn: () => client.entities.SaaSAlertsMapping.list() });
+  const { data: threecx = [] } = useQuery({ queryKey: ['threecx_mappings'], queryFn: () => client.entities.ThreeCXMapping.list() });
 
   return {
     DattoSiteMapping: datto.length,
@@ -129,6 +139,7 @@ function useMappingCounts() {
     CoveDataMapping: cove.length,
     UniFiMapping: unifi.length,
     SaaSAlertsMapping: saas.length,
+    ThreeCXMapping: threecx.length,
   };
 }
 
