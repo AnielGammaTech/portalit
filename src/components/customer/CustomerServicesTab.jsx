@@ -22,7 +22,9 @@ import {
   Wifi,
   ShieldAlert,
   Database,
-  Package
+  Package,
+  ShieldCheck,
+  Phone
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -43,6 +45,8 @@ import UniFiTab from './UniFiTab';
 import SaaSAlertsTab from './SaaSAlertsTab';
 import CoveTab from './CoveTab';
 import Pax8Tab from './Pax8Tab';
+import InkyTab from './InkyTab';
+import ThreeCXTab from './ThreeCXTab';
 
 export default function CustomerServicesTab({ 
   customerId, 
@@ -159,6 +163,13 @@ export default function CustomerServicesTab({
     enabled: !!customerId
   });
 
+  // Fetch Inky reports for this customer
+  const { data: inkyReports = [] } = useQuery({
+    queryKey: ['inky-reports', customerId],
+    queryFn: () => client.entities.InkyReport.filter({ customer_id: customerId }),
+    enabled: !!customerId
+  });
+
   // Fetch Datto EDR mapping for this customer
   const { data: edrMapping } = useQuery({
     queryKey: ['edr-mapping', customerId],
@@ -209,6 +220,17 @@ export default function CustomerServicesTab({
     enabled: !!customerId
   });
 
+  // Fetch 3CX mapping for this customer
+  const { data: threecxMapping } = useQuery({
+    queryKey: ['threecx-mapping', customerId],
+    queryFn: async () => {
+      const mappings = await client.entities.ThreeCXMapping.filter({ customer_id: customerId });
+      return mappings[0] || null;
+    },
+    enabled: !!customerId,
+    staleTime: 1000 * 60 * 5
+  });
+
   // Fetch Pax8 mapping for this customer
   const { data: pax8Mapping } = useQuery({
     queryKey: ['pax8-mapping', customerId],
@@ -220,6 +242,8 @@ export default function CustomerServicesTab({
     staleTime: 1000 * 60 * 5
   });
 
+  const has3CX = !!threecxMapping;
+  const hasInky = inkyReports.length > 0;
   const hasBullPhish = bullphishReports.length > 0;
   const hasDarkWeb = !!darkwebMapping || darkwebReports.length > 0;
   const hasEDR = !!edrMapping;
@@ -501,8 +525,8 @@ export default function CustomerServicesTab({
     <div className="space-y-6">
       <Tabs defaultValue="recurring" className="space-y-4">
         {/* Service Tabs — HeroUI-inspired pill tabs */}
-        <div className="overflow-x-auto scrollbar-hide flex justify-center">
-          <TabsList className="bg-zinc-100 dark:bg-zinc-800/80 border-0 p-1 h-auto inline-flex gap-1 rounded-hero-lg w-auto min-w-max mx-auto">
+        <div className="flex justify-center">
+          <TabsList className="bg-zinc-100 dark:bg-zinc-800/80 border-0 p-1.5 h-auto flex flex-wrap justify-center gap-1 rounded-hero-lg w-full max-w-4xl mx-auto">
             <TabsTrigger value="recurring" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
               <DollarSign className="w-3.5 h-3.5" />
               Recurring
@@ -527,6 +551,10 @@ export default function CustomerServicesTab({
               <Fish className="w-3.5 h-3.5 text-warning" />
               BullPhish
             </TabsTrigger>
+            <TabsTrigger value="inky" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
+              <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
+              Inky
+            </TabsTrigger>
             <TabsTrigger value="edr" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
               <Shield className="w-3.5 h-3.5 text-primary" />
               Datto EDR
@@ -550,6 +578,10 @@ export default function CustomerServicesTab({
             <TabsTrigger value="cove" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
               <Database className="w-3.5 h-3.5 text-teal-500" />
               Cove
+            </TabsTrigger>
+            <TabsTrigger value="threecx" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
+              <Phone className="w-3.5 h-3.5 text-emerald-500" />
+              3CX
             </TabsTrigger>
           </TabsList>
         </div>
@@ -789,6 +821,15 @@ export default function CustomerServicesTab({
           )}
         </TabsContent>
 
+        {/* Inky Tab */}
+        <TabsContent value="inky">
+          {hasInky ? (
+            <InkyTab customerId={customerId} />
+          ) : (
+            <EmptyState icon={ShieldCheck} title="Inky not configured" description="No Inky email protection reports found for this customer." />
+          )}
+        </TabsContent>
+
         {/* Datto EDR Tab */}
         <TabsContent value="edr">
           {hasEDR ? (
@@ -849,6 +890,14 @@ export default function CustomerServicesTab({
           ) : (
             <EmptyState icon={Database} title="Cove not configured" description="Go to Adminland > Integrations to map this customer's Cove partner." />
           )}
+        </TabsContent>
+        {/* 3CX VoIP Tab */}
+        <TabsContent value="threecx">
+          <ThreeCXTab
+            customerId={customerId}
+            threecxMapping={threecxMapping}
+            queryClient={queryClient}
+          />
         </TabsContent>
       </Tabs>
 

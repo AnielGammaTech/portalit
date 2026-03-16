@@ -28,6 +28,7 @@ import { syncSaaSAlerts } from '../functions/syncSaaSAlerts.js';
 import { syncPax8Subscriptions } from '../functions/syncPax8Subscriptions.js';
 import { autoSuspendUnusedLicenses } from '../functions/autoSuspendUnusedLicenses.js';
 import { licenseRenewalReminder } from '../functions/licenseRenewalReminder.js';
+import { sync3CX } from '../functions/sync3CX.js';
 import { testAIConnection } from '../functions/testAIConnection.js';
 
 const functionMap = {
@@ -57,6 +58,7 @@ const functionMap = {
   syncPax8Subscriptions,
   autoSuspendUnusedLicenses,
   licenseRenewalReminder,
+  sync3CX,
   testAIConnection,
 };
 

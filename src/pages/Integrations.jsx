@@ -16,6 +16,8 @@ import {
   AlertTriangle,
   Rocket,
   Brain,
+  ShieldCheck,
+  Phone,
   Zap,
 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +34,8 @@ import UniFiConfig from '../components/integrations/UniFiConfig';
 import SaaSAlertsConfig from '../components/integrations/SaaSAlertsConfig';
 import DarkWebIDConfig from '../components/integrations/DarkWebIDConfig';
 import BullPhishIDConfig from '../components/integrations/BullPhishIDConfig';
+import InkyConfig from '../components/integrations/InkyConfig';
+import ThreeCXConfig from '../components/integrations/ThreeCXConfig';
 import AIConfig from '../components/integrations/AIConfig';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -49,6 +53,8 @@ const CONFIG_COMPONENTS = {
   'saas-alerts': SaaSAlertsConfig,
   darkweb: DarkWebIDConfig,
   bullphish: BullPhishIDConfig,
+  inky: InkyConfig,
+  threecx: ThreeCXConfig,
   ai: AIConfig,
 };
 
@@ -94,6 +100,13 @@ const CATEGORIES = [
     items: [
       { id: 'darkweb', name: 'Dark Web ID', desc: 'Monitor dark web compromises', icon: AlertTriangle, color: 'bg-red-500' },
       { id: 'bullphish', name: 'BullPhish ID', desc: 'Phishing simulation reports', icon: Fish, color: 'bg-orange-500' },
+      { id: 'inky', name: 'Inky', desc: 'Email protection reports', icon: ShieldCheck, color: 'bg-blue-500' },
+    ],
+  },
+  {
+    title: 'VOIP',
+    items: [
+      { id: 'threecx', name: '3CX', desc: 'Per-customer VoIP extension sync', icon: Phone, color: 'bg-emerald-500', mappingEntity: 'ThreeCXMapping' },
     ],
   },
   {
@@ -115,6 +128,7 @@ function useMappingCounts() {
   const { data: cove = [] } = useQuery({ queryKey: ['cove_mappings'], queryFn: () => client.entities.CoveDataMapping.list() });
   const { data: unifi = [] } = useQuery({ queryKey: ['unifi_mappings'], queryFn: () => client.entities.UniFiMapping.list() });
   const { data: saas = [] } = useQuery({ queryKey: ['saas_alerts_mappings'], queryFn: () => client.entities.SaaSAlertsMapping.list() });
+  const { data: threecx = [] } = useQuery({ queryKey: ['threecx_mappings'], queryFn: () => client.entities.ThreeCXMapping.list() });
 
   return {
     DattoSiteMapping: datto.length,
@@ -125,6 +139,7 @@ function useMappingCounts() {
     CoveDataMapping: cove.length,
     UniFiMapping: unifi.length,
     SaaSAlertsMapping: saas.length,
+    ThreeCXMapping: threecx.length,
   };
 }
 
