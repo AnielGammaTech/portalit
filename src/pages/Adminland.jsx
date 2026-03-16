@@ -32,6 +32,7 @@ import ThreeCXConfig from '../components/integrations/ThreeCXConfig';
 import DmarcReportConfig from '../components/integrations/DmarcReportConfig';
 import VultrConfig from '../components/integrations/VultrConfig';
 import VPenTestConfig from '../components/integrations/VPenTestConfig';
+import MapboxConfig from '../components/integrations/MapboxConfig';
 
 import {
   Shield,
@@ -68,6 +69,7 @@ import {
   Globe,
   Server,
   Crosshair,
+  MapPin,
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -144,6 +146,12 @@ const INTEGRATION_CATEGORIES = [
     ],
   },
   {
+    title: 'MAPS & LOCATION',
+    items: [
+      { id: 'mapbox', label: 'Mapbox', desc: 'Customer location maps and geocoding', icon: MapPin, iconBg: 'bg-indigo-50', iconColor: 'text-indigo-600' },
+    ],
+  },
+  {
     title: 'GAMMASTACK ECOSYSTEM',
     items: [
       { id: 'external-api', label: 'External API Access', desc: 'Generate API keys for external apps', icon: Zap, iconBg: 'bg-amber-50', iconColor: 'text-amber-600' },
@@ -170,6 +178,7 @@ const INTEGRATION_COMPONENTS = {
   'vpentest': VPenTestConfig,
   'ai': AIConfig,
   'pax8': Pax8Config,
+  'mapbox': MapboxConfig,
 };
 
 function IntegrationsPanel() {

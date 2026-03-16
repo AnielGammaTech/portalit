@@ -118,7 +118,7 @@ export default function CustomerSettings() {
     }
   };
 
-  const isLoading = loadingCustomer || loadingSettings || loadingUsers;
+  const isLoading = !customerId || loadingCustomer || loadingSettings || loadingUsers;
 
   if (isLoading) {
     return (

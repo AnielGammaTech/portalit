@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import { toast } from 'sonner';
@@ -25,7 +25,9 @@ import {
   Package,
   ShieldCheck,
   Phone,
-  Globe
+  Globe,
+  Search,
+  Laptop
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -34,6 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
 import { SkeletonTable } from "@/components/ui/shimmer-skeleton";
 import UserDetailModal from './UserDetailModal';
 import DarkWebTab from './DarkWebTab';
@@ -70,6 +73,7 @@ export default function CustomerServicesTab({
   const [jcUsersPage, setJcUsersPage] = useState(0);
   const [spanningUsersPage, setSpanningUsersPage] = useState(0);
   const [selectedContact, setSelectedContact] = useState(null);
+  const [usersSearch, setUsersSearch] = useState('');
   const [syncStatuses, setSyncStatuses] = useState({
     halopsa: { status: 'idle', lastSync: null, error: null },
     datto: { status: 'idle', lastSync: null, error: null },
@@ -486,6 +490,27 @@ export default function CustomerServicesTab({
       : jumpcloudMapping.cached_data;
   }, [jumpcloudMapping?.cached_data]);
 
+  // Device lookup by assigned contact id
+  const devicesByContact = useMemo(() => {
+    return devices.reduce((map, device) => {
+      const cid = device.assigned_contact_id;
+      if (!cid) return map;
+      const existing = map[cid] || [];
+      return { ...map, [cid]: [...existing, device] };
+    }, {});
+  }, [devices]);
+
+  // Filtered contacts for users search
+  const filteredContacts = useMemo(() => {
+    if (!usersSearch.trim()) return contacts;
+    const q = usersSearch.toLowerCase();
+    return contacts.filter(c =>
+      (c.full_name || '').toLowerCase().includes(q) ||
+      (c.email || '').toLowerCase().includes(q) ||
+      (c.title || '').toLowerCase().includes(q)
+    );
+  }, [contacts, usersSearch]);
+
   const handleSyncSpanning = async () => {
     if (!spanningMapping) return;
     setSyncingSpanning(true);
@@ -718,11 +743,12 @@ export default function CustomerServicesTab({
         <TabsContent value="users">
           <motion.div {...fadeInUp} className="space-y-4">
             {/* Stats */}
-            <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {[
                 { icon: Users, label: 'Total Contacts', value: contacts.length, color: 'text-primary', bg: 'bg-primary/10' },
                 { icon: CheckCircle2, label: 'Primary Contacts', value: contacts.filter(c => c.is_primary).length, color: 'text-success', bg: 'bg-success/10' },
                 { icon: Shield, label: 'With Email', value: contacts.filter(c => c.email).length, color: 'text-violet-600', bg: 'bg-violet-500/10' },
+                { icon: Laptop, label: 'With Devices', value: contacts.filter(c => devicesByContact[c.id]?.length > 0).length, color: 'text-blue-600', bg: 'bg-blue-500/10' },
               ].map((stat) => (
                 <motion.div key={stat.label} variants={staggerItem} className="bg-card rounded-[14px] border shadow-hero-sm p-4 hover:shadow-hero-md transition-all duration-[250ms]">
                   <div className="flex items-center gap-3">
@@ -740,41 +766,100 @@ export default function CustomerServicesTab({
 
             {/* Users List */}
             <div className="bg-card rounded-[14px] border shadow-hero-sm overflow-hidden">
-              <div className="px-5 py-3 border-b border-border/50">
-                <h3 className="font-semibold text-foreground text-sm">Team Members</h3>
-                <p className="text-xs text-muted-foreground">{contacts.length} contacts from HaloPSA</p>
+              <div className="px-5 py-3 border-b border-border/50 flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-semibold text-foreground text-sm">Team Members</h3>
+                  <p className="text-xs text-muted-foreground">{contacts.length} contacts from HaloPSA</p>
+                </div>
+                <div className="relative w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by name or email..."
+                    value={usersSearch}
+                    onChange={(e) => setUsersSearch(e.target.value)}
+                    className="pl-9 h-8 text-xs rounded-hero-md"
+                  />
+                </div>
               </div>
 
-              {contacts.length === 0 ? (
+              {filteredContacts.length === 0 ? (
                 <div className="p-3">
-                  <EmptyState icon={Users} title="No contacts" description="No team members found for this customer" />
+                  <EmptyState
+                    icon={Users}
+                    title={usersSearch ? 'No results' : 'No contacts'}
+                    description={usersSearch ? `No contacts matching "${usersSearch}"` : 'No team members found for this customer'}
+                  />
                 </div>
               ) : (
                 <div className="divide-y divide-border/40">
-                  {contacts.map((contact) => (
-                    <div
-                      key={contact.id}
-                      className="flex items-center gap-3 px-5 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors duration-150 cursor-pointer"
-                      onClick={() => setSelectedContact(contact)}
-                    >
-                      <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
-                        {contact.full_name?.charAt(0) || '?'}
+                  {filteredContacts.map((contact) => {
+                    const contactDevices = devicesByContact[contact.id] || [];
+                    const hasSpanning = !!spanningMapping && !!contact.spanning_status;
+                    const hasJumpCloud = !!jumpcloudMapping && !!contact.jumpcloud_id;
+                    const spanningProtected = contact.spanning_status?.toLowerCase() === 'protected' ||
+                      contact.spanning_status?.toLowerCase() === 'active';
+
+                    return (
+                      <div
+                        key={contact.id}
+                        className="flex items-center gap-3 px-5 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors duration-150 cursor-pointer group"
+                        onClick={() => setSelectedContact(contact)}
+                      >
+                        {/* Avatar */}
+                        <div className="w-10 h-10 rounded-full bg-primary/90 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0 shadow-sm">
+                          {contact.full_name?.charAt(0) || '?'}
+                        </div>
+
+                        {/* Center content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-sm text-foreground truncate">{contact.full_name}</p>
+                            {contact.is_primary && (
+                              <Badge variant="flat" className="text-[10px] flex-shrink-0">Primary</Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">{contact.email || contact.title || 'No email'}</p>
+
+                          {/* Inline widget pills */}
+                          {(hasSpanning || hasJumpCloud || contactDevices.length > 0) && (
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                              {hasSpanning && (
+                                <span className={cn(
+                                  'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium',
+                                  spanningProtected
+                                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400'
+                                    : 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400'
+                                )}>
+                                  <ShieldCheck className="w-3 h-3" />
+                                  {spanningProtected ? 'Backup Protected' : 'Not Protected'}
+                                </span>
+                              )}
+                              {hasJumpCloud && (
+                                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400">
+                                  <Shield className="w-3 h-3" />
+                                  JumpCloud
+                                </span>
+                              )}
+                              {contactDevices.length > 0 && (
+                                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400">
+                                  <Laptop className="w-3 h-3" />
+                                  {contactDevices.length} {contactDevices.length === 1 ? 'device' : 'devices'}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Right side */}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {contact.phone && (
+                            <span className="text-xs text-muted-foreground hidden sm:block">{contact.phone}</span>
+                          )}
+                          <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-muted-foreground/60 transition-colors" />
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm text-foreground truncate">{contact.full_name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{contact.email || contact.title || 'No email'}</p>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {contact.is_primary && (
-                          <Badge variant="flat" className="text-[10px]">Primary</Badge>
-                        )}
-                        {contact.phone && (
-                          <span className="text-xs text-muted-foreground hidden sm:block">{contact.phone}</span>
-                        )}
-                        <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

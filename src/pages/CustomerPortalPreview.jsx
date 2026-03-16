@@ -27,7 +27,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from 'date-fns';
-import OverviewTab from '../components/customer/OverviewTab';
 import CustomerServicesTab from '../components/customer/CustomerServicesTab';
 import SoftwareCard from '../components/saas/SoftwareCard';
 import AddSoftwareModal from '../components/saas/AddSoftwareModal';
@@ -341,12 +340,11 @@ export default function CustomerPortalPreview() {
       </div>
 
       {/* Tabs - Same as customer view */}
-      <Tabs defaultValue="overview" className="space-y-6">
+      <Tabs defaultValue="services" className="space-y-6">
         <TabsList className="bg-slate-100/80 border-0 rounded-xl p-1 flex gap-0.5 h-auto overflow-x-auto">
           {[
-            { value: 'overview', icon: Building2, label: 'Overview' },
-            { value: 'billing', icon: DollarSign, label: 'Billing' },
             { value: 'services', icon: Cloud, label: 'Services' },
+            { value: 'billing', icon: DollarSign, label: 'Billing' },
             { value: 'licenses', icon: Cloud, label: 'SaaS' },
             { value: 'tickets', icon: HelpCircle, label: 'Support' },
           ].map(tab => (
@@ -360,24 +358,6 @@ export default function CustomerPortalPreview() {
             </TabsTrigger>
           ))}
         </TabsList>
-
-        <TabsContent value="overview">
-          <OverviewTab
-            customer={customer}
-            contacts={contacts}
-            contracts={contracts}
-            recurringBills={recurringBills}
-            licenses={licenses}
-            customerId={customerId}
-            queryClient={queryClient}
-            onAddContact={() => {}}
-            tickets={tickets}
-            devices={devices}
-            licenseAssignments={licenseAssignments}
-            invoices={invoices}
-            quotes={quotes}
-          />
-        </TabsContent>
 
         <TabsContent value="billing">
           <div className="space-y-6">

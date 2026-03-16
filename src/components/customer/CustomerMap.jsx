@@ -1,17 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { client } from '@/api/client';
 import { MapPin } from 'lucide-react';
 
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
+const ENV_MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
+const DEFAULT_STYLE = 'dark-v11';
 
 /**
  * Geocode an address string to [lng, lat] using Mapbox Geocoding API.
  */
-async function geocodeAddress(address) {
-  if (!address || !MAPBOX_TOKEN) return null;
+async function geocodeAddress(address, token) {
+  if (!address || !token) return null;
   try {
     const encoded = encodeURIComponent(address);
     const res = await fetch(
-      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?access_token=${MAPBOX_TOKEN}&limit=1`
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?access_token=${token}&limit=1`
     );
     if (!res.ok) return null;
     const data = await res.json();
@@ -24,10 +27,10 @@ async function geocodeAddress(address) {
 }
 
 /**
- * Build a Mapbox Static Images API URL for a dark-themed map with markers.
+ * Build a Mapbox Static Images API URL with markers.
  */
-function buildStaticMapUrl(coordinates, width = 800, height = 200) {
-  if (!coordinates.length || !MAPBOX_TOKEN) return null;
+function buildStaticMapUrl(coordinates, token, mapStyle, width = 800, height = 200) {
+  if (!coordinates.length || !token) return null;
 
   // Build pin markers
   const pins = coordinates
@@ -43,7 +46,8 @@ function buildStaticMapUrl(coordinates, width = 800, height = 200) {
     viewport = 'auto';
   }
 
-  return `https://api.mapbox.com/styles/v1/mapbox/dark-v11/static/${pins}/${viewport}/${width}x${height}@2x?access_token=${MAPBOX_TOKEN}&padding=40`;
+  const style = mapStyle || DEFAULT_STYLE;
+  return `https://api.mapbox.com/styles/v1/mapbox/${style}/static/${pins}/${viewport}/${width}x${height}@2x?access_token=${token}&padding=40`;
 }
 
 export default function CustomerMap({ addresses = [] }) {
@@ -51,8 +55,27 @@ export default function CustomerMap({ addresses = [] }) {
   const [loading, setLoading] = useState(true);
   const cacheRef = useRef({});
 
+  // Fetch mapbox settings from the Settings table
+  const { data: mapboxSettings } = useQuery({
+    queryKey: ['mapbox_settings'],
+    queryFn: async () => {
+      const settingsList = await client.entities.Settings.list();
+      if (settingsList.length > 0) {
+        return {
+          token: settingsList[0].mapbox_token || '',
+          style: settingsList[0].mapbox_style || DEFAULT_STYLE,
+        };
+      }
+      return { token: '', style: DEFAULT_STYLE };
+    },
+    staleTime: 5 * 60 * 1000, // cache for 5 minutes
+  });
+
+  const token = mapboxSettings?.token || ENV_MAPBOX_TOKEN;
+  const mapStyle = mapboxSettings?.style || DEFAULT_STYLE;
+
   useEffect(() => {
-    if (!MAPBOX_TOKEN || addresses.length === 0) {
+    if (!token || addresses.length === 0) {
       setLoading(false);
       return;
     }
@@ -70,7 +93,7 @@ export default function CustomerMap({ addresses = [] }) {
           coordinates.push(cacheRef.current[addr]);
           continue;
         }
-        const coords = await geocodeAddress(addr);
+        const coords = await geocodeAddress(addr, token);
         if (coords && !cancelled) {
           cacheRef.current[addr] = coords;
           coordinates.push(coords);
@@ -80,7 +103,7 @@ export default function CustomerMap({ addresses = [] }) {
       if (cancelled) return;
 
       if (coordinates.length > 0) {
-        const url = buildStaticMapUrl(coordinates);
+        const url = buildStaticMapUrl(coordinates, token, mapStyle);
         setMapUrl(url);
       }
       setLoading(false);
@@ -88,9 +111,9 @@ export default function CustomerMap({ addresses = [] }) {
 
     loadMap();
     return () => { cancelled = true; };
-  }, [addresses.join('|')]);
+  }, [addresses.join('|'), token, mapStyle]);
 
-  if (!MAPBOX_TOKEN || addresses.length === 0) return null;
+  if (!token || addresses.length === 0) return null;
 
   if (loading) {
     return (

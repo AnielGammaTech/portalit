@@ -1,8 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { client } from '@/api/client';
 import { MessageSquarePlus, X, Upload, Image, Bug, Lightbulb, HelpCircle, Send, Loader2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -24,11 +23,44 @@ export default function FeedbackButton({ user, customer }) {
   const [screenshots, setScreenshots] = useState([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
+  const panelRef = useRef(null);
+
+  const resetForm = useCallback(() => {
+    setType('other');
+    setSubject('');
+    setDescription('');
+    setScreenshots([]);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    setOpen(false);
+  }, []);
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && open) {
+        handleClose();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [open, handleClose]);
+
+  // Prevent body scroll when drawer is open
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [open]);
 
   const handleFileUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
-    
+
     setUploading(true);
     try {
       const uploadPromises = files.map(file => client.integrations.Core.UploadFile({ file }));
@@ -90,11 +122,8 @@ export default function FeedbackButton({ user, customer }) {
       });
 
       toast.success('Feedback submitted! Thank you.');
-      setOpen(false);
-      setType('other');
-      setSubject('');
-      setDescription('');
-      setScreenshots([]);
+      handleClose();
+      resetForm();
     } catch (error) {
       toast.error('Failed to submit feedback');
     } finally {
@@ -102,38 +131,72 @@ export default function FeedbackButton({ user, customer }) {
     }
   };
 
-  const selectedType = feedbackTypes.find(t => t.value === type);
-
   return (
     <>
-      {/* Floating button */}
+      {/* Right-edge vertical tab */}
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-50 w-12 h-12 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center group"
+        className={cn(
+          "fixed right-0 top-1/2 -translate-y-1/2 z-50",
+          "flex items-center gap-1.5 px-3 py-2",
+          "bg-[#1e1b4b] hover:bg-[#312e81] text-white text-sm font-medium",
+          "rounded-l-lg shadow-lg transition-all duration-200",
+          "hover:shadow-xl hover:pr-4",
+          open && "opacity-0 pointer-events-none"
+        )}
+        style={{ writingMode: 'vertical-rl' }}
         title="Send Feedback"
       >
-        <MessageSquarePlus className="w-5 h-5" />
+        <MessageSquarePlus className="w-4 h-4" style={{ transform: 'rotate(90deg)' }} />
+        Feedback
       </button>
 
-      {/* Feedback Modal */}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md" onPaste={handlePaste}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <MessageSquarePlus className="w-5 h-5 text-purple-600" />
-              Send Feedback
-            </DialogTitle>
-          </DialogHeader>
+      {/* Overlay */}
+      <div
+        className={cn(
+          "fixed inset-0 z-50 bg-black/40 transition-opacity duration-300",
+          open ? "opacity-100" : "opacity-0 pointer-events-none"
+        )}
+        onClick={handleClose}
+        aria-hidden="true"
+      />
 
+      {/* Slide-in panel */}
+      <div
+        ref={panelRef}
+        className={cn(
+          "fixed top-0 right-0 z-50 h-full w-[380px] max-w-[90vw]",
+          "bg-white shadow-2xl",
+          "transition-transform duration-300 ease-in-out",
+          open ? "translate-x-0" : "translate-x-full"
+        )}
+        onPaste={handlePaste}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-slate-50">
+          <div className="flex items-center gap-2">
+            <MessageSquarePlus className="w-5 h-5 text-purple-600" />
+            <h2 className="text-lg font-semibold text-slate-900">Send Feedback</h2>
+          </div>
+          <button
+            onClick={handleClose}
+            className="p-1.5 rounded-md hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Scrollable form content */}
+        <div className="overflow-y-auto h-[calc(100%-65px)] px-5 py-5">
           <div className="space-y-4">
             {/* Type Selection */}
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {feedbackTypes.map((t) => (
                 <button
                   key={t.value}
                   onClick={() => setType(t.value)}
                   className={cn(
-                    "flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-all text-xs",
+                    "flex items-center gap-2 p-2.5 rounded-lg border-2 transition-all text-sm",
                     type === t.value
                       ? t.color === 'red' ? "border-red-500 bg-red-50"
                         : t.color === 'amber' ? "border-amber-500 bg-amber-50"
@@ -143,7 +206,7 @@ export default function FeedbackButton({ user, customer }) {
                   )}
                 >
                   <t.icon className={cn(
-                    "w-4 h-4",
+                    "w-4 h-4 shrink-0",
                     type === t.value
                       ? t.color === 'red' ? "text-red-600"
                         : t.color === 'amber' ? "text-amber-600"
@@ -168,7 +231,7 @@ export default function FeedbackButton({ user, customer }) {
               placeholder="Describe your feedback, issue, or question... (Tip: Paste screenshots directly!)"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="min-h-[120px]"
+              className="min-h-[140px]"
             />
 
             {/* Screenshots */}
@@ -234,8 +297,8 @@ export default function FeedbackButton({ user, customer }) {
               Submit Feedback
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      </div>
     </>
   );
 }
