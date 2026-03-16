@@ -524,65 +524,33 @@ export default function CustomerServicesTab({
   return (
     <div className="space-y-6">
       <Tabs defaultValue="recurring" className="space-y-4">
-        {/* Service Tabs — HeroUI-inspired pill tabs */}
+        {/* Service Tabs — only show tabs for services the customer has */}
         <div className="flex justify-center">
           <TabsList className="bg-zinc-100 dark:bg-zinc-800/80 border-0 p-1.5 h-auto flex flex-wrap justify-center gap-1 rounded-hero-lg w-full max-w-4xl mx-auto">
-            <TabsTrigger value="recurring" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
-              <DollarSign className="w-3.5 h-3.5" />
-              Recurring
-            </TabsTrigger>
-            <TabsTrigger value="devices" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
-              <Monitor className="w-3.5 h-3.5" />
-              Devices
-            </TabsTrigger>
-            <TabsTrigger value="jumpcloud" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
-              <Shield className="w-3.5 h-3.5 text-[#7828C8]" />
-              JumpCloud
-            </TabsTrigger>
-            <TabsTrigger value="spanning" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
-              <Cloud className="w-3.5 h-3.5 text-cyan-500" />
-              Spanning
-            </TabsTrigger>
-            <TabsTrigger value="darkweb" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
-              <AlertTriangle className="w-3.5 h-3.5 text-destructive" />
-              Dark Web
-            </TabsTrigger>
-            <TabsTrigger value="bullphish" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
-              <Fish className="w-3.5 h-3.5 text-warning" />
-              BullPhish
-            </TabsTrigger>
-            <TabsTrigger value="inky" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
-              <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
-              Inky
-            </TabsTrigger>
-            <TabsTrigger value="edr" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
-              <Shield className="w-3.5 h-3.5 text-primary" />
-              Datto EDR
-            </TabsTrigger>
-            <TabsTrigger value="rocketcyber" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
-              <Shield className="w-3.5 h-3.5 text-orange-500" />
-              RocketCyber
-            </TabsTrigger>
-            <TabsTrigger value="firewall" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
-              <Wifi className="w-3.5 h-3.5 text-sky-500" />
-              Firewall
-            </TabsTrigger>
-            <TabsTrigger value="saas-alerts" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
-              <ShieldAlert className="w-3.5 h-3.5 text-violet-500" />
-              SaaS Alerts
-            </TabsTrigger>
-            <TabsTrigger value="m365" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
-              <Package className="w-3.5 h-3.5 text-blue-500" />
-              M365
-            </TabsTrigger>
-            <TabsTrigger value="cove" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
-              <Database className="w-3.5 h-3.5 text-teal-500" />
-              Cove
-            </TabsTrigger>
-            <TabsTrigger value="threecx" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
-              <Phone className="w-3.5 h-3.5 text-emerald-500" />
-              3CX
-            </TabsTrigger>
+            {[
+              { value: 'recurring', label: 'Recurring', icon: DollarSign, show: true },
+              { value: 'devices', label: 'Devices', icon: Monitor, show: hasDevices },
+              { value: 'jumpcloud', label: 'JumpCloud', icon: Shield, iconClass: 'text-[#7828C8]', show: hasJumpCloud },
+              { value: 'spanning', label: 'Spanning', icon: Cloud, iconClass: 'text-cyan-500', show: hasSpanning },
+              { value: 'darkweb', label: 'Dark Web', icon: AlertTriangle, iconClass: 'text-destructive', show: hasDarkWeb },
+              { value: 'bullphish', label: 'BullPhish', icon: Fish, iconClass: 'text-warning', show: hasBullPhish },
+              { value: 'inky', label: 'Inky', icon: ShieldCheck, iconClass: 'text-blue-500', show: hasInky },
+              { value: 'edr', label: 'Datto EDR', icon: Shield, iconClass: 'text-primary', show: hasEDR },
+              { value: 'rocketcyber', label: 'RocketCyber', icon: Shield, iconClass: 'text-orange-500', show: hasRocketCyber },
+              { value: 'firewall', label: 'Firewall', icon: Wifi, iconClass: 'text-sky-500', show: hasUniFi },
+              { value: 'saas-alerts', label: 'SaaS Alerts', icon: ShieldAlert, iconClass: 'text-violet-500', show: hasSaaSAlerts },
+              { value: 'm365', label: 'M365', icon: Package, iconClass: 'text-blue-500', show: hasPax8 },
+              { value: 'cove', label: 'Cove', icon: Database, iconClass: 'text-teal-500', show: hasCove },
+              { value: 'threecx', label: '3CX', icon: Phone, iconClass: 'text-emerald-500', show: has3CX },
+            ].filter(tab => tab.show).map(tab => {
+              const TabIcon = tab.icon;
+              return (
+                <TabsTrigger key={tab.value} value={tab.value} className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
+                  <TabIcon className={cn("w-3.5 h-3.5", tab.iconClass)} />
+                  {tab.label}
+                </TabsTrigger>
+              );
+            })}
           </TabsList>
         </div>
 
