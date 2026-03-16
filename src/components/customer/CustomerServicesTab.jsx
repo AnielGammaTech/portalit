@@ -21,7 +21,8 @@ import {
   DollarSign,
   Wifi,
   ShieldAlert,
-  Database
+  Database,
+  Package
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -41,6 +42,7 @@ import RocketCyberTab from './RocketCyberTab';
 import UniFiTab from './UniFiTab';
 import SaaSAlertsTab from './SaaSAlertsTab';
 import CoveTab from './CoveTab';
+import Pax8Tab from './Pax8Tab';
 
 export default function CustomerServicesTab({ 
   customerId, 
@@ -207,6 +209,17 @@ export default function CustomerServicesTab({
     enabled: !!customerId
   });
 
+  // Fetch Pax8 mapping for this customer
+  const { data: pax8Mapping } = useQuery({
+    queryKey: ['pax8-mapping', customerId],
+    queryFn: async () => {
+      const mappings = await client.entities.Pax8Mapping.filter({ customer_id: customerId });
+      return mappings[0] || null;
+    },
+    enabled: !!customerId,
+    staleTime: 1000 * 60 * 5
+  });
+
   const hasBullPhish = bullphishReports.length > 0;
   const hasDarkWeb = !!darkwebMapping || darkwebReports.length > 0;
   const hasEDR = !!edrMapping;
@@ -214,6 +227,7 @@ export default function CustomerServicesTab({
   const hasUniFi = !!unifiMapping;
   const hasSaaSAlerts = !!saasAlertsMapping;
   const hasCove = !!coveMapping;
+  const hasPax8 = !!pax8Mapping;
 
   const updateSyncStatus = (service, status, error = null) => {
     setSyncStatuses(prev => ({
@@ -529,6 +543,10 @@ export default function CustomerServicesTab({
               <ShieldAlert className="w-3.5 h-3.5 text-violet-500" />
               SaaS Alerts
             </TabsTrigger>
+            <TabsTrigger value="m365" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
+              <Package className="w-3.5 h-3.5 text-blue-500" />
+              M365
+            </TabsTrigger>
             <TabsTrigger value="cove" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
               <Database className="w-3.5 h-3.5 text-teal-500" />
               Cove
@@ -805,6 +823,19 @@ export default function CustomerServicesTab({
             saasAlertsMapping={saasAlertsMapping}
             queryClient={queryClient}
           />
+        </TabsContent>
+
+        {/* M365 / Pax8 Tab */}
+        <TabsContent value="m365">
+          {hasPax8 ? (
+            <Pax8Tab
+              customerId={customerId}
+              pax8Mapping={pax8Mapping}
+              queryClient={queryClient}
+            />
+          ) : (
+            <EmptyState icon={Package} title="Pax8 not configured" description="Go to Adminland > Integrations to map this customer's Pax8 company." />
+          )}
         </TabsContent>
 
         {/* Cove Data Protection Tab */}
