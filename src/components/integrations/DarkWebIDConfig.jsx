@@ -585,35 +585,30 @@ function PDFReportsTab() {
       const { file_url } = await client.integrations.Core.UploadFile({ file });
 
       const result = await client.integrations.Core.InvokeLLM({
-        prompt: `You are analyzing a Dark Web ID quarterly business report PDF. Extract ALL data carefully.
+        prompt: `You are analyzing a Dark Web ID business report PDF (monthly or quarterly). Extract ALL data carefully.
 
-IMPORTANT: This is a PDF with multiple pages. Read every page thoroughly.
+IMPORTANT: Read EVERY page of this PDF thoroughly. Do not stop at the cover page.
 
-Page 1 (Cover): Look for "Prepared for CUSTOMER_NAME" and the date range (e.g. "10/01/2025 - 12/31/2025").
-Page 2 (Summary): Look for "total compromises" number, the "Monthly Compromises" date range, and the monitoring stats.
-Page 3 (Monitoring): Look for compromise counts by category (Domains, Personal Emails, IPs) and "Associated Breaches" count.
-Page 4+ (Organizational Compromises): Extract EVERY compromise entry. Each has:
-  - "Added" date and "Found" date
-  - Email address (the "Monitored Value")
-  - Source name (e.g. "PUREINCUBATION", "GetProspect.com", "Data and Leads")
-  - Whether it says "breach" type and "Domain" category
-  - Whether a password was exposed ("Password hit:" field)
-  - Status ("New" or other)
+Look for these sections across all pages:
+- **Cover/Header**: Customer/organization name (e.g. "Prepared for XXXX" or company name in header), date range
+- **Summary/Overview**: Total compromises count, new compromises, monitoring statistics
+- **Monitoring Details**: Compromise counts by category (Domains, Personal Emails, IPs), breach counts
+- **Organizational Compromises**: Individual compromise entries with emails, sources, dates, passwords
+- **Breaches Table**: List of breach sources with descriptions and dates
 
-Also look for the Breaches summary table which lists breach sources with descriptions, dates, and matching compromise counts.
+Extraction rules:
+- customer_name: The organization/company name the report was prepared for
+- report_date: End date of the reporting period in YYYY-MM-DD
+- report_period_start / report_period_end: The full date range in YYYY-MM-DD
+- total_compromises: Total number of compromises (look for large headline numbers, "Total Compromises", or count from the detail table)
+- new_compromises: New compromises this period (look for "New", "Count Changes", or increases)
+- Severity classification: password exposed = "critical", personal data exposed (name, address, phone) = "high", email only = "medium", other = "low"
+- compromised_emails: ALL unique email addresses from compromise entries
+- breach_sources: ALL breach/source names mentioned
+- compromises_detail: EVERY individual compromise with email, password ("N/A" if none), source, breach_date (YYYY-MM-DD), severity
 
-Rules:
-- customer_name: Extract from "Prepared for XXXX" text on cover or footer
-- report_date: Use the end date of the reporting period in YYYY-MM-DD format
-- report_period_start / report_period_end: Convert the date range to YYYY-MM-DD format
-- total_compromises: The big number from the Summary section
-- new_compromises: Count entries marked as "New" status, or use the "Count Changes" increase number
-- For severity: If a compromise has a password exposed, mark as "critical". If no password but has personal data (First Name, Last Name, Address, etc.), mark as "high". Otherwise mark as "medium".
-- compromised_emails: List ALL unique email addresses found in the Organizational Compromises section
-- breach_sources: List ALL breach source names from the report
-- compromises_detail: Extract EVERY individual compromise entry with email, password (use "N/A" if none shown), source, breach_date (the "Found" date in YYYY-MM-DD), and severity
-
-Extract data from ALL pages. Do not stop at page 1.`,
+If the report shows NO compromises (e.g. "0 compromises"), still extract the customer name, dates, and set counts to 0.
+If you cannot find a specific field, use 0 for numbers and empty array for lists.`,
         file_urls: [file_url],
         response_json_schema: {
           type: "object",
@@ -898,16 +893,22 @@ Extract data from ALL pages. Do not stop at page 1.`,
 
       {/* Upload Modal */}
       <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
-        <DialogContent className="max-w-lg" style={{ zIndex: 9999 }}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Upload className="w-5 h-5 text-red-600" />
-              Upload Dark Web ID Report
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-4">
+        <DialogContent className="max-w-2xl overflow-visible" style={{ zIndex: 9999 }}>
+          {/* Header */}
+          <div className="bg-gradient-to-r from-red-600 to-red-700 -m-6 mb-0 p-5 rounded-t-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-white">
+                <Upload className="w-5 h-5" />
+                Upload Dark Web ID Report
+              </DialogTitle>
+              <p className="text-red-200 text-sm mt-1">Upload a PDF report and AI will extract compromise data automatically</p>
+            </DialogHeader>
+          </div>
+
+          <div className="space-y-5 pt-5">
+            {/* Customer Select */}
             <div>
-              <Label>Customer</Label>
+              <Label className="text-sm font-medium">Customer</Label>
               <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
                 <SelectTrigger className="mt-1.5">
                   <SelectValue placeholder="Select customer..." />
@@ -922,14 +923,15 @@ Extract data from ALL pages. Do not stop at page 1.`,
               </Select>
               {extractedData?.customer_name && !selectedCustomer && (
                 <p className="text-xs text-amber-600 mt-1">
-                  Detected: "{extractedData.customer_name}" — please select matching customer
+                  Detected: "<strong>{extractedData.customer_name}</strong>" — please select matching customer
                 </p>
               )}
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            {/* Date Fields */}
+            <div className="grid grid-cols-3 gap-4">
               <div>
-                <Label>Report Date</Label>
+                <Label className="text-sm font-medium">Report Date</Label>
                 <Input
                   type="date"
                   value={reportDate}
@@ -938,7 +940,7 @@ Extract data from ALL pages. Do not stop at page 1.`,
                 />
               </div>
               <div>
-                <Label>Period Start</Label>
+                <Label className="text-sm font-medium">Period Start</Label>
                 <Input
                   type="date"
                   value={periodStart}
@@ -947,7 +949,7 @@ Extract data from ALL pages. Do not stop at page 1.`,
                 />
               </div>
               <div>
-                <Label>Period End</Label>
+                <Label className="text-sm font-medium">Period End</Label>
                 <Input
                   type="date"
                   value={periodEnd}
@@ -957,84 +959,119 @@ Extract data from ALL pages. Do not stop at page 1.`,
               </div>
             </div>
 
+            {/* File Upload Zone */}
             <div>
-              <Label>PDF Report</Label>
-              <div className="mt-1.5 border-2 border-dashed border-slate-200 rounded-lg p-4 text-center">
+              <Label className="text-sm font-medium">PDF Report</Label>
+              <div className={cn(
+                "mt-1.5 border-2 border-dashed rounded-xl p-6 text-center transition-colors",
+                selectedFile ? "border-red-300 bg-red-50" : "border-slate-300 bg-slate-50 hover:border-red-400 hover:bg-red-50/50"
+              )}>
                 {selectedFile ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <FileText className="w-5 h-5 text-red-600" />
-                    <span className="text-sm font-medium">{selectedFile.name}</span>
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+                      <FileText className="w-5 h-5 text-red-600" />
+                    </div>
+                    <div className="text-left min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">{selectedFile.name}</p>
+                      <p className="text-xs text-slate-500">{(selectedFile.size / 1024).toFixed(0)} KB</p>
+                    </div>
                     <Button
                       size="sm"
                       variant="ghost"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-100 ml-2"
                       onClick={() => {
                         setSelectedFile(null);
                         setExtractedData(null);
                       }}
                     >
-                      Remove
+                      <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
                 ) : (
-                  <label className="cursor-pointer">
+                  <label className="cursor-pointer block">
                     <input
                       type="file"
                       accept=".pdf"
                       onChange={handleFileSelect}
                       className="hidden"
                     />
-                    <div className="text-slate-500">
-                      <Upload className="w-8 h-8 mx-auto mb-2 text-slate-400" />
-                      <p className="text-sm">Click to select PDF</p>
-                    </div>
+                    <Upload className="w-10 h-10 mx-auto mb-3 text-slate-400" />
+                    <p className="text-sm font-medium text-slate-700">Click to select PDF</p>
+                    <p className="text-xs text-slate-400 mt-1">Dark Web ID monthly or quarterly report</p>
                   </label>
                 )}
               </div>
             </div>
 
+            {/* Extracting State */}
             {isExtracting && (
-              <div className="flex items-center justify-center gap-2 py-3 text-slate-600">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="text-sm">Extracting data from PDF with AI...</span>
+              <div className="flex items-center justify-center gap-3 py-4 bg-red-50 rounded-lg border border-red-200">
+                <Loader2 className="w-5 h-5 animate-spin text-red-600" />
+                <span className="text-sm font-medium text-red-700">Extracting data from PDF with AI...</span>
               </div>
             )}
 
-            {extractedData && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 max-h-48 overflow-y-auto">
-                <p className="text-sm font-medium text-red-800 mb-2">Extracted Data:</p>
+            {/* Extracted Data Preview */}
+            {extractedData && !isExtracting && (
+              <div className="bg-gradient-to-br from-red-50 to-orange-50 border border-red-200 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <p className="text-sm font-semibold text-slate-900">Extracted Data</p>
+                </div>
+
                 {extractedData.customer_name && (
-                  <p className="text-xs text-red-700 mb-1">Customer: <strong>{extractedData.customer_name}</strong></p>
+                  <p className="text-sm text-slate-700">
+                    Customer: <strong>{extractedData.customer_name}</strong>
+                  </p>
                 )}
                 {extractedData.report_period_start && extractedData.report_period_end && (
-                  <p className="text-xs text-red-700 mb-2">Period: <strong>{extractedData.report_period_start} to {extractedData.report_period_end}</strong></p>
+                  <p className="text-sm text-slate-600">
+                    Period: <strong>{extractedData.report_period_start}</strong> to <strong>{extractedData.report_period_end}</strong>
+                  </p>
                 )}
-                <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-xs">
-                  <div>Total: <strong>{extractedData.total_compromises || 0}</strong></div>
-                  <div>New: <strong className="text-red-600">+{extractedData.new_compromises || 0}</strong></div>
-                  <div>Critical: <strong className="text-red-600">{extractedData.critical_count || 0}</strong></div>
-                  <div>High: <strong className="text-orange-600">{extractedData.high_count || 0}</strong></div>
-                  <div>Medium: <strong className="text-yellow-600">{extractedData.medium_count || 0}</strong></div>
-                  <div>Low: <strong>{extractedData.low_count || 0}</strong></div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { label: 'Total', value: extractedData.total_compromises || 0, color: 'text-slate-900' },
+                    { label: 'New', value: `+${extractedData.new_compromises || 0}`, color: 'text-red-600' },
+                    { label: 'Critical', value: extractedData.critical_count || 0, color: 'text-red-600' },
+                    { label: 'High', value: extractedData.high_count || 0, color: 'text-orange-600' },
+                    { label: 'Medium', value: extractedData.medium_count || 0, color: 'text-yellow-600' },
+                    { label: 'Low', value: extractedData.low_count || 0, color: 'text-slate-500' },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="bg-white/60 rounded-lg px-3 py-2 text-center">
+                      <p className="text-xs text-slate-500">{label}</p>
+                      <p className={cn("text-lg font-bold", color)}>{value}</p>
+                    </div>
+                  ))}
                 </div>
-                {extractedData.compromised_emails?.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-red-200">
-                    <p className="text-xs text-red-700 font-medium">Compromised emails: {extractedData.compromised_emails.length}</p>
+
+                {(extractedData.compromised_emails?.length > 0 || extractedData.breach_sources?.length > 0) && (
+                  <div className="flex gap-4 text-xs text-slate-600 pt-1">
+                    {extractedData.compromised_emails?.length > 0 && (
+                      <span>📧 {extractedData.compromised_emails.length} compromised emails</span>
+                    )}
+                    {extractedData.breach_sources?.length > 0 && (
+                      <span>🔓 {extractedData.breach_sources.length} breach sources</span>
+                    )}
+                    {extractedData.compromises_detail?.length > 0 && (
+                      <span>📋 {extractedData.compromises_detail.length} detail entries</span>
+                    )}
                   </div>
-                )}
-                {extractedData.breach_sources?.length > 0 && (
-                  <p className="text-xs text-red-700">Breach sources: {extractedData.breach_sources.join(', ')}</p>
-                )}
-                {extractedData.compromises_detail?.length > 0 && (
-                  <p className="text-xs text-red-700">Detail entries: {extractedData.compromises_detail.length}</p>
                 )}
               </div>
             )}
 
-            <div className="flex justify-end gap-3 pt-4">
+            {/* Actions */}
+            <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
               <Button variant="outline" onClick={resetForm}>
                 Cancel
               </Button>
-              <Button onClick={handleSaveReport} disabled={isUploading || !selectedCustomer || !reportDate}>
+              <Button
+                onClick={handleSaveReport}
+                disabled={isUploading || !selectedCustomer || !reportDate}
+                className="bg-red-600 hover:bg-red-700"
+              >
                 {isUploading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
