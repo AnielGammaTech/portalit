@@ -12,7 +12,6 @@ const DEFAULT_VENDOR_PATHS = {
   cove: 'totalDevices',
   cove_workstation: 'workstation_count',
   cove_server: 'server_count',
-  datto_rmm: 'total_devices',
   datto_rmm_workstation: 'workstation_count',
   datto_rmm_server: 'server_count',
   spanning: 'numberOfUsers',
@@ -22,6 +21,7 @@ const DEFAULT_VENDOR_PATHS = {
   rocket_cyber: 'total_agents',
   darkweb: 'domain_count',
   bullphish: 'total_emails_sent',
+  inky: 'total_users',
   pax8: 'totalQuantity',
 };
 
@@ -37,6 +37,7 @@ const TEMPLATE_RULES = [
   { integration_key: 'spanning', match_pattern: 'Spanning - Per User', label: 'Spanning Backup', vendor_count_path: 'numberOfUsers' },
   { integration_key: 'cove_workstation', match_pattern: 'Cove Doto Protection - Per Endpoint', label: 'Cove Workstations', vendor_count_path: 'workstation_count' },
   { integration_key: 'cove_server', match_pattern: 'Cove Doto Protection - Per Server', label: 'Cove Servers', vendor_count_path: 'server_count' },
+  { integration_key: 'inky', match_pattern: 'Inky', label: 'Inky Email Protection', vendor_count_path: 'total_users' },
 ];
 
 const EMPTY_FORM = {

@@ -32,13 +32,6 @@ const VENDOR_EXTRACTORS = {
     return null;
   },
 
-  datto_rmm: (data) => {
-    if (!data) return null;
-    if (typeof data.total_devices === 'number') return data.total_devices;
-    if (typeof data.totalDevices === 'number') return data.totalDevices;
-    return null;
-  },
-
   datto_rmm_workstation: (data) => {
     if (!data) return null;
     if (typeof data.workstation_count === 'number') return data.workstation_count;
@@ -100,6 +93,12 @@ const VENDOR_EXTRACTORS = {
     return null;
   },
 
+  inky: (data) => {
+    if (!data) return null;
+    if (typeof data.total_users === 'number') return data.total_users;
+    return null;
+  },
+
   pax8: (data) => {
     if (!data) return null;
     if (typeof data.totalQuantity === 'number') return data.totalQuantity;
@@ -127,7 +126,6 @@ export const INTEGRATION_MAPPING_ENTITIES = {
   cove: 'CoveDataMapping',
   cove_workstation: 'CoveDataMapping',
   cove_server: 'CoveDataMapping',
-  datto_rmm: 'DattoSiteMapping',
   datto_rmm_workstation: 'DattoSiteMapping',
   datto_rmm_server: 'DattoSiteMapping',
   spanning: 'SpanningMapping',
@@ -137,6 +135,7 @@ export const INTEGRATION_MAPPING_ENTITIES = {
   rocket_cyber: 'RocketCyberMapping',
   darkweb: 'DarkWebIDMapping',
   bullphish: 'BullPhishIDReport',
+  inky: 'InkyReport',
   pax8: 'Pax8Mapping',
 };
 
@@ -144,7 +143,6 @@ export const INTEGRATION_LABELS = {
   cove: 'Cove Data Protection',
   cove_workstation: 'Cove Workstations',
   cove_server: 'Cove Servers',
-  datto_rmm: 'Datto RMM',
   datto_rmm_workstation: 'Datto RMM Workstations',
   datto_rmm_server: 'Datto RMM Servers',
   spanning: 'Spanning Backup',
@@ -154,6 +152,7 @@ export const INTEGRATION_LABELS = {
   rocket_cyber: 'RocketCyber',
   darkweb: 'Dark Web ID',
   bullphish: 'BullPhish ID',
+  inky: 'Inky',
   pax8: 'Pax8',
 };
 
@@ -216,7 +215,7 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = []) {
       if (difference === 0) status = 'match';
       else if (difference > 0) status = 'over';
       else status = 'under';
-    } else if (!hasPsaData && hasVendorData) {
+    } else if (!hasPsaData && hasVendorData && vendorQty > 0) {
       status = 'no_psa_data';
     } else if (hasPsaData && !hasVendorData) {
       status = 'no_vendor_data';

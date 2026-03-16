@@ -122,6 +122,7 @@ const ENTITY_TABLE_MAP = {
   Device: 'devices',
   Feedback: 'feedbacks',
   Invoice: 'invoices',
+  InkyReport: 'inky_reports',
   InvoiceLineItem: 'invoice_line_items',
   JumpCloudMapping: 'jump_cloud_mappings',
   LicenseAssignment: 'license_assignments',

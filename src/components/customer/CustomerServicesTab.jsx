@@ -22,7 +22,8 @@ import {
   Wifi,
   ShieldAlert,
   Database,
-  Package
+  Package,
+  ShieldCheck
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -43,6 +44,7 @@ import UniFiTab from './UniFiTab';
 import SaaSAlertsTab from './SaaSAlertsTab';
 import CoveTab from './CoveTab';
 import Pax8Tab from './Pax8Tab';
+import InkyTab from './InkyTab';
 
 export default function CustomerServicesTab({ 
   customerId, 
@@ -159,6 +161,13 @@ export default function CustomerServicesTab({
     enabled: !!customerId
   });
 
+  // Fetch Inky reports for this customer
+  const { data: inkyReports = [] } = useQuery({
+    queryKey: ['inky-reports', customerId],
+    queryFn: () => client.entities.InkyReport.filter({ customer_id: customerId }),
+    enabled: !!customerId
+  });
+
   // Fetch Datto EDR mapping for this customer
   const { data: edrMapping } = useQuery({
     queryKey: ['edr-mapping', customerId],
@@ -220,6 +229,7 @@ export default function CustomerServicesTab({
     staleTime: 1000 * 60 * 5
   });
 
+  const hasInky = inkyReports.length > 0;
   const hasBullPhish = bullphishReports.length > 0;
   const hasDarkWeb = !!darkwebMapping || darkwebReports.length > 0;
   const hasEDR = !!edrMapping;
@@ -501,8 +511,8 @@ export default function CustomerServicesTab({
     <div className="space-y-6">
       <Tabs defaultValue="recurring" className="space-y-4">
         {/* Service Tabs — HeroUI-inspired pill tabs */}
-        <div className="overflow-x-auto scrollbar-hide flex justify-center">
-          <TabsList className="bg-zinc-100 dark:bg-zinc-800/80 border-0 p-1 h-auto inline-flex gap-1 rounded-hero-lg w-auto min-w-max mx-auto">
+        <div className="flex justify-center">
+          <TabsList className="bg-zinc-100 dark:bg-zinc-800/80 border-0 p-1.5 h-auto flex flex-wrap justify-center gap-1 rounded-hero-lg w-full max-w-4xl mx-auto">
             <TabsTrigger value="recurring" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
               <DollarSign className="w-3.5 h-3.5" />
               Recurring
@@ -526,6 +536,10 @@ export default function CustomerServicesTab({
             <TabsTrigger value="bullphish" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
               <Fish className="w-3.5 h-3.5 text-warning" />
               BullPhish
+            </TabsTrigger>
+            <TabsTrigger value="inky" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
+              <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
+              Inky
             </TabsTrigger>
             <TabsTrigger value="edr" className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
               <Shield className="w-3.5 h-3.5 text-primary" />
@@ -786,6 +800,15 @@ export default function CustomerServicesTab({
             <BullPhishTab customerId={customerId} />
           ) : (
             <EmptyState icon={Fish} title="BullPhish not configured" description="No BullPhish training data found for this customer." />
+          )}
+        </TabsContent>
+
+        {/* Inky Tab */}
+        <TabsContent value="inky">
+          {hasInky ? (
+            <InkyTab customerId={customerId} />
+          ) : (
+            <EmptyState icon={ShieldCheck} title="Inky not configured" description="No Inky email protection reports found for this customer." />
           )}
         </TabsContent>
 
