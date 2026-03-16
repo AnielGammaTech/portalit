@@ -12,6 +12,26 @@ export async function syncHaloPSACustomers(body, _user) {
   const { action } = body;
   const config = await getHaloConfig();
 
+  // ── debug_sites — inspect raw site data for address field discovery ─
+  if (action === 'debug_sites') {
+    const siteData = await haloGet('Site?page_size=3&page_no=1', config);
+    const sites = extractRecords(siteData, 'sites');
+    const clientData = await haloGet('Client?page_size=3&page_no=1', config);
+    const clients = extractRecords(clientData, 'clients');
+    return {
+      success: true,
+      sampleSites: sites.slice(0, 3),
+      sampleClients: clients.slice(0, 3).map(c => {
+        const addrKeys = Object.keys(c).filter(k =>
+          /addr|line|street|city|town|state|county|zip|post|country/i.test(k)
+        );
+        return { id: c.id, name: c.name, addressFields: Object.fromEntries(addrKeys.map(k => [k, c[k]])) };
+      }),
+      siteKeys: sites.length > 0 ? Object.keys(sites[0]) : [],
+      clientKeys: clients.length > 0 ? Object.keys(clients[0]) : [],
+    };
+  }
+
   // ── test_connection ────────────────────────────────────────────────
   if (action === 'test_connection') {
     const data = await haloGet('Client?count=1', config);

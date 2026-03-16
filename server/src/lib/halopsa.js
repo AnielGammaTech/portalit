@@ -244,15 +244,35 @@ export function extractRecords(data, key) {
 export function mapHaloClientToCustomer(client, site) {
   // Address fields: prefer site data (where HaloPSA actually stores addresses),
   // then fall back to client-level fields (some HaloPSA instances do include them).
-  const src = site || client;
-  const addressParts = [
-    src.address1 || src.Address1 || client.address1 || client.Address1 || '',
-    src.address2 || src.Address2 || client.address2 || client.Address2 || '',
-    src.city || src.City || client.city || client.City || '',
-    src.state || src.State || client.state || client.State || '',
-    src.postcode || src.Postcode || client.postcode || client.Postcode || '',
-    src.country || src.Country || client.country || client.Country || '',
-  ].filter(Boolean);
+  // HaloPSA field names vary across versions and instances — try many variants.
+  const src = site || {};
+
+  function pick(...keys) {
+    for (const key of keys) {
+      const val = src[key] || client[key];
+      if (val && String(val).trim()) return String(val).trim();
+    }
+    return '';
+  }
+
+  const line1 = pick('address1', 'Address1', 'addressline1', 'AddressLine1', 'line1', 'Line1', 'street', 'Street');
+  const line2 = pick('address2', 'Address2', 'addressline2', 'AddressLine2', 'line2', 'Line2');
+  const city = pick('city', 'City', 'town', 'Town');
+  const state = pick('state', 'State', 'county', 'County', 'region', 'Region', 'province', 'Province');
+  const zip = pick('postcode', 'Postcode', 'zip', 'Zip', 'zipcode', 'ZipCode', 'postal_code', 'PostalCode');
+  const country = pick('country', 'Country');
+
+  const addressParts = [line1, line2, city, state, zip, country].filter(Boolean);
+
+  // Debug: log first few clients with site data to diagnose field names
+  if (site && addressParts.length === 0) {
+    const siteKeys = Object.keys(site).filter(k =>
+      /addr|line|street|city|town|state|county|zip|post|country/i.test(k)
+    );
+    if (siteKeys.length > 0) {
+      console.log(`[HaloPSA] Site for "${client.name}" has address-like fields: ${siteKeys.join(', ')} → values: ${siteKeys.map(k => `${k}="${site[k]}"`).join(', ')}`);
+    }
+  }
 
   return {
     name: client.name || client.Name || `Customer ${client.id}`,
@@ -286,6 +306,16 @@ export async function fetchSitesByClientId(config) {
       );
       const sites = extractRecords(data, 'sites');
       if (!sites.length) break;
+
+      // Log first site's keys for debugging field names
+      if (page === 1 && sites.length > 0) {
+        const sample = sites[0];
+        console.log(`[HaloPSA] Sample site keys: ${Object.keys(sample).join(', ')}`);
+        const addrKeys = Object.keys(sample).filter(k =>
+          /addr|line|street|city|town|state|county|zip|post|country|client/i.test(k)
+        );
+        console.log(`[HaloPSA] Address-related fields: ${addrKeys.map(k => `${k}="${sample[k]}"`).join(', ')}`);
+      }
 
       for (const site of sites) {
         const clientId = String(site.client_id || site.clientid || site.toplevel_id || '');

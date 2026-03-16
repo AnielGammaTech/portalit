@@ -22,16 +22,276 @@ import {
   UserX,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Building2,
   Server,
   Cpu,
   HardDrive,
+  Network,
+  Activity,
+  ArrowUpDown,
+  Shield,
+  Tag,
+  MapPin,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 
 const ITEMS_PER_PAGE = 15;
+
+/** Format bandwidth bytes to human-readable */
+function formatBandwidth(bytes) {
+  if (!bytes || bytes === 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
+}
+
+/** Format region code to friendly name */
+function formatRegion(code) {
+  const regions = {
+    ewr: 'New Jersey', ord: 'Chicago', dfw: 'Dallas', sea: 'Seattle', lax: 'Los Angeles',
+    atl: 'Atlanta', ams: 'Amsterdam', lhr: 'London', fra: 'Frankfurt', cdg: 'Paris',
+    nrt: 'Tokyo', icn: 'Seoul', sgp: 'Singapore', syd: 'Sydney', yto: 'Toronto',
+    mia: 'Miami', sjc: 'Silicon Valley', hnl: 'Honolulu', mex: 'Mexico City',
+    sao: 'São Paulo', mad: 'Madrid', waw: 'Warsaw', sto: 'Stockholm',
+    del: 'Delhi', blr: 'Bangalore', bom: 'Mumbai', jnb: 'Johannesburg',
+  };
+  return regions[code] || code?.toUpperCase() || 'Unknown';
+}
+
+function VultrServerCard({ vultrMapping }) {
+  const [expanded, setExpanded] = useState(false);
+  const inst = vultrMapping?.cached_data?.instance;
+  const bandwidth = vultrMapping?.cached_data?.bandwidth;
+  const syncedAt = vultrMapping?.cached_data?.synced_at || vultrMapping?.last_synced;
+
+  if (!inst) return null;
+
+  // Compute bandwidth totals from the bandwidth object (daily breakdown keyed by date)
+  const bwTotals = useMemo(() => {
+    if (!bandwidth || typeof bandwidth !== 'object') return null;
+    let inbound = 0;
+    let outbound = 0;
+    for (const day of Object.values(bandwidth)) {
+      inbound += day.incoming_bytes || 0;
+      outbound += day.outgoing_bytes || 0;
+    }
+    return { inbound, outbound, total: inbound + outbound };
+  }, [bandwidth]);
+
+  return (
+    <Card className="border-blue-100 dark:border-blue-800/50 bg-gradient-to-r from-blue-50/50 to-slate-50/50 dark:from-blue-950/20 dark:to-slate-950/20 overflow-hidden">
+      <CardContent className="p-0">
+        {/* Main row — always visible */}
+        <button
+          onClick={() => setExpanded(prev => !prev)}
+          className="w-full flex items-center justify-between p-4 text-left hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
+              <Server className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-foreground">{inst.label}</p>
+                <Badge className={cn(
+                  "text-[10px] font-normal",
+                  inst.power_status === 'running'
+                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                    : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
+                )}>
+                  {inst.power_status}
+                </Badge>
+                {inst.server_status && inst.server_status !== 'none' && inst.server_status !== 'ok' && (
+                  <Badge variant="secondary" className="text-[10px]">{inst.server_status}</Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {inst.main_ip} · {formatRegion(inst.region)} · {inst.os}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex items-center gap-4 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1"><Cpu className="w-3.5 h-3.5" />{inst.vcpu_count} vCPU</span>
+              <span>{inst.ram_display}</span>
+              <span className="flex items-center gap-1"><HardDrive className="w-3.5 h-3.5" />{inst.disk_display}</span>
+            </div>
+            <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", expanded && "rotate-180")} />
+          </div>
+        </button>
+
+        {/* Expanded details */}
+        {expanded && (
+          <div className="border-t border-blue-100 dark:border-blue-800/50">
+            {/* Spec cards row — visible on mobile too */}
+            <div className="grid grid-cols-3 sm:hidden gap-3 p-4 pb-0">
+              <div className="bg-white dark:bg-slate-900/50 rounded-lg p-2.5 text-center border border-blue-50 dark:border-blue-900/30">
+                <Cpu className="w-4 h-4 text-blue-500 mx-auto mb-1" />
+                <p className="text-sm font-bold text-foreground">{inst.vcpu_count}</p>
+                <p className="text-[10px] text-muted-foreground">vCPU</p>
+              </div>
+              <div className="bg-white dark:bg-slate-900/50 rounded-lg p-2.5 text-center border border-blue-50 dark:border-blue-900/30">
+                <Activity className="w-4 h-4 text-purple-500 mx-auto mb-1" />
+                <p className="text-sm font-bold text-foreground">{inst.ram_display}</p>
+                <p className="text-[10px] text-muted-foreground">RAM</p>
+              </div>
+              <div className="bg-white dark:bg-slate-900/50 rounded-lg p-2.5 text-center border border-blue-50 dark:border-blue-900/30">
+                <HardDrive className="w-4 h-4 text-amber-500 mx-auto mb-1" />
+                <p className="text-sm font-bold text-foreground">{inst.disk_display}</p>
+                <p className="text-[10px] text-muted-foreground">Storage</p>
+              </div>
+            </div>
+
+            {/* Detail grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 p-4 text-sm">
+              {/* Network section */}
+              <div className="space-y-2.5">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Network className="w-3.5 h-3.5" /> Network
+                </p>
+                <div className="space-y-1.5 pl-0.5">
+                  <div className="flex justify-between">
+                    <span className="text-xs text-muted-foreground">IPv4</span>
+                    <span className="text-xs font-mono text-foreground">{inst.main_ip}</span>
+                  </div>
+                  {inst.v6_main_ip && inst.v6_main_ip !== '::' && (
+                    <div className="flex justify-between">
+                      <span className="text-xs text-muted-foreground">IPv6</span>
+                      <span className="text-xs font-mono text-foreground truncate ml-4 max-w-[200px]">{inst.v6_main_ip}</span>
+                    </div>
+                  )}
+                  {inst.gateway_v4 && (
+                    <div className="flex justify-between">
+                      <span className="text-xs text-muted-foreground">Gateway</span>
+                      <span className="text-xs font-mono text-foreground">{inst.gateway_v4}</span>
+                    </div>
+                  )}
+                  {inst.netmask_v4 && (
+                    <div className="flex justify-between">
+                      <span className="text-xs text-muted-foreground">Netmask</span>
+                      <span className="text-xs font-mono text-foreground">{inst.netmask_v4}</span>
+                    </div>
+                  )}
+                  {inst.allowed_bandwidth > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-xs text-muted-foreground">Bandwidth Allowed</span>
+                      <span className="text-xs text-foreground">{inst.allowed_bandwidth >= 1024 ? `${(inst.allowed_bandwidth / 1024).toFixed(0)} TB` : `${inst.allowed_bandwidth} GB`}/mo</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Server section */}
+              <div className="space-y-2.5">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Server className="w-3.5 h-3.5" /> Server
+                </p>
+                <div className="space-y-1.5 pl-0.5">
+                  {inst.hostname && (
+                    <div className="flex justify-between">
+                      <span className="text-xs text-muted-foreground">Hostname</span>
+                      <span className="text-xs font-mono text-foreground">{inst.hostname}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-xs text-muted-foreground">Plan</span>
+                    <span className="text-xs text-foreground">{inst.plan}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs text-muted-foreground">Region</span>
+                    <span className="text-xs text-foreground flex items-center gap-1">
+                      <MapPin className="w-3 h-3" />
+                      {formatRegion(inst.region)} ({inst.region})
+                    </span>
+                  </div>
+                  {inst.date_created && (
+                    <div className="flex justify-between">
+                      <span className="text-xs text-muted-foreground">Created</span>
+                      <span className="text-xs text-foreground">
+                        {new Date(inst.date_created).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                      </span>
+                    </div>
+                  )}
+                  {inst.features?.length > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-xs text-muted-foreground">Features</span>
+                      <div className="flex gap-1 flex-wrap justify-end">
+                        {inst.features.map(f => (
+                          <Badge key={f} variant="secondary" className="text-[10px] py-0 px-1.5">
+                            {f}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Bandwidth usage bar */}
+            {bwTotals && inst.allowed_bandwidth > 0 && (
+              <div className="px-4 pb-4">
+                <div className="bg-white dark:bg-slate-900/50 rounded-lg border border-blue-50 dark:border-blue-900/30 p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <ArrowUpDown className="w-3.5 h-3.5" /> Bandwidth Usage (This Month)
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatBandwidth(bwTotals.total)} / {inst.allowed_bandwidth >= 1024 ? `${(inst.allowed_bandwidth / 1024).toFixed(0)} TB` : `${inst.allowed_bandwidth} GB`}
+                    </p>
+                  </div>
+                  {/* Progress bar */}
+                  {(() => {
+                    const allowedBytes = inst.allowed_bandwidth * 1024 * 1024 * 1024;
+                    const pct = Math.min((bwTotals.total / allowedBytes) * 100, 100);
+                    return (
+                      <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all",
+                            pct > 90 ? "bg-red-500" : pct > 70 ? "bg-amber-500" : "bg-blue-500"
+                          )}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    );
+                  })()}
+                  <div className="flex justify-between mt-2 text-[10px] text-muted-foreground">
+                    <span>Inbound: {formatBandwidth(bwTotals.inbound)}</span>
+                    <span>Outbound: {formatBandwidth(bwTotals.outbound)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Tags */}
+            {inst.tags?.length > 0 && (
+              <div className="px-4 pb-4">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <Tag className="w-3 h-3 text-muted-foreground" />
+                  {inst.tags.map(tag => (
+                    <Badge key={tag} variant="outline" className="text-[10px] py-0">{tag}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Last synced */}
+            {syncedAt && (
+              <div className="px-4 pb-3 flex items-center gap-1.5 text-[10px] text-muted-foreground/60">
+                <Clock className="w-3 h-3" />
+                Last synced {formatDistanceToNow(new Date(syncedAt), { addSuffix: true })}
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 /** Safely parse extensions_detail — handles double-encoded JSON strings and arrays */
 function parseExtensionsDetail(raw) {
@@ -119,36 +379,7 @@ function ReportView({ report, searchQuery, setSearchQuery, vultrMapping }) {
       </div>
 
       {/* Vultr Hosting Server */}
-      {vultrMapping?.cached_data?.instance && (() => {
-        const inst = vultrMapping.cached_data.instance;
-        return (
-          <Card className="border-blue-100 dark:border-blue-800/50 bg-gradient-to-r from-blue-50/50 to-slate-50/50 dark:from-blue-950/20 dark:to-slate-950/20">
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
-                    <Server className="w-4.5 h-4.5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-foreground">{inst.label}</p>
-                      <Badge className={cn("text-[10px] font-normal", inst.power_status === 'running' ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" : "bg-red-100 text-red-700")}>
-                        {inst.power_status}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">{inst.main_ip} {'\u00B7'} {inst.region} {'\u00B7'} {inst.os}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1"><Cpu className="w-3.5 h-3.5" />{inst.vcpu_count} vCPU</span>
-                  <span>{inst.ram_display}</span>
-                  <span className="flex items-center gap-1"><HardDrive className="w-3.5 h-3.5" />{inst.disk_display}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })()}
+      <VultrServerCard vultrMapping={vultrMapping} />
 
       {/* Metrics */}
       <div className="grid grid-cols-3 gap-4">
@@ -366,36 +597,7 @@ function ApiSyncView({ threecxMapping, vultrMapping, customerId, queryClient }) 
       </div>
 
       {/* Vultr Hosting Server */}
-      {vultrMapping?.cached_data?.instance && (() => {
-        const inst = vultrMapping.cached_data.instance;
-        return (
-          <Card className="border-blue-100 dark:border-blue-800/50 bg-gradient-to-r from-blue-50/50 to-slate-50/50 dark:from-blue-950/20 dark:to-slate-950/20">
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
-                    <Server className="w-4.5 h-4.5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-foreground">{inst.label}</p>
-                      <Badge className={cn("text-[10px] font-normal", inst.power_status === 'running' ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" : "bg-red-100 text-red-700")}>
-                        {inst.power_status}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">{inst.main_ip} {'\u00B7'} {inst.region} {'\u00B7'} {inst.os}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1"><Cpu className="w-3.5 h-3.5" />{inst.vcpu_count} vCPU</span>
-                  <span>{inst.ram_display}</span>
-                  <span className="flex items-center gap-1"><HardDrive className="w-3.5 h-3.5" />{inst.disk_display}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })()}
+      <VultrServerCard vultrMapping={vultrMapping} />
 
       {/* Metrics */}
       {cached && (
