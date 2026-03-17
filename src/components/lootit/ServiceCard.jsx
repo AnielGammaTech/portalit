@@ -55,6 +55,7 @@ export default function ServiceCard({
   const [showNotes, setShowNotes] = useState(false);
   const [noteText, setNoteText] = useState(review?.notes || '');
   const [savingNote, setSavingNote] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null); // 'review' or 'dismiss'
 
   const hasNotes = !!(review?.notes);
   const styles = STATUS_STYLES[status] || STATUS_STYLES.default;
@@ -64,10 +65,22 @@ export default function ServiceCard({
     setSavingNote(true);
     try {
       await onSaveNotes(rule.id, noteText);
+      // If there's a pending action, execute it after note is saved
+      if (pendingAction === 'review') {
+        await onReview?.(rule.id);
+      } else if (pendingAction === 'dismiss') {
+        await onDismiss?.(rule.id);
+      }
     } finally {
       setSavingNote(false);
       setShowNotes(false);
+      setPendingAction(null);
     }
+  };
+
+  const handleActionWithNote = (action) => {
+    setPendingAction(action);
+    setShowNotes(true);
   };
 
   return (
@@ -145,24 +158,38 @@ export default function ServiceCard({
           </p>
         )}
 
-        {/* Notes inline */}
+        {/* Notes inline — also shown when pendingAction requires a note */}
         {(showNotes || hasNotes) && (
           <div className="mb-3">
             {showNotes ? (
-              <div className="space-y-1.5">
+              <div className="space-y-2">
+                {pendingAction && (
+                  <p className="text-xs font-medium text-amber-700 bg-amber-50 px-2.5 py-1.5 rounded-md border border-amber-200">
+                    Please add a note explaining why this is being {pendingAction === 'review' ? 'marked OK' : 'skipped'}
+                  </p>
+                )}
                 <textarea
                   value={noteText}
                   onChange={(e) => setNoteText(e.target.value)}
-                  placeholder="Add a note…"
+                  placeholder={pendingAction ? 'Required: explain the discrepancy…' : 'Add a note…'}
                   rows={2}
-                  className="w-full text-xs border border-slate-200 rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none bg-white"
+                  className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none bg-white"
                   autoFocus
                 />
-                <div className="flex gap-1.5">
-                  <button onClick={handleSaveNote} disabled={savingNote} className="px-2 py-1 text-[10px] font-bold rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50">
-                    {savingNote ? 'Saving…' : 'Save'}
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSaveNote}
+                    disabled={savingNote || (pendingAction && !noteText.trim())}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                  >
+                    {savingNote ? 'Saving…' : pendingAction ? `Save & ${pendingAction === 'review' ? 'OK' : 'Skip'}` : 'Save Note'}
                   </button>
-                  <button onClick={() => { setShowNotes(false); setNoteText(review?.notes || ''); }} className="px-2 py-1 text-[10px] font-bold rounded bg-slate-100 text-slate-500 hover:bg-slate-200">Cancel</button>
+                  <button
+                    onClick={() => { setShowNotes(false); setNoteText(review?.notes || ''); setPendingAction(null); }}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
                 </div>
               </div>
             ) : (
@@ -173,38 +200,46 @@ export default function ServiceCard({
           </div>
         )}
 
-        {/* Compact action bar */}
+        {/* Action bar */}
         <div className={cn(
-          'flex items-center gap-1.5 pt-2 border-t',
+          'flex items-center gap-2 pt-2 border-t',
           status === 'match' ? 'border-emerald-100' : status === 'over' ? 'border-orange-100' : status === 'under' ? 'border-red-100' : 'border-slate-100'
         )}>
           {!isReviewed && status !== 'match' && status !== 'no_data' && (
             <>
-              <button onClick={() => onReview?.(rule.id)} disabled={isSaving} className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 transition-colors disabled:opacity-50">
-                <Check className="w-3 h-3" /> OK
+              <button
+                onClick={() => handleActionWithNote('review')}
+                disabled={isSaving}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm transition-colors disabled:opacity-50"
+              >
+                <Check className="w-4 h-4" /> OK
               </button>
-              <button onClick={() => onDismiss?.(rule.id)} disabled={isSaving} className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md bg-slate-500/10 text-slate-600 hover:bg-slate-500/20 transition-colors disabled:opacity-50">
-                <X className="w-3 h-3" /> Skip
+              <button
+                onClick={() => handleActionWithNote('dismiss')}
+                disabled={isSaving}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors disabled:opacity-50"
+              >
+                <X className="w-4 h-4" /> Skip
               </button>
             </>
           )}
           {isReviewed && (
-            <button onClick={() => onReset?.(rule.id)} disabled={isSaving} className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors disabled:opacity-50">
-              <RotateCcw className="w-3 h-3" /> Reset
+            <button onClick={() => onReset?.(rule.id)} disabled={isSaving} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors disabled:opacity-50">
+              <RotateCcw className="w-3.5 h-3.5" /> Reset
             </button>
           )}
-          {!showNotes && (
-            <button onClick={() => setShowNotes(true)} className={cn('p-1 rounded-md transition-colors', hasNotes ? 'text-amber-500 hover:bg-amber-50' : 'text-slate-300 hover:bg-slate-50')} title="Note">
-              <StickyNote className="w-3.5 h-3.5" />
+          {!showNotes && !pendingAction && (
+            <button onClick={() => setShowNotes(true)} className={cn('p-1.5 rounded-lg transition-colors', hasNotes ? 'text-amber-500 hover:bg-amber-50' : 'text-slate-300 hover:bg-slate-50')} title="Note">
+              <StickyNote className="w-4 h-4" />
             </button>
           )}
           {onMapLineItem && !hasOverride && (
-            <button onClick={() => onMapLineItem?.(rule.id, rule.label)} className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md text-blue-500 hover:bg-blue-50 transition-colors">
-              <Link2 className="w-3 h-3" /> Map
+            <button onClick={() => onMapLineItem?.(rule.id, rule.label)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-blue-500 hover:bg-blue-50 transition-colors">
+              <Link2 className="w-3.5 h-3.5" /> Map
             </button>
           )}
-          <button onClick={() => onDetails?.(reconciliation)} className="ml-auto inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-colors">
-            Details <ChevronRight className="w-3 h-3" />
+          <button onClick={() => onDetails?.(reconciliation)} className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-colors">
+            Details <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
