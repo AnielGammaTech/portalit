@@ -114,6 +114,14 @@ async function fetchCustomerEvents(saasCustomerId, startDate, endDate) {
   return [];
 }
 
+// Safely extract product name — API may return an object {name, type} or a string
+function resolveProductName(val) {
+  if (!val) return 'Unknown';
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object' && val.name) return val.name;
+  return String(val);
+}
+
 function formatEvent(event) {
   return {
     id: event.id || event.event_id || null,
@@ -122,7 +130,7 @@ function formatEvent(event) {
     event_type: event.event_type || event.type || event.alert_type || 'Unknown',
     description: event.description || event.message || event.details || '',
     severity: event.severity || event.alert_severity || 'info',
-    product: event.product || event.application || event.app_name || 'Unknown',
+    product: resolveProductName(event.product || event.application || event.app_name),
     ip_address: event.ip_address || event.source_ip || null,
     country: event.country || event.location || null
   };
@@ -244,8 +252,8 @@ export async function syncSaaSAlerts(body, _user) {
 
       // Detect monitored apps from events
       const monitoredApps = [...new Set(events.map(e =>
-        e.product || e.application || e.app_name
-      ).filter(Boolean))];
+        resolveProductName(e.product || e.application || e.app_name)
+      ).filter(a => a && a !== 'Unknown'))];
 
       const cacheData = {
         success: true,

@@ -79,7 +79,7 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
         (event.user || '').toLowerCase().includes(q) ||
         (event.event_type || '').toLowerCase().includes(q) ||
         (event.description || '').toLowerCase().includes(q) ||
-        (event.product || '').toLowerCase().includes(q)
+        (typeof event.product === 'string' ? event.product : event.product?.name || '').toLowerCase().includes(q)
       );
     }
     return true;
@@ -150,11 +150,14 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
       {monitoredApps.length > 0 && (
         <div className="flex flex-wrap gap-2">
           <span className="text-xs font-medium text-muted-foreground py-1">Monitored:</span>
-          {monitoredApps.map(app => (
-            <Badge key={app} variant="outline" className="text-xs">
-              <Globe className="w-3 h-3 mr-1" /> {app}
-            </Badge>
-          ))}
+          {monitoredApps.map((app, idx) => {
+            const label = typeof app === 'object' ? (app?.name || 'Unknown') : String(app);
+            return (
+              <Badge key={label + idx} variant="outline" className="text-xs">
+                <Globe className="w-3 h-3 mr-1" /> {label}
+              </Badge>
+            );
+          })}
         </div>
       )}
 
@@ -249,9 +252,12 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
                         </td>
                         <td className="px-4 py-2.5 text-xs font-medium">{event.event_type || '—'}</td>
                         <td className="px-4 py-2.5">
-                          {event.product && event.product !== 'Unknown' ? (
-                            <Badge variant="outline" className="text-xs">{event.product}</Badge>
-                          ) : '—'}
+                          {(() => {
+                            const prod = typeof event.product === 'object' ? event.product?.name : event.product;
+                            return prod && prod !== 'Unknown' ? (
+                              <Badge variant="outline" className="text-xs">{prod}</Badge>
+                            ) : '—';
+                          })()}
                         </td>
                         <td className="px-4 py-2.5 text-xs text-muted-foreground max-w-[200px] truncate">
                           {event.description || '—'}
