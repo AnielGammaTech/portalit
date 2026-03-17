@@ -92,6 +92,14 @@
     @apply bg-background text-foreground;
     scrollbar-gutter: stable;
   }
+
+  /* Prevent Radix UI Dialog/Sheet from removing scrollbar and shifting layout */
+  body[data-scroll-locked] {
+    scrollbar-gutter: stable !important;
+    padding-right: 0px !important;
+    margin-right: 0px !important;
+    overflow: hidden !important;
+  }
 }
 
 /* Scrollbar hide utility for horizontal tab scrolling */

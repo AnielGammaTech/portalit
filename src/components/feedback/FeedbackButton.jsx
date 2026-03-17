@@ -47,14 +47,20 @@ export default function FeedbackButton({ user, customer }) {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [open, handleClose]);
 
-  // Prevent body scroll when drawer is open
+  // Prevent body scroll when drawer is open — use class instead of inline style
+  // to work with scrollbar-gutter: stable and avoid layout shift
   useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden';
+      document.body.style.scrollbarGutter = 'stable';
     } else {
       document.body.style.overflow = '';
+      document.body.style.scrollbarGutter = '';
     }
-    return () => { document.body.style.overflow = ''; };
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.scrollbarGutter = '';
+    };
   }, [open]);
 
   const handleFileUpload = async (e) => {
@@ -133,18 +139,18 @@ export default function FeedbackButton({ user, customer }) {
 
   return (
     <>
-      {/* Right-edge vertical tab */}
+      {/* Left-edge vertical tab */}
       <button
         onClick={() => setOpen(true)}
         className={cn(
-          "fixed right-0 top-1/2 -translate-y-1/2 z-50",
+          "fixed left-0 top-1/2 -translate-y-1/2 z-50",
           "flex items-center gap-1.5 px-3 py-2",
           "bg-[#1e1b4b] hover:bg-[#312e81] text-white text-sm font-medium",
-          "rounded-l-lg shadow-lg transition-all duration-200",
-          "hover:shadow-xl hover:pr-4",
+          "rounded-r-lg shadow-lg transition-all duration-200",
+          "hover:shadow-xl hover:pl-4",
           open && "opacity-0 pointer-events-none"
         )}
-        style={{ writingMode: 'vertical-rl' }}
+        style={{ writingMode: 'vertical-lr', transform: 'rotate(180deg) translateY(50%)' }}
         title="Send Feedback"
       >
         <MessageSquarePlus className="w-4 h-4" style={{ transform: 'rotate(90deg)' }} />
@@ -161,14 +167,14 @@ export default function FeedbackButton({ user, customer }) {
         aria-hidden="true"
       />
 
-      {/* Slide-in panel */}
+      {/* Slide-in panel from left */}
       <div
         ref={panelRef}
         className={cn(
-          "fixed top-0 right-0 z-50 h-full w-[380px] max-w-[90vw]",
+          "fixed top-0 left-0 z-50 h-full w-[380px] max-w-[90vw]",
           "bg-white shadow-2xl",
           "transition-transform duration-300 ease-in-out",
-          open ? "translate-x-0" : "translate-x-full"
+          open ? "translate-x-0" : "-translate-x-full"
         )}
         onPaste={handlePaste}
       >
