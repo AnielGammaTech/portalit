@@ -221,6 +221,37 @@ export async function syncSaaSAlerts(body, _user) {
     };
   }
 
+  // Debug: return raw events to inspect API field names
+  if (action === 'debug_events') {
+    if (!customer_id) {
+      const err = new Error('customer_id is required');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const { data: mappings } = await supabase
+      .from('saas_alerts_mappings')
+      .select('*')
+      .eq('customer_id', customer_id);
+
+    if (!mappings || mappings.length === 0) {
+      return { success: false, error: 'No mapping found' };
+    }
+
+    const mapping = mappings[0];
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const events = await fetchCustomerEvents(mapping.saas_alerts_customer_id, sevenDaysAgo, now);
+
+    // Return first 3 raw events with all their keys
+    return {
+      success: true,
+      total: events.length,
+      sample_keys: events.length > 0 ? Object.keys(events[0]) : [],
+      raw_samples: events.slice(0, 3)
+    };
+  }
+
   // Sync alerts for a specific customer
   if (action === 'sync_alerts') {
     if (!customer_id) {
