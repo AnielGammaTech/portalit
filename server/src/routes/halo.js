@@ -20,6 +20,7 @@ import {
   extractRecords,
   mapHaloClientToCustomer,
   mapHaloUserToContact,
+  fetchSitesByClientId,
 } from '../lib/halopsa.js';
 
 const router = Router();
@@ -127,6 +128,14 @@ router.post('/sync', requireAdmin, async (_req, res, next) => {
 
       console.log(`[HaloPSA] Total clients fetched: ${allClients.length}`);
 
+      // Fetch site details (with addresses) for all clients
+      let siteMap = {};
+      try {
+        siteMap = await fetchSitesByClientId(config, allClients);
+      } catch (siteErr) {
+        console.error('[HaloPSA] Failed to fetch site details for addresses:', siteErr.message);
+      }
+
       // Get existing customers in one call
       const { data: existingCustomers } = await supabase
         .from('customers')
@@ -144,7 +153,8 @@ router.post('/sync', requireAdmin, async (_req, res, next) => {
         if (config.excludedIds.includes(String(client.id))) continue;
         if (client.inactive === true) continue;
 
-        const customerData = mapHaloClientToCustomer(client);
+        const site = siteMap[String(client.id)];
+        const customerData = mapHaloClientToCustomer(client, site);
         const existing = existingByExternalId[String(client.id)];
 
         if (existing) {
@@ -233,9 +243,16 @@ router.post('/sync/customer', requireAdmin, async (req, res, next) => {
     const config = await getHaloConfig();
     const supabase = getServiceSupabase();
 
-    // 1. Fetch customer from HaloPSA
+    // 1. Fetch customer from HaloPSA (with site for address)
     const clientData = await haloGet(`Client/${customer_id}`, config);
-    const customerPayload = mapHaloClientToCustomer(clientData);
+    let site = null;
+    try {
+      const siteMap = await fetchSitesByClientId(config, [clientData]);
+      site = siteMap[String(clientData.id)] || null;
+    } catch (siteErr) {
+      console.error('[HaloPSA] Failed to fetch site for address:', siteErr.message);
+    }
+    const customerPayload = mapHaloClientToCustomer(clientData, site);
 
     // 2. Upsert in database
     const { data: existingArr } = await supabase

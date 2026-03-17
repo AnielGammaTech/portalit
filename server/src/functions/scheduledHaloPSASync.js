@@ -5,6 +5,7 @@ import {
   extractRecords,
   mapHaloClientToCustomer,
   mapHaloUserToContact,
+  fetchSitesByClientId,
 } from '../lib/halopsa.js';
 
 // ── helpers ──────────────────────────────────────────────────────────
@@ -143,6 +144,14 @@ export async function scheduledHaloPSASync(_body, _user) {
       pageNumber++;
     }
 
+    // Fetch site details (with addresses) for all clients
+    let siteMap = {};
+    try {
+      siteMap = await fetchSitesByClientId(config, allClients);
+    } catch (siteErr) {
+      console.error('[HaloPSA] Failed to fetch site details for addresses:', siteErr.message);
+    }
+
     const { data: existingCustomers } = await supabase
       .from('customers')
       .select('*')
@@ -158,7 +167,8 @@ export async function scheduledHaloPSASync(_body, _user) {
     for (const client of allClients) {
       if (config.excludedIds.includes(String(client.id))) continue;
       if (client.inactive === true) continue;
-      const customerData = mapHaloClientToCustomer(client);
+      const site = siteMap[String(client.id)];
+      const customerData = mapHaloClientToCustomer(client, site);
       const existing = existingByExternalId[String(client.id)];
       if (existing) {
         toUpdate.push({ id: existing.id, data: customerData });
