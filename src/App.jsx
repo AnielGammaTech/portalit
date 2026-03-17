@@ -66,14 +66,19 @@ const AuthenticatedApp = () => {
     return <WrongPortalMessage user={user} />;
   }
 
-  // In customer portal mode, redirect / to CustomerDetail with their customer_id
-  if (isCustomerPortal && user?.customer_id) {
+  // Customer user with a customer_id — show customer portal view
+  // Works on both the dedicated customer portal AND the full portal
+  const isCustomerUser = user?.role === 'user' && user?.customer_id;
+  if (isCustomerUser) {
+    const customerPages = Object.fromEntries(
+      Object.entries(AllPages).filter(([key]) => CUSTOMER_ALLOWED_PAGES.has(key))
+    );
     return (
       <Routes>
         <Route path="/" element={
           <Navigate to={`/CustomerDetail?id=${user.customer_id}`} replace />
         } />
-        {Object.entries(Pages).map(([path, Page]) => (
+        {Object.entries(customerPages).map(([path, Page]) => (
           <Route
             key={path}
             path={`/${path}`}
@@ -84,12 +89,14 @@ const AuthenticatedApp = () => {
             }
           />
         ))}
-        <Route path="*" element={<PageNotFound />} />
+        <Route path="*" element={
+          <Navigate to={`/CustomerDetail?id=${user.customer_id}`} replace />
+        } />
       </Routes>
     );
   }
 
-  // Render the main app (full portal mode)
+  // Render the main app (full portal mode — admin/sales users)
   return (
     <Routes>
       <Route path="/" element={
