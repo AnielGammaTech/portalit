@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { staggerContainer, staggerItem, fadeInUp } from '@/lib/motion';
+import { cn } from '@/lib/utils';
 import Breadcrumbs from '../components/ui/breadcrumbs';
 import {
   Building2,
@@ -49,6 +50,20 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { SkeletonGrid } from "@/components/ui/shimmer-skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
+
+const SERVICE_TAG_MAPPINGS = [
+  { key: 'spanning', label: 'Spanning', entity: 'SpanningMapping', color: 'bg-violet-500/15 text-violet-600 dark:text-violet-400' },
+  { key: 'jumpcloud', label: 'JumpCloud', entity: 'JumpCloudMapping', color: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' },
+  { key: 'datto', label: 'RMM', entity: 'DattoSiteMapping', color: 'bg-blue-500/15 text-blue-600 dark:text-blue-400' },
+  { key: 'edr', label: 'EDR', entity: 'DattoEDRMapping', color: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400' },
+  { key: 'soc', label: 'SOC', entity: 'RocketCyberMapping', color: 'bg-rose-500/15 text-rose-600 dark:text-rose-400' },
+  { key: 'firewall', label: 'Firewall', entity: 'CoveDataMapping', color: 'bg-amber-500/15 text-amber-600 dark:text-amber-400' },
+  { key: 'voip', label: 'VoIP', entity: 'ThreeCXMapping', color: 'bg-pink-500/15 text-pink-600 dark:text-pink-400' },
+  { key: 'dmarc', label: 'DMARC', entity: 'DmarcReportMapping', color: 'bg-teal-500/15 text-teal-600 dark:text-teal-400' },
+  { key: 'm365', label: 'M365', entity: 'Pax8Mapping', color: 'bg-orange-500/15 text-orange-600 dark:text-orange-400' },
+  { key: 'saas', label: 'SaaS', entity: 'SaaSAlertsMapping', color: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400' },
+  { key: 'darkweb', label: 'Dark Web', entity: 'DarkWebIDMapping', color: 'bg-zinc-500/15 text-zinc-600 dark:text-zinc-400' },
+];
 
 const STATUS_COLORS = {
   active: { bg: 'bg-success/15', text: 'text-success', dot: 'bg-success' },
@@ -103,6 +118,40 @@ export default function Customers() {
     queryKey: ['all_tickets'],
     queryFn: () => client.entities.Ticket.list('-created_date', 1000),
   });
+
+  const { data: allMappingsData } = useQuery({
+    queryKey: ['all_service_mappings'],
+    queryFn: async () => {
+      const results = await Promise.allSettled(
+        SERVICE_TAG_MAPPINGS.map(svc =>
+          client.entities[svc.entity].list(null, 5000).then(data => ({ key: svc.key, data }))
+        )
+      );
+      const out = {};
+      for (const r of results) {
+        if (r.status === 'fulfilled') out[r.value.key] = r.value.data;
+      }
+      return out;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const serviceTagsByCustomer = useMemo(() => {
+    if (!allMappingsData) return {};
+    const map = {};
+    for (const svc of SERVICE_TAG_MAPPINGS) {
+      const mappings = allMappingsData[svc.key] || [];
+      for (const m of mappings) {
+        const cid = m.customer_id;
+        if (!cid) continue;
+        if (!map[cid]) map[cid] = [];
+        if (!map[cid].find(t => t.key === svc.key)) {
+          map[cid].push({ key: svc.key, label: svc.label, color: svc.color });
+        }
+      }
+    }
+    return map;
+  }, [allMappingsData]);
 
   const createMutation = useMutation({
     mutationFn: (data) => client.entities.Customer.create(data),
@@ -319,7 +368,7 @@ export default function Customers() {
                   )}
                 </div>
 
-                {/* Name + Status */}
+                {/* Name + Status + Tags */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-medium text-foreground truncate text-sm">{customer.name}</p>
@@ -331,8 +380,21 @@ export default function Customers() {
                       {customer.status || 'active'}
                     </Badge>
                   </div>
-                  {customer.email && (
-                    <p className="text-xs text-muted-foreground truncate mt-0.5">{customer.email}</p>
+                  {(serviceTagsByCustomer[customer.id] || []).length > 0 && (
+                    <div className="flex items-center gap-1 mt-1 flex-wrap">
+                      {serviceTagsByCustomer[customer.id].map(tag => (
+                        <span
+                          key={tag.key}
+                          className={cn(
+                            'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold leading-none',
+                            tag.color
+                          )}
+                        >
+                          <span className="w-1 h-1 rounded-full bg-current opacity-70" />
+                          {tag.label}
+                        </span>
+                      ))}
+                    </div>
                   )}
                 </div>
 
