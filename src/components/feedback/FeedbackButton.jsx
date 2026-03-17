@@ -143,14 +143,14 @@ export default function FeedbackButton({ user, customer }) {
       <button
         onClick={() => setOpen(true)}
         className={cn(
-          "fixed left-0 top-1/2 -translate-y-1/2 z-50",
+          "fixed left-0 top-1/2 z-50",
           "flex items-center gap-1.5 px-3 py-2",
           "bg-[#1e1b4b] hover:bg-[#312e81] text-white text-sm font-medium",
           "rounded-r-lg shadow-lg transition-all duration-200",
           "hover:shadow-xl hover:pl-4",
           open && "opacity-0 pointer-events-none"
         )}
-        style={{ writingMode: 'vertical-lr', transform: 'rotate(180deg) translateY(50%)' }}
+        style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'translateY(-50%)' }}
         title="Send Feedback"
       >
         <MessageSquarePlus className="w-4 h-4" style={{ transform: 'rotate(90deg)' }} />
