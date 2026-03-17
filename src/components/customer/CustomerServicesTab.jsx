@@ -1,9 +1,33 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, Component } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { staggerContainer, staggerItem, fadeInUp } from '@/lib/motion';
+
+// Error boundary to catch render crashes and show the actual error
+class ServiceTabErrorBoundary extends Component {
+  state = { error: null };
+  static getDerivedStateFromError(error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="p-8 text-center">
+          <p className="text-red-600 font-semibold mb-2">Something went wrong in Services</p>
+          <pre className="text-xs text-left bg-red-50 border border-red-200 rounded-lg p-4 max-h-40 overflow-auto whitespace-pre-wrap">
+            {this.state.error?.message || String(this.state.error)}
+            {'\n'}
+            {this.state.error?.stack}
+          </pre>
+          <button onClick={() => this.setState({ error: null })} className="mt-3 px-4 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-gray-200">
+            Retry
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import {
   Cloud,
   Users,
@@ -584,6 +608,7 @@ export default function CustomerServicesTab({
   ].filter(i => i.enabled);
 
   return (
+    <ServiceTabErrorBoundary>
     <div className="space-y-6">
       <Tabs defaultValue="recurring" className="space-y-4">
         {/* Service Tabs — only show tabs for services the customer has */}
@@ -1100,12 +1125,13 @@ export default function CustomerServicesTab({
 
 
       {/* User Detail Modal */}
-      <UserDetailModal 
+      <UserDetailModal
         contact={selectedContact}
         open={!!selectedContact}
         onClose={() => setSelectedContact(null)}
         customerId={customerId}
       />
     </div>
+    </ServiceTabErrorBoundary>
   );
 }
