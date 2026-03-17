@@ -1,11 +1,13 @@
+import React from 'react';
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import NavigationTracker from '@/lib/NavigationTracker'
 import { pagesConfig } from './pages.config'
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate, useNavigate } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import { supabase } from '@/api/client';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import WrongPortalMessage from '@/components/WrongPortalMessage';
 import Login from '@/pages/Login';
@@ -66,36 +68,6 @@ const AuthenticatedApp = () => {
     return <WrongPortalMessage user={user} />;
   }
 
-  // Customer user with a customer_id — show customer portal view
-  // Works on both the dedicated customer portal AND the full portal
-  const isCustomerUser = user?.role === 'user' && user?.customer_id;
-  if (isCustomerUser) {
-    const customerPages = Object.fromEntries(
-      Object.entries(AllPages).filter(([key]) => CUSTOMER_ALLOWED_PAGES.has(key))
-    );
-    return (
-      <Routes>
-        <Route path="/" element={
-          <Navigate to={`/CustomerDetail?id=${user.customer_id}`} replace />
-        } />
-        {Object.entries(customerPages).map(([path, Page]) => (
-          <Route
-            key={path}
-            path={`/${path}`}
-            element={
-              <LayoutWrapper currentPageName={path}>
-                <Page />
-              </LayoutWrapper>
-            }
-          />
-        ))}
-        <Route path="*" element={
-          <Navigate to={`/CustomerDetail?id=${user.customer_id}`} replace />
-        } />
-      </Routes>
-    );
-  }
-
   // Render the main app (full portal mode — admin/sales users)
   return (
     <Routes>
@@ -121,6 +93,52 @@ const AuthenticatedApp = () => {
 };
 
 
+// Handles /auth-redirect#access_token=...&refresh_token=...
+// Used when the main portal redirects a customer user here with their session
+function AuthRedirect() {
+  const navigate = useNavigate();
+  const [error, setError] = React.useState(null);
+
+  React.useEffect(() => {
+    const hash = window.location.hash.substring(1);
+    const params = new URLSearchParams(hash);
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+
+    if (accessToken && refreshToken) {
+      supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+        .then(({ error: sessionError }) => {
+          if (sessionError) {
+            setError('Session expired. Please log in again.');
+          } else {
+            // Clear the hash and navigate to home
+            window.history.replaceState(null, '', '/');
+            navigate('/', { replace: true });
+          }
+        });
+    } else {
+      setError('Invalid login link. Please log in again.');
+    }
+  }, [navigate]);
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
+        <div className="text-center space-y-4">
+          <p className="text-sm text-muted-foreground">{error}</p>
+          <a href="/login" className="text-sm text-primary hover:underline">Go to login</a>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
+    </div>
+  );
+}
+
 function App() {
   return (
     <AuthProvider>
@@ -128,6 +146,7 @@ function App() {
         <Router>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/auth-redirect" element={<AuthRedirect />} />
             <Route path="/accept-invite" element={<AcceptInvite />} />
             <Route path="*" element={
               <>

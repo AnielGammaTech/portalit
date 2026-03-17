@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, KeyRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { CUSTOMER_PORTAL_URL } from '@/lib/portal-mode';
 
 // Floating orb component for animated background
 function FloatingOrb({ className, delay = 0 }) {
@@ -49,13 +50,31 @@ export default function Login() {
 
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password });
 
       if (error) {
         toast.error(error.message);
         return;
       }
 
+      // Check user role to determine routing
+      const { data: profile } = await supabase
+        .from('users')
+        .select('role, customer_id')
+        .eq('auth_id', authData.user.id)
+        .single();
+
+      const role = profile?.role || 'user';
+
+      // Customer users → redirect to customer portal with session token (no second login)
+      if (role === 'user' && CUSTOMER_PORTAL_URL && authData.session) {
+        toast.success('Redirecting to your portal...');
+        const { access_token, refresh_token } = authData.session;
+        window.location.href = `${CUSTOMER_PORTAL_URL}/auth-redirect#access_token=${access_token}&refresh_token=${refresh_token}`;
+        return;
+      }
+
+      // Admin/sales → stay on main portal
       toast.success('Signed in successfully');
       if (returnUrl) {
         window.location.href = returnUrl;

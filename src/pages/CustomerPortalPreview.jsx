@@ -28,6 +28,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from 'date-fns';
 import CustomerServicesTab from '../components/customer/CustomerServicesTab';
+import CustomerMap from '../components/customer/CustomerMap';
 import SoftwareCard from '../components/saas/SoftwareCard';
 import AddSoftwareModal from '../components/saas/AddSoftwareModal';
 import LicenseAssignmentModal from '../components/saas/LicenseAssignmentModal';
@@ -303,6 +304,11 @@ export default function CustomerPortalPreview() {
           </div>
         </div>
       </div>
+
+      {/* Map */}
+      {customer.address && (
+        <CustomerMap addresses={[customer.address]} />
+      )}
 
       {/* Summary Bar */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
