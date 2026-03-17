@@ -19,10 +19,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
-import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { EmptyState } from "@/components/ui/empty-state";
-import { motion } from 'framer-motion';
-import { staggerContainer, staggerItem, fadeInUp } from '@/lib/motion';
 
 const severityConfig = {
   critical: { color: 'bg-red-100 text-red-700 border-red-200', cardBg: 'bg-red-50', cardBorder: 'border-red-200', icon: AlertTriangle, label: 'Critical' },
@@ -36,12 +33,17 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
   const [isSyncing, setIsSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [severityFilter, setSeverityFilter] = useState('all');
+  const [renderError, setRenderError] = useState(null);
 
   const cachedData = React.useMemo(() => {
-    if (!saasAlertsMapping?.cached_data) return null;
-    return typeof saasAlertsMapping.cached_data === 'string'
-      ? (() => { try { return JSON.parse(saasAlertsMapping.cached_data); } catch { return null; } })()
-      : saasAlertsMapping.cached_data;
+    try {
+      if (!saasAlertsMapping?.cached_data) return null;
+      return typeof saasAlertsMapping.cached_data === 'string'
+        ? JSON.parse(saasAlertsMapping.cached_data)
+        : saasAlertsMapping.cached_data;
+    } catch {
+      return null;
+    }
   }, [saasAlertsMapping?.cached_data]);
 
   const summary = cachedData?.summary || { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
@@ -93,8 +95,19 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
     );
   }
 
+  if (renderError) {
+    return (
+      <div className="p-6 text-center">
+        <ShieldAlert className="w-10 h-10 text-red-300 mx-auto mb-3" />
+        <p className="text-red-600 font-medium">Something went wrong loading SaaS Alerts</p>
+        <p className="text-sm text-gray-500 mt-1">{renderError}</p>
+        <Button onClick={() => setRenderError(null)} variant="outline" size="sm" className="mt-3">Retry</Button>
+      </div>
+    );
+  }
+
   return (
-    <motion.div {...fadeInUp} className="space-y-4">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -103,7 +116,7 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
             SaaS Alerts
           </h3>
           <p className="text-sm text-muted-foreground">
-            Tenant: {saasAlertsMapping.saas_alerts_customer_name}
+            Tenant: {saasAlertsMapping.saas_alerts_customer_name || 'Unknown'}
             {saasAlertsMapping.last_synced && (
               <span className="ml-2">
                 • Last sync: {new Date(saasAlertsMapping.last_synced).toLocaleString()}
@@ -112,13 +125,13 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
           </p>
         </div>
         <Button onClick={handleSync} disabled={isSyncing} variant="outline" size="sm">
-          <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+          <RefreshCw className={cn("w-4 h-4 mr-2", isSyncing && "animate-spin")} />
           Sync Events
         </Button>
       </div>
 
       {/* Severity Summary Cards */}
-      <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {[
           { key: 'critical', label: 'Critical', value: summary.critical, color: 'text-red-600', bg: 'bg-red-50', border: summary.critical > 0 ? 'border-red-200' : '' },
           { key: 'high', label: 'High', value: summary.high, color: 'text-orange-600', bg: 'bg-orange-50', border: summary.high > 0 ? 'border-orange-200' : '' },
@@ -126,12 +139,12 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
           { key: 'low', label: 'Low', value: summary.low, color: 'text-blue-600', bg: 'bg-blue-50', border: '' },
           { key: 'info', label: 'Info', value: summary.info, color: 'text-slate-600', bg: 'bg-slate-50', border: '' },
         ].map(stat => (
-          <motion.div key={stat.key} variants={staggerItem} className={cn("rounded-[14px] border shadow-hero-sm p-3", stat.bg, stat.border)}>
-            <AnimatedCounter value={stat.value} className={cn("text-2xl font-bold", stat.color)} />
+          <div key={stat.key} className={cn("rounded-xl border p-3", stat.bg, stat.border)}>
+            <p className={cn("text-2xl font-bold", stat.color)}>{stat.value ?? 0}</p>
             <p className="text-xs text-muted-foreground">{stat.label}</p>
-          </motion.div>
+          </div>
         ))}
-      </motion.div>
+      </div>
 
       {/* Monitored Apps */}
       {monitoredApps.length > 0 && (
@@ -252,6 +265,6 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
           )}
         </CardContent>
       </Card>
-    </motion.div>
+    </div>
   );
 }
