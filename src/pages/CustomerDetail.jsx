@@ -765,75 +765,179 @@ export default function CustomerDetail() {
 
         <TabsContent value="billing">
                         <div className="space-y-6">
-                          
-                          {/* Compact Summary Row */}
-                          <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 max-w-3xl mx-auto shadow-sm">
-                            <div className="grid grid-cols-1 sm:grid-cols-3 items-center text-center gap-3">
-                              {/* Monthly Cost */}
-                              <div className="sm:pr-4 sm:border-r sm:border-gray-200">
-                                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Monthly Cost</p>
-                                <p className="text-xl font-bold text-gray-900">
-                                  ${recurringBills.reduce((sum, b) => sum + (b.amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                </p>
-                              </div>
-                              
-                              {/* Contract */}
-                              <div className="sm:px-4 sm:border-r sm:border-gray-200">
-                                <div className="flex items-center justify-center gap-1.5">
-                                  <p className="text-[10px] text-gray-500 uppercase tracking-wide">Contract</p>
-                                  {customer?.source === 'halopsa' && (
-                                    <button
-                                      onClick={async () => {
-                                        try {
-                                          setIsSyncing(true);
-                                          const response = await client.functions.invoke('syncHaloPSAContracts', { 
-                                            action: 'sync_customer',
-                                            customer_id: customer.external_id 
-                                          });
-                                          if (response.success) {
-                                            toast.success(`Synced contracts!`);
-                                            queryClient.invalidateQueries({ queryKey: ['contracts', customerId] });
-                                          } else {
-                                            toast.error(response.error || 'Sync failed');
-                                          }
-                                        } catch (error) {
-                                          toast.error(error.message || 'An error occurred');
-                                        } finally {
-                                          setIsSyncing(false);
-                                        }
-                                      }}
-                                      disabled={isSyncing}
-                                      className="text-gray-400 hover:text-gray-600"
-                                    >
-                                      <RefreshCw className={cn("w-3 h-3", isSyncing && "animate-spin")} />
-                                    </button>
-                                  )}
-                                </div>
-                                {contracts.length > 0 ? (
-                                  <p className="font-semibold text-gray-900">{contracts[0].name}</p>
-                                ) : (
-                                  <p className="text-gray-400 text-sm">None</p>
-                                )}
-                              </div>
-                              
-                              {/* Invoice Status */}
-                              <div className="sm:pl-4">
-                                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Invoices</p>
-                                <div className="flex items-center justify-center gap-3">
-                                  <div className="flex items-center gap-1">
-                                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                                    <span className="text-sm font-medium text-gray-700">{invoices.filter(i => i.status === 'paid').length} Paid</span>
-                                  </div>
-                                  {invoices.filter(i => i.status === 'overdue').length > 0 && (
-                                    <div className="flex items-center gap-1">
-                                      <div className="w-2 h-2 rounded-full bg-red-500" />
-                                      <span className="text-sm font-medium text-red-600">{invoices.filter(i => i.status === 'overdue').length} Overdue</span>
+
+                          {/* Billing Dashboard Widgets */}
+                          {(() => {
+                            const monthlyCost = recurringBills.reduce((sum, b) => sum + (b.amount || 0), 0);
+                            const paidInvoices = invoices.filter(i => i.status === 'paid');
+                            const overdueInvoices = invoices.filter(i => i.status === 'overdue');
+                            const pendingInvoices = invoices.filter(i => i.status === 'sent');
+                            const totalPaid = paidInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
+                            const totalOverdue = overdueInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
+                            const totalPending = pendingInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
+                            const activeContract = contracts.find(c => c.status === 'active') || contracts[0];
+                            const contractValue = contractItems.reduce((sum, ci) => sum + (ci.net_amount || ci.price || 0), 0);
+                            const totalLineItems = lineItems.length;
+                            const workstations = devices.filter(d => d.device_type === 'workstation' || d.device_type === 'laptop' || d.device_type === 'desktop').length;
+                            const servers = devices.filter(d => d.device_type === 'server').length;
+
+                            return (
+                              <>
+                                {/* Top Stats Row */}
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                  {/* Monthly Cost */}
+                                  <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                                        <DollarSign className="w-4 h-4 text-emerald-600" />
+                                      </div>
+                                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Monthly Cost</span>
                                     </div>
-                                  )}
+                                    <p className="text-2xl font-bold text-gray-900">
+                                      ${monthlyCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                    </p>
+                                    <p className="text-xs text-gray-400 mt-1">{recurringBills.length} recurring bill{recurringBills.length !== 1 ? 's' : ''}</p>
+                                  </div>
+
+                                  {/* Contract */}
+                                  <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                                          <FileText className="w-4 h-4 text-blue-600" />
+                                        </div>
+                                        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Contract</span>
+                                      </div>
+                                      {customer?.source === 'halopsa' && (
+                                        <button
+                                          onClick={async () => {
+                                            try {
+                                              setIsSyncing(true);
+                                              const response = await client.functions.invoke('syncHaloPSAContracts', {
+                                                action: 'sync_customer',
+                                                customer_id: customer.external_id
+                                              });
+                                              if (response.success) {
+                                                toast.success(`Synced contracts!`);
+                                                queryClient.invalidateQueries({ queryKey: ['contracts', customerId] });
+                                              } else {
+                                                toast.error(response.error || 'Sync failed');
+                                              }
+                                            } catch (error) {
+                                              toast.error(error.message || 'An error occurred');
+                                            } finally {
+                                              setIsSyncing(false);
+                                            }
+                                          }}
+                                          disabled={isSyncing}
+                                          className="text-gray-400 hover:text-gray-600"
+                                        >
+                                          <RefreshCw className={cn("w-3.5 h-3.5", isSyncing && "animate-spin")} />
+                                        </button>
+                                      )}
+                                    </div>
+                                    {activeContract ? (
+                                      <>
+                                        <p className="text-lg font-bold text-gray-900 truncate">{activeContract.name}</p>
+                                        <p className="text-xs text-gray-400 mt-1">
+                                          {contractItems.length} item{contractItems.length !== 1 ? 's' : ''}
+                                          {contractValue > 0 && ` · $${contractValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                                        </p>
+                                      </>
+                                    ) : (
+                                      <p className="text-lg text-gray-400">No contract</p>
+                                    )}
+                                  </div>
+
+                                  {/* Devices */}
+                                  <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center">
+                                        <Monitor className="w-4 h-4 text-violet-600" />
+                                      </div>
+                                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Devices</span>
+                                    </div>
+                                    <p className="text-2xl font-bold text-gray-900">{devices.length}</p>
+                                    <p className="text-xs text-gray-400 mt-1">
+                                      {workstations > 0 && `${workstations} workstation${workstations !== 1 ? 's' : ''}`}
+                                      {workstations > 0 && servers > 0 && ' · '}
+                                      {servers > 0 && `${servers} server${servers !== 1 ? 's' : ''}`}
+                                      {workstations === 0 && servers === 0 && 'No devices'}
+                                    </p>
+                                  </div>
+
+                                  {/* Users / Contacts */}
+                                  <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
+                                        <Users className="w-4 h-4 text-amber-600" />
+                                      </div>
+                                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Users</span>
+                                    </div>
+                                    <p className="text-2xl font-bold text-gray-900">{contacts.length}</p>
+                                    <p className="text-xs text-gray-400 mt-1">
+                                      {totalLineItems} line item{totalLineItems !== 1 ? 's' : ''} billed
+                                    </p>
+                                  </div>
                                 </div>
-                              </div>
-                            </div>
-                          </div>
+
+                                {/* Invoice Summary Bar */}
+                                <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                                  <div className="flex items-center justify-between mb-3">
+                                    <h3 className="text-sm font-semibold text-gray-900">Invoice Summary</h3>
+                                    <span className="text-xs text-gray-400">{invoices.length} total invoice{invoices.length !== 1 ? 's' : ''}</span>
+                                  </div>
+                                  <div className="grid grid-cols-3 gap-4">
+                                    <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-50/60">
+                                      <div className="w-2 h-10 rounded-full bg-emerald-500" />
+                                      <div>
+                                        <p className="text-xs text-emerald-600 font-medium">Paid</p>
+                                        <p className="text-lg font-bold text-emerald-700">
+                                          ${totalPaid.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                        </p>
+                                        <p className="text-xs text-emerald-500">{paidInvoices.length} invoice{paidInvoices.length !== 1 ? 's' : ''}</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-50/60">
+                                      <div className="w-2 h-10 rounded-full bg-amber-500" />
+                                      <div>
+                                        <p className="text-xs text-amber-600 font-medium">Pending</p>
+                                        <p className="text-lg font-bold text-amber-700">
+                                          ${totalPending.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                        </p>
+                                        <p className="text-xs text-amber-500">{pendingInvoices.length} invoice{pendingInvoices.length !== 1 ? 's' : ''}</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-3 p-3 rounded-lg bg-red-50/60">
+                                      <div className="w-2 h-10 rounded-full bg-red-500" />
+                                      <div>
+                                        <p className="text-xs text-red-600 font-medium">Overdue</p>
+                                        <p className="text-lg font-bold text-red-700">
+                                          ${totalOverdue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                        </p>
+                                        <p className="text-xs text-red-500">{overdueInvoices.length} invoice{overdueInvoices.length !== 1 ? 's' : ''}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Services Integration Tags */}
+                                {serviceTags.length > 0 && (
+                                  <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Active Integrations</h3>
+                                    <div className="flex flex-wrap gap-2">
+                                      {serviceTags.map(tag => (
+                                        <span key={tag.key} className={cn("inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-50 border border-gray-200", tag.text)}>
+                                          <span className={cn("w-2 h-2 rounded-full", tag.dot)} />
+                                          {tag.label}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
 
                           {/* Invoices Section */}
                           <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
