@@ -23,7 +23,6 @@ import {
   TrendingDown,
   TrendingUp,
   ChevronDown,
-  Shield,
   Activity,
   BarChart3,
   ArrowUpRight,
@@ -53,11 +52,6 @@ function AdminDashboard() {
     queryFn: () => client.entities.Contract.list('-created_date', 500),
   });
 
-  const { data: tickets = [], isLoading: loadingTickets } = useQuery({
-    queryKey: ['tickets'],
-    queryFn: () => client.entities.Ticket.list('-created_date', 500),
-  });
-
   const { data: recurringBills = [] } = useQuery({
     queryKey: ['recurring_bills'],
     queryFn: () => client.entities.RecurringBill.list('-created_date', 1000),
@@ -73,11 +67,10 @@ function AdminDashboard() {
   // LootIT reconciliation data
   const { reconciliations, globalSummary, isLoading: loadingRecon } = useReconciliationData();
 
-  const isLoading = loadingCustomers || loadingContracts || loadingTickets;
+  const isLoading = loadingCustomers || loadingContracts;
 
   // Calculate stats
   const activeCustomers = customers.filter(c => c.status === 'active').length;
-  const openTickets = tickets.filter(t => ['new', 'open', 'in_progress'].includes(t.status));
   const totalMRR = recurringBills.reduce((sum, b) => sum + (b.amount || 0), 0);
   const activeContracts = contracts.filter(c => c.status === 'active').length;
 
@@ -101,11 +94,6 @@ function AdminDashboard() {
 
   const lootITIssueCustomers = lootITCustomers.filter(
     (c) => c.combinedSummary.over > 0 || c.combinedSummary.under > 0
-  );
-
-  // Critical/high priority tickets
-  const criticalTickets = openTickets.filter(
-    (t) => t.priority === 'critical' || t.priority === 'high'
   );
 
   if (isLoading) {
@@ -152,48 +140,39 @@ function AdminDashboard() {
       </div>
 
       {/* Top Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Link to={createPageUrl('Customers')} className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md hover:border-purple-200 transition-all group">
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-              <Building2 className="w-4.5 h-4.5 text-purple-600" />
+      <div className="grid grid-cols-3 gap-4">
+        <Link to={createPageUrl('Customers')} className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md hover:border-purple-200 transition-all group">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center group-hover:bg-purple-200 transition-colors">
+              <Building2 className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-slate-900">{activeCustomers}</p>
+              <p className="text-xs text-slate-500">Active Customers</p>
             </div>
           </div>
-          <p className="text-2xl font-bold text-slate-900">{activeCustomers}</p>
-          <p className="text-xs text-slate-500">Active Customers</p>
         </Link>
-        <Link to={createPageUrl('Billing')} className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md hover:border-emerald-200 transition-all group">
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
-              <DollarSign className="w-4.5 h-4.5 text-emerald-600" />
+        <Link to={createPageUrl('Billing')} className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md hover:border-emerald-200 transition-all group">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
+              <DollarSign className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-slate-900">${totalMRR.toLocaleString()}</p>
+              <p className="text-xs text-slate-500">Monthly Revenue</p>
             </div>
           </div>
-          <p className="text-2xl font-bold text-slate-900">${totalMRR.toLocaleString()}</p>
-          <p className="text-xs text-slate-500">Monthly Revenue</p>
         </Link>
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
-              <FileText className="w-4.5 h-4.5 text-blue-600" />
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+              <FileText className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-slate-900">{activeContracts}</p>
+              <p className="text-xs text-slate-500">Active Contracts</p>
             </div>
           </div>
-          <p className="text-2xl font-bold text-slate-900">{activeContracts}</p>
-          <p className="text-xs text-slate-500">Active Contracts</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className={cn(
-              "w-9 h-9 rounded-lg flex items-center justify-center",
-              criticalTickets.length > 0 ? "bg-red-100" : "bg-orange-100"
-            )}>
-              <Monitor className={cn(
-                "w-4.5 h-4.5",
-                criticalTickets.length > 0 ? "text-red-600" : "text-orange-600"
-              )} />
-            </div>
-          </div>
-          <p className="text-2xl font-bold text-slate-900">{openTickets.length}</p>
-          <p className="text-xs text-slate-500">Open Tickets</p>
         </div>
       </div>
 
@@ -330,156 +309,135 @@ function AdminDashboard() {
         </div>
       </div>
 
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Recent Customers — wider */}
-        <div className="lg:col-span-3 bg-white rounded-2xl border border-slate-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-slate-900">Recent Customers</h2>
-            <Link to={createPageUrl('Customers')}>
-              <Button variant="ghost" size="sm" className="text-purple-600 text-xs">View All</Button>
-            </Link>
-          </div>
-          <div className="space-y-1.5">
-            {customers.slice(0, 8).map(customer => {
-              const reconData = reconciliations[customer.id];
-              const summary = reconData
-                ? getDiscrepancySummary([
-                    ...(reconData.reconciliations || []),
-                    ...(reconData.pax8Reconciliations || []),
-                  ])
-                : null;
-              const issues = summary ? summary.over + summary.under : 0;
+      {/* Customers */}
+      <div className="bg-white rounded-2xl border border-slate-200">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <h2 className="text-base font-semibold text-slate-900">Customers</h2>
+          <Link to={createPageUrl('Customers')}>
+            <Button variant="ghost" size="sm" className="text-purple-600 text-xs">View All <ChevronRight className="w-3.5 h-3.5 ml-1" /></Button>
+          </Link>
+        </div>
 
-              return (
-                <div
-                  key={customer.id}
-                  onClick={() => navigate(createPageUrl(`CustomerDetail?id=${customer.id}`))}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors group"
-                >
+        {/* Table header */}
+        <div className="grid grid-cols-12 gap-4 px-6 py-2.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-50">
+          <div className="col-span-4">Customer</div>
+          <div className="col-span-3">Contact</div>
+          <div className="col-span-2 text-center">Reconciliation</div>
+          <div className="col-span-2 text-right">Status</div>
+          <div className="col-span-1" />
+        </div>
+
+        {/* Customer rows */}
+        <div className="divide-y divide-slate-50">
+          {customers.slice(0, 10).map(customer => {
+            const reconData = reconciliations[customer.id];
+            const summary = reconData
+              ? getDiscrepancySummary([
+                  ...(reconData.reconciliations || []),
+                  ...(reconData.pax8Reconciliations || []),
+                ])
+              : null;
+            const issues = summary ? summary.over + summary.under : 0;
+            const active = summary ? summary.total - summary.noData : 0;
+            const resolved = summary ? summary.matched + summary.reviewed : 0;
+            const pct = active > 0 ? Math.round((resolved / active) * 100) : 0;
+
+            return (
+              <div
+                key={customer.id}
+                onClick={() => navigate(createPageUrl(`CustomerDetail?id=${customer.id}`))}
+                className="grid grid-cols-12 gap-4 px-6 py-3 items-center hover:bg-slate-50/50 cursor-pointer transition-colors group"
+              >
+                <div className="col-span-4 flex items-center gap-3 min-w-0">
                   <div className={cn(
-                    "w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0",
-                    customer.status === 'active' ? "bg-purple-100" : "bg-slate-100"
+                    "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
+                    customer.status === 'active' ? "bg-purple-50" : "bg-slate-50"
                   )}>
                     <Building2 className={cn(
                       "w-4 h-4",
-                      customer.status === 'active' ? "text-purple-600" : "text-slate-400"
+                      customer.status === 'active' ? "text-purple-500" : "text-slate-400"
                     )} />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-slate-900 text-sm truncate group-hover:text-purple-600 transition-colors">
-                      {customer.name}
-                    </p>
-                    <p className="text-xs text-slate-400 truncate">
-                      {customer.primary_contact || customer.email || 'No contact info'}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {summary && issues > 0 && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[11px] font-semibold">
-                        <AlertTriangle className="w-3 h-3" />{issues}
-                      </span>
-                    )}
-                    {summary && issues === 0 && summary.matched > 0 && (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                    )}
-                    {customer.status !== 'active' && (
-                      <Badge variant="secondary" className="text-[10px]">Inactive</Badge>
-                    )}
-                    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors" />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Right column: Tickets + quick info */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Open Tickets */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-slate-900">Open Tickets</h2>
-              {criticalTickets.length > 0 && (
-                <Badge className="bg-red-100 text-red-700 text-[10px]">
-                  {criticalTickets.length} urgent
-                </Badge>
-              )}
-            </div>
-            {openTickets.length === 0 ? (
-              <div className="py-8 text-center">
-                <CheckCircle2 className="w-10 h-10 text-emerald-300 mx-auto mb-3" />
-                <p className="text-slate-500 text-sm">All clear — no open tickets</p>
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                {openTickets.slice(0, 6).map(ticket => {
-                  const ticketCustomer = customers.find(c => c.id === ticket.customer_id);
-                  return (
-                    <div key={ticket.id} className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-slate-50 transition-colors">
-                      <div className={cn(
-                        "w-2 h-2 rounded-full mt-1.5 flex-shrink-0",
-                        ticket.priority === 'critical' && "bg-red-500",
-                        ticket.priority === 'high' && "bg-orange-500",
-                        ticket.priority === 'medium' && "bg-yellow-500",
-                        (!ticket.priority || ticket.priority === 'low') && "bg-blue-400"
-                      )} />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-900 text-sm truncate">
-                          {ticket.summary || `Ticket #${ticket.ticket_number}`}
-                        </p>
-                        <p className="text-[11px] text-slate-400 truncate">
-                          {ticketCustomer?.name || ''}
-                          {ticket.ticket_number ? ` · #${ticket.ticket_number}` : ''}
-                        </p>
-                      </div>
-                      <Badge className={cn(
-                        'text-[10px] flex-shrink-0',
-                        ticket.priority === 'critical' && 'bg-red-100 text-red-700',
-                        ticket.priority === 'high' && 'bg-orange-100 text-orange-700',
-                        ticket.priority === 'medium' && 'bg-yellow-100 text-yellow-700',
-                        (!ticket.priority || ticket.priority === 'low') && 'bg-blue-100 text-blue-700',
-                      )}>
-                        {ticket.priority || 'low'}
-                      </Badge>
-                    </div>
-                  );
-                })}
-                {openTickets.length > 6 && (
-                  <p className="text-center text-xs text-slate-400 pt-2">
-                    +{openTickets.length - 6} more open tickets
+                  <p className="font-medium text-slate-900 text-sm truncate group-hover:text-purple-600 transition-colors">
+                    {customer.name}
                   </p>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Recent Sync Activity */}
-          {syncLogs.length > 0 && (
-            <div className="bg-white rounded-2xl border border-slate-200 p-6">
-              <h2 className="text-base font-semibold text-slate-900 mb-4">Recent Syncs</h2>
-              <div className="space-y-2">
-                {syncLogs.slice(0, 5).map((log) => (
-                  <div key={log.id} className="flex items-center gap-3 text-sm">
-                    <div className={cn(
-                      "w-2 h-2 rounded-full flex-shrink-0",
-                      log.status === 'success' ? "bg-emerald-500" : log.status === 'error' ? "bg-red-500" : "bg-slate-300"
-                    )} />
-                    <span className="flex-1 text-slate-700 truncate text-xs">
-                      {log.sync_type || log.description || 'Sync'}
+                </div>
+                <div className="col-span-3 min-w-0">
+                  <p className="text-xs text-slate-500 truncate">
+                    {customer.primary_contact || customer.email || '—'}
+                  </p>
+                </div>
+                <div className="col-span-2">
+                  {summary && active > 0 ? (
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className={cn(
+                            "h-full rounded-full",
+                            pct === 100 ? "bg-emerald-400" : pct >= 70 ? "bg-orange-400" : "bg-red-400"
+                          )}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span className={cn(
+                        "text-[11px] font-semibold tabular-nums",
+                        pct === 100 ? "text-emerald-600" : pct >= 70 ? "text-orange-500" : "text-red-500"
+                      )}>{pct}%</span>
+                    </div>
+                  ) : (
+                    <span className="text-[11px] text-slate-300">—</span>
+                  )}
+                </div>
+                <div className="col-span-2 flex items-center justify-end gap-1.5">
+                  {issues > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[10px] font-semibold">
+                      <AlertTriangle className="w-3 h-3" />{issues}
                     </span>
-                    <span className="text-[11px] text-slate-400 flex-shrink-0">
-                      {log.created_date
-                        ? format(parseISO(log.created_date), 'MMM d, h:mm a')
-                        : ''}
-                    </span>
-                  </div>
-                ))}
+                  )}
+                  {summary && issues === 0 && summary.matched > 0 && (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  )}
+                  {customer.status !== 'active' && (
+                    <Badge variant="secondary" className="text-[10px]">Inactive</Badge>
+                  )}
+                </div>
+                <div className="col-span-1 flex justify-end">
+                  <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors" />
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })}
         </div>
+
+        {customers.length > 10 && (
+          <div className="px-6 py-3 border-t border-slate-100 text-center">
+            <Link to={createPageUrl('Customers')} className="text-xs text-purple-600 hover:text-purple-800 font-medium">
+              View all {customers.length} customers
+            </Link>
+          </div>
+        )}
       </div>
+
+      {/* Sync Activity — compact footer */}
+      {syncLogs.length > 0 && (
+        <div className="flex items-center gap-4 px-1 flex-wrap">
+          <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Recent Syncs</span>
+          {syncLogs.slice(0, 4).map((log) => (
+            <div key={log.id} className="flex items-center gap-1.5">
+              <div className={cn(
+                "w-1.5 h-1.5 rounded-full",
+                log.status === 'success' ? "bg-emerald-500" : log.status === 'error' ? "bg-red-500" : "bg-slate-300"
+              )} />
+              <span className="text-[11px] text-slate-500">
+                {log.sync_type || 'Sync'}
+              </span>
+              <span className="text-[11px] text-slate-400">
+                {log.created_date ? format(parseISO(log.created_date), 'h:mm a') : ''}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
