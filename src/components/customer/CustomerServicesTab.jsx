@@ -33,7 +33,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { cn, formatLineItemDescription } from "@/lib/utils";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
@@ -706,7 +706,7 @@ export default function CustomerServicesTab({
                       >
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-sm text-foreground truncate">
-                            {item.description?.replace(/\s*\$recurringbillingdate\s*/gi, '').trim()}
+                            {formatLineItemDescription(item.description)}
                           </p>
                           <div className="flex items-center gap-2 mt-0.5">
                             <span className="text-xs text-muted-foreground">

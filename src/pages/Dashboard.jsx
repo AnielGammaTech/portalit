@@ -22,7 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { cn, formatLineItemDescription } from "@/lib/utils";
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '../utils';
@@ -537,7 +537,7 @@ function CustomerDashboard({ customer }) {
                     <div className="flex items-center gap-3">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                       <p className="font-medium text-slate-900 text-sm">
-                        {item.description?.replace(/\s*\$recurringbillingdate\s*/gi, '').trim()}
+                        {formatLineItemDescription(item.description)}
                       </p>
                     </div>
                     <p className="font-semibold text-slate-900">

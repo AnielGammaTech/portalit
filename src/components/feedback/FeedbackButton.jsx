@@ -1,32 +1,31 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { client } from '@/api/client';
-import { MessageSquarePlus, X, Upload, Image, Bug, Lightbulb, HelpCircle, Send, Loader2 } from 'lucide-react';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { MessageSquarePlus, X, Upload, Image, Bug, Lightbulb, HelpCircle, Send, Loader2, Paperclip } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { toast } from 'sonner';
 
 const feedbackTypes = [
-  { value: 'bug', label: 'Bug Report', icon: Bug, color: 'red' },
-  { value: 'feature', label: 'Feature Request', icon: Lightbulb, color: 'amber' },
-  { value: 'question', label: 'Question', icon: HelpCircle, color: 'blue' },
-  { value: 'other', label: 'Other', icon: MessageSquarePlus, color: 'slate' },
+  { value: 'bug', label: 'Bug', icon: Bug, activeClass: 'border-red-500 bg-red-50 text-red-700' },
+  { value: 'feature', label: 'Feature', icon: Lightbulb, activeClass: 'border-amber-500 bg-amber-50 text-amber-700' },
+  { value: 'question', label: 'Question', icon: HelpCircle, activeClass: 'border-blue-500 bg-blue-50 text-blue-700' },
+  { value: 'other', label: 'Other', icon: MessageSquarePlus, activeClass: 'border-slate-500 bg-slate-50 text-slate-700' },
 ];
 
 export default function FeedbackButton({ user, customer }) {
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [type, setType] = useState('other');
+  const [type, setType] = useState('bug');
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
   const [screenshots, setScreenshots] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef(null);
   const panelRef = useRef(null);
+  const textareaRef = useRef(null);
 
   const resetForm = useCallback(() => {
-    setType('other');
+    setType('bug');
     setSubject('');
     setDescription('');
     setScreenshots([]);
@@ -36,19 +35,14 @@ export default function FeedbackButton({ user, customer }) {
     setOpen(false);
   }, []);
 
-  // Close on Escape key
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && open) {
-        handleClose();
-      }
+      if (e.key === 'Escape' && open) handleClose();
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [open, handleClose]);
 
-  // Prevent body scroll when drawer is open — use class instead of inline style
-  // to work with scrollbar-gutter: stable and avoid layout shift
   useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden';
@@ -63,43 +57,46 @@ export default function FeedbackButton({ user, customer }) {
     };
   }, [open]);
 
-  const handleFileUpload = async (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
+  const uploadFiles = async (files) => {
+    const imageFiles = files.filter(f => f.type.startsWith('image/'));
+    if (imageFiles.length === 0) return;
 
     setUploading(true);
     try {
-      const uploadPromises = files.map(file => client.integrations.Core.UploadFile({ file }));
-      const results = await Promise.all(uploadPromises);
+      const results = await Promise.all(
+        imageFiles.map(file => client.integrations.Core.UploadFile({ file }))
+      );
       const urls = results.map(r => r.file_url);
       setScreenshots(prev => [...prev, ...urls]);
-    } catch (error) {
+    } catch {
       toast.error('Failed to upload image');
     } finally {
       setUploading(false);
     }
   };
 
+  const handleFileUpload = (e) => {
+    uploadFiles(Array.from(e.target.files));
+  };
+
   const handlePaste = async (e) => {
     const items = e.clipboardData?.items;
     if (!items) return;
 
+    const imageFiles = [];
     for (const item of items) {
       if (item.type.startsWith('image/')) {
         const file = item.getAsFile();
-        if (file) {
-          setUploading(true);
-          try {
-            const result = await client.integrations.Core.UploadFile({ file });
-            setScreenshots(prev => [...prev, result.file_url]);
-          } catch (error) {
-            toast.error('Failed to upload pasted image');
-          } finally {
-            setUploading(false);
-          }
-        }
+        if (file) imageFiles.push(file);
       }
     }
+    if (imageFiles.length > 0) uploadFiles(imageFiles);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    uploadFiles(Array.from(e.dataTransfer.files));
   };
 
   const removeScreenshot = (index) => {
@@ -127,15 +124,17 @@ export default function FeedbackButton({ user, customer }) {
         status: 'new'
       });
 
-      toast.success('Feedback submitted! Thank you.');
+      toast.success('Thank you! Your feedback has been submitted.');
       handleClose();
       resetForm();
-    } catch (error) {
+    } catch {
       toast.error('Failed to submit feedback');
     } finally {
       setSubmitting(false);
     }
   };
+
+  const selectedType = feedbackTypes.find(t => t.value === type);
 
   return (
     <>
@@ -144,23 +143,23 @@ export default function FeedbackButton({ user, customer }) {
         onClick={() => setOpen(true)}
         className={cn(
           "fixed left-0 top-1/2 z-50",
-          "flex items-center gap-1.5 px-3 py-2",
-          "bg-[#1e1b4b] hover:bg-[#312e81] text-white text-sm font-medium",
-          "rounded-r-lg shadow-lg transition-all duration-200",
-          "hover:shadow-xl hover:pl-4",
+          "flex items-center gap-1.5 px-2.5 py-1.5",
+          "bg-primary hover:bg-primary/90 text-white text-xs font-semibold tracking-wide",
+          "rounded-r-md shadow-md transition-all duration-200",
+          "hover:shadow-lg hover:pl-3",
           open && "opacity-0 pointer-events-none"
         )}
         style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'translateY(-50%)' }}
         title="Send Feedback"
       >
-        <MessageSquarePlus className="w-4 h-4" style={{ transform: 'rotate(90deg)' }} />
+        <MessageSquarePlus className="w-3.5 h-3.5" style={{ transform: 'rotate(90deg)' }} />
         Feedback
       </button>
 
       {/* Overlay */}
       <div
         className={cn(
-          "fixed inset-0 z-50 bg-black/40 transition-opacity duration-300",
+          "fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px] transition-opacity duration-300",
           open ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
         onClick={handleClose}
@@ -171,138 +170,156 @@ export default function FeedbackButton({ user, customer }) {
       <div
         ref={panelRef}
         className={cn(
-          "fixed top-0 left-0 z-50 h-full w-[380px] max-w-[90vw]",
-          "bg-white shadow-2xl",
-          "transition-transform duration-300 ease-in-out",
+          "fixed top-0 left-0 z-50 h-full w-[400px] max-w-[90vw]",
+          "bg-white shadow-2xl flex flex-col",
+          "transition-transform duration-300 ease-out",
           open ? "translate-x-0" : "-translate-x-full"
         )}
         onPaste={handlePaste}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-slate-50">
-          <div className="flex items-center gap-2">
-            <MessageSquarePlus className="w-5 h-5 text-purple-600" />
-            <h2 className="text-lg font-semibold text-slate-900">Send Feedback</h2>
-          </div>
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100">
+          <h2 className="text-[15px] font-semibold text-slate-900">Send Feedback</h2>
           <button
             onClick={handleClose}
-            className="p-1.5 rounded-md hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-colors"
+            className="p-1 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Scrollable form content */}
-        <div className="overflow-y-auto h-[calc(100%-65px)] px-5 py-5">
-          <div className="space-y-4">
-            {/* Type Selection */}
-            <div className="grid grid-cols-2 gap-2">
-              {feedbackTypes.map((t) => (
-                <button
-                  key={t.value}
-                  onClick={() => setType(t.value)}
-                  className={cn(
-                    "flex items-center gap-2 p-2.5 rounded-lg border-2 transition-all text-sm",
-                    type === t.value
-                      ? t.color === 'red' ? "border-red-500 bg-red-50"
-                        : t.color === 'amber' ? "border-amber-500 bg-amber-50"
-                        : t.color === 'blue' ? "border-blue-500 bg-blue-50"
-                        : "border-slate-500 bg-slate-50"
-                      : "border-slate-200 hover:border-slate-300"
-                  )}
-                >
-                  <t.icon className={cn(
-                    "w-4 h-4 shrink-0",
-                    type === t.value
-                      ? t.color === 'red' ? "text-red-600"
-                        : t.color === 'amber' ? "text-amber-600"
-                        : t.color === 'blue' ? "text-blue-600"
-                        : "text-slate-600"
-                      : "text-slate-400"
-                  )} />
-                  <span className="text-slate-700">{t.label}</span>
-                </button>
-              ))}
-            </div>
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          {/* Type pills */}
+          <div className="flex gap-1.5">
+            {feedbackTypes.map((t) => (
+              <button
+                key={t.value}
+                onClick={() => setType(t.value)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
+                  type === t.value
+                    ? t.activeClass
+                    : "border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-600"
+                )}
+              >
+                <t.icon className="w-3 h-3" />
+                {t.label}
+              </button>
+            ))}
+          </div>
 
-            {/* Subject */}
-            <Input
-              placeholder="Subject (optional)"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-            />
+          {/* Subject */}
+          <input
+            type="text"
+            placeholder="Subject (optional)"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary placeholder:text-slate-400 transition-all"
+          />
 
-            {/* Description */}
-            <Textarea
-              placeholder="Describe your feedback, issue, or question... (Tip: Paste screenshots directly!)"
+          {/* Description */}
+          <div className="relative">
+            <textarea
+              ref={textareaRef}
+              placeholder="What's on your mind? Describe the issue, idea, or question..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="min-h-[140px]"
+              className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary placeholder:text-slate-400 resize-none transition-all"
+              rows={5}
             />
+            <p className="mt-1 text-[11px] text-slate-400">
+              Tip: Paste screenshots directly with Ctrl+V
+            </p>
+          </div>
 
-            {/* Screenshots */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-500">Screenshots</span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  className="gap-1"
-                >
-                  {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
-                  Upload
-                </Button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </div>
-
-              {screenshots.length > 0 && (
-                <div className="flex flex-wrap gap-2">
+          {/* Screenshots / Drop zone */}
+          <div
+            className={cn(
+              "rounded-lg border-2 border-dashed transition-colors",
+              dragOver ? "border-primary bg-primary/5" : "border-slate-200",
+              screenshots.length === 0 && "py-5"
+            )}
+          >
+            {screenshots.length > 0 ? (
+              <div className="p-3 space-y-3">
+                <div className="grid grid-cols-3 gap-2">
                   {screenshots.map((url, index) => (
-                    <div key={index} className="relative group">
+                    <div key={index} className="relative group aspect-video rounded-md overflow-hidden bg-slate-100 border border-slate-200">
                       <img
                         src={url}
                         alt={`Screenshot ${index + 1}`}
-                        className="w-16 h-16 object-cover rounded-lg border border-slate-200"
+                        className="w-full h-full object-cover"
                       />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors" />
                       <button
                         onClick={() => removeScreenshot(index)}
-                        className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
                       >
                         <X className="w-3 h-3" />
                       </button>
                     </div>
                   ))}
                 </div>
-              )}
-
-              {screenshots.length === 0 && (
-                <p className="text-xs text-slate-400 text-center py-2 bg-slate-50 rounded-lg border border-dashed border-slate-200">
-                  <Image className="w-4 h-4 inline mr-1" />
-                  Paste or upload screenshots
-                </p>
-              )}
-            </div>
-
-            {/* Submit */}
-            <Button
-              onClick={handleSubmit}
-              disabled={submitting || !description.trim()}
-              className="w-full gap-2 bg-purple-600 hover:bg-purple-700"
-            >
-              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              Submit Feedback
-            </Button>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="inline-flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-medium transition-colors"
+                >
+                  {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Paperclip className="w-3 h-3" />}
+                  Add more
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="w-full flex flex-col items-center gap-2 text-slate-400 hover:text-slate-500 transition-colors"
+              >
+                {uploading ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center">
+                    <Image className="w-4 h-4" />
+                  </div>
+                )}
+                <div className="text-center">
+                  <p className="text-xs font-medium text-slate-500">
+                    Drop images here or <span className="text-primary">browse</span>
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">PNG, JPG up to 10MB</p>
+                </div>
+              </button>
+            )}
           </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3.5 border-t border-slate-100 bg-slate-50/50">
+          <button
+            onClick={handleSubmit}
+            disabled={submitting || !description.trim()}
+            className={cn(
+              "w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all",
+              "bg-primary hover:bg-primary/90 text-white shadow-sm",
+              "disabled:opacity-50 disabled:cursor-not-allowed"
+            )}
+          >
+            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            Submit Feedback
+          </button>
         </div>
       </div>
     </>
