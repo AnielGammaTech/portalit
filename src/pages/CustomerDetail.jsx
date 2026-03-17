@@ -56,6 +56,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import CustomerAnalytics from '../components/customer/CustomerAnalytics';
 import DevicesTab from '../components/customer/DevicesTab';
 import CustomerServicesTab from '../components/customer/CustomerServicesTab';
+import CustomerDashboardTab from '../components/customer/CustomerDashboardTab';
 import CustomerMap from '../components/customer/CustomerMap';
 import { UserPlus, Eye } from 'lucide-react';
 import { isCustomerPortal } from '@/lib/portal-mode';
@@ -743,9 +744,10 @@ export default function CustomerDetail() {
 
 
       {/* Tabs — HeroUI-inspired with animated styling */}
-      <Tabs defaultValue={params.get('tab') || 'services'} className="space-y-6" id="customer-tabs">
+      <Tabs defaultValue={params.get('tab') || 'dashboard'} className="space-y-6" id="customer-tabs">
         <TabsList className="bg-zinc-100 dark:bg-zinc-800/80 border-0 rounded-hero-lg p-1 flex gap-1 h-auto overflow-x-auto scrollbar-hide">
           {[
+            { value: 'dashboard', icon: BarChart3, label: 'Dashboard' },
             { value: 'billing', icon: DollarSign, label: 'Billing' },
             { value: 'services', icon: Cloud, label: 'Services' },
             { value: 'licenses', icon: Cloud, label: 'SaaS' },
@@ -762,6 +764,20 @@ export default function CustomerDetail() {
             </TabsTrigger>
           ))}
         </TabsList>
+
+        <TabsContent value="dashboard">
+          <CustomerDashboardTab
+            customer={customer}
+            contacts={contacts}
+            devices={devices}
+            contracts={contracts}
+            tickets={tickets}
+            invoices={invoices}
+            lineItems={lineItems}
+            licenses={licenses}
+            serviceTags={serviceTags}
+          />
+        </TabsContent>
 
         <TabsContent value="billing">
                         <div className="space-y-6">
