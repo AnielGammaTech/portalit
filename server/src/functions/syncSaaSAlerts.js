@@ -114,11 +114,16 @@ async function fetchCustomerEvents(saasCustomerId, startDate, endDate) {
   return [];
 }
 
-// Safely extract product name — API may return an object {name, type} or a string
-function resolveProductName(val) {
-  if (!val) return 'Unknown';
+// Safely extract a display string from an API value that might be an object.
+// SaaS Alerts API can return nested objects like {id, name} or {name, type}
+// for fields such as product, user, country, etc.
+function resolveDisplayName(val, fallback = 'Unknown') {
+  if (!val) return fallback;
   if (typeof val === 'string') return val;
-  if (typeof val === 'object' && val.name) return val.name;
+  if (typeof val === 'object') {
+    // Prefer name, then email, then username, then id
+    return val.name || val.email || val.username || val.displayName || val.id || fallback;
+  }
   return String(val);
 }
 
@@ -126,13 +131,13 @@ function formatEvent(event) {
   return {
     id: event.id || event.event_id || null,
     timestamp: event.timestamp || event.created_at || event.date || null,
-    user: event.user || event.user_email || event.username || 'Unknown',
-    event_type: event.event_type || event.type || event.alert_type || 'Unknown',
-    description: event.description || event.message || event.details || '',
-    severity: event.severity || event.alert_severity || 'info',
-    product: resolveProductName(event.product || event.application || event.app_name),
-    ip_address: event.ip_address || event.source_ip || null,
-    country: event.country || event.location || null
+    user: resolveDisplayName(event.user || event.user_email || event.username, 'Unknown'),
+    event_type: resolveDisplayName(event.event_type || event.type || event.alert_type, 'Unknown'),
+    description: resolveDisplayName(event.description || event.message || event.details, ''),
+    severity: typeof event.severity === 'string' ? event.severity : (typeof event.alert_severity === 'string' ? event.alert_severity : 'info'),
+    product: resolveDisplayName(event.product || event.application || event.app_name),
+    ip_address: resolveDisplayName(event.ip_address || event.source_ip, null),
+    country: resolveDisplayName(event.country || event.location, null)
   };
 }
 
@@ -252,7 +257,7 @@ export async function syncSaaSAlerts(body, _user) {
 
       // Detect monitored apps from events
       const monitoredApps = [...new Set(events.map(e =>
-        resolveProductName(e.product || e.application || e.app_name)
+        resolveDisplayName(e.product || e.application || e.app_name)
       ).filter(a => a && a !== 'Unknown'))];
 
       const cacheData = {

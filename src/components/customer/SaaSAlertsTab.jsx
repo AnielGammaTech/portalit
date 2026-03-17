@@ -21,6 +21,14 @@ import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/empty-state";
 
+// Safely convert any value to a renderable string — guards against API returning objects
+function safeStr(val, fallback = '') {
+  if (val == null) return fallback;
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object') return val.name || val.email || val.displayName || val.id || fallback;
+  return String(val);
+}
+
 const severityConfig = {
   critical: { color: 'bg-red-100 text-red-700 border-red-200', cardBg: 'bg-red-50', cardBorder: 'border-red-200', icon: AlertTriangle, label: 'Critical' },
   high: { color: 'bg-orange-100 text-orange-700 border-orange-200', cardBg: 'bg-orange-50', cardBorder: 'border-orange-200', icon: AlertCircle, label: 'High' },
@@ -72,14 +80,14 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
   };
 
   const filteredEvents = recentEvents.filter(event => {
-    if (severityFilter !== 'all' && (event.severity || '').toLowerCase() !== severityFilter) return false;
+    if (severityFilter !== 'all' && safeStr(event.severity, 'info').toLowerCase() !== severityFilter) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return (
-        (event.user || '').toLowerCase().includes(q) ||
-        (event.event_type || '').toLowerCase().includes(q) ||
-        (event.description || '').toLowerCase().includes(q) ||
-        (typeof event.product === 'string' ? event.product : event.product?.name || '').toLowerCase().includes(q)
+        safeStr(event.user).toLowerCase().includes(q) ||
+        safeStr(event.event_type).toLowerCase().includes(q) ||
+        safeStr(event.description).toLowerCase().includes(q) ||
+        safeStr(event.product).toLowerCase().includes(q)
       );
     }
     return true;
@@ -116,7 +124,7 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
             SaaS Alerts
           </h3>
           <p className="text-sm text-muted-foreground">
-            Tenant: {saasAlertsMapping.saas_alerts_customer_name || 'Unknown'}
+            Tenant: {safeStr(saasAlertsMapping.saas_alerts_customer_name, 'Unknown')}
             {saasAlertsMapping.last_synced && (
               <span className="ml-2">
                 • Last sync: {new Date(saasAlertsMapping.last_synced).toLocaleString()}
@@ -247,20 +255,20 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
                         <td className="px-4 py-2.5">
                           <span className="flex items-center gap-1 text-xs">
                             <User className="w-3 h-3 text-muted-foreground" />
-                            {event.user || 'Unknown'}
+                            {safeStr(event.user, 'Unknown')}
                           </span>
                         </td>
-                        <td className="px-4 py-2.5 text-xs font-medium">{event.event_type || '—'}</td>
+                        <td className="px-4 py-2.5 text-xs font-medium">{safeStr(event.event_type, '—')}</td>
                         <td className="px-4 py-2.5">
                           {(() => {
-                            const prod = typeof event.product === 'object' ? event.product?.name : event.product;
+                            const prod = safeStr(event.product, '');
                             return prod && prod !== 'Unknown' ? (
                               <Badge variant="outline" className="text-xs">{prod}</Badge>
                             ) : '—';
                           })()}
                         </td>
                         <td className="px-4 py-2.5 text-xs text-muted-foreground max-w-[200px] truncate">
-                          {event.description || '—'}
+                          {safeStr(event.description, '—')}
                         </td>
                       </tr>
                     );
