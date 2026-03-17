@@ -49,7 +49,7 @@ function categorizeSeverity(events) {
   const summary = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
 
   for (const event of events) {
-    const severity = (event.severity || event.alert_severity || '').toLowerCase();
+    const severity = (event.alertStatus || event.severity || event.alert_severity || '').toLowerCase();
     if (severity === 'critical') summary.critical++;
     else if (severity === 'high') summary.high++;
     else if (severity === 'medium') summary.medium++;
@@ -128,16 +128,29 @@ function resolveDisplayName(val, fallback = 'Unknown') {
 }
 
 function formatEvent(event) {
+  const loc = event.location || {};
+  const threat = loc.ipInfo?.threat || {};
+
   return {
-    id: event.id || event.event_id || null,
-    timestamp: event.timestamp || event.created_at || event.date || null,
-    user: resolveDisplayName(event.user || event.user_email || event.username, 'Unknown'),
-    event_type: resolveDisplayName(event.event_type || event.type || event.alert_type, 'Unknown'),
-    description: resolveDisplayName(event.description || event.message || event.details, ''),
-    severity: typeof event.severity === 'string' ? event.severity : (typeof event.alert_severity === 'string' ? event.alert_severity : 'info'),
-    product: resolveDisplayName(event.product || event.application || event.app_name),
-    ip_address: resolveDisplayName(event.ip_address || event.source_ip, null),
-    country: resolveDisplayName(event.country || event.location, null)
+    id: event.eventId || event.id || event.event_id || null,
+    timestamp: event.time || event.timestamp || event.created_at || event.date || null,
+    user: resolveDisplayName(event.user, event.appName || 'Unknown'),
+    event_type: event.type || event.event_type || event.alert_type || 'Unknown',
+    joint_type: event.jointType || null,
+    description: event.jointDesc || event.description || event.message || event.details || '',
+    severity: (event.alertStatus || event.severity || event.alert_severity || 'info').toLowerCase(),
+    product: resolveDisplayName(event.product || event.application),
+    app_name: event.appName || resolveDisplayName(event.user, ''),
+    ip_address: event.ip || event.ip_address || event.source_ip || null,
+    country: typeof loc === 'string' ? loc : (loc.country || null),
+    city: typeof loc === 'object' ? loc.city : null,
+    region: typeof loc === 'object' ? loc.region : null,
+    ip_owner: typeof loc === 'object' ? loc.ip_owner : null,
+    is_vpn: threat.is_vpn || false,
+    is_threat: threat.is_threat || false,
+    is_datacenter: threat.is_datacenter || false,
+    threat_score: threat.scores?.threat_score || 0,
+    trust_score: threat.scores?.trust_score || 0
   };
 }
 
@@ -221,37 +234,6 @@ export async function syncSaaSAlerts(body, _user) {
     };
   }
 
-  // Debug: return raw events to inspect API field names
-  if (action === 'debug_events') {
-    if (!customer_id) {
-      const err = new Error('customer_id is required');
-      err.statusCode = 400;
-      throw err;
-    }
-
-    const { data: mappings } = await supabase
-      .from('saas_alerts_mappings')
-      .select('*')
-      .eq('customer_id', customer_id);
-
-    if (!mappings || mappings.length === 0) {
-      return { success: false, error: 'No mapping found' };
-    }
-
-    const mapping = mappings[0];
-    const now = new Date();
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const events = await fetchCustomerEvents(mapping.saas_alerts_customer_id, sevenDaysAgo, now);
-
-    // Return first 3 raw events with all their keys
-    return {
-      success: true,
-      total: events.length,
-      sample_keys: events.length > 0 ? Object.keys(events[0]) : [],
-      raw_samples: events.slice(0, 3)
-    };
-  }
-
   // Sync alerts for a specific customer
   if (action === 'sync_alerts') {
     if (!customer_id) {
@@ -282,7 +264,7 @@ export async function syncSaaSAlerts(body, _user) {
 
       const summary = categorizeSeverity(events);
       const recentEvents = events
-        .sort((a, b) => new Date(b.timestamp || b.date || 0) - new Date(a.timestamp || a.date || 0))
+        .sort((a, b) => new Date(b.time || b.timestamp || b.date || 0) - new Date(a.time || a.timestamp || a.date || 0))
         .slice(0, 100)
         .map(formatEvent);
 
@@ -291,12 +273,32 @@ export async function syncSaaSAlerts(body, _user) {
         resolveDisplayName(e.product || e.application || e.app_name)
       ).filter(a => a && a !== 'Unknown'))];
 
+      // Aggregate stats for dashboard
+      const uniqueUsers = [...new Set(recentEvents.map(e => e.user).filter(u => u && u !== 'Unknown'))];
+      const eventTypeCounts = recentEvents.reduce((acc, e) => {
+        const key = e.event_type || 'Unknown';
+        return { ...acc, [key]: (acc[key] || 0) + 1 };
+      }, {});
+      const vpnEvents = recentEvents.filter(e => e.is_vpn).length;
+      const threatEvents = recentEvents.filter(e => e.is_threat).length;
+      const datacenterEvents = recentEvents.filter(e => e.is_datacenter).length;
+      const countryCounts = recentEvents.reduce((acc, e) => {
+        const key = e.country || 'Unknown';
+        return { ...acc, [key]: (acc[key] || 0) + 1 };
+      }, {});
+
       const cacheData = {
         success: true,
         summary,
         total_events: events.length,
         recent_events: recentEvents,
         monitored_apps: monitoredApps,
+        unique_users: uniqueUsers,
+        event_type_counts: eventTypeCounts,
+        vpn_events: vpnEvents,
+        threat_events: threatEvents,
+        datacenter_events: datacenterEvents,
+        country_counts: countryCounts,
         period: '7 days'
       };
 
@@ -333,13 +335,13 @@ export async function syncSaaSAlerts(body, _user) {
 
         const summary = categorizeSeverity(events);
         const recentEvents = events
-          .sort((a, b) => new Date(b.timestamp || b.date || 0) - new Date(a.timestamp || a.date || 0))
+          .sort((a, b) => new Date(b.time || b.timestamp || b.date || 0) - new Date(a.time || a.timestamp || a.date || 0))
           .slice(0, 100)
           .map(formatEvent);
 
         const monitoredApps = [...new Set(events.map(e =>
-          e.product || e.application || e.app_name
-        ).filter(Boolean))];
+          resolveDisplayName(e.product || e.application || e.app_name)
+        ).filter(a => a && a !== 'Unknown'))];
 
         const cacheData = {
           success: true,
