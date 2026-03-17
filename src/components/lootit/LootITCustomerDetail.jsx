@@ -1043,211 +1043,136 @@ function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, 
     }
   };
 
+  const totalCost = price > 0 ? (parseFloat(price) * vendorQty).toFixed(2) : null;
+
   return (
     <div
       className={cn(
-        'bg-white rounded-xl border-l-4 border border-slate-200 p-5 transition-all hover:shadow-md',
-        PAX8_STATUS_BORDER[status] || 'border-l-slate-200',
-        isReviewed && 'opacity-60'
+        'bg-white rounded-lg border border-slate-200 overflow-hidden transition-all hover:shadow-md',
+        isReviewed && 'opacity-50'
       )}
     >
-      {/* Header */}
-      <div className="flex items-start justify-between mb-3">
-        <div>
-          <h4 className="font-semibold text-slate-900 text-sm">{productName}</h4>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Pax8{billingTerm ? ` · ${billingTerm}` : ''}{price > 0 ? ` · $${parseFloat(price).toFixed(2)}/unit · $${(parseFloat(price) * vendorQty).toFixed(2)}/mo` : ''}
+      {/* Compact header with status color bar */}
+      <div className={cn(
+        'h-1',
+        status === 'match' ? 'bg-emerald-500' : status === 'over' ? 'bg-orange-500' : status === 'under' || isMissing ? 'bg-red-500' : 'bg-slate-300'
+      )} />
+
+      <div className="px-4 py-3">
+        {/* Title row */}
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <h4 className="font-semibold text-slate-900 text-sm leading-tight truncate flex-1">{productName}</h4>
+          <ReconciliationBadge status={isMissing ? 'no_psa_data' : status} difference={difference} />
+        </div>
+
+        {/* Price line */}
+        {(billingTerm || totalCost) && (
+          <p className="text-[11px] text-slate-400 mb-3">
+            {billingTerm || 'Pax8'}{price > 0 ? ` · $${parseFloat(price).toFixed(2)}/unit` : ''}{totalCost ? ` · $${totalCost}/mo` : ''}
           </p>
-        </div>
-        <ReconciliationBadge
-          status={isMissing ? 'no_psa_data' : status}
-          difference={difference}
-        />
-      </div>
-
-      {/* Not Billed banner */}
-      {isMissing && (
-        <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3 flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
-          <p className="text-xs font-medium text-red-700 flex-1">PSA Not Billing — no matching line item in HaloPSA</p>
-          <button
-            onClick={() => onMapLineItem?.()}
-            className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded bg-red-600 text-white hover:bg-red-700 transition-colors flex-shrink-0"
-          >
-            <Link2 className="w-3 h-3" />
-            Map
-          </button>
-        </div>
-      )}
-
-      {/* Override badge */}
-      {hasOverride && !isMissing && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mb-3 flex items-center gap-2">
-          <Link2 className="w-4 h-4 text-blue-500 flex-shrink-0" />
-          <p className="text-xs font-medium text-blue-700 flex-1">Manually mapped line item</p>
-          <button
-            onClick={() => onRemoveMapping?.()}
-            className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors flex-shrink-0"
-          >
-            <Trash2 className="w-3 h-3" />
-            Unmap
-          </button>
-        </div>
-      )}
-
-      {/* Quantities */}
-      <div className="flex items-center gap-6 mb-3">
-        <div className="text-center">
-          <p className="text-2xl font-bold text-slate-900">
-            {psaQty !== null ? psaQty : '—'}
-          </p>
-          <p className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">PSA</p>
-        </div>
-        <div className="text-slate-300 text-lg">vs</div>
-        <div className="text-center">
-          <p className="text-2xl font-bold text-slate-900">{vendorQty}</p>
-          <p className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">Pax8</p>
-        </div>
-      </div>
-
-      {/* Source details — always visible */}
-      <div className="bg-slate-50 rounded-lg px-3 py-2 mb-3 space-y-1">
-        <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Source</p>
-        {matchedLineItems.length > 0 ? (
-          matchedLineItems.slice(0, 2).map((li) => (
-            <p key={li.id} className="text-xs text-slate-500 truncate">
-              <span className="font-medium text-slate-600">HaloPSA:</span>{' '}
-              {li.description?.replace(/\s*\$recurringbillingdate\s*/gi, '').trim()} · Qty {li.quantity}
-            </p>
-          ))
-        ) : (
-          <p className="text-xs text-slate-400 italic">No matching HaloPSA billing line item</p>
         )}
-        <p className="text-xs text-slate-500 truncate">
-          <span className="font-medium text-slate-600">Pax8:</span>{' '}
-          {productName} · {vendorQty} licence{vendorQty !== 1 ? 's' : ''}
-          {totalVendorQty !== vendorQty ? ` (product total: ${totalVendorQty})` : ''}
-        </p>
-      </div>
 
-      {/* Notes */}
-      {(showNotes || hasNotes) && (
-        <div className="mb-3">
-          {showNotes ? (
-            <div className="space-y-2">
-              <textarea
-                value={noteText}
-                onChange={(e) => setNoteText(e.target.value)}
-                placeholder="Add a note about this licence…"
-                rows={2}
-                className="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-300 resize-none"
-                autoFocus
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={handleSaveNote}
-                  disabled={savingNote}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold rounded bg-pink-500 text-white hover:bg-pink-600 transition-colors disabled:opacity-50"
-                >
-                  <Save className="w-3 h-3" />
-                  {savingNote ? 'Saving…' : 'Save'}
-                </button>
-                <button
-                  onClick={() => { setShowNotes(false); setNoteText(review?.notes || ''); }}
-                  className="px-2.5 py-1 text-[10px] font-semibold rounded bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
-                >
-                  Cancel
-                </button>
+        {/* Override / Not Billed — compact inline */}
+        {isMissing && (
+          <div className="flex items-center gap-2 mb-3 px-2.5 py-1.5 bg-red-50 rounded-md">
+            <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+            <span className="text-[11px] font-medium text-red-700 flex-1">Not billed in PSA</span>
+            <button onClick={() => onMapLineItem?.()} className="text-[10px] font-bold text-red-600 hover:text-red-800">MAP</button>
+          </div>
+        )}
+        {hasOverride && !isMissing && (
+          <div className="flex items-center gap-2 mb-3 px-2.5 py-1.5 bg-blue-50 rounded-md">
+            <Link2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+            <span className="text-[11px] text-blue-600 flex-1">Mapped manually</span>
+            <button onClick={() => onRemoveMapping?.()} className="text-[10px] font-bold text-blue-600 hover:text-blue-800">UNMAP</button>
+          </div>
+        )}
+
+        {/* Big numbers — side by side */}
+        <div className="flex items-center mb-3">
+          <div className="flex-1 text-center py-2 bg-slate-50 rounded-l-lg border border-slate-200">
+            <p className="text-3xl font-black text-slate-900 leading-none">
+              {psaQty !== null ? psaQty : '—'}
+            </p>
+            <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mt-1">PSA</p>
+          </div>
+          <div className="px-2 text-slate-300 text-sm font-bold">vs</div>
+          <div className="flex-1 text-center py-2 bg-slate-50 rounded-r-lg border border-slate-200">
+            <p className="text-3xl font-black text-slate-900 leading-none">{vendorQty}</p>
+            <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mt-1">PAX8</p>
+          </div>
+        </div>
+
+        {/* Message */}
+        <p className={cn(
+          'text-xs mb-3',
+          status === 'match' ? 'text-emerald-600 font-medium' : 'text-slate-500',
+          (status === 'under' || isMissing) && 'text-red-600 font-semibold',
+          status === 'over' && 'text-orange-600 font-semibold'
+        )}>
+          {isReviewed && <span className="text-slate-400 mr-1">[{review.status === 'reviewed' ? 'Reviewed' : 'Dismissed'}]</span>}
+          {message}
+        </p>
+
+        {/* Notes inline */}
+        {(showNotes || hasNotes) && (
+          <div className="mb-3">
+            {showNotes ? (
+              <div className="space-y-1.5">
+                <textarea
+                  value={noteText}
+                  onChange={(e) => setNoteText(e.target.value)}
+                  placeholder="Add a note…"
+                  rows={2}
+                  className="w-full text-xs border border-slate-200 rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+                  autoFocus
+                />
+                <div className="flex gap-1.5">
+                  <button onClick={handleSaveNote} disabled={savingNote} className="px-2 py-1 text-[10px] font-bold rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50">
+                    {savingNote ? 'Saving…' : 'Save'}
+                  </button>
+                  <button onClick={() => { setShowNotes(false); setNoteText(review?.notes || ''); }} className="px-2 py-1 text-[10px] font-bold rounded bg-slate-100 text-slate-500 hover:bg-slate-200">Cancel</button>
+                </div>
               </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => setShowNotes(true)}
-              className="w-full text-left bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700"
-            >
-              <span className="font-medium">Note:</span> {review.notes}
+            ) : (
+              <button onClick={() => setShowNotes(true)} className="w-full text-left bg-amber-50 rounded-md px-2.5 py-1.5 text-[11px] text-amber-700 truncate">
+                <span className="font-semibold">Note:</span> {review.notes}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Compact action bar */}
+        <div className="flex items-center gap-1.5 pt-2 border-t border-slate-100">
+          {!isReviewed && status !== 'match' && (
+            <>
+              <button onClick={() => onReview?.(ruleId)} disabled={isSaving} className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-50">
+                <Check className="w-3 h-3" /> OK
+              </button>
+              <button onClick={() => onDismiss?.(ruleId)} disabled={isSaving} className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors disabled:opacity-50">
+                <X className="w-3 h-3" /> Skip
+              </button>
+            </>
+          )}
+          {isReviewed && (
+            <button onClick={() => onReset?.(ruleId)} disabled={isSaving} className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors disabled:opacity-50">
+              <RotateCcw className="w-3 h-3" /> Reset
             </button>
           )}
+          {!showNotes && (
+            <button onClick={() => setShowNotes(true)} className={cn('p-1 rounded-md transition-colors', hasNotes ? 'text-amber-500 hover:bg-amber-50' : 'text-slate-300 hover:bg-slate-50')} title="Note">
+              <StickyNote className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {!isMissing && !hasOverride && (
+            <button onClick={() => onMapLineItem?.()} className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md text-blue-500 hover:bg-blue-50 transition-colors">
+              <Link2 className="w-3 h-3" /> Map
+            </button>
+          )}
+          <button onClick={() => onDetails?.(recon)} className="ml-auto inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-colors">
+            Details <ChevronRight className="w-3 h-3" />
+          </button>
         </div>
-      )}
-
-      {/* Message */}
-      <p
-        className={cn(
-          'text-sm mb-4',
-          status === 'match' ? 'text-emerald-600' : 'text-slate-600',
-          (status === 'under' || isMissing) && 'text-red-600 font-medium',
-          status === 'over' && 'text-orange-600 font-medium'
-        )}
-      >
-        {isReviewed && (
-          <span className="text-slate-400 mr-1">
-            [{review.status === 'reviewed' ? '✓ Reviewed' : '✕ Dismissed'}]
-          </span>
-        )}
-        {message}
-      </p>
-
-      {/* Actions — same as ServiceCard */}
-      <div className="flex items-center gap-2">
-        {!isReviewed && status !== 'match' && (
-          <>
-            <button
-              onClick={() => onReview?.(ruleId)}
-              disabled={isSaving}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-pink-50 text-pink-600 hover:bg-pink-100 transition-colors disabled:opacity-50"
-            >
-              <Check className="w-3.5 h-3.5" />
-              Reviewed
-            </button>
-            <button
-              onClick={() => onDismiss?.(ruleId)}
-              disabled={isSaving}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-50 text-slate-500 hover:bg-slate-100 transition-colors disabled:opacity-50"
-            >
-              <X className="w-3.5 h-3.5" />
-              Dismiss
-            </button>
-          </>
-        )}
-        {isReviewed && (
-          <button
-            onClick={() => onReset?.(ruleId)}
-            disabled={isSaving}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-50 text-slate-500 hover:bg-slate-100 transition-colors disabled:opacity-50"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            Reset
-          </button>
-        )}
-        {!showNotes && (
-          <button
-            onClick={() => setShowNotes(true)}
-            className={cn(
-              'inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors',
-              hasNotes ? 'text-amber-500 hover:bg-amber-50' : 'text-slate-400 hover:bg-slate-50'
-            )}
-            title="Add note"
-          >
-            <StickyNote className="w-3.5 h-3.5" />
-          </button>
-        )}
-        {!isMissing && !hasOverride && (
-          <button
-            onClick={() => onMapLineItem?.()}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
-          >
-            <Link2 className="w-3.5 h-3.5" />
-            Map
-          </button>
-        )}
-        <button
-          onClick={() => onDetails?.(recon)}
-          className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg text-slate-500 hover:bg-slate-50 transition-colors"
-        >
-          Details
-          <ChevronRight className="w-3.5 h-3.5" />
-        </button>
       </div>
     </div>
   );
