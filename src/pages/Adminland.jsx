@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { createPageUrl } from '../utils';
 
 import CronJobsPanel from '../components/admin/CronJobsPanel';
+import SystemInfoPanel from '../components/admin/SystemInfoPanel';
 import HaloPSAConfig from '../components/integrations/HaloPSAConfig';
 import DattoRMMConfig from '../components/integrations/DattoRMMConfig';
 import JumpCloudConfig from '../components/integrations/JumpCloudConfig';
@@ -70,6 +71,7 @@ import {
   Server,
   Crosshair,
   MapPin,
+  Info,
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -591,6 +593,7 @@ const MENU_GROUPS = [
   { title: 'Automation', items: [{ id: 'cron', label: 'Scheduled Jobs', desc: 'Cron job status, history & manual runs', icon: Clock, iconBg: 'bg-sky-50', iconColor: 'text-sky-600' }] },
   { title: 'Developer', items: [{ id: 'api', label: 'API Documentation', desc: 'API docs & external access keys', icon: Code, iconBg: 'bg-orange-50', iconColor: 'text-orange-600' }] },
   { title: 'Support', items: [{ id: 'feedback', label: 'User Feedback', desc: 'Review and respond to feedback', icon: MessageSquare, iconBg: 'bg-pink-50', iconColor: 'text-pink-600' }] },
+  { title: 'System', items: [{ id: 'system-info', label: 'System Info', desc: 'Build details, version history & changelog', icon: Info, iconBg: 'bg-slate-100', iconColor: 'text-slate-600' }] },
 ];
 
 export default function Adminland() {
@@ -634,6 +637,7 @@ export default function Adminland() {
       case 'email': return <ResendEmailConfig />;
       case 'api': return <ApiDocsPanel />;
       case 'feedback': return <div className="bg-white rounded-2xl border border-slate-200 p-6"><FeedbackPanel /></div>;
+      case 'system-info': return <SystemInfoPanel />;
       default: return null;
     }
   };
