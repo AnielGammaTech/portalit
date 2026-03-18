@@ -184,115 +184,117 @@ export default function CustomerDetail() {
     return tags;
   }, [serviceMappingsData]);
 
-  const { data: contracts = [], isLoading: loadingContracts } = useQuery({
+  // Shared query options: cache 5 min, retry twice, fail fast
+  const qOpts = { staleTime: 1000 * 60 * 5, retry: 2 };
+
+  const { data: contracts = [] } = useQuery({
     queryKey: ['contracts', customerId],
     queryFn: () => client.entities.Contract.filter({ customer_id: customerId }),
-    enabled: !!customerId
+    enabled: !!customerId, ...qOpts
   });
 
-  const { data: devices = [], isLoading: loadingDevices } = useQuery({
+  const { data: devices = [] } = useQuery({
     queryKey: ['devices', customerId],
     queryFn: () => client.entities.Device.filter({ customer_id: customerId }),
-    enabled: !!customerId
+    enabled: !!customerId, ...qOpts
   });
 
-  const { data: licenses = [], isLoading: loadingLicenses } = useQuery({
+  const { data: licenses = [] } = useQuery({
     queryKey: ['licenses', customerId],
     queryFn: () => client.entities.SaaSLicense.filter({ customer_id: customerId }),
-    enabled: !!customerId
+    enabled: !!customerId, ...qOpts
   });
 
-  // Fetch Application catalog entries (software without licenses yet)
-  const { data: applications = [], isLoading: loadingApplications } = useQuery({
+  const { data: applications = [] } = useQuery({
     queryKey: ['applications', customerId],
     queryFn: () => client.entities.Application.filter({ customer_id: customerId }),
-    enabled: !!customerId
+    enabled: !!customerId, ...qOpts
   });
 
-  const { data: recurringBills = [], isLoading: loadingBills } = useQuery({
+  const { data: recurringBills = [] } = useQuery({
     queryKey: ['recurring_bills', customerId],
     queryFn: () => client.entities.RecurringBill.filter({ customer_id: customerId }),
-    enabled: !!customerId
+    enabled: !!customerId, ...qOpts
   });
 
   const recurringBillIds = recurringBills.map(b => b.id).sort();
-  const { data: lineItems = [], isLoading: loadingLineItems } = useQuery({
+  const { data: lineItems = [] } = useQuery({
     queryKey: ['line_items', customerId, recurringBillIds],
     queryFn: () => client.entities.RecurringBillLineItem.filterIn(
       'recurring_bill_id', recurringBillIds
     ),
-    enabled: !!customerId && recurringBills.length > 0
+    enabled: !!customerId && recurringBills.length > 0, ...qOpts
   });
 
-  const { data: invoices = [], isLoading: loadingInvoices } = useQuery({
+  const { data: invoices = [] } = useQuery({
     queryKey: ['invoices', customerId],
     queryFn: () => client.entities.Invoice.filter({ customer_id: customerId }),
-    enabled: !!customerId
+    enabled: !!customerId, ...qOpts
   });
 
-  const { data: quotes = [], isLoading: loadingQuotes } = useQuery({
+  const { data: quotes = [] } = useQuery({
     queryKey: ['quotes', customerId],
     queryFn: () => client.entities.Quote.filter({ customer_id: customerId }),
-    enabled: !!customerId
+    enabled: !!customerId, ...qOpts
   });
 
-  const { data: contacts = [], isLoading: loadingContacts } = useQuery({
-        queryKey: ['contacts', customerId],
-        queryFn: () => client.entities.Contact.filter({ customer_id: customerId }),
-        enabled: !!customerId
-      });
+  const { data: contacts = [] } = useQuery({
+    queryKey: ['contacts', customerId],
+    queryFn: () => client.entities.Contact.filter({ customer_id: customerId }),
+    enabled: !!customerId, ...qOpts
+  });
 
-      const { data: tickets = [], isLoading: loadingTickets } = useQuery({
-        queryKey: ['tickets', customerId],
-        queryFn: () => client.entities.Ticket.filter({ customer_id: customerId }),
-        enabled: !!customerId
-      });
+  const { data: tickets = [] } = useQuery({
+    queryKey: ['tickets', customerId],
+    queryFn: () => client.entities.Ticket.filter({ customer_id: customerId }),
+    enabled: !!customerId, ...qOpts
+  });
 
   const quoteIds = quotes.map(q => q.id).sort();
-  const { data: quoteItems = [], isLoading: loadingQuoteItems } = useQuery({
-        queryKey: ['quote_items', customerId, quoteIds],
-        queryFn: () => client.entities.QuoteItem.filterIn(
-          'quote_id', quoteIds
-        ),
-        enabled: !!customerId && quotes.length > 0
-      });
+  const { data: quoteItems = [] } = useQuery({
+    queryKey: ['quote_items', customerId, quoteIds],
+    queryFn: () => client.entities.QuoteItem.filterIn(
+      'quote_id', quoteIds
+    ),
+    enabled: !!customerId && quotes.length > 0, ...qOpts
+  });
 
-      const invoiceIds = invoices.map(i => i.id).sort();
-      const { data: invoiceLineItems = [], isLoading: loadingInvoiceLineItems } = useQuery({
-        queryKey: ['invoice_line_items', customerId, invoiceIds],
-        queryFn: () => client.entities.InvoiceLineItem.filterIn(
-          'invoice_id', invoiceIds
-        ),
-        enabled: !!customerId && invoices.length > 0
-      });
+  const invoiceIds = invoices.map(i => i.id).sort();
+  const { data: invoiceLineItems = [] } = useQuery({
+    queryKey: ['invoice_line_items', customerId, invoiceIds],
+    queryFn: () => client.entities.InvoiceLineItem.filterIn(
+      'invoice_id', invoiceIds
+    ),
+    enabled: !!customerId && invoices.length > 0, ...qOpts
+  });
 
   const contractIds = contracts.map(c => c.id).sort();
-  const { data: contractItems = [], isLoading: loadingContractItems } = useQuery({
+  const { data: contractItems = [] } = useQuery({
     queryKey: ['contract_items', customerId, contractIds],
     queryFn: () => client.entities.ContractItem.filterIn(
       'contract_id', contractIds
     ),
-    enabled: !!customerId && contracts.length > 0
+    enabled: !!customerId && contracts.length > 0, ...qOpts
   });
 
-  const { data: licenseAssignments = [], isLoading: loadingAssignments } = useQuery({
+  const { data: licenseAssignments = [] } = useQuery({
     queryKey: ['license_assignments', customerId],
     queryFn: () => client.entities.LicenseAssignment.filter({ customer_id: customerId }),
-    enabled: !!customerId
+    enabled: !!customerId, ...qOpts
   });
 
   // Fetch JumpCloud mapping for this customer
-  const { data: jumpcloudMapping, isLoading: loadingJumpcloud } = useQuery({
+  const { data: jumpcloudMapping } = useQuery({
     queryKey: ['jumpcloud-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.JumpCloudMapping.filter({ customer_id: customerId });
       return mappings[0] || null;
     },
-    enabled: !!customerId
+    enabled: !!customerId, ...qOpts
   });
 
   // Fetch Spanning mapping for this customer
-  const { data: spanningMapping, isLoading: loadingSpanning } = useQuery({
+  const { data: spanningMapping } = useQuery({
     queryKey: ['spanning-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.SpanningMapping.filter({ customer_id: customerId });
@@ -301,10 +303,8 @@ export default function CustomerDetail() {
     enabled: !!customerId
   });
 
-  // Check if customer has any services mapped - show services tab if recurring services exist OR if mapping queries are done and found
-  // Don't show until mapping queries are complete
-  const hasJumpcloudMapping = !loadingJumpcloud && jumpcloudMapping !== null && jumpcloudMapping !== undefined;
-  const hasSpanningMapping = !loadingSpanning && spanningMapping !== null && spanningMapping !== undefined;
+  const hasJumpcloudMapping = jumpcloudMapping !== null && jumpcloudMapping !== undefined;
+  const hasSpanningMapping = spanningMapping !== null && spanningMapping !== undefined;
   const hasServicesMapped = lineItems.length > 0 || hasJumpcloudMapping || hasSpanningMapping;
 
   const [expandedBills, setExpandedBills] = useState({ _section: true });
@@ -321,7 +321,9 @@ export default function CustomerDetail() {
                   const [jumpcloudSsoExpanded, setJumpcloudSsoExpanded] = useState(false); // collapsible JumpCloud SSO section
   
 
-  const isLoading = userLoading || loadingCustomer || loadingContracts || loadingLicenses || loadingApplications || loadingBills || loadingLineItems || loadingInvoices || loadingQuotes || loadingQuoteItems || loadingContractItems || loadingContacts || loadingTickets || loadingInvoiceLineItems || loadingAssignments || loadingDevices || loadingJumpcloud || loadingSpanning;
+  // Only block the full page on user auth + customer record.
+  // Everything else loads progressively — tabs show their own loading states.
+  const isLoading = userLoading || loadingCustomer;
 
   const handleAssignLicense = async (contactId) => {
     await client.entities.LicenseAssignment.create({
