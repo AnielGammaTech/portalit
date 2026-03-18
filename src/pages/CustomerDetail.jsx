@@ -436,92 +436,80 @@ export default function CustomerDetail() {
     const errors = [];
 
     try {
-      // Build all sync tasks in parallel for speed
       const syncTasks = [];
 
-      // HaloPSA syncs — all run in parallel (contacts, tickets, contracts, invoices)
+      // ── HaloPSA: customer, contacts, tickets, contracts, invoices, recurring bills ──
       if (customer?.source === 'halopsa' && customer?.external_id) {
         const haloId = customer.external_id;
 
-        // Customer record first (fast, updates address/phone)
-        syncTasks.push(
-          client.functions.invoke('syncHaloPSACustomers', { action: 'sync_customer', customer_id: haloId })
-            .then(res => res.success ? results.push('HaloPSA') : errors.push('HaloPSA'))
-            .catch(() => errors.push('HaloPSA'))
-        );
+        const haloSyncs = [
+          { fn: 'syncHaloPSACustomers',       label: 'Customer' },
+          { fn: 'syncHaloPSAContacts',         label: 'Contacts' },
+          { fn: 'syncHaloPSATickets',          label: 'Tickets' },
+          { fn: 'syncHaloPSAContracts',        label: 'Contracts' },
+          { fn: 'syncHaloPSAInvoices',         label: 'Invoices' },
+          { fn: 'syncHaloPSARecurringBills',   label: 'Billing' },
+        ];
 
-        // Contacts, tickets, contracts, invoices — all in parallel
-        syncTasks.push(
-          client.functions.invoke('syncHaloPSAContacts', { action: 'sync_customer', customer_id: haloId })
-            .then(res => res.success ? results.push(`Team (${res.recordsSynced || 0})`) : errors.push('Contacts'))
-            .catch(() => errors.push('Contacts'))
-        );
-        syncTasks.push(
-          client.functions.invoke('syncHaloPSATickets', { action: 'sync_customer', customer_id: haloId })
-            .then(res => res.success ? results.push(`Tickets (${res.recordsSynced || 0})`) : errors.push('Tickets'))
-            .catch(() => errors.push('Tickets'))
-        );
-        syncTasks.push(
-          client.functions.invoke('syncHaloPSAContracts', { action: 'sync_customer', customer_id: haloId })
-            .then(res => res.success ? results.push(`Contracts (${res.recordsSynced || 0})`) : errors.push('Contracts'))
-            .catch(() => errors.push('Contracts'))
-        );
-        syncTasks.push(
-          client.functions.invoke('syncHaloPSAInvoices', { action: 'sync_customer', customer_id: haloId })
-            .then(res => res.success ? results.push(`Invoices (${res.recordsSynced || 0})`) : errors.push('Invoices'))
-            .catch(() => errors.push('Invoices'))
-        );
+        for (const { fn, label } of haloSyncs) {
+          syncTasks.push(
+            client.functions.invoke(fn, { action: 'sync_customer', customer_id: haloId })
+              .then(res => res.success ? results.push(label) : errors.push(label))
+              .catch(() => errors.push(label))
+          );
+        }
       }
 
-      // Check integration mappings in parallel
-      const [jcMappings, spanningMappings, dattoMappings] = await Promise.all([
-        client.entities.JumpCloudMapping.filter({ customer_id: customerId }).catch(() => []),
-        client.entities.SpanningMapping.filter({ customer_id: customerId }).catch(() => []),
-        client.entities.DattoSiteMapping.filter({ customer_id: customerId }).catch(() => []),
-      ]);
+      // ── Integrations: check all mappings in parallel, sync those that exist ──
+      const integrationChecks = [
+        { entity: 'JumpCloudMapping',   fn: 'syncJumpCloudLicenses',  action: 'sync_licenses',  label: 'JumpCloud' },
+        { entity: 'SpanningMapping',    fn: 'syncSpanningBackup',     action: 'sync_licenses',  label: 'Spanning' },
+        { entity: 'DattoSiteMapping',   fn: 'syncDattoRMMDevices',    action: 'sync_devices',   label: 'Datto RMM' },
+        { entity: 'DattoEDRMapping',    fn: 'syncDattoEDR',           action: 'sync_alerts',    label: 'Datto EDR' },
+        { entity: 'CoveDataMapping',    fn: 'syncCoveData',           action: 'sync_devices',   label: 'Cove' },
+        { entity: 'RocketCyberMapping', fn: 'syncRocketCyber',        action: 'sync_agents',    label: 'RocketCyber' },
+        { entity: 'SaaSAlertsMapping',  fn: 'syncSaaSAlerts',         action: 'sync_alerts',    label: 'SaaS Alerts' },
+        { entity: 'UniFiMapping',       fn: 'syncUniFiDevices',       action: 'sync_devices',   label: 'UniFi' },
+        { entity: 'Pax8Mapping',        fn: 'syncPax8Subscriptions',  action: 'sync_subscriptions', label: 'Pax8' },
+      ];
 
-      if (jcMappings.length > 0) {
-        syncTasks.push(
-          client.functions.invoke('syncJumpCloudLicenses', { action: 'sync_licenses', customer_id: customerId })
-            .then(res => res.success ? results.push('JumpCloud') : errors.push('JumpCloud'))
-            .catch(() => errors.push('JumpCloud'))
-        );
-      }
+      const mappingResults = await Promise.all(
+        integrationChecks.map(({ entity }) =>
+          client.entities[entity].filter({ customer_id: customerId }).catch(() => [])
+        )
+      );
 
-      if (spanningMappings.length > 0) {
-        syncTasks.push(
-          client.functions.invoke('syncSpanningBackup', { action: 'sync_licenses', customer_id: customerId })
-            .then(res => res.success ? results.push('Spanning') : errors.push('Spanning'))
-            .catch(() => errors.push('Spanning'))
-        );
-      }
-
-      if (dattoMappings.length > 0) {
-        syncTasks.push(
-          client.functions.invoke('syncDattoRMMDevices', { action: 'sync_devices', customer_id: customerId })
-            .then(res => res.success ? results.push('Datto') : errors.push('Datto'))
-            .catch(() => errors.push('Datto'))
-        );
-      }
+      integrationChecks.forEach(({ fn, action, label }, idx) => {
+        if (mappingResults[idx].length > 0) {
+          syncTasks.push(
+            client.functions.invoke(fn, { action, customer_id: customerId })
+              .then(res => res.success ? results.push(label) : errors.push(label))
+              .catch(() => errors.push(label))
+          );
+        }
+      });
 
       // Execute all sync tasks in parallel
       await Promise.allSettled(syncTasks);
 
       if (results.length > 0) {
         toast.success(`Synced: ${results.join(', ')}`);
-        queryClient.invalidateQueries({ queryKey: ['contracts', customerId] });
-        queryClient.invalidateQueries({ queryKey: ['recurring_bills', customerId] });
-        queryClient.invalidateQueries({ queryKey: ['invoices', customerId] });
-        queryClient.invalidateQueries({ queryKey: ['tickets', customerId] });
-        queryClient.invalidateQueries({ queryKey: ['contacts', customerId] });
-        queryClient.invalidateQueries({ queryKey: ['devices', customerId] });
-        queryClient.invalidateQueries({ queryKey: ['license_assignments', customerId] });
       }
       if (errors.length > 0) {
         toast.error(`Failed: ${errors.join(', ')}`);
       }
       if (results.length === 0 && errors.length === 0) {
         toast.info('No integrations configured to sync');
+      }
+
+      // Invalidate all queries to refresh UI
+      const keys = [
+        'contracts', 'recurring_bills', 'invoices', 'invoice_line_items',
+        'tickets', 'contacts', 'devices', 'license_assignments',
+        'line_items', 'spanning-mapping', 'customer-contacts',
+      ];
+      for (const key of keys) {
+        queryClient.invalidateQueries({ queryKey: [key, customerId] });
       }
     } catch (error) {
       toast.error(error.message || 'An error occurred during sync');
@@ -836,33 +824,6 @@ export default function CustomerDetail() {
                                         </div>
                                         <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Contract</span>
                                       </div>
-                                      {customer?.source === 'halopsa' && (
-                                        <button
-                                          onClick={async () => {
-                                            try {
-                                              setIsSyncing(true);
-                                              const response = await client.functions.invoke('syncHaloPSAContracts', {
-                                                action: 'sync_customer',
-                                                customer_id: customer.external_id
-                                              });
-                                              if (response.success) {
-                                                toast.success(`Synced contracts!`);
-                                                queryClient.invalidateQueries({ queryKey: ['contracts', customerId] });
-                                              } else {
-                                                toast.error(response.error || 'Sync failed');
-                                              }
-                                            } catch (error) {
-                                              toast.error(error.message || 'An error occurred');
-                                            } finally {
-                                              setIsSyncing(false);
-                                            }
-                                          }}
-                                          disabled={isSyncing}
-                                          className="text-gray-400 hover:text-gray-600"
-                                        >
-                                          <RefreshCw className={cn("w-3.5 h-3.5", isSyncing && "animate-spin")} />
-                                        </button>
-                                      )}
                                     </div>
                                     {activeContract ? (
                                       <>
@@ -987,35 +948,6 @@ export default function CustomerDetail() {
                                 )}
                               </div>
                               <div className="flex items-center gap-2">
-                                {customer?.source === 'halopsa' && (
-                                  <Button
-                                    size="sm" variant="outline" className="gap-2"
-                                    onClick={async () => {
-                                      try {
-                                        setIsSyncing(true);
-                                        const response = await client.functions.invoke('syncHaloPSAInvoices', {
-                                          action: 'sync_customer_full',
-                                          customer_id: customer.external_id
-                                        });
-                                        if (response.success) {
-                                          toast.success(`Synced ${response.recordsSynced} invoices with line items!`);
-                                          queryClient.invalidateQueries({ queryKey: ['invoices', customerId] });
-                                          queryClient.invalidateQueries({ queryKey: ['invoice_line_items', customerId] });
-                                        } else {
-                                          toast.error(response.error || 'Sync failed');
-                                        }
-                                      } catch (error) {
-                                        toast.error(error.message || 'Sync failed');
-                                      } finally {
-                                        setIsSyncing(false);
-                                      }
-                                    }}
-                                    disabled={isSyncing}
-                                  >
-                                    <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
-                                    Sync
-                                  </Button>
-                                )}
                                 <select
                                   value={invoiceFilter}
                                   onChange={(e) => setInvoiceFilter(e.target.value)}
@@ -1768,36 +1700,6 @@ export default function CustomerDetail() {
                               </p>
                             </div>
                             <div className="flex items-center gap-3">
-                              {customer?.source === 'halopsa' && (
-                                <Button 
-                                  size="sm"
-                                  variant="outline"
-                                  className="gap-2"
-                                  onClick={async () => {
-                                    try {
-                                      setIsSyncing(true);
-                                      const response = await client.functions.invoke('syncHaloPSATickets', { 
-                                        action: 'sync_customer',
-                                        customer_id: customer.external_id 
-                                      });
-                                      if (response.success) {
-                                        toast.success(`Synced ${response.recordsSynced} tickets!`);
-                                        queryClient.invalidateQueries({ queryKey: ['tickets', customerId] });
-                                      } else {
-                                        toast.error(response.error || 'Sync failed');
-                                      }
-                                    } catch (error) {
-                                      toast.error(error.message || 'An error occurred during sync');
-                                    } finally {
-                                      setIsSyncing(false);
-                                    }
-                                  }}
-                                  disabled={isSyncing}
-                                >
-                                  <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
-                                  Sync
-                                </Button>
-                              )}
                               <select
                                 value={ticketFilter}
                                 onChange={(e) => { setTicketFilter(e.target.value); setTicketPage(1); }}
