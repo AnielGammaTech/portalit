@@ -536,10 +536,30 @@ function APISyncTab() {
  * Number, FirstName, LastName, EmailAddress, Role, Disabled, etc.
  */
 function parseThreeCXExtensionsCsv(csvText) {
-  const lines = csvText.split('\n').filter(l => l.trim());
-  if (lines.length < 2) return null;
+  // Split CSV into logical rows, handling multi-line quoted fields
+  // (e.g., BLF column contains newlines inside quotes)
+  const splitCsvRows = (text) => {
+    const rows = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (ch === '"') {
+        inQuotes = !inQuotes;
+        current += ch;
+      } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
+        if (ch === '\r' && text[i + 1] === '\n') i++; // skip \r\n
+        if (current.trim()) rows.push(current);
+        current = '';
+      } else {
+        current += ch;
+      }
+    }
+    if (current.trim()) rows.push(current);
+    return rows;
+  };
 
-  // Parse header — handle quoted fields with commas inside
+  // Parse a single CSV row — handle quoted fields with commas and quotes inside
   const parseRow = (line) => {
     const fields = [];
     let current = '';
@@ -564,7 +584,10 @@ function parseThreeCXExtensionsCsv(csvText) {
     return fields;
   };
 
-  const headers = parseRow(lines[0]);
+  const rows = splitCsvRows(csvText);
+  if (rows.length < 2) return null;
+
+  const headers = parseRow(rows[0]);
   const numIdx = headers.findIndex(h => h.toLowerCase() === 'number');
   const firstIdx = headers.findIndex(h => h.toLowerCase() === 'firstname');
   const lastIdx = headers.findIndex(h => h.toLowerCase() === 'lastname');
@@ -576,16 +599,16 @@ function parseThreeCXExtensionsCsv(csvText) {
   if (numIdx === -1) return null; // Not a valid 3CX extensions CSV
 
   const extensions = [];
-  for (let i = 1; i < lines.length; i++) {
-    const fields = parseRow(lines[i]);
+  for (let i = 1; i < rows.length; i++) {
+    const fields = parseRow(rows[i]);
     if (!fields[numIdx]) continue;
 
-    const role = roleIdx >= 0 ? fields[roleIdx] : '';
-    const disabled = disabledIdx >= 0 ? fields[disabledIdx] : '0';
-    const firstName = firstIdx >= 0 ? fields[firstIdx] : '';
-    const lastName = lastIdx >= 0 ? fields[lastIdx] : '';
-    const email = emailIdx >= 0 ? fields[emailIdx] : '';
-    const dept = deptIdx >= 0 ? fields[deptIdx] : '';
+    const role = (roleIdx >= 0 ? fields[roleIdx] : '') || '';
+    const disabled = (disabledIdx >= 0 ? fields[disabledIdx] : '0') || '0';
+    const firstName = (firstIdx >= 0 ? fields[firstIdx] : '') || '';
+    const lastName = (lastIdx >= 0 ? fields[lastIdx] : '') || '';
+    const email = (emailIdx >= 0 ? fields[emailIdx] : '') || '';
+    const dept = (deptIdx >= 0 ? fields[deptIdx] : '') || '';
 
     const isUser = role.includes('users') || role.includes('system_owners');
     const isDisabled = disabled === '1';
