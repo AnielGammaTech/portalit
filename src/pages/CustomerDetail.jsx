@@ -226,6 +226,29 @@ export default function CustomerDetail() {
     enabled: !!customerId && recurringBills.length > 0, ...qOpts
   });
 
+  // Filter to only active recurring bills (exclude inactive/expired)
+  const activeBillIdSet = useMemo(() => {
+    const now = new Date();
+    return new Set(
+      recurringBills
+        .filter(b => {
+          if ((b.status || '').toLowerCase() === 'inactive') return false;
+          if (b.end_date) {
+            const end = new Date(b.end_date);
+            if (end.getFullYear() < 2090 && end < now) return false;
+          }
+          return true;
+        })
+        .map(b => b.id)
+    );
+  }, [recurringBills]);
+
+  // Line items from active bills only
+  const activeLineItems = useMemo(
+    () => lineItems.filter(item => activeBillIdSet.has(item.recurring_bill_id)),
+    [lineItems, activeBillIdSet]
+  );
+
   const { data: invoices = [] } = useQuery({
     queryKey: ['invoices', customerId],
     queryFn: () => client.entities.Invoice.filter({ customer_id: customerId }),
@@ -763,7 +786,7 @@ export default function CustomerDetail() {
             contracts={contracts}
             tickets={tickets}
             invoices={invoices}
-            lineItems={lineItems}
+            lineItems={activeLineItems}
             recurringBills={recurringBills}
             licenses={licenses}
             serviceTags={serviceTags}
@@ -775,25 +798,15 @@ export default function CustomerDetail() {
 
                           {/* Billing Dashboard Widgets */}
                           {(() => {
-                            const now = new Date();
-                            const activeBills = recurringBills.filter(b => {
-                              if ((b.status || '').toLowerCase() === 'inactive') return false;
-                              if (b.end_date) {
-                                const end = new Date(b.end_date);
-                                if (end.getFullYear() < 2090 && end < now) return false;
-                              }
-                              return true;
-                            });
+                            const activeBills = recurringBills.filter(b => activeBillIdSet.has(b.id));
                             const monthlyCost = activeBills.reduce((sum, b) => sum + (b.amount || 0), 0);
-                            const paidInvoices = invoices.filter(i => i.status === 'paid');
                             const overdueInvoices = invoices.filter(i => i.status === 'overdue');
                             const pendingInvoices = invoices.filter(i => i.status === 'sent');
-                            const totalPaid = paidInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
                             const totalOverdue = overdueInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
                             const totalPending = pendingInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
                             const activeContract = contracts.find(c => c.status === 'active') || contracts[0];
                             const contractValue = contractItems.reduce((sum, ci) => sum + (ci.net_amount || ci.price || 0), 0);
-                            const totalLineItems = lineItems.length;
+                            const totalLineItems = activeLineItems.length;
                             const workstations = devices.filter(d => d.device_type === 'workstation' || d.device_type === 'laptop' || d.device_type === 'desktop').length;
                             const servers = devices.filter(d => d.device_type === 'server').length;
 
@@ -876,17 +889,7 @@ export default function CustomerDetail() {
                                     <h3 className="text-sm font-semibold text-gray-900">Invoice Summary</h3>
                                     <span className="text-xs text-gray-400">{invoices.length} total invoice{invoices.length !== 1 ? 's' : ''}</span>
                                   </div>
-                                  <div className="grid grid-cols-3 gap-4">
-                                    <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-50/60">
-                                      <div className="w-2 h-10 rounded-full bg-emerald-500" />
-                                      <div>
-                                        <p className="text-xs text-emerald-600 font-medium">Paid</p>
-                                        <p className="text-lg font-bold text-emerald-700">
-                                          ${totalPaid.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                        </p>
-                                        <p className="text-xs text-emerald-500">{paidInvoices.length} invoice{paidInvoices.length !== 1 ? 's' : ''}</p>
-                                      </div>
-                                    </div>
+                                  <div className="grid grid-cols-2 gap-4">
                                     <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-50/60">
                                       <div className="w-2 h-10 rounded-full bg-amber-500" />
                                       <div>
@@ -1093,7 +1096,7 @@ export default function CustomerDetail() {
             customerId={customerId}
             customer={customer}
             contacts={contacts}
-            lineItems={lineItems}
+            lineItems={activeLineItems}
             expandedBills={expandedBills}
             setExpandedBills={setExpandedBills}
             isSyncing={isSyncing}

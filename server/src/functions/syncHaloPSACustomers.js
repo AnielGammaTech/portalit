@@ -77,6 +77,11 @@ export async function syncHaloPSACustomers(body, _user) {
 
       const existing = (existingArr || [])[0];
       if (existing) {
+        // Never overwrite good data with empty values from a failed site fetch
+        if (!customerData.address && existing.address) delete customerData.address;
+        if (!customerData.phone && existing.phone) delete customerData.phone;
+        if (!customerData.email && existing.email) delete customerData.email;
+        if (!customerData.primary_contact && existing.primary_contact) delete customerData.primary_contact;
         await supabase.from('customers').update(customerData).eq('id', existing.id);
       } else {
         const { error } = await supabase.from('customers').insert(customerData);
@@ -161,6 +166,11 @@ export async function syncHaloPSACustomers(body, _user) {
 
         const existing = existingByExternalId[String(client.id)];
         if (existing) {
+          // Never overwrite good data with empty values from a failed site fetch
+          if (!customerData.address && existing.address) delete customerData.address;
+          if (!customerData.phone && existing.phone) delete customerData.phone;
+          if (!customerData.email && existing.email) delete customerData.email;
+          if (!customerData.primary_contact && existing.primary_contact) delete customerData.primary_contact;
           toUpdate.push({ id: existing.id, data: customerData });
         } else {
           toCreate.push(customerData);

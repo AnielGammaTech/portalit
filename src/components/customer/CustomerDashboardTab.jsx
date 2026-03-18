@@ -226,22 +226,17 @@ export default function CustomerDashboardTab({
 
         {/* Invoice Summary */}
         <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-4">Invoice Summary</h4>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                <span className="text-xs text-gray-500">Paid</span>
-              </div>
-              <p className="text-lg font-bold text-gray-900">{invoiceStats.paid}</p>
-              <p className="text-[10px] text-gray-400">${invoiceStats.paidAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-            </div>
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Invoice Summary</h4>
+            <span className="text-xs text-gray-400">{invoices.length} total invoices</span>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-2 h-2 rounded-full bg-amber-500" />
                 <span className="text-xs text-gray-500">Pending</span>
               </div>
-              <p className="text-lg font-bold text-gray-900">{invoiceStats.pending}</p>
+              <p className={cn("text-lg font-bold", invoiceStats.pending > 0 ? "text-amber-600" : "text-gray-900")}>{invoiceStats.pending}</p>
               <p className="text-[10px] text-gray-400">${invoiceStats.pendingAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
             </div>
             <div>

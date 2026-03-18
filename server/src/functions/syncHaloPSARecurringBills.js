@@ -128,12 +128,7 @@ export async function syncHaloPSARecurringBills(body, _user) {
         ...toUpdate.map(u => u.id),
       ];
 
-      // Bulk delete old line items for all bills at once
-      if (allBillIds.length > 0) {
-        await supabase.from('recurring_bill_line_items').delete().in('recurring_bill_id', allBillIds);
-      }
-
-      // Bulk insert all new line items
+      // Upsert line items (preserves UUIDs so manual Pax8 overrides stay valid)
       const allNewLineItems = [];
       for (const bill of createdBills) {
         const lines = billLineItems.get(bill.halopsa_id) || [];
@@ -144,8 +139,25 @@ export async function syncHaloPSARecurringBills(body, _user) {
         for (const line of lines) allNewLineItems.push(transformLineItem(line, upd.id));
       }
       if (allNewLineItems.length > 0) {
-        const { error } = await supabase.from('recurring_bill_line_items').insert(allNewLineItems);
-        if (error) errors.push(`Line items insert: ${error.message}`);
+        const { error } = await supabase
+          .from('recurring_bill_line_items')
+          .upsert(allNewLineItems, { onConflict: 'recurring_bill_id,halopsa_id' });
+        if (error) errors.push(`Line items upsert: ${error.message}`);
+      }
+
+      // Remove line items no longer in HaloPSA (deleted on vendor side)
+      if (allBillIds.length > 0) {
+        const newHaloIds = new Set(allNewLineItems.map(li => `${li.recurring_bill_id}:${li.halopsa_id}`));
+        const { data: existingItems } = await supabase
+          .from('recurring_bill_line_items')
+          .select('id, recurring_bill_id, halopsa_id')
+          .in('recurring_bill_id', allBillIds);
+        const toDelete = (existingItems || [])
+          .filter(item => !newHaloIds.has(`${item.recurring_bill_id}:${item.halopsa_id}`))
+          .map(item => item.id);
+        if (toDelete.length > 0) {
+          await supabase.from('recurring_bill_line_items').delete().in('id', toDelete);
+        }
       }
 
       await supabase.from('sync_logs').update({
@@ -267,11 +279,8 @@ export async function syncHaloPSARecurringBills(body, _user) {
         recordsSynced += batch.length;
       }
 
-      // Bulk delete old line items for updated bills, then bulk insert new ones
+      // Upsert line items for updated bills (preserves UUIDs for manual overrides)
       const updateBillIds = allToUpdate.map(u => u.id);
-      if (updateBillIds.length > 0) {
-        await supabase.from('recurring_bill_line_items').delete().in('recurring_bill_id', updateBillIds);
-      }
       const updatedLineItems = [];
       for (const { id, lineItems } of allToUpdate) {
         if (Array.isArray(lineItems)) {
@@ -279,7 +288,23 @@ export async function syncHaloPSARecurringBills(body, _user) {
         }
       }
       if (updatedLineItems.length > 0) {
-        await supabase.from('recurring_bill_line_items').insert(updatedLineItems);
+        await supabase
+          .from('recurring_bill_line_items')
+          .upsert(updatedLineItems, { onConflict: 'recurring_bill_id,halopsa_id' });
+      }
+      // Remove line items no longer present in HaloPSA
+      if (updateBillIds.length > 0) {
+        const newHaloIds = new Set(updatedLineItems.map(li => `${li.recurring_bill_id}:${li.halopsa_id}`));
+        const { data: existingItems } = await supabase
+          .from('recurring_bill_line_items')
+          .select('id, recurring_bill_id, halopsa_id')
+          .in('recurring_bill_id', updateBillIds);
+        const toDelete = (existingItems || [])
+          .filter(item => !newHaloIds.has(`${item.recurring_bill_id}:${item.halopsa_id}`))
+          .map(item => item.id);
+        if (toDelete.length > 0) {
+          await supabase.from('recurring_bill_line_items').delete().in('id', toDelete);
+        }
       }
 
       await supabase.from('sync_logs').update({
