@@ -54,9 +54,25 @@ const VENDOR_EXTRACTORS = {
 
   spanning: (data) => {
     if (!data) return null;
-    if (typeof data.numberOfUsers === 'number') return data.numberOfUsers;
+    // Standard licenses only (excludes archived)
+    if (typeof data.numberOfProtectedStandardUsers === 'number') return data.numberOfProtectedStandardUsers;
+    if (typeof data.numberOfStandardLicensesTotal === 'number') return data.numberOfStandardLicensesTotal;
+    // Fallback: count standard-type users from the users array
+    if (Array.isArray(data.users)) {
+      const standard = data.users.filter(u => (u.userType || 'standard') !== 'archived');
+      return standard.length;
+    }
     if (typeof data.total === 'number') return data.total;
-    if (Array.isArray(data.users)) return data.users.length;
+    return null;
+  },
+
+  spanning_archived: (data) => {
+    if (!data) return null;
+    if (typeof data.numberOfProtectedArchivedUsers === 'number') return data.numberOfProtectedArchivedUsers;
+    if (typeof data.numberOfArchivedLicensesTotal === 'number') return data.numberOfArchivedLicensesTotal;
+    if (Array.isArray(data.users)) {
+      return data.users.filter(u => u.userType === 'archived').length;
+    }
     return null;
   },
 
@@ -147,6 +163,7 @@ export const INTEGRATION_MAPPING_ENTITIES = {
   datto_rmm_workstation: 'DattoSiteMapping',
   datto_rmm_server: 'DattoSiteMapping',
   spanning: 'SpanningMapping',
+  spanning_archived: 'SpanningMapping',
   jumpcloud: 'JumpCloudMapping',
   datto_edr: 'DattoEDRMapping',
   unifi: 'UniFiMapping',
@@ -165,7 +182,8 @@ export const INTEGRATION_LABELS = {
   datto_rmm: 'Datto RMM',
   datto_rmm_workstation: 'Datto RMM Workstations',
   datto_rmm_server: 'Datto RMM Servers',
-  spanning: 'Spanning Backup',
+  spanning: 'Spanning Standard',
+  spanning_archived: 'Spanning Archived',
   jumpcloud: 'JumpCloud',
   datto_edr: 'Datto EDR',
   unifi: 'UniFi Network',

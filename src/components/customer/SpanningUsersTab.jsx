@@ -66,6 +66,7 @@ const ITEMS_PER_PAGE = 15;
 export default function SpanningUsersTab({ customerId, spanningMapping, queryClient }) {
   const [syncingSpanning, setSyncingSpanning] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [userTypeFilter, setUserTypeFilter] = useState('all'); // 'all' | 'standard' | 'archived'
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedUser, setSelectedUser] = useState(null);
   const [sharePointModalOpen, setSharePointModalOpen] = useState(false);
@@ -235,8 +236,17 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
 
   // Users table
   const users = stats.users || [];
+
+  // Separate counts for filter tabs
+  const standardUsers = users.filter(u => (u.userType || 'standard') !== 'archived');
+  const archivedUsers = users.filter(u => u.userType === 'archived');
+
   const filteredUsers = users
     .filter(u => {
+      // Type filter
+      if (userTypeFilter === 'standard' && u.userType === 'archived') return false;
+      if (userTypeFilter === 'archived' && (u.userType || 'standard') !== 'archived') return false;
+      // Search filter
       if (!searchTerm) return true;
       const term = searchTerm.toLowerCase();
       return u.email?.toLowerCase().includes(term) || u.displayName?.toLowerCase().includes(term);
@@ -365,7 +375,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
       </div>
 
       {/* Search & Sync Bar */}
-      <motion.div {...fadeInUp} className="bg-card rounded-[14px] border shadow-hero-sm p-4">
+      <motion.div {...fadeInUp} className="bg-card rounded-[14px] border shadow-hero-sm p-4 space-y-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -391,6 +401,34 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
             Sync Spanning
           </Button>
         </div>
+
+        {/* User Type Filter Tabs */}
+        <div className="flex items-center gap-2">
+          {[
+            { key: 'all', label: 'All Users', count: users.length },
+            { key: 'standard', label: 'Standard', count: standardUsers.length },
+            { key: 'archived', label: 'Archived', count: archivedUsers.length },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => { setUserTypeFilter(tab.key); setCurrentPage(1); }}
+              className={cn(
+                'px-3 py-1.5 rounded-hero-md text-sm font-medium transition-all duration-200',
+                userTypeFilter === tab.key
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              )}
+            >
+              {tab.label}
+              <span className={cn(
+                'ml-1.5 text-xs',
+                userTypeFilter === tab.key ? 'text-primary-foreground/70' : 'text-muted-foreground/60'
+              )}>
+                {tab.count}
+              </span>
+            </button>
+          ))}
+        </div>
       </motion.div>
 
       {/* Users Table */}
@@ -415,6 +453,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
                 <TableHeader>
                   <TableRow className="bg-muted/50">
                     <TableHead>User</TableHead>
+                    <TableHead>Type</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Mail</TableHead>
                     <TableHead className="text-right">Drive</TableHead>
@@ -424,6 +463,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
                 <TableBody>
                   {paginatedUsers.map((user, idx) => {
                     const matchedContact = contactsByEmail[user.email?.toLowerCase()];
+                    const isArchived = user.userType === 'archived';
                     return (
                       <TableRow
                         key={user.email || idx}
@@ -432,7 +472,10 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
                       >
                         <TableCell>
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium text-sm">
+                            <div className={cn(
+                              'w-8 h-8 rounded-full flex items-center justify-center font-medium text-sm',
+                              isArchived ? 'bg-[#7828C8]/10 text-[#7828C8]' : 'bg-primary/10 text-primary'
+                            )}>
                               {user.displayName?.charAt(0)?.toUpperCase() || '?'}
                             </div>
                             <div>
@@ -440,6 +483,15 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
                               <p className="text-xs text-muted-foreground">{user.email}</p>
                             </div>
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={isArchived ? 'secondary' : 'outline'}
+                            className={cn('text-[11px] gap-1', isArchived && 'bg-[#7828C8]/10 text-[#7828C8] border-[#7828C8]/20')}
+                          >
+                            {isArchived ? <Archive className="w-3 h-3" /> : <Users className="w-3 h-3" />}
+                            {isArchived ? 'Archived' : 'Standard'}
+                          </Badge>
                         </TableCell>
                         <TableCell>
                           <Badge variant="flat-success" className="text-[11px] gap-1">
