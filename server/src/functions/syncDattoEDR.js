@@ -131,39 +131,60 @@ export async function syncDattoEDR(body, user) {
       try { targetData = JSON.parse(raw); } catch(e) { console.log('Target parse err:', e); }
     }
 
-    const agentsUrl = addAuth(`${DATTO_EDR_BASE_URL}/agents`);
-    const agentsRes = await fetch(agentsUrl, { headers }).catch(() => null);
-
+    // Fetch agents scoped to this target — paginate to get all
     let allAgents = [];
-    if (agentsRes?.ok) {
-      const raw = await agentsRes.text();
+    const PAGE_SIZE = 100;
+
+    // Primary: target-scoped endpoint (returns only this customer's agents)
+    for (let skip = 0; ; skip += PAGE_SIZE) {
+      const url = addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`);
+      const res = await fetch(url, { headers }).catch(() => null);
+      if (!res?.ok) break;
+      const raw = await res.text();
+      let page = [];
       try {
-        allAgents = JSON.parse(raw);
-        if (!Array.isArray(allAgents)) {
-          allAgents = allAgents?.data || [];
-        }
-      } catch(e) {}
+        const parsed = JSON.parse(raw);
+        page = Array.isArray(parsed) ? parsed : (parsed?.data || parsed?.value || []);
+      } catch (e) { break; }
+      allAgents.push(...page);
+      if (page.length < PAGE_SIZE) break; // last page
     }
 
-    let hosts = allAgents.filter(a => a.locationId === targetId);
-    if (hosts.length === 0) {
-      hosts = allAgents.filter(a => a.targetId === targetId);
+    // Fallback: global agents endpoint filtered client-side
+    if (allAgents.length === 0) {
+      console.log('[DattoEDR] Target-scoped endpoint returned 0 agents, falling back to global');
+      for (let skip = 0; ; skip += PAGE_SIZE) {
+        const url = addAuth(`${DATTO_EDR_BASE_URL}/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`);
+        const res = await fetch(url, { headers }).catch(() => null);
+        if (!res?.ok) break;
+        const raw = await res.text();
+        let page = [];
+        try {
+          const parsed = JSON.parse(raw);
+          page = Array.isArray(parsed) ? parsed : (parsed?.data || parsed?.value || []);
+        } catch (e) { break; }
+        allAgents.push(...page);
+        if (page.length < PAGE_SIZE) break;
+      }
     }
-    if (hosts.length === 0) {
-      hosts = allAgents.filter(a => (a.location_id || a.organizationId) === targetId);
+
+    // If we used the global endpoint, filter to this customer's target
+    let hosts = allAgents;
+    if (hosts.length > 0 && hosts[0].locationId !== undefined) {
+      // Check if agents are already scoped (from target endpoint) or need filtering
+      const firstMatch = hosts.find(a =>
+        a.locationId === targetId || a.targetId === targetId ||
+        a.location_id === targetId || a.organizationId === targetId
+      );
+      if (!firstMatch && hosts.length > 5) {
+        // Agents are unscoped — filter them
+        hosts = allAgents.filter(a =>
+          a.locationId === targetId || a.targetId === targetId ||
+          (a.location_id || a.organizationId) === targetId
+        );
+      }
     }
-    console.log(`Found ${hosts.length} agents matching targetId=${targetId} out of ${allAgents.length} total`);
-    // Log sample agent keys for debugging if no match found
-    if (hosts.length === 0 && allAgents.length > 0) {
-      const sample = allAgents[0];
-      console.log('Sample agent keys:', Object.keys(sample));
-      console.log('Sample agent location fields:', {
-        locationId: sample.locationId,
-        targetId: sample.targetId,
-        location_id: sample.location_id,
-        organizationId: sample.organizationId
-      });
-    }
+    console.log(`[DattoEDR] Found ${hosts.length} agents for targetId=${targetId} (fetched ${allAgents.length} total)`);
 
     const targetStats = targetData ? {
       agentCount: targetData.agentCount || 0,

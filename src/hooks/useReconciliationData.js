@@ -34,23 +34,32 @@ export function useReconciliationData(customerId) {
     queryKey: ['recurring_bills'],
     queryFn: () => client.entities.RecurringBill.list('-created_date', 1000),
     staleTime: 1000 * 60 * 5,
+    retry: 2,
   });
 
   const { data: lineItems = [], isLoading: loadingLineItems } = useQuery({
     queryKey: ['recurring_bill_line_items'],
     queryFn: () => client.entities.RecurringBillLineItem.list(null, 5000),
     staleTime: 1000 * 60 * 5,
+    retry: 2,
   });
 
   // 4. Fetch all integration mapping tables (useQueries to avoid hooks-in-loop)
+  // De-duplicate entity names so we don't fetch the same table multiple times
   const mappingEntries = Object.entries(INTEGRATION_MAPPING_ENTITIES);
-  const mappingQueryResults = useQueries({
-    queries: mappingEntries.map(([key, entityName]) => ({
-      queryKey: [`${key}_mappings`],
+  const uniqueEntities = [...new Set(Object.values(INTEGRATION_MAPPING_ENTITIES))];
+  const entityQueryResults = useQueries({
+    queries: uniqueEntities.map((entityName) => ({
+      queryKey: [`lootit_entity_${entityName}`],
       queryFn: () => client.entities[entityName].list(),
       staleTime: 1000 * 60 * 5,
+      retry: 1,
     })),
   });
+  // Map entity results back to integration keys
+  const entityDataMap = {};
+  uniqueEntities.forEach((name, idx) => { entityDataMap[name] = entityQueryResults[idx]; });
+  const mappingQueryResults = mappingEntries.map(([, entityName]) => entityDataMap[entityName]);
   // Build a keyed object from the results array
   const mappingQueries = {};
   mappingEntries.forEach(([key], idx) => {
@@ -81,14 +90,13 @@ export function useReconciliationData(customerId) {
     staleTime: 1000 * 60 * 2,
   });
 
+  // Only block on core data (rules + customers + bills).
+  // Mapping queries load progressively — treat errors as "done".
   const isLoading =
     loadingRules ||
     loadingCustomers ||
     loadingBills ||
-    loadingLineItems ||
-    loadingOverrides ||
-    loadingReviews ||
-    Object.values(mappingQueries).some((q) => q.isLoading);
+    loadingLineItems;
 
   // 6. Build bill → customer lookup
   const billCustomerMap = useMemo(() => {
