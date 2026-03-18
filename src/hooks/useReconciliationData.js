@@ -98,16 +98,34 @@ export function useReconciliationData(customerId) {
     loadingBills ||
     loadingLineItems;
 
-  // 6. Build bill → customer lookup
+  // 6. Build set of active bill IDs (exclude inactive/expired bills)
+  const activeBillIds = useMemo(() => {
+    const now = new Date();
+    return new Set(
+      bills
+        .filter(b => {
+          if ((b.status || '').toLowerCase() === 'inactive') return false;
+          if (b.end_date) {
+            const end = new Date(b.end_date);
+            if (end.getFullYear() < 2090 && end < now) return false;
+          }
+          return true;
+        })
+        .map(b => b.id)
+    );
+  }, [bills]);
+
+  // 6b. Build bill → customer lookup (active bills only)
   const billCustomerMap = useMemo(() => {
     const map = {};
     for (const bill of bills) {
+      if (!activeBillIds.has(bill.id)) continue;
       map[bill.id] = bill.customer_id;
     }
     return map;
-  }, [bills]);
+  }, [bills, activeBillIds]);
 
-  // 7. Group line items by customer
+  // 7. Group line items by customer (only from active bills)
   const lineItemsByCustomer = useMemo(() => {
     const grouped = {};
     for (const li of lineItems) {

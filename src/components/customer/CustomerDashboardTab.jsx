@@ -77,13 +77,38 @@ export default function CustomerDashboardTab({
   tickets,
   invoices,
   lineItems,
+  recurringBills,
   licenses,
   serviceTags,
 }) {
   // ── Financial stats ────────────────────────────────────────────
+
+  // Only sum line items from active recurring bills (exclude expired/inactive)
+  const activeBillIds = useMemo(() => {
+    const now = new Date();
+    return new Set(
+      (recurringBills || [])
+        .filter(b => {
+          if ((b.status || '').toLowerCase() === 'inactive') return false;
+          if (b.end_date) {
+            const end = new Date(b.end_date);
+            // Ignore far-future placeholder dates (e.g. 2099)
+            if (end.getFullYear() < 2090 && end < now) return false;
+          }
+          return true;
+        })
+        .map(b => b.id)
+    );
+  }, [recurringBills]);
+
+  const activeLineItems = useMemo(
+    () => lineItems.filter(li => activeBillIds.has(li.recurring_bill_id)),
+    [lineItems, activeBillIds]
+  );
+
   const monthlyCost = useMemo(
-    () => lineItems.reduce((sum, item) => sum + (item.net_amount || 0), 0),
-    [lineItems]
+    () => activeLineItems.reduce((sum, item) => sum + (item.net_amount || 0), 0),
+    [activeLineItems]
   );
 
   const activeContracts = useMemo(
@@ -164,7 +189,7 @@ export default function CustomerDashboardTab({
           icon={DollarSign}
           label="Monthly Recurring"
           value={`$${monthlyCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
-          subtitle={`${lineItems.length} line item${lineItems.length !== 1 ? 's' : ''}`}
+          subtitle={`${activeLineItems.length} line item${activeLineItems.length !== 1 ? 's' : ''} (active)`}
           color="text-emerald-600"
           bg="bg-emerald-50"
         />

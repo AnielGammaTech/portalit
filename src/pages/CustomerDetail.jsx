@@ -776,6 +776,7 @@ export default function CustomerDetail() {
             tickets={tickets}
             invoices={invoices}
             lineItems={lineItems}
+            recurringBills={recurringBills}
             licenses={licenses}
             serviceTags={serviceTags}
           />
@@ -786,7 +787,16 @@ export default function CustomerDetail() {
 
                           {/* Billing Dashboard Widgets */}
                           {(() => {
-                            const monthlyCost = recurringBills.reduce((sum, b) => sum + (b.amount || 0), 0);
+                            const now = new Date();
+                            const activeBills = recurringBills.filter(b => {
+                              if ((b.status || '').toLowerCase() === 'inactive') return false;
+                              if (b.end_date) {
+                                const end = new Date(b.end_date);
+                                if (end.getFullYear() < 2090 && end < now) return false;
+                              }
+                              return true;
+                            });
+                            const monthlyCost = activeBills.reduce((sum, b) => sum + (b.amount || 0), 0);
                             const paidInvoices = invoices.filter(i => i.status === 'paid');
                             const overdueInvoices = invoices.filter(i => i.status === 'overdue');
                             const pendingInvoices = invoices.filter(i => i.status === 'sent');
@@ -814,7 +824,7 @@ export default function CustomerDetail() {
                                     <p className="text-2xl font-bold text-gray-900">
                                       ${monthlyCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                     </p>
-                                    <p className="text-xs text-gray-400 mt-1">{recurringBills.length} recurring bill{recurringBills.length !== 1 ? 's' : ''}</p>
+                                    <p className="text-xs text-gray-400 mt-1">{activeBills.length} active bill{activeBills.length !== 1 ? 's' : ''}{recurringBills.length > activeBills.length ? ` (${recurringBills.length - activeBills.length} inactive)` : ''}</p>
                                   </div>
 
                                   {/* Contract */}
