@@ -103,11 +103,6 @@ export async function syncHaloPSATickets(body, _user) {
       // Save the true total ticket count from HaloPSA on the customer record
       await supabase.from('customers').update({ total_tickets: totalTicketCount }).eq('id', dbCustomer.id);
 
-      // Log first ticket to see status field structure
-      if (tickets.length > 0) {
-        console.log('Sample ticket data:', JSON.stringify(tickets[0], null, 2));
-      }
-
       // Batch-fetch existing tickets for this customer (avoid N+1)
       const { data: existingTickets } = await supabase.from('tickets').select('id, external_id')
         .eq('customer_id', dbCustomer.id);
