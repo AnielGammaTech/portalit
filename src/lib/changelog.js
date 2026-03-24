@@ -3,6 +3,14 @@
 
 export const CHANGELOG = [
   {
+    version: '1.5.0',
+    date: '2026-03-24',
+    changes: [
+      'Backend — Fixed OOM crash during HaloPSA ticket sync (increased Node heap to 512MB, removed debug logging)',
+      'System Info — Added to Adminland with build details and full changelog',
+    ],
+  },
+  {
     version: '1.4.0',
     date: '2026-03-18',
     changes: [
