@@ -845,8 +845,8 @@ export default function CustomerServicesTab({
                     const contactDevices = devicesByContact[contact.id] || [];
                     const hasSpanning = !!spanningMapping && !!contact.spanning_status;
                     const hasJumpCloud = !!jumpcloudMapping && !!contact.jumpcloud_id;
-                    const spanningProtected = contact.spanning_status?.toLowerCase() === 'protected' ||
-                      contact.spanning_status?.toLowerCase() === 'active';
+                    const spanningProtected = contact.spanning_status?.toLowerCase().includes('protected') ||
+                      contact.spanning_status?.toLowerCase().includes('active');
 
                     return (
                       <div
