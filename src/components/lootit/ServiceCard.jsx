@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { Check, X, ChevronRight, RotateCcw, Settings2, StickyNote, Link2 } from 'lucide-react';
+import { Check, X, ChevronRight, RotateCcw, Settings2, StickyNote, Link2, ShieldCheck } from 'lucide-react';
 import ReconciliationBadge from './ReconciliationBadge';
 import { getDiscrepancyMessage } from '@/lib/lootit-reconciliation';
 
@@ -35,6 +35,14 @@ const STATUS_STYLES = {
   },
 };
 
+const REVIEWED_STYLES = {
+  card: 'border-amber-200',
+  bar: 'bg-amber-400',
+  numBg: 'bg-amber-50/60 border-amber-200',
+  numText: 'text-amber-800',
+  labelText: 'text-amber-400',
+};
+
 export default function ServiceCard({
   reconciliation,
   onReview,
@@ -58,7 +66,9 @@ export default function ServiceCard({
   const [pendingAction, setPendingAction] = useState(null); // 'review' or 'dismiss'
 
   const hasNotes = !!(review?.notes);
-  const styles = STATUS_STYLES[status] || STATUS_STYLES.default;
+  const hasExclusions = review?.exclusion_count > 0;
+  const baseStyles = STATUS_STYLES[status] || STATUS_STYLES.default;
+  const styles = isReviewed ? { ...baseStyles, ...REVIEWED_STYLES } : baseStyles;
 
   const handleSaveNote = async () => {
     if (!onSaveNotes) return;
@@ -89,9 +99,9 @@ export default function ServiceCard({
     <div
       className={cn(
         'rounded-xl border overflow-hidden transition-all hover:shadow-md cursor-pointer',
-        styles.card,
-        isReviewed && 'opacity-50'
+        isReviewed ? 'bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-100/80 border-amber-200' : styles.card,
       )}
+      style={isReviewed ? { backgroundImage: 'linear-gradient(135deg, #fffbeb 0%, #fef9c3 50%, #fef3c7 100%)' } : undefined}
       onClick={() => onDetails?.(reconciliation)}
     >
       {/* Status color bar */}
@@ -200,6 +210,16 @@ export default function ServiceCard({
                 <span className="font-semibold">Note:</span> {review.notes}
               </button>
             )}
+          </div>
+        )}
+
+        {/* Exclusion badge */}
+        {hasExclusions && (
+          <div className="flex items-center gap-2 mb-3 px-2.5 py-1.5 bg-amber-50 rounded-md border border-amber-200">
+            <ShieldCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            <span className="text-[11px] font-medium text-amber-700 flex-1">
+              {review.exclusion_count} {review.exclusion_reason || 'excluded'} — not counted
+            </span>
           </div>
         )}
 

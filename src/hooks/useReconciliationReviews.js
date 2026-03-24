@@ -38,6 +38,8 @@ export function useReconciliationReviews(customerId) {
 
   const upsertMutation = useMutation({
     mutationFn: async ({ ruleId, status, notes, psaQty, vendorQty, action }) => {
+      // Preserve existing exclusion data across review/dismiss/reset
+      const existing = reviews.find((r) => r.rule_id === ruleId);
       const { data, error } = await supabase
         .from('reconciliation_reviews')
         .upsert(
@@ -50,6 +52,8 @@ export function useReconciliationReviews(customerId) {
             notes: notes || null,
             psa_qty: psaQty ?? null,
             vendor_qty: vendorQty ?? null,
+            exclusion_count: existing?.exclusion_count ?? 0,
+            exclusion_reason: existing?.exclusion_reason ?? null,
           },
           { onConflict: 'customer_id,rule_id' }
         )
@@ -116,6 +120,45 @@ export function useReconciliationReviews(customerId) {
     });
   };
 
+  const saveExclusion = async (ruleId, exclusionCount, exclusionReason) => {
+    const existing = reviews.find((r) => r.rule_id === ruleId);
+    const { data, error } = await supabase
+      .from('reconciliation_reviews')
+      .upsert(
+        {
+          customer_id: customerId,
+          rule_id: ruleId,
+          status: existing?.status || 'reviewed',
+          reviewed_by: user?.id || null,
+          reviewed_at: new Date().toISOString(),
+          notes: existing?.notes || null,
+          psa_qty: existing?.psa_qty ?? null,
+          vendor_qty: existing?.vendor_qty ?? null,
+          exclusion_count: exclusionCount || 0,
+          exclusion_reason: exclusionReason || null,
+        },
+        { onConflict: 'customer_id,rule_id' }
+      )
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    logHistory({
+      reviewId: data.id,
+      ruleId,
+      action: 'exclusion',
+      status: data.status,
+      notes: `${exclusionCount} ${exclusionReason || 'excluded'}`,
+      psaQty: existing?.psa_qty,
+      vendorQty: existing?.vendor_qty,
+    });
+
+    queryClient.invalidateQueries({ queryKey: reviewsKey });
+    queryClient.invalidateQueries({ queryKey: historyKey });
+    return data;
+  };
+
   return {
     reviews,
     isLoading,
@@ -124,6 +167,7 @@ export function useReconciliationReviews(customerId) {
     dismiss,
     resetReview,
     saveNotes,
+    saveExclusion,
     isSaving: upsertMutation.isPending,
   };
 }
