@@ -8,6 +8,10 @@ export const CHANGELOG = [
     changes: [
       'Backend — Fixed OOM crash during HaloPSA ticket sync (increased Node heap to 512MB, removed debug logging)',
       'System Info — Added to Adminland with build details and full changelog',
+      'LootIT — Notes now persist correctly when reviewing/dismissing cards (was being overwritten with null)',
+      'LootIT — Undo button on reviewed cards is now prominent with amber styling',
+      'LootIT — Click any card to open detail drawer with full activity history (who, when, notes)',
+      'LootIT — Every review action is logged to audit trail (reconciliation_review_history table)',
     ],
   },
   {
