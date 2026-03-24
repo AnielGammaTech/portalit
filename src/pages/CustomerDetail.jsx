@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import { toast } from 'sonner';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { motion } from 'framer-motion';
 import { fadeInUp, staggerContainer, staggerItem } from '@/lib/motion';
@@ -72,8 +72,8 @@ export default function CustomerDetail() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const logoInputRef = useRef(null);
   const queryClient = useQueryClient();
-  const params = new URLSearchParams(window.location.search);
-  const customerIdParam = params.get('id');
+  const [searchParams] = useSearchParams();
+  const customerIdParam = searchParams.get('id');
 
   useEffect(() => {
     const loadUser = async () => {
@@ -757,7 +757,7 @@ export default function CustomerDetail() {
 
 
       {/* Tabs — HeroUI-inspired with animated styling */}
-      <Tabs defaultValue={params.get('tab') || 'dashboard'} className="space-y-6" id="customer-tabs">
+      <Tabs defaultValue={searchParams.get('tab') || 'dashboard'} className="space-y-6" id="customer-tabs">
         <TabsList className="bg-zinc-100 dark:bg-zinc-800/80 border-0 rounded-hero-lg p-1 flex gap-1 h-auto overflow-x-auto scrollbar-hide">
           {[
             { value: 'dashboard', icon: BarChart3, label: 'Dashboard' },
@@ -937,17 +937,10 @@ export default function CustomerDetail() {
                             <div className="px-6 py-4 flex flex-wrap items-center justify-between gap-3">
                               <div className="flex items-center gap-4">
                                 <h3 className="text-lg font-semibold text-gray-900">Invoices</h3>
-                                {invoices.length > 0 && (
-                                  <div className="flex items-center gap-3 text-sm">
-                                    <span className="text-emerald-600 font-medium">
-                                      ${invoices.filter(i => i.status === 'paid').reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} paid
-                                    </span>
-                                    {invoices.filter(i => i.status === 'overdue').length > 0 && (
-                                      <span className="text-red-600 font-medium">
-                                        ${invoices.filter(i => i.status === 'overdue').reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} overdue ({invoices.filter(i => i.status === 'overdue').length})
-                                      </span>
-                                    )}
-                                  </div>
+                                {invoices.filter(i => i.status === 'overdue').length > 0 && (
+                                  <span className="text-sm text-red-600 font-medium">
+                                    ${invoices.filter(i => i.status === 'overdue').reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} overdue ({invoices.filter(i => i.status === 'overdue').length})
+                                  </span>
                                 )}
                               </div>
                               <div className="flex items-center gap-2">

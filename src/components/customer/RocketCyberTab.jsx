@@ -4,6 +4,7 @@ import { client } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SkeletonStats, SkeletonTable, Shimmer } from "@/components/ui/shimmer-skeleton";
 import { 
   Shield, 
   AlertTriangle, 
@@ -99,13 +100,13 @@ export default function RocketCyberTab({ customer }) {
   const [closingId, setClosingId] = useState(null);
 
   // Fetch mapping
-  const { data: mappings = [] } = useQuery({
+  const { data: mappings = [], isLoading: loadingMapping } = useQuery({
     queryKey: ['rocketcyber_mapping', customer.id],
     queryFn: () => client.entities.RocketCyberMapping.filter({ customer_id: customer.id })
   });
 
   // Fetch incidents
-  const { data: incidents = [], refetch: refetchIncidents } = useQuery({
+  const { data: incidents = [], isLoading: loadingIncidents, refetch: refetchIncidents } = useQuery({
     queryKey: ['rocketcyber_incidents', customer.id],
     queryFn: () => client.entities.RocketCyberIncident.filter({ customer_id: customer.id }),
     enabled: mappings.length > 0
@@ -150,6 +151,30 @@ export default function RocketCyberTab({ customer }) {
       setClosingId(null);
     }
   };
+
+  if (loadingMapping || loadingIncidents) {
+    return (
+      <div className="space-y-6">
+        {/* Header skeleton */}
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <Shimmer className="h-6 w-48" />
+            <Shimmer className="h-4 w-64" />
+          </div>
+          <Shimmer className="h-9 w-32 rounded-md" />
+        </div>
+        {/* Stats skeleton */}
+        <SkeletonStats count={4} />
+        {/* Filters skeleton */}
+        <div className="flex gap-4">
+          <Shimmer className="h-9 w-36 rounded-md" />
+          <Shimmer className="h-9 w-36 rounded-md" />
+        </div>
+        {/* Incidents list skeleton */}
+        <SkeletonTable rows={5} cols={4} />
+      </div>
+    );
+  }
 
   if (!mapping) {
     return (

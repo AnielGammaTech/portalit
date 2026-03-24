@@ -427,57 +427,7 @@ export default function CustomerDashboardTab({
         </div>
       </div>
 
-      {/* Row 4 — Company Info card */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-4">Company Information</h4>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {customer.email && (
-            <div>
-              <p className="text-[10px] text-gray-400 mb-0.5 flex items-center gap-1"><Mail className="w-3 h-3" /> Email</p>
-              <a href={`mailto:${customer.email}`} className="text-sm text-blue-600 hover:underline truncate block">{customer.email}</a>
-            </div>
-          )}
-          {customer.phone && (
-            <div>
-              <p className="text-[10px] text-gray-400 mb-0.5 flex items-center gap-1"><Phone className="w-3 h-3" /> Phone</p>
-              <a href={`tel:${customer.phone}`} className="text-sm text-gray-900">{customer.phone}</a>
-            </div>
-          )}
-          {customer.address && (
-            <div>
-              <p className="text-[10px] text-gray-400 mb-0.5 flex items-center gap-1"><MapPin className="w-3 h-3" /> Address</p>
-              <p className="text-sm text-gray-900">{customer.address}</p>
-            </div>
-          )}
-          <div>
-            <p className="text-[10px] text-gray-400 mb-0.5 flex items-center gap-1"><Calendar className="w-3 h-3" /> Customer Since</p>
-            <p className="text-sm text-gray-900">
-              {customer.created_date
-                ? format(new Date(customer.created_date), 'MMM d, yyyy')
-                : '—'}
-              {customerAge && <span className="text-gray-400 ml-1">({customerAge})</span>}
-            </p>
-          </div>
-          {customer.source && (
-            <div>
-              <p className="text-[10px] text-gray-400 mb-0.5 flex items-center gap-1"><Globe className="w-3 h-3" /> Source</p>
-              <Badge variant="outline" className="text-xs capitalize">{customer.source}</Badge>
-            </div>
-          )}
-          {customer.primary_contact && (
-            <div>
-              <p className="text-[10px] text-gray-400 mb-0.5 flex items-center gap-1"><Users className="w-3 h-3" /> Primary Contact</p>
-              <p className="text-sm text-gray-900">{customer.primary_contact}</p>
-            </div>
-          )}
-        </div>
-        {customer.notes && (
-          <div className="mt-4 pt-3 border-t border-gray-100">
-            <p className="text-[10px] text-gray-400 mb-1">Notes</p>
-            <p className="text-sm text-gray-700 whitespace-pre-wrap">{customer.notes}</p>
-          </div>
-        )}
-      </div>
+      {/* Company Info card removed — contained internal notes not suitable for customer view */}
     </div>
   );
 }

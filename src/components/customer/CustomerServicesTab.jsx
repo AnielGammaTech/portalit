@@ -61,7 +61,7 @@ import { cn, formatLineItemDescription } from "@/lib/utils";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
-import { SkeletonTable } from "@/components/ui/shimmer-skeleton";
+import { SkeletonTable, SkeletonStats, SkeletonCard, Shimmer } from "@/components/ui/shimmer-skeleton";
 import UserDetailModal from './UserDetailModal';
 import DarkWebTab from './DarkWebTab';
 import BullPhishTab from './BullPhishTab';
@@ -106,7 +106,7 @@ export default function CustomerServicesTab({
   });
 
   // Fetch JumpCloud mapping for this customer (includes cached_data)
-  const { data: jumpcloudMapping } = useQuery({
+  const { data: jumpcloudMapping, isLoading: loadingJC } = useQuery({
     queryKey: ['jumpcloud-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.JumpCloudMapping.filter({ customer_id: customerId });
@@ -117,7 +117,7 @@ export default function CustomerServicesTab({
   });
 
   // Fetch Spanning mapping for this customer (includes cached_data)
-  const { data: spanningMapping } = useQuery({
+  const { data: spanningMapping, isLoading: loadingSpanning } = useQuery({
     queryKey: ['spanning-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.SpanningMapping.filter({ customer_id: customerId });
@@ -161,7 +161,7 @@ export default function CustomerServicesTab({
   });
 
   // Fetch Datto site mapping for this customer
-  const { data: dattoMapping } = useQuery({
+  const { data: dattoMapping, isLoading: loadingDatto } = useQuery({
     queryKey: ['datto-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.DattoSiteMapping.filter({ customer_id: customerId });
@@ -202,7 +202,7 @@ export default function CustomerServicesTab({
   });
 
   // Fetch Datto EDR mapping for this customer
-  const { data: edrMapping } = useQuery({
+  const { data: edrMapping, isLoading: loadingEDR } = useQuery({
     queryKey: ['edr-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.DattoEDRMapping.filter({ customer_id: customerId });
@@ -212,7 +212,7 @@ export default function CustomerServicesTab({
   });
 
   // Fetch RocketCyber mapping for this customer
-  const { data: rocketcyberMapping } = useQuery({
+  const { data: rocketcyberMapping, isLoading: loadingRC } = useQuery({
     queryKey: ['rocketcyber-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.RocketCyberMapping.filter({ customer_id: customerId });
@@ -222,7 +222,7 @@ export default function CustomerServicesTab({
   });
 
   // Fetch UniFi mapping for this customer
-  const { data: unifiMapping } = useQuery({
+  const { data: unifiMapping, isLoading: loadingUniFi } = useQuery({
     queryKey: ['unifi-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.UniFiMapping.filter({ customer_id: customerId });
@@ -232,7 +232,7 @@ export default function CustomerServicesTab({
   });
 
   // Fetch SaaS Alerts mapping for this customer
-  const { data: saasAlertsMapping } = useQuery({
+  const { data: saasAlertsMapping, isLoading: loadingSaaS } = useQuery({
     queryKey: ['saas-alerts-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.SaaSAlertsMapping.filter({ customer_id: customerId });
@@ -242,7 +242,7 @@ export default function CustomerServicesTab({
   });
 
   // Fetch Cove Data Protection mapping for this customer
-  const { data: coveMapping } = useQuery({
+  const { data: coveMapping, isLoading: loadingCove } = useQuery({
     queryKey: ['cove-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.CoveDataMapping.filter({ customer_id: customerId });
@@ -606,6 +606,27 @@ export default function CustomerServicesTab({
     { key: 'jumpcloud', name: 'JumpCloud', enabled: hasJumpCloud, icon: Shield, color: 'indigo', onSync: handleSyncJumpCloud, syncing: syncingJumpCloud },
     { key: 'spanning', name: 'Spanning', enabled: hasSpanning, icon: Cloud, color: 'cyan', onSync: handleSyncSpanning, syncing: syncingSpanning }
   ].filter(i => i.enabled);
+
+  const mappingsLoading = loadingJC || loadingSpanning || loadingDatto || loadingEDR || loadingRC || loadingUniFi || loadingSaaS || loadingCove;
+
+  if (mappingsLoading) {
+    return (
+      <div className="space-y-6">
+        {/* Tab bar skeleton */}
+        <div className="flex justify-center">
+          <div className="bg-zinc-100 dark:bg-zinc-800/80 p-1.5 rounded-hero-lg w-full max-w-4xl mx-auto flex flex-wrap gap-1">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Shimmer key={i} className="h-9 rounded-hero-sm" style={{ width: `${60 + Math.random() * 40}px` }} />
+            ))}
+          </div>
+        </div>
+        {/* Stats skeleton */}
+        <SkeletonStats count={3} />
+        {/* Table skeleton */}
+        <SkeletonTable rows={6} cols={5} />
+      </div>
+    );
+  }
 
   return (
     <ServiceTabErrorBoundary>

@@ -12,6 +12,13 @@ export const CHANGELOG = [
       'LootIT — Undo button on reviewed cards is now prominent with amber styling',
       'LootIT — Click any card to open detail drawer with full activity history (who, when, notes)',
       'LootIT — Every review action is logged to audit trail (reconciliation_review_history table)',
+      'Fix — Customer detail page no longer shows stuck skeletons on SPA navigation (useSearchParams)',
+      'Fix — Invoice line items now load correctly when navigating between customers',
+      'Dashboard — Removed Company Information card (internal notes no longer visible to customers)',
+      'Billing — Removed paid totals from invoice header (customers only see overdue)',
+      'Services — Skeleton loading while integration mappings are loading (no more layout jump)',
+      'RocketCyber — Skeleton loading while incidents are loading',
+      'Cron — Added Datto EDR to nightly sync schedule (3:15 AM EST)',
     ],
   },
   {

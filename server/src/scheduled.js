@@ -9,6 +9,7 @@ import { syncCoveData } from './functions/syncCoveData.js';
 import { syncSaaSAlerts } from './functions/syncSaaSAlerts.js';
 import { syncUniFiDevices } from './functions/syncUniFiDevices.js';
 import { syncPax8Subscriptions } from './functions/syncPax8Subscriptions.js';
+import { syncDattoEDR } from './functions/syncDattoEDR.js';
 import { licenseRenewalReminder } from './functions/licenseRenewalReminder.js';
 import { autoSuspendUnusedLicenses } from './functions/autoSuspendUnusedLicenses.js';
 import { syncHaloPSARecurringBills } from './functions/syncHaloPSARecurringBills.js';
@@ -24,6 +25,7 @@ export const CRON_JOBS = [
   { name: 'syncHaloPSARecurringBills', label: 'HaloPSA Recurring Bills', description: 'Recurring invoices & line items', schedule: '15 2 * * *', category: 'halopsa', fn: syncHaloPSARecurringBills, action: 'sync_now' },
   { name: 'syncHaloPSAInvoices', label: 'HaloPSA Invoices', description: 'Invoices & invoice line items', schedule: '30 2 * * *', category: 'halopsa', fn: syncHaloPSAInvoices, action: 'sync_now' },
   { name: 'scheduledDattoSync', label: 'Datto RMM Sync', description: 'RMM devices', schedule: '0 3 * * *', category: 'datto', fn: scheduledDattoSync, action: 'sync_now' },
+  { name: 'syncDattoEDR', label: 'Datto EDR Sync', description: 'EDR agent data', schedule: '15 3 * * *', category: 'datto', fn: syncDattoEDR, action: 'sync_all' },
   { name: 'syncRocketCyber', label: 'RocketCyber Sync', description: 'Security incidents', schedule: '30 3 * * *', category: 'rocketcyber', fn: syncRocketCyber, action: 'sync_all' },
   { name: 'scheduledJumpCloudSync', label: 'JumpCloud Sync', description: 'SSO users', schedule: '0 4 * * *', category: 'jumpcloud', fn: scheduledJumpCloudSync, action: 'sync_now' },
   { name: 'syncCoveData', label: 'Cove Data Sync', description: 'Backup devices', schedule: '30 4 * * *', category: 'cove', fn: syncCoveData, action: 'sync_all' },
