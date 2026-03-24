@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { ArrowLeft, Filter, Check, X, ChevronRight, RotateCcw, RefreshCw, AlertTriangle, Link2, Search, Trash2, StickyNote, Settings2, Save, Upload, FileText, Download, Loader2, ChevronDown, DollarSign, Calendar, Users, Building2, Hash, CloudUpload, Sparkles, CheckCircle2, Monitor, Shield, Server, Mail, Wifi } from 'lucide-react';
+import { ArrowLeft, Filter, Check, X, ChevronRight, RotateCcw, RefreshCw, AlertTriangle, Link2, Search, Trash2, StickyNote, Settings2, Save, Upload, FileText, Download, Loader2, ChevronDown, DollarSign, Calendar, Users, Building2, Hash, CloudUpload, Sparkles, CheckCircle2, Monitor, Shield, ShieldCheck, Server, Mail, Wifi } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cn, formatLineItemDescription } from '@/lib/utils';
@@ -25,7 +25,7 @@ export default function LootITCustomerDetail({ customer, onBack }) {
   const { user } = useAuth();
 
   const { reconciliations, isLoading } = useReconciliationData(customer.id);
-  const { reviews, markReviewed, dismiss, resetReview, saveNotes, isSaving } = useReconciliationReviews(customer.id);
+  const { reviews, markReviewed, dismiss, resetReview, saveNotes, saveExclusion, isSaving } = useReconciliationReviews(customer.id);
 
   // Integration widget data
   const { data: contacts = [] } = useCustomerContacts(customer.id);
@@ -651,6 +651,15 @@ export default function LootITCustomerDetail({ customer, onBack }) {
           reconciliation={detailItem}
           customerId={customer.id}
           onClose={() => setDetailItem(null)}
+          onSaveExclusion={async (ruleId, exclusionCount, exclusionReason) => {
+            await saveExclusion(ruleId, exclusionCount, exclusionReason);
+            // Refresh the detail item with updated review data
+            const updatedReviews = queryClient.getQueryData(['reconciliation_reviews', customer.id]);
+            const updatedReview = updatedReviews?.find((r) => r.rule_id === ruleId);
+            if (updatedReview) {
+              setDetailItem((prev) => prev ? { ...prev, review: updatedReview } : prev);
+            }
+          }}
         />
       )}
 
@@ -935,9 +944,10 @@ const ACTION_LABELS = {
   dismissed: { label: 'Skipped', color: 'text-slate-500', bg: 'bg-slate-50', icon: X },
   reset: { label: 'Reset', color: 'text-amber-600', bg: 'bg-amber-50', icon: RotateCcw },
   note: { label: 'Note added', color: 'text-blue-600', bg: 'bg-blue-50', icon: StickyNote },
+  exclusion: { label: 'Exclusion set', color: 'text-amber-600', bg: 'bg-amber-50', icon: ShieldCheck },
 };
 
-function DetailDrawer({ reconciliation, customerId, onClose }) {
+function DetailDrawer({ reconciliation, customerId, onClose, onSaveExclusion }) {
   const isPax8 = !!reconciliation.ruleId;
   const ruleId = isPax8 ? reconciliation.ruleId : reconciliation.rule?.id;
   const label = isPax8 ? reconciliation.productName : reconciliation.rule?.label;
@@ -961,6 +971,29 @@ function DetailDrawer({ reconciliation, customerId, onClose }) {
   });
 
   const review = reconciliation.review;
+  const [exclusionCount, setExclusionCount] = useState(review?.exclusion_count || 0);
+  const [exclusionReason, setExclusionReason] = useState(review?.exclusion_reason || '');
+  const [showExclusionForm, setShowExclusionForm] = useState(false);
+  const [savingExclusion, setSavingExclusion] = useState(false);
+
+  const EXCLUSION_PRESETS = [
+    { label: 'Service Account', value: 'service account' },
+    { label: 'Free Account', value: 'free account' },
+    { label: 'Admin Account', value: 'admin account' },
+    { label: 'Shared Mailbox', value: 'shared mailbox' },
+    { label: 'Test Account', value: 'test account' },
+  ];
+
+  const handleSaveExclusion = async () => {
+    if (!onSaveExclusion) return;
+    setSavingExclusion(true);
+    try {
+      await onSaveExclusion(ruleId, exclusionCount, exclusionReason);
+      setShowExclusionForm(false);
+    } finally {
+      setSavingExclusion(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
@@ -1001,6 +1034,110 @@ function DetailDrawer({ reconciliation, customerId, onClose }) {
               )}
             </div>
           )}
+
+          {/* Excluded Accounts Section */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-xs uppercase tracking-wider text-slate-400 font-medium">Excluded Accounts</h4>
+              {!showExclusionForm && (
+                <button
+                  onClick={() => setShowExclusionForm(true)}
+                  className="text-xs font-semibold text-amber-600 hover:text-amber-700 transition-colors"
+                >
+                  {review?.exclusion_count > 0 ? 'Edit' : '+ Add'}
+                </button>
+              )}
+            </div>
+            {review?.exclusion_count > 0 && !showExclusionForm && (
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-amber-200" style={{ backgroundImage: 'linear-gradient(135deg, #fffbeb 0%, #fef9c3 100%)' }}>
+                <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-amber-800">{review.exclusion_count} {review.exclusion_reason || 'excluded'}</p>
+                  <p className="text-[11px] text-amber-600">These don't count against the vendor total</p>
+                </div>
+              </div>
+            )}
+            {showExclusionForm && (
+              <div className="space-y-3 bg-amber-50/50 rounded-lg px-4 py-3 border border-amber-200">
+                <p className="text-xs text-amber-700">
+                  Add accounts that shouldn't count against the licence total (e.g. service accounts, free accounts).
+                </p>
+                <div>
+                  <label className="text-xs font-medium text-slate-600 mb-1 block">How many?</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={exclusionCount}
+                    onChange={(e) => setExclusionCount(parseInt(e.target.value) || 0)}
+                    className="w-24 text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-600 mb-1 block">Reason</label>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {EXCLUSION_PRESETS.map((preset) => (
+                      <button
+                        key={preset.value}
+                        onClick={() => setExclusionReason(preset.value)}
+                        className={cn(
+                          'px-2.5 py-1 text-[11px] font-medium rounded-full border transition-colors',
+                          exclusionReason === preset.value
+                            ? 'bg-amber-200 border-amber-300 text-amber-800'
+                            : 'bg-white border-slate-200 text-slate-500 hover:border-amber-200 hover:text-amber-700'
+                        )}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    value={exclusionReason}
+                    onChange={(e) => setExclusionReason(e.target.value)}
+                    placeholder="Or type a custom reason…"
+                    className="w-full text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSaveExclusion}
+                    disabled={savingExclusion || exclusionCount <= 0}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 transition-colors"
+                  >
+                    {savingExclusion ? 'Saving…' : 'Save Exclusion'}
+                  </button>
+                  {review?.exclusion_count > 0 && (
+                    <button
+                      onClick={async () => {
+                        setSavingExclusion(true);
+                        try {
+                          await onSaveExclusion?.(ruleId, 0, '');
+                          setExclusionCount(0);
+                          setExclusionReason('');
+                          setShowExclusionForm(false);
+                        } finally {
+                          setSavingExclusion(false);
+                        }
+                      }}
+                      disabled={savingExclusion}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors disabled:opacity-50"
+                    >
+                      Remove
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { setShowExclusionForm(false); setExclusionCount(review?.exclusion_count || 0); setExclusionReason(review?.exclusion_reason || ''); }}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+            {!review?.exclusion_count && !showExclusionForm && (
+              <p className="text-sm text-slate-400 italic">No excluded accounts</p>
+            )}
+          </div>
 
           {/* Source Info */}
           <div>
@@ -1149,6 +1286,10 @@ const PAX8_STATUS_STYLES = {
   default: { card: 'bg-white border-slate-200', bar: 'bg-slate-300', numBg: 'bg-slate-50 border-slate-200', numText: 'text-slate-900', labelText: 'text-slate-400', borderT: 'border-slate-100' },
 };
 
+const PAX8_REVIEWED_STYLES = {
+  card: 'border-amber-200', bar: 'bg-amber-400', numBg: 'bg-amber-50/60 border-amber-200', numText: 'text-amber-800', labelText: 'text-amber-400', borderT: 'border-amber-200',
+};
+
 function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, onMapLineItem, onRemoveMapping, onSaveNotes, hasOverride, isSaving }) {
   const {
     ruleId, productName, vendorQty, totalVendorQty, psaQty,
@@ -1166,6 +1307,7 @@ function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, 
   const [savingNote, setSavingNote] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
   const hasNotes = !!(review?.notes);
+  const hasExclusions = review?.exclusion_count > 0;
 
   const handleSaveNote = async () => {
     if (!onSaveNotes) return;
@@ -1191,17 +1333,18 @@ function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, 
   };
 
   const totalCost = price > 0 ? (parseFloat(price) * vendorQty).toFixed(2) : null;
+  const resolvedStyles = isReviewed ? { ...styles, ...PAX8_REVIEWED_STYLES } : styles;
 
   return (
     <div
       className={cn(
         'rounded-xl border overflow-hidden transition-all hover:shadow-md cursor-pointer',
-        styles.card,
-        isReviewed && 'opacity-50'
+        isReviewed ? 'border-amber-200' : resolvedStyles.card,
       )}
+      style={isReviewed ? { backgroundImage: 'linear-gradient(135deg, #fffbeb 0%, #fef9c3 50%, #fef3c7 100%)' } : undefined}
       onClick={() => onDetails?.(recon)}
     >
-      <div className={cn('h-1', styles.bar)} />
+      <div className={cn('h-1', resolvedStyles.bar)} />
 
       <div className="px-4 py-3">
         {/* Title row */}
@@ -1235,16 +1378,16 @@ function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, 
 
         {/* Big numbers */}
         <div className="flex items-center mb-3">
-          <div className={cn('flex-1 text-center py-2 rounded-l-lg border', styles.numBg)}>
-            <p className={cn('text-3xl font-black leading-none', styles.numText)}>
+          <div className={cn('flex-1 text-center py-2 rounded-l-lg border', resolvedStyles.numBg)}>
+            <p className={cn('text-3xl font-black leading-none', resolvedStyles.numText)}>
               {psaQty !== null ? psaQty : '—'}
             </p>
-            <p className={cn('text-[10px] uppercase tracking-widest font-bold mt-1', styles.labelText)}>PSA</p>
+            <p className={cn('text-[10px] uppercase tracking-widest font-bold mt-1', resolvedStyles.labelText)}>PSA</p>
           </div>
           <div className="px-2 text-slate-300 text-sm font-bold">vs</div>
-          <div className={cn('flex-1 text-center py-2 rounded-r-lg border', styles.numBg)}>
-            <p className={cn('text-3xl font-black leading-none', styles.numText)}>{vendorQty}</p>
-            <p className={cn('text-[10px] uppercase tracking-widest font-bold mt-1', styles.labelText)}>PAX8</p>
+          <div className={cn('flex-1 text-center py-2 rounded-r-lg border', resolvedStyles.numBg)}>
+            <p className={cn('text-3xl font-black leading-none', resolvedStyles.numText)}>{vendorQty}</p>
+            <p className={cn('text-[10px] uppercase tracking-widest font-bold mt-1', resolvedStyles.labelText)}>PAX8</p>
           </div>
         </div>
 
@@ -1266,6 +1409,16 @@ function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, 
             {isReviewed && <span className="text-slate-400 mr-1">[{review.status === 'reviewed' ? 'Reviewed' : 'Dismissed'}]</span>}
             {message}
           </p>
+        )}
+
+        {/* Exclusion badge */}
+        {hasExclusions && (
+          <div className="flex items-center gap-2 mb-3 px-2.5 py-1.5 bg-amber-50 rounded-md border border-amber-200">
+            <ShieldCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            <span className="text-[11px] font-medium text-amber-700 flex-1">
+              {review.exclusion_count} {review.exclusion_reason || 'excluded'} — not counted
+            </span>
+          </div>
         )}
 
         {/* Notes inline — also shown when pendingAction requires a note */}
@@ -1311,7 +1464,7 @@ function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, 
         )}
 
         {/* Action bar */}
-        <div onClick={(e) => e.stopPropagation()} className={cn('flex items-center gap-2 pt-2 border-t', styles.borderT)}>
+        <div onClick={(e) => e.stopPropagation()} className={cn('flex items-center gap-2 pt-2 border-t', resolvedStyles.borderT)}>
           {!isReviewed && status !== 'match' && (
             <>
               <button
