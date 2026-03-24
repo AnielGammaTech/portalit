@@ -138,6 +138,7 @@ const ENTITY_TABLE_MAP = {
   QuoteItem: 'quote_items',
   ReconciliationRule: 'reconciliation_rules',
   ReconciliationReview: 'reconciliation_reviews',
+  ReconciliationReviewHistory: 'reconciliation_review_history',
   RecurringBill: 'recurring_bills',
   RecurringBillLineItem: 'recurring_bill_line_items',
   RocketCyberIncident: 'rocket_cyber_incidents',

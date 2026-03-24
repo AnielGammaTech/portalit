@@ -64,12 +64,14 @@ export default function ServiceCard({
     if (!onSaveNotes) return;
     setSavingNote(true);
     try {
-      await onSaveNotes(rule.id, noteText);
-      // If there's a pending action, execute it after note is saved
       if (pendingAction === 'review') {
-        await onReview?.(rule.id);
+        // Save note + review in one call so notes aren't overwritten
+        await onReview?.(rule.id, { notes: noteText });
       } else if (pendingAction === 'dismiss') {
-        await onDismiss?.(rule.id);
+        await onDismiss?.(rule.id, { notes: noteText });
+      } else {
+        // Standalone note save
+        await onSaveNotes(rule.id, noteText);
       }
     } finally {
       setSavingNote(false);
@@ -86,10 +88,11 @@ export default function ServiceCard({
   return (
     <div
       className={cn(
-        'rounded-xl border overflow-hidden transition-all hover:shadow-md',
+        'rounded-xl border overflow-hidden transition-all hover:shadow-md cursor-pointer',
         styles.card,
         isReviewed && 'opacity-50'
       )}
+      onClick={() => onDetails?.(reconciliation)}
     >
       {/* Status color bar */}
       <div className={cn('h-1', styles.bar)} />
@@ -160,7 +163,7 @@ export default function ServiceCard({
 
         {/* Notes inline — also shown when pendingAction requires a note */}
         {(showNotes || hasNotes) && (
-          <div className="mb-3">
+          <div className="mb-3" onClick={(e) => e.stopPropagation()}>
             {showNotes ? (
               <div className="space-y-2">
                 {pendingAction && (
@@ -201,7 +204,8 @@ export default function ServiceCard({
         )}
 
         {/* Action bar */}
-        <div className={cn(
+        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events */}
+        <div onClick={(e) => e.stopPropagation()} className={cn(
           'flex items-center gap-2 pt-2 border-t',
           status === 'match' ? 'border-emerald-100' : status === 'over' ? 'border-orange-100' : status === 'under' ? 'border-red-100' : 'border-slate-100'
         )}>
@@ -224,8 +228,8 @@ export default function ServiceCard({
             </>
           )}
           {isReviewed && (
-            <button onClick={() => onReset?.(rule.id)} disabled={isSaving} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors disabled:opacity-50">
-              <RotateCcw className="w-3.5 h-3.5" /> Reset
+            <button onClick={() => onReset?.(rule.id)} disabled={isSaving} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200 transition-colors disabled:opacity-50">
+              <RotateCcw className="w-4 h-4" /> Undo
             </button>
           )}
           {!showNotes && !pendingAction && (
@@ -238,9 +242,9 @@ export default function ServiceCard({
               <Link2 className="w-3.5 h-3.5" /> Map
             </button>
           )}
-          <button onClick={() => onDetails?.(reconciliation)} className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-colors">
-            Details <ChevronRight className="w-3.5 h-3.5" />
-          </button>
+          <span className="ml-auto inline-flex items-center gap-1 text-xs text-slate-300">
+            <ChevronRight className="w-3.5 h-3.5" />
+          </span>
         </div>
       </div>
     </div>

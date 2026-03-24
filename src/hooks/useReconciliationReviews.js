@@ -6,22 +6,38 @@ import { useAuth } from '@/lib/AuthContext';
 export function useReconciliationReviews(customerId) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const queryKey = ['reconciliation_reviews', customerId];
+  const reviewsKey = ['reconciliation_reviews', customerId];
+  const historyKey = ['reconciliation_review_history', customerId];
 
   const {
     data: reviews = [],
     isLoading,
     error,
   } = useQuery({
-    queryKey,
+    queryKey: reviewsKey,
     queryFn: () =>
       client.entities.ReconciliationReview.filter({ customer_id: customerId }),
     enabled: !!customerId,
     staleTime: 1000 * 60 * 2,
   });
 
+  // Log every action to the history table
+  const logHistory = async ({ reviewId, ruleId, action, status, notes, psaQty, vendorQty }) => {
+    await supabase.from('reconciliation_review_history').insert({
+      review_id: reviewId || null,
+      customer_id: customerId,
+      rule_id: ruleId,
+      action,
+      status,
+      notes: notes || null,
+      psa_qty: psaQty ?? null,
+      vendor_qty: vendorQty ?? null,
+      created_by: user?.id || null,
+    });
+  };
+
   const upsertMutation = useMutation({
-    mutationFn: async ({ ruleId, status, notes, psaQty, vendorQty }) => {
+    mutationFn: async ({ ruleId, status, notes, psaQty, vendorQty, action }) => {
       const { data, error } = await supabase
         .from('reconciliation_reviews')
         .upsert(
@@ -41,15 +57,31 @@ export function useReconciliationReviews(customerId) {
         .single();
 
       if (error) throw error;
+
+      // Log to history (fire-and-forget, don't block the UI)
+      logHistory({
+        reviewId: data.id,
+        ruleId,
+        action: action || status,
+        status,
+        notes,
+        psaQty,
+        vendorQty,
+      });
+
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: reviewsKey });
+      queryClient.invalidateQueries({ queryKey: historyKey });
+    },
   });
 
   const markReviewed = (ruleId, { notes, psaQty, vendorQty } = {}) =>
     upsertMutation.mutateAsync({
       ruleId,
       status: 'reviewed',
+      action: 'reviewed',
       notes,
       psaQty,
       vendorQty,
@@ -59,6 +91,7 @@ export function useReconciliationReviews(customerId) {
     upsertMutation.mutateAsync({
       ruleId,
       status: 'dismissed',
+      action: 'dismissed',
       notes,
       psaQty,
       vendorQty,
@@ -68,14 +101,15 @@ export function useReconciliationReviews(customerId) {
     upsertMutation.mutateAsync({
       ruleId,
       status: 'pending',
+      action: 'reset',
     });
 
   const saveNotes = async (ruleId, notes) => {
-    // Update notes on existing review, or create a pending one with notes
     const existing = reviews.find((r) => r.rule_id === ruleId);
     return upsertMutation.mutateAsync({
       ruleId,
       status: existing?.status || 'pending',
+      action: 'note',
       notes,
       psaQty: existing?.psa_qty,
       vendorQty: existing?.vendor_qty,

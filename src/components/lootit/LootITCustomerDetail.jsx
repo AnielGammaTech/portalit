@@ -25,7 +25,7 @@ export default function LootITCustomerDetail({ customer, onBack }) {
   const { user } = useAuth();
 
   const { reconciliations, isLoading } = useReconciliationData(customer.id);
-  const { markReviewed, dismiss, resetReview, saveNotes, isSaving } = useReconciliationReviews(customer.id);
+  const { reviews, markReviewed, dismiss, resetReview, saveNotes, isSaving } = useReconciliationReviews(customer.id);
 
   // Integration widget data
   const { data: contacts = [] } = useCustomerContacts(customer.id);
@@ -245,19 +245,23 @@ export default function LootITCustomerDetail({ customer, onBack }) {
     return pax8Recons;
   }, [pax8Recons, statusFilter]);
 
-  const handleReview = async (ruleId) => {
+  const handleReview = async (ruleId, { notes } = {}) => {
     const recon = recons.find((r) => r.rule.id === ruleId);
     const pax8 = pax8Recons.find((r) => r.ruleId === ruleId);
+    const existing = reviews.find((r) => r.rule_id === ruleId);
     await markReviewed(ruleId, {
+      notes: notes ?? existing?.notes ?? null,
       psaQty: recon?.psaQty ?? pax8?.psaQty,
       vendorQty: recon?.vendorQty ?? pax8?.vendorQty,
     });
   };
 
-  const handleDismiss = async (ruleId) => {
+  const handleDismiss = async (ruleId, { notes } = {}) => {
     const recon = recons.find((r) => r.rule.id === ruleId);
     const pax8 = pax8Recons.find((r) => r.ruleId === ruleId);
+    const existing = reviews.find((r) => r.rule_id === ruleId);
     await dismiss(ruleId, {
+      notes: notes ?? existing?.notes ?? null,
       psaQty: recon?.psaQty ?? pax8?.psaQty,
       vendorQty: recon?.vendorQty ?? pax8?.vendorQty,
     });
@@ -645,6 +649,7 @@ export default function LootITCustomerDetail({ customer, onBack }) {
       {detailItem && (
         <DetailDrawer
           reconciliation={detailItem}
+          customerId={customer.id}
           onClose={() => setDetailItem(null)}
         />
       )}
@@ -925,11 +930,37 @@ function ContractCard({ contract, extractingId, onDownload, onDelete, onRetryExt
 
 // MiniStat removed — metrics now live in the header card
 
-function DetailDrawer({ reconciliation, onClose }) {
+const ACTION_LABELS = {
+  reviewed: { label: 'Marked OK', color: 'text-emerald-600', bg: 'bg-emerald-50', icon: Check },
+  dismissed: { label: 'Skipped', color: 'text-slate-500', bg: 'bg-slate-50', icon: X },
+  reset: { label: 'Reset', color: 'text-amber-600', bg: 'bg-amber-50', icon: RotateCcw },
+  note: { label: 'Note added', color: 'text-blue-600', bg: 'bg-blue-50', icon: StickyNote },
+};
+
+function DetailDrawer({ reconciliation, customerId, onClose }) {
   const isPax8 = !!reconciliation.ruleId;
+  const ruleId = isPax8 ? reconciliation.ruleId : reconciliation.rule?.id;
   const label = isPax8 ? reconciliation.productName : reconciliation.rule?.label;
   const integrationLabel = reconciliation.integrationLabel || '';
   const { matchedLineItems = [], psaQty, vendorQty } = reconciliation;
+
+  // Fetch history for this specific card
+  const { data: history = [] } = useQuery({
+    queryKey: ['reconciliation_review_history', customerId, ruleId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('reconciliation_review_history')
+        .select('*, created_by_user:users!reconciliation_review_history_created_by_fkey(full_name, email)')
+        .eq('customer_id', customerId)
+        .eq('rule_id', ruleId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!customerId && !!ruleId,
+  });
+
+  const review = reconciliation.review;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
@@ -949,6 +980,28 @@ function DetailDrawer({ reconciliation, onClose }) {
         </div>
 
         <div className="p-6 space-y-6">
+          {/* Current Status */}
+          {review && (
+            <div className="bg-slate-50 rounded-lg px-4 py-3 border border-slate-200">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs uppercase tracking-wider text-slate-400 font-medium">Current Status</span>
+                <span className={cn(
+                  'text-xs font-semibold px-2 py-0.5 rounded-full',
+                  review.status === 'reviewed' && 'bg-emerald-100 text-emerald-700',
+                  review.status === 'dismissed' && 'bg-slate-200 text-slate-600',
+                  review.status === 'pending' && 'bg-amber-100 text-amber-700',
+                )}>
+                  {review.status === 'reviewed' ? 'Reviewed' : review.status === 'dismissed' ? 'Dismissed' : 'Pending'}
+                </span>
+              </div>
+              {review.notes && (
+                <p className="text-sm text-slate-600 mt-2 bg-white rounded-md px-3 py-2 border border-slate-100">
+                  {review.notes}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Source Info */}
           <div>
             <h4 className="text-xs uppercase tracking-wider text-slate-400 font-medium mb-2">
@@ -1035,6 +1088,51 @@ function DetailDrawer({ reconciliation, onClose }) {
               </div>
             )}
           </div>
+
+          {/* Activity History */}
+          <div>
+            <h4 className="text-xs uppercase tracking-wider text-slate-400 font-medium mb-3">
+              Activity History ({history.length})
+            </h4>
+            {history.length === 0 ? (
+              <p className="text-sm text-slate-400 italic">No activity yet</p>
+            ) : (
+              <div className="relative pl-4 border-l-2 border-slate-100 space-y-4">
+                {history.map((entry) => {
+                  const config = ACTION_LABELS[entry.action] || ACTION_LABELS.note;
+                  const Icon = config.icon;
+                  const userName = entry.created_by_user?.full_name || entry.created_by_user?.email || 'System';
+                  const timestamp = new Date(entry.created_at);
+                  return (
+                    <div key={entry.id} className="relative">
+                      <div className={cn('absolute -left-[23px] top-0.5 w-5 h-5 rounded-full flex items-center justify-center border-2 border-white', config.bg)}>
+                        <Icon className={cn('w-3 h-3', config.color)} />
+                      </div>
+                      <div className="ml-2">
+                        <div className="flex items-center gap-2">
+                          <span className={cn('text-xs font-semibold', config.color)}>{config.label}</span>
+                          <span className="text-[11px] text-slate-400">
+                            {timestamp.toLocaleDateString()} {timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5">by {userName}</p>
+                        {entry.notes && (
+                          <p className="text-sm text-slate-700 mt-1 bg-slate-50 rounded-md px-3 py-2 border border-slate-100">
+                            {entry.notes}
+                          </p>
+                        )}
+                        {(entry.psa_qty !== null || entry.vendor_qty !== null) && (
+                          <p className="text-[11px] text-slate-400 mt-1">
+                            PSA: {entry.psa_qty ?? '—'} · Vendor: {entry.vendor_qty ?? '—'}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -1073,11 +1171,12 @@ function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, 
     if (!onSaveNotes) return;
     setSavingNote(true);
     try {
-      await onSaveNotes(ruleId, noteText);
       if (pendingAction === 'review') {
-        await onReview?.(ruleId);
+        await onReview?.(ruleId, { notes: noteText });
       } else if (pendingAction === 'dismiss') {
-        await onDismiss?.(ruleId);
+        await onDismiss?.(ruleId, { notes: noteText });
+      } else {
+        await onSaveNotes(ruleId, noteText);
       }
     } finally {
       setSavingNote(false);
@@ -1096,10 +1195,11 @@ function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, 
   return (
     <div
       className={cn(
-        'rounded-xl border overflow-hidden transition-all hover:shadow-md',
+        'rounded-xl border overflow-hidden transition-all hover:shadow-md cursor-pointer',
         styles.card,
         isReviewed && 'opacity-50'
       )}
+      onClick={() => onDetails?.(recon)}
     >
       <div className={cn('h-1', styles.bar)} />
 
@@ -1119,14 +1219,14 @@ function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, 
 
         {/* Override / Not Billed */}
         {isMissing && (
-          <div className="flex items-center gap-2 mb-3 px-2.5 py-1.5 bg-red-100/60 rounded-md border border-red-200">
+          <div className="flex items-center gap-2 mb-3 px-2.5 py-1.5 bg-red-100/60 rounded-md border border-red-200" onClick={(e) => e.stopPropagation()}>
             <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />
             <span className="text-[11px] font-medium text-red-700 flex-1">Not billed in PSA</span>
             <button onClick={() => onMapLineItem?.()} className="text-[10px] font-bold text-red-600 hover:text-red-800">MAP</button>
           </div>
         )}
         {hasOverride && !isMissing && (
-          <div className="flex items-center gap-2 mb-3 px-2.5 py-1.5 bg-blue-50/80 rounded-md border border-blue-100">
+          <div className="flex items-center gap-2 mb-3 px-2.5 py-1.5 bg-blue-50/80 rounded-md border border-blue-100" onClick={(e) => e.stopPropagation()}>
             <Link2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />
             <span className="text-[11px] text-blue-600 flex-1">Mapped manually</span>
             <button onClick={() => onRemoveMapping?.()} className="text-[10px] font-bold text-blue-600 hover:text-blue-800">UNMAP</button>
@@ -1170,7 +1270,7 @@ function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, 
 
         {/* Notes inline — also shown when pendingAction requires a note */}
         {(showNotes || hasNotes) && (
-          <div className="mb-3">
+          <div className="mb-3" onClick={(e) => e.stopPropagation()}>
             {showNotes ? (
               <div className="space-y-2">
                 {pendingAction && (
@@ -1211,7 +1311,7 @@ function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, 
         )}
 
         {/* Action bar */}
-        <div className={cn('flex items-center gap-2 pt-2 border-t', styles.borderT)}>
+        <div onClick={(e) => e.stopPropagation()} className={cn('flex items-center gap-2 pt-2 border-t', styles.borderT)}>
           {!isReviewed && status !== 'match' && (
             <>
               <button
@@ -1231,8 +1331,8 @@ function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, 
             </>
           )}
           {isReviewed && (
-            <button onClick={() => onReset?.(ruleId)} disabled={isSaving} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors disabled:opacity-50">
-              <RotateCcw className="w-3.5 h-3.5" /> Reset
+            <button onClick={() => onReset?.(ruleId)} disabled={isSaving} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200 transition-colors disabled:opacity-50">
+              <RotateCcw className="w-4 h-4" /> Undo
             </button>
           )}
           {!showNotes && !pendingAction && (
@@ -1245,9 +1345,9 @@ function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, 
               <Link2 className="w-3.5 h-3.5" /> Map
             </button>
           )}
-          <button onClick={() => onDetails?.(recon)} className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-colors">
-            Details <ChevronRight className="w-3.5 h-3.5" />
-          </button>
+          <span className="ml-auto inline-flex items-center gap-1 text-xs text-slate-300">
+            <ChevronRight className="w-3.5 h-3.5" />
+          </span>
         </div>
       </div>
     </div>
