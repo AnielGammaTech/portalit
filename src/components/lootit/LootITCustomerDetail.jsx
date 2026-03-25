@@ -1266,10 +1266,10 @@ function DetailDrawer({ reconciliation, customerId, onSaveExclusion }) {
             )}
           </div>
         </div>
-      </div>
     </>
   );
 }
+
 
 // ── Pax8 Subscription Card ──────────────────────────────────────────
 
