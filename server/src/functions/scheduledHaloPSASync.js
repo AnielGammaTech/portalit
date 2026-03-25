@@ -171,6 +171,11 @@ export async function scheduledHaloPSASync(_body, _user) {
       const customerData = mapHaloClientToCustomer(client, site);
       const existing = existingByExternalId[String(client.id)];
       if (existing) {
+        // Never overwrite good data with empty values from a failed site fetch
+        if (!customerData.address && existing.address) delete customerData.address;
+        if (!customerData.phone && existing.phone) delete customerData.phone;
+        if (!customerData.email && existing.email) delete customerData.email;
+        if (!customerData.primary_contact && existing.primary_contact) delete customerData.primary_contact;
         toUpdate.push({ id: existing.id, data: customerData });
       } else {
         toCreate.push(customerData);
