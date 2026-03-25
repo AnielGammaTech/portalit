@@ -352,7 +352,7 @@ export default function CIPPMicrosoftTab({ customerId }) {
                         {user.account_enabled ? (
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
                         ) : (
-                          <span className="w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0" />
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-red-500 border-red-200 shrink-0">Disabled</Badge>
                         )}
                         {user.user_type === 'Guest' && (
                           <Badge variant="outline" className="text-[10px] px-1 py-0 text-amber-600 border-amber-200">Guest</Badge>
