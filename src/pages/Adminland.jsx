@@ -34,6 +34,7 @@ import DmarcReportConfig from '../components/integrations/DmarcReportConfig';
 import VultrConfig from '../components/integrations/VultrConfig';
 import VPenTestConfig from '../components/integrations/VPenTestConfig';
 import MapboxConfig from '../components/integrations/MapboxConfig';
+import CIPPConfig from '../components/integrations/CIPPConfig';
 
 import {
   Shield,
@@ -104,6 +105,7 @@ const INTEGRATION_CATEGORIES = [
   {
     title: 'IDENTITY & ACCESS',
     items: [
+      { id: 'cipp', label: 'CIPP', desc: 'M365 users, groups & shared mailboxes via CIPP', icon: Users, iconBg: 'bg-sky-50', iconColor: 'text-sky-600', mappingKey: 'cipp_mappings', mappingEntity: 'CIPPMapping' },
       { id: 'jumpcloud', label: 'JumpCloud', desc: 'Sync SSO applications and users', icon: Cloud, iconBg: 'bg-green-50', iconColor: 'text-green-600', mappingKey: 'jumpcloud_mappings', mappingEntity: 'JumpCloudMapping' },
     ],
   },
@@ -181,6 +183,7 @@ const INTEGRATION_COMPONENTS = {
   'ai': AIConfig,
   'pax8': Pax8Config,
   'mapbox': MapboxConfig,
+  'cipp': CIPPConfig,
 };
 
 function IntegrationsPanel() {
@@ -191,7 +194,7 @@ function IntegrationsPanel() {
     queryKey: ['integration_mapping_counts'],
     queryFn: async () => {
       const safeCount = (fn) => fn().catch(() => 0);
-      const [datto, jumpcloud, spanning, edr, rocketcyber, cove, unifi, saasAlerts, pax8, threecx, dmarc, vultr, vpentest] = await Promise.all([
+      const [datto, jumpcloud, spanning, edr, rocketcyber, cove, unifi, saasAlerts, pax8, threecx, dmarc, vultr, vpentest, cipp] = await Promise.all([
         safeCount(() => client.entities.DattoSiteMapping.count()),
         safeCount(() => client.entities.JumpCloudMapping.count()),
         safeCount(() => client.entities.SpanningMapping.count()),
@@ -205,6 +208,7 @@ function IntegrationsPanel() {
         safeCount(() => client.entities.DmarcReportMapping.count()),
         safeCount(() => client.entities.VultrMapping.count()),
         safeCount(() => client.entities.VPenTestMapping.count()),
+        safeCount(() => client.entities.CIPPMapping.count()),
       ]);
       return {
         datto_mappings: datto,
@@ -220,6 +224,7 @@ function IntegrationsPanel() {
         dmarc_mappings: dmarc,
         vultr_mappings: vultr,
         vpentest_mappings: vpentest,
+        cipp_mappings: cipp,
       };
     },
   });
