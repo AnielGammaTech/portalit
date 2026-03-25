@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import { toast } from 'sonner';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useAuth } from '@/lib/AuthContext';
 import { createPageUrl } from '../utils';
 import { motion } from 'framer-motion';
 import { fadeInUp, staggerContainer, staggerItem } from '@/lib/motion';
@@ -63,8 +64,6 @@ import { isCustomerPortal } from '@/lib/portal-mode';
 
 export default function CustomerDetail() {
   const [isSyncing, setIsSyncing] = useState(false);
-  const [user, setUser] = useState(null);
-  const [userLoading, setUserLoading] = useState(true);
   const [selectedLicense, setSelectedLicense] = useState(null);
   const [showAddLicense, setShowAddLicense] = useState(false);
   const [showAddSoftware, setShowAddSoftware] = useState(false);
@@ -74,20 +73,7 @@ export default function CustomerDetail() {
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const customerIdParam = searchParams.get('id');
-
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const currentUser = await client.auth.me();
-        setUser(currentUser);
-      } catch (error) {
-        console.error('Failed to load user', error);
-      } finally {
-        setUserLoading(false);
-      }
-    };
-    loadUser();
-  }, []);
+  const { user, isLoadingAuth: userLoading } = useAuth();
 
   // Security: non-admin users can ONLY access their own customer
   const isAdmin = user?.role === 'admin';

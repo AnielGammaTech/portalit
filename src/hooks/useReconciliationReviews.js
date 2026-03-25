@@ -101,12 +101,17 @@ export function useReconciliationReviews(customerId) {
       vendorQty,
     });
 
-  const resetReview = (ruleId) =>
-    upsertMutation.mutateAsync({
+  const resetReview = (ruleId) => {
+    const existing = reviews.find((r) => r.rule_id === ruleId);
+    return upsertMutation.mutateAsync({
       ruleId,
       status: 'pending',
       action: 'reset',
+      notes: existing?.notes,
+      psaQty: existing?.psa_qty,
+      vendorQty: existing?.vendor_qty,
     });
+  };
 
   const saveNotes = async (ruleId, notes) => {
     const existing = reviews.find((r) => r.rule_id === ruleId);
