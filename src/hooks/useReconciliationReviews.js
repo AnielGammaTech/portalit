@@ -144,7 +144,8 @@ export function useReconciliationReviews(customerId) {
 
     if (error) throw error;
 
-    logHistory({
+    // Await the history insert so the invalidation picks it up
+    await logHistory({
       reviewId: data.id,
       ruleId,
       action: 'exclusion',
@@ -155,7 +156,9 @@ export function useReconciliationReviews(customerId) {
     });
 
     queryClient.invalidateQueries({ queryKey: reviewsKey });
+    // Invalidate both the general and per-rule history keys
     queryClient.invalidateQueries({ queryKey: historyKey });
+    queryClient.invalidateQueries({ queryKey: ['reconciliation_review_history', customerId, ruleId] });
     return data;
   };
 
