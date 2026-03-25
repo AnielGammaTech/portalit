@@ -59,6 +59,7 @@ import DevicesTab from '../components/customer/DevicesTab';
 import CustomerServicesTab from '../components/customer/CustomerServicesTab';
 import CustomerDashboardTab from '../components/customer/CustomerDashboardTab';
 import CustomerMap from '../components/customer/CustomerMap';
+import M365Tab from '../components/customer/M365Tab';
 import { UserPlus, Eye } from 'lucide-react';
 import { isCustomerPortal } from '@/lib/portal-mode';
 
@@ -481,6 +482,7 @@ export default function CustomerDetail() {
         { entity: 'SaaSAlertsMapping',  fn: 'syncSaaSAlerts',         action: 'sync_alerts',    label: 'SaaS Alerts' },
         { entity: 'UniFiMapping',       fn: 'syncUniFiDevices',       action: 'sync_devices',   label: 'UniFi' },
         { entity: 'Pax8Mapping',        fn: 'syncPax8Subscriptions',  action: 'sync_subscriptions', label: 'Pax8' },
+        { entity: 'CIPPMapping',        fn: 'syncCIPP',               action: 'sync_customer',      label: 'CIPP',  extraParams: true },
       ];
 
       const mappingResults = await Promise.all(
@@ -489,10 +491,17 @@ export default function CustomerDetail() {
         )
       );
 
-      integrationChecks.forEach(({ fn, action, label }, idx) => {
+      integrationChecks.forEach(({ fn, action, label, extraParams }, idx) => {
         if (mappingResults[idx].length > 0) {
+          const params = { action, customer_id: customerId };
+          // CIPP needs customerId + tenantId from the mapping
+          if (extraParams && fn === 'syncCIPP') {
+            const mapping = mappingResults[idx][0];
+            params.customerId = customerId;
+            params.tenantId = mapping.cipp_tenant_id;
+          }
           syncTasks.push(
-            client.functions.invoke(fn, { action, customer_id: customerId })
+            client.functions.invoke(fn, params)
               .then(res => res.success ? results.push(label) : errors.push(label))
               .catch(() => errors.push(label))
           );
@@ -750,6 +759,7 @@ export default function CustomerDetail() {
             { value: 'dashboard', icon: BarChart3, label: 'Dashboard' },
             { value: 'billing', icon: DollarSign, label: 'Billing' },
             { value: 'services', icon: Cloud, label: 'Services' },
+            { value: 'm365', icon: Monitor, label: 'M365' },
             { value: 'licenses', icon: Cloud, label: 'SaaS' },
             { value: 'quotes', icon: FileText, label: 'Quotes' },
             { value: 'tickets', icon: HelpCircle, label: 'Tickets' },
@@ -1084,6 +1094,10 @@ export default function CustomerDetail() {
             queryClient={queryClient}
             devices={devices}
           />
+        </TabsContent>
+
+        <TabsContent value="m365">
+          <M365Tab customerId={customerId} queryClient={queryClient} />
         </TabsContent>
 
         <TabsContent value="licenses">
