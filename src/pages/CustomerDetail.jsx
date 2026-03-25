@@ -150,6 +150,7 @@ export default function CustomerDetail() {
     { key: 'saas_alerts', label: 'SaaS Alerts', entity: 'SaaSAlertsMapping', dot: 'bg-violet-500', text: 'text-violet-700 dark:text-violet-300' },
     { key: 'pax8', label: 'M365', entity: 'Pax8Mapping', dot: 'bg-pink-500', text: 'text-pink-700 dark:text-pink-300' },
     { key: 'cove', label: 'Backup', entity: 'CoveDataMapping', dot: 'bg-amber-500', text: 'text-amber-700 dark:text-amber-300' },
+    { key: 'cipp', label: 'CIPP', entity: 'CIPPMapping', dot: 'bg-sky-600', text: 'text-sky-700 dark:text-sky-300' },
   ];
 
   const { data: serviceMappingsData } = useQuery({

@@ -38,6 +38,7 @@ import InkyConfig from '../components/integrations/InkyConfig';
 import ThreeCXConfig from '../components/integrations/ThreeCXConfig';
 import AIConfig from '../components/integrations/AIConfig';
 import DmarcReportConfig from '../components/integrations/DmarcReportConfig';
+import CIPPConfig from '../components/integrations/CIPPConfig';
 import { formatDistanceToNow } from 'date-fns';
 
 // ── Config component map ─────────────────────────────────────────────────
@@ -58,6 +59,7 @@ const CONFIG_COMPONENTS = {
   threecx: ThreeCXConfig,
   ai: AIConfig,
   dmarc: DmarcReportConfig,
+  cipp: CIPPConfig,
 };
 
 // ── Integration categories ───────────────────────────────────────────────
@@ -87,6 +89,7 @@ const CATEGORIES = [
   {
     title: 'IDENTITY & ACCESS',
     items: [
+      { id: 'cipp', name: 'CIPP', desc: 'M365 users, groups & shared mailboxes', icon: Users, color: 'bg-sky-600', mappingEntity: 'CIPPMapping' },
       { id: 'jumpcloud', name: 'JumpCloud', desc: 'Sync SSO applications and users', icon: Cloud, color: 'bg-green-500', mappingEntity: 'JumpCloudMapping' },
     ],
   },
@@ -138,6 +141,7 @@ function useMappingCounts() {
     ['UniFiMapping', 'unifi_mappings'],
     ['SaaSAlertsMapping', 'saas_alerts_mappings'],
     ['ThreeCXMapping', 'threecx_mappings'],
+    ['CIPPMapping', 'cipp_mappings'],
   ];
 
   const { data: counts = {} } = useQuery({
