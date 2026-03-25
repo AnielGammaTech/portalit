@@ -4,7 +4,8 @@ import { client } from '@/api/client';
 import {
   Users, Mail, Shield, Search, ChevronDown, ChevronRight,
   Briefcase, MapPin, Phone, Globe, Building2, Clock,
-  KeyRound, X, Monitor,
+  KeyRound, X, Monitor, ShieldCheck, ShieldAlert, ShieldX,
+  LogIn, Wifi, UserCheck, AlertTriangle,
 } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -39,11 +40,32 @@ function parseCachedData(raw) {
   return raw;
 }
 
+// ── MFA Badge helper ────────────────────────────────────────────────
+const MFA_CONFIG = {
+  enforced: { icon: ShieldCheck, color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-200', label: 'MFA Enforced' },
+  enabled: { icon: ShieldCheck, color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-200', label: 'MFA Enabled' },
+  disabled: { icon: ShieldX, color: 'text-red-600', bg: 'bg-red-50 border-red-200', label: 'MFA Disabled' },
+  unknown: { icon: ShieldAlert, color: 'text-slate-400', bg: 'bg-slate-50 border-slate-200', label: 'MFA Unknown' },
+};
+
+function getMfaConfig(status) {
+  if (!status) return MFA_CONFIG.unknown;
+  const s = String(status).toLowerCase();
+  if (s.includes('enforced')) return MFA_CONFIG.enforced;
+  if (s.includes('enabled')) return MFA_CONFIG.enabled;
+  if (s.includes('disabled')) return MFA_CONFIG.disabled;
+  return MFA_CONFIG.unknown;
+}
+
 // ── User Detail Drawer ──────────────────────────────────────────────
 function UserDetailDrawer({ user, onClose }) {
   if (!user) return null;
   const cd = parseCachedData(user.cached_data);
   const licenses = (cd.licenses || '').split(',').map(l => l.trim()).filter(Boolean);
+  const mfaCfg = getMfaConfig(cd.mfa_status);
+  const MfaIcon = mfaCfg.icon;
+  const mfaMethods = cd.mfa_methods || [];
+  const signIn = cd.last_sign_in_details;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
@@ -69,12 +91,13 @@ function UserDetailDrawer({ user, onClose }) {
             <div>
               <h4 className="text-lg font-semibold text-slate-900">{user.display_name}</h4>
               <p className="text-sm text-slate-500">{user.mail || user.user_principal_name}</p>
-              <div className="flex gap-1.5 mt-1">
+              <div className="flex flex-wrap gap-1.5 mt-1">
                 {user.account_enabled ? (
                   <Badge className="text-[10px] bg-emerald-100 text-emerald-700 border-0">Active</Badge>
                 ) : (
                   <Badge className="text-[10px] bg-red-100 text-red-700 border-0">Disabled</Badge>
                 )}
+                <Badge className={cn("text-[10px] border", mfaCfg.bg, mfaCfg.color)}>{mfaCfg.label}</Badge>
                 {user.user_type === 'Guest' && (
                   <Badge className="text-[10px] bg-amber-100 text-amber-700 border-0">Guest</Badge>
                 )}
@@ -85,6 +108,74 @@ function UserDetailDrawer({ user, onClose }) {
             </div>
           </div>
 
+          {/* MFA Section */}
+          <div className={cn("rounded-lg border p-3", mfaCfg.bg)}>
+            <div className="flex items-center gap-2 mb-1">
+              <MfaIcon className={cn("w-4 h-4", mfaCfg.color)} />
+              <span className={cn("text-xs font-semibold", mfaCfg.color)}>{mfaCfg.label}</span>
+            </div>
+            {mfaMethods.length > 0 ? (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {mfaMethods.map((m, i) => (
+                  <Badge key={i} variant="outline" className="text-[10px] bg-white/60">
+                    {typeof m === 'string' ? m : m['@odata.type']?.replace('#microsoft.graph.', '') || 'Auth Method'}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[10px] text-slate-500">No MFA methods registered</p>
+            )}
+          </div>
+
+          {/* Last Sign-In Section */}
+          {signIn && (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <LogIn className="w-4 h-4 text-slate-500" />
+                <span className="text-xs font-semibold text-slate-600">Last Sign-In (30 days)</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                {signIn.date && (
+                  <div>
+                    <p className="text-[10px] text-slate-400">When</p>
+                    <p className="text-slate-700">{format(new Date(signIn.date), 'MMM d, yyyy h:mm a')}</p>
+                  </div>
+                )}
+                {signIn.app && (
+                  <div>
+                    <p className="text-[10px] text-slate-400">App</p>
+                    <p className="text-slate-700 truncate">{signIn.app}</p>
+                  </div>
+                )}
+                {signIn.ip && (
+                  <div>
+                    <p className="text-[10px] text-slate-400">IP</p>
+                    <p className="text-slate-700">{signIn.ip}</p>
+                  </div>
+                )}
+                {signIn.location && (
+                  <div>
+                    <p className="text-[10px] text-slate-400">Location</p>
+                    <p className="text-slate-700 truncate">{signIn.location}</p>
+                  </div>
+                )}
+                {signIn.status && (
+                  <div>
+                    <p className="text-[10px] text-slate-400">Status</p>
+                    <Badge className={cn("text-[10px]",
+                      signIn.status === 'success' ? "bg-emerald-100 text-emerald-700 border-0" : "bg-red-100 text-red-700 border-0"
+                    )}>
+                      {signIn.status === 'success' ? 'Success' : 'Failed'}
+                    </Badge>
+                  </div>
+                )}
+              </div>
+              {signIn.error && signIn.status !== 'success' && (
+                <p className="text-[10px] text-red-500 mt-1">Error: {signIn.error}</p>
+              )}
+            </div>
+          )}
+
           {/* Info Grid */}
           <div className="grid grid-cols-1 gap-3">
             {user.job_title && (
@@ -92,6 +183,9 @@ function UserDetailDrawer({ user, onClose }) {
             )}
             {user.department && (
               <InfoRow icon={Building2} label="Department" value={user.department} />
+            )}
+            {cd.manager && (
+              <InfoRow icon={UserCheck} label="Manager" value={cd.manager} />
             )}
             {cd.office_location && (
               <InfoRow icon={MapPin} label="Office" value={cd.office_location} />
@@ -102,6 +196,9 @@ function UserDetailDrawer({ user, onClose }) {
             {(cd.city || cd.state) && (
               <InfoRow icon={Globe} label="Location" value={[cd.city, cd.state, cd.country].filter(Boolean).join(', ')} />
             )}
+            {cd.usage_location && (
+              <InfoRow icon={Globe} label="Usage Location" value={cd.usage_location} />
+            )}
             {cd.mobile_phone && (
               <InfoRow icon={Phone} label="Mobile" value={cd.mobile_phone} />
             )}
@@ -111,19 +208,22 @@ function UserDetailDrawer({ user, onClose }) {
             {user.created_date_time && (
               <InfoRow icon={Clock} label="Created" value={format(new Date(user.created_date_time), 'MMM d, yyyy')} />
             )}
-            {user.last_sign_in && (
+            {user.last_sign_in && !signIn && (
               <InfoRow icon={Clock} label="Last Sign-In" value={format(new Date(user.last_sign_in), 'MMM d, yyyy h:mm a')} />
             )}
             {cd.on_premises_domain && (
               <InfoRow icon={Monitor} label="On-Prem Domain" value={cd.on_premises_domain} />
             )}
+            {cd.on_premises_last_sync && (
+              <InfoRow icon={Clock} label="Last AD Sync" value={format(new Date(cd.on_premises_last_sync), 'MMM d, yyyy h:mm a')} />
+            )}
           </div>
 
           {/* Licenses */}
-          {licenses.length > 0 && (
+          {licenses.length > 0 ? (
             <div>
               <h5 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2 flex items-center gap-1.5">
-                <KeyRound className="w-3.5 h-3.5" /> Assigned Licenses
+                <KeyRound className="w-3.5 h-3.5" /> Assigned Licenses ({licenses.length})
               </h5>
               <div className="space-y-1">
                 {licenses.map((lic, i) => (
@@ -134,11 +234,27 @@ function UserDetailDrawer({ user, onClose }) {
                 ))}
               </div>
             </div>
+          ) : (
+            <div className="text-center py-4 bg-amber-50 rounded-lg">
+              <AlertTriangle className="w-5 h-5 text-amber-400 mx-auto mb-1" />
+              <p className="text-xs text-amber-600 font-medium">No licenses assigned</p>
+            </div>
           )}
 
-          {licenses.length === 0 && (
-            <div className="text-center py-4">
-              <p className="text-xs text-slate-400">No licenses assigned</p>
+          {/* Aliases */}
+          {cd.aliases && cd.aliases.length > 0 && (
+            <div>
+              <h5 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2 flex items-center gap-1.5">
+                <Mail className="w-3.5 h-3.5" /> Email Aliases
+              </h5>
+              <div className="space-y-1">
+                {(Array.isArray(cd.aliases) ? cd.aliases : cd.aliases.split(',')).map((alias, i) => (
+                  <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg text-xs text-slate-600">
+                    <Mail className="w-3 h-3 text-slate-400" />
+                    {alias.trim()}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -333,6 +449,8 @@ export default function CIPPMicrosoftTab({ customerId }) {
                 const cd = parseCachedData(user.cached_data);
                 const licenses = (cd.licenses || '').split(',').map(l => l.trim()).filter(Boolean);
                 const hasLicense = licenses.length > 0;
+                const mfaCfg = getMfaConfig(cd.mfa_status);
+                const MfaIcon = mfaCfg.icon;
 
                 return (
                   <button
@@ -357,6 +475,7 @@ export default function CIPPMicrosoftTab({ customerId }) {
                         {user.user_type === 'Guest' && (
                           <Badge variant="outline" className="text-[10px] px-1 py-0 text-amber-600 border-amber-200">Guest</Badge>
                         )}
+                        <MfaIcon className={cn("w-3.5 h-3.5 shrink-0", mfaCfg.color)} title={mfaCfg.label} />
                       </div>
                       <p className="text-xs text-slate-400 truncate">{user.mail || user.user_principal_name}</p>
                     </div>

@@ -101,41 +101,115 @@ async function listTenants() {
 
 async function syncUsers(customerId, tenantId) {
   const supabase = getServiceSupabase();
-  const users = await cippApiCall('ListUsers', { tenantFilter: tenantId });
-  const userList = Array.isArray(users) ? users : [];
 
-  const records = userList.map((u) => ({
-    customer_id: customerId,
-    cipp_tenant_id: tenantId,
-    user_principal_name: u.userPrincipalName || u.UserPrincipalName || '',
-    display_name: u.displayName || u.DisplayName || '',
-    mail: u.mail || u.Mail || '',
-    job_title: u.jobTitle || u.JobTitle || null,
-    department: u.department || u.Department || null,
-    account_enabled: u.accountEnabled ?? u.AccountEnabled ?? true,
-    user_type: u.userType || u.UserType || 'Member',
-    assigned_licenses: u.assignedLicenses || [],
-    created_date_time: u.createdDateTime || u.CreatedDateTime || null,
-    last_sign_in: u.lastSignInDateTime || u.LastSignIn || null,
-    on_premises_sync_enabled: u.onPremisesSyncEnabled ?? u.OnPremisesSyncEnabled ?? false,
-    external_id: u.id || u.Id || u.ObjectId || '',
-    cached_data: {
-      licenses: u.LicJoined || '',
-      given_name: u.givenName || null,
-      surname: u.surname || null,
-      city: u.city || null,
-      state: u.state || null,
-      country: u.country || null,
-      mobile_phone: u.mobilePhone || null,
-      business_phones: u.businessPhones || [],
-      office_location: u.officeLocation || null,
-      company_name: u.companyName || null,
-      on_premises_domain: u.onPremisesDomainName || null,
-      on_premises_last_sync: u.onPremisesLastSyncDateTime || null,
-      aliases: u.Aliases || null,
-      created: u.createdDateTime || null,
-    },
-  }));
+  // Fetch users + enrichment data in parallel
+  const [users, mfaData, licenseSKUs, signIns] = await Promise.all([
+    cippApiCall('ListUsers', { tenantFilter: tenantId }),
+    safeApiCall('ListPerUserMFA', { tenantFilter: tenantId }),
+    safeApiCall('ListLicenses', { tenantFilter: tenantId }),
+    safeApiCall('ListSignIns', { tenantFilter: tenantId, filter: 'createdDateTime ge ' + new Date(Date.now() - 30 * 86400000).toISOString() }),
+  ]);
+
+  const userList = Array.isArray(users) ? users : [];
+  const mfaList = Array.isArray(mfaData) ? mfaData : [];
+  const skuList = Array.isArray(licenseSKUs) ? licenseSKUs : [];
+  const signInList = Array.isArray(signIns) ? signIns : [];
+
+  // Build MFA lookup by UPN
+  const mfaMap = {};
+  for (const m of mfaList) {
+    const upn = m.userPrincipalName || m.UserPrincipalName || '';
+    if (upn) {
+      mfaMap[upn.toLowerCase()] = {
+        status: m.accountEnabled === false ? 'disabled'
+          : m.perUser || m.PerUser || m.MFAState || 'unknown',
+        methods: m.MFAMethods || m.authMethods || [],
+      };
+    }
+  }
+
+  // Build SKU name lookup (skuId → friendly name)
+  const skuMap = {};
+  for (const sku of skuList) {
+    const skuId = sku.skuId || sku.SkuId || '';
+    if (skuId) {
+      skuMap[skuId] = sku.skuName || sku.SkuName || sku.skuPartNumber || sku.SkuPartNumber || skuId;
+    }
+  }
+
+  // Build last sign-in lookup by UPN (most recent)
+  const signInMap = {};
+  for (const s of signInList) {
+    const upn = (s.userPrincipalName || s.UserPrincipalName || '').toLowerCase();
+    if (!upn) continue;
+    const dt = s.createdDateTime || s.CreatedDateTime || '';
+    if (!signInMap[upn] || dt > signInMap[upn].date) {
+      signInMap[upn] = {
+        date: dt,
+        ip: s.ipAddress || s.IPAddress || null,
+        location: [s.location?.city, s.location?.state, s.location?.countryOrRegion].filter(Boolean).join(', ') || null,
+        app: s.appDisplayName || s.AppDisplayName || null,
+        status: s.status?.errorCode === 0 ? 'success' : 'failed',
+        error: s.status?.failureReason || null,
+      };
+    }
+  }
+
+  const records = userList.map((u) => {
+    const upn = (u.userPrincipalName || u.UserPrincipalName || '').toLowerCase();
+    const mfa = mfaMap[upn] || { status: 'unknown', methods: [] };
+    const lastSignIn = signInMap[upn] || null;
+
+    // Resolve license SKU IDs to friendly names
+    const rawLicenses = u.assignedLicenses || [];
+    const resolvedLicenses = rawLicenses
+      .map(l => skuMap[l.skuId || l.SkuId] || l.skuId || l.SkuId || '')
+      .filter(Boolean);
+
+    // Also use LicJoined as fallback
+    const licJoined = u.LicJoined || '';
+    const licenseString = resolvedLicenses.length > 0
+      ? resolvedLicenses.join(', ')
+      : licJoined;
+
+    return {
+      customer_id: customerId,
+      cipp_tenant_id: tenantId,
+      user_principal_name: u.userPrincipalName || u.UserPrincipalName || '',
+      display_name: u.displayName || u.DisplayName || '',
+      mail: u.mail || u.Mail || '',
+      job_title: u.jobTitle || u.JobTitle || null,
+      department: u.department || u.Department || null,
+      account_enabled: u.accountEnabled ?? u.AccountEnabled ?? true,
+      user_type: u.userType || u.UserType || 'Member',
+      assigned_licenses: rawLicenses,
+      created_date_time: u.createdDateTime || u.CreatedDateTime || null,
+      last_sign_in: lastSignIn?.date || u.lastSignInDateTime || u.LastSignIn || null,
+      on_premises_sync_enabled: u.onPremisesSyncEnabled ?? u.OnPremisesSyncEnabled ?? false,
+      external_id: u.id || u.Id || u.ObjectId || '',
+      cached_data: {
+        licenses: licenseString,
+        mfa_status: mfa.status,
+        mfa_methods: mfa.methods,
+        last_sign_in_details: lastSignIn,
+        given_name: u.givenName || null,
+        surname: u.surname || null,
+        city: u.city || null,
+        state: u.state || null,
+        country: u.country || null,
+        mobile_phone: u.mobilePhone || null,
+        business_phones: u.businessPhones || [],
+        office_location: u.officeLocation || null,
+        company_name: u.companyName || null,
+        on_premises_domain: u.onPremisesDomainName || null,
+        on_premises_last_sync: u.onPremisesLastSyncDateTime || null,
+        aliases: u.Aliases || null,
+        created: u.createdDateTime || null,
+        usage_location: u.usageLocation || null,
+        manager: u.manager?.displayName || null,
+      },
+    };
+  });
 
   // Clear existing users for this tenant then bulk insert
   await supabase.from('cipp_users').delete().eq('customer_id', customerId);
@@ -150,6 +224,16 @@ async function syncUsers(customerId, tenantId) {
   }
 
   return { success: true, count: records.length };
+}
+
+// Safe API call that returns empty array on failure (non-critical enrichment)
+async function safeApiCall(endpoint, params) {
+  try {
+    return await cippApiCall(endpoint, params);
+  } catch (err) {
+    console.warn(`[CIPP] ${endpoint} failed (non-critical): ${err.message}`);
+    return [];
+  }
 }
 
 async function syncGroups(customerId, tenantId) {
