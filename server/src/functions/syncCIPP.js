@@ -157,8 +157,36 @@ async function syncGroups(customerId, tenantId) {
   const groups = await cippApiCall('ListGroups', { tenantFilter: tenantId });
   const groupList = Array.isArray(groups) ? groups : [];
 
+  // Fetch members for each group (batch 5 at a time to avoid rate limits)
+  const MEMBER_BATCH = 5;
+  const groupMembersMap = {};
+  for (let i = 0; i < groupList.length; i += MEMBER_BATCH) {
+    const batch = groupList.slice(i, i + MEMBER_BATCH);
+    const results = await Promise.allSettled(
+      batch.map(async (g) => {
+        try {
+          const members = await cippApiCall('ListGroupMembers', {
+            tenantFilter: tenantId,
+            groupId: g.id || g.Id,
+          });
+          const memberList = Array.isArray(members) ? members : [];
+          return {
+            groupId: g.id || g.Id,
+            members: memberList.map(m => m.displayName || m.userPrincipalName || m.mail || 'Unknown'),
+          };
+        } catch {
+          return { groupId: g.id || g.Id, members: [] };
+        }
+      })
+    );
+    for (const r of results) {
+      if (r.status === 'fulfilled') {
+        groupMembersMap[r.value.groupId] = r.value.members;
+      }
+    }
+  }
+
   const records = groupList.map((g) => {
-    // Use CIPP's calculated type if available
     const groupType = g.calculatedGroupType || g.groupType || (() => {
       const types = g.groupTypes || [];
       const mailEnabled = g.mailEnabled ?? false;
@@ -169,9 +197,11 @@ async function syncGroups(customerId, tenantId) {
       return 'Security';
     })();
 
-    // Parse members from CSV
-    const membersCsv = g.membersCsv || '';
-    const members = membersCsv ? membersCsv.split(',').map(m => m.trim()).filter(Boolean) : [];
+    // Use fetched members, fall back to CSV
+    const groupId = g.id || g.Id || '';
+    const fetchedMembers = groupMembersMap[groupId] || [];
+    const csvMembers = (g.membersCsv || '').split(',').map(m => m.trim()).filter(Boolean);
+    const members = fetchedMembers.length > 0 ? fetchedMembers : csvMembers;
 
     return {
       customer_id: customerId,
@@ -181,7 +211,7 @@ async function syncGroups(customerId, tenantId) {
       mail: g.mail || g.Mail || null,
       group_type: groupType,
       member_count: members.length,
-      external_id: g.id || g.Id || '',
+      external_id: groupId,
       cached_data: {
         members,
         teams_enabled: g.teamsEnabled ?? false,
