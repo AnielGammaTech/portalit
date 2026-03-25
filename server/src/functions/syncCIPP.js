@@ -31,10 +31,12 @@ async function getCIPPToken() {
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.error(`[CIPP] Token request failed: ${response.status} | ${errorText}`);
     throw new Error(`CIPP auth failed: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
+  console.log(`[CIPP] Token obtained, expires_in: ${data.expires_in}`);
   cachedToken = data.access_token;
   tokenExpiry = now + ((data.expires_in || 3600) - 60) * 1000;
   return cachedToken;
@@ -52,6 +54,9 @@ async function cippApiCall(endpoint, params = {}) {
     if (value !== undefined && value !== null) url.searchParams.set(key, value);
   }
 
+  console.log(`[CIPP] Calling: ${url.toString()}`);
+  console.log(`[CIPP] Token (first 20 chars): ${token?.substring(0, 20)}...`);
+
   const response = await fetch(url.toString(), {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -61,6 +66,7 @@ async function cippApiCall(endpoint, params = {}) {
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.error(`[CIPP] API error: ${response.status} | Headers: ${JSON.stringify(Object.fromEntries(response.headers))} | Body: ${errorText}`);
     throw new Error(`CIPP API error (${endpoint}): ${response.status} - ${errorText}`);
   }
 
