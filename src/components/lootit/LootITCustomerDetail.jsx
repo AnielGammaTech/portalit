@@ -9,6 +9,7 @@ import { useReconciliationReviews } from '@/hooks/useReconciliationReviews';
 import { useCustomerContacts, useCustomerDevices } from '@/hooks/useCustomerData';
 import { useAuth } from '@/lib/AuthContext';
 import { getDiscrepancySummary, getDiscrepancyMessage } from '@/lib/lootit-reconciliation';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import ServiceCard from './ServiceCard';
 import ReconciliationBadge from './ReconciliationBadge';
 
@@ -646,22 +647,24 @@ export default function LootITCustomerDetail({ customer, onBack }) {
       )}
 
       {/* Details Drawer */}
-      {detailItem && (
-        <DetailDrawer
-          reconciliation={detailItem}
-          customerId={customer.id}
-          onClose={() => setDetailItem(null)}
-          onSaveExclusion={async (ruleId, exclusionCount, exclusionReason) => {
-            await saveExclusion(ruleId, exclusionCount, exclusionReason);
-            // Refresh the detail item with updated review data
-            const updatedReviews = queryClient.getQueryData(['reconciliation_reviews', customer.id]);
-            const updatedReview = updatedReviews?.find((r) => r.rule_id === ruleId);
-            if (updatedReview) {
-              setDetailItem((prev) => prev ? { ...prev, review: updatedReview } : prev);
-            }
-          }}
-        />
-      )}
+      <Sheet open={!!detailItem} onOpenChange={(open) => { if (!open) setDetailItem(null); }}>
+        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto p-0">
+          {detailItem && (
+            <DetailDrawer
+              reconciliation={detailItem}
+              customerId={customer.id}
+              onSaveExclusion={async (ruleId, exclusionCount, exclusionReason) => {
+                await saveExclusion(ruleId, exclusionCount, exclusionReason);
+                const updatedReviews = queryClient.getQueryData(['reconciliation_reviews', customer.id]);
+                const updatedReview = updatedReviews?.find((r) => r.rule_id === ruleId);
+                if (updatedReview) {
+                  setDetailItem((prev) => prev ? { ...prev, review: updatedReview } : prev);
+                }
+              }}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* Rule Editor Dialog */}
       {editingRule && (
@@ -947,7 +950,7 @@ const ACTION_LABELS = {
   exclusion: { label: 'Exclusion set', color: 'text-amber-600', bg: 'bg-amber-50', icon: ShieldCheck },
 };
 
-function DetailDrawer({ reconciliation, customerId, onClose, onSaveExclusion }) {
+function DetailDrawer({ reconciliation, customerId, onSaveExclusion }) {
   const isPax8 = !!reconciliation.ruleId;
   const ruleId = isPax8 ? reconciliation.ruleId : reconciliation.rule?.id;
   const label = isPax8 ? reconciliation.productName : reconciliation.rule?.label;
@@ -996,23 +999,15 @@ function DetailDrawer({ reconciliation, customerId, onClose, onSaveExclusion }) 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/20" />
-      <div
-        className="relative w-full max-w-md bg-white shadow-2xl overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-          <h3 className="font-semibold text-slate-900">{label}</h3>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 text-xl"
-          >
-            ×
-          </button>
-        </div>
+    <>
+      <SheetHeader className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 z-10">
+        <SheetTitle className="text-left">{label}</SheetTitle>
+        <SheetDescription className="text-left text-xs text-slate-400">
+          {integrationLabel}
+        </SheetDescription>
+      </SheetHeader>
 
-        <div className="p-6 space-y-6">
+      <div className="p-6 space-y-6">
           {/* Current Status */}
           {review && (
             <div className="bg-slate-50 rounded-lg px-4 py-3 border border-slate-200">
@@ -1272,7 +1267,7 @@ function DetailDrawer({ reconciliation, customerId, onClose, onSaveExclusion }) 
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
