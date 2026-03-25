@@ -132,7 +132,8 @@ export default function LootITDashboard({ onSelectCustomer }) {
             const resolved = s.matched + s.reviewed;
             const pct = active > 0 ? Math.round((resolved / active) * 100) : 0;
             const issues = s.over + s.under;
-            const isFullyReconciled = active > 0 && issues === 0;
+            const noPsa = s.noPsa || 0;
+            const isFullyReconciled = active > 0 && issues === 0 && noPsa === 0;
 
             return (
               <button
@@ -150,6 +151,8 @@ export default function LootITDashboard({ onSelectCustomer }) {
                     <span className="flex-shrink-0 ml-2 inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100 text-red-600 text-xs font-bold">
                       {issues}
                     </span>
+                  ) : noPsa > 0 ? (
+                    <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />
                   ) : null}
                 </div>
 
@@ -161,7 +164,9 @@ export default function LootITDashboard({ onSelectCustomer }) {
                     </span>
                     <span className={cn(
                       'text-xs font-semibold',
-                      pct === 100 ? 'text-emerald-600' : pct >= 70 ? 'text-orange-500' : 'text-red-500'
+                      pct === 100 && noPsa === 0 ? 'text-emerald-600'
+                        : pct === 100 && noPsa > 0 ? 'text-amber-600'
+                        : pct >= 70 ? 'text-orange-500' : 'text-red-500'
                     )}>
                       {pct}% reconciled
                     </span>
@@ -171,15 +176,25 @@ export default function LootITDashboard({ onSelectCustomer }) {
                     <div
                       className={cn(
                         'h-full rounded-full transition-all',
-                        pct === 100 ? 'bg-emerald-400' : pct >= 70 ? 'bg-orange-400' : 'bg-red-400'
+                        pct === 100 && noPsa === 0 ? 'bg-emerald-400'
+                          : pct === 100 && noPsa > 0 ? 'bg-amber-400'
+                          : pct >= 70 ? 'bg-orange-400' : 'bg-red-400'
                       )}
                       style={{ width: `${pct}%` }}
                     />
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 text-xs text-slate-400">
+                <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
                   <span className="text-emerald-500">{s.matched} matched</span>
+                  {noPsa > 0 && (
+                    <>
+                      <span>·</span>
+                      <span className="text-amber-600 font-medium">
+                        {noPsa} no PSA
+                      </span>
+                    </>
+                  )}
                   {issues > 0 && (
                     <>
                       <span>·</span>
