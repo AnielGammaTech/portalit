@@ -1300,7 +1300,6 @@ function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, 
   const message = getDiscrepancyMessage(recon);
   const isReviewed = review?.status === 'reviewed' || review?.status === 'dismissed';
   const isMissing = status === 'missing_from_psa';
-  const styles = PAX8_STATUS_STYLES[status] || PAX8_STATUS_STYLES.default;
 
   const [showNotes, setShowNotes] = useState(false);
   const [noteText, setNoteText] = useState(review?.notes || '');
@@ -1308,6 +1307,16 @@ function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, 
   const [pendingAction, setPendingAction] = useState(null);
   const hasNotes = !!(review?.notes);
   const hasExclusions = review?.exclusion_count > 0;
+
+  // Compute effective vendor qty after exclusions
+  const exclusionCount = review?.exclusion_count || 0;
+  const effectiveVendorQty = vendorQty !== null ? vendorQty - exclusionCount : null;
+  const effectiveDifference = psaQty !== null && effectiveVendorQty !== null ? psaQty - effectiveVendorQty : difference;
+  const effectiveStatus = hasExclusions
+    ? (effectiveDifference === 0 ? 'match' : effectiveDifference > 0 ? 'over' : 'under')
+    : status;
+
+  const styles = PAX8_STATUS_STYLES[hasExclusions ? effectiveStatus : status] || PAX8_STATUS_STYLES.default;
 
   const handleSaveNote = async () => {
     if (!onSaveNotes) return;
@@ -1350,7 +1359,7 @@ function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, 
         {/* Title row */}
         <div className="flex items-center justify-between gap-2 mb-1">
           <h4 className="font-semibold text-slate-900 text-sm leading-tight truncate flex-1">{productName}</h4>
-          <ReconciliationBadge status={isMissing ? 'missing_from_psa' : status} difference={difference} />
+          <ReconciliationBadge status={isMissing ? 'missing_from_psa' : (hasExclusions ? effectiveStatus : status)} difference={hasExclusions ? effectiveDifference : difference} />
         </div>
 
         {/* Price line */}
@@ -1386,25 +1395,32 @@ function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, 
           </div>
           <div className="px-2 text-slate-300 text-sm font-bold">vs</div>
           <div className={cn('flex-1 text-center py-2 rounded-r-lg border', resolvedStyles.numBg)}>
-            <p className={cn('text-3xl font-black leading-none', resolvedStyles.numText)}>{vendorQty}</p>
+            <p className={cn('text-3xl font-black leading-none', resolvedStyles.numText)}>
+              {effectiveVendorQty !== null ? effectiveVendorQty : '—'}
+            </p>
+            {hasExclusions && vendorQty !== null && (
+              <p className="text-[10px] text-amber-500 line-through">{vendorQty}</p>
+            )}
             <p className={cn('text-[10px] uppercase tracking-widest font-bold mt-1', resolvedStyles.labelText)}>PAX8</p>
           </div>
         </div>
 
         {/* Matched checkmark */}
-        {status === 'match' && !isReviewed && (
+        {(hasExclusions ? effectiveStatus : status) === 'match' && !isReviewed && (
           <div className="flex items-center gap-1.5 mb-3 text-emerald-600">
             <Check className="w-4 h-4" />
-            <span className="text-xs font-semibold">{message}</span>
+            <span className="text-xs font-semibold">
+              {hasExclusions ? 'Counts match (after exclusions)' : message}
+            </span>
           </div>
         )}
 
         {/* Message for non-match */}
-        {status !== 'match' && (
+        {(hasExclusions ? effectiveStatus : status) !== 'match' && (
           <p className={cn(
             'text-xs mb-3 text-slate-500',
-            (status === 'under' || isMissing) && 'text-red-600 font-semibold',
-            status === 'over' && 'text-orange-600 font-semibold'
+            ((hasExclusions ? effectiveStatus : status) === 'under' || isMissing) && 'text-red-600 font-semibold',
+            (hasExclusions ? effectiveStatus : status) === 'over' && 'text-orange-600 font-semibold'
           )}>
             {isReviewed && <span className="text-slate-400 mr-1">[{review.status === 'reviewed' ? 'Reviewed' : 'Dismissed'}]</span>}
             {message}

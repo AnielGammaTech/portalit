@@ -37,26 +37,26 @@ export function useReconciliationReviews(customerId) {
   };
 
   const upsertMutation = useMutation({
-    mutationFn: async ({ ruleId, status, notes, psaQty, vendorQty, action }) => {
-      // Preserve existing exclusion data across review/dismiss/reset
+    mutationFn: async ({ ruleId, status, notes, psaQty, vendorQty, action, exclusionCount, exclusionReason }) => {
       const existing = reviews.find((r) => r.rule_id === ruleId);
+      const payload = {
+        customer_id: customerId,
+        rule_id: ruleId,
+        status,
+        reviewed_by: user?.id || null,
+        reviewed_at: new Date().toISOString(),
+        notes: notes || null,
+        psa_qty: psaQty ?? null,
+        vendor_qty: vendorQty ?? null,
+      };
+      // Only include exclusion fields if they're explicitly provided or already exist
+      if (exclusionCount !== undefined || existing?.exclusion_count) {
+        payload.exclusion_count = exclusionCount ?? existing?.exclusion_count ?? 0;
+        payload.exclusion_reason = exclusionReason ?? existing?.exclusion_reason ?? null;
+      }
       const { data, error } = await supabase
         .from('reconciliation_reviews')
-        .upsert(
-          {
-            customer_id: customerId,
-            rule_id: ruleId,
-            status,
-            reviewed_by: user?.id || null,
-            reviewed_at: new Date().toISOString(),
-            notes: notes || null,
-            psa_qty: psaQty ?? null,
-            vendor_qty: vendorQty ?? null,
-            exclusion_count: existing?.exclusion_count ?? 0,
-            exclusion_reason: existing?.exclusion_reason ?? null,
-          },
-          { onConflict: 'customer_id,rule_id' }
-        )
+        .upsert(payload, { onConflict: 'customer_id,rule_id' })
         .select()
         .single();
 
@@ -122,41 +122,16 @@ export function useReconciliationReviews(customerId) {
 
   const saveExclusion = async (ruleId, exclusionCount, exclusionReason) => {
     const existing = reviews.find((r) => r.rule_id === ruleId);
-    const { data, error } = await supabase
-      .from('reconciliation_reviews')
-      .upsert(
-        {
-          customer_id: customerId,
-          rule_id: ruleId,
-          status: existing?.status || 'reviewed',
-          reviewed_by: user?.id || null,
-          reviewed_at: new Date().toISOString(),
-          notes: existing?.notes || null,
-          psa_qty: existing?.psa_qty ?? null,
-          vendor_qty: existing?.vendor_qty ?? null,
-          exclusion_count: exclusionCount || 0,
-          exclusion_reason: exclusionReason || null,
-        },
-        { onConflict: 'customer_id,rule_id' }
-      )
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    logHistory({
-      reviewId: data.id,
+    return upsertMutation.mutateAsync({
       ruleId,
+      status: existing?.status || 'reviewed',
       action: 'exclusion',
-      status: data.status,
-      notes: `${exclusionCount} ${exclusionReason || 'excluded'}`,
+      notes: existing?.notes,
       psaQty: existing?.psa_qty,
       vendorQty: existing?.vendor_qty,
+      exclusionCount: exclusionCount || 0,
+      exclusionReason: exclusionReason || null,
     });
-
-    queryClient.invalidateQueries({ queryKey: reviewsKey });
-    queryClient.invalidateQueries({ queryKey: historyKey });
-    return data;
   };
 
   return {
