@@ -104,6 +104,11 @@ async function syncUsers(customerId, tenantId) {
   const users = await cippApiCall('ListUsers', { tenantFilter: tenantId });
   const userList = Array.isArray(users) ? users : [];
 
+  if (userList[0]) {
+    console.log(`[CIPP] Sample user keys:`, Object.keys(userList[0]).join(', '));
+    console.log(`[CIPP] Sample user:`, JSON.stringify(userList[0]).substring(0, 1000));
+  }
+
   const records = userList.map((u) => ({
     customer_id: customerId,
     cipp_tenant_id: tenantId,
@@ -140,6 +145,11 @@ async function syncGroups(customerId, tenantId) {
   const supabase = getServiceSupabase();
   const groups = await cippApiCall('ListGroups', { tenantFilter: tenantId });
   const groupList = Array.isArray(groups) ? groups : [];
+
+  if (groupList[0]) {
+    console.log(`[CIPP] Sample group keys:`, Object.keys(groupList[0]).join(', '));
+    console.log(`[CIPP] Sample group:`, JSON.stringify(groupList[0]).substring(0, 1000));
+  }
 
   const records = groupList.map((g) => {
     let groupType = 'Security';
