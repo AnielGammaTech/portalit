@@ -57,7 +57,6 @@ export default function ServiceCard({
   isSaving,
 }) {
   const { rule, psaQty, vendorQty, difference, status, review } = reconciliation;
-  const message = getDiscrepancyMessage(reconciliation);
   const isReviewed = review?.status === 'reviewed' || review?.status === 'dismissed';
 
   const [showNotes, setShowNotes] = useState(false);
@@ -67,7 +66,16 @@ export default function ServiceCard({
 
   const hasNotes = !!(review?.notes);
   const hasExclusions = review?.exclusion_count > 0;
-  const baseStyles = STATUS_STYLES[status] || STATUS_STYLES.default;
+
+  // Compute effective vendor qty after exclusions
+  const exclusionCount = review?.exclusion_count || 0;
+  const effectiveVendorQty = vendorQty !== null ? vendorQty - exclusionCount : null;
+  const effectiveDifference = psaQty !== null && effectiveVendorQty !== null ? psaQty - effectiveVendorQty : difference;
+  const effectiveStatus = hasExclusions
+    ? (effectiveDifference === 0 ? 'match' : effectiveDifference > 0 ? 'over' : 'under')
+    : status;
+
+  const baseStyles = STATUS_STYLES[hasExclusions ? effectiveStatus : status] || STATUS_STYLES.default;
   const styles = isReviewed ? { ...baseStyles, ...REVIEWED_STYLES } : baseStyles;
 
   const handleSaveNote = async () => {
@@ -118,7 +126,7 @@ export default function ServiceCard({
               </button>
             )}
           </div>
-          <ReconciliationBadge status={status} difference={difference} />
+          <ReconciliationBadge status={hasExclusions ? effectiveStatus : status} difference={hasExclusions ? effectiveDifference : difference} />
         </div>
 
         {/* Integration label */}
@@ -144,30 +152,35 @@ export default function ServiceCard({
           <div className="px-2 text-slate-300 text-sm font-bold">vs</div>
           <div className={cn('flex-1 text-center py-2 rounded-r-lg border', styles.numBg)}>
             <p className={cn('text-3xl font-black leading-none', styles.numText)}>
-              {vendorQty !== null ? vendorQty : '—'}
+              {effectiveVendorQty !== null ? effectiveVendorQty : '—'}
             </p>
+            {hasExclusions && vendorQty !== null && (
+              <p className="text-[10px] text-amber-500 line-through">{vendorQty}</p>
+            )}
             <p className={cn('text-[10px] uppercase tracking-widest font-bold mt-1', styles.labelText)}>VENDOR</p>
           </div>
         </div>
 
-        {/* Matched checkmark for match status */}
-        {status === 'match' && !isReviewed && (
+        {/* Matched checkmark — show when effective status is match */}
+        {(hasExclusions ? effectiveStatus : status) === 'match' && !isReviewed && (
           <div className="flex items-center gap-1.5 mb-3 text-emerald-600">
             <Check className="w-4 h-4" />
-            <span className="text-xs font-semibold">{message}</span>
+            <span className="text-xs font-semibold">
+              {hasExclusions ? 'Counts match (after exclusions)' : getDiscrepancyMessage(reconciliation)}
+            </span>
           </div>
         )}
 
         {/* Message for non-match */}
-        {status !== 'match' && (
+        {(hasExclusions ? effectiveStatus : status) !== 'match' && (
           <p className={cn(
             'text-xs mb-3',
             'text-slate-500',
-            status === 'under' && 'text-red-600 font-semibold',
-            status === 'over' && 'text-orange-600 font-semibold'
+            (hasExclusions ? effectiveStatus : status) === 'under' && 'text-red-600 font-semibold',
+            (hasExclusions ? effectiveStatus : status) === 'over' && 'text-orange-600 font-semibold'
           )}>
             {isReviewed && <span className="text-slate-400 mr-1">[{review.status === 'reviewed' ? 'Reviewed' : 'Dismissed'}]</span>}
-            {message}
+            {getDiscrepancyMessage(reconciliation)}
           </p>
         )}
 
