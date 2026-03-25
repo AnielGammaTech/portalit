@@ -2,16 +2,9 @@ import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import {
-  Users,
-  Mail,
-  Shield,
-  Search,
-  CheckCircle2,
-  XCircle,
-  UserCheck,
-  UserX,
-  ChevronDown,
-  Briefcase,
+  Users, Mail, Shield, Search, ChevronDown, ChevronRight,
+  Briefcase, MapPin, Phone, Globe, Building2, Clock,
+  KeyRound, X, Monitor,
 } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -27,10 +20,152 @@ const SUB_TABS = [
   { key: 'groups', label: 'Groups', icon: Shield },
 ];
 
+const GROUP_TYPE_COLORS = {
+  'Distribution List': 'text-blue-600 border-blue-200 bg-blue-50',
+  'distributionList': 'text-blue-600 border-blue-200 bg-blue-50',
+  'M365 Group': 'text-purple-600 border-purple-200 bg-purple-50',
+  'microsoft365': 'text-purple-600 border-purple-200 bg-purple-50',
+  'Mail-Enabled Security': 'text-amber-600 border-amber-200 bg-amber-50',
+  'mailEnabledSecurity': 'text-amber-600 border-amber-200 bg-amber-50',
+  'Security': 'text-slate-600 border-slate-200 bg-slate-50',
+  'security': 'text-slate-600 border-slate-200 bg-slate-50',
+};
+
+function parseCachedData(raw) {
+  if (!raw) return {};
+  if (typeof raw === 'string') {
+    try { return JSON.parse(raw); } catch { return {}; }
+  }
+  return raw;
+}
+
+// ── User Detail Drawer ──────────────────────────────────────────────
+function UserDetailDrawer({ user, onClose }) {
+  if (!user) return null;
+  const cd = parseCachedData(user.cached_data);
+  const licenses = (cd.licenses || '').split(',').map(l => l.trim()).filter(Boolean);
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/20" />
+      <div
+        className="relative w-full max-w-md bg-white shadow-xl overflow-y-auto animate-in slide-in-from-right"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between z-10">
+          <h3 className="font-semibold text-slate-900">User Details</h3>
+          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg"><X className="w-5 h-5" /></button>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {/* Header */}
+          <div className="flex items-center gap-4">
+            <div className={cn(
+              "w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold",
+              user.account_enabled ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-400"
+            )}>
+              {(user.display_name || '?').charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h4 className="text-lg font-semibold text-slate-900">{user.display_name}</h4>
+              <p className="text-sm text-slate-500">{user.mail || user.user_principal_name}</p>
+              <div className="flex gap-1.5 mt-1">
+                {user.account_enabled ? (
+                  <Badge className="text-[10px] bg-emerald-100 text-emerald-700 border-0">Active</Badge>
+                ) : (
+                  <Badge className="text-[10px] bg-red-100 text-red-700 border-0">Disabled</Badge>
+                )}
+                {user.user_type === 'Guest' && (
+                  <Badge className="text-[10px] bg-amber-100 text-amber-700 border-0">Guest</Badge>
+                )}
+                {user.on_premises_sync_enabled && (
+                  <Badge className="text-[10px] bg-blue-100 text-blue-700 border-0">Hybrid</Badge>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Info Grid */}
+          <div className="grid grid-cols-1 gap-3">
+            {user.job_title && (
+              <InfoRow icon={Briefcase} label="Job Title" value={user.job_title} />
+            )}
+            {user.department && (
+              <InfoRow icon={Building2} label="Department" value={user.department} />
+            )}
+            {cd.office_location && (
+              <InfoRow icon={MapPin} label="Office" value={cd.office_location} />
+            )}
+            {cd.company_name && (
+              <InfoRow icon={Building2} label="Company" value={cd.company_name} />
+            )}
+            {(cd.city || cd.state) && (
+              <InfoRow icon={Globe} label="Location" value={[cd.city, cd.state, cd.country].filter(Boolean).join(', ')} />
+            )}
+            {cd.mobile_phone && (
+              <InfoRow icon={Phone} label="Mobile" value={cd.mobile_phone} />
+            )}
+            {cd.business_phones?.length > 0 && (
+              <InfoRow icon={Phone} label="Business Phone" value={cd.business_phones.join(', ')} />
+            )}
+            {user.created_date_time && (
+              <InfoRow icon={Clock} label="Created" value={format(new Date(user.created_date_time), 'MMM d, yyyy')} />
+            )}
+            {user.last_sign_in && (
+              <InfoRow icon={Clock} label="Last Sign-In" value={format(new Date(user.last_sign_in), 'MMM d, yyyy h:mm a')} />
+            )}
+            {cd.on_premises_domain && (
+              <InfoRow icon={Monitor} label="On-Prem Domain" value={cd.on_premises_domain} />
+            )}
+          </div>
+
+          {/* Licenses */}
+          {licenses.length > 0 && (
+            <div>
+              <h5 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2 flex items-center gap-1.5">
+                <KeyRound className="w-3.5 h-3.5" /> Assigned Licenses
+              </h5>
+              <div className="space-y-1">
+                {licenses.map((lic, i) => (
+                  <div key={i} className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-lg text-xs text-slate-700">
+                    <div className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+                    {lic}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {licenses.length === 0 && (
+            <div className="text-center py-4">
+              <p className="text-xs text-slate-400">No licenses assigned</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InfoRow({ icon: Icon, label, value }) {
+  return (
+    <div className="flex items-start gap-3 text-sm">
+      <Icon className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+      <div>
+        <p className="text-[10px] uppercase tracking-wide text-slate-400">{label}</p>
+        <p className="text-slate-700">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Component ──────────────────────────────────────────────────
 export default function CIPPMicrosoftTab({ customerId }) {
   const [activeTab, setActiveTab] = useState('users');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [expandedGroup, setExpandedGroup] = useState(null);
 
   const { data: users = [], isLoading: loadingUsers } = useQuery({
     queryKey: ['cipp-users', customerId],
@@ -53,53 +188,54 @@ export default function CIPPMicrosoftTab({ customerId }) {
     staleTime: 1000 * 60 * 5,
   });
 
-  // Stats
-  const stats = useMemo(() => {
-    const activeUsers = users.filter(u => u.account_enabled === true);
-    const disabledUsers = users.filter(u => u.account_enabled === false);
-    const sharedMailboxes = mailboxes.filter(m => (m.mailbox_type || '').toLowerCase().includes('shared'));
-    return {
-      totalUsers: users.length,
-      activeUsers: activeUsers.length,
-      disabledUsers: disabledUsers.length,
-      totalMailboxes: mailboxes.length,
-      sharedMailboxes: sharedMailboxes.length,
-      totalGroups: groups.length,
-    };
-  }, [users, mailboxes, groups]);
+  const stats = useMemo(() => ({
+    totalUsers: users.length,
+    activeUsers: users.filter(u => u.account_enabled === true).length,
+    licensedUsers: users.filter(u => {
+      const cd = parseCachedData(u.cached_data);
+      return cd.licenses && cd.licenses.length > 0;
+    }).length,
+    totalMailboxes: mailboxes.length,
+    sharedMailboxes: mailboxes.filter(m => (m.mailbox_type || '').toLowerCase().includes('shared')).length,
+    totalGroups: groups.length,
+  }), [users, mailboxes, groups]);
 
-  // Filtered data
   const searchLower = search.toLowerCase();
 
   const filteredUsers = useMemo(() => {
     return users.filter(u => {
+      const cd = parseCachedData(u.cached_data);
       const matchesSearch = !search
         || (u.display_name || '').toLowerCase().includes(searchLower)
         || (u.mail || '').toLowerCase().includes(searchLower)
         || (u.user_principal_name || '').toLowerCase().includes(searchLower)
-        || (u.department || '').toLowerCase().includes(searchLower);
+        || (u.department || '').toLowerCase().includes(searchLower)
+        || (u.job_title || '').toLowerCase().includes(searchLower)
+        || (cd.licenses || '').toLowerCase().includes(searchLower);
       const matchesStatus = statusFilter === 'all'
         || (statusFilter === 'active' && u.account_enabled === true)
-        || (statusFilter === 'disabled' && u.account_enabled === false);
+        || (statusFilter === 'disabled' && u.account_enabled === false)
+        || (statusFilter === 'licensed' && cd.licenses && cd.licenses.length > 0)
+        || (statusFilter === 'unlicensed' && (!cd.licenses || cd.licenses.length === 0));
       return matchesSearch && matchesStatus;
     });
   }, [users, search, searchLower, statusFilter]);
 
   const filteredMailboxes = useMemo(() => {
-    return mailboxes.filter(m => {
-      return !search
-        || (m.display_name || '').toLowerCase().includes(searchLower)
-        || (m.primary_smtp_address || '').toLowerCase().includes(searchLower);
-    });
+    return mailboxes.filter(m =>
+      !search
+      || (m.display_name || '').toLowerCase().includes(searchLower)
+      || (m.primary_smtp_address || '').toLowerCase().includes(searchLower)
+    );
   }, [mailboxes, search, searchLower]);
 
   const filteredGroups = useMemo(() => {
-    return groups.filter(g => {
-      return !search
-        || (g.display_name || '').toLowerCase().includes(searchLower)
-        || (g.description || '').toLowerCase().includes(searchLower)
-        || (g.mail || '').toLowerCase().includes(searchLower);
-    });
+    return groups.filter(g =>
+      !search
+      || (g.display_name || '').toLowerCase().includes(searchLower)
+      || (g.description || '').toLowerCase().includes(searchLower)
+      || (g.mail || '').toLowerCase().includes(searchLower)
+    );
   }, [groups, search, searchLower]);
 
   const isLoading = activeTab === 'users' ? loadingUsers
@@ -114,7 +250,7 @@ export default function CIPPMicrosoftTab({ customerId }) {
           const count = tab.key === 'users' ? stats.totalUsers
             : tab.key === 'mailboxes' ? stats.totalMailboxes
             : stats.totalGroups;
-          const subtitle = tab.key === 'users' ? `${stats.activeUsers} active`
+          const subtitle = tab.key === 'users' ? `${stats.activeUsers} active · ${stats.licensedUsers} licensed`
             : tab.key === 'mailboxes' ? `${stats.sharedMailboxes} shared`
             : `${stats.totalGroups} total`;
           const Icon = tab.icon;
@@ -130,10 +266,7 @@ export default function CIPPMicrosoftTab({ customerId }) {
               )}
             >
               <div className="flex items-center gap-2 mb-1">
-                <div className={cn(
-                  "w-7 h-7 rounded-lg flex items-center justify-center",
-                  isActive ? "bg-sky-100" : "bg-slate-100"
-                )}>
+                <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center", isActive ? "bg-sky-100" : "bg-slate-100")}>
                   <Icon className={cn("w-4 h-4", isActive ? "text-sky-600" : "text-slate-500")} />
                 </div>
                 <span className="text-xs text-slate-500">{tab.label}</span>
@@ -162,15 +295,15 @@ export default function CIPPMicrosoftTab({ customerId }) {
               { key: 'all', label: 'All' },
               { key: 'active', label: 'Active' },
               { key: 'disabled', label: 'Disabled' },
+              { key: 'licensed', label: 'Licensed' },
+              { key: 'unlicensed', label: 'Unlicensed' },
             ].map(f => (
               <button
                 key={f.key}
                 onClick={() => setStatusFilter(f.key)}
                 className={cn(
                   "px-3 py-1.5 text-xs rounded-lg font-medium transition-colors",
-                  statusFilter === f.key
-                    ? "bg-sky-100 text-sky-700"
-                    : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                  statusFilter === f.key ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
                 )}
               >
                 {f.label}
@@ -184,67 +317,77 @@ export default function CIPPMicrosoftTab({ customerId }) {
       {isLoading && (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-14 w-full rounded-lg" />
+            <Skeleton key={i} className="h-16 w-full rounded-lg" />
           ))}
         </div>
       )}
 
-      {/* Users list */}
+      {/* ── Users ──────────────────────────────────────────────────── */}
       {activeTab === 'users' && !loadingUsers && (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           {filteredUsers.length === 0 ? (
             <EmptyState icon={Users} title="No users found" description={search ? "Try a different search" : "No CIPP user data synced yet"} />
           ) : (
             <div className="divide-y divide-slate-100">
-              {filteredUsers.map(user => (
-                <div key={user.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors">
-                  <div className={cn(
-                    "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
-                    user.account_enabled ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-400"
-                  )}>
-                    {(user.display_name || '?').charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-slate-900 truncate">{user.display_name}</p>
-                      {user.account_enabled ? (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-emerald-600 border-emerald-200">Active</Badge>
+              {filteredUsers.map(user => {
+                const cd = parseCachedData(user.cached_data);
+                const licenses = (cd.licenses || '').split(',').map(l => l.trim()).filter(Boolean);
+                const hasLicense = licenses.length > 0;
+
+                return (
+                  <button
+                    key={user.id}
+                    onClick={() => setSelectedUser(user)}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left"
+                  >
+                    <div className={cn(
+                      "w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
+                      user.account_enabled ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-400"
+                    )}>
+                      {(user.display_name || '?').charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-slate-900 truncate">{user.display_name}</p>
+                        {user.account_enabled ? (
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                        ) : (
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0" />
+                        )}
+                        {user.user_type === 'Guest' && (
+                          <Badge variant="outline" className="text-[10px] px-1 py-0 text-amber-600 border-amber-200">Guest</Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400 truncate">{user.mail || user.user_principal_name}</p>
+                    </div>
+                    <div className="text-right shrink-0 hidden sm:block max-w-[200px]">
+                      {hasLicense ? (
+                        <p className="text-[11px] text-sky-600 font-medium truncate">{licenses[0]}</p>
                       ) : (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-slate-400 border-slate-200">Disabled</Badge>
+                        <p className="text-[11px] text-slate-300">No license</p>
                       )}
-                      {user.user_type === 'Guest' && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-amber-600 border-amber-200">Guest</Badge>
+                      {licenses.length > 1 && (
+                        <p className="text-[10px] text-slate-400">+{licenses.length - 1} more</p>
                       )}
                     </div>
-                    <p className="text-xs text-slate-400 truncate">{user.mail || user.user_principal_name}</p>
-                  </div>
-                  <div className="text-right shrink-0 hidden sm:block">
-                    {user.department && (
-                      <p className="text-xs text-slate-500 flex items-center gap-1 justify-end">
-                        <Briefcase className="w-3 h-3" />
-                        {user.department}
-                      </p>
-                    )}
-                    {user.job_title && (
-                      <p className="text-[11px] text-slate-400">{user.job_title}</p>
-                    )}
-                  </div>
-                  <div className="text-right shrink-0 hidden md:block min-w-[80px]">
-                    {user.last_sign_in && (
-                      <p className="text-[10px] text-slate-400">
-                        Last sign-in<br />
-                        {format(new Date(user.last_sign_in), 'MMM d, yyyy')}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
+                    <div className="text-right shrink-0 hidden md:block min-w-[70px]">
+                      {user.department && (
+                        <p className="text-[11px] text-slate-500 truncate">{user.department}</p>
+                      )}
+                      {user.job_title && (
+                        <p className="text-[10px] text-slate-400 truncate">{user.job_title}</p>
+                      )}
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
       )}
 
-      {/* Mailboxes list */}
+      {/* ── Mailboxes ──────────────────────────────────────────────── */}
       {activeTab === 'mailboxes' && !loadingMailboxes && (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           {filteredMailboxes.length === 0 ? (
@@ -260,8 +403,8 @@ export default function CIPPMicrosoftTab({ customerId }) {
                     <p className="text-sm font-medium text-slate-900 truncate">{mb.display_name}</p>
                     <p className="text-xs text-slate-400 truncate">{mb.primary_smtp_address}</p>
                   </div>
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-purple-600 border-purple-200 capitalize shrink-0">
-                    {(mb.mailbox_type || 'Unknown').replace(/Mailbox$/i, '')}
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-purple-600 border-purple-200 shrink-0">
+                    {(mb.mailbox_type || 'Unknown').replace(/Mailbox$/i, '').replace(/([A-Z])/g, ' $1').trim()}
                   </Badge>
                 </div>
               ))}
@@ -270,45 +413,89 @@ export default function CIPPMicrosoftTab({ customerId }) {
         </div>
       )}
 
-      {/* Groups list */}
+      {/* ── Groups ─────────────────────────────────────────────────── */}
       {activeTab === 'groups' && !loadingGroups && (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           {filteredGroups.length === 0 ? (
             <EmptyState icon={Shield} title="No groups found" description={search ? "Try a different search" : "No CIPP group data synced yet"} />
           ) : (
             <div className="divide-y divide-slate-100">
-              {filteredGroups.map(group => (
-                <div key={group.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors">
-                  <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
-                    <Shield className="w-4 h-4 text-indigo-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-slate-900 truncate">{group.display_name}</p>
-                      {group.group_type && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-indigo-600 border-indigo-200 capitalize shrink-0">
-                          {group.group_type}
-                        </Badge>
-                      )}
-                    </div>
-                    {group.description && (
-                      <p className="text-xs text-slate-400 truncate">{group.description}</p>
+              {filteredGroups.map(group => {
+                const cd = parseCachedData(group.cached_data);
+                const members = cd.members || [];
+                const isExpanded = expandedGroup === group.id;
+                const typeColor = GROUP_TYPE_COLORS[group.group_type] || 'text-slate-600 border-slate-200 bg-slate-50';
+
+                return (
+                  <div key={group.id}>
+                    <button
+                      onClick={() => setExpandedGroup(isExpanded ? null : group.id)}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
+                        <Shield className="w-4 h-4 text-indigo-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-slate-900 truncate">{group.display_name}</p>
+                          <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 shrink-0", typeColor)}>
+                            {group.group_type}
+                          </Badge>
+                          {cd.teams_enabled && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-violet-600 border-violet-200 shrink-0">Teams</Badge>
+                          )}
+                        </div>
+                        {group.mail && (
+                          <p className="text-xs text-slate-400 truncate">{group.mail}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="text-right">
+                          <p className="text-sm font-semibold text-slate-700">{members.length}</p>
+                          <p className="text-[10px] text-slate-400">members</p>
+                        </div>
+                        <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", isExpanded && "rotate-180")} />
+                      </div>
+                    </button>
+
+                    {/* Expanded members */}
+                    {isExpanded && (
+                      <div className="px-4 pb-3">
+                        <div className="bg-slate-50 rounded-lg p-3">
+                          {group.description && (
+                            <p className="text-xs text-slate-500 mb-3 italic">{group.description}</p>
+                          )}
+                          {members.length === 0 ? (
+                            <p className="text-xs text-slate-400 text-center py-2">No members</p>
+                          ) : (
+                            <div className="space-y-1">
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">
+                                Members ({members.length})
+                              </p>
+                              {members.map((member, i) => (
+                                <div key={i} className="flex items-center gap-2 text-xs text-slate-700 py-1">
+                                  <div className="w-6 h-6 rounded-full bg-white border border-slate-200 flex items-center justify-center text-[10px] font-medium text-slate-500 shrink-0">
+                                    {member.charAt(0).toUpperCase()}
+                                  </div>
+                                  <span className="truncate">{member}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     )}
-                    {group.mail && (
-                      <p className="text-xs text-slate-400 truncate">{group.mail}</p>
-                    )}
                   </div>
-                  {group.member_count != null && (
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-semibold text-slate-700">{group.member_count}</p>
-                      <p className="text-[10px] text-slate-400">members</p>
-                    </div>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
+      )}
+
+      {/* User Detail Drawer */}
+      {selectedUser && (
+        <UserDetailDrawer user={selectedUser} onClose={() => setSelectedUser(null)} />
       )}
     </div>
   );

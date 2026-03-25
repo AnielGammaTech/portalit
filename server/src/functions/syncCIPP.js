@@ -104,11 +104,6 @@ async function syncUsers(customerId, tenantId) {
   const users = await cippApiCall('ListUsers', { tenantFilter: tenantId });
   const userList = Array.isArray(users) ? users : [];
 
-  if (userList[0]) {
-    console.log(`[CIPP] Sample user keys:`, Object.keys(userList[0]).join(', '));
-    console.log(`[CIPP] Sample user:`, JSON.stringify(userList[0]).substring(0, 1000));
-  }
-
   const records = userList.map((u) => ({
     customer_id: customerId,
     cipp_tenant_id: tenantId,
@@ -119,11 +114,27 @@ async function syncUsers(customerId, tenantId) {
     department: u.department || u.Department || null,
     account_enabled: u.accountEnabled ?? u.AccountEnabled ?? true,
     user_type: u.userType || u.UserType || 'Member',
-    assigned_licenses: u.assignedLicenses || u.LicJoined || [],
+    assigned_licenses: u.assignedLicenses || [],
     created_date_time: u.createdDateTime || u.CreatedDateTime || null,
     last_sign_in: u.lastSignInDateTime || u.LastSignIn || null,
     on_premises_sync_enabled: u.onPremisesSyncEnabled ?? u.OnPremisesSyncEnabled ?? false,
     external_id: u.id || u.Id || u.ObjectId || '',
+    cached_data: {
+      licenses: u.LicJoined || '',
+      given_name: u.givenName || null,
+      surname: u.surname || null,
+      city: u.city || null,
+      state: u.state || null,
+      country: u.country || null,
+      mobile_phone: u.mobilePhone || null,
+      business_phones: u.businessPhones || [],
+      office_location: u.officeLocation || null,
+      company_name: u.companyName || null,
+      on_premises_domain: u.onPremisesDomainName || null,
+      on_premises_last_sync: u.onPremisesLastSyncDateTime || null,
+      aliases: u.Aliases || null,
+      created: u.createdDateTime || null,
+    },
   }));
 
   // Clear existing users for this tenant then bulk insert
@@ -146,21 +157,21 @@ async function syncGroups(customerId, tenantId) {
   const groups = await cippApiCall('ListGroups', { tenantFilter: tenantId });
   const groupList = Array.isArray(groups) ? groups : [];
 
-  if (groupList[0]) {
-    console.log(`[CIPP] Sample group keys:`, Object.keys(groupList[0]).join(', '));
-    console.log(`[CIPP] Sample group:`, JSON.stringify(groupList[0]).substring(0, 1000));
-  }
-
   const records = groupList.map((g) => {
-    let groupType = 'Security';
-    const types = g.groupTypes || g.GroupTypes || [];
-    const mailEnabled = g.mailEnabled ?? g.MailEnabled ?? false;
-    const secEnabled = g.securityEnabled ?? g.SecurityEnabled ?? false;
+    // Use CIPP's calculated type if available
+    const groupType = g.calculatedGroupType || g.groupType || (() => {
+      const types = g.groupTypes || [];
+      const mailEnabled = g.mailEnabled ?? false;
+      const secEnabled = g.securityEnabled ?? false;
+      if (types.includes('Unified')) return 'M365 Group';
+      if (mailEnabled && secEnabled) return 'Mail-Enabled Security';
+      if (mailEnabled && !secEnabled) return 'Distribution List';
+      return 'Security';
+    })();
 
-    if (types.includes('Unified')) groupType = 'M365';
-    else if (mailEnabled && secEnabled) groupType = 'MailEnabledSecurity';
-    else if (mailEnabled && !secEnabled) groupType = 'Distribution';
-    else groupType = 'Security';
+    // Parse members from CSV
+    const membersCsv = g.membersCsv || '';
+    const members = membersCsv ? membersCsv.split(',').map(m => m.trim()).filter(Boolean) : [];
 
     return {
       customer_id: customerId,
@@ -169,8 +180,16 @@ async function syncGroups(customerId, tenantId) {
       description: g.description || g.Description || null,
       mail: g.mail || g.Mail || null,
       group_type: groupType,
-      member_count: g.memberCount ?? g.MemberCount ?? g.members?.length ?? 0,
+      member_count: members.length,
       external_id: g.id || g.Id || '',
+      cached_data: {
+        members,
+        teams_enabled: g.teamsEnabled ?? false,
+        on_premises_sync: g.onPremisesSyncEnabled ?? false,
+        visibility: g.visibility || null,
+        dynamic: g.dynamicGroupBool ?? false,
+        membership_rule: g.membershipRule || null,
+      },
     };
   });
 
