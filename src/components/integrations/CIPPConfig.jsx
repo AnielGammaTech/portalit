@@ -141,13 +141,13 @@ export default function CIPPConfig() {
       await client.entities.CIPPMapping.create({
         customer_id: customerId,
         customer_name: customer?.name || '',
-        cipp_tenant_id: tenant.tenantId,
+        cipp_tenant_id: tenant.id,
         cipp_tenant_name: tenant.name,
         cipp_default_domain: tenant.defaultDomain,
       });
       toast.success(`Mapped ${tenant.name} successfully!`);
       refetchMappings();
-      setTenantSelections((prev) => ({ ...prev, [tenant.tenantId]: '' }));
+      setTenantSelections((prev) => ({ ...prev, [tenant.id]: '' }));
     } catch (error) {
       toast.error(error.message);
     }
@@ -191,7 +191,7 @@ export default function CIPPConfig() {
     let matchCount = 0;
 
     for (const tenant of cippTenants) {
-      if (mappedTenantIds.has(tenant.tenantId)) continue;
+      if (mappedTenantIds.has(tenant.id)) continue;
       const tenantNameLower = (tenant.name || '').toLowerCase();
       const domainLower = (tenant.defaultDomain || '').toLowerCase().split('.')[0];
 
@@ -204,7 +204,7 @@ export default function CIPPConfig() {
       });
 
       if (match) {
-        newSelections[tenant.tenantId] = match.id;
+        newSelections[tenant.id] = match.id;
         matchCount++;
       }
     }
@@ -443,12 +443,12 @@ export default function CIPPConfig() {
           {/* Tenant List */}
           <div className="space-y-1.5">
             {paginatedTenants.map((tenant) => {
-              const isMapped = mappedTenantIds.has(tenant.tenantId);
-              const selectedCustomerId = tenantSelections[tenant.tenantId] || '';
+              const isMapped = mappedTenantIds.has(tenant.id);
+              const selectedCustomerId = tenantSelections[tenant.id] || '';
 
               return (
                 <div
-                  key={tenant.tenantId}
+                  key={tenant.id}
                   className={cn(
                     'flex items-center gap-3 bg-white rounded-lg px-3 py-2.5 border',
                     isMapped ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-200'
@@ -467,7 +467,7 @@ export default function CIPPConfig() {
                     <div className="flex items-center gap-2 shrink-0">
                       <Select
                         value={selectedCustomerId}
-                        onValueChange={(val) => setTenantSelections((prev) => ({ ...prev, [tenant.tenantId]: val }))}
+                        onValueChange={(val) => setTenantSelections((prev) => ({ ...prev, [tenant.id]: val }))}
                       >
                         <SelectTrigger className="h-8 w-48 text-xs">
                           <SelectValue placeholder="Select customer…" />
