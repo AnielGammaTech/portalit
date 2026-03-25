@@ -71,7 +71,9 @@ export async function syncHaloPSAContracts(body, _user) {
     const toUpdate = [];
 
     for (const haloContract of contracts) {
-      const rawTypeName = haloContract.type_name || haloContract.typename || haloContract.type || '';
+      console.log(`[HaloPSA] Contract fields:`, JSON.stringify(Object.keys(haloContract)));
+      console.log(`[HaloPSA] Contract type fields: type_name=${haloContract.type_name}, typename=${haloContract.typename}, type=${haloContract.type}, contract_type=${haloContract.contract_type}, contracttype=${haloContract.contracttype}, contract_type_name=${haloContract.contract_type_name}`);
+      const rawTypeName = haloContract.type_name || haloContract.typename || haloContract.type || haloContract.contract_type_name || haloContract.contracttype || '';
       const rawType = rawTypeName.toLowerCase();
       const contractType = typeMap[rawType]
         || (rawType.includes('managed') ? 'managed_services' : null)
