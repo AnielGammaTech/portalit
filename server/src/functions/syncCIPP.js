@@ -208,6 +208,7 @@ async function syncMailboxes(customerId, tenantId) {
 }
 
 async function syncCustomer(customerId, tenantId) {
+  console.log(`[CIPP] syncCustomer called: customerId=${customerId}, tenantId=${tenantId}`);
   const supabase = getServiceSupabase();
   const results = { users: 0, groups: 0, mailboxes: 0, errors: [] };
 
@@ -278,6 +279,7 @@ async function syncAll() {
 // ── Main handler ────────────────────────────────────────────────────────
 
 export async function syncCIPP(body = {}) {
+  console.log(`[CIPP] Handler called with:`, JSON.stringify(body));
   const { action, customerId, tenantId } = body;
 
   switch (action) {
