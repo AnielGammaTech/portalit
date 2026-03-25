@@ -72,7 +72,8 @@ function buildContractPayload(haloContract, dbCustomer) {
     return d.split('T')[0];
   };
 
-  const rawType = (haloContract.type_name || haloContract.typename || haloContract.type || '').toLowerCase();
+  const rawTypeName = haloContract.type_name || haloContract.typename || haloContract.type || '';
+  const rawType = rawTypeName.toLowerCase();
   let contractStatus = 'active';
   const rawStatus = haloContract.contract_status || haloContract.status_name || haloContract.statusname || '';
   if (typeof rawStatus === 'string' && rawStatus) {
@@ -87,7 +88,13 @@ function buildContractPayload(haloContract, dbCustomer) {
     name: haloContract.contractname || haloContract.ref || haloContract.client_name || haloContract.name || `Contract ${haloContract.id}`,
     external_id: String(haloContract.id),
     source: 'halopsa',
-    contract_type: typeMap[rawType] || 'other',
+    contract_type: typeMap[rawType]
+      || (rawType.includes('managed') ? 'managed_services' : null)
+      || (rawType.includes('break') && rawType.includes('fix') ? 'break_fix' : null)
+      || (rawType.includes('project') ? 'project' : null)
+      || (rawType.includes('subscription') ? 'subscription' : null)
+      || 'other',
+    contract_type_raw: rawTypeName || null,
     status: contractStatus,
     start_date: parseDate(haloContract.start_date || haloContract.startdate),
     end_date: parseDate(haloContract.end_date || haloContract.enddate),

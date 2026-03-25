@@ -191,6 +191,9 @@ export default function Contracts() {
                         {contract.status}
                       </Badge>
                     </div>
+                    {contract.contract_type_raw && (
+                      <p className="text-[11px] text-indigo-600 font-medium truncate mt-0.5">{contract.contract_type_raw}</p>
+                    )}
                     {customer && (
                       <p className="text-xs text-slate-500 truncate mt-0.5">{customer.name}</p>
                     )}

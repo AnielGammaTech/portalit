@@ -283,6 +283,26 @@ export default function CustomerDashboardTab({
             </div>
           </div>
 
+          {/* Active Contract Types */}
+          {activeContracts.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">Active Contracts</p>
+              <div className="space-y-1.5">
+                {activeContracts.map(c => (
+                  <div key={c.id} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+                      <span className="text-gray-700 truncate">{c.name}</span>
+                    </div>
+                    {c.contract_type_raw && (
+                      <span className="text-[10px] text-indigo-600 font-medium flex-shrink-0 ml-2">{c.contract_type_raw}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Active Integrations */}
           {serviceTags.length > 0 && (
             <div className="mt-4 pt-4 border-t border-gray-100">

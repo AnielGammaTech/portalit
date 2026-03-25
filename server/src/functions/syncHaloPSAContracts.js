@@ -71,8 +71,14 @@ export async function syncHaloPSAContracts(body, _user) {
     const toUpdate = [];
 
     for (const haloContract of contracts) {
-      const rawType = (haloContract.type_name || haloContract.typename || haloContract.type || '').toLowerCase();
-      const contractType = typeMap[rawType] || 'other';
+      const rawTypeName = haloContract.type_name || haloContract.typename || haloContract.type || '';
+      const rawType = rawTypeName.toLowerCase();
+      const contractType = typeMap[rawType]
+        || (rawType.includes('managed') ? 'managed_services' : null)
+        || (rawType.includes('break') && rawType.includes('fix') ? 'break_fix' : null)
+        || (rawType.includes('project') ? 'project' : null)
+        || (rawType.includes('subscription') ? 'subscription' : null)
+        || 'other';
 
       let contractStatus = 'active';
       const contractStatusStr = haloContract.contract_status || haloContract.status_name || haloContract.statusname || '';
@@ -93,6 +99,7 @@ export async function syncHaloPSAContracts(body, _user) {
         external_id: String(haloContract.id),
         source: 'halopsa',
         contract_type: contractType,
+        contract_type_raw: rawTypeName || null,
         status: contractStatus,
         start_date: parseDate(haloContract.start_date || haloContract.startdate),
         end_date: parseDate(haloContract.end_date || haloContract.enddate),
