@@ -625,7 +625,7 @@ export default function LootITCustomerDetail({ customer, onBack }) {
       </div>
 
       {/* Service Cards */}
-      {filteredRecons.length === 0 ? (
+      {filteredRecons.length === 0 && filteredPax8.length === 0 ? (
         <div className="text-center py-12">
           <Filter className="w-10 h-10 text-slate-300 mx-auto mb-3" />
           <p className="text-slate-500">
@@ -634,7 +634,7 @@ export default function LootITCustomerDetail({ customer, onBack }) {
               : 'No services match this filter'}
           </p>
         </div>
-      ) : (
+      ) : filteredRecons.length === 0 ? null : (
         <div className="grid grid-cols-4 gap-3">
           {filteredRecons.map((recon) => (
             <ServiceCard
