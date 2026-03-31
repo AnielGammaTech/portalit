@@ -507,7 +507,7 @@ export default function LootITCustomerDetail({ customer, onBack }) {
 
       {/* ── Recurring Tab ── */}
       {activeTab === 'recurring' && (
-        <RecurringTab lineItems={allLineItems} rules={allRules || []} />
+        <RecurringTab lineItems={allLineItems} rules={allRules || []} overrides={existingOverrides} />
       )}
 
       {/* ── Contract Tab ── */}

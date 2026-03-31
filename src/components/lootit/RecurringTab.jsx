@@ -16,8 +16,17 @@ function formatCurrency(value) {
   return `$${parseFloat(value || 0).toFixed(2)}`;
 }
 
-export default function RecurringTab({ lineItems, rules }) {
+export default function RecurringTab({ lineItems, rules, overrides = [] }) {
   const [filter, setFilter] = useState('all');
+
+  // Build set of line item IDs that have manual Pax8 overrides
+  const overrideLineItemIds = useMemo(() => {
+    const ids = new Set();
+    for (const ov of overrides) {
+      if (ov.line_item_id) ids.add(ov.line_item_id);
+    }
+    return ids;
+  }, [overrides]);
 
   // Match computation: classify each line item and identify unused rules
   const { matchedItems, unmatchedItems, unusedRules, counts } = useMemo(() => {
@@ -30,6 +39,11 @@ export default function RecurringTab({ lineItems, rules }) {
     const unmatched = [];
 
     for (const lineItem of items) {
+      // Check manual Pax8 override first — overrides everything
+      if (overrideLineItemIds.has(lineItem.id)) {
+        matched.push({ ...lineItem, matchStatus: 'matched', matchedRule: { label: 'Manually mapped' } });
+        continue;
+      }
       const matchingRules = matchLineItemToRules(lineItem, activeRules);
       if (matchingRules.length > 0) {
         matched.push({ ...lineItem, matchStatus: 'matched', matchedRule: matchingRules[0] });
