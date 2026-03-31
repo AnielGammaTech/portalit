@@ -268,14 +268,6 @@ export default function LootITCustomerDetail({ customer, onBack }) {
     return keys.size;
   }, [recons, pax8Recons]);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-600 rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   const issueCount = summary ? summary.over + summary.under : 0;
   const healthPct = summary && summary.total > 0 ? Math.round((summary.matched / summary.total) * 100) : 0;
 
@@ -290,6 +282,14 @@ export default function LootITCustomerDetail({ customer, onBack }) {
     const billingStatus = healthPct >= 80 ? 'healthy' : healthPct >= 50 ? 'needs_review' : 'at_risk';
     return { mrr, contractValue, billingStatus };
   }, [allLineItems, contracts, healthPct]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5 relative">
