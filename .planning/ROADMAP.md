@@ -47,7 +47,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md -- Add customer contact info, financial summary (MRR, contract value, billing status) to header
+- [x] 02-01-PLAN.md -- Add customer contact info, financial summary (MRR, contract value, billing status) to header
 - [ ] 02-02-PLAN.md -- Shrink service cards ~50% with icon-only tooltipped actions and 3-4 column grid
 **UI hint**: yes
 
@@ -77,5 +77,5 @@ Phases execute in numeric order: 1 -> 2 -> 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Component Architecture & Visual Foundation | 0/2 | Not started | - |
-| 2. Customer Header & Compact Service Cards | 0/2 | Not started | - |
+| 2. Customer Header & Compact Service Cards | 1/2 | In Progress|  |
 | 3. Recurring Tab & Master Sync | 0/2 | Not started | - |
