@@ -7,9 +7,9 @@
 
 ### Service Cards
 
-- [ ] **CARD-01**: Service cards shrunk ~50% so 3-4 cards fit per row instead of current 2
-- [ ] **CARD-02**: Card layout retains PSA vs Vendor counts, status badge, and action buttons at smaller size
-- [ ] **CARD-03**: Cards remain interactive (review, dismiss, map, notes) at compact size
+- [x] **CARD-01**: Service cards shrunk ~50% so 3-4 cards fit per row instead of current 2
+- [x] **CARD-02**: Card layout retains PSA vs Vendor counts, status badge, and action buttons at smaller size
+- [x] **CARD-03**: Cards remain interactive (review, dismiss, map, notes) at compact size
 
 ### Customer Header
 
@@ -71,9 +71,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CARD-01 | Phase 2 | Pending |
-| CARD-02 | Phase 2 | Pending |
-| CARD-03 | Phase 2 | Pending |
+| CARD-01 | Phase 2 | Complete |
+| CARD-02 | Phase 2 | Complete |
+| CARD-03 | Phase 2 | Complete |
 | HEAD-01 | Phase 2 | Pending |
 | HEAD-02 | Phase 2 | Pending |
 | HEAD-03 | Phase 2 | Pending |
