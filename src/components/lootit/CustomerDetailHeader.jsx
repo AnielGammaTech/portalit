@@ -1,7 +1,7 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { STATUS_COLORS, BILLING_STATUS_CONFIG } from './lootit-constants';
-import { ArrowLeft, RefreshCw, Users, Monitor, Server, Hash, FileText, DollarSign, Check, AlertTriangle, CheckCircle2, MapPin, Mail } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Users, Monitor, Server, Hash, FileText, DollarSign, Check, AlertTriangle, MapPin, Mail } from 'lucide-react';
 
 export default function CustomerDetailHeader({ customer, onBack, onSync, isSyncing, healthPct, activeIntegrations, summary, contacts, devices, contracts, dollarImpact, issueCount, financialSummary }) {
   const primaryContact = contacts.length > 0 ? contacts[0] : null;
