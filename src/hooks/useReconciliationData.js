@@ -221,7 +221,23 @@ export function useReconciliationData(customerId) {
       for (const row of rows) {
         if (!row.customer_id) continue;
         if (!result[row.customer_id]) result[row.customer_id] = {};
-        result[row.customer_id][integrationKey] = row;
+        const existing = result[row.customer_id][integrationKey];
+        if (existing && (integrationKey === 'unifi' || integrationKey === 'unifi_firewall')) {
+          // Merge multiple UniFi sites: combine devices and summary counts
+          const existingData = typeof existing.cached_data === 'string' ? (() => { try { return JSON.parse(existing.cached_data); } catch { return {}; } })() : (existing.cached_data || {});
+          const newData = typeof row.cached_data === 'string' ? (() => { try { return JSON.parse(row.cached_data); } catch { return {}; } })() : (row.cached_data || {});
+          const mergedDevices = [...(existingData.devices || []), ...(newData.devices || [])];
+          const mergedSummary = {};
+          for (const k of Object.keys(existingData.summary || {})) {
+            mergedSummary[k] = (existingData.summary[k] || 0) + ((newData.summary || {})[k] || 0);
+          }
+          result[row.customer_id][integrationKey] = {
+            ...row,
+            cached_data: { ...existingData, ...newData, devices: mergedDevices, summary: { ...(newData.summary || {}), ...mergedSummary }, total_devices: mergedDevices.length },
+          };
+        } else {
+          result[row.customer_id][integrationKey] = row;
+        }
       }
     }
     return result;

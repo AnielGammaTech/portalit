@@ -39,6 +39,7 @@ const TEMPLATE_RULES = [
   { integration_key: 'cove_server', match_pattern: 'Cove Doto Protection - Per Server', label: 'Cove Servers', vendor_count_path: 'server_count' },
   { integration_key: 'inky', match_pattern: 'Inky', label: 'Inky Email Protection', vendor_count_path: 'total_users' },
   { integration_key: 'threecx', match_pattern: 'GTVoice extension', label: '3CX Extensions', vendor_count_path: 'user_extensions' },
+  { integration_key: 'unifi_firewall', match_pattern: 'Firewall Support|Firewall', label: 'UniFi Firewalls', vendor_count_path: 'firewalls' },
 ];
 
 const EMPTY_FORM = {

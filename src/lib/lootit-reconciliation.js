@@ -96,6 +96,12 @@ const VENDOR_EXTRACTORS = {
     if (Array.isArray(data.devices)) return data.devices.length;
     return null;
   },
+  unifi_firewall: (data) => {
+    if (!data) return null;
+    if (Array.isArray(data.devices)) return data.devices.filter(d => d.type === 'firewall' || d.device_type === 'firewall' || d.model?.toLowerCase().includes('udm') || d.model?.toLowerCase().includes('usg') || d.model?.toLowerCase().includes('gateway')).length;
+    if (typeof data.summary?.firewalls === 'number') return data.summary.firewalls;
+    return null;
+  },
 
   rocket_cyber: (data) => {
     if (!data) return null;
@@ -167,6 +173,7 @@ export const INTEGRATION_MAPPING_ENTITIES = {
   jumpcloud: 'JumpCloudMapping',
   datto_edr: 'DattoEDRMapping',
   unifi: 'UniFiMapping',
+  unifi_firewall: 'UniFiMapping',
   rocket_cyber: 'RocketCyberMapping',
   darkweb: 'DarkWebIDReport',
   bullphish: 'BullPhishIDReport',
@@ -187,6 +194,7 @@ export const INTEGRATION_LABELS = {
   jumpcloud: 'JumpCloud',
   datto_edr: 'Datto EDR',
   unifi: 'UniFi Network',
+  unifi_firewall: 'UniFi Firewall',
   rocket_cyber: 'RocketCyber',
   darkweb: 'Dark Web ID',
   bullphish: 'BullPhish ID',
@@ -298,8 +306,12 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
   });
 
   // 5. Add unmatched line items — billing items that don't match ANY rule
+  // Skip discounts (negative amounts or description starting with "Discount")
   const unmatchedItems = lineItems.filter((li) =>
-    !matchedLineItemIds.has(li.id) && li.description && (parseFloat(li.quantity) || 0) !== 0
+    !matchedLineItemIds.has(li.id) &&
+    li.description &&
+    (parseFloat(li.quantity) || 0) !== 0 &&
+    !(li.description || '').toLowerCase().startsWith('discount')
   );
 
   const unmatchedResults = unmatchedItems.map((li) => ({
