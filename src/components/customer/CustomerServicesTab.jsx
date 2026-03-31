@@ -226,7 +226,26 @@ export default function CustomerServicesTab({
     queryKey: ['unifi-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.UniFiMapping.filter({ customer_id: customerId });
-      return mappings[0] || null;
+      if (!mappings || mappings.length === 0) return null;
+      if (mappings.length === 1) return mappings[0];
+      // Merge multiple UniFi sites into one combined mapping
+      const allDevices = [];
+      const combinedSummary = { total: 0, online: 0, offline: 0, firewalls: 0, switches: 0, access_points: 0 };
+      const siteNames = [];
+      for (const m of mappings) {
+        const cd = typeof m.cached_data === 'string' ? (() => { try { return JSON.parse(m.cached_data); } catch { return null; } })() : m.cached_data;
+        if (cd?.devices) allDevices.push(...cd.devices);
+        if (cd?.summary) {
+          for (const k of Object.keys(combinedSummary)) combinedSummary[k] += (cd.summary[k] || 0);
+        }
+        siteNames.push(m.unifi_site_name || m.unifi_host_name || 'Site');
+      }
+      return {
+        ...mappings[0],
+        cached_data: { devices: allDevices, summary: combinedSummary, site_names: siteNames },
+        _multiSite: true,
+        _siteCount: mappings.length,
+      };
     },
     enabled: !!customerId
   });
