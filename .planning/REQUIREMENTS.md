@@ -41,8 +41,8 @@
 
 - [ ] **UXRD-01**: Customer detail page follows dashboard-pro aesthetic (dense, polished, financial dashboard feel)
 - [ ] **UXRD-02**: Typography hierarchy establishes clear data importance levels
-- [ ] **UXRD-03**: Color system uses Lucide icons (no emojis), consistent status colors across all sections
-- [ ] **UXRD-04**: LootITCustomerDetail.jsx split into smaller focused components (<800 lines each)
+- [x] **UXRD-03**: Color system uses Lucide icons (no emojis), consistent status colors across all sections
+- [x] **UXRD-04**: LootITCustomerDetail.jsx split into smaller focused components (<800 lines each)
 
 ## v2 Requirements
 
@@ -93,8 +93,8 @@
 | SYNC-05 | Phase 3 | Pending |
 | UXRD-01 | Phase 1 | Pending |
 | UXRD-02 | Phase 1 | Pending |
-| UXRD-03 | Phase 1 | Pending |
-| UXRD-04 | Phase 1 | Pending |
+| UXRD-03 | Phase 1 | Complete |
+| UXRD-04 | Phase 1 | Complete |
 
 **Coverage:**
 - v1 requirements: 24 total
