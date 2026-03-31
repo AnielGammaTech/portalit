@@ -15,7 +15,7 @@ import Pax8SubscriptionCard from './Pax8SubscriptionCard';
 import ReconciliationBadge from './ReconciliationBadge';
 import RecurringTab from './RecurringTab';
 
-export default function LootITCustomerDetail({ customer, onBack }) {
+export default function LootITCustomerDetail({ customer, onBack, activeTab: activeTabProp = 'reconciliation', onTabChange }) {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState('all');
   const [detailItem, setDetailItem] = useState(null);
@@ -300,7 +300,8 @@ export default function LootITCustomerDetail({ customer, onBack }) {
     });
   };
 
-  const [activeTab, setActiveTab] = useState('reconciliation');
+  const activeTab = activeTabProp;
+  const setActiveTab = (tab) => onTabChange ? onTabChange(tab) : null;
   const [isDragging, setIsDragging] = useState(false);
 
   const handleDragOver = useCallback((e) => {

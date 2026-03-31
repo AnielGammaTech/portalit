@@ -42,12 +42,17 @@ export default function LootIT() {
     }
   }, [customerId]);
 
+  const activeTab = searchParams.get('tab') || 'reconciliation';
   const view = settingsParam ? 'settings' : customerId ? 'customer' : 'dashboard';
   const customerReady = view === 'customer' && selectedCustomer && selectedCustomer.id === customerId;
 
   const handleSelectCustomer = (customer) => {
     setSelectedCustomer(customer);
-    navigate(`/LootIT?customer=${customer.id}`);
+    navigate(`/LootIT?customer=${customer.id}&tab=reconciliation`);
+  };
+
+  const handleTabChange = (tab) => {
+    navigate(`/LootIT?customer=${customerId}&tab=${tab}`, { replace: true });
   };
 
   const handleBackToDashboard = () => {
@@ -110,6 +115,8 @@ export default function LootIT() {
           <LootITCustomerDetail
             customer={selectedCustomer}
             onBack={handleBackToDashboard}
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
           />
         )}
 
