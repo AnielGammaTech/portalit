@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import { toast } from 'sonner';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import { createPageUrl } from '../utils';
 import { motion } from 'framer-motion';
@@ -73,7 +73,13 @@ export default function CustomerDetail() {
   const logoInputRef = useRef(null);
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const customerIdParam = searchParams.get('id');
+  const currentTab = searchParams.get('tab') || 'dashboard';
+
+  const handleTabChange = (tab) => {
+    navigate(`/CustomerDetail?id=${customerIdParam}&tab=${tab}`, { replace: true });
+  };
   const { user, isLoadingAuth: userLoading } = useAuth();
 
   // Security: non-admin users can ONLY access their own customer
@@ -753,7 +759,7 @@ export default function CustomerDetail() {
 
 
       {/* Tabs — HeroUI-inspired with animated styling */}
-      <Tabs defaultValue={searchParams.get('tab') || 'dashboard'} className="space-y-6" id="customer-tabs">
+      <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6" id="customer-tabs">
         <TabsList className="bg-zinc-100 dark:bg-zinc-800/80 border-0 rounded-hero-lg p-1 flex gap-1 h-auto overflow-x-auto scrollbar-hide">
           {[
             { value: 'dashboard', icon: BarChart3, label: 'Dashboard' },
