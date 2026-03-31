@@ -44,11 +44,11 @@ Plans:
   3. Header shows a reconciliation health score with a visual indicator (color or gauge)
   4. Integration stat widgets (Users, Workstations, Servers, etc.) are compact and informative
   5. Service cards are approximately 50% smaller, fitting 3-4 per row while retaining PSA vs Vendor counts, status badges, and action buttons
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: Customer header redesign
-- [ ] 02-02: Compact service cards
+- [ ] 02-01-PLAN.md -- Add customer contact info, financial summary (MRR, contract value, billing status) to header
+- [ ] 02-02-PLAN.md -- Shrink service cards ~50% with icon-only tooltipped actions and 3-4 column grid
 **UI hint**: yes
 
 ### Phase 3: Recurring Tab & Master Sync
