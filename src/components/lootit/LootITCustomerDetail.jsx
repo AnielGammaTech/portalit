@@ -11,6 +11,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { getDiscrepancySummary, getDiscrepancyMessage } from '@/lib/lootit-reconciliation';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import ServiceCard from './ServiceCard';
+import Pax8SubscriptionCard from './Pax8SubscriptionCard';
 import ReconciliationBadge from './ReconciliationBadge';
 import RecurringTab from './RecurringTab';
 
