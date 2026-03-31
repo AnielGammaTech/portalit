@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import { requireAdmin } from '../middleware/auth.js';
 import { createRateLimiter } from '../middleware/rate-limit.js';
 import { getServiceSupabase } from '../lib/supabase.js';
@@ -70,7 +71,7 @@ const otpVerifyIpLimiter = createRateLimiter({
 });
 
 function generateOtp() {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  return crypto.randomInt(100000, 999999).toString();
 }
 
 function cleanExpiredOtps() {
@@ -87,7 +88,10 @@ function cleanExpiredOtps() {
 }
 
 function getPortalUrl() {
-  return process.env.FRONTEND_URL || 'https://frontend-production-b430.up.railway.app';
+  if (!process.env.FRONTEND_URL) {
+    throw new Error('FRONTEND_URL environment variable is required');
+  }
+  return process.env.FRONTEND_URL;
 }
 
 // ── POST /api/users/invite ─────────────────────────────────────────────

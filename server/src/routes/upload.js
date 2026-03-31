@@ -13,7 +13,18 @@ router.post('/', requireAuth, upload.single('file'), async (req, res, next) => {
     }
 
     const supabase = getServiceSupabase();
-    const fileName = `${Date.now()}_${req.file.originalname}`;
+
+    // Security: sanitize filename and validate MIME type
+    const ALLOWED_MIMES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    if (!ALLOWED_MIMES.includes(req.file.mimetype)) {
+      return res.status(400).json({ error: 'File type not allowed' });
+    }
+    const sanitizedName = req.file.originalname
+      .replace(/[\/\\]/g, '')
+      .replace(/\.\./g, '')
+      .replace(/[^\w.\-]/g, '_')
+      .slice(0, 200);
+    const fileName = `${Date.now()}_${sanitizedName}`;
 
     const { error: uploadError } = await supabase.storage
       .from('uploads')

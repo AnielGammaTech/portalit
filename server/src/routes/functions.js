@@ -87,7 +87,8 @@ router.post('/:functionName', requireAuth, async (req, res, next) => {
     if (result && result._binary) {
       res.set('Content-Type', result.contentType || 'application/octet-stream');
       if (result.filename) {
-        res.set('Content-Disposition', `attachment; filename="${result.filename}"`);
+        const safeName = (result.filename || 'download').replace(/["\r\n\\]/g, '').slice(0, 255);
+        res.set('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(safeName)}`);
       }
       return res.send(result.buffer);
     }

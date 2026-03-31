@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import { createRateLimiter } from './middleware/rate-limit.js';
 import { functionsRouter } from './routes/functions.js';
 import { llmRouter } from './routes/llm.js';
@@ -32,6 +33,12 @@ for (const key of OPTIONAL_ENV) {
 // ── App setup ────────────────────────────────────────────────────────
 
 const app = express();
+
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: false, // CSP managed by frontend
+  crossOriginEmbedderPolicy: false, // Allow embedded content
+}));
 
 const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:5173')
   .split(',')
