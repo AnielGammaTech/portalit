@@ -1,9 +1,11 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { STATUS_COLORS } from './lootit-constants';
-import { ArrowLeft, RefreshCw, Users, Monitor, Server, Hash, FileText, DollarSign, Check, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { STATUS_COLORS, BILLING_STATUS_CONFIG } from './lootit-constants';
+import { ArrowLeft, RefreshCw, Users, Monitor, Server, Hash, FileText, DollarSign, Check, AlertTriangle, CheckCircle2, MapPin, Mail } from 'lucide-react';
 
-export default function CustomerDetailHeader({ customer, onBack, onSync, isSyncing, healthPct, activeIntegrations, summary, contacts, devices, contracts, dollarImpact, issueCount }) {
+export default function CustomerDetailHeader({ customer, onBack, onSync, isSyncing, healthPct, activeIntegrations, summary, contacts, devices, contracts, dollarImpact, issueCount, financialSummary }) {
+  const primaryContact = contacts.length > 0 ? contacts[0] : null;
+
   return (
     <div className="relative rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
       {/* Health bar */}
@@ -49,6 +51,23 @@ export default function CustomerDetailHeader({ customer, onBack, onSync, isSynci
             {isSyncing ? 'Syncing...' : 'Sync'}
           </button>
         </div>
+
+        {/* Customer contact + address row */}
+        <div className="flex items-center gap-3 mt-2 text-xs text-slate-400">
+          <Mail className="w-3 h-3 text-slate-500 shrink-0" />
+          {primaryContact ? (
+            <span className="truncate">{primaryContact.full_name}{primaryContact.email ? ` \u00B7 ${primaryContact.email}` : ''}</span>
+          ) : (
+            <span className="text-slate-500">{'\u2014'}</span>
+          )}
+          {customer.address && (
+            <>
+              <span className="text-slate-600">|</span>
+              <MapPin className="w-3 h-3 text-slate-500 shrink-0" />
+              <span className="truncate">{customer.address}</span>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Light content area */}
@@ -72,6 +91,37 @@ export default function CustomerDetailHeader({ customer, onBack, onSync, isSynci
             </div>
           ))}
         </div>
+
+        {/* Financial summary row */}
+        {financialSummary && (
+          <div className="flex items-center gap-4 text-sm">
+            <div>
+              <span className="text-slate-400 text-xs uppercase tracking-wide">MRR</span>
+              <p className="font-bold text-slate-900">
+                ${financialSummary.mrr.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="w-px h-8 bg-slate-200" />
+            <div>
+              <span className="text-slate-400 text-xs uppercase tracking-wide">Contract</span>
+              <p className="font-bold text-slate-900">
+                ${financialSummary.contractValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="w-px h-8 bg-slate-200" />
+            <div>
+              <span className="text-slate-400 text-xs uppercase tracking-wide">Status</span>
+              <p>
+                <span className={cn(
+                  'inline-block px-2 py-0.5 text-xs font-semibold rounded-full border',
+                  BILLING_STATUS_CONFIG[financialSummary.billingStatus].className
+                )}>
+                  {BILLING_STATUS_CONFIG[financialSummary.billingStatus].label}
+                </span>
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Reconciliation summary boxes */}
         {summary && (
