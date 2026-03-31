@@ -246,7 +246,10 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
   }
   const lineItemById = Object.fromEntries(lineItems.map((li) => [li.id, li]));
 
-  return activeRules.map((rule) => {
+  // Track which line items are matched by any rule or override
+  const matchedLineItemIds = new Set();
+
+  const ruleResults = activeRules.map((rule) => {
     // 1. Check for manual overrides first, then fall back to pattern matching
     const overrideIds = overrideMap[rule.id] || [];
     const overrideItems = overrideIds.map((id) => lineItemById[id]).filter(Boolean);
@@ -255,6 +258,9 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
       : lineItems.filter((li) => lineItemMatchesRule(li, rule));
     const psaQty = matched.reduce((sum, li) => sum + (parseFloat(li.quantity) || 0), 0);
     const hasPsaData = matched.length > 0;
+
+    // Track matched line items
+    for (const li of matched) matchedLineItemIds.add(li.id);
 
     // 2. Extract vendor count from cached_data
     const mapping = mappings[rule.integration_key];
@@ -290,6 +296,30 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
       integrationLabel: INTEGRATION_LABELS[rule.integration_key] || rule.integration_key,
     };
   });
+
+  // 5. Add unmatched line items — billing items that don't match ANY rule
+  const unmatchedItems = lineItems.filter((li) =>
+    !matchedLineItemIds.has(li.id) && li.description && (parseFloat(li.quantity) || 0) !== 0
+  );
+
+  const unmatchedResults = unmatchedItems.map((li) => ({
+    rule: {
+      id: `unmatched_${li.id}`,
+      label: (li.description || 'Unknown').replace(/\s*\$recurringbillingdate\s*/gi, '').trim() || li.description,
+      integration_key: 'unmatched',
+      is_active: true,
+    },
+    psaQty: parseFloat(li.quantity) || 0,
+    vendorQty: null,
+    difference: 0,
+    status: 'unmatched_line_item',
+    matchedLineItems: [li],
+    review: null,
+    integrationLabel: 'Unmatched Billing Item',
+    isUnmatchedLineItem: true,
+  }));
+
+  return [...ruleResults, ...unmatchedResults];
 }
 
 // ── Pax8 per-subscription auto-reconciliation ────────────────────────
