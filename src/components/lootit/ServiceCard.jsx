@@ -84,7 +84,7 @@ export default function ServiceCard({
   return (
     <div
       className={cn(
-        'rounded-lg border overflow-hidden transition-all hover:shadow-md cursor-pointer h-full flex flex-col',
+        'rounded-lg border overflow-hidden transition-all hover:shadow-md cursor-pointer h-full flex flex-col w-[calc(25%-0.75rem)] min-w-[220px] max-w-[300px]',
         isReviewed ? 'bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-100/80 border-amber-200' : styles.card,
       )}
       style={isReviewed ? { backgroundImage: 'linear-gradient(135deg, #fffbeb 0%, #fef9c3 50%, #fef3c7 100%)' } : undefined}
@@ -141,9 +141,9 @@ export default function ServiceCard({
 
         {/* Matched checkmark — show when effective status is match */}
         {(hasExclusions ? effectiveStatus : status) === 'match' && !isReviewed && (
-          <div className="flex items-center gap-1.5 mb-2 text-emerald-600">
-            <Check className="w-4 h-4" />
-            <span className="text-xs font-semibold">
+          <div className="flex items-center justify-center gap-1.5 mb-2 text-emerald-600">
+            <Check className="w-3.5 h-3.5" />
+            <span className="text-[11px] font-semibold">
               {hasExclusions ? 'Counts match (after exclusions)' : getDiscrepancyMessage(reconciliation)}
             </span>
           </div>
@@ -152,7 +152,7 @@ export default function ServiceCard({
         {/* Message for non-match */}
         {(hasExclusions ? effectiveStatus : status) !== 'match' && (
           <p className={cn(
-            'text-xs mb-2',
+            'text-[11px] mb-2 text-center',
             'text-slate-500',
             (hasExclusions ? effectiveStatus : status) === 'under' && 'text-red-600 font-semibold',
             (hasExclusions ? effectiveStatus : status) === 'over' && 'text-amber-600 font-semibold'

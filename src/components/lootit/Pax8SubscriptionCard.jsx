@@ -67,7 +67,7 @@ export default function Pax8SubscriptionCard({ recon, onReview, onDismiss, onRes
   return (
     <div
       className={cn(
-        'rounded-lg border overflow-hidden transition-all hover:shadow-md cursor-pointer h-full flex flex-col',
+        'rounded-lg border overflow-hidden transition-all hover:shadow-md cursor-pointer h-full flex flex-col w-[calc(25%-0.75rem)] min-w-[220px] max-w-[300px]',
         isReviewed ? 'border-amber-200' : resolvedStyles.card,
       )}
       style={isReviewed ? { backgroundImage: 'linear-gradient(135deg, #fffbeb 0%, #fef9c3 50%, #fef3c7 100%)' } : undefined}
