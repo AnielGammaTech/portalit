@@ -57,7 +57,7 @@ export default function LootIT() {
 
   const handleBackToDashboard = () => {
     setSelectedCustomer(null);
-    navigate('/LootIT');
+    navigate(-1);
   };
 
   return (
