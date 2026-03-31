@@ -7,16 +7,16 @@
   </defs>
   <rect width="32" height="32" rx="7" fill="url(#bg)"/>
   <!-- Subtle corner glow -->
-  <circle cx="26" cy="6" r="8" fill="#A78BFA" opacity="0.1"/>
-  <!-- PT letters -->
-  <text x="14.5" y="20"
+  <circle cx="26" cy="6" r="10" fill="#A78BFA" opacity="0.12"/>
+  <!-- PT letters - larger and bolder -->
+  <text x="15" y="20.5"
     font-family="system-ui, -apple-system, 'Segoe UI', sans-serif"
     font-weight="800"
-    font-size="15"
+    font-size="16"
     fill="#FFFFFF"
     text-anchor="middle"
     dominant-baseline="middle"
-    letter-spacing="-0.5">PT</text>
-  <!-- Purple accent dot (the "i" dot) -->
-  <circle cx="23.5" cy="11" r="2.2" fill="#A78BFA"/>
+    letter-spacing="-0.5">P<tspan fill="#C4B5FD">T</tspan></text>
+  <!-- Purple accent dot -->
+  <circle cx="24" cy="10.5" r="2.5" fill="#A78BFA"/>
 </svg>

@@ -390,12 +390,12 @@ export default function Layout({ children, currentPageName }) {
                 <img
                   src="/favicon.svg"
                   alt="PortalIT"
-                  className="h-7 w-7"
+                  className="h-8 w-8"
                 />
               )}
-              <span className="text-sm font-bold text-white hidden sm:block tracking-tight">
+              <span className="text-base font-extrabold text-white hidden sm:block tracking-tight">
                 {(isStaff && !isCustomerPortal)
-                  ? (portalSettings.portal_name || 'PortalIT')
+                  ? <>{(portalSettings.portal_name || 'Portal').replace(/IT$/i, '')}<span className="text-violet-300">IT</span></>
                   : (customer?.name || 'Client Portal')}
               </span>
             </Link>
