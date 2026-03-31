@@ -31,7 +31,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 Plans:
 - [x] 01-01-PLAN.md -- Extract 7 inner components to separate files and create shared status color constants
-- [ ] 01-02-PLAN.md -- Apply dashboard-pro visual styling (dark/navy header, typography hierarchy, unified colors)
+- [x] 01-02-PLAN.md -- Apply dashboard-pro visual styling (dark/navy header, typography hierarchy, unified colors)
 **UI hint**: yes
 
 ### Phase 2: Customer Header & Compact Service Cards

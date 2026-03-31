@@ -39,8 +39,8 @@
 
 ### Visual Redesign
 
-- [ ] **UXRD-01**: Customer detail page follows dashboard-pro aesthetic (dense, polished, financial dashboard feel)
-- [ ] **UXRD-02**: Typography hierarchy establishes clear data importance levels
+- [x] **UXRD-01**: Customer detail page follows dashboard-pro aesthetic (dense, polished, financial dashboard feel)
+- [x] **UXRD-02**: Typography hierarchy establishes clear data importance levels
 - [x] **UXRD-03**: Color system uses Lucide icons (no emojis), consistent status colors across all sections
 - [x] **UXRD-04**: LootITCustomerDetail.jsx split into smaller focused components (<800 lines each)
 
@@ -91,8 +91,8 @@
 | SYNC-03 | Phase 3 | Pending |
 | SYNC-04 | Phase 3 | Pending |
 | SYNC-05 | Phase 3 | Pending |
-| UXRD-01 | Phase 1 | Pending |
-| UXRD-02 | Phase 1 | Pending |
+| UXRD-01 | Phase 1 | Complete |
+| UXRD-02 | Phase 1 | Complete |
 | UXRD-03 | Phase 1 | Complete |
 | UXRD-04 | Phase 1 | Complete |
 
