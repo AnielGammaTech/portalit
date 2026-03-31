@@ -134,11 +134,6 @@ export default function CustomerDetailHeader({ customer, onBack, onSync, isSynci
               <span className={cn('text-sm font-bold tabular-nums', issueCount > 0 ? STATUS_COLORS.under.text : STATUS_COLORS.neutral.text)}>{issueCount}</span>
               <span className={cn('text-[10px]', issueCount > 0 ? STATUS_COLORS.under.labelText : STATUS_COLORS.neutral.labelText)}>Issues</span>
             </div>
-            <div className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg border', STATUS_COLORS.reviewed.bg, STATUS_COLORS.reviewed.border)}>
-              <CheckCircle2 className={cn('w-3.5 h-3.5', STATUS_COLORS.reviewed.icon)} />
-              <span className={cn('text-sm font-bold tabular-nums', STATUS_COLORS.reviewed.text)}>{summary.reviewed}</span>
-              <span className={cn('text-[10px]', STATUS_COLORS.reviewed.labelText)}>Reviewed</span>
-            </div>
             {dollarImpact && dollarImpact.underBilledAmount > 0 && (
               <div className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg border', STATUS_COLORS.under.bg, STATUS_COLORS.under.border)}>
                 <span className={cn('text-sm font-bold tabular-nums', STATUS_COLORS.under.text)}>
