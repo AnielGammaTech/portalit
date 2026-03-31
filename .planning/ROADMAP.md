@@ -62,11 +62,11 @@ Plans:
   4. User can filter the list by status (All, Matched, Unmatched, Unused)
   5. Clicking the sync button triggers all vendor integrations, HaloPSA recurring sync, and device count refresh for that customer with visible progress
   6. After sync completes, all page data refreshes automatically without manual reload
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: Recurring tab with color-coded matching
-- [ ] 03-02: Master sync button and data refresh
+- [ ] 03-01-PLAN.md -- Create RecurringTab component with color-coded match status table and filter chips
+- [ ] 03-02-PLAN.md -- Replace cache-only sync with real HaloPSA master sync and comprehensive data refresh
 **UI hint**: yes
 
 ## Progress
