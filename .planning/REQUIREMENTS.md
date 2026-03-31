@@ -71,36 +71,36 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CARD-01 | — | Pending |
-| CARD-02 | — | Pending |
-| CARD-03 | — | Pending |
-| HEAD-01 | — | Pending |
-| HEAD-02 | — | Pending |
-| HEAD-03 | — | Pending |
-| HEAD-04 | — | Pending |
-| HEAD-05 | — | Pending |
-| RECR-01 | — | Pending |
-| RECR-02 | — | Pending |
-| RECR-03 | — | Pending |
-| RECR-04 | — | Pending |
-| RECR-05 | — | Pending |
-| RECR-06 | — | Pending |
-| RECR-07 | — | Pending |
-| SYNC-01 | — | Pending |
-| SYNC-02 | — | Pending |
-| SYNC-03 | — | Pending |
-| SYNC-04 | — | Pending |
-| SYNC-05 | — | Pending |
-| UXRD-01 | — | Pending |
-| UXRD-02 | — | Pending |
-| UXRD-03 | — | Pending |
-| UXRD-04 | — | Pending |
+| CARD-01 | Phase 2 | Pending |
+| CARD-02 | Phase 2 | Pending |
+| CARD-03 | Phase 2 | Pending |
+| HEAD-01 | Phase 2 | Pending |
+| HEAD-02 | Phase 2 | Pending |
+| HEAD-03 | Phase 2 | Pending |
+| HEAD-04 | Phase 2 | Pending |
+| HEAD-05 | Phase 2 | Pending |
+| RECR-01 | Phase 3 | Pending |
+| RECR-02 | Phase 3 | Pending |
+| RECR-03 | Phase 3 | Pending |
+| RECR-04 | Phase 3 | Pending |
+| RECR-05 | Phase 3 | Pending |
+| RECR-06 | Phase 3 | Pending |
+| RECR-07 | Phase 3 | Pending |
+| SYNC-01 | Phase 3 | Pending |
+| SYNC-02 | Phase 3 | Pending |
+| SYNC-03 | Phase 3 | Pending |
+| SYNC-04 | Phase 3 | Pending |
+| SYNC-05 | Phase 3 | Pending |
+| UXRD-01 | Phase 1 | Pending |
+| UXRD-02 | Phase 1 | Pending |
+| UXRD-03 | Phase 1 | Pending |
+| UXRD-04 | Phase 1 | Pending |
 
 **Coverage:**
 - v1 requirements: 24 total
-- Mapped to phases: 0
-- Unmapped: 24
+- Mapped to phases: 24
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-31*
-*Last updated: 2026-03-31 after initial definition*
+*Last updated: 2026-03-31 after roadmap creation*
