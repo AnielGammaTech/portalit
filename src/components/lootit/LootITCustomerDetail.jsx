@@ -362,7 +362,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
 
   const issueCount = summary ? summary.over + summary.under : 0;
   const activeRules = summary ? summary.total - (summary.noData || 0) - (summary.noPsa || 0) : 0;
-  const healthPct = activeRules > 0 ? Math.round(((summary.matched + summary.reviewed) / activeRules) * 100) : 0;
+  const healthPct = activeRules > 0 ? Math.min(100, Math.round(((summary.matched + summary.reviewed) / activeRules) * 100)) : 0;
 
   return (
     <div className="space-y-5 relative">
