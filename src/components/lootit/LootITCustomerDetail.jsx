@@ -360,7 +360,8 @@ export default function LootITCustomerDetail({ customer, onBack }) {
   }
 
   const issueCount = summary ? summary.over + summary.under : 0;
-  const healthPct = summary && summary.total > 0 ? Math.round((summary.matched / summary.total) * 100) : 0;
+  const activeRules = summary ? summary.total - (summary.noData || 0) : 0;
+  const healthPct = activeRules > 0 ? Math.round(((summary.matched + summary.reviewed) / activeRules) * 100) : 0;
 
   return (
     <div className="space-y-5 relative">
