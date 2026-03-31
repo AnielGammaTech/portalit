@@ -22,8 +22,8 @@ export default function ReconciliationTab({ filteredRecons, filteredPax8, status
               className={cn(
                 'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors',
                 statusFilter === f.key
-                  ? 'bg-pink-500 text-white shadow-sm shadow-pink-200'
-                  : 'bg-white text-slate-500 border border-slate-200 hover:bg-pink-50'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'
               )}
             >
               {f.label}
@@ -72,7 +72,7 @@ export default function ReconciliationTab({ filteredRecons, filteredPax8, status
       {/* Pax8 / M365 Per-Subscription Reconciliation */}
       {filteredPax8.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-slate-700">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Pax8 / M365 Licence Reconciliation
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

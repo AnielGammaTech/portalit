@@ -38,7 +38,7 @@ export default function LineItemPicker({ productName, lineItems, onSelect, onClo
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search line items..."
-              className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-300 focus:border-pink-400"
+              className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400"
               autoFocus
             />
           </div>
@@ -53,7 +53,7 @@ export default function LineItemPicker({ productName, lineItems, onSelect, onClo
               <button
                 key={li.id}
                 onClick={() => onSelect(li.id)}
-                className="w-full text-left px-6 py-3 hover:bg-pink-50 border-b border-slate-50 transition-colors"
+                className="w-full text-left px-6 py-3 hover:bg-slate-50 border-b border-slate-50 transition-colors"
               >
                 <p className="text-sm font-medium text-slate-700 truncate">
                   {formatLineItemDescription(li.description)}

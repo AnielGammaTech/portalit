@@ -35,7 +35,7 @@ export default function RuleEditorDialog({ rule, onSave, onClose }) {
               type="text"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-300"
+              className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-300"
             />
           </div>
 
@@ -48,7 +48,7 @@ export default function RuleEditorDialog({ rule, onSave, onClose }) {
               value={matchPattern}
               onChange={(e) => setMatchPattern(e.target.value)}
               placeholder="e.g. Managed IT|Remote Only"
-              className="w-full text-sm font-mono border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-300"
+              className="w-full text-sm font-mono border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-300"
             />
             <p className="text-[10px] text-slate-400 mt-1">
               Matches line items where description contains this text (case-insensitive)
@@ -66,7 +66,7 @@ export default function RuleEditorDialog({ rule, onSave, onClose }) {
           <button
             onClick={handleSave}
             disabled={saving || !label.trim() || !matchPattern.trim()}
-            className="px-4 py-2 text-xs font-medium rounded-lg bg-pink-500 text-white hover:bg-pink-600 transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-xs font-medium rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors disabled:opacity-50"
           >
             {saving ? 'Saving...' : 'Save'}
           </button>

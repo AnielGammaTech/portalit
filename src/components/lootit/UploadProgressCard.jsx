@@ -12,24 +12,24 @@ export default function UploadProgressCard({ isUploading, isExtracting }) {
   const currentStep = isUploading ? 0 : isExtracting ? 1 : 2;
 
   return (
-    <div className="rounded-2xl border border-pink-200 bg-gradient-to-br from-white via-pink-50/50 to-rose-50/50 overflow-hidden">
+    <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-slate-50/50 to-slate-100/50 overflow-hidden">
       {/* Animated top bar */}
-      <div className="h-1 bg-pink-100 overflow-hidden">
-        <div className="h-full bg-gradient-to-r from-pink-400 via-rose-400 to-pink-400 animate-[shimmer_2s_ease-in-out_infinite] bg-[length:200%_100%]" />
+      <div className="h-1 bg-slate-200 overflow-hidden">
+        <div className="h-full bg-gradient-to-r from-slate-400 via-slate-500 to-slate-400 animate-[shimmer_2s_ease-in-out_infinite] bg-[length:200%_100%]" />
       </div>
 
       <div className="px-6 py-8">
         {/* Animated icon */}
         <div className="flex justify-center mb-6">
           <div className="relative">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center shadow-lg shadow-pink-200/50">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center shadow-lg shadow-slate-300/50">
               {isUploading ? (
                 <CloudUpload className="w-8 h-8 text-white animate-bounce" />
               ) : (
                 <Sparkles className="w-8 h-8 text-white animate-pulse" />
               )}
             </div>
-            <div className="absolute -inset-2 rounded-3xl border-2 border-pink-200 animate-ping opacity-20" />
+            <div className="absolute -inset-2 rounded-3xl border-2 border-slate-300 animate-ping opacity-20" />
           </div>
         </div>
 
@@ -54,14 +54,14 @@ export default function UploadProgressCard({ isUploading, isExtracting }) {
                 {idx > 0 && (
                   <div className={cn(
                     'w-8 h-px transition-colors duration-500',
-                    isDone ? 'bg-pink-400' : 'bg-slate-200'
+                    isDone ? 'bg-slate-600' : 'bg-slate-200'
                   )} />
                 )}
                 <div className="flex flex-col items-center gap-1.5">
                   <div className={cn(
                     'w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-500',
-                    isDone && 'bg-pink-500 text-white',
-                    isActive && 'bg-pink-100 text-pink-600 ring-2 ring-pink-300 ring-offset-1',
+                    isDone && 'bg-slate-700 text-white',
+                    isActive && 'bg-slate-200 text-slate-700 ring-2 ring-slate-400 ring-offset-1',
                     !isDone && !isActive && 'bg-slate-100 text-slate-300'
                   )}>
                     {isDone ? (
@@ -72,7 +72,7 @@ export default function UploadProgressCard({ isUploading, isExtracting }) {
                   </div>
                   <span className={cn(
                     'text-[10px] font-medium whitespace-nowrap',
-                    isActive ? 'text-pink-600' : isDone ? 'text-slate-500' : 'text-slate-300'
+                    isActive ? 'text-slate-700' : isDone ? 'text-slate-500' : 'text-slate-300'
                   )}>
                     {step.label}
                   </span>

@@ -66,7 +66,7 @@ export default function DetailDrawer({ reconciliation, customerId, onSaveExclusi
   return (
     <>
       <SheetHeader className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 z-10">
-        <SheetTitle className="text-left">{label}</SheetTitle>
+        <SheetTitle className="text-left text-lg font-bold text-slate-900">{label}</SheetTitle>
         <SheetDescription className="text-left text-xs text-slate-400">
           {integrationLabel}
         </SheetDescription>
@@ -77,7 +77,7 @@ export default function DetailDrawer({ reconciliation, customerId, onSaveExclusi
           {review && (
             <div className="bg-slate-50 rounded-lg px-4 py-3 border border-slate-200">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs uppercase tracking-wider text-slate-400 font-medium">Current Status</span>
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Current Status</span>
                 <span className={cn(
                   'text-xs font-semibold px-2 py-0.5 rounded-full',
                   review.status === 'reviewed' && 'bg-emerald-100 text-emerald-700',
@@ -98,7 +98,7 @@ export default function DetailDrawer({ reconciliation, customerId, onSaveExclusi
           {/* Excluded Accounts Section */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <h4 className="text-xs uppercase tracking-wider text-slate-400 font-medium">Excluded Accounts</h4>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Excluded Accounts</h4>
               {!showExclusionForm && (
                 <button
                   onClick={() => setShowExclusionForm(true)}
@@ -201,13 +201,13 @@ export default function DetailDrawer({ reconciliation, customerId, onSaveExclusi
 
           {/* Source Info */}
           <div>
-            <h4 className="text-xs uppercase tracking-wider text-slate-400 font-medium mb-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
               {isPax8 ? 'Pax8 Subscription Details' : 'Rule Details'}
             </h4>
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <dt className="text-slate-500">Integration</dt>
-                <dd className="font-medium">{integrationLabel}</dd>
+                <dd className="text-sm font-semibold text-slate-700">{integrationLabel}</dd>
               </div>
               {!isPax8 && reconciliation.rule?.match_pattern && (
                 <div className="flex justify-between">
@@ -228,19 +228,19 @@ export default function DetailDrawer({ reconciliation, customerId, onSaveExclusi
               {isPax8 && reconciliation.billingTerm && (
                 <div className="flex justify-between">
                   <dt className="text-slate-500">Billing Term</dt>
-                  <dd className="font-medium">{reconciliation.billingTerm}</dd>
+                  <dd className="text-sm font-semibold text-slate-700">{reconciliation.billingTerm}</dd>
                 </div>
               )}
               {isPax8 && reconciliation.price > 0 && (
                 <div className="flex justify-between">
                   <dt className="text-slate-500">Price / Unit</dt>
-                  <dd className="font-medium">${parseFloat(reconciliation.price).toFixed(2)}</dd>
+                  <dd className="text-sm font-semibold text-slate-700">${parseFloat(reconciliation.price).toFixed(2)}</dd>
                 </div>
               )}
               {isPax8 && reconciliation.startDate && (
                 <div className="flex justify-between">
                   <dt className="text-slate-500">Start Date</dt>
-                  <dd className="font-medium">{new Date(reconciliation.startDate).toLocaleDateString()}</dd>
+                  <dd className="text-sm font-semibold text-slate-700">{new Date(reconciliation.startDate).toLocaleDateString()}</dd>
                 </div>
               )}
               <div className="flex justify-between">
@@ -262,7 +262,7 @@ export default function DetailDrawer({ reconciliation, customerId, onSaveExclusi
 
           {/* HaloPSA Matched Line Items */}
           <div>
-            <h4 className="text-xs uppercase tracking-wider text-slate-400 font-medium mb-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
               HaloPSA Billing Line Items ({matchedLineItems.length})
             </h4>
             {matchedLineItems.length === 0 ? (
@@ -288,7 +288,7 @@ export default function DetailDrawer({ reconciliation, customerId, onSaveExclusi
 
           {/* Activity History */}
           <div>
-            <h4 className="text-xs uppercase tracking-wider text-slate-400 font-medium mb-3">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
               Activity History ({history.length})
             </h4>
             {history.length === 0 ? (

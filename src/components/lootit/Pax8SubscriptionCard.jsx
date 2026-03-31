@@ -107,20 +107,20 @@ export default function Pax8SubscriptionCard({ recon, onReview, onDismiss, onRes
         {/* Big numbers */}
         <div className="flex items-center mb-3">
           <div className={cn('flex-1 text-center py-2 rounded-l-lg border', resolvedStyles.numBg)}>
-            <p className={cn('text-3xl font-black leading-none', resolvedStyles.numText)}>
+            <p className={cn('text-2xl font-bold tabular-nums leading-none', resolvedStyles.numText)}>
               {psaQty !== null ? psaQty : '\u2014'}
             </p>
-            <p className={cn('text-[10px] uppercase tracking-widest font-bold mt-1', resolvedStyles.labelText)}>PSA</p>
+            <p className={cn('text-[10px] uppercase tracking-wide font-medium mt-1', resolvedStyles.labelText)}>PSA</p>
           </div>
           <div className="px-2 text-slate-300 text-sm font-bold">vs</div>
           <div className={cn('flex-1 text-center py-2 rounded-r-lg border', resolvedStyles.numBg)}>
-            <p className={cn('text-3xl font-black leading-none', resolvedStyles.numText)}>
+            <p className={cn('text-2xl font-bold tabular-nums leading-none', resolvedStyles.numText)}>
               {effectiveVendorQty !== null ? effectiveVendorQty : '\u2014'}
             </p>
             {hasExclusions && vendorQty !== null && (
               <p className="text-[10px] text-amber-500 line-through">{vendorQty}</p>
             )}
-            <p className={cn('text-[10px] uppercase tracking-widest font-bold mt-1', resolvedStyles.labelText)}>PAX8</p>
+            <p className={cn('text-[10px] uppercase tracking-wide font-medium mt-1', resolvedStyles.labelText)}>PAX8</p>
           </div>
         </div>
 
