@@ -49,7 +49,7 @@ export default function ReconciliationTab({ filteredRecons, filteredPax8, status
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-3 xl:grid-cols-4 gap-3">
+        <div className="grid grid-cols-4 gap-3">
           {filteredRecons.map((recon) => (
             <ServiceCard
               key={recon.rule.id}
@@ -75,7 +75,7 @@ export default function ReconciliationTab({ filteredRecons, filteredPax8, status
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Pax8 / M365 Licence Reconciliation
           </h3>
-          <div className="grid grid-cols-3 xl:grid-cols-4 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             {filteredPax8.map((recon) => (
               <Pax8SubscriptionCard
                 key={recon.ruleId}
