@@ -21,13 +21,13 @@
 
 ### Recurring Tab
 
-- [ ] **RECR-01**: New "Recurring" tab added alongside existing Reconciliation and Contract tabs
-- [ ] **RECR-02**: Tab displays all HaloPSA recurring invoice line items for the customer
-- [ ] **RECR-03**: Each line item shows: description, quantity, price, net amount, item code, active status
-- [ ] **RECR-04**: Line items color-coded green when matched to a reconciliation rule
-- [ ] **RECR-05**: Line items color-coded red when unmatched (no reconciliation rule maps to them)
-- [ ] **RECR-06**: Reconciliation rules with no matching line item shown as gray "unused" entries
-- [ ] **RECR-07**: List is filterable by status (All, Matched, Unmatched, Unused)
+- [x] **RECR-01**: New "Recurring" tab added alongside existing Reconciliation and Contract tabs
+- [x] **RECR-02**: Tab displays all HaloPSA recurring invoice line items for the customer
+- [x] **RECR-03**: Each line item shows: description, quantity, price, net amount, item code, active status
+- [x] **RECR-04**: Line items color-coded green when matched to a reconciliation rule
+- [x] **RECR-05**: Line items color-coded red when unmatched (no reconciliation rule maps to them)
+- [x] **RECR-06**: Reconciliation rules with no matching line item shown as gray "unused" entries
+- [x] **RECR-07**: List is filterable by status (All, Matched, Unmatched, Unused)
 
 ### Master Sync
 
@@ -79,13 +79,13 @@
 | HEAD-03 | Phase 2 | Pending |
 | HEAD-04 | Phase 2 | Pending |
 | HEAD-05 | Phase 2 | Pending |
-| RECR-01 | Phase 3 | Pending |
-| RECR-02 | Phase 3 | Pending |
-| RECR-03 | Phase 3 | Pending |
-| RECR-04 | Phase 3 | Pending |
-| RECR-05 | Phase 3 | Pending |
-| RECR-06 | Phase 3 | Pending |
-| RECR-07 | Phase 3 | Pending |
+| RECR-01 | Phase 3 | Complete |
+| RECR-02 | Phase 3 | Complete |
+| RECR-03 | Phase 3 | Complete |
+| RECR-04 | Phase 3 | Complete |
+| RECR-05 | Phase 3 | Complete |
+| RECR-06 | Phase 3 | Complete |
+| RECR-07 | Phase 3 | Complete |
 | SYNC-01 | Phase 3 | Pending |
 | SYNC-02 | Phase 3 | Pending |
 | SYNC-03 | Phase 3 | Pending |

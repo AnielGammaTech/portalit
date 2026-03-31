@@ -65,7 +65,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md -- Create RecurringTab component with color-coded match status table and filter chips
+- [x] 03-01-PLAN.md -- Create RecurringTab component with color-coded match status table and filter chips
 - [ ] 03-02-PLAN.md -- Replace cache-only sync with real HaloPSA master sync and comprehensive data refresh
 **UI hint**: yes
 
