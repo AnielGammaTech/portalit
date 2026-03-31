@@ -279,6 +279,18 @@ export default function LootITCustomerDetail({ customer, onBack }) {
   const issueCount = summary ? summary.over + summary.under : 0;
   const healthPct = summary && summary.total > 0 ? Math.round((summary.matched / summary.total) * 100) : 0;
 
+  const financialSummary = useMemo(() => {
+    const mrr = allLineItems.reduce(
+      (sum, li) => sum + (parseFloat(li.net_amount) || 0),
+      0
+    );
+    const contractValue = contracts
+      .filter(c => c.extraction_status === 'complete' && c.extracted_data?.monthly_total)
+      .reduce((sum, c) => sum + (parseFloat(c.extracted_data.monthly_total) || 0), 0);
+    const billingStatus = healthPct >= 80 ? 'healthy' : healthPct >= 50 ? 'needs_review' : 'at_risk';
+    return { mrr, contractValue, billingStatus };
+  }, [allLineItems, contracts, healthPct]);
+
   return (
     <div className="space-y-5 relative">
       <CustomerDetailHeader
@@ -294,6 +306,7 @@ export default function LootITCustomerDetail({ customer, onBack }) {
         contracts={contracts}
         dollarImpact={dollarImpact}
         issueCount={issueCount}
+        financialSummary={financialSummary}
       />
       <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
         {[

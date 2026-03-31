@@ -23,3 +23,9 @@ export const ACTION_LABELS = {
   note:      { label: 'Note added',    color: 'text-blue-600',    bg: 'bg-blue-50' },
   exclusion: { label: 'Exclusion set', color: 'text-amber-600',   bg: 'bg-amber-50' },
 };
+
+export const BILLING_STATUS_CONFIG = {
+  healthy:      { label: 'Healthy',      className: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  needs_review: { label: 'Needs Review', className: 'bg-amber-100 text-amber-700 border-amber-200' },
+  at_risk:      { label: 'At Risk',      className: 'bg-red-100 text-red-700 border-red-200' },
+};
