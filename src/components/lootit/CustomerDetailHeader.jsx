@@ -7,9 +7,9 @@ export default function CustomerDetailHeader({ customer, onBack, onSync, isSynci
   const primaryContact = contacts.length > 0 ? contacts[0] : null;
 
   return (
-    <div className="relative rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+    <div className="rounded-2xl border border-pink-200/60 shadow-sm overflow-hidden bg-white">
       {/* Health bar */}
-      <div className="h-1.5 bg-slate-800">
+      <div className="h-1 bg-pink-100">
         <div
           className={cn(
             'h-full transition-all duration-700 rounded-r-full',
@@ -19,148 +19,140 @@ export default function CustomerDetailHeader({ customer, onBack, onSync, isSynci
         />
       </div>
 
-      {/* Dark/navy header band */}
-      <div className="bg-gradient-to-r from-slate-900 to-slate-800 px-5 py-4">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onBack}
-            className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors flex-shrink-0"
-          >
-            <ArrowLeft className="w-4 h-4 text-white" />
-          </button>
-          <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold text-white truncate leading-tight">
-              {customer.name}
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {activeIntegrations} integration{activeIntegrations !== 1 ? 's' : ''} · {summary?.total || 0} rules tracked
-            </p>
+      <div className="px-5 py-4">
+        {/* Row 1: Name + Contact + Actions */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3 min-w-0 flex-1">
+            <button
+              onClick={onBack}
+              className="w-8 h-8 mt-0.5 rounded-lg bg-pink-50 hover:bg-pink-100 flex items-center justify-center transition-colors flex-shrink-0"
+            >
+              <ArrowLeft className="w-4 h-4 text-pink-600" />
+            </button>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg font-bold text-slate-900 truncate leading-tight">
+                {customer.name}
+              </h2>
+              <div className="flex items-center gap-2 mt-1 text-xs text-slate-400">
+                {primaryContact ? (
+                  <>
+                    <Mail className="w-3 h-3 text-pink-400 shrink-0" />
+                    <span className="truncate">{primaryContact.full_name}{primaryContact.email ? ` · ${primaryContact.email}` : ''}</span>
+                  </>
+                ) : (
+                  <span className="text-slate-300">No contact on file</span>
+                )}
+                {customer.address && (
+                  <>
+                    <span className="text-slate-200">|</span>
+                    <MapPin className="w-3 h-3 text-pink-400 shrink-0" />
+                    <span className="truncate">{customer.address}</span>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
-          <div className={cn(
-            'px-3 py-1.5 rounded-lg text-sm font-bold',
-            healthPct >= 80 ? 'bg-emerald-500/20 text-emerald-300' : healthPct >= 50 ? 'bg-amber-500/20 text-amber-300' : 'bg-red-500/20 text-red-300'
-          )}>
-            {healthPct}%
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className={cn(
+              'px-2.5 py-1 rounded-full text-xs font-bold tabular-nums border',
+              healthPct >= 80 ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : healthPct >= 50 ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-red-50 text-red-600 border-red-200'
+            )}>
+              {healthPct}%
+            </div>
+            <button
+              onClick={onSync}
+              disabled={isSyncing}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-pink-500 text-white hover:bg-pink-600 shadow-sm transition-all disabled:opacity-50"
+            >
+              <RefreshCw className={cn('w-3.5 h-3.5', isSyncing && 'animate-spin')} />
+              {isSyncing ? 'Syncing...' : 'Sync'}
+            </button>
           </div>
-          <button
-            onClick={onSync}
-            disabled={isSyncing}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white text-slate-900 hover:bg-slate-100 shadow-sm transition-all disabled:opacity-50"
-          >
-            <RefreshCw className={cn('w-3.5 h-3.5', isSyncing && 'animate-spin')} />
-            {isSyncing ? 'Syncing...' : 'Sync'}
-          </button>
         </div>
 
-        {/* Customer contact + address row */}
-        <div className="flex items-center gap-3 mt-2 text-xs text-slate-400">
-          <Mail className="w-3 h-3 text-slate-500 shrink-0" />
-          {primaryContact ? (
-            <span className="truncate">{primaryContact.full_name}{primaryContact.email ? ` \u00B7 ${primaryContact.email}` : ''}</span>
-          ) : (
-            <span className="text-slate-500">{'\u2014'}</span>
-          )}
-          {customer.address && (
+        {/* Divider */}
+        <div className="border-t border-pink-100/60 my-3" />
+
+        {/* Row 2: Stats strip — all in one tight row */}
+        <div className="flex items-center gap-3 overflow-x-auto pb-1">
+          {[
+            { icon: Users, value: contacts.length, label: 'Users', color: 'text-blue-600' },
+            { icon: Monitor, value: devices.filter(d => d.device_type !== 'Server' && d.device_type !== 'server').length, label: 'Workstations', color: 'text-indigo-600' },
+            { icon: Server, value: devices.filter(d => d.device_type === 'Server' || d.device_type === 'server').length, label: 'Servers', color: 'text-purple-600' },
+            { icon: Hash, value: summary?.total || 0, label: 'Services', color: 'text-slate-500' },
+            { icon: FileText, value: contracts.length, label: 'Contracts', color: 'text-cyan-600' },
+            { icon: DollarSign, value: dollarImpact?.totalMonthlyBilled ? `$${Math.round(dollarImpact.totalMonthlyBilled).toLocaleString()}` : '$0', label: 'Monthly', color: 'text-emerald-600' },
+          ].map((w) => (
+            <div key={w.label} className="flex items-center gap-1.5 whitespace-nowrap">
+              <w.icon className={cn('w-3.5 h-3.5', w.color)} />
+              <span className={cn('text-sm font-bold tabular-nums', w.color)}>{w.value}</span>
+              <span className="text-[10px] text-slate-400">{w.label}</span>
+            </div>
+          ))}
+
+          {/* Financial summary inline */}
+          {financialSummary && financialSummary.mrr > 0 && (
             <>
-              <span className="text-slate-600">|</span>
-              <MapPin className="w-3 h-3 text-slate-500 shrink-0" />
-              <span className="truncate">{customer.address}</span>
+              <div className="w-px h-4 bg-slate-200 mx-1" />
+              <div className="flex items-center gap-1.5 whitespace-nowrap">
+                <span className="text-[10px] text-slate-400">MRR</span>
+                <span className="text-sm font-bold text-slate-700 tabular-nums">
+                  ${financialSummary.mrr.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </span>
+              </div>
+            </>
+          )}
+          {financialSummary && (
+            <>
+              <div className="w-px h-4 bg-slate-200 mx-1" />
+              <span className={cn(
+                'inline-block px-2 py-0.5 text-[10px] font-semibold rounded-full border',
+                BILLING_STATUS_CONFIG[financialSummary.billingStatus].className
+              )}>
+                {BILLING_STATUS_CONFIG[financialSummary.billingStatus].label}
+              </span>
             </>
           )}
         </div>
-      </div>
 
-      {/* Light content area */}
-      <div className="bg-white px-4 py-4 space-y-4 rounded-b-2xl">
-        {/* Integration widgets grid */}
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-          {[
-            { icon: Users, value: contacts.length, label: 'Users', color: 'text-blue-600', bg: 'bg-blue-50' },
-            { icon: Monitor, value: devices.filter(d => d.device_type !== 'Server' && d.device_type !== 'server').length, label: 'Workstations', color: 'text-indigo-600', bg: 'bg-indigo-50' },
-            { icon: Server, value: devices.filter(d => d.device_type === 'Server' || d.device_type === 'server').length, label: 'Servers', color: 'text-purple-600', bg: 'bg-purple-50' },
-            { icon: Hash, value: summary?.total || 0, label: 'Services', color: 'text-slate-600', bg: 'bg-slate-50' },
-            { icon: FileText, value: contracts.length, label: 'Contracts', color: 'text-cyan-600', bg: 'bg-cyan-50' },
-            { icon: DollarSign, value: dollarImpact?.totalMonthlyBilled ? `$${Math.round(dollarImpact.totalMonthlyBilled).toLocaleString()}` : '$0', label: 'Monthly', color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          ].map((w) => (
-            <div key={w.label} className={cn('rounded-xl px-3 py-2.5 border border-transparent', w.bg)}>
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <w.icon className={cn('w-3.5 h-3.5', w.color)} />
-                <span className={cn('text-xl font-bold tabular-nums leading-none', w.color)}>{w.value}</span>
-              </div>
-              <p className="text-[10px] uppercase tracking-wide font-medium text-muted-foreground">{w.label}</p>
-            </div>
-          ))}
-        </div>
+        {/* Divider */}
+        <div className="border-t border-pink-100/60 my-3" />
 
-        {/* Financial summary row */}
-        {financialSummary && (
-          <div className="flex items-center gap-4 text-sm">
-            <div>
-              <span className="text-slate-400 text-xs uppercase tracking-wide">MRR</span>
-              <p className="font-bold text-slate-900">
-                ${financialSummary.mrr.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
-            </div>
-            <div className="w-px h-8 bg-slate-200" />
-            <div>
-              <span className="text-slate-400 text-xs uppercase tracking-wide">Contract</span>
-              <p className="font-bold text-slate-900">
-                ${financialSummary.contractValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
-            </div>
-            <div className="w-px h-8 bg-slate-200" />
-            <div>
-              <span className="text-slate-400 text-xs uppercase tracking-wide">Status</span>
-              <p>
-                <span className={cn(
-                  'inline-block px-2 py-0.5 text-xs font-semibold rounded-full border',
-                  BILLING_STATUS_CONFIG[financialSummary.billingStatus].className
-                )}>
-                  {BILLING_STATUS_CONFIG[financialSummary.billingStatus].label}
-                </span>
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Reconciliation summary boxes */}
+        {/* Row 3: Reconciliation summary — compact pills */}
         {summary && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className={cn(STATUS_COLORS.match.bg, 'rounded-xl border', STATUS_COLORS.match.border, 'px-3 py-2.5')}>
-              <div className="flex items-center justify-between">
-                <span className={cn('text-2xl font-bold tabular-nums', STATUS_COLORS.match.text)}>{summary.matched}</span>
-                <Check className={cn('w-4 h-4', STATUS_COLORS.match.icon)} />
-              </div>
-              <p className={cn('text-[10px] font-medium uppercase tracking-wide mt-0.5', STATUS_COLORS.match.labelText)}>Matched</p>
+          <div className="flex items-center gap-2">
+            <div className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg border', STATUS_COLORS.match.bg, STATUS_COLORS.match.border)}>
+              <Check className={cn('w-3.5 h-3.5', STATUS_COLORS.match.icon)} />
+              <span className={cn('text-sm font-bold tabular-nums', STATUS_COLORS.match.text)}>{summary.matched}</span>
+              <span className={cn('text-[10px]', STATUS_COLORS.match.labelText)}>Matched</span>
             </div>
-            <div className={cn('rounded-xl border px-3 py-2.5', issueCount > 0 ? cn(STATUS_COLORS.under.bg, STATUS_COLORS.under.border) : cn(STATUS_COLORS.neutral.bg, STATUS_COLORS.neutral.border))}>
-              <div className="flex items-center justify-between">
-                <span className={cn('text-2xl font-bold tabular-nums', issueCount > 0 ? STATUS_COLORS.under.text : STATUS_COLORS.neutral.text)}>{issueCount}</span>
-                <AlertTriangle className={cn('w-4 h-4', issueCount > 0 ? STATUS_COLORS.under.icon : 'text-slate-300')} />
-              </div>
-              <p className={cn('text-[10px] font-medium uppercase tracking-wide mt-0.5', issueCount > 0 ? STATUS_COLORS.under.labelText : STATUS_COLORS.neutral.labelText)}>Issues</p>
+            <div className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg border',
+              issueCount > 0 ? cn(STATUS_COLORS.under.bg, STATUS_COLORS.under.border) : cn(STATUS_COLORS.neutral.bg, STATUS_COLORS.neutral.border)
+            )}>
+              <AlertTriangle className={cn('w-3.5 h-3.5', issueCount > 0 ? STATUS_COLORS.under.icon : 'text-slate-300')} />
+              <span className={cn('text-sm font-bold tabular-nums', issueCount > 0 ? STATUS_COLORS.under.text : STATUS_COLORS.neutral.text)}>{issueCount}</span>
+              <span className={cn('text-[10px]', issueCount > 0 ? STATUS_COLORS.under.labelText : STATUS_COLORS.neutral.labelText)}>Issues</span>
             </div>
-            <div className={cn(STATUS_COLORS.reviewed.bg, 'rounded-xl border', STATUS_COLORS.reviewed.border, 'px-3 py-2.5')}>
-              <div className="flex items-center justify-between">
-                <span className={cn('text-2xl font-bold tabular-nums', STATUS_COLORS.reviewed.text)}>{summary.reviewed}</span>
-                <CheckCircle2 className={cn('w-4 h-4', STATUS_COLORS.reviewed.icon)} />
-              </div>
-              <p className={cn('text-[10px] font-medium uppercase tracking-wide mt-0.5', STATUS_COLORS.reviewed.labelText)}>Reviewed</p>
+            <div className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg border', STATUS_COLORS.reviewed.bg, STATUS_COLORS.reviewed.border)}>
+              <CheckCircle2 className={cn('w-3.5 h-3.5', STATUS_COLORS.reviewed.icon)} />
+              <span className={cn('text-sm font-bold tabular-nums', STATUS_COLORS.reviewed.text)}>{summary.reviewed}</span>
+              <span className={cn('text-[10px]', STATUS_COLORS.reviewed.labelText)}>Reviewed</span>
             </div>
             {dollarImpact && dollarImpact.underBilledAmount > 0 && (
-              <div className={cn(STATUS_COLORS.under.bg, 'rounded-xl border', STATUS_COLORS.under.border, 'px-3 py-2.5')}>
-                <span className={cn('text-2xl font-bold tabular-nums leading-tight', STATUS_COLORS.under.text)}>
-                  ${dollarImpact.underBilledAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              <div className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg border', STATUS_COLORS.under.bg, STATUS_COLORS.under.border)}>
+                <span className={cn('text-sm font-bold tabular-nums', STATUS_COLORS.under.text)}>
+                  ${dollarImpact.underBilledAmount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </span>
-                <p className={cn('text-[10px] font-medium uppercase tracking-wide mt-0.5', STATUS_COLORS.under.labelText)}>Under-billed</p>
+                <span className={cn('text-[10px]', STATUS_COLORS.under.labelText)}>Under</span>
               </div>
             )}
             {dollarImpact && dollarImpact.overBilledAmount > 0 && (
-              <div className={cn(STATUS_COLORS.over.bg, 'rounded-xl border', STATUS_COLORS.over.border, 'px-3 py-2.5')}>
-                <span className={cn('text-2xl font-bold tabular-nums leading-tight', STATUS_COLORS.over.text)}>
-                  ${dollarImpact.overBilledAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              <div className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg border', STATUS_COLORS.over.bg, STATUS_COLORS.over.border)}>
+                <span className={cn('text-sm font-bold tabular-nums', STATUS_COLORS.over.text)}>
+                  ${dollarImpact.overBilledAmount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </span>
-                <p className={cn('text-[10px] font-medium uppercase tracking-wide mt-0.5', STATUS_COLORS.over.labelText)}>Over-billed</p>
+                <span className={cn('text-[10px]', STATUS_COLORS.over.labelText)}>Over</span>
               </div>
             )}
           </div>

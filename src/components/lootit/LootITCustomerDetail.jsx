@@ -480,7 +480,7 @@ export default function LootITCustomerDetail({ customer, onBack }) {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-pink-50/60 rounded-xl p-1 shadow-[0_0_20px_-5px_rgba(236,72,153,0.1)]">
+      <div className="flex border-b border-pink-100">
         {[
           { key: 'reconciliation', label: 'Reconciliation', icon: RotateCcw },
           { key: 'recurring', label: 'Recurring', icon: Repeat2, badge: allLineItems.length || null },
@@ -490,16 +490,22 @@ export default function LootITCustomerDetail({ customer, onBack }) {
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={cn(
-              'flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors',
+              'inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium transition-colors relative',
               activeTab === tab.key
-                ? 'bg-white text-pink-600 shadow-sm'
-                : 'text-slate-500 hover:text-pink-500'
+                ? 'text-pink-600'
+                : 'text-slate-400 hover:text-slate-600'
             )}
           >
             <tab.icon className="w-4 h-4" />
             {tab.label}
             {tab.badge && (
-              <span className="text-[10px] bg-pink-100 text-pink-600 px-1.5 py-0.5 rounded-full">{tab.badge}</span>
+              <span className={cn(
+                'text-[10px] px-1.5 py-0.5 rounded-full font-semibold',
+                activeTab === tab.key ? 'bg-pink-100 text-pink-600' : 'bg-slate-100 text-slate-400'
+              )}>{tab.badge}</span>
+            )}
+            {activeTab === tab.key && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-pink-500 rounded-full" />
             )}
           </button>
         ))}
