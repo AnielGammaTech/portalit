@@ -84,7 +84,7 @@ export default function ServiceCard({
   return (
     <div
       className={cn(
-        'rounded-lg border overflow-hidden transition-all hover:shadow-md cursor-pointer',
+        'rounded-lg border overflow-hidden transition-all hover:shadow-md cursor-pointer h-full flex flex-col',
         isReviewed ? 'bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-100/80 border-amber-200' : styles.card,
       )}
       style={isReviewed ? { backgroundImage: 'linear-gradient(135deg, #fffbeb 0%, #fef9c3 50%, #fef3c7 100%)' } : undefined}
@@ -93,7 +93,7 @@ export default function ServiceCard({
       {/* Status color bar */}
       <div className={cn('h-1', styles.bar)} />
 
-      <div className="px-3 py-2">
+      <div className="px-3 py-2 flex-1 flex flex-col">
         {/* Title row */}
         <div className="flex items-center justify-between gap-2 mb-1">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
@@ -211,7 +211,7 @@ export default function ServiceCard({
         {/* Action bar */}
         {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events */}
         <div onClick={(e) => e.stopPropagation()} className={cn(
-          'flex items-center gap-1.5 pt-1.5 border-t',
+          'flex items-center gap-1.5 pt-1.5 border-t mt-auto',
           status === 'match' ? 'border-emerald-100' : status === 'over' ? 'border-amber-100' : status === 'under' ? 'border-red-100' : 'border-slate-100'
         )}>
           <TooltipProvider delayDuration={300}>

@@ -67,7 +67,7 @@ export default function Pax8SubscriptionCard({ recon, onReview, onDismiss, onRes
   return (
     <div
       className={cn(
-        'rounded-xl border overflow-hidden transition-all hover:shadow-md cursor-pointer',
+        'rounded-lg border overflow-hidden transition-all hover:shadow-md cursor-pointer h-full flex flex-col',
         isReviewed ? 'border-amber-200' : resolvedStyles.card,
       )}
       style={isReviewed ? { backgroundImage: 'linear-gradient(135deg, #fffbeb 0%, #fef9c3 50%, #fef3c7 100%)' } : undefined}
@@ -75,7 +75,7 @@ export default function Pax8SubscriptionCard({ recon, onReview, onDismiss, onRes
     >
       <div className={cn('h-1', resolvedStyles.bar)} />
 
-      <div className="px-3 py-2">
+      <div className="px-3 py-2 flex-1 flex flex-col">
         {/* Title row */}
         <div className="flex items-center justify-between gap-2 mb-1">
           <h4 className="font-semibold text-slate-900 text-sm leading-tight truncate flex-1">{productName}</h4>
@@ -194,7 +194,7 @@ export default function Pax8SubscriptionCard({ recon, onReview, onDismiss, onRes
         )}
 
         {/* Action bar */}
-        <div onClick={(e) => e.stopPropagation()} className={cn('flex items-center gap-1.5 pt-1.5 border-t', resolvedStyles.borderT)}>
+        <div onClick={(e) => e.stopPropagation()} className={cn('flex items-center gap-1.5 pt-1.5 border-t mt-auto', resolvedStyles.borderT)}>
           <TooltipProvider delayDuration={300}>
             {!isReviewed && status !== 'match' && (
               <>
