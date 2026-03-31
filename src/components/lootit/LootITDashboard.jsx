@@ -6,12 +6,11 @@ import { getDiscrepancySummary } from '@/lib/lootit-reconciliation';
 
 export default function LootITDashboard({ onSelectCustomer }) {
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('all'); // all, issues, matched, no_data
+  const [filter, setFilter] = useState('all');
   const { reconciliations, globalSummary, isLoading } = useReconciliationData();
 
   const customerList = useMemo(() => {
     const entries = Object.values(reconciliations).map((entry) => {
-      // Combine rule-based + Pax8 for unified summary
       const allRecons = [
         ...(entry.reconciliations || []),
         ...(entry.pax8Reconciliations || []),
@@ -20,14 +19,12 @@ export default function LootITDashboard({ onSelectCustomer }) {
       return { ...entry, combinedSummary: combined };
     });
 
-    // Filter by search
     const searched = search.trim()
       ? entries.filter((e) =>
           e.customer.name?.toLowerCase().includes(search.toLowerCase())
         )
       : entries;
 
-    // Filter by status
     return searched.filter((entry) => {
       const s = entry.combinedSummary;
       if (filter === 'issues') return s.over > 0 || s.under > 0;
@@ -40,49 +37,24 @@ export default function LootITDashboard({ onSelectCustomer }) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-600 rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <SummaryCard
-          icon={Database}
-          label="Customers"
-          value={globalSummary.totalCustomers}
-          color="slate"
-        />
-        <SummaryCard
-          icon={CheckCircle2}
-          label="Matched"
-          value={globalSummary.totalMatched}
-          color="emerald"
-        />
-        <SummaryCard
-          icon={TrendingDown}
-          label="Under-billed"
-          value={globalSummary.totalUnder}
-          color="red"
-        />
-        <SummaryCard
-          icon={TrendingUp}
-          label="Over-billed"
-          value={globalSummary.totalOver}
-          color="orange"
-        />
-        <SummaryCard
-          icon={AlertTriangle}
-          label="Issues"
-          value={globalSummary.customersWithIssues}
-          color="pink"
-        />
+      <div className="grid grid-cols-5 gap-3">
+        <SummaryCard icon={Database} label="Customers" value={globalSummary.totalCustomers} color="slate" />
+        <SummaryCard icon={CheckCircle2} label="Matched" value={globalSummary.totalMatched} color="emerald" />
+        <SummaryCard icon={TrendingDown} label="Under-billed" value={globalSummary.totalUnder} color="red" />
+        <SummaryCard icon={TrendingUp} label="Over-billed" value={globalSummary.totalOver} color="amber" />
+        <SummaryCard icon={AlertTriangle} label="Issues" value={globalSummary.customersWithIssues} color="amber" />
       </div>
 
       {/* Search & Filter */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex items-center gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -90,10 +62,10 @@ export default function LootITDashboard({ onSelectCustomer }) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search customers..."
-            className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
+            className="w-full pl-10 pr-4 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-1.5">
           {[
             { key: 'all', label: 'All' },
             { key: 'issues', label: 'Issues' },
@@ -102,11 +74,12 @@ export default function LootITDashboard({ onSelectCustomer }) {
             <button
               key={f.key}
               onClick={() => setFilter(f.key)}
-              className={`px-4 py-2 text-sm font-medium rounded-xl transition-colors ${
+              className={cn(
+                'px-3.5 py-2 text-xs font-medium rounded-lg transition-colors',
                 filter === f.key
-                  ? 'bg-pink-500 text-white'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-pink-50'
-              }`}
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'
+              )}
             >
               {f.label}
             </button>
@@ -117,16 +90,18 @@ export default function LootITDashboard({ onSelectCustomer }) {
       {/* Customer Grid */}
       {customerList.length === 0 ? (
         <div className="text-center py-16">
-          <Database className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-          <p className="text-slate-500 font-medium">
+          <Database className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+          <p className="text-slate-500 font-medium text-sm">
             {search ? 'No customers match your search' : 'No reconciliation data yet'}
           </p>
-          <p className="text-sm text-slate-400 mt-1">
-            {!search && 'Set up reconciliation rules in Settings to get started.'}
-          </p>
+          {!search && (
+            <p className="text-xs text-slate-400 mt-1">
+              Set up reconciliation rules in Settings to get started.
+            </p>
+          )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {customerList.map(({ customer, combinedSummary: s }) => {
             const active = s.total - s.noData;
             const resolved = s.matched + s.reviewed;
@@ -139,74 +114,67 @@ export default function LootITDashboard({ onSelectCustomer }) {
               <button
                 key={customer.id}
                 onClick={() => onSelectCustomer(customer)}
-                className="text-left bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md hover:border-pink-200 transition-all group"
+                className="text-left bg-white rounded-lg border border-slate-200 p-3.5 hover:shadow-md hover:border-slate-300 transition-all group flex flex-col h-full"
               >
-                <div className="flex items-start justify-between mb-3">
-                  <h3 className="font-semibold text-slate-900 text-sm group-hover:text-pink-600 transition-colors line-clamp-1">
+                {/* Header */}
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <h3 className="font-semibold text-slate-900 text-xs leading-tight group-hover:text-slate-600 transition-colors line-clamp-1 flex-1 min-w-0">
                     {customer.name}
                   </h3>
                   {isFullyReconciled ? (
-                    <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
                   ) : issues > 0 ? (
-                    <span className="flex-shrink-0 ml-2 inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100 text-red-600 text-xs font-bold">
+                    <span className="flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-100 text-red-600 text-[10px] font-bold">
                       {issues}
                     </span>
                   ) : noPsa > 0 ? (
-                    <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                    <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
                   ) : null}
                 </div>
 
                 {/* Progress bar */}
-                <div className="mb-3">
+                <div className="mb-2">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-slate-400">
-                      {active} services
-                    </span>
+                    <span className="text-[10px] text-slate-400">{active} services</span>
                     <span className={cn(
-                      'text-xs font-semibold',
+                      'text-[10px] font-semibold tabular-nums',
                       pct === 100 && noPsa === 0 ? 'text-emerald-600'
-                        : pct === 100 && noPsa > 0 ? 'text-amber-600'
-                        : pct >= 70 ? 'text-orange-500' : 'text-red-500'
+                        : pct >= 70 ? 'text-amber-600' : 'text-red-500'
                     )}>
-                      {pct}% reconciled
+                      {pct}%
                     </span>
                   </div>
-                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                    {/* Matched (green) */}
+                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                     <div
                       className={cn(
                         'h-full rounded-full transition-all',
                         pct === 100 && noPsa === 0 ? 'bg-emerald-400'
-                          : pct === 100 && noPsa > 0 ? 'bg-amber-400'
-                          : pct >= 70 ? 'bg-orange-400' : 'bg-red-400'
+                          : pct >= 70 ? 'bg-amber-400' : 'bg-red-400'
                       )}
                       style={{ width: `${pct}%` }}
                     />
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
-                  <span className="text-emerald-500">{s.matched} matched</span>
+                {/* Stats */}
+                <div className="flex items-center gap-1.5 text-[10px] text-slate-400 flex-wrap mt-auto">
+                  <span className="text-emerald-500 font-medium">{s.matched} ok</span>
                   {noPsa > 0 && (
                     <>
-                      <span>·</span>
-                      <span className="text-amber-600 font-medium">
-                        {noPsa} no PSA
-                      </span>
+                      <span className="text-slate-300">·</span>
+                      <span className="text-amber-600 font-medium">{noPsa} no PSA</span>
                     </>
                   )}
                   {issues > 0 && (
                     <>
-                      <span>·</span>
-                      <span className="text-red-500 font-medium">
-                        {issues} issue{issues !== 1 ? 's' : ''}
-                      </span>
+                      <span className="text-slate-300">·</span>
+                      <span className="text-red-500 font-medium">{issues} issue{issues !== 1 ? 's' : ''}</span>
                     </>
                   )}
                   {s.reviewed > 0 && (
                     <>
-                      <span>·</span>
-                      <span className="text-pink-500">{s.reviewed} reviewed</span>
+                      <span className="text-slate-300">·</span>
+                      <span className="text-blue-500">{s.reviewed} reviewed</span>
                     </>
                   )}
                 </div>
@@ -220,23 +188,23 @@ export default function LootITDashboard({ onSelectCustomer }) {
 }
 
 function SummaryCard({ icon: Icon, label, value, color }) {
-  const colorMap = {
-    slate: 'bg-slate-50 text-slate-600',
-    emerald: 'bg-emerald-50 text-emerald-600',
-    red: 'bg-red-50 text-red-600',
-    orange: 'bg-orange-50 text-orange-600',
-    pink: 'bg-pink-50 text-pink-600',
+  const styles = {
+    slate: { icon: 'bg-slate-100 text-slate-600', border: 'border-slate-200' },
+    emerald: { icon: 'bg-emerald-100 text-emerald-600', border: 'border-emerald-200' },
+    red: { icon: 'bg-red-100 text-red-600', border: 'border-red-200' },
+    amber: { icon: 'bg-amber-100 text-amber-600', border: 'border-amber-200' },
   };
+  const s = styles[color] || styles.slate;
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4">
+    <div className={cn('bg-white rounded-lg border p-3', s.border)}>
       <div className="flex items-center gap-2 mb-1">
-        <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${colorMap[color]}`}>
-          <Icon className="w-4 h-4" />
+        <div className={cn('w-6 h-6 rounded-md flex items-center justify-center', s.icon)}>
+          <Icon className="w-3.5 h-3.5" />
         </div>
-        <span className="text-xs text-slate-400 font-medium">{label}</span>
+        <span className="text-[10px] uppercase tracking-wide font-medium text-slate-400">{label}</span>
       </div>
-      <p className="text-2xl font-bold text-slate-900">{value}</p>
+      <p className="text-xl font-bold tabular-nums text-slate-900">{value}</p>
     </div>
   );
 }
