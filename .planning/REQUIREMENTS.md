@@ -7,17 +7,17 @@
 
 ### Service Cards
 
-- [ ] **CARD-01**: Service cards shrunk ~50% so 3-4 cards fit per row instead of current 2
-- [ ] **CARD-02**: Card layout retains PSA vs Vendor counts, status badge, and action buttons at smaller size
-- [ ] **CARD-03**: Cards remain interactive (review, dismiss, map, notes) at compact size
+- [x] **CARD-01**: Service cards shrunk ~50% so 3-4 cards fit per row instead of current 2
+- [x] **CARD-02**: Card layout retains PSA vs Vendor counts, status badge, and action buttons at smaller size
+- [x] **CARD-03**: Cards remain interactive (review, dismiss, map, notes) at compact size
 
 ### Customer Header
 
-- [x] **HEAD-01**: Header displays real customer details (company name, contact, address) from HaloPSA data
-- [x] **HEAD-02**: Header shows financial summary (MRR from recurring bills, contract value, billing status)
-- [x] **HEAD-03**: Header shows reconciliation health score with visual indicator
-- [x] **HEAD-04**: Header redesigned in dashboard-pro style (dense, polished, data hierarchy)
-- [x] **HEAD-05**: Integration stat widgets (Users, Workstations, Servers, etc.) redesigned to be more compact and informative
+- [ ] **HEAD-01**: Header displays real customer details (company name, contact, address) from HaloPSA data
+- [ ] **HEAD-02**: Header shows financial summary (MRR from recurring bills, contract value, billing status)
+- [ ] **HEAD-03**: Header shows reconciliation health score with visual indicator
+- [ ] **HEAD-04**: Header redesigned in dashboard-pro style (dense, polished, data hierarchy)
+- [ ] **HEAD-05**: Integration stat widgets (Users, Workstations, Servers, etc.) redesigned to be more compact and informative
 
 ### Recurring Tab
 
@@ -71,14 +71,14 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CARD-01 | Phase 2 | Pending |
-| CARD-02 | Phase 2 | Pending |
-| CARD-03 | Phase 2 | Pending |
-| HEAD-01 | Phase 2 | Complete |
-| HEAD-02 | Phase 2 | Complete |
-| HEAD-03 | Phase 2 | Complete |
-| HEAD-04 | Phase 2 | Complete |
-| HEAD-05 | Phase 2 | Complete |
+| CARD-01 | Phase 2 | Complete |
+| CARD-02 | Phase 2 | Complete |
+| CARD-03 | Phase 2 | Complete |
+| HEAD-01 | Phase 2 | Pending |
+| HEAD-02 | Phase 2 | Pending |
+| HEAD-03 | Phase 2 | Pending |
+| HEAD-04 | Phase 2 | Pending |
+| HEAD-05 | Phase 2 | Pending |
 | RECR-01 | Phase 3 | Pending |
 | RECR-02 | Phase 3 | Pending |
 | RECR-03 | Phase 3 | Pending |
