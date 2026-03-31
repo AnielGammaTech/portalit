@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PortalIT Security Audit Report</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+  @media print { .no-print { display: none; } }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+<!-- Header -->
+<div class="bg-gradient-to-r from-[#1E0A3C] to-[#2D1B69] text-white">
+  <div class="max-w-5xl mx-auto px-6 py-8">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight">PortalIT Security Audit</h1>
+        <p class="text-violet-300 text-sm mt-1">Comprehensive vulnerability assessment</p>
+      </div>
+      <div class="text-right text-sm">
+        <p class="text-violet-300">Date: <span class="text-white font-semibold">March 31, 2026</span></p>
+        <p class="text-violet-300">Scope: <span class="text-white">API, Supabase, Frontend, Auth</span></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Summary Bar -->
+<div class="max-w-5xl mx-auto px-6 -mt-4">
+  <div class="bg-white rounded-xl shadow-lg border p-5">
+    <div class="grid grid-cols-5 gap-4 text-center">
+      <div class="bg-red-50 rounded-lg p-3 border border-red-200">
+        <p class="text-3xl font-bold text-red-600">8</p>
+        <p class="text-[10px] uppercase tracking-wider font-semibold text-red-400 mt-1">Critical</p>
+      </div>
+      <div class="bg-orange-50 rounded-lg p-3 border border-orange-200">
+        <p class="text-3xl font-bold text-orange-600">10</p>
+        <p class="text-[10px] uppercase tracking-wider font-semibold text-orange-400 mt-1">High</p>
+      </div>
+      <div class="bg-amber-50 rounded-lg p-3 border border-amber-200">
+        <p class="text-3xl font-bold text-amber-600">8</p>
+        <p class="text-[10px] uppercase tracking-wider font-semibold text-amber-400 mt-1">Medium</p>
+      </div>
+      <div class="bg-blue-50 rounded-lg p-3 border border-blue-200">
+        <p class="text-3xl font-bold text-blue-600">4</p>
+        <p class="text-[10px] uppercase tracking-wider font-semibold text-blue-400 mt-1">Low</p>
+      </div>
+      <div class="bg-emerald-50 rounded-lg p-3 border border-emerald-200">
+        <p class="text-3xl font-bold text-emerald-600">6</p>
+        <p class="text-[10px] uppercase tracking-wider font-semibold text-emerald-400 mt-1">Fixed</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="max-w-5xl mx-auto px-6 py-8 space-y-8">
+
+  <!-- Executive Summary -->
+  <div class="bg-white rounded-xl shadow-sm border p-6">
+    <h2 class="text-lg font-bold text-slate-900 mb-3">Executive Summary</h2>
+    <p class="text-sm text-slate-600 leading-relaxed">
+      The most urgent risks are <strong class="text-red-600">overpermissive Supabase RLS policies</strong> that allow any authenticated user to read/write data across ALL customers, combined with the anon key exposed in the frontend bundle. Together, these create a path to complete data theft. The Express API has strong auth middleware but several input validation gaps. <strong class="text-emerald-600">6 critical fixes have been applied.</strong>
+    </p>
+  </div>
+
+  <!-- Critical Findings -->
+  <div>
+    <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+      <span class="w-3 h-3 rounded-full bg-red-500"></span> Critical Findings
+    </h2>
+    <div class="space-y-3">
+
+      <div class="bg-white rounded-xl shadow-sm border-l-4 border-l-red-500 p-5">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-semibold text-sm">C-1: Overpermissive RLS on 7 Integration Tables</h3>
+          <span class="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full">FIXED</span>
+        </div>
+        <p class="text-xs text-slate-500 mb-2">Migrations 006-011</p>
+        <p class="text-sm text-slate-600">Any authenticated user (including customer portal users) could read/modify/delete ALL rows in pax8_mappings, inky_reports, threecx_mappings, threecx_reports, vultr_mappings, dmarc_report_mappings, vpentest_mappings. Policies used <code class="bg-slate-100 px-1 rounded text-xs">USING (true)</code>.</p>
+        <p class="text-xs text-emerald-600 font-medium mt-2">Fix: New migration restricts all 7 tables to admin + service_role only.</p>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border-l-4 border-l-red-500 p-5">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-semibold text-sm">C-2: Settings Table Exposes API Secrets</h3>
+          <span class="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full">FIXED</span>
+        </div>
+        <p class="text-xs text-slate-500 mb-2">migrations/001_initial_schema.sql:744</p>
+        <p class="text-sm text-slate-600">Any logged-in user could read HaloPSA, Datto, JumpCloud, DarkWebID credentials stored in plaintext via the <code class="bg-slate-100 px-1 rounded text-xs">settings</code> table.</p>
+        <p class="text-xs text-emerald-600 font-medium mt-2">Fix: Settings SELECT restricted to admin + service_role only.</p>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border-l-4 border-l-red-500 p-5">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-semibold text-sm">C-3: cron_job_runs Readable by All</h3>
+          <span class="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full">FIXED</span>
+        </div>
+        <p class="text-xs text-slate-500 mb-2">migrations/004_add_cron_job_runs.sql:20</p>
+        <p class="text-sm text-slate-600">Error messages in cron logs could contain API credentials or internal system details visible to any authenticated user.</p>
+        <p class="text-xs text-emerald-600 font-medium mt-2">Fix: Restricted to admin + service_role.</p>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border-l-4 border-l-red-500 p-5">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-semibold text-sm">C-4: Direct supabase.from() Calls Bypass Server</h3>
+          <span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full">MITIGATED</span>
+        </div>
+        <p class="text-xs text-slate-500 mb-2">LootITCustomerDetail.jsx, Pax8Config.jsx, hooks</p>
+        <p class="text-sm text-slate-600">Frontend makes direct DB inserts/deletes without server-side authorization. RLS is the only guard. Mitigated by RLS fix (C-1) but direct calls should be routed through server middleware long-term.</p>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border-l-4 border-l-red-500 p-5">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-semibold text-sm">C-5: Supabase Anon Key in Frontend Bundle</h3>
+          <span class="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full">EXPECTED</span>
+        </div>
+        <p class="text-xs text-slate-500 mb-2">src/api/client.js, src/lib/app-params.js</p>
+        <p class="text-sm text-slate-600">Anon key is visible in JS bundle. This is expected for Supabase but dangerous with permissive RLS. Risk mitigated by C-1 RLS fix.</p>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border-l-4 border-l-red-500 p-5">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-semibold text-sm">C-6: Hardcoded Production URL</h3>
+          <span class="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full">FIXED</span>
+        </div>
+        <p class="text-xs text-slate-500 mb-2">server/src/routes/users.js:90</p>
+        <p class="text-sm text-slate-600">Railway production infrastructure URL was hardcoded as fallback. Now throws error if FRONTEND_URL env var is not set.</p>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border-l-4 border-l-red-500 p-5">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-semibold text-sm">C-7: Path Traversal in File Upload</h3>
+          <span class="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full">FIXED</span>
+        </div>
+        <p class="text-xs text-slate-500 mb-2">server/src/routes/upload.js:16</p>
+        <p class="text-sm text-slate-600">User-controlled filename used without sanitization. Now strips path separators, <code class="bg-slate-100 px-1 rounded text-xs">..</code>, special chars, and validates MIME type against allowlist.</p>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border-l-4 border-l-red-500 p-5">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-semibold text-sm">C-8: Content-Disposition Header Injection</h3>
+          <span class="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full">FIXED</span>
+        </div>
+        <p class="text-xs text-slate-500 mb-2">server/src/routes/functions.js:90</p>
+        <p class="text-sm text-slate-600">Unsanitized filename in response header. Now uses RFC 5987 encoding with sanitized filename.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- High Findings -->
+  <div>
+    <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+      <span class="w-3 h-3 rounded-full bg-orange-500"></span> High Findings
+    </h2>
+    <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 border-b">
+          <tr>
+            <th class="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider text-slate-400 font-semibold">ID</th>
+            <th class="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Finding</th>
+            <th class="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Location</th>
+            <th class="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          <tr><td class="px-4 py-3 font-mono text-xs">H-1</td><td class="px-4 py-3">No route-level role enforcement</td><td class="px-4 py-3 text-xs text-slate-400">App.jsx:73-92</td><td class="px-4 py-3"><span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full">TODO</span></td></tr>
+          <tr><td class="px-4 py-3 font-mono text-xs">H-2</td><td class="px-4 py-3">Plaintext API secrets in settings table</td><td class="px-4 py-3 text-xs text-slate-400">Migration 001:302</td><td class="px-4 py-3"><span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full">TODO</span></td></tr>
+          <tr><td class="px-4 py-3 font-mono text-xs">H-3</td><td class="px-4 py-3">File upload no server-side type validation</td><td class="px-4 py-3 text-xs text-slate-400">upload.js, LootIT</td><td class="px-4 py-3"><span class="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full">FIXED</span></td></tr>
+          <tr><td class="px-4 py-3 font-mono text-xs">H-4</td><td class="px-4 py-3">Parameter injection in HaloPSA API calls</td><td class="px-4 py-3 text-xs text-slate-400">halo.js:287,415</td><td class="px-4 py-3"><span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full">TODO</span></td></tr>
+          <tr><td class="px-4 py-3 font-mono text-xs">H-5</td><td class="px-4 py-3">Stacked rate limiting bypass</td><td class="px-4 py-3 text-xs text-slate-400">index.js:70-76</td><td class="px-4 py-3"><span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full">TODO</span></td></tr>
+          <tr><td class="px-4 py-3 font-mono text-xs">H-6</td><td class="px-4 py-3">IDOR on user sign-ins endpoint</td><td class="px-4 py-3 text-xs text-slate-400">users.js:437</td><td class="px-4 py-3"><span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full">TODO</span></td></tr>
+          <tr><td class="px-4 py-3 font-mono text-xs">H-7</td><td class="px-4 py-3">Missing cron query param validation</td><td class="px-4 py-3 text-xs text-slate-400">cron.js:59</td><td class="px-4 py-3"><span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full">TODO</span></td></tr>
+          <tr><td class="px-4 py-3 font-mono text-xs">H-8</td><td class="px-4 py-3">Email enumeration via server logs</td><td class="px-4 py-3 text-xs text-slate-400">users.js:256</td><td class="px-4 py-3"><span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full">TODO</span></td></tr>
+          <tr><td class="px-4 py-3 font-mono text-xs">H-9</td><td class="px-4 py-3">CORS allows no-origin requests</td><td class="px-4 py-3 text-xs text-slate-400">index.js:36-50</td><td class="px-4 py-3"><span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full">TODO</span></td></tr>
+          <tr><td class="px-4 py-3 font-mono text-xs">H-10</td><td class="px-4 py-3">File download without ownership check</td><td class="px-4 py-3 text-xs text-slate-400">LootIT:193</td><td class="px-4 py-3"><span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full">TODO</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Medium Findings -->
+  <div>
+    <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+      <span class="w-3 h-3 rounded-full bg-amber-500"></span> Medium Findings
+    </h2>
+    <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 border-b">
+          <tr>
+            <th class="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider text-slate-400 font-semibold">ID</th>
+            <th class="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Finding</th>
+            <th class="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Location</th>
+            <th class="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          <tr><td class="px-4 py-3 font-mono text-xs">M-1</td><td class="px-4 py-3">Line items/contracts/quotes readable by all auth users</td><td class="px-4 py-3 text-xs text-slate-400">Migration 001:784</td><td class="px-4 py-3"><span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full">TODO</span></td></tr>
+          <tr><td class="px-4 py-3 font-mono text-xs">M-2</td><td class="px-4 py-3">Activities/sync logs readable by all auth users</td><td class="px-4 py-3 text-xs text-slate-400">Migration 001:774</td><td class="px-4 py-3"><span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full">TODO</span></td></tr>
+          <tr><td class="px-4 py-3 font-mono text-xs">M-3</td><td class="px-4 py-3">Weak OTP generation (Math.random)</td><td class="px-4 py-3 text-xs text-slate-400">users.js:72</td><td class="px-4 py-3"><span class="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full">FIXED</span></td></tr>
+          <tr><td class="px-4 py-3 font-mono text-xs">M-4</td><td class="px-4 py-3">Race condition in user invite creation</td><td class="px-4 py-3 text-xs text-slate-400">users.js:124</td><td class="px-4 py-3"><span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full">TODO</span></td></tr>
+          <tr><td class="px-4 py-3 font-mono text-xs">M-5</td><td class="px-4 py-3">Error messages leak database schema</td><td class="px-4 py-3 text-xs text-slate-400">errorHandler.js</td><td class="px-4 py-3"><span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full">TODO</span></td></tr>
+          <tr><td class="px-4 py-3 font-mono text-xs">M-6</td><td class="px-4 py-3">No rate limiting on upload endpoint</td><td class="px-4 py-3 text-xs text-slate-400">upload.js</td><td class="px-4 py-3"><span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full">TODO</span></td></tr>
+          <tr><td class="px-4 py-3 font-mono text-xs">M-7</td><td class="px-4 py-3">Missing customer permission check on invite</td><td class="px-4 py-3 text-xs text-slate-400">users.js:109</td><td class="px-4 py-3"><span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full">TODO</span></td></tr>
+          <tr><td class="px-4 py-3 font-mono text-xs">M-8</td><td class="px-4 py-3">Email config exposed in API response</td><td class="px-4 py-3 text-xs text-slate-400">users.js:428</td><td class="px-4 py-3"><span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full">TODO</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Low Findings -->
+  <div>
+    <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+      <span class="w-3 h-3 rounded-full bg-blue-400"></span> Low Findings
+    </h2>
+    <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 border-b">
+          <tr>
+            <th class="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider text-slate-400 font-semibold">ID</th>
+            <th class="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Finding</th>
+            <th class="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          <tr><td class="px-4 py-3 font-mono text-xs">L-1</td><td class="px-4 py-3">No Helmet security headers</td><td class="px-4 py-3"><span class="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full">FIXED</span></td></tr>
+          <tr><td class="px-4 py-3 font-mono text-xs">L-2</td><td class="px-4 py-3">PII in console logs (email, IP addresses)</td><td class="px-4 py-3"><span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full">TODO</span></td></tr>
+          <tr><td class="px-4 py-3 font-mono text-xs">L-3</td><td class="px-4 py-3">Dead code — unused temp password generation</td><td class="px-4 py-3"><span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full">TODO</span></td></tr>
+          <tr><td class="px-4 py-3 font-mono text-xs">L-4</td><td class="px-4 py-3">LLM prompt injection risk in contract extraction</td><td class="px-4 py-3"><span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full">TODO</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Positive Findings -->
+  <div class="bg-emerald-50 rounded-xl border border-emerald-200 p-6">
+    <h2 class="text-lg font-bold text-emerald-800 mb-3">Positive Findings</h2>
+    <ul class="space-y-2 text-sm text-emerald-700">
+      <li class="flex items-center gap-2"><span class="w-5 h-5 rounded-full bg-emerald-200 flex items-center justify-center text-emerald-700 text-xs font-bold shrink-0">&#10003;</span> All database queries use Supabase parameterized queries — no SQL injection</li>
+      <li class="flex items-center gap-2"><span class="w-5 h-5 rounded-full bg-emerald-200 flex items-center justify-center text-emerald-700 text-xs font-bold shrink-0">&#10003;</span> No hardcoded API keys in source code — all via environment variables</li>
+      <li class="flex items-center gap-2"><span class="w-5 h-5 rounded-full bg-emerald-200 flex items-center justify-center text-emerald-700 text-xs font-bold shrink-0">&#10003;</span> Auth middleware properly validates JWT tokens via Supabase</li>
+      <li class="flex items-center gap-2"><span class="w-5 h-5 rounded-full bg-emerald-200 flex items-center justify-center text-emerald-700 text-xs font-bold shrink-0">&#10003;</span> OTP rate limiting has dual-layer protection (per-IP + per-email)</li>
+      <li class="flex items-center gap-2"><span class="w-5 h-5 rounded-full bg-emerald-200 flex items-center justify-center text-emerald-700 text-xs font-bold shrink-0">&#10003;</span> HTTPS enforced via Railway deployment</li>
+    </ul>
+  </div>
+
+  <!-- Remediation Timeline -->
+  <div class="bg-white rounded-xl shadow-sm border p-6">
+    <h2 class="text-lg font-bold text-slate-900 mb-4">Remediation Timeline</h2>
+    <div class="space-y-4">
+      <div class="flex gap-4">
+        <div class="w-24 shrink-0">
+          <span class="bg-red-100 text-red-700 text-[10px] font-bold px-2.5 py-1 rounded-full">THIS WEEK</span>
+        </div>
+        <div class="text-sm text-slate-600">
+          <p class="font-semibold text-slate-800 mb-1">Apply RLS migration to Supabase</p>
+          <p>Run <code class="bg-slate-100 px-1.5 py-0.5 rounded text-xs">supabase db push</code> to activate the security policies. Validate HaloPSA customer_id parameters. Deploy server with helmet + OTP + upload fixes.</p>
+        </div>
+      </div>
+      <div class="border-t border-slate-100"></div>
+      <div class="flex gap-4">
+        <div class="w-24 shrink-0">
+          <span class="bg-orange-100 text-orange-700 text-[10px] font-bold px-2.5 py-1 rounded-full">2 WEEKS</span>
+        </div>
+        <div class="text-sm text-slate-600">
+          <p class="font-semibold text-slate-800 mb-1">Route-level role enforcement + CORS hardening</p>
+          <p>Add permission guards to React routes. Fix CORS to reject no-origin requests. Add IDOR checks on sign-ins endpoint. Fix rate limiter stacking.</p>
+        </div>
+      </div>
+      <div class="border-t border-slate-100"></div>
+      <div class="flex gap-4">
+        <div class="w-24 shrink-0">
+          <span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2.5 py-1 rounded-full">1 MONTH</span>
+        </div>
+        <div class="text-sm text-slate-600">
+          <p class="font-semibold text-slate-800 mb-1">Encrypt secrets + restrict line item RLS + clean up logs</p>
+          <p>Encrypt API credentials in settings table. Add customer_id filters to line items/contracts/quotes RLS. Remove PII from server logs. Fix race conditions.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="text-center text-xs text-slate-400 pt-4 pb-8">
+    <p>PortalIT Security Audit &mdash; Generated March 31, 2026 &mdash; Confidential</p>
+  </div>
+
+</div>
+</body>
+</html>
