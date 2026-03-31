@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Settings, LayoutGrid, ArrowLeft, Loader2 } from 'lucide-react';
@@ -14,57 +14,46 @@ export default function LootIT() {
   const settingsParam = searchParams.get('view') === 'settings';
 
   const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const navigatedFromDashboard = useRef(false);
 
-  const view = settingsParam ? 'settings' : (customerId ? 'customer' : 'dashboard');
+  // Only fetch from DB if we have a URL customer ID but no customer in state yet
+  const needsFetch = !!customerId && (!selectedCustomer || selectedCustomer.id !== customerId);
 
-  // Fetch customer by ID when navigating via URL (direct link or browser back)
-  const { data: urlCustomer, isLoading: isLoadingCustomer } = useQuery({
+  const { data: fetchedCustomer, isLoading: isLoadingCustomer } = useQuery({
     queryKey: ['customer_by_id', customerId],
     queryFn: async () => {
       const results = await client.entities.Customer.filter({ id: customerId });
       return results?.[0] || null;
     },
-    enabled: !!customerId && !navigatedFromDashboard.current,
+    enabled: needsFetch,
     staleTime: 1000 * 60 * 5,
   });
 
-  // Sync URL customer to state (only when not navigated from dashboard click)
+  // When fetched customer arrives, set it
   useEffect(() => {
-    if (customerId && urlCustomer && !navigatedFromDashboard.current) {
-      setSelectedCustomer(urlCustomer);
+    if (fetchedCustomer && needsFetch) {
+      setSelectedCustomer(fetchedCustomer);
     }
+  }, [fetchedCustomer, needsFetch]);
+
+  // When URL loses customer param, clear state
+  useEffect(() => {
     if (!customerId) {
       setSelectedCustomer(null);
-      navigatedFromDashboard.current = false;
     }
-  }, [customerId, urlCustomer]);
+  }, [customerId]);
+
+  const view = settingsParam ? 'settings' : customerId ? 'customer' : 'dashboard';
+  const customerReady = view === 'customer' && selectedCustomer && selectedCustomer.id === customerId;
 
   const handleSelectCustomer = (customer) => {
-    navigatedFromDashboard.current = true;
     setSelectedCustomer(customer);
-    navigate(`/LootIT?customer=${customer.id}`, { replace: false });
+    navigate(`/LootIT?customer=${customer.id}`);
   };
 
   const handleBackToDashboard = () => {
-    navigatedFromDashboard.current = false;
     setSelectedCustomer(null);
-    navigate('/LootIT', { replace: false });
+    navigate('/LootIT');
   };
-
-  const handleSettings = () => {
-    navigate('/LootIT?view=settings', { replace: false });
-  };
-
-  const handleDashboard = () => {
-    navigatedFromDashboard.current = false;
-    setSelectedCustomer(null);
-    navigate('/LootIT', { replace: false });
-  };
-
-  // Loading state when fetching customer from URL
-  const showCustomerLoading = view === 'customer' && !selectedCustomer && isLoadingCustomer;
-  const showCustomerNotFound = view === 'customer' && !selectedCustomer && !isLoadingCustomer && customerId;
 
   return (
     <div className="min-h-[80vh] relative -mx-4 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-6 lg:-mt-8 -mb-4 sm:-mb-6 lg:-mb-8 px-4 sm:px-6 lg:px-8 bg-slate-50">
@@ -82,36 +71,27 @@ export default function LootIT() {
                   <ArrowLeft className="w-4 h-4 text-slate-600" />
                 </button>
               )}
-              <h1 className="text-xl font-extrabold text-slate-900">
-                LootIT
-              </h1>
+              <h1 className="text-xl font-extrabold text-slate-900">LootIT</h1>
               <span className="hidden sm:inline-block text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full uppercase tracking-wider">
                 Billing Reconciliation
               </span>
             </div>
-
             <div className="flex items-center gap-1">
               <button
-                onClick={handleDashboard}
+                onClick={() => { setSelectedCustomer(null); navigate('/LootIT'); }}
                 className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  view !== 'settings'
-                    ? 'bg-slate-900 text-white'
-                    : 'text-slate-500 hover:bg-slate-100'
+                  view !== 'settings' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'
                 }`}
               >
-                <LayoutGrid className="w-4 h-4" />
-                Dashboard
+                <LayoutGrid className="w-4 h-4" /> Dashboard
               </button>
               <button
-                onClick={handleSettings}
+                onClick={() => navigate('/LootIT?view=settings')}
                 className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  view === 'settings'
-                    ? 'bg-slate-900 text-white'
-                    : 'text-slate-500 hover:bg-slate-100'
+                  view === 'settings' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'
                 }`}
               >
-                <Settings className="w-4 h-4" />
-                Settings
+                <Settings className="w-4 h-4" /> Settings
               </button>
             </div>
           </div>
@@ -121,21 +101,25 @@ export default function LootIT() {
       {/* Content */}
       <div className="relative z-10 max-w-7xl mx-auto py-6">
         {view === 'settings' && <LootITSettings />}
+
         {view === 'dashboard' && (
           <LootITDashboard onSelectCustomer={handleSelectCustomer} />
         )}
-        {view === 'customer' && selectedCustomer && (
+
+        {customerReady && (
           <LootITCustomerDetail
             customer={selectedCustomer}
             onBack={handleBackToDashboard}
           />
         )}
-        {showCustomerLoading && (
+
+        {view === 'customer' && !customerReady && isLoadingCustomer && (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 text-slate-400 animate-spin" />
           </div>
         )}
-        {showCustomerNotFound && (
+
+        {view === 'customer' && !customerReady && !isLoadingCustomer && customerId && (
           <div className="text-center py-20">
             <p className="text-slate-500 text-sm">Customer not found</p>
             <button onClick={handleBackToDashboard} className="mt-3 text-sm text-slate-600 underline hover:text-slate-800">
