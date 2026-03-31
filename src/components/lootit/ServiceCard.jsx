@@ -84,7 +84,7 @@ export default function ServiceCard({
   return (
     <div
       className={cn(
-        'rounded-xl border overflow-hidden transition-all hover:shadow-md cursor-pointer',
+        'rounded-lg border overflow-hidden transition-all hover:shadow-md cursor-pointer',
         isReviewed ? 'bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-100/80 border-amber-200' : styles.card,
       )}
       style={isReviewed ? { backgroundImage: 'linear-gradient(135deg, #fffbeb 0%, #fef9c3 50%, #fef3c7 100%)' } : undefined}
@@ -97,7 +97,7 @@ export default function ServiceCard({
         {/* Title row */}
         <div className="flex items-center justify-between gap-2 mb-1">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
-            <h4 className="font-semibold text-slate-900 text-sm truncate">{rule.label}</h4>
+            <h4 className="font-semibold text-slate-900 text-xs truncate">{rule.label}</h4>
             {onEditRule && (
               <button onClick={() => onEditRule(rule)} className="text-slate-300 hover:text-slate-500 transition-colors shrink-0" title="Edit rule">
                 <Settings2 className="w-3.5 h-3.5" />
@@ -108,7 +108,7 @@ export default function ServiceCard({
         </div>
 
         {/* Integration label */}
-        <p className="text-[11px] text-slate-400 mb-2">{reconciliation.integrationLabel}</p>
+        <p className="text-[10px] text-slate-400 mb-1.5">{reconciliation.integrationLabel}</p>
 
         {/* Override — compact */}
         {hasOverride && (
@@ -119,23 +119,23 @@ export default function ServiceCard({
           </div>
         )}
 
-        {/* Big numbers */}
-        <div className="flex items-center mb-2">
-          <div className={cn('flex-1 text-center py-1.5 rounded-l-lg border', styles.numBg)}>
-            <p className={cn('text-xl font-black leading-none', styles.numText)}>
+        {/* Compact numbers */}
+        <div className="flex items-center mb-2 gap-1">
+          <div className={cn('flex-1 text-center py-1 rounded-md border', styles.numBg)}>
+            <p className={cn('text-base font-bold tabular-nums leading-none', styles.numText)}>
               {psaQty !== null ? psaQty : '—'}
             </p>
-            <p className={cn('text-[9px] uppercase tracking-widest font-bold mt-0.5', styles.labelText)}>PSA</p>
+            <p className={cn('text-[8px] uppercase tracking-widest font-semibold mt-0.5', styles.labelText)}>PSA</p>
           </div>
-          <div className="w-px bg-slate-200 self-stretch my-1" />
-          <div className={cn('flex-1 text-center py-1.5 rounded-r-lg border', styles.numBg)}>
-            <p className={cn('text-xl font-black leading-none', styles.numText)}>
+          <span className="text-[10px] text-slate-300 font-medium">vs</span>
+          <div className={cn('flex-1 text-center py-1 rounded-md border', styles.numBg)}>
+            <p className={cn('text-base font-bold tabular-nums leading-none', styles.numText)}>
               {effectiveVendorQty !== null ? effectiveVendorQty : '—'}
             </p>
             {hasExclusions && vendorQty !== null && (
-              <p className="text-[10px] text-amber-500 line-through">{vendorQty}</p>
+              <p className="text-[8px] text-amber-500 line-through">{vendorQty}</p>
             )}
-            <p className={cn('text-[9px] uppercase tracking-widest font-bold mt-0.5', styles.labelText)}>VENDOR</p>
+            <p className={cn('text-[8px] uppercase tracking-widest font-semibold mt-0.5', styles.labelText)}>VENDOR</p>
           </div>
         </div>
 

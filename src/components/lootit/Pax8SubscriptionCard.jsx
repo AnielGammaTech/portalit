@@ -105,23 +105,23 @@ export default function Pax8SubscriptionCard({ recon, onReview, onDismiss, onRes
           </div>
         )}
 
-        {/* Big numbers */}
-        <div className="flex items-center mb-2">
-          <div className={cn('flex-1 text-center py-1.5 rounded-l-lg border', resolvedStyles.numBg)}>
-            <p className={cn('text-xl font-bold tabular-nums leading-none', resolvedStyles.numText)}>
+        {/* Compact numbers */}
+        <div className="flex items-center mb-2 gap-1">
+          <div className={cn('flex-1 text-center py-1 rounded-md border', resolvedStyles.numBg)}>
+            <p className={cn('text-base font-bold tabular-nums leading-none', resolvedStyles.numText)}>
               {psaQty !== null ? psaQty : '\u2014'}
             </p>
-            <p className={cn('text-[9px] uppercase tracking-wide font-medium mt-0.5', resolvedStyles.labelText)}>PSA</p>
+            <p className={cn('text-[8px] uppercase tracking-widest font-semibold mt-0.5', resolvedStyles.labelText)}>PSA</p>
           </div>
-          <div className="w-px bg-slate-200 self-stretch my-1" />
-          <div className={cn('flex-1 text-center py-1.5 rounded-r-lg border', resolvedStyles.numBg)}>
-            <p className={cn('text-xl font-bold tabular-nums leading-none', resolvedStyles.numText)}>
+          <span className="text-[10px] text-slate-300 font-medium">vs</span>
+          <div className={cn('flex-1 text-center py-1 rounded-md border', resolvedStyles.numBg)}>
+            <p className={cn('text-base font-bold tabular-nums leading-none', resolvedStyles.numText)}>
               {effectiveVendorQty !== null ? effectiveVendorQty : '\u2014'}
             </p>
             {hasExclusions && vendorQty !== null && (
               <p className="text-[10px] text-amber-500 line-through">{vendorQty}</p>
             )}
-            <p className={cn('text-[9px] uppercase tracking-wide font-medium mt-0.5', resolvedStyles.labelText)}>PAX8</p>
+            <p className={cn('text-[8px] uppercase tracking-widest font-semibold mt-0.5', resolvedStyles.labelText)}>PAX8</p>
           </div>
         </div>
 
