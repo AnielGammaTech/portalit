@@ -3,36 +3,13 @@ import { cn } from '@/lib/utils';
 import { Check, X, ChevronRight, RotateCcw, Settings2, StickyNote, Link2, ShieldCheck } from 'lucide-react';
 import ReconciliationBadge from './ReconciliationBadge';
 import { getDiscrepancyMessage } from '@/lib/lootit-reconciliation';
+import { STATUS_COLORS } from './lootit-constants';
 
 const STATUS_STYLES = {
-  match: {
-    card: 'bg-emerald-50/70 border-emerald-200',
-    bar: 'bg-emerald-500',
-    numBg: 'bg-emerald-100/60 border-emerald-200',
-    numText: 'text-emerald-800',
-    labelText: 'text-emerald-500',
-  },
-  over: {
-    card: 'bg-orange-50/50 border-orange-200',
-    bar: 'bg-orange-500',
-    numBg: 'bg-white/80 border-orange-200',
-    numText: 'text-orange-900',
-    labelText: 'text-orange-400',
-  },
-  under: {
-    card: 'bg-red-50/50 border-red-200',
-    bar: 'bg-red-500',
-    numBg: 'bg-white/80 border-red-200',
-    numText: 'text-red-900',
-    labelText: 'text-red-400',
-  },
-  default: {
-    card: 'bg-white border-slate-200',
-    bar: 'bg-slate-300',
-    numBg: 'bg-slate-50 border-slate-200',
-    numText: 'text-slate-900',
-    labelText: 'text-slate-400',
-  },
+  match: { card: STATUS_COLORS.match.card, bar: STATUS_COLORS.match.bar, numBg: STATUS_COLORS.match.numBg, numText: STATUS_COLORS.match.numText, labelText: STATUS_COLORS.match.labelText },
+  over: { card: STATUS_COLORS.over.card, bar: STATUS_COLORS.over.bar, numBg: STATUS_COLORS.over.numBg, numText: STATUS_COLORS.over.numText, labelText: STATUS_COLORS.over.labelText },
+  under: { card: STATUS_COLORS.under.card, bar: STATUS_COLORS.under.bar, numBg: STATUS_COLORS.under.numBg, numText: STATUS_COLORS.under.numText, labelText: STATUS_COLORS.under.labelText },
+  default: { card: STATUS_COLORS.neutral.card, bar: STATUS_COLORS.neutral.bar, numBg: STATUS_COLORS.neutral.numBg, numText: STATUS_COLORS.neutral.numText, labelText: STATUS_COLORS.neutral.labelText },
 };
 
 const REVIEWED_STYLES = {
@@ -177,7 +154,7 @@ export default function ServiceCard({
             'text-xs mb-3',
             'text-slate-500',
             (hasExclusions ? effectiveStatus : status) === 'under' && 'text-red-600 font-semibold',
-            (hasExclusions ? effectiveStatus : status) === 'over' && 'text-orange-600 font-semibold'
+            (hasExclusions ? effectiveStatus : status) === 'over' && 'text-amber-600 font-semibold'
           )}>
             {isReviewed && <span className="text-slate-400 mr-1">[{review.status === 'reviewed' ? 'Reviewed' : 'Dismissed'}]</span>}
             {getDiscrepancyMessage(reconciliation)}
@@ -240,7 +217,7 @@ export default function ServiceCard({
         {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events */}
         <div onClick={(e) => e.stopPropagation()} className={cn(
           'flex items-center gap-2 pt-2 border-t',
-          status === 'match' ? 'border-emerald-100' : status === 'over' ? 'border-orange-100' : status === 'under' ? 'border-red-100' : 'border-slate-100'
+          status === 'match' ? 'border-emerald-100' : status === 'over' ? 'border-amber-100' : status === 'under' ? 'border-red-100' : 'border-slate-100'
         )}>
           {!isReviewed && status !== 'match' && status !== 'no_data' && (
             <>
