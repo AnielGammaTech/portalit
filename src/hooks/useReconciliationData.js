@@ -335,6 +335,8 @@ export function useReconciliationData(customerId) {
     globalSummary,
     rules,
     customers,
+    bills,
+    lineItems,
     isLoading,
   };
 }

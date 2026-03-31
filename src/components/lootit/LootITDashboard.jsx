@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, AlertTriangle, CheckCircle2, TrendingDown, TrendingUp, Database } from 'lucide-react';
+import { Search, AlertTriangle, CheckCircle2, TrendingDown, TrendingUp, Database, Bell } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useReconciliationData } from '@/hooks/useReconciliationData';
 import { getDiscrepancySummary } from '@/lib/lootit-reconciliation';
@@ -7,7 +7,61 @@ import { getDiscrepancySummary } from '@/lib/lootit-reconciliation';
 export default function LootITDashboard({ onSelectCustomer }) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
-  const { reconciliations, globalSummary, isLoading } = useReconciliationData();
+  const { reconciliations, globalSummary, bills, customers, isLoading } = useReconciliationData();
+
+  // ── Anomaly Detection ──
+  // Compare each customer's latest monthly invoice against their 3-6 month average
+  const anomalies = useMemo(() => {
+    if (!bills || bills.length === 0) return [];
+
+    // Group bills by customer, sorted by date descending
+    const billsByCustomer = {};
+    for (const bill of bills) {
+      if (!bill.customer_id || !bill.amount) continue;
+      if (!billsByCustomer[bill.customer_id]) billsByCustomer[bill.customer_id] = [];
+      billsByCustomer[bill.customer_id].push({
+        amount: parseFloat(bill.amount) || 0,
+        date: new Date(bill.created_date || bill.start_date || 0),
+      });
+    }
+
+    const results = [];
+    const customerMap = Object.fromEntries((customers || []).map(c => [c.id, c]));
+
+    for (const [custId, custBills] of Object.entries(billsByCustomer)) {
+      // Sort descending by date
+      const sorted = custBills.sort((a, b) => b.date - a.date);
+      if (sorted.length < 2) continue; // Need at least 2 months
+
+      const latest = sorted[0];
+      // Average of months 2-7 (up to 6 historical months)
+      const historical = sorted.slice(1, 7);
+      if (historical.length === 0) continue;
+
+      const avgAmount = historical.reduce((s, b) => s + b.amount, 0) / historical.length;
+      if (avgAmount === 0) continue;
+
+      const pctChange = ((latest.amount - avgAmount) / avgAmount) * 100;
+
+      // Flag if change exceeds 10%
+      if (Math.abs(pctChange) >= 10) {
+        const customer = customerMap[custId];
+        results.push({
+          customerId: custId,
+          customerName: customer?.name || 'Unknown',
+          customer,
+          latestAmount: latest.amount,
+          avgAmount,
+          pctChange,
+          direction: pctChange > 0 ? 'increase' : 'decrease',
+          latestDate: latest.date,
+        });
+      }
+    }
+
+    // Sort by absolute % change descending (biggest anomalies first)
+    return results.sort((a, b) => Math.abs(b.pctChange) - Math.abs(a.pctChange));
+  }, [bills, customers]);
 
   const customerList = useMemo(() => {
     const entries = Object.values(reconciliations).map((entry) => {
@@ -52,6 +106,51 @@ export default function LootITDashboard({ onSelectCustomer }) {
         <SummaryCard icon={TrendingUp} label="Over-billed" value={globalSummary.totalOver} color="amber" />
         <SummaryCard icon={AlertTriangle} label="Issues" value={globalSummary.customersWithIssues} color="amber" />
       </div>
+
+      {/* Billing Anomalies */}
+      {anomalies.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Bell className="w-4 h-4 text-red-500" />
+            <h3 className="text-sm font-bold text-slate-900">Billing Anomalies</h3>
+            <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">{anomalies.length}</span>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-2">
+            {anomalies.slice(0, 8).map((a) => (
+              <button
+                key={a.customerId}
+                onClick={() => a.customer && onSelectCustomer(a.customer)}
+                className={cn(
+                  'text-left rounded-lg border p-3 hover:shadow-md transition-all cursor-pointer',
+                  a.direction === 'decrease' ? 'bg-red-50/60 border-red-200' : 'bg-amber-50/60 border-amber-200'
+                )}
+              >
+                <p className="text-xs font-semibold text-slate-900 truncate mb-1.5">{a.customerName}</p>
+                <div className="flex items-center gap-2 mb-1">
+                  {a.direction === 'decrease' ? (
+                    <TrendingDown className="w-4 h-4 text-red-500" />
+                  ) : (
+                    <TrendingUp className="w-4 h-4 text-amber-500" />
+                  )}
+                  <span className={cn(
+                    'text-lg font-bold tabular-nums',
+                    a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600'
+                  )}>
+                    {a.pctChange > 0 ? '+' : ''}{a.pctChange.toFixed(0)}%
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-[10px] text-slate-400">
+                  <span>Avg: ${Math.round(a.avgAmount).toLocaleString()}</span>
+                  <span>Now: ${Math.round(a.latestAmount).toLocaleString()}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+          {anomalies.length > 8 && (
+            <p className="text-[10px] text-slate-400 text-center">+{anomalies.length - 8} more anomalies</p>
+          )}
+        </div>
+      )}
 
       {/* Search & Filter */}
       <div className="flex items-center gap-3">
