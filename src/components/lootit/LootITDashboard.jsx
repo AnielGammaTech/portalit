@@ -114,7 +114,12 @@ export default function LootITDashboard({ onSelectCustomer }) {
               <button
                 key={customer.id}
                 onClick={() => onSelectCustomer(customer)}
-                className="text-left bg-white rounded-lg border border-slate-200 p-3.5 hover:shadow-md hover:border-slate-300 transition-all group flex flex-col h-full"
+                className={cn(
+                  'text-left rounded-lg border p-3.5 hover:shadow-md transition-all group flex flex-col h-full',
+                  isFullyReconciled
+                    ? 'bg-emerald-50/60 border-emerald-200 hover:border-emerald-300'
+                    : 'bg-white border-slate-200 hover:border-slate-300'
+                )}
               >
                 {/* Header */}
                 <div className="flex items-start justify-between gap-2 mb-2">
