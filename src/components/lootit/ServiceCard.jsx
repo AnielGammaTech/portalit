@@ -208,6 +208,14 @@ export default function ServiceCard({
           </div>
         )}
 
+        {/* Note preview strip */}
+        {hasNotes && !showNotes && (
+          <button onClick={(e) => { e.stopPropagation(); setShowNotes(true); }} className="w-full text-left mb-2 flex items-center gap-1.5 px-2 py-1 bg-amber-50 rounded-md border border-amber-100 hover:bg-amber-100 transition-colors">
+            <StickyNote className="w-3 h-3 text-amber-500 shrink-0" />
+            <span className="text-[10px] text-amber-700 truncate">{review.notes}</span>
+          </button>
+        )}
+
         {/* Action bar */}
         {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events */}
         <div onClick={(e) => e.stopPropagation()} className={cn(
