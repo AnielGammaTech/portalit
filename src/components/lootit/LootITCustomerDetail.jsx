@@ -354,7 +354,7 @@ export default function LootITCustomerDetail({ customer, onBack }) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-600 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin" />
       </div>
     );
   }
@@ -366,7 +366,7 @@ export default function LootITCustomerDetail({ customer, onBack }) {
   return (
     <div className="space-y-5 relative">
       {/* Pink ambient glow */}
-      <div className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-slate-400/5 rounded-full blur-[100px]" />
+      <div className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-pink-400/10 rounded-full blur-[100px]" />
 
       {/* ── Header Card ── */}
       <div className="relative bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -407,7 +407,7 @@ export default function LootITCustomerDetail({ customer, onBack }) {
             <button
               onClick={handleSync}
               disabled={isSyncing}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-900 text-white hover:bg-slate-800 shadow-sm transition-all disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-pink-500 text-white hover:bg-pink-600 shadow-sm shadow-pink-200 transition-all disabled:opacity-50"
             >
               <RefreshCw className={cn('w-3.5 h-3.5', isSyncing && 'animate-spin')} />
               {isSyncing ? 'Syncing…' : 'Sync'}
@@ -421,7 +421,7 @@ export default function LootITCustomerDetail({ customer, onBack }) {
               { icon: Monitor, value: devices.filter(d => d.device_type !== 'Server' && d.device_type !== 'server').length, label: 'Workstations', color: 'text-indigo-600', bg: 'bg-indigo-50' },
               { icon: Server, value: devices.filter(d => d.device_type === 'Server' || d.device_type === 'server').length, label: 'Servers', color: 'text-purple-600', bg: 'bg-purple-50' },
               { icon: Hash, value: summary?.total || 0, label: 'Services', color: 'text-slate-600', bg: 'bg-slate-50' },
-              { icon: FileText, value: contracts.length, label: 'Contracts', color: 'text-cyan-600', bg: 'bg-cyan-50' },
+              { icon: FileText, value: contracts.length, label: 'Contracts', color: 'text-pink-600', bg: 'bg-pink-50' },
               { icon: DollarSign, value: dollarImpact?.totalMonthlyBilled ? `$${Math.round(dollarImpact.totalMonthlyBilled).toLocaleString()}` : '$0', label: 'Monthly', color: 'text-emerald-600', bg: 'bg-emerald-50' },
             ].map((w) => (
               <div key={w.label} className={cn('rounded-xl px-3 py-2 border border-transparent', w.bg)}>
@@ -480,7 +480,7 @@ export default function LootITCustomerDetail({ customer, onBack }) {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 shadow-sm">
+      <div className="flex gap-1 bg-pink-50/60 rounded-xl p-1 shadow-[0_0_20px_-5px_rgba(236,72,153,0.1)]">
         {[
           { key: 'reconciliation', label: 'Reconciliation', icon: RotateCcw },
           { key: 'recurring', label: 'Recurring', icon: Repeat2, badge: allLineItems.length || null },
@@ -492,14 +492,14 @@ export default function LootITCustomerDetail({ customer, onBack }) {
             className={cn(
               'flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors',
               activeTab === tab.key
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-400 hover:text-slate-600'
+                ? 'bg-white text-pink-600 shadow-sm'
+                : 'text-slate-500 hover:text-pink-500'
             )}
           >
             <tab.icon className="w-4 h-4" />
             {tab.label}
             {tab.badge && (
-              <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full">{tab.badge}</span>
+              <span className="text-[10px] bg-pink-100 text-pink-600 px-1.5 py-0.5 rounded-full">{tab.badge}</span>
             )}
           </button>
         ))}
@@ -537,27 +537,27 @@ export default function LootITCustomerDetail({ customer, onBack }) {
               className={cn(
                 'relative cursor-pointer rounded-2xl border-2 border-dashed transition-all duration-300 group',
                 isDragging
-                  ? 'border-slate-400 bg-slate-50/80 scale-[1.01]'
-                  : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/30'
+                  ? 'border-pink-400 bg-pink-50/80 scale-[1.01]'
+                  : 'border-slate-200 bg-white hover:border-pink-300 hover:bg-pink-50/30'
               )}
             >
               <div className="flex flex-col items-center justify-center py-8 px-6">
                 <div className={cn(
                   'w-14 h-14 rounded-2xl flex items-center justify-center mb-4 transition-all duration-300',
                   isDragging
-                    ? 'bg-slate-700 shadow-lg shadow-slate-200'
-                    : 'bg-gradient-to-br from-slate-100 to-slate-200 group-hover:from-slate-200 group-hover:to-slate-300'
+                    ? 'bg-pink-500 shadow-lg shadow-pink-200'
+                    : 'bg-gradient-to-br from-pink-100 to-rose-100 group-hover:from-pink-200 group-hover:to-rose-200'
                 )}>
                   <CloudUpload className={cn(
                     'w-7 h-7 transition-all duration-300',
-                    isDragging ? 'text-white scale-110' : 'text-slate-500'
+                    isDragging ? 'text-white scale-110' : 'text-pink-500'
                   )} />
                 </div>
                 <p className="text-sm font-semibold text-slate-700 mb-1">
                   {isDragging ? 'Drop your contract here' : 'Upload MSSP Contract'}
                 </p>
                 <p className="text-xs text-slate-400 text-center max-w-xs">
-                  Drag & drop a PDF or <span className="text-slate-700 font-semibold underline">browse files</span> — we'll automatically extract pricing and line items
+                  Drag & drop a PDF or <span className="text-pink-500 font-medium">browse files</span> — we'll automatically extract pricing and line items
                 </p>
                 <div className="flex items-center gap-3 mt-4">
                   {['PDF', 'DOC', 'XLSX'].map((ext) => (
@@ -609,8 +609,8 @@ export default function LootITCustomerDetail({ customer, onBack }) {
               className={cn(
                 'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors',
                 statusFilter === f.key
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'
+                  ? 'bg-pink-500 text-white shadow-sm shadow-pink-200'
+                  : 'bg-white text-slate-500 border border-slate-200 hover:bg-pink-50'
               )}
             >
               {f.label}
@@ -737,24 +737,24 @@ function UploadProgressCard({ isUploading, isExtracting }) {
   const currentStep = isUploading ? 0 : isExtracting ? 1 : 2;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+    <div className="rounded-2xl border border-pink-200 bg-gradient-to-br from-white via-pink-50/50 to-rose-50/50 overflow-hidden">
       {/* Animated top bar */}
-      <div className="h-1 bg-slate-100 overflow-hidden">
-        <div className="h-full bg-gradient-to-r from-slate-400 via-slate-500 to-slate-400 animate-[shimmer_2s_ease-in-out_infinite] bg-[length:200%_100%]" />
+      <div className="h-1 bg-pink-100 overflow-hidden">
+        <div className="h-full bg-gradient-to-r from-pink-400 via-rose-400 to-pink-400 animate-[shimmer_2s_ease-in-out_infinite] bg-[length:200%_100%]" />
       </div>
 
       <div className="px-6 py-8">
         {/* Animated icon */}
         <div className="flex justify-center mb-6">
           <div className="relative">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center shadow-lg shadow-slate-200/50">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center shadow-lg shadow-pink-200/50">
               {isUploading ? (
                 <CloudUpload className="w-8 h-8 text-white animate-bounce" />
               ) : (
                 <Sparkles className="w-8 h-8 text-white animate-pulse" />
               )}
             </div>
-            <div className="absolute -inset-2 rounded-3xl border-2 border-slate-300 animate-ping opacity-20" />
+            <div className="absolute -inset-2 rounded-3xl border-2 border-pink-200 animate-ping opacity-20" />
           </div>
         </div>
 
@@ -779,14 +779,14 @@ function UploadProgressCard({ isUploading, isExtracting }) {
                 {idx > 0 && (
                   <div className={cn(
                     'w-8 h-px transition-colors duration-500',
-                    isDone ? 'bg-slate-400' : 'bg-slate-200'
+                    isDone ? 'bg-pink-400' : 'bg-slate-200'
                   )} />
                 )}
                 <div className="flex flex-col items-center gap-1.5">
                   <div className={cn(
                     'w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-500',
-                    isDone && 'bg-slate-600 text-white',
-                    isActive && 'bg-slate-200 text-slate-600 ring-2 ring-slate-300 ring-offset-1',
+                    isDone && 'bg-pink-500 text-white',
+                    isActive && 'bg-pink-100 text-pink-600 ring-2 ring-pink-300 ring-offset-1',
                     !isDone && !isActive && 'bg-slate-100 text-slate-300'
                   )}>
                     {isDone ? (
@@ -797,7 +797,7 @@ function UploadProgressCard({ isUploading, isExtracting }) {
                   </div>
                   <span className={cn(
                     'text-[10px] font-medium whitespace-nowrap',
-                    isActive ? 'text-slate-600' : isDone ? 'text-slate-500' : 'text-slate-300'
+                    isActive ? 'text-pink-600' : isDone ? 'text-slate-500' : 'text-slate-300'
                   )}>
                     {step.label}
                   </span>
@@ -825,12 +825,12 @@ function ContractCard({ contract, extractingId, onDownload, onDelete, onRetryExt
         className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors"
         onClick={() => hasData && setCollapsed(!collapsed)}
       >
-        <FileText className="w-5 h-5 text-slate-400 flex-shrink-0" />
+        <FileText className="w-5 h-5 text-pink-400 flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <p className="text-sm font-medium text-slate-700 truncate">{contract.file_name}</p>
             {isExtracting && (
-              <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+              <span className="inline-flex items-center gap-1 text-[10px] text-pink-500 bg-pink-50 px-2 py-0.5 rounded-full">
                 <Loader2 className="w-3 h-3 animate-spin" /> Extracting…
               </span>
             )}
@@ -855,7 +855,7 @@ function ContractCard({ contract, extractingId, onDownload, onDelete, onRetryExt
           {contract.extraction_status === 'failed' && (
             <button
               onClick={(e) => { e.stopPropagation(); onRetryExtract(contract); }}
-              className="text-slate-400 hover:text-slate-600 transition-colors p-1"
+              className="text-slate-400 hover:text-pink-500 transition-colors p-1"
               title="Retry extraction"
             >
               <RefreshCw className="w-4 h-4" />
@@ -863,7 +863,7 @@ function ContractCard({ contract, extractingId, onDownload, onDelete, onRetryExt
           )}
           <button
             onClick={(e) => { e.stopPropagation(); onDownload(contract); }}
-            className="text-slate-400 hover:text-slate-600 transition-colors p-1"
+            className="text-slate-400 hover:text-pink-500 transition-colors p-1"
             title="Download"
           >
             <Download className="w-4 h-4" />
@@ -894,7 +894,7 @@ function ContractCard({ contract, extractingId, onDownload, onDelete, onRetryExt
             ].map((s) => (
               <div key={s.label} className="bg-white rounded-lg border border-slate-200 px-3 py-2">
                 <div className="flex items-center gap-1.5 mb-0.5">
-                  <s.icon className="w-3 h-3 text-slate-400" />
+                  <s.icon className="w-3 h-3 text-pink-400" />
                   <p className="text-[10px] text-slate-400 uppercase tracking-wide">{s.label}</p>
                 </div>
                 <p className="text-sm font-semibold text-slate-700 truncate">{s.value}</p>
@@ -921,7 +921,7 @@ function ContractCard({ contract, extractingId, onDownload, onDelete, onRetryExt
                 </span>
               )}
               {data.auto_renewal && (
-                <span className="bg-slate-50 border border-slate-200 rounded px-2 py-1 text-slate-600">
+                <span className="bg-pink-50 border border-pink-200 rounded px-2 py-1 text-pink-600">
                   Auto-renews
                 </span>
               )}
@@ -956,11 +956,11 @@ function ContractCard({ contract, extractingId, onDownload, onDelete, onRetryExt
                 ))}
               </div>
               {/* Totals footer */}
-              <div className="grid grid-cols-[1fr_60px_70px_80px] gap-1 px-3 py-2 bg-slate-50 border-t border-slate-200">
-                <p className="text-xs font-semibold text-slate-700">Total</p>
-                <p className="text-xs text-right text-slate-600">{lineItems.reduce((s, i) => s + (i.quantity || 0), 0)}</p>
+              <div className="grid grid-cols-[1fr_60px_70px_80px] gap-1 px-3 py-2 bg-pink-50 border-t border-pink-100">
+                <p className="text-xs font-semibold text-pink-700">Total</p>
+                <p className="text-xs text-right text-pink-600">{lineItems.reduce((s, i) => s + (i.quantity || 0), 0)}</p>
                 <p className="text-xs text-right"></p>
-                <p className="text-xs font-bold text-right text-slate-700">
+                <p className="text-xs font-bold text-right text-pink-700">
                   ${lineItems.reduce((s, i) => s + (i.monthly_total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                 </p>
               </div>
@@ -1349,7 +1349,7 @@ function LineItemPicker({ productName, lineItems, onSelect, onClose }) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search line items…"
-              className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400"
+              className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-300 focus:border-pink-400"
               autoFocus
             />
           </div>
@@ -1364,7 +1364,7 @@ function LineItemPicker({ productName, lineItems, onSelect, onClose }) {
               <button
                 key={li.id}
                 onClick={() => onSelect(li.id)}
-                className="w-full text-left px-6 py-3 hover:bg-slate-50 border-b border-slate-50 transition-colors"
+                className="w-full text-left px-6 py-3 hover:bg-pink-50 border-b border-slate-50 transition-colors"
               >
                 <p className="text-sm font-medium text-slate-700 truncate">
                   {formatLineItemDescription(li.description)}
@@ -1430,7 +1430,7 @@ function RuleEditorDialog({ rule, onSave, onClose }) {
               type="text"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-300"
+              className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-300"
             />
           </div>
 
@@ -1443,7 +1443,7 @@ function RuleEditorDialog({ rule, onSave, onClose }) {
               value={matchPattern}
               onChange={(e) => setMatchPattern(e.target.value)}
               placeholder="e.g. Managed IT|Remote Only"
-              className="w-full text-sm font-mono border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-300"
+              className="w-full text-sm font-mono border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-300"
             />
             <p className="text-[10px] text-slate-400 mt-1">
               Matches line items where description contains this text (case-insensitive)
@@ -1461,7 +1461,7 @@ function RuleEditorDialog({ rule, onSave, onClose }) {
           <button
             onClick={handleSave}
             disabled={saving || !label.trim() || !matchPattern.trim()}
-            className="px-4 py-2 text-xs font-medium rounded-lg bg-slate-600 text-white hover:bg-slate-700 transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-xs font-medium rounded-lg bg-pink-500 text-white hover:bg-pink-600 transition-colors disabled:opacity-50"
           >
             {saving ? 'Saving…' : 'Save'}
           </button>
