@@ -634,7 +634,7 @@ export default function LootITCustomerDetail({ customer, onBack }) {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 xl:grid-cols-4 gap-3">
           {filteredRecons.map((recon) => (
             <ServiceCard
               key={recon.rule.id}
@@ -660,7 +660,7 @@ export default function LootITCustomerDetail({ customer, onBack }) {
           <h3 className="text-sm font-semibold text-slate-700">
             Pax8 / M365 Licence Reconciliation
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 xl:grid-cols-4 gap-3">
             {filteredPax8.map((recon) => (
               <Pax8SubscriptionCard
                 key={recon.ruleId}
