@@ -110,12 +110,12 @@ function DomainCard({ domain }) {
   const stats = domain.stats || {};
   const dns = domain.dns || {};
   const sources = domain.top_sources || [];
-  const isPublished = domain.dmarc_status === 'dmarc_record_published';
-  const complianceRate = stats.total > 0 ? Math.round((stats.compliant / stats.total) * 100) : null;
+  const isPublished = domain.dmarc_status === 'dmarc_record_published' || (stats.total || 0) > 0;
+  const complianceRate = stats.total > 0 ? Math.round(((stats.compliant || 0) / stats.total) * 100) : null;
   const maxSourceCount = sources.length > 0 ? Math.max(...sources.map(s => s.count)) : 0;
 
   // Compliance ring visual
-  const ringPct = complianceRate ?? 0;
+  const ringPct = (complianceRate !== null && !isNaN(complianceRate)) ? complianceRate : 0;
 
   return (
     <Card className={cn(
@@ -145,9 +145,9 @@ function DomainCard({ domain }) {
           <div className="absolute inset-0 flex items-center justify-center">
             <span className={cn(
               "text-sm font-bold",
-              complianceRate === null ? "text-slate-400" : complianceColor(complianceRate)
+              complianceRate === null || isNaN(complianceRate) ? "text-slate-400" : complianceColor(complianceRate)
             )}>
-              {complianceRate !== null ? `${complianceRate}%` : '–'}
+              {complianceRate !== null && !isNaN(complianceRate) ? `${complianceRate}%` : '–'}
             </span>
           </div>
         </div>
