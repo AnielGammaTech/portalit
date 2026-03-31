@@ -27,6 +27,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
+import { HelpCircle } from 'lucide-react';
 
 function complianceColor(rate) {
   if (rate >= 90) return 'text-emerald-600';
@@ -348,73 +350,41 @@ export default function DmarcReportTab({ customerId, dmarcMapping, queryClient }
 
       {/* Summary Stats */}
       {data && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
-                  <Globe className="w-4.5 h-4.5 text-emerald-600" />
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-slate-900">{data.totalDomains || 0}</p>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wider">Domains</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
-                  <Mail className="w-4.5 h-4.5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-slate-900">{(data.totalMessages || 0).toLocaleString()}</p>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wider">Messages</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0", complianceBg(data.complianceRate || 0))}>
-                  <ShieldCheck className={cn("w-4.5 h-4.5", complianceColor(data.complianceRate || 0))} />
-                </div>
-                <div>
-                  <p className={cn("text-xl font-bold", complianceColor(data.complianceRate || 0))}>{data.complianceRate || 0}%</p>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wider">Compliance</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0", (data.totalQuarantined || 0) > 0 ? "bg-amber-100" : "bg-slate-100")}>
-                  <AlertTriangle className={cn("w-4.5 h-4.5", (data.totalQuarantined || 0) > 0 ? "text-amber-600" : "text-slate-400")} />
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-slate-900">{(data.totalQuarantined || 0).toLocaleString()}</p>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wider">Quarantined</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0", (data.totalRejected || 0) > 0 ? "bg-red-100" : "bg-slate-100")}>
-                  <ShieldX className={cn("w-4.5 h-4.5", (data.totalRejected || 0) > 0 ? "text-red-600" : "text-slate-400")} />
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-slate-900">{(data.totalRejected || 0).toLocaleString()}</p>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wider">Rejected</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <TooltipProvider delayDuration={200}>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {[
+              { icon: Globe, value: data.totalDomains || 0, label: 'Domains', bg: 'bg-emerald-100', color: 'text-emerald-600', tooltip: 'How many email domains (like yourcompany.com) are being monitored for security.' },
+              { icon: Mail, value: (data.totalMessages || 0).toLocaleString(), label: 'Messages', bg: 'bg-blue-100', color: 'text-blue-600', tooltip: 'Total emails sent from your domains that were checked for authenticity.' },
+              { icon: ShieldCheck, value: `${data.complianceRate || 0}%`, label: 'Compliance', bg: complianceBg(data.complianceRate || 0), color: complianceColor(data.complianceRate || 0), tooltip: 'Percentage of your emails that passed security checks (SPF + DKIM). Higher is better — 90%+ is good.' },
+              { icon: AlertTriangle, value: (data.totalQuarantined || 0).toLocaleString(), label: 'Quarantined', bg: (data.totalQuarantined || 0) > 0 ? 'bg-amber-100' : 'bg-slate-100', color: (data.totalQuarantined || 0) > 0 ? 'text-amber-600' : 'text-slate-400', tooltip: 'Emails that looked suspicious and were sent to spam/junk instead of the inbox. Could be spoofing attempts or misconfigured senders.' },
+              { icon: ShieldX, value: (data.totalRejected || 0).toLocaleString(), label: 'Rejected', bg: (data.totalRejected || 0) > 0 ? 'bg-red-100' : 'bg-slate-100', color: (data.totalRejected || 0) > 0 ? 'text-red-600' : 'text-slate-400', tooltip: 'Emails that completely failed security checks and were blocked. This is good — it means your policy is stopping fake emails.' },
+            ].map((stat) => (
+              <Card key={stat.label}>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0", stat.bg)}>
+                      <stat.icon className={cn("w-4.5 h-4.5", stat.color)} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={cn("text-xl font-bold", stat.label === 'Compliance' ? stat.color : "text-slate-900")}>{stat.value}</p>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider">{stat.label}</p>
+                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button className="text-slate-300 hover:text-slate-500 transition-colors p-0.5">
+                          <HelpCircle className="w-3.5 h-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-[220px] text-xs leading-relaxed">
+                        {stat.tooltip}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TooltipProvider>
       )}
 
       {/* Domain List */}
