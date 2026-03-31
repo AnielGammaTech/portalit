@@ -1,0 +1,106 @@
+# Requirements: PortalIT LootIT Redesign
+
+**Defined:** 2026-03-31
+**Core Value:** MSP operators can quickly identify and resolve billing discrepancies from the customer detail page
+
+## v1 Requirements
+
+### Service Cards
+
+- [ ] **CARD-01**: Service cards shrunk ~50% so 3-4 cards fit per row instead of current 2
+- [ ] **CARD-02**: Card layout retains PSA vs Vendor counts, status badge, and action buttons at smaller size
+- [ ] **CARD-03**: Cards remain interactive (review, dismiss, map, notes) at compact size
+
+### Customer Header
+
+- [ ] **HEAD-01**: Header displays real customer details (company name, contact, address) from HaloPSA data
+- [ ] **HEAD-02**: Header shows financial summary (MRR from recurring bills, contract value, billing status)
+- [ ] **HEAD-03**: Header shows reconciliation health score with visual indicator
+- [ ] **HEAD-04**: Header redesigned in dashboard-pro style (dense, polished, data hierarchy)
+- [ ] **HEAD-05**: Integration stat widgets (Users, Workstations, Servers, etc.) redesigned to be more compact and informative
+
+### Recurring Tab
+
+- [ ] **RECR-01**: New "Recurring" tab added alongside existing Reconciliation and Contract tabs
+- [ ] **RECR-02**: Tab displays all HaloPSA recurring invoice line items for the customer
+- [ ] **RECR-03**: Each line item shows: description, quantity, price, net amount, item code, active status
+- [ ] **RECR-04**: Line items color-coded green when matched to a reconciliation rule
+- [ ] **RECR-05**: Line items color-coded red when unmatched (no reconciliation rule maps to them)
+- [ ] **RECR-06**: Reconciliation rules with no matching line item shown as gray "unused" entries
+- [ ] **RECR-07**: List is filterable by status (All, Matched, Unmatched, Unused)
+
+### Master Sync
+
+- [ ] **SYNC-01**: Sync button triggers real per-customer sync of ALL vendor integrations (Datto, Cove, Pax8, JumpCloud, Spanning, RocketCyber, etc.)
+- [ ] **SYNC-02**: Sync button triggers HaloPSA recurring invoice sync for that customer
+- [ ] **SYNC-03**: Sync button shows progress/loading state during sync
+- [ ] **SYNC-04**: After sync completes, all data on page refreshes automatically
+- [ ] **SYNC-05**: Sync triggers device count refresh from all mapped vendors
+
+### Visual Redesign
+
+- [ ] **UXRD-01**: Customer detail page follows dashboard-pro aesthetic (dense, polished, financial dashboard feel)
+- [ ] **UXRD-02**: Typography hierarchy establishes clear data importance levels
+- [ ] **UXRD-03**: Color system uses Lucide icons (no emojis), consistent status colors across all sections
+- [ ] **UXRD-04**: LootITCustomerDetail.jsx split into smaller focused components (<800 lines each)
+
+## v2 Requirements
+
+### Advanced Reconciliation
+
+- **ADVR-01**: Auto-match suggestions based on line item description similarity
+- **ADVR-02**: Bulk review/dismiss actions across multiple service cards
+- **ADVR-03**: Historical reconciliation trend charts per customer
+
+### Notifications
+
+- **NOTF-01**: Alert when reconciliation status changes after sync
+- **NOTF-02**: Weekly email digest of unresolved discrepancies
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| LootIT Dashboard redesign | This milestone is customer detail page only |
+| New vendor integrations | Only redesigning existing functionality |
+| Backend data model changes | Recurring bill data already exists, just surfacing it |
+| Mobile-specific layouts | Desktop-first for MSP reconciliation workflow |
+| Contract tab redesign | Existing contract tab works, focus on new Recurring tab |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| CARD-01 | — | Pending |
+| CARD-02 | — | Pending |
+| CARD-03 | — | Pending |
+| HEAD-01 | — | Pending |
+| HEAD-02 | — | Pending |
+| HEAD-03 | — | Pending |
+| HEAD-04 | — | Pending |
+| HEAD-05 | — | Pending |
+| RECR-01 | — | Pending |
+| RECR-02 | — | Pending |
+| RECR-03 | — | Pending |
+| RECR-04 | — | Pending |
+| RECR-05 | — | Pending |
+| RECR-06 | — | Pending |
+| RECR-07 | — | Pending |
+| SYNC-01 | — | Pending |
+| SYNC-02 | — | Pending |
+| SYNC-03 | — | Pending |
+| SYNC-04 | — | Pending |
+| SYNC-05 | — | Pending |
+| UXRD-01 | — | Pending |
+| UXRD-02 | — | Pending |
+| UXRD-03 | — | Pending |
+| UXRD-04 | — | Pending |
+
+**Coverage:**
+- v1 requirements: 24 total
+- Mapped to phases: 0
+- Unmapped: 24
+
+---
+*Requirements defined: 2026-03-31*
+*Last updated: 2026-03-31 after initial definition*
