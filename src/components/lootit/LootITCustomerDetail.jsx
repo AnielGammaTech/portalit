@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { ArrowLeft, Filter, Check, X, ChevronRight, RotateCcw, RefreshCw, AlertTriangle, Link2, Search, Trash2, StickyNote, Settings2, Save, Upload, FileText, Download, Loader2, ChevronDown, DollarSign, Calendar, Users, Building2, Hash, CloudUpload, Sparkles, CheckCircle2, Monitor, Shield, ShieldCheck, Server, Mail, Wifi } from 'lucide-react';
+import { ArrowLeft, Filter, Check, X, ChevronRight, RotateCcw, RefreshCw, AlertTriangle, Link2, Search, Trash2, StickyNote, Settings2, Save, Upload, FileText, Download, Loader2, ChevronDown, DollarSign, Calendar, Users, Building2, Hash, CloudUpload, Sparkles, CheckCircle2, Monitor, Shield, ShieldCheck, Server, Mail, Wifi, Repeat2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cn, formatLineItemDescription } from '@/lib/utils';
@@ -12,6 +12,7 @@ import { getDiscrepancySummary, getDiscrepancyMessage } from '@/lib/lootit-recon
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import ServiceCard from './ServiceCard';
 import ReconciliationBadge from './ReconciliationBadge';
+import RecurringTab from './RecurringTab';
 
 export default function LootITCustomerDetail({ customer, onBack }) {
   const queryClient = useQueryClient();
@@ -25,7 +26,7 @@ export default function LootITCustomerDetail({ customer, onBack }) {
   const fileInputRef = useRef(null);
   const { user } = useAuth();
 
-  const { reconciliations, isLoading } = useReconciliationData(customer.id);
+  const { reconciliations, isLoading, rules: allRules } = useReconciliationData(customer.id);
   const { reviews, markReviewed, dismiss, resetReview, saveNotes, saveExclusion, isSaving } = useReconciliationReviews(customer.id);
 
   // Integration widget data
@@ -480,6 +481,7 @@ export default function LootITCustomerDetail({ customer, onBack }) {
       <div className="flex gap-1 bg-pink-50/60 rounded-xl p-1 shadow-[0_0_20px_-5px_rgba(236,72,153,0.1)]">
         {[
           { key: 'reconciliation', label: 'Reconciliation', icon: RotateCcw },
+          { key: 'recurring', label: 'Recurring', icon: Repeat2, badge: allLineItems.length || null },
           { key: 'contract', label: 'Contract', icon: FileText, badge: contracts.length || null },
         ].map((tab) => (
           <button
@@ -500,6 +502,11 @@ export default function LootITCustomerDetail({ customer, onBack }) {
           </button>
         ))}
       </div>
+
+      {/* ── Recurring Tab ── */}
+      {activeTab === 'recurring' && (
+        <RecurringTab lineItems={allLineItems} rules={allRules || []} />
+      )}
 
       {/* ── Contract Tab ── */}
       {activeTab === 'contract' && (
