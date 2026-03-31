@@ -1,21 +1,19 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { client } from '@/api/client';
-import { Package, Users, Loader2 } from 'lucide-react';
+import { Package, Users, Monitor } from 'lucide-react';
 import { cn } from "@/lib/utils";
-import { EmptyState } from "@/components/ui/empty-state";
 import Pax8Tab from './Pax8Tab';
 import CIPPMicrosoftTab from './CIPPMicrosoftTab';
 
 const M365_SUB_TABS = [
+  { key: 'microsoft', label: 'Microsoft', icon: Monitor },
   { key: 'pax8', label: 'Pax8 Subscriptions', icon: Package },
-  { key: 'microsoft', label: 'Microsoft', icon: Users },
 ];
 
 export default function M365Tab({ customerId, queryClient }) {
-  const [activeSubTab, setActiveSubTab] = useState('pax8');
+  const [activeSubTab, setActiveSubTab] = useState('microsoft');
 
-  // Check if Pax8 mapping exists
   const { data: pax8Mappings = [] } = useQuery({
     queryKey: ['pax8-mapping', customerId],
     queryFn: () => client.entities.Pax8Mapping.filter({ customer_id: customerId }),
@@ -23,7 +21,6 @@ export default function M365Tab({ customerId, queryClient }) {
   });
   const pax8Mapping = pax8Mappings[0] || null;
 
-  // Check if CIPP mapping exists
   const { data: cippMappings = [] } = useQuery({
     queryKey: ['cipp-mapping', customerId],
     queryFn: () => client.entities.CIPPMapping.filter({ customer_id: customerId }),
@@ -54,37 +51,45 @@ export default function M365Tab({ customerId, queryClient }) {
             >
               <Icon className="w-4 h-4" />
               {tab.label}
-              {!hasData && (
-                <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+              {hasData && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               )}
             </button>
           );
         })}
       </div>
 
-      {/* Pax8 sub-tab */}
-      {activeSubTab === 'pax8' && (
-        hasPax8 ? (
-          <Pax8Tab customerId={customerId} pax8Mapping={pax8Mapping} queryClient={queryClient} />
-        ) : (
-          <EmptyState
-            icon={Package}
-            title="No Pax8 mapping"
-            description="This customer hasn't been mapped to a Pax8 company yet. Set it up in Adminland → Integrations → Pax8."
-          />
-        )
-      )}
-
       {/* Microsoft / CIPP sub-tab */}
       {activeSubTab === 'microsoft' && (
         hasCIPP ? (
           <CIPPMicrosoftTab customerId={customerId} />
         ) : (
-          <EmptyState
-            icon={Users}
-            title="No CIPP mapping"
-            description="This customer hasn't been mapped to a CIPP tenant yet. Set it up in Adminland → Integrations → CIPP."
-          />
+          <div className="text-center py-16">
+            <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+              <Monitor className="w-7 h-7 text-slate-300" />
+            </div>
+            <p className="text-sm font-semibold text-slate-700">No M365 Data Connected Yet</p>
+            <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
+              Set it up in Adminland → Integrations → CIPP to sync Microsoft 365 data.
+            </p>
+          </div>
+        )
+      )}
+
+      {/* Pax8 sub-tab */}
+      {activeSubTab === 'pax8' && (
+        hasPax8 ? (
+          <Pax8Tab customerId={customerId} pax8Mapping={pax8Mapping} queryClient={queryClient} />
+        ) : (
+          <div className="text-center py-16">
+            <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+              <Package className="w-7 h-7 text-slate-300" />
+            </div>
+            <p className="text-sm font-semibold text-slate-700">No Pax8 Data Connected Yet</p>
+            <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
+              Set it up in Adminland → Integrations → Pax8 to sync subscription data.
+            </p>
+          </div>
         )
       )}
     </div>
