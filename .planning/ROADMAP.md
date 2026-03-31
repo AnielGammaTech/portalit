@@ -27,10 +27,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. A consistent typography hierarchy is visible across the page (headings, labels, values at distinct sizes/weights)
   3. All status indicators use Lucide icons with consistent color coding (no emoji characters anywhere)
   4. The page looks noticeably more polished and dense than before -- a "dashboard pro" aesthetic is evident
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: Component splitting and visual design system
+- [ ] 01-01-PLAN.md -- Extract 7 inner components to separate files and create shared status color constants
+- [ ] 01-02-PLAN.md -- Apply dashboard-pro visual styling (dark/navy header, typography hierarchy, unified colors)
 **UI hint**: yes
 
 ### Phase 2: Customer Header & Compact Service Cards
@@ -75,6 +76,6 @@ Phases execute in numeric order: 1 -> 2 -> 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Component Architecture & Visual Foundation | 0/1 | Not started | - |
+| 1. Component Architecture & Visual Foundation | 0/2 | Not started | - |
 | 2. Customer Header & Compact Service Cards | 0/2 | Not started | - |
 | 3. Recurring Tab & Master Sync | 0/2 | Not started | - |
