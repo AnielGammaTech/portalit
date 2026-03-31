@@ -480,7 +480,7 @@ export default function LootITCustomerDetail({ customer, onBack }) {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-pink-100">
+      <div className="flex justify-center border-b border-pink-100">
         {[
           { key: 'reconciliation', label: 'Reconciliation', icon: RotateCcw },
           { key: 'recurring', label: 'Recurring', icon: Repeat2, badge: allLineItems.length || null },
