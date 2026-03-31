@@ -29,7 +29,7 @@ MSP operators can quickly identify and resolve billing discrepancies between wha
 - [ ] Add "Recurring" tab showing HaloPSA recurring invoice line items per customer
 - [ ] Color-coded list in Recurring tab: matched (green), unmatched (red), unused (gray)
 - [ ] Per-customer master sync button that triggers ALL vendor integrations + HaloPSA recurring + contracts + device counts
-- [ ] Overall Pro Max dashboard-style visual redesign of customer detail page
+- [x] Overall Pro Max dashboard-style visual redesign of customer detail page — Phase 1
 
 ### Out of Scope
 
@@ -41,7 +41,7 @@ MSP operators can quickly identify and resolve billing discrepancies between wha
 ## Context
 
 - **Tech stack**: React 18, Vite 6, TanStack Query 5, Radix UI, Tailwind CSS 3, Supabase PostgreSQL, Express backend
-- **Key files**: LootITCustomerDetail.jsx (2079 lines), ServiceCard.jsx, lootit-reconciliation.js (471 lines), useReconciliationData.js, useCustomerSync.js
+- **Key files**: LootITCustomerDetail.jsx (394 lines orchestrator), 9 extracted components (CustomerDetailHeader, ReconciliationTab, ContractTab, etc.), lootit-constants.js (shared status colors), ServiceCard.jsx, lootit-reconciliation.js (471 lines), useReconciliationData.js, useCustomerSync.js
 - **Data sources**: recurring_bills + recurring_bill_line_items tables already populated by HaloPSA sync
 - **Existing tabs**: Reconciliation (service cards grid) and Contract (drag-drop upload + extraction)
 - **Sync endpoints**: POST /api/halo/sync/customer (single customer), POST /api/halo/sync (bulk)
@@ -84,4 +84,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-31 after initialization*
+*Last updated: 2026-03-31 after Phase 1 completion*
