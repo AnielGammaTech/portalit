@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { RotateCcw, FileText } from 'lucide-react';
+import { RotateCcw, FileText, Repeat2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
@@ -12,6 +12,7 @@ import { getDiscrepancySummary } from '@/lib/lootit-reconciliation';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import CustomerDetailHeader from './CustomerDetailHeader';
 import ReconciliationTab from './ReconciliationTab';
+import RecurringTab from './RecurringTab';
 import ContractTab from './ContractTab';
 import DetailDrawer from './DetailDrawer';
 import LineItemPicker from './LineItemPicker';
@@ -44,7 +45,7 @@ export default function LootITCustomerDetail({ customer, onBack }) {
   const [editingRule, setEditingRule] = useState(null);
   const fileInputRef = useRef(null);
   const { user } = useAuth();
-  const { reconciliations, isLoading } = useReconciliationData(customer.id);
+  const { reconciliations, isLoading, rules } = useReconciliationData(customer.id);
   const { reviews, markReviewed, dismiss, resetReview, saveNotes, saveExclusion, isSaving } = useReconciliationReviews(customer.id);
   const { data: contacts = [] } = useCustomerContacts(customer.id);
   const { data: devices = [] } = useCustomerDevices(customer.id);
@@ -311,6 +312,7 @@ export default function LootITCustomerDetail({ customer, onBack }) {
       <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
         {[
           { key: 'reconciliation', label: 'Reconciliation', icon: RotateCcw },
+          { key: 'recurring', label: 'Recurring', icon: Repeat2, badge: allLineItems.length || null },
           { key: 'contract', label: 'Contract', icon: FileText, badge: contracts.length || null },
         ].map((tab) => (
           <button
@@ -345,6 +347,12 @@ export default function LootITCustomerDetail({ customer, onBack }) {
           onDownload={handleDownloadContract}
           onDelete={handleDeleteContract}
           onRetryExtract={extractContractData}
+        />
+      )}
+      {activeTab === 'recurring' && (
+        <RecurringTab
+          lineItems={allLineItems}
+          rules={rules}
         />
       )}
       {activeTab === 'reconciliation' && (
