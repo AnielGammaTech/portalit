@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Settings, LayoutGrid, ArrowLeft } from 'lucide-react';
+import { Settings, LayoutGrid, ArrowLeft, Loader2 } from 'lucide-react';
 import { client } from '@/api/client';
 import LootITDashboard from '@/components/lootit/LootITDashboard';
 import LootITCustomerDetail from '@/components/lootit/LootITCustomerDetail';
@@ -13,54 +13,58 @@ export default function LootIT() {
   const customerId = searchParams.get('customer');
   const settingsParam = searchParams.get('view') === 'settings';
 
-  const [view, setView] = useState(
-    settingsParam ? 'settings' : customerId ? 'customer' : 'dashboard'
-  );
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const navigatedFromDashboard = useRef(false);
 
-  // Fetch customer by ID from URL param
-  const { data: urlCustomer } = useQuery({
+  const view = settingsParam ? 'settings' : (customerId ? 'customer' : 'dashboard');
+
+  // Fetch customer by ID when navigating via URL (direct link or browser back)
+  const { data: urlCustomer, isLoading: isLoadingCustomer } = useQuery({
     queryKey: ['customer_by_id', customerId],
-    queryFn: () => client.entities.Customer.filter({ id: customerId }),
-    enabled: !!customerId,
+    queryFn: async () => {
+      const results = await client.entities.Customer.filter({ id: customerId });
+      return results?.[0] || null;
+    },
+    enabled: !!customerId && !navigatedFromDashboard.current,
     staleTime: 1000 * 60 * 5,
-    select: (data) => data?.[0] || null,
   });
 
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
-
-  // Sync URL customer to state
+  // Sync URL customer to state (only when not navigated from dashboard click)
   useEffect(() => {
-    if (customerId && urlCustomer) {
+    if (customerId && urlCustomer && !navigatedFromDashboard.current) {
       setSelectedCustomer(urlCustomer);
-      setView('customer');
-    } else if (!customerId && view === 'customer') {
+    }
+    if (!customerId) {
       setSelectedCustomer(null);
-      setView('dashboard');
+      navigatedFromDashboard.current = false;
     }
   }, [customerId, urlCustomer]);
 
   const handleSelectCustomer = (customer) => {
+    navigatedFromDashboard.current = true;
     setSelectedCustomer(customer);
-    setView('customer');
     navigate(`/LootIT?customer=${customer.id}`, { replace: false });
   };
 
   const handleBackToDashboard = () => {
+    navigatedFromDashboard.current = false;
     setSelectedCustomer(null);
-    setView('dashboard');
     navigate('/LootIT', { replace: false });
   };
 
   const handleSettings = () => {
-    setView('settings');
     navigate('/LootIT?view=settings', { replace: false });
   };
 
   const handleDashboard = () => {
-    setView('dashboard');
+    navigatedFromDashboard.current = false;
     setSelectedCustomer(null);
     navigate('/LootIT', { replace: false });
   };
+
+  // Loading state when fetching customer from URL
+  const showCustomerLoading = view === 'customer' && !selectedCustomer && isLoadingCustomer;
+  const showCustomerNotFound = view === 'customer' && !selectedCustomer && !isLoadingCustomer && customerId;
 
   return (
     <div className="min-h-[80vh] relative -mx-4 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-6 lg:-mt-8 -mb-4 sm:-mb-6 lg:-mb-8 px-4 sm:px-6 lg:px-8 bg-slate-50">
@@ -125,6 +129,19 @@ export default function LootIT() {
             customer={selectedCustomer}
             onBack={handleBackToDashboard}
           />
+        )}
+        {showCustomerLoading && (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="w-8 h-8 text-slate-400 animate-spin" />
+          </div>
+        )}
+        {showCustomerNotFound && (
+          <div className="text-center py-20">
+            <p className="text-slate-500 text-sm">Customer not found</p>
+            <button onClick={handleBackToDashboard} className="mt-3 text-sm text-slate-600 underline hover:text-slate-800">
+              Back to dashboard
+            </button>
+          </div>
         )}
       </div>
     </div>
