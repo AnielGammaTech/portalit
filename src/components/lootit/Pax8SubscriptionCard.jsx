@@ -84,7 +84,7 @@ export default function Pax8SubscriptionCard({ recon, onReview, onDismiss, onRes
 
         {/* Price line */}
         {(billingTerm || totalCost) && (
-          <p className="text-[11px] text-slate-400 mb-2">
+          <p className="text-[10px] text-slate-400 mb-1.5 truncate">
             {billingTerm || 'Pax8'}{price > 0 ? ` · $${parseFloat(price).toFixed(2)}/unit` : ''}{totalCost ? ` · $${totalCost}/mo` : ''}
           </p>
         )}
@@ -127,9 +127,9 @@ export default function Pax8SubscriptionCard({ recon, onReview, onDismiss, onRes
 
         {/* Matched checkmark */}
         {(hasExclusions ? effectiveStatus : status) === 'match' && !isReviewed && (
-          <div className="flex items-center gap-1.5 mb-2 text-emerald-600">
-            <Check className="w-4 h-4" />
-            <span className="text-xs font-semibold">
+          <div className="flex items-center justify-center gap-1.5 mb-2 text-emerald-600">
+            <Check className="w-3.5 h-3.5" />
+            <span className="text-[11px] font-semibold">
               {hasExclusions ? 'Counts match (after exclusions)' : message}
             </span>
           </div>
@@ -138,7 +138,7 @@ export default function Pax8SubscriptionCard({ recon, onReview, onDismiss, onRes
         {/* Message for non-match */}
         {(hasExclusions ? effectiveStatus : status) !== 'match' && (
           <p className={cn(
-            'text-xs mb-2 text-slate-500',
+            'text-[11px] mb-2 text-center text-slate-500',
             ((hasExclusions ? effectiveStatus : status) === 'under' || isMissing) && 'text-red-600 font-semibold',
             (hasExclusions ? effectiveStatus : status) === 'over' && 'text-amber-600 font-semibold'
           )}>
