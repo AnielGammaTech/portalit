@@ -31,11 +31,11 @@
 
 ### Master Sync
 
-- [ ] **SYNC-01**: Sync button triggers real per-customer sync of ALL vendor integrations (Datto, Cove, Pax8, JumpCloud, Spanning, RocketCyber, etc.)
-- [ ] **SYNC-02**: Sync button triggers HaloPSA recurring invoice sync for that customer
-- [ ] **SYNC-03**: Sync button shows progress/loading state during sync
-- [ ] **SYNC-04**: After sync completes, all data on page refreshes automatically
-- [ ] **SYNC-05**: Sync triggers device count refresh from all mapped vendors
+- [x] **SYNC-01**: Sync button triggers real per-customer sync of ALL vendor integrations (Datto, Cove, Pax8, JumpCloud, Spanning, RocketCyber, etc.)
+- [x] **SYNC-02**: Sync button triggers HaloPSA recurring invoice sync for that customer
+- [x] **SYNC-03**: Sync button shows progress/loading state during sync
+- [x] **SYNC-04**: After sync completes, all data on page refreshes automatically
+- [x] **SYNC-05**: Sync triggers device count refresh from all mapped vendors
 
 ### Visual Redesign
 
@@ -86,11 +86,11 @@
 | RECR-05 | Phase 3 | Complete |
 | RECR-06 | Phase 3 | Complete |
 | RECR-07 | Phase 3 | Complete |
-| SYNC-01 | Phase 3 | Pending |
-| SYNC-02 | Phase 3 | Pending |
-| SYNC-03 | Phase 3 | Pending |
-| SYNC-04 | Phase 3 | Pending |
-| SYNC-05 | Phase 3 | Pending |
+| SYNC-01 | Phase 3 | Complete |
+| SYNC-02 | Phase 3 | Complete |
+| SYNC-03 | Phase 3 | Complete |
+| SYNC-04 | Phase 3 | Complete |
+| SYNC-05 | Phase 3 | Complete |
 | UXRD-01 | Phase 1 | Complete |
 | UXRD-02 | Phase 1 | Complete |
 | UXRD-03 | Phase 1 | Complete |
