@@ -1,15 +1,13 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
+import { STATUS_COLORS, BADGE_STATUS_CONFIG } from './lootit-constants';
 
-const STATUS_CONFIG = {
-  match: { label: 'Matched', className: 'bg-emerald-500 text-white' },
-  over: { className: 'bg-orange-500 text-white' },
-  under: { className: 'bg-red-500 text-white' },
-  missing_from_psa: { label: 'Not Billed', className: 'bg-red-500 text-white' },
-  no_psa_data: { label: 'No PSA', className: 'bg-slate-400 text-white' },
-  no_vendor_data: { label: 'No Vendor', className: 'bg-slate-400 text-white' },
-  no_data: { label: 'No Data', className: 'bg-slate-300 text-white' },
-};
+const STATUS_CONFIG = Object.fromEntries(
+  Object.entries(BADGE_STATUS_CONFIG).map(([key, val]) => [
+    key,
+    { ...val, className: (STATUS_COLORS[key] || STATUS_COLORS.neutral).badgeClass },
+  ])
+);
 
 export default function ReconciliationBadge({ status, difference = 0 }) {
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.no_data;

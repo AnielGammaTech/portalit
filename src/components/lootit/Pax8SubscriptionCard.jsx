@@ -1,46 +1,29 @@
 import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { Check, X, ChevronRight, RotateCcw, Settings2, StickyNote, Link2, ShieldCheck } from 'lucide-react';
 import ReconciliationBadge from './ReconciliationBadge';
 import { getDiscrepancyMessage } from '@/lib/lootit-reconciliation';
 import { STATUS_COLORS } from './lootit-constants';
+import { Check, X, RotateCcw, ChevronRight, StickyNote, Link2, ShieldCheck, AlertTriangle, Trash2 } from 'lucide-react';
 
-const STATUS_STYLES = {
-  match: { card: STATUS_COLORS.match.card, bar: STATUS_COLORS.match.bar, numBg: STATUS_COLORS.match.numBg, numText: STATUS_COLORS.match.numText, labelText: STATUS_COLORS.match.labelText },
-  over: { card: STATUS_COLORS.over.card, bar: STATUS_COLORS.over.bar, numBg: STATUS_COLORS.over.numBg, numText: STATUS_COLORS.over.numText, labelText: STATUS_COLORS.over.labelText },
-  under: { card: STATUS_COLORS.under.card, bar: STATUS_COLORS.under.bar, numBg: STATUS_COLORS.under.numBg, numText: STATUS_COLORS.under.numText, labelText: STATUS_COLORS.under.labelText },
-  default: { card: STATUS_COLORS.neutral.card, bar: STATUS_COLORS.neutral.bar, numBg: STATUS_COLORS.neutral.numBg, numText: STATUS_COLORS.neutral.numText, labelText: STATUS_COLORS.neutral.labelText },
+const PAX8_REVIEWED_STYLES = {
+  card: 'border-amber-200', bar: 'bg-amber-400', numBg: 'bg-amber-50/60 border-amber-200', numText: 'text-amber-800', labelText: 'text-amber-400', borderT: 'border-amber-200',
 };
 
-const REVIEWED_STYLES = {
-  card: 'border-amber-200',
-  bar: 'bg-amber-400',
-  numBg: 'bg-amber-50/60 border-amber-200',
-  numText: 'text-amber-800',
-  labelText: 'text-amber-400',
-};
+export default function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onDetails, onMapLineItem, onRemoveMapping, onSaveNotes, hasOverride, isSaving }) {
+  const {
+    ruleId, productName, vendorQty, totalVendorQty, psaQty,
+    difference, status, matchedLineItems, billingTerm, price,
+    startDate, review,
+  } = recon;
 
-export default function ServiceCard({
-  reconciliation,
-  onReview,
-  onDismiss,
-  onDetails,
-  onReset,
-  onEditRule,
-  onSaveNotes,
-  onMapLineItem,
-  onRemoveMapping,
-  hasOverride,
-  isSaving,
-}) {
-  const { rule, psaQty, vendorQty, difference, status, review } = reconciliation;
+  const message = getDiscrepancyMessage(recon);
   const isReviewed = review?.status === 'reviewed' || review?.status === 'dismissed';
+  const isMissing = status === 'missing_from_psa';
 
   const [showNotes, setShowNotes] = useState(false);
   const [noteText, setNoteText] = useState(review?.notes || '');
   const [savingNote, setSavingNote] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null); // 'review' or 'dismiss'
-
+  const [pendingAction, setPendingAction] = useState(null);
   const hasNotes = !!(review?.notes);
   const hasExclusions = review?.exclusion_count > 0;
 
@@ -52,21 +35,18 @@ export default function ServiceCard({
     ? (effectiveDifference === 0 ? 'match' : effectiveDifference > 0 ? 'over' : 'under')
     : status;
 
-  const baseStyles = STATUS_STYLES[hasExclusions ? effectiveStatus : status] || STATUS_STYLES.default;
-  const styles = isReviewed ? { ...baseStyles, ...REVIEWED_STYLES } : baseStyles;
+  const styles = STATUS_COLORS[hasExclusions ? effectiveStatus : status] || STATUS_COLORS.neutral;
 
   const handleSaveNote = async () => {
     if (!onSaveNotes) return;
     setSavingNote(true);
     try {
       if (pendingAction === 'review') {
-        // Save note + review in one call so notes aren't overwritten
-        await onReview?.(rule.id, { notes: noteText });
+        await onReview?.(ruleId, { notes: noteText });
       } else if (pendingAction === 'dismiss') {
-        await onDismiss?.(rule.id, { notes: noteText });
+        await onDismiss?.(ruleId, { notes: noteText });
       } else {
-        // Standalone note save
-        await onSaveNotes(rule.id, noteText);
+        await onSaveNotes(ruleId, noteText);
       }
     } finally {
       setSavingNote(false);
@@ -80,70 +60,76 @@ export default function ServiceCard({
     setShowNotes(true);
   };
 
+  const totalCost = price > 0 ? (parseFloat(price) * vendorQty).toFixed(2) : null;
+  const resolvedStyles = isReviewed ? { ...styles, ...PAX8_REVIEWED_STYLES } : styles;
+
   return (
     <div
       className={cn(
         'rounded-xl border overflow-hidden transition-all hover:shadow-md cursor-pointer',
-        isReviewed ? 'bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-100/80 border-amber-200' : styles.card,
+        isReviewed ? 'border-amber-200' : resolvedStyles.card,
       )}
       style={isReviewed ? { backgroundImage: 'linear-gradient(135deg, #fffbeb 0%, #fef9c3 50%, #fef3c7 100%)' } : undefined}
-      onClick={() => onDetails?.(reconciliation)}
+      onClick={() => onDetails?.(recon)}
     >
-      {/* Status color bar */}
-      <div className={cn('h-1', styles.bar)} />
+      <div className={cn('h-1', resolvedStyles.bar)} />
 
       <div className="px-4 py-3">
         {/* Title row */}
         <div className="flex items-center justify-between gap-2 mb-1">
-          <div className="flex items-center gap-1.5 min-w-0 flex-1">
-            <h4 className="font-semibold text-slate-900 text-sm truncate">{rule.label}</h4>
-            {onEditRule && (
-              <button onClick={() => onEditRule(rule)} className="text-slate-300 hover:text-slate-500 transition-colors shrink-0" title="Edit rule">
-                <Settings2 className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-          <ReconciliationBadge status={hasExclusions ? effectiveStatus : status} difference={hasExclusions ? effectiveDifference : difference} />
+          <h4 className="font-semibold text-slate-900 text-sm leading-tight truncate flex-1">{productName}</h4>
+          <ReconciliationBadge status={isMissing ? 'missing_from_psa' : (hasExclusions ? effectiveStatus : status)} difference={hasExclusions ? effectiveDifference : difference} />
         </div>
 
-        {/* Integration label */}
-        <p className="text-[11px] text-slate-400 mb-3">{reconciliation.integrationLabel}</p>
+        {/* Price line */}
+        {(billingTerm || totalCost) && (
+          <p className="text-[11px] text-slate-400 mb-3">
+            {billingTerm || 'Pax8'}{price > 0 ? ` · $${parseFloat(price).toFixed(2)}/unit` : ''}{totalCost ? ` · $${totalCost}/mo` : ''}
+          </p>
+        )}
 
-        {/* Override — compact */}
-        {hasOverride && (
-          <div className="flex items-center gap-2 mb-3 px-2.5 py-1.5 bg-blue-50/80 rounded-md border border-blue-100">
+        {/* Override / Not Billed */}
+        {isMissing && (
+          <div className="flex items-center gap-2 mb-3 px-2.5 py-1.5 bg-red-100/60 rounded-md border border-red-200" onClick={(e) => e.stopPropagation()}>
+            <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+            <span className="text-[11px] font-medium text-red-700 flex-1">Not billed in PSA</span>
+            <button onClick={() => onMapLineItem?.()} className="text-[10px] font-bold text-red-600 hover:text-red-800">MAP</button>
+          </div>
+        )}
+        {hasOverride && !isMissing && (
+          <div className="flex items-center gap-2 mb-3 px-2.5 py-1.5 bg-blue-50/80 rounded-md border border-blue-100" onClick={(e) => e.stopPropagation()}>
             <Link2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />
             <span className="text-[11px] text-blue-600 flex-1">Mapped manually</span>
-            <button onClick={() => onRemoveMapping?.(rule.id)} className="text-[10px] font-bold text-blue-600 hover:text-blue-800">UNMAP</button>
+            <button onClick={() => onRemoveMapping?.()} className="text-[10px] font-bold text-blue-600 hover:text-blue-800">UNMAP</button>
           </div>
         )}
 
         {/* Big numbers */}
         <div className="flex items-center mb-3">
-          <div className={cn('flex-1 text-center py-2 rounded-l-lg border', styles.numBg)}>
-            <p className={cn('text-3xl font-black leading-none', styles.numText)}>
-              {psaQty !== null ? psaQty : '—'}
+          <div className={cn('flex-1 text-center py-2 rounded-l-lg border', resolvedStyles.numBg)}>
+            <p className={cn('text-3xl font-black leading-none', resolvedStyles.numText)}>
+              {psaQty !== null ? psaQty : '\u2014'}
             </p>
-            <p className={cn('text-[10px] uppercase tracking-widest font-bold mt-1', styles.labelText)}>PSA</p>
+            <p className={cn('text-[10px] uppercase tracking-widest font-bold mt-1', resolvedStyles.labelText)}>PSA</p>
           </div>
           <div className="px-2 text-slate-300 text-sm font-bold">vs</div>
-          <div className={cn('flex-1 text-center py-2 rounded-r-lg border', styles.numBg)}>
-            <p className={cn('text-3xl font-black leading-none', styles.numText)}>
-              {effectiveVendorQty !== null ? effectiveVendorQty : '—'}
+          <div className={cn('flex-1 text-center py-2 rounded-r-lg border', resolvedStyles.numBg)}>
+            <p className={cn('text-3xl font-black leading-none', resolvedStyles.numText)}>
+              {effectiveVendorQty !== null ? effectiveVendorQty : '\u2014'}
             </p>
             {hasExclusions && vendorQty !== null && (
               <p className="text-[10px] text-amber-500 line-through">{vendorQty}</p>
             )}
-            <p className={cn('text-[10px] uppercase tracking-widest font-bold mt-1', styles.labelText)}>VENDOR</p>
+            <p className={cn('text-[10px] uppercase tracking-widest font-bold mt-1', resolvedStyles.labelText)}>PAX8</p>
           </div>
         </div>
 
-        {/* Matched checkmark — show when effective status is match */}
+        {/* Matched checkmark */}
         {(hasExclusions ? effectiveStatus : status) === 'match' && !isReviewed && (
           <div className="flex items-center gap-1.5 mb-3 text-emerald-600">
             <Check className="w-4 h-4" />
             <span className="text-xs font-semibold">
-              {hasExclusions ? 'Counts match (after exclusions)' : getDiscrepancyMessage(reconciliation)}
+              {hasExclusions ? 'Counts match (after exclusions)' : message}
             </span>
           </div>
         )}
@@ -151,17 +137,26 @@ export default function ServiceCard({
         {/* Message for non-match */}
         {(hasExclusions ? effectiveStatus : status) !== 'match' && (
           <p className={cn(
-            'text-xs mb-3',
-            'text-slate-500',
-            (hasExclusions ? effectiveStatus : status) === 'under' && 'text-red-600 font-semibold',
+            'text-xs mb-3 text-slate-500',
+            ((hasExclusions ? effectiveStatus : status) === 'under' || isMissing) && 'text-red-600 font-semibold',
             (hasExclusions ? effectiveStatus : status) === 'over' && 'text-amber-600 font-semibold'
           )}>
             {isReviewed && <span className="text-slate-400 mr-1">[{review.status === 'reviewed' ? 'Reviewed' : 'Dismissed'}]</span>}
-            {getDiscrepancyMessage(reconciliation)}
+            {message}
           </p>
         )}
 
-        {/* Notes inline — also shown when pendingAction requires a note */}
+        {/* Exclusion badge */}
+        {hasExclusions && (
+          <div className="flex items-center gap-2 mb-3 px-2.5 py-1.5 bg-amber-50 rounded-md border border-amber-200">
+            <ShieldCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            <span className="text-[11px] font-medium text-amber-700 flex-1">
+              {review.exclusion_count} {review.exclusion_reason || 'excluded'} -- not counted
+            </span>
+          </div>
+        )}
+
+        {/* Notes inline -- also shown when pendingAction requires a note */}
         {(showNotes || hasNotes) && (
           <div className="mb-3" onClick={(e) => e.stopPropagation()}>
             {showNotes ? (
@@ -174,7 +169,7 @@ export default function ServiceCard({
                 <textarea
                   value={noteText}
                   onChange={(e) => setNoteText(e.target.value)}
-                  placeholder={pendingAction ? 'Required: explain the discrepancy…' : 'Add a note…'}
+                  placeholder={pendingAction ? 'Required: explain the discrepancy...' : 'Add a note...'}
                   rows={2}
                   className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none bg-white"
                   autoFocus
@@ -185,7 +180,7 @@ export default function ServiceCard({
                     disabled={savingNote || (pendingAction && !noteText.trim())}
                     className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 transition-colors"
                   >
-                    {savingNote ? 'Saving…' : pendingAction ? `Save & ${pendingAction === 'review' ? 'OK' : 'Skip'}` : 'Save Note'}
+                    {savingNote ? 'Saving...' : pendingAction ? `Save & ${pendingAction === 'review' ? 'OK' : 'Skip'}` : 'Save Note'}
                   </button>
                   <button
                     onClick={() => { setShowNotes(false); setNoteText(review?.notes || ''); setPendingAction(null); }}
@@ -203,23 +198,9 @@ export default function ServiceCard({
           </div>
         )}
 
-        {/* Exclusion badge */}
-        {hasExclusions && (
-          <div className="flex items-center gap-2 mb-3 px-2.5 py-1.5 bg-amber-50 rounded-md border border-amber-200">
-            <ShieldCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-            <span className="text-[11px] font-medium text-amber-700 flex-1">
-              {review.exclusion_count} {review.exclusion_reason || 'excluded'} — not counted
-            </span>
-          </div>
-        )}
-
         {/* Action bar */}
-        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events */}
-        <div onClick={(e) => e.stopPropagation()} className={cn(
-          'flex items-center gap-2 pt-2 border-t',
-          status === 'match' ? 'border-emerald-100' : status === 'over' ? 'border-amber-100' : status === 'under' ? 'border-red-100' : 'border-slate-100'
-        )}>
-          {!isReviewed && status !== 'match' && status !== 'no_data' && (
+        <div onClick={(e) => e.stopPropagation()} className={cn('flex items-center gap-2 pt-2 border-t', resolvedStyles.borderT)}>
+          {!isReviewed && status !== 'match' && (
             <>
               <button
                 onClick={() => handleActionWithNote('review')}
@@ -238,7 +219,7 @@ export default function ServiceCard({
             </>
           )}
           {isReviewed && (
-            <button onClick={() => onReset?.(rule.id)} disabled={isSaving} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200 transition-colors disabled:opacity-50">
+            <button onClick={() => onReset?.(ruleId)} disabled={isSaving} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200 transition-colors disabled:opacity-50">
               <RotateCcw className="w-4 h-4" /> Undo
             </button>
           )}
@@ -247,8 +228,8 @@ export default function ServiceCard({
               <StickyNote className="w-4 h-4" />
             </button>
           )}
-          {onMapLineItem && !hasOverride && (
-            <button onClick={() => onMapLineItem?.(rule.id, rule.label)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-blue-500 hover:bg-blue-50 transition-colors">
+          {!isMissing && !hasOverride && (
+            <button onClick={() => onMapLineItem?.()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-blue-500 hover:bg-blue-50 transition-colors">
               <Link2 className="w-3.5 h-3.5" /> Map
             </button>
           )}
