@@ -208,14 +208,44 @@ export default function LootITCustomerDetail({ customer, onBack }) {
   };
 
   const handleSync = async () => {
+    if (!customer.external_id) {
+      toast.error('Cannot sync: customer has no HaloPSA ID');
+      return;
+    }
     setIsSyncing(true);
     try {
+      // Step 1: Sync customer + contacts from HaloPSA
+      try {
+        await client.halo.syncCustomer(customer.external_id);
+      } catch (err) {
+        toast.error(`Customer sync failed: ${err.message}`);
+      }
+
+      // Step 2: Sync recurring bills + line items
+      try {
+        await client.functions.invoke('syncHaloPSARecurringBills', {
+          action: 'sync_customer',
+          customer_id: customer.external_id,
+        });
+      } catch (err) {
+        toast.error(`Recurring bill sync failed: ${err.message}`);
+      }
+
+      // Step 3: Invalidate ALL caches to pull fresh data
       await queryClient.invalidateQueries({ queryKey: ['reconciliation_rules'] });
       await queryClient.invalidateQueries({ queryKey: ['recurring_bills'] });
       await queryClient.invalidateQueries({ queryKey: ['recurring_bill_line_items'] });
+      await queryClient.invalidateQueries({ queryKey: ['recurring_bill_line_items_customer', customer.id] });
       await queryClient.invalidateQueries({ queryKey: ['reconciliation_reviews', customer.id] });
-      // Invalidate all mapping queries
-      await queryClient.invalidateQueries({ predicate: (q) => String(q.queryKey[0]).endsWith('_mappings') });
+      await queryClient.invalidateQueries({ queryKey: ['lootit_contracts', customer.id] });
+      await queryClient.invalidateQueries({ queryKey: ['customer_contacts', customer.id] });
+      await queryClient.invalidateQueries({ queryKey: ['customer_devices', customer.id] });
+      // Invalidate all vendor mapping queries for device count refresh
+      await queryClient.invalidateQueries({
+        predicate: (q) => String(q.queryKey[0]).startsWith('lootit_entity_'),
+      });
+
+      toast.success(`All data synced for ${customer.name}`);
     } finally {
       setIsSyncing(false);
     }
