@@ -9,6 +9,7 @@ import { usersRouter } from './routes/users.js';
 import { uploadRouter } from './routes/upload.js';
 import { haloRouter } from './routes/halo.js';
 import { cronRouter } from './routes/cron.js';
+import { securityRouter } from './routes/security.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { setupScheduledJobs } from './scheduled.js';
 
@@ -111,6 +112,7 @@ app.use('/api/users', usersRouter);
 app.use('/api/upload', uploadRouter);
 app.use('/api/halo', haloRouter);
 app.use('/api/cron', cronRouter);
+app.use('/api/security', securityRouter);
 
 // Error handler
 app.use(errorHandler);
