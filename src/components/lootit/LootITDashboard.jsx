@@ -98,7 +98,6 @@ export default function LootITDashboard({ onSelectCustomer }) {
 
     // Also add DB anomalies that aren't in the computed list (from previous scans)
     const computedIds = new Set(results.map(r => r.customerId));
-    const customerMap = Object.fromEntries((customers || []).map(c => [c.id, c]));
     for (const dba of dbAnomalies) {
       if (!computedIds.has(dba.customer_id)) {
         results.push({
