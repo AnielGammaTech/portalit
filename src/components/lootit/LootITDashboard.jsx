@@ -60,13 +60,9 @@ export default function LootITDashboard({ onSelectCustomer }) {
       const amount = parseFloat(inv.total || inv.amount) || 0;
       if (amount <= 0) continue;
 
-      // Filter: only recurring invoices (skip ticket charges, projects)
+      // Skip non-recurring: ticket charges, projects, ad-hoc, credit notes
       const invName = (inv.notes || inv.invoice_number || '').toLowerCase();
-      const isRecurring = invName.includes('recurring') || invName.includes('monthly') ||
-        invName.includes('gtvoice') || invName.includes('voice') ||
-        recurringBillIds.has(inv.halopsa_id) ||
-        (inv.source === 'halopsa' && !invName.includes('ticket') && !invName.includes('project') && !invName.includes('ad-hoc'));
-      if (!isRecurring) continue;
+      if (invName.includes('ticket') || invName.includes('project') || invName.includes('ad-hoc') || invName.includes('credit')) continue;
 
       // Group by due_date month (tells which billing period, regardless of payment status)
       const date = new Date(inv.due_date || inv.invoice_date || inv.created_date || 0);
