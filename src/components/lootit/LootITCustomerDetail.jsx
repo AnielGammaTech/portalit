@@ -23,6 +23,14 @@ import LineItemPicker from './LineItemPicker';
 import RuleEditorDialog from './RuleEditorDialog';
 import SignOffButton from './SignOffButton';
 
+const CATEGORY_BADGES = {
+  monthly_recurring: { label: 'Recurring', className: 'bg-blue-100 text-blue-700' },
+  voip: { label: 'VoIP', className: 'bg-purple-100 text-purple-700' },
+  ticket_adhoc: { label: 'Ad-hoc', className: 'bg-amber-100 text-amber-700' },
+  hardware_project: { label: 'Hardware', className: 'bg-slate-100 text-slate-600' },
+  uncategorized: { label: 'Unclassified', className: 'bg-red-50 text-red-500 border border-red-200' },
+};
+
 export default function LootITCustomerDetail({ customer, onBack, activeTab: activeTabProp = 'reconciliation', onTabChange }) {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState('all');
@@ -52,6 +60,13 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
     () => customerAnomalies.filter(a => a.status === 'open'),
     [customerAnomalies]
   );
+
+  // Invoices for this customer (with AI category + confidence from classifier)
+  const { data: customerInvoices = [] } = useQuery({
+    queryKey: ['lootit_invoices_customer', customer.id],
+    queryFn: () => client.entities.Invoice.filter({ customer_id: customer.id }),
+    staleTime: 1000 * 60 * 2,
+  });
 
   const [acknowledgeId, setAcknowledgeId] = useState(null);
   const [acknowledgeNotes, setAcknowledgeNotes] = useState('');
@@ -646,6 +661,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
         {[
           { key: 'reconciliation', label: 'Reconciliation', icon: RotateCcw },
           { key: 'recurring', label: 'Recurring', icon: Repeat2, badge: allLineItems.length || null },
+          { key: 'invoices', label: 'Invoices', icon: DollarSign, badge: customerInvoices.length || null },
           { key: 'contract', label: 'Contract', icon: FileText, badge: contracts.length || null },
         ].map((tab) => (
           <button
@@ -676,6 +692,49 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
       {/* ── Recurring Tab ── */}
       {activeTab === 'recurring' && (
         <RecurringTab lineItems={allLineItems} rules={allRules || []} overrides={existingOverrides} />
+      )}
+
+      {/* ── Invoices Tab ── */}
+      {activeTab === 'invoices' && (
+        <div className="space-y-3">
+          {customerInvoices.length === 0 ? (
+            <div className="text-center py-12">
+              <DollarSign className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+              <p className="text-slate-500">No invoices found for this customer</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 overflow-hidden">
+              {customerInvoices
+                .slice()
+                .sort((a, b) => new Date(b.invoice_date || 0) - new Date(a.invoice_date || 0))
+                .map((inv) => (
+                  <div key={inv.id} className="flex items-center gap-3 px-4 py-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium text-slate-800 truncate">
+                          {inv.invoice_number || inv.id}
+                        </span>
+                        {inv.category && CATEGORY_BADGES[inv.category] && (
+                          <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', CATEGORY_BADGES[inv.category].className)}>
+                            {CATEGORY_BADGES[inv.category].label}
+                          </span>
+                        )}
+                        {inv.classification_confidence != null && inv.classification_confidence < 70 && (
+                          <span className="text-[10px] text-red-400" title={`Confidence: ${inv.classification_confidence}%`}>Low confidence</span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        {inv.invoice_date ? inv.invoice_date : '—'}
+                      </p>
+                    </div>
+                    <div className="text-sm font-semibold text-slate-800 tabular-nums">
+                      ${(inv.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
       )}
 
       {/* ── Contract Tab ── */}
