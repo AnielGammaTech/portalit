@@ -1,6 +1,27 @@
 import { getServiceSupabase } from '../lib/supabase.js';
 import { getHaloConfig, haloGet, extractRecords } from '../lib/halopsa.js';
 
+// Map HaloPSA period codes/names to normalized frequency
+function normalizeFrequency(haloBill) {
+  // HaloPSA uses various field names for repeat period
+  const raw = haloBill.period || haloBill.Period || haloBill.frequency || haloBill.Frequency ||
+    haloBill.billing_cycle || haloBill.BillingCycle || haloBill.repeat_period || haloBill.RepeatPeriod ||
+    haloBill.recurringtype || haloBill.RecurringType || '';
+
+  const val = String(raw).toLowerCase().trim();
+
+  // Handle numeric codes (HaloPSA sometimes uses 1=monthly, 2=quarterly, 3=yearly etc.)
+  if (val === '1' || val === 'monthly' || val === 'month') return 'monthly';
+  if (val === '2' || val === 'quarterly' || val === 'quarter') return 'quarterly';
+  if (val === '3' || val === '4' || val === 'yearly' || val === 'annual' || val === 'annually' || val === 'year') return 'yearly';
+  if (val === 'weekly' || val === 'week') return 'weekly';
+
+  // If we got nothing, log and default to monthly
+  if (!val) return 'monthly';
+  console.log(`[HaloPSA] Unknown frequency value "${raw}" for bill ${haloBill.id} — defaulting to monthly`);
+  return 'monthly';
+}
+
 // Transform HaloPSA bill data to RecurringBill schema
 function transformRecurringBill(haloBill, customerId) {
   return {
@@ -9,7 +30,7 @@ function transformRecurringBill(haloBill, customerId) {
     name: haloBill.name || haloBill.Name || `Bill ${haloBill.id}`,
     description: haloBill.description || haloBill.Description || '',
     amount: parseFloat(haloBill.total || haloBill.Total || 0) || 0,
-    frequency: (haloBill.frequency || haloBill.Frequency || 'monthly').toLowerCase(),
+    frequency: normalizeFrequency(haloBill),
     status: haloBill.status?.toLowerCase?.() === 'inactive' ? 'inactive' : 'active',
     start_date: haloBill.startdate || haloBill.StartDate || null,
     end_date: haloBill.enddate || haloBill.EndDate || null
