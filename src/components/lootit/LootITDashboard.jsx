@@ -77,13 +77,15 @@ export default function LootITDashboard({ onSelectCustomer }) {
         )
       : entries;
 
-    return searched.filter((entry) => {
-      const s = entry.combinedSummary;
-      if (filter === 'issues') return s.over > 0 || s.under > 0;
-      if (filter === 'matched') return s.matched > 0 && s.over === 0 && s.under === 0;
-      if (filter === 'no_data') return s.noData > 0;
-      return true;
-    });
+    return searched
+      .filter((entry) => {
+        const s = entry.combinedSummary;
+        if (filter === 'issues') return s.over > 0 || s.under > 0;
+        if (filter === 'matched') return s.matched > 0 && s.over === 0 && s.under === 0;
+        if (filter === 'no_data') return s.noData > 0;
+        return true;
+      })
+      .sort((a, b) => (a.customer?.name || '').localeCompare(b.customer?.name || ''));
   }, [reconciliations, search, filter]);
 
   if (isLoading) {
