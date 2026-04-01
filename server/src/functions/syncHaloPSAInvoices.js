@@ -1,5 +1,6 @@
 import { getServiceSupabase } from '../lib/supabase.js';
 import { getHaloConfig, haloGet, extractRecords } from '../lib/halopsa.js';
+import { classifyInvoice } from '../services/invoiceClassifier.js';
 
 // Helper: Parse HaloPSA date (handles various formats including OLE dates)
 function parseHaloDate(dateValue) {
@@ -223,6 +224,45 @@ export async function syncHaloPSAInvoices(body, _user) {
         const batch = allNewLineItems.slice(i, i + 500);
         const { error } = await supabase.from('invoice_line_items').insert(batch);
         if (error) console.error(`[HaloPSA] Line items insert error: ${error.message}`);
+      }
+    }
+
+    // ── Classify invoices that don't have a category yet ──
+    const allInvoiceIds = [...invoiceIdMap.values()];
+    if (allInvoiceIds.length > 0) {
+      // Fetch invoices missing a category
+      const { data: unclassified } = await supabase.from('invoices')
+        .select('id, customer_id, total, invoice_number')
+        .in('id', allInvoiceIds)
+        .is('category', null);
+
+      if (unclassified && unclassified.length > 0) {
+        // Fetch customer name once
+        const { data: custData } = await supabase.from('customers')
+          .select('name').eq('id', dbCustomer.id).single();
+        const customerName = custData?.name || 'Unknown';
+
+        // Classify sequentially to respect rate limits
+        let classified = 0;
+        for (const inv of unclassified) {
+          // Fetch line items for this invoice
+          const { data: lines } = await supabase.from('invoice_line_items')
+            .select('description, quantity, unit_price, total, item_code')
+            .eq('invoice_id', inv.id);
+
+          const result = await classifyInvoice({
+            customerName,
+            lineItems: lines || [],
+            invoiceTotal: inv.total,
+          });
+
+          await supabase.from('invoices')
+            .update({ category: result.category, classification_confidence: result.confidence })
+            .eq('id', inv.id);
+
+          classified++;
+        }
+        console.log(`[HaloPSA] Classified ${classified} invoices for ${customerName}`);
       }
     }
 
