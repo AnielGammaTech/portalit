@@ -616,22 +616,16 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
                   Previous average was <strong className="text-slate-700">${Math.round(a.avgAmount).toLocaleString()}/mo</strong>, latest invoice is <strong className={a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600'}>${Math.round(a.latestAmount).toLocaleString()}/mo</strong>.
                   {a.direction === 'decrease' ? ' Potential lost revenue.' : ' Billing increase detected.'}
                 </p>
-                {/* Mini history bar chart */}
-                <div className="flex items-end gap-1 h-10">
-                  {(a.history || []).slice().reverse().map((h, i, arr) => {
-                    const max = Math.max(...arr.map(x => x.amount || 1));
-                    const pct = (h.amount / max) * 100;
-                    const isLatest = i === arr.length - 1;
-                    return (
-                      <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
-                        <div
-                          className={cn('w-full rounded-t-sm min-h-[2px]', isLatest ? (a.direction === 'decrease' ? 'bg-red-400' : 'bg-amber-400') : 'bg-slate-200')}
-                          style={{ height: `${Math.max(pct, 5)}%` }}
-                        />
-                        <span className="text-[7px] text-slate-400">{h.month}</span>
-                      </div>
-                    );
-                  })}
+                {/* Month-by-month history */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 mt-1">
+                  {(a.history || []).map((h, i) => (
+                    <div key={i} className="flex items-center justify-between text-[10px]">
+                      <span className="text-slate-400">{h.month}</span>
+                      <span className={cn('font-semibold tabular-nums', i === 0 ? (a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600') : 'text-slate-600')}>
+                        ${Math.round(h.amount).toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
@@ -687,6 +681,25 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
             className="hidden"
           />
 
+          {/* Existing contracts list — shown first */}
+          {contracts.length > 0 && (
+            <div className="space-y-3">
+              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Uploaded Contracts ({contracts.length})
+              </h4>
+              {contracts.map((c) => (
+                <ContractCard
+                  key={c.id}
+                  contract={c}
+                  extractingId={extractingId}
+                  onDownload={handleDownloadContract}
+                  onDelete={handleDeleteContract}
+                  onRetryExtract={extractContractData}
+                />
+              ))}
+            </div>
+          )}
+
           {/* Upload / Analyzing State */}
           {(uploadMutation.isPending || extractingId) ? (
             <UploadProgressCard
@@ -723,25 +736,6 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
                   </p>
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* Existing contracts list */}
-          {contracts.length > 0 && (
-            <div className="space-y-3">
-              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Uploaded Contracts ({contracts.length})
-              </h4>
-              {contracts.map((c) => (
-                <ContractCard
-                  key={c.id}
-                  contract={c}
-                  extractingId={extractingId}
-                  onDownload={handleDownloadContract}
-                  onDelete={handleDeleteContract}
-                  onRetryExtract={extractContractData}
-                />
-              ))}
             </div>
           )}
         </div>
