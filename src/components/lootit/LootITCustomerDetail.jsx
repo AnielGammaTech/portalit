@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { ArrowLeft, Filter, Check, RotateCcw, RefreshCw, AlertTriangle, Save, Upload, FileText, Download, DollarSign, Users, Hash, CloudUpload, CheckCircle2, Monitor, Server, Repeat2 } from 'lucide-react';
+import { ArrowLeft, Filter, Check, RotateCcw, RefreshCw, AlertTriangle, Save, Upload, FileText, Download, DollarSign, Users, Hash, CloudUpload, CheckCircle2, Monitor, Server, Repeat2, Bell, TrendingDown, TrendingUp, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cn, formatLineItemDescription } from '@/lib/utils';
@@ -37,6 +37,62 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
 
   const { reconciliations, isLoading, rules: allRules } = useReconciliationData(customer.id);
   const { reviews, markReviewed, dismiss, resetReview, saveNotes, saveExclusion, isSaving } = useReconciliationReviews(customer.id);
+
+  // Billing anomalies for this customer
+  const { data: customerAnomalies = [] } = useQuery({
+    queryKey: ['billing_anomalies_customer', customer.id],
+    queryFn: () => client.entities.BillingAnomaly.filter({ customer_id: customer.id, status: 'open' }),
+    staleTime: 1000 * 60 * 2,
+  });
+
+  // Also compute live anomalies from bills
+  const { data: customerBills = [] } = useQuery({
+    queryKey: ['customer_bills_for_anomaly', customer.id],
+    queryFn: () => client.entities.RecurringBill.filter({ customer_id: customer.id }),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const liveAnomalies = useMemo(() => {
+    if (customerBills.length < 2) return [];
+    const byName = {};
+    for (const b of customerBills) {
+      const name = b.name || 'Unknown';
+      if (!byName[name]) byName[name] = [];
+      byName[name].push({ amount: parseFloat(b.amount) || 0, date: new Date(b.created_date || b.start_date || 0) });
+    }
+    const results = [];
+    for (const [name, bills] of Object.entries(byName)) {
+      const sorted = bills.sort((a, b) => b.date - a.date);
+      if (sorted.length < 2) continue;
+      const latest = sorted[0];
+      const hist = sorted.slice(1, 7);
+      if (hist.length === 0) continue;
+      const avg = hist.reduce((s, b) => s + b.amount, 0) / hist.length;
+      if (avg === 0) continue;
+      const pct = ((latest.amount - avg) / avg) * 100;
+      if (Math.abs(pct) >= 10) {
+        results.push({
+          billName: name, latestAmount: latest.amount, avgAmount: avg, pctChange: pct,
+          direction: pct > 0 ? 'increase' : 'decrease',
+          history: sorted.slice(0, 7).map(b => ({ amount: b.amount, month: b.date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }) })),
+          dbId: customerAnomalies.find(a => a.bill_period)?.id || null,
+        });
+      }
+    }
+    return results.sort((a, b) => Math.abs(b.pctChange) - Math.abs(a.pctChange));
+  }, [customerBills, customerAnomalies]);
+
+  const handleDismissAnomaly = async (anomalyId) => {
+    await client.entities.BillingAnomaly.update(anomalyId, { status: 'dismissed', reviewed_at: new Date().toISOString() });
+    queryClient.invalidateQueries({ queryKey: ['billing_anomalies_customer', customer.id] });
+    toast.success('Anomaly dismissed');
+  };
+
+  const handleReviewAnomaly = async (anomalyId) => {
+    await client.entities.BillingAnomaly.update(anomalyId, { status: 'reviewed', reviewed_at: new Date().toISOString() });
+    queryClient.invalidateQueries({ queryKey: ['billing_anomalies_customer', customer.id] });
+    toast.success('Anomaly marked as reviewed');
+  };
 
   // Integration widget data
   const { data: contacts = [] } = useCustomerContacts(customer.id);
@@ -514,6 +570,65 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           )}
         </div>
       </div>
+
+      {/* Billing Anomalies */}
+      {liveAnomalies.length > 0 && (
+        <div className="bg-white rounded-xl border border-red-200/60 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Bell className="w-4 h-4 text-red-500" />
+            <h3 className="text-sm font-bold text-slate-900">Billing Anomalies</h3>
+            <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">{liveAnomalies.length}</span>
+          </div>
+          <div className="space-y-3">
+            {liveAnomalies.map((a, idx) => (
+              <div key={idx} className={cn(
+                'rounded-lg border p-3',
+                a.direction === 'decrease' ? 'bg-red-50/60 border-red-200' : 'bg-amber-50/60 border-amber-200'
+              )}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    {a.direction === 'decrease' ? <TrendingDown className="w-4 h-4 text-red-500" /> : <TrendingUp className="w-4 h-4 text-amber-500" />}
+                    <span className="text-sm font-bold text-slate-900">{a.billName}</span>
+                    <span className={cn('text-sm font-bold tabular-nums', a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600')}>
+                      {a.pctChange > 0 ? '+' : ''}{a.pctChange.toFixed(0)}%
+                    </span>
+                  </div>
+                  <div className="flex gap-1.5">
+                    {a.dbId && (
+                      <>
+                        <button onClick={() => handleReviewAnomaly(a.dbId)} className="px-2 py-1 text-[10px] font-medium rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors">Reviewed</button>
+                        <button onClick={() => handleDismissAnomaly(a.dbId)} className="px-2 py-1 text-[10px] font-medium rounded bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors">Dismiss</button>
+                      </>
+                    )}
+                  </div>
+                </div>
+                {/* Explanation */}
+                <p className="text-xs text-slate-500 mb-2">
+                  Previous average was <strong className="text-slate-700">${Math.round(a.avgAmount).toLocaleString()}/mo</strong>, latest invoice is <strong className={a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600'}>${Math.round(a.latestAmount).toLocaleString()}/mo</strong>.
+                  {a.direction === 'decrease' ? ' Potential lost revenue.' : ' Billing increase detected.'}
+                </p>
+                {/* Mini history bar chart */}
+                <div className="flex items-end gap-1 h-10">
+                  {(a.history || []).slice().reverse().map((h, i, arr) => {
+                    const max = Math.max(...arr.map(x => x.amount || 1));
+                    const pct = (h.amount / max) * 100;
+                    const isLatest = i === arr.length - 1;
+                    return (
+                      <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
+                        <div
+                          className={cn('w-full rounded-t-sm min-h-[2px]', isLatest ? (a.direction === 'decrease' ? 'bg-red-400' : 'bg-amber-400') : 'bg-slate-200')}
+                          style={{ height: `${Math.max(pct, 5)}%` }}
+                        />
+                        <span className="text-[7px] text-slate-400">{h.month}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex justify-center border-b border-pink-100">
