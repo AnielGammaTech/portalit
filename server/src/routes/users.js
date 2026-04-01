@@ -26,6 +26,26 @@ function maskEmail(email) {
   return `${visible}***@${domain}`;
 }
 
+/**
+ * Mask an IP address for safe logging — retains only the first two octets.
+ * e.g. "192.168.1.42" → "192.168.x.x"
+ * IPv6 addresses are truncated to the first segment.
+ */
+function maskIp(ip) {
+  if (!ip || typeof ip !== 'string') return '[unknown-ip]';
+  // IPv4
+  const v4parts = ip.split('.');
+  if (v4parts.length === 4) {
+    return `${v4parts[0]}.${v4parts[1]}.x.x`;
+  }
+  // IPv6 — show only the first group
+  const v6parts = ip.split(':');
+  if (v6parts.length > 1) {
+    return `${v6parts[0]}:****`;
+  }
+  return '[ip]';
+}
+
 function isValidEmail(email) {
   return typeof email === 'string' && EMAIL_RE.test(email) && email.length <= 254;
 }
@@ -159,9 +179,11 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
       return res.status(409).json({ error: 'A user with this email already exists' });
     }
 
-    // Clean up orphaned user record if it exists without auth_id
+    // Clean up orphaned user record if it exists without auth_id.
+    // Ignore errors here — a concurrent request may have already cleaned it up,
+    // and the upsert below will handle any remaining conflict gracefully.
     if (existingUsers && existingUsers.length > 0 && !existingUsers[0].auth_id) {
-      await supabase.from('users').delete().eq('id', existingUsers[0].id);
+      await supabase.from('users').delete().eq('id', existingUsers[0].id).then(() => null, () => null);
     }
 
     // Create user in Supabase Auth with email_confirm: true
@@ -201,7 +223,9 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
       customerName = customer?.name || null;
     }
 
-    // Create or update user profile row
+    // Create or update user profile row.
+    // onConflict covers both auth_id and email to handle TOCTOU races where
+    // a concurrent invite for the same address slips past the orphan-delete above.
     const { error: profileError } = await supabase
       .from('users')
       .upsert({
@@ -211,10 +235,15 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
         full_name,
         customer_id: invite_type === 'customer' ? customer_id : null,
         customer_name: customerName,
-      }, { onConflict: 'auth_id' });
+      }, { onConflict: 'auth_id,email', ignoreDuplicates: false });
 
     if (profileError) {
-      console.error('Failed to create user profile:', profileError);
+      // A unique-constraint error means another concurrent request already created
+      // the profile row — this is safe to ignore; the auth user was still created.
+      const isUniqueViolation = profileError.code === '23505';
+      if (!isUniqueViolation) {
+        console.error('Failed to create user profile:', profileError);
+      }
     }
 
     // Send welcome email via Resend
@@ -266,7 +295,7 @@ router.post('/send-otp', otpSendIpLimiter, async (req, res, next) => {
       otpSendLimits, lowerEmail, OTP_SEND_WINDOW_MS, OTP_SEND_MAX
     );
     if (!emailLimit.allowed) {
-      console.warn(`OTP send rate limit exceeded for ${maskEmail(lowerEmail)} from IP ${req.ip}`);
+      console.warn(`OTP send rate limit exceeded for ${maskEmail(lowerEmail)} from IP ${maskIp(req.ip)}`);
       res.set('Retry-After', String(emailLimit.retryAfterSeconds));
       return res.status(429).json({
         error: 'Too many code requests for this email. Please try again later.',
@@ -290,7 +319,7 @@ router.post('/send-otp', otpSendIpLimiter, async (req, res, next) => {
     otpStore.set(lowerEmail, { code, expiresAt: Date.now() + 10 * 60 * 1000 });
     cleanExpiredOtps();
 
-    console.log(`OTP sent to ${maskEmail(lowerEmail)} from IP ${req.ip}`);
+    console.log(`OTP sent to ${maskEmail(lowerEmail)} from IP ${maskIp(req.ip)}`);
 
     const firstName = users[0].full_name?.split(' ')[0] || 'there';
 
@@ -330,7 +359,7 @@ router.post('/verify-otp', otpVerifyIpLimiter, async (req, res, next) => {
       otpVerifyLimits, lowerEmail, OTP_VERIFY_WINDOW_MS, OTP_VERIFY_MAX
     );
     if (!emailLimit.allowed) {
-      console.warn(`OTP verify rate limit exceeded for ${maskEmail(lowerEmail)} from IP ${req.ip}`);
+      console.warn(`OTP verify rate limit exceeded for ${maskEmail(lowerEmail)} from IP ${maskIp(req.ip)}`);
       res.set('Retry-After', String(emailLimit.retryAfterSeconds));
       return res.status(429).json({
         error: 'Too many verification attempts. Please try again later.',
@@ -347,13 +376,13 @@ router.post('/verify-otp', otpVerifyIpLimiter, async (req, res, next) => {
       return res.status(400).json({ error: 'Code has expired. Please request a new one.' });
     }
     if (stored.code !== String(code).trim()) {
-      console.warn(`Invalid OTP attempt for ${maskEmail(lowerEmail)} from IP ${req.ip}`);
+      console.warn(`Invalid OTP attempt for ${maskEmail(lowerEmail)} from IP ${maskIp(req.ip)}`);
       return res.status(400).json({ error: 'Invalid code. Please check and try again.' });
     }
 
     // Code is valid — consume it
     otpStore.delete(lowerEmail);
-    console.log(`OTP verified for ${maskEmail(lowerEmail)} from IP ${req.ip}`);
+    console.log(`OTP verified for ${maskEmail(lowerEmail)} from IP ${maskIp(req.ip)}`);
 
     const supabase = getServiceSupabase();
 
