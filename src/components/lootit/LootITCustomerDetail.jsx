@@ -621,118 +621,162 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
                 voip: 'VoIP',
               }[a.category] || a.category || 'Unknown';
 
-              const history = anomalyHistory[a.category] || [];
-              const maxAmount = history.length > 0 ? Math.max(...history.map(h => h.amount)) : 0;
-              const avgLine = parseFloat(a.previous_avg) || 0;
-              const avgPct = maxAmount > 0 ? (avgLine / maxAmount) * 100 : 0;
+              // Reverse history: oldest first → newest last (left to right)
+              const history = [...(anomalyHistory[a.category] || [])].reverse();
+              const maxAmount = history.length > 0 ? Math.max(...history.map(h => h.amount)) : 1;
+
+              // Color segments between nodes
+              const getSegmentColor = (idx) => {
+                if (idx >= history.length - 1) return 'bg-slate-200';
+                const curr = history[idx].amount;
+                const next = history[idx + 1].amount;
+                const diff = ((next - curr) / (curr || 1)) * 100;
+                if (Math.abs(diff) < 5) return 'bg-emerald-400';
+                return diff < 0 ? 'bg-red-400' : 'bg-amber-400';
+              };
+
+              const getNodeColor = (idx) => {
+                const isLatest = idx === history.length - 1;
+                if (isLatest) return a.direction === 'decrease' ? 'bg-red-500 ring-red-200' : 'bg-amber-500 ring-amber-200';
+                if (idx === 0) return 'bg-slate-400 ring-slate-200';
+                // Check if this month changed significantly from previous
+                const prev = history[idx - 1]?.amount || 0;
+                const curr = history[idx].amount;
+                const diff = prev > 0 ? ((curr - prev) / prev) * 100 : 0;
+                if (Math.abs(diff) >= 5) return diff < 0 ? 'bg-red-400 ring-red-100' : 'bg-amber-400 ring-amber-100';
+                return 'bg-emerald-500 ring-emerald-200';
+              };
 
               return (
-                <div key={a.id} className={cn(
-                  'rounded-lg border p-4',
-                  a.direction === 'decrease' ? 'bg-red-50/60 border-red-200' : 'bg-amber-50/60 border-amber-200'
-                )}>
+                <div key={a.id} className="rounded-xl border border-slate-200 bg-white p-5">
                   {/* Header */}
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-slate-800">{categoryLabel}</span>
-                      <span className={cn(
-                        'text-sm font-bold',
-                        a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600'
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        'w-8 h-8 rounded-lg flex items-center justify-center',
+                        a.direction === 'decrease' ? 'bg-red-100' : 'bg-amber-100'
                       )}>
-                        {a.direction === 'decrease' ? '' : '+'}{a.pct_change}%
-                      </span>
+                        <Bell className={cn('w-4 h-4', a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600')} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-slate-900">{categoryLabel}</span>
+                          <span className={cn(
+                            'text-sm font-bold',
+                            a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600'
+                          )}>
+                            {a.direction === 'decrease' ? '' : '+'}{a.pct_change}%
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-0.5">
+                          <span>Now <strong className="text-slate-600">${a.current_amount?.toLocaleString()}</strong></span>
+                          <span>Was <strong className="text-slate-600">${a.previous_avg?.toLocaleString()}</strong></span>
+                          <span className={cn('font-semibold', a.direction === 'decrease' ? 'text-red-500' : 'text-amber-500')}>
+                            {a.direction === 'decrease' ? '-' : '+'}${Math.abs(a.dollar_change).toLocaleString()}/mo
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <span className="text-xs text-slate-400">{a.bill_period}</span>
-                  </div>
-                  <div className="flex items-center gap-4 text-[11px] text-slate-500 mb-3">
-                    <span>Current: <strong className="text-slate-700">${a.current_amount?.toLocaleString()}</strong></span>
-                    <span>Avg: <strong className="text-slate-700">${a.previous_avg?.toLocaleString()}</strong></span>
-                    <span>Change: <strong className={a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600'}>${Math.abs(a.dollar_change).toLocaleString()}</strong></span>
                   </div>
 
-                  {/* Monthly History Timeline */}
+                  {/* Horizontal Timeline */}
                   {history.length > 0 && (
-                    <div className="mb-3">
-                      <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-2">Monthly History</p>
-                      <div className="relative">
-                        {/* Average line */}
-                        {avgPct > 0 && avgPct < 100 && (
-                          <div
-                            className="absolute left-12 right-16 border-t border-dashed border-slate-300 z-10"
-                            style={{ bottom: `${Math.max(avgPct * 0.6, 2)}%` }}
-                          />
-                        )}
-                        <div className="space-y-1.5">
-                          {history.map((h, i) => {
-                            const barPct = maxAmount > 0 ? (h.amount / maxAmount) * 100 : 0;
-                            const isLatest = i === 0;
-                            const monthLabel = new Date(h.month + '-15').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-                            return (
-                              <div key={h.month} className="flex items-center gap-2">
-                                <span className="text-[10px] text-slate-400 w-10 shrink-0 text-right">{monthLabel}</span>
-                                <div className="flex-1 h-4 bg-white/60 rounded-full overflow-hidden border border-slate-100">
-                                  <div
-                                    className={cn(
-                                      'h-full rounded-full transition-all',
-                                      isLatest
-                                        ? (a.direction === 'decrease' ? 'bg-red-400' : 'bg-amber-400')
-                                        : 'bg-slate-300'
-                                    )}
-                                    style={{ width: `${Math.max(barPct, 3)}%` }}
-                                  />
-                                </div>
-                                <span className={cn(
-                                  'text-[10px] font-semibold tabular-nums w-14 text-right',
-                                  isLatest
-                                    ? (a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600')
-                                    : 'text-slate-500'
-                                )}>
-                                  ${h.amount.toLocaleString()}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
+                    <div className="mb-4 px-2">
+                      {/* Amount labels (above timeline) */}
+                      <div className="flex items-end mb-1" style={{ paddingLeft: '4px', paddingRight: '4px' }}>
+                        {history.map((h, i) => {
+                          const isLatest = i === history.length - 1;
+                          return (
+                            <div key={h.month} className="flex-1 text-center">
+                              <span className={cn(
+                                'text-[10px] font-bold tabular-nums',
+                                isLatest
+                                  ? (a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600')
+                                  : 'text-slate-500'
+                              )}>
+                                ${h.amount.toLocaleString()}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Timeline track with nodes */}
+                      <div className="relative flex items-center" style={{ height: '28px' }}>
+                        {history.map((h, i) => {
+                          const isLatest = i === history.length - 1;
+                          const isFirst = i === 0;
+                          return (
+                            <div key={h.month} className="flex-1 flex items-center">
+                              {/* Segment line (before node, except first) */}
+                              {!isFirst && (
+                                <div className={cn('flex-1 h-1 rounded-full', getSegmentColor(i - 1))} />
+                              )}
+                              {/* Node */}
+                              <div className={cn(
+                                'shrink-0 rounded-full ring-2 z-10',
+                                isLatest ? 'w-4 h-4' : 'w-3 h-3',
+                                getNodeColor(i)
+                              )} />
+                              {/* Segment line (after node, except last) */}
+                              {!isLatest && (
+                                <div className={cn('flex-1 h-1 rounded-full', getSegmentColor(i))} />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Month labels (below timeline) */}
+                      <div className="flex mt-1" style={{ paddingLeft: '4px', paddingRight: '4px' }}>
+                        {history.map((h) => {
+                          const monthLabel = new Date(h.month + '-15').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                          return (
+                            <div key={h.month} className="flex-1 text-center">
+                              <span className="text-[9px] text-slate-400 font-medium">{monthLabel}</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
 
                   {/* Actions */}
                   {acknowledgeId === a.id ? (
-                    <div className="space-y-2 pt-2 border-t border-slate-200/60">
+                    <div className="space-y-2 pt-3 border-t border-slate-100">
                       <textarea
                         value={acknowledgeNotes}
                         onChange={e => setAcknowledgeNotes(e.target.value)}
                         placeholder="Explain why this change is expected..."
-                        className="w-full text-xs border border-slate-200 rounded-lg p-2 resize-none focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        className="w-full text-xs border border-slate-200 rounded-lg p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-blue-400"
                         rows={2}
                       />
-                      <div className="flex gap-1.5">
+                      <div className="flex gap-2">
                         <button
                           onClick={() => handleAcknowledgeAnomaly(a.id)}
-                          className="px-2 py-1 text-[10px] font-medium rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
+                          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
                         >
                           Confirm
                         </button>
                         <button
                           onClick={() => { setAcknowledgeId(null); setAcknowledgeNotes(''); }}
-                          className="px-2 py-1 text-[10px] font-medium rounded bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
+                          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
                         >
                           Cancel
                         </button>
                       </div>
                     </div>
                   ) : (
-                    <div className="flex gap-1.5 pt-2 border-t border-slate-200/60">
+                    <div className="flex gap-2 pt-3 border-t border-slate-100">
                       <button
                         onClick={() => setAcknowledgeId(a.id)}
-                        className="px-3 py-1.5 text-[10px] font-medium rounded-md bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
+                        className="px-4 py-1.5 text-xs font-medium rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors border border-emerald-200"
                       >
                         Acknowledge
                       </button>
                       <button
                         onClick={() => handleDismissAnomaly(a.id)}
-                        className="px-3 py-1.5 text-[10px] font-medium rounded-md bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
+                        className="px-4 py-1.5 text-xs font-medium rounded-lg bg-slate-50 text-slate-500 hover:bg-slate-100 transition-colors border border-slate-200"
                       >
                         Dismiss
                       </button>
