@@ -525,7 +525,7 @@ function CustomerDashboard({ customer }) {
     staleTime: 1000 * 60 * 5
   });
 
-  const recurringBillIds = recurringBills.map(b => b.id).sort();
+  const recurringBillIds = useMemo(() => recurringBills.map(b => b.id).sort(), [recurringBills]);
   const { data: lineItems = [] } = useQuery({
     queryKey: ['line_items', customerId, recurringBillIds],
     queryFn: () => client.entities.RecurringBillLineItem.filterIn(
@@ -542,7 +542,7 @@ function CustomerDashboard({ customer }) {
     staleTime: 1000 * 60 * 5
   });
 
-  const invoiceIds = invoices.map(i => i.id).sort();
+  const invoiceIds = useMemo(() => invoices.map(i => i.id).sort(), [invoices]);
   const { data: invoiceLineItems = [] } = useQuery({
     queryKey: ['invoice_line_items', customerId, invoiceIds],
     queryFn: () => client.entities.InvoiceLineItem.filterIn(

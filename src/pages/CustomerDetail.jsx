@@ -211,7 +211,7 @@ export default function CustomerDetail() {
     enabled: !!customerId, ...qOpts
   });
 
-  const recurringBillIds = recurringBills.map(b => b.id).sort();
+  const recurringBillIds = useMemo(() => recurringBills.map(b => b.id).sort(), [recurringBills]);
   const { data: lineItems = [] } = useQuery({
     queryKey: ['line_items', customerId, recurringBillIds],
     queryFn: () => client.entities.RecurringBillLineItem.filterIn(
@@ -267,7 +267,7 @@ export default function CustomerDetail() {
     enabled: !!customerId, ...qOpts
   });
 
-  const quoteIds = quotes.map(q => q.id).sort();
+  const quoteIds = useMemo(() => quotes.map(q => q.id).sort(), [quotes]);
   const { data: quoteItems = [] } = useQuery({
     queryKey: ['quote_items', customerId, quoteIds],
     queryFn: () => client.entities.QuoteItem.filterIn(
@@ -276,7 +276,7 @@ export default function CustomerDetail() {
     enabled: !!customerId && quotes.length > 0, ...qOpts
   });
 
-  const invoiceIds = invoices.map(i => i.id).sort();
+  const invoiceIds = useMemo(() => invoices.map(i => i.id).sort(), [invoices]);
   const { data: invoiceLineItems = [] } = useQuery({
     queryKey: ['invoice_line_items', customerId, invoiceIds],
     queryFn: () => client.entities.InvoiceLineItem.filterIn(
@@ -285,7 +285,7 @@ export default function CustomerDetail() {
     enabled: !!customerId && invoices.length > 0, ...qOpts
   });
 
-  const contractIds = contracts.map(c => c.id).sort();
+  const contractIds = useMemo(() => contracts.map(c => c.id).sort(), [contracts]);
   const { data: contractItems = [] } = useQuery({
     queryKey: ['contract_items', customerId, contractIds],
     queryFn: () => client.entities.ContractItem.filterIn(
