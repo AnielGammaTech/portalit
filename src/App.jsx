@@ -22,6 +22,27 @@ import {
 
 const { Pages: AllPages, Layout, mainPage } = pagesConfig;
 
+// Pages accessible to customer portal users only — no admin role required
+const CUSTOMER_ONLY_PAGES = CUSTOMER_ALLOWED_PAGES;
+
+/**
+ * H-1: Route-level role enforcement.
+ * Wraps admin/internal routes to ensure only admin or sales users can access them.
+ * Customer portal users (role !== 'admin' && role !== 'sales') are redirected to
+ * the customer portal URL or the AwaitingAccess page.
+ */
+const RequireAdmin = ({ children }) => {
+  const { user } = useAuth();
+  const isStaff = user?.role === 'admin' || user?.role === 'sales';
+
+  if (!isStaff) {
+    const redirectTarget = CUSTOMER_PORTAL_URL || '/AwaitingAccess';
+    return <Navigate to={redirectTarget} replace />;
+  }
+
+  return children;
+};
+
 // In customer portal mode, only register allowed pages
 const Pages = isCustomerPortal
   ? Object.fromEntries(
@@ -72,21 +93,32 @@ const AuthenticatedApp = () => {
   return (
     <Routes>
       <Route path="/" element={
-        <LayoutWrapper currentPageName={mainPageKey}>
-          <MainPage />
-        </LayoutWrapper>
+        // H-1: Wrap the main page with admin enforcement if it is an admin-only page
+        CUSTOMER_ONLY_PAGES.has(mainPageKey)
+          ? <LayoutWrapper currentPageName={mainPageKey}><MainPage /></LayoutWrapper>
+          : <RequireAdmin><LayoutWrapper currentPageName={mainPageKey}><MainPage /></LayoutWrapper></RequireAdmin>
       } />
-      {Object.entries(Pages).map(([path, Page]) => (
-        <Route
-          key={path}
-          path={`/${path}`}
-          element={
-            <LayoutWrapper currentPageName={path}>
-              <Page />
-            </LayoutWrapper>
-          }
-        />
-      ))}
+      {Object.entries(Pages).map(([path, Page]) => {
+        // H-1: Wrap admin/internal pages with role enforcement.
+        // Pages in CUSTOMER_ONLY_PAGES (CustomerDetail, CustomerSettings, AwaitingAccess)
+        // are accessible without admin role; all others require admin or sales.
+        const pageElement = (
+          <LayoutWrapper currentPageName={path}>
+            <Page />
+          </LayoutWrapper>
+        );
+        const wrappedElement = CUSTOMER_ONLY_PAGES.has(path)
+          ? pageElement
+          : <RequireAdmin>{pageElement}</RequireAdmin>;
+
+        return (
+          <Route
+            key={path}
+            path={`/${path}`}
+            element={wrappedElement}
+          />
+        );
+      })}
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );

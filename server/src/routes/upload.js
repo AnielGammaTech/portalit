@@ -1,12 +1,22 @@
 import { Router } from 'express';
 import multer from 'multer';
+import rateLimit from 'express-rate-limit';
 import { requireAuth } from '../middleware/auth.js';
 import { getServiceSupabase } from '../lib/supabase.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
-router.post('/', requireAuth, upload.single('file'), async (req, res, next) => {
+// M-6: Rate limit uploads — 10 per minute per IP to prevent abuse
+const uploadRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many uploads. Please wait before trying again.' },
+});
+
+router.post('/', uploadRateLimit, requireAuth, upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file provided' });
@@ -41,6 +51,43 @@ router.post('/', requireAuth, upload.single('file'), async (req, res, next) => {
       .getPublicUrl(fileName);
 
     res.json({ file_url: publicUrl });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// H-10: Authenticated download endpoint — verifies the requesting user is an admin
+// before issuing a short-lived signed URL for the requested file.
+// Usage: GET /api/upload/download?file=<filename>
+router.get('/download', requireAuth, async (req, res, next) => {
+  try {
+    const { file } = req.query;
+
+    if (!file || typeof file !== 'string') {
+      return res.status(400).json({ error: 'file query parameter is required' });
+    }
+
+    // Only admins can download files from the uploads bucket
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden: Admin access required to download files' });
+    }
+
+    // Prevent path traversal
+    const safeFile = file.replace(/[\/\\]/g, '').replace(/\.\./g, '').slice(0, 300);
+    if (!safeFile) {
+      return res.status(400).json({ error: 'Invalid file name' });
+    }
+
+    const supabase = getServiceSupabase();
+    const { data, error } = await supabase.storage
+      .from('uploads')
+      .createSignedUrl(safeFile, 300); // 5-minute expiry
+
+    if (error) {
+      return res.status(404).json({ error: 'File not found or access denied' });
+    }
+
+    res.json({ signed_url: data.signedUrl });
   } catch (error) {
     next(error);
   }
