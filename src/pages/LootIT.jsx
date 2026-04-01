@@ -46,9 +46,9 @@ export default function LootIT() {
   const view = settingsParam ? 'settings' : customerId ? 'customer' : 'dashboard';
   const customerReady = view === 'customer' && selectedCustomer && selectedCustomer.id === customerId;
 
-  const handleSelectCustomer = (customer) => {
+  const handleSelectCustomer = (customer, tab = 'reconciliation') => {
     setSelectedCustomer(customer);
-    navigate(`/LootIT?customer=${customer.id}&tab=reconciliation`);
+    navigate(`/LootIT?customer=${customer.id}&tab=${tab}`);
   };
 
   const handleTabChange = (tab) => {

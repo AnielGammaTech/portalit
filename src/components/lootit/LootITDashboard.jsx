@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, AlertTriangle, CheckCircle2, TrendingDown, TrendingUp, Database, Bell } from 'lucide-react';
+import { Search, AlertTriangle, CheckCircle2, TrendingDown, TrendingUp, Database, Bell, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useReconciliationData } from '@/hooks/useReconciliationData';
 import { getDiscrepancySummary } from '@/lib/lootit-reconciliation';
@@ -116,35 +116,56 @@ export default function LootITDashboard({ onSelectCustomer }) {
             <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">{anomalies.length}</span>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-2">
-            {anomalies.slice(0, 8).map((a) => (
-              <button
-                key={a.customerId}
-                onClick={() => a.customer && onSelectCustomer(a.customer)}
-                className={cn(
-                  'text-left rounded-lg border p-3 hover:shadow-md transition-all cursor-pointer',
-                  a.direction === 'decrease' ? 'bg-red-50/60 border-red-200' : 'bg-amber-50/60 border-amber-200'
-                )}
-              >
-                <p className="text-xs font-semibold text-slate-900 truncate mb-1.5">{a.customerName}</p>
-                <div className="flex items-center gap-2 mb-1">
-                  {a.direction === 'decrease' ? (
-                    <TrendingDown className="w-4 h-4 text-red-500" />
-                  ) : (
-                    <TrendingUp className="w-4 h-4 text-amber-500" />
+            {anomalies.slice(0, 8).map((a) => {
+              const diff = a.latestAmount - a.avgAmount;
+              return (
+                <button
+                  key={a.customerId}
+                  onClick={() => a.customer && onSelectCustomer(a.customer, 'recurring')}
+                  className={cn(
+                    'text-left rounded-lg border p-3 hover:shadow-md transition-all cursor-pointer group',
+                    a.direction === 'decrease' ? 'bg-red-50/60 border-red-200' : 'bg-amber-50/60 border-amber-200'
                   )}
-                  <span className={cn(
-                    'text-lg font-bold tabular-nums',
-                    a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600'
-                  )}>
-                    {a.pctChange > 0 ? '+' : ''}{a.pctChange.toFixed(0)}%
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-[10px] text-slate-400">
-                  <span>Avg: ${Math.round(a.avgAmount).toLocaleString()}</span>
-                  <span>Now: ${Math.round(a.latestAmount).toLocaleString()}</span>
-                </div>
-              </button>
-            ))}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <p className="text-xs font-semibold text-slate-900 truncate flex-1">{a.customerName}</p>
+                    <DollarSign className={cn('w-3.5 h-3.5 shrink-0', a.direction === 'decrease' ? 'text-red-400' : 'text-amber-400')} />
+                  </div>
+                  <div className="flex items-baseline gap-2 mb-2">
+                    {a.direction === 'decrease' ? (
+                      <TrendingDown className="w-4 h-4 text-red-500 shrink-0" />
+                    ) : (
+                      <TrendingUp className="w-4 h-4 text-amber-500 shrink-0" />
+                    )}
+                    <span className={cn(
+                      'text-lg font-bold tabular-nums',
+                      a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600'
+                    )}>
+                      {a.pctChange > 0 ? '+' : ''}{a.pctChange.toFixed(0)}%
+                    </span>
+                    <span className={cn(
+                      'text-xs font-semibold tabular-nums',
+                      a.direction === 'decrease' ? 'text-red-500' : 'text-amber-500'
+                    )}>
+                      {diff > 0 ? '+' : ''}{diff < 0 ? '-' : ''}${Math.abs(Math.round(diff)).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-[10px]">
+                    <div>
+                      <p className="text-slate-400">Previous avg</p>
+                      <p className="font-semibold text-slate-600 tabular-nums">${Math.round(a.avgAmount).toLocaleString()}/mo</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-slate-400">Current</p>
+                      <p className={cn('font-semibold tabular-nums', a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600')}>
+                        ${Math.round(a.latestAmount).toLocaleString()}/mo
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-[9px] text-slate-300 mt-2 group-hover:text-slate-400 transition-colors">Click to review invoices</p>
+                </button>
+              );
+            })}
           </div>
           {anomalies.length > 8 && (
             <p className="text-[10px] text-slate-400 text-center">+{anomalies.length - 8} more anomalies</p>
