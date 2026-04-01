@@ -59,14 +59,14 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
     for (const inv of customerInvoices) {
       const amount = parseFloat(inv.total || inv.amount) || 0;
       if (amount <= 0) continue;
-      // Only paid recurring invoices (skip overdue/pending duplicates, ticket charges, projects)
-      if (inv.status !== 'paid') continue;
+      // Only recurring invoices (skip ticket charges, projects)
       const invName = (inv.notes || inv.invoice_number || '').toLowerCase();
       const isRecurring = invName.includes('recurring') || invName.includes('monthly') ||
         invName.includes('gtvoice') || invName.includes('voice') ||
         (inv.source === 'halopsa' && !invName.includes('ticket') && !invName.includes('project') && !invName.includes('ad-hoc'));
       if (!isRecurring) continue;
-      const date = new Date(inv.invoice_date || inv.created_date || 0);
+      // Group by due_date month (billing period, regardless of payment status)
+      const date = new Date(inv.due_date || inv.invoice_date || inv.created_date || 0);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       if (!byMonth[monthKey]) byMonth[monthKey] = { amount: 0, date };
       byMonth[monthKey].amount += amount;

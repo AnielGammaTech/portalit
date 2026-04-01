@@ -60,8 +60,7 @@ export default function LootITDashboard({ onSelectCustomer }) {
       const amount = parseFloat(inv.total || inv.amount) || 0;
       if (amount <= 0) continue;
 
-      // Filter: only PAID recurring invoices (skip overdue/pending duplicates, ticket charges, projects)
-      if (inv.status !== 'paid') continue;
+      // Filter: only recurring invoices (skip ticket charges, projects)
       const invName = (inv.notes || inv.invoice_number || '').toLowerCase();
       const isRecurring = invName.includes('recurring') || invName.includes('monthly') ||
         invName.includes('gtvoice') || invName.includes('voice') ||
@@ -69,7 +68,8 @@ export default function LootITDashboard({ onSelectCustomer }) {
         (inv.source === 'halopsa' && !invName.includes('ticket') && !invName.includes('project') && !invName.includes('ad-hoc'));
       if (!isRecurring) continue;
 
-      const date = new Date(inv.invoice_date || inv.created_date || 0);
+      // Group by due_date month (tells which billing period, regardless of payment status)
+      const date = new Date(inv.due_date || inv.invoice_date || inv.created_date || 0);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       if (!monthlyByCustomer[inv.customer_id]) monthlyByCustomer[inv.customer_id] = {};
       if (!monthlyByCustomer[inv.customer_id][monthKey]) monthlyByCustomer[inv.customer_id][monthKey] = { amount: 0, date };
