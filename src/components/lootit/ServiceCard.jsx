@@ -81,6 +81,9 @@ export default function ServiceCard({
     setShowNotes(true);
   };
 
+  const effectiveStatusFinal = hasExclusions ? effectiveStatus : status;
+  const message = getDiscrepancyMessage(reconciliation);
+
   return (
     <div
       className={cn(
@@ -90,36 +93,20 @@ export default function ServiceCard({
       style={isReviewed ? { backgroundImage: 'linear-gradient(135deg, #fffbeb 0%, #fef9c3 50%, #fef3c7 100%)' } : undefined}
       onClick={() => onDetails?.(reconciliation)}
     >
-      {/* Status color bar */}
+      {/* SLOT 1: Status bar (fixed 4px) */}
       <div className={cn('h-1', styles.bar)} />
 
       <div className="px-3 py-2 flex-1 flex flex-col">
-        {/* Title row */}
-        <div className="flex items-center justify-between gap-2 mb-1">
-          <div className="flex items-center gap-1.5 min-w-0 flex-1">
-            <h4 className="font-semibold text-slate-900 text-xs truncate">{rule.label}</h4>
-            {onEditRule && (
-              <button onClick={() => onEditRule(rule)} className="text-slate-300 hover:text-slate-500 transition-colors shrink-0" title="Edit rule">
-                <Settings2 className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-          <ReconciliationBadge status={hasExclusions ? effectiveStatus : status} difference={hasExclusions ? effectiveDifference : difference} />
+        {/* SLOT 2: Title + badge (fixed height) */}
+        <div className="flex items-center justify-between gap-2 mb-0.5">
+          <h4 className="font-semibold text-slate-900 text-xs truncate flex-1 min-w-0">{rule.label}</h4>
+          <ReconciliationBadge status={effectiveStatusFinal} difference={hasExclusions ? effectiveDifference : difference} />
         </div>
 
-        {/* Integration label */}
-        <p className="text-[10px] text-slate-400 mb-1.5">{reconciliation.integrationLabel}</p>
+        {/* SLOT 3: Integration label (fixed height) */}
+        <p className="text-[10px] text-slate-400 mb-2 truncate">{reconciliation.integrationLabel}</p>
 
-        {/* Override — compact */}
-        {hasOverride && (
-          <div className="flex items-center gap-2 mb-2 px-2.5 py-1.5 bg-blue-50/80 rounded-md border border-blue-100">
-            <Link2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-            <span className="text-[11px] text-blue-600 flex-1">Mapped manually</span>
-            <button onClick={() => onRemoveMapping?.(rule.id)} className="text-[10px] font-bold text-blue-600 hover:text-blue-800">UNMAP</button>
-          </div>
-        )}
-
-        {/* Compact numbers */}
+        {/* SLOT 4: Numbers (fixed height — always present) */}
         <div className="flex items-center mb-2 gap-1">
           <div className={cn('flex-1 text-center py-1 rounded-md border', styles.numBg)}>
             <p className={cn('text-base font-bold tabular-nums leading-none', styles.numText)}>
@@ -132,159 +119,118 @@ export default function ServiceCard({
             <p className={cn('text-base font-bold tabular-nums leading-none', styles.numText)}>
               {effectiveVendorQty !== null ? effectiveVendorQty : '—'}
             </p>
-            {hasExclusions && vendorQty !== null && (
-              <p className="text-[8px] text-amber-500 line-through">{vendorQty}</p>
-            )}
             <p className={cn('text-[8px] uppercase tracking-widest font-semibold mt-0.5', styles.labelText)}>VENDOR</p>
           </div>
         </div>
 
-        {/* Matched checkmark — show when effective status is match */}
-        {(hasExclusions ? effectiveStatus : status) === 'match' && !isReviewed && (
-          <div className="flex items-center justify-center gap-1.5 mb-2 text-emerald-600">
-            <Check className="w-3.5 h-3.5" />
-            <span className="text-[11px] font-semibold">
-              {hasExclusions ? 'Counts match (after exclusions)' : getDiscrepancyMessage(reconciliation)}
-            </span>
-          </div>
-        )}
+        {/* SLOT 5: Status message (fixed height — always 1 line) */}
+        <p className={cn(
+          'text-[11px] text-center truncate mb-2 h-4',
+          effectiveStatusFinal === 'match' && !isReviewed ? 'text-emerald-600 font-semibold' :
+          effectiveStatusFinal === 'under' ? 'text-red-600 font-semibold' :
+          effectiveStatusFinal === 'over' ? 'text-amber-600 font-semibold' :
+          'text-slate-400'
+        )}>
+          {isReviewed && <span className="text-slate-400 mr-1">[{review?.status === 'reviewed' ? 'OK' : 'Skip'}]</span>}
+          {effectiveStatusFinal === 'match' && !isReviewed ? `Matched — ${psaQty} licences` : message}
+        </p>
 
-        {/* Message for non-match */}
-        {(hasExclusions ? effectiveStatus : status) !== 'match' && (
-          <p className={cn(
-            'text-[11px] mb-2 text-center',
-            'text-slate-500',
-            (hasExclusions ? effectiveStatus : status) === 'under' && 'text-red-600 font-semibold',
-            (hasExclusions ? effectiveStatus : status) === 'over' && 'text-amber-600 font-semibold'
-          )}>
-            {isReviewed && <span className="text-slate-400 mr-1">[{review.status === 'reviewed' ? 'Reviewed' : 'Dismissed'}]</span>}
-            {getDiscrepancyMessage(reconciliation)}
-          </p>
-        )}
+        {/* SLOT 6: Info strip (fixed height — shows override OR note OR exclusion, max 1 line) */}
+        <div className="h-6 mb-2">
+          {hasOverride ? (
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 rounded border border-blue-100 h-full">
+              <Link2 className="w-3 h-3 text-blue-500 shrink-0" />
+              <span className="text-[10px] text-blue-600 flex-1 truncate">Mapped manually</span>
+            </div>
+          ) : hasExclusions ? (
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-50 rounded border border-amber-100 h-full">
+              <ShieldCheck className="w-3 h-3 text-amber-500 shrink-0" />
+              <span className="text-[10px] text-amber-700 truncate">{review.exclusion_count} {review.exclusion_reason || 'excluded'}</span>
+            </div>
+          ) : hasNotes && !showNotes ? (
+            <button onClick={(e) => { e.stopPropagation(); setShowNotes(true); }} className="flex items-center gap-1.5 px-2 py-1 bg-amber-50 rounded border border-amber-100 h-full w-full text-left hover:bg-amber-100 transition-colors">
+              <StickyNote className="w-3 h-3 text-amber-500 shrink-0" />
+              <span className="text-[10px] text-amber-700 truncate">{review.notes}</span>
+            </button>
+          ) : null}
+        </div>
 
-        {/* Notes editing -- only shown when user clicks the note icon */}
+        {/* Notes editor (overlay — only when open) */}
         {showNotes && (
           <div className="mb-2" onClick={(e) => e.stopPropagation()}>
             <div className="space-y-2">
               {pendingAction && (
-                <p className="text-xs font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded-md border border-amber-200">
-                  Please add a note explaining why this is being {pendingAction === 'review' ? 'marked OK' : 'skipped'}
+                <p className="text-[10px] font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded border border-amber-200">
+                  Add a note for {pendingAction === 'review' ? 'OK' : 'Skip'}
                 </p>
               )}
               <textarea
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
-                placeholder={pendingAction ? 'Required: explain the discrepancy\u2026' : 'Add a note\u2026'}
+                placeholder="Add a note..."
                 rows={2}
-                className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none bg-white"
+                className="w-full text-[11px] border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none bg-white"
                 autoFocus
               />
               <div className="flex gap-1.5">
-                <button
-                  onClick={handleSaveNote}
-                  disabled={savingNote || (pendingAction && !noteText.trim())}
-                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 transition-colors"
-                >
-                  {savingNote ? 'Saving\u2026' : pendingAction ? `Save & ${pendingAction === 'review' ? 'OK' : 'Skip'}` : 'Save'}
+                <button onClick={handleSaveNote} disabled={savingNote || (pendingAction && !noteText.trim())}
+                  className="px-2 py-1 text-[10px] font-semibold rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50">
+                  {savingNote ? 'Saving...' : pendingAction ? `Save & ${pendingAction === 'review' ? 'OK' : 'Skip'}` : 'Save'}
                 </button>
-                <button
-                  onClick={() => { setShowNotes(false); setNoteText(review?.notes || ''); setPendingAction(null); }}
-                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
-                >
-                  Cancel
-                </button>
+                <button onClick={() => { setShowNotes(false); setNoteText(review?.notes || ''); setPendingAction(null); }}
+                  className="px-2 py-1 text-[10px] font-semibold rounded bg-slate-100 text-slate-500 hover:bg-slate-200">Cancel</button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Exclusion badge */}
-        {hasExclusions && (
-          <div className="flex items-center gap-2 mb-2 px-2.5 py-1.5 bg-amber-50 rounded-md border border-amber-200">
-            <ShieldCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-            <span className="text-[11px] font-medium text-amber-700 flex-1">
-              {review.exclusion_count} {review.exclusion_reason || 'excluded'} — not counted
-            </span>
-          </div>
-        )}
-
-        {/* Note preview strip */}
-        {hasNotes && !showNotes && (
-          <button onClick={(e) => { e.stopPropagation(); setShowNotes(true); }} className="w-full text-left mb-2 flex items-center gap-1.5 px-2 py-1 bg-amber-50 rounded-md border border-amber-100 hover:bg-amber-100 transition-colors">
-            <StickyNote className="w-3 h-3 text-amber-500 shrink-0" />
-            <span className="text-[10px] text-amber-700 truncate">{review.notes}</span>
-          </button>
-        )}
-
-        {/* Action bar */}
-        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events */}
+        {/* SLOT 7: Action bar (pinned to bottom) */}
         <div onClick={(e) => e.stopPropagation()} className={cn(
           'flex items-center gap-1.5 pt-1.5 border-t mt-auto',
-          status === 'match' ? 'border-emerald-100' : status === 'over' ? 'border-amber-100' : status === 'under' ? 'border-red-100' : 'border-slate-100'
+          'border-slate-100'
         )}>
           <TooltipProvider delayDuration={300}>
-            {!isReviewed && status !== 'match' && status !== 'no_data' && (
+            {!isReviewed && status !== 'match' && status !== 'no_data' && status !== 'unmatched_line_item' && (
               <>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => handleActionWithNote('review')}
-                      disabled={isSaving}
-                      className="p-1.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm transition-colors disabled:opacity-50"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>OK</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => handleActionWithNote('dismiss')}
-                      disabled={isSaving}
-                      className="p-1.5 rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors disabled:opacity-50"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>Skip</TooltipContent>
-                </Tooltip>
+                <Tooltip><TooltipTrigger asChild>
+                  <button onClick={() => handleActionWithNote('review')} disabled={isSaving}
+                    className="p-1.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm transition-colors disabled:opacity-50">
+                    <Check className="w-3.5 h-3.5" />
+                  </button>
+                </TooltipTrigger><TooltipContent>OK</TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild>
+                  <button onClick={() => handleActionWithNote('dismiss')} disabled={isSaving}
+                    className="p-1.5 rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors disabled:opacity-50">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </TooltipTrigger><TooltipContent>Skip</TooltipContent></Tooltip>
               </>
             )}
             {isReviewed && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button onClick={() => onReset?.(rule.id)} disabled={isSaving}
-                    className="p-1.5 rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200 transition-colors disabled:opacity-50">
-                    <RotateCcw className="w-3.5 h-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Undo</TooltipContent>
-              </Tooltip>
+              <Tooltip><TooltipTrigger asChild>
+                <button onClick={() => onReset?.(rule.id)} disabled={isSaving}
+                  className="p-1.5 rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200 transition-colors disabled:opacity-50">
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+              </TooltipTrigger><TooltipContent>Undo</TooltipContent></Tooltip>
             )}
             {!showNotes && !pendingAction && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button onClick={() => setShowNotes(true)} className={cn('p-1.5 rounded-lg transition-colors', hasNotes ? 'text-amber-500 hover:bg-amber-50' : 'text-slate-300 hover:bg-slate-50')}>
-                    <StickyNote className="w-3.5 h-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Note</TooltipContent>
-              </Tooltip>
+              <Tooltip><TooltipTrigger asChild>
+                <button onClick={() => setShowNotes(true)} className={cn('p-1.5 rounded-lg transition-colors', hasNotes ? 'text-amber-500 hover:bg-amber-50' : 'text-slate-300 hover:bg-slate-50')}>
+                  <StickyNote className="w-3.5 h-3.5" />
+                </button>
+              </TooltipTrigger><TooltipContent>Note</TooltipContent></Tooltip>
             )}
             {onMapLineItem && !hasOverride && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button onClick={() => onMapLineItem?.(rule.id, rule.label)}
-                    className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors">
-                    <Link2 className="w-3.5 h-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Map</TooltipContent>
-              </Tooltip>
+              <Tooltip><TooltipTrigger asChild>
+                <button onClick={() => onMapLineItem?.(rule.id, rule.label)}
+                  className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors">
+                  <Link2 className="w-3.5 h-3.5" />
+                </button>
+              </TooltipTrigger><TooltipContent>Map</TooltipContent></Tooltip>
             )}
           </TooltipProvider>
-          <span className="ml-auto inline-flex items-center gap-1 text-xs text-slate-300">
+          <span className="ml-auto inline-flex items-center text-xs text-slate-300">
             <ChevronRight className="w-3.5 h-3.5" />
           </span>
         </div>
