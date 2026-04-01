@@ -61,6 +61,13 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
     [customerAnomalies]
   );
 
+  // Invoices for this customer (with AI category + confidence from classifier)
+  const { data: customerInvoices = [] } = useQuery({
+    queryKey: ['lootit_invoices_customer', customer.id],
+    queryFn: () => client.entities.Invoice.filter({ customer_id: customer.id }),
+    staleTime: 1000 * 60 * 2,
+  });
+
   // Build monthly history per category from invoices for anomaly visualization
   const anomalyHistory = useMemo(() => {
     if (!customerInvoices || customerInvoices.length === 0) return {};
@@ -88,13 +95,6 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
     }
     return result;
   }, [customerInvoices]);
-
-  // Invoices for this customer (with AI category + confidence from classifier)
-  const { data: customerInvoices = [] } = useQuery({
-    queryKey: ['lootit_invoices_customer', customer.id],
-    queryFn: () => client.entities.Invoice.filter({ customer_id: customer.id }),
-    staleTime: 1000 * 60 * 2,
-  });
 
   const [acknowledgeId, setAcknowledgeId] = useState(null);
   const [acknowledgeNotes, setAcknowledgeNotes] = useState('');
