@@ -248,7 +248,7 @@ function UserDetailDrawer({ user, onClose }) {
                 <Mail className="w-3.5 h-3.5" /> Email Aliases
               </h5>
               <div className="space-y-1">
-                {(Array.isArray(cd.aliases) ? cd.aliases : cd.aliases.split(',')).map((alias, i) => (
+                {(Array.isArray(cd.aliases) ? cd.aliases : (cd.aliases || '').split(',').filter(Boolean)).map((alias, i) => (
                   <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg text-xs text-slate-600">
                     <Mail className="w-3 h-3 text-slate-400" />
                     {alias.trim()}
