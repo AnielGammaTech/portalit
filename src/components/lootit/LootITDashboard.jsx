@@ -49,16 +49,28 @@ export default function LootITDashboard({ onSelectCustomer }) {
   const anomalies = useMemo(() => {
     if (!invoices || invoices.length === 0) return [];
 
-    // Group invoices by customer — compare total monthly spend over time
-    // Each invoice_date month gets one total per customer
+    // Build set of recurring bill halopsa_ids to filter recurring-only invoices
+    const recurringBillIds = new Set((bills || []).map(b => b.halopsa_id).filter(Boolean));
+
+    // Group RECURRING invoices by customer — compare total monthly spend over time
+    // Filter: only invoices whose notes/source match "recurring" or whose ID links to a recurring bill
     const monthlyByCustomer = {};
     for (const inv of invoices) {
       if (!inv.customer_id) continue;
       const amount = parseFloat(inv.total || inv.amount) || 0;
       if (amount <= 0) continue;
+
+      // Filter: only PAID recurring invoices (skip overdue/pending duplicates, ticket charges, projects)
+      if (inv.status !== 'paid') continue;
+      const invName = (inv.notes || inv.invoice_number || '').toLowerCase();
+      const isRecurring = invName.includes('recurring') || invName.includes('monthly') ||
+        invName.includes('gtvoice') || invName.includes('voice') ||
+        recurringBillIds.has(inv.halopsa_id) ||
+        (inv.source === 'halopsa' && !invName.includes('ticket') && !invName.includes('project') && !invName.includes('ad-hoc'));
+      if (!isRecurring) continue;
+
       const date = new Date(inv.invoice_date || inv.created_date || 0);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      const key = `${inv.customer_id}::${monthKey}`;
       if (!monthlyByCustomer[inv.customer_id]) monthlyByCustomer[inv.customer_id] = {};
       if (!monthlyByCustomer[inv.customer_id][monthKey]) monthlyByCustomer[inv.customer_id][monthKey] = { amount: 0, date };
       monthlyByCustomer[inv.customer_id][monthKey].amount += amount;
