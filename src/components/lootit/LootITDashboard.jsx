@@ -294,9 +294,8 @@ export default function LootITDashboard({ onSelectCustomer }) {
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {customerList.map(({ customer, combinedSummary: s }) => {
-            const active = s.total - s.noData;
-            const resolved = s.matched + s.reviewed;
-            const pct = active > 0 ? Math.round((resolved / active) * 100) : 0;
+            const active = s.total - s.noData - (s.noPsa || 0);
+            const pct = active > 0 ? Math.min(100, Math.round((s.matched / active) * 100)) : 0;
             const issues = s.over + s.under;
             const noPsa = s.noPsa || 0;
             const isFullyReconciled = active > 0 && issues === 0 && noPsa === 0;
@@ -358,25 +357,19 @@ export default function LootITDashboard({ onSelectCustomer }) {
                 </div>
 
                 {/* Stats */}
-                <div className="flex items-center gap-1.5 text-[10px] text-slate-400 flex-wrap mt-auto">
-                  <span className="text-emerald-500 font-medium">{s.matched} ok</span>
-                  {noPsa > 0 && (
-                    <>
-                      <span className="text-slate-300">·</span>
-                      <span className="text-amber-600 font-medium">{noPsa} no PSA</span>
-                    </>
-                  )}
+                <div className="flex items-center gap-2 text-[10px] text-slate-400 flex-wrap mt-auto">
+                  <span className="inline-flex items-center gap-0.5 text-emerald-500 font-medium">
+                    <Check className="w-3 h-3" />{s.matched}
+                  </span>
                   {issues > 0 && (
-                    <>
-                      <span className="text-slate-300">·</span>
-                      <span className="text-red-500 font-medium">{issues} issue{issues !== 1 ? 's' : ''}</span>
-                    </>
+                    <span className="inline-flex items-center gap-0.5 text-red-500 font-medium">
+                      <AlertTriangle className="w-3 h-3" />{issues}
+                    </span>
                   )}
                   {s.reviewed > 0 && (
-                    <>
-                      <span className="text-slate-300">·</span>
-                      <span className="text-blue-500">{s.reviewed} reviewed</span>
-                    </>
+                    <span className="inline-flex items-center gap-0.5 text-blue-500 font-medium">
+                      <CheckCircle2 className="w-3 h-3" />{s.reviewed}
+                    </span>
                   )}
                 </div>
               </button>

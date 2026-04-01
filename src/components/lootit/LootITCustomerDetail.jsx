@@ -697,43 +697,33 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
               isExtracting={!!extractingId}
             />
           ) : (
-            /* Drag & Drop Upload Zone */
+            /* Compact Upload Zone */
             <div
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
               className={cn(
-                'relative cursor-pointer rounded-2xl border-2 border-dashed transition-all duration-300 group',
+                'relative cursor-pointer rounded-xl border-2 border-dashed transition-all group',
                 isDragging
-                  ? 'border-pink-400 bg-pink-50/80 scale-[1.01]'
+                  ? 'border-pink-400 bg-pink-50/80'
                   : 'border-slate-200 bg-white hover:border-pink-300 hover:bg-pink-50/30'
               )}
             >
-              <div className="flex flex-col items-center justify-center py-8 px-6">
+              <div className="flex items-center gap-3 py-3 px-4">
                 <div className={cn(
-                  'w-14 h-14 rounded-2xl flex items-center justify-center mb-4 transition-all duration-300',
-                  isDragging
-                    ? 'bg-pink-500 shadow-lg shadow-pink-200'
-                    : 'bg-gradient-to-br from-pink-100 to-rose-100 group-hover:from-pink-200 group-hover:to-rose-200'
+                  'w-9 h-9 rounded-lg flex items-center justify-center shrink-0',
+                  isDragging ? 'bg-pink-500' : 'bg-pink-50 group-hover:bg-pink-100'
                 )}>
-                  <CloudUpload className={cn(
-                    'w-7 h-7 transition-all duration-300',
-                    isDragging ? 'text-white scale-110' : 'text-pink-500'
-                  )} />
+                  <CloudUpload className={cn('w-4 h-4', isDragging ? 'text-white' : 'text-pink-500')} />
                 </div>
-                <p className="text-sm font-semibold text-slate-700 mb-1">
-                  {isDragging ? 'Drop your contract here' : 'Upload MSSP Contract'}
-                </p>
-                <p className="text-xs text-slate-400 text-center max-w-xs">
-                  Drag & drop a PDF or <span className="text-pink-500 font-medium">browse files</span> — we'll automatically extract pricing and line items
-                </p>
-                <div className="flex items-center gap-3 mt-4">
-                  {['PDF', 'DOC', 'XLSX'].map((ext) => (
-                    <span key={ext} className="text-[10px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
-                      .{ext}
-                    </span>
-                  ))}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-700">
+                    {isDragging ? 'Drop here' : contracts.length > 0 ? 'Upload Revised Contract' : 'Upload MSSP Contract'}
+                  </p>
+                  <p className="text-[10px] text-slate-400">
+                    PDF, DOC, XLSX — <span className="text-pink-500 font-medium">browse</span> or drag & drop
+                  </p>
                 </div>
               </div>
             </div>
