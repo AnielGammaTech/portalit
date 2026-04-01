@@ -49,25 +49,35 @@ export default function LootITDashboard({ onSelectCustomer }) {
   const anomalies = useMemo(() => {
     if (!invoices || invoices.length === 0) return [];
 
-    // Group invoices by customer + name pattern (strip date/number suffixes)
-    const invoiceGroups = {};
+    // Group invoices by customer — compare total monthly spend over time
+    // Each invoice_date month gets one total per customer
+    const monthlyByCustomer = {};
     for (const inv of invoices) {
-      if (!inv.customer_id || !inv.amount) continue;
-      // Extract the invoice type by removing date patterns and numbers
-      const rawName = (inv.notes || inv.invoice_number || 'Invoice').replace(/\s*#?\d+\s*$/, '').replace(/\s*\d{1,2}\/\d{1,2}\/\d{2,4}\s*/g, '').trim() || 'Invoice';
-      const key = `${inv.customer_id}::${rawName}`;
-      if (!invoiceGroups[key]) invoiceGroups[key] = { customerId: inv.customer_id, billName: rawName, invoices: [] };
-      invoiceGroups[key].invoices.push({
-        amount: parseFloat(inv.total || inv.amount) || 0,
-        date: new Date(inv.invoice_date || inv.created_date || 0),
-      });
+      if (!inv.customer_id) continue;
+      const amount = parseFloat(inv.total || inv.amount) || 0;
+      if (amount <= 0) continue;
+      const date = new Date(inv.invoice_date || inv.created_date || 0);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const key = `${inv.customer_id}::${monthKey}`;
+      if (!monthlyByCustomer[inv.customer_id]) monthlyByCustomer[inv.customer_id] = {};
+      if (!monthlyByCustomer[inv.customer_id][monthKey]) monthlyByCustomer[inv.customer_id][monthKey] = { amount: 0, date };
+      monthlyByCustomer[inv.customer_id][monthKey].amount += amount;
+    }
+
+    // Convert to sorted arrays per customer
+    const invoiceGroups = {};
+    for (const [custId, months] of Object.entries(monthlyByCustomer)) {
+      const sorted = Object.values(months).sort((a, b) => b.date - a.date);
+      if (sorted.length >= 2) {
+        invoiceGroups[custId] = { customerId: custId, billName: 'Total Monthly', invoices: sorted };
+      }
     }
 
     const results = [];
     const customerMap = Object.fromEntries((customers || []).map(c => [c.id, c]));
 
     for (const group of Object.values(invoiceGroups)) {
-      const sorted = group.invoices.sort((a, b) => b.date - a.date);
+      const sorted = group.invoices;
       if (sorted.length < 2) continue;
 
       const latest = sorted[0];

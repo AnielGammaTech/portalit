@@ -54,35 +54,33 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
 
   const liveAnomalies = useMemo(() => {
     if (customerInvoices.length < 2) return [];
-    // Group by invoice name pattern (strip date/number suffixes)
-    const byPattern = {};
+    // Sum invoices by month to get total monthly spend
+    const byMonth = {};
     for (const inv of customerInvoices) {
-      if (!inv.amount) continue;
-      const rawName = (inv.notes || inv.invoice_number || 'Invoice').replace(/\s*#?\d+\s*$/, '').replace(/\s*\d{1,2}\/\d{1,2}\/\d{2,4}\s*/g, '').trim() || 'Invoice';
-      if (!byPattern[rawName]) byPattern[rawName] = [];
-      byPattern[rawName].push({ amount: parseFloat(inv.total || inv.amount) || 0, date: new Date(inv.invoice_date || inv.created_date || 0) });
+      const amount = parseFloat(inv.total || inv.amount) || 0;
+      if (amount <= 0) continue;
+      const date = new Date(inv.invoice_date || inv.created_date || 0);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      if (!byMonth[monthKey]) byMonth[monthKey] = { amount: 0, date };
+      byMonth[monthKey].amount += amount;
     }
-    const results = [];
-    for (const [name, bills] of Object.entries(byPattern)) {
-      const sorted = bills.sort((a, b) => b.date - a.date);
-      if (sorted.length < 2) continue;
-      const latest = sorted[0];
-      const hist = sorted.slice(1, 7);
-      if (hist.length === 0) continue;
-      const avg = hist.reduce((s, b) => s + b.amount, 0) / hist.length;
-      if (avg === 0) continue;
-      const pct = ((latest.amount - avg) / avg) * 100;
-      if (Math.abs(pct) >= 10) {
-        results.push({
-          billName: name, latestAmount: latest.amount, avgAmount: avg, pctChange: pct,
-          direction: pct > 0 ? 'increase' : 'decrease',
-          history: sorted.slice(0, 7).map(b => ({ amount: b.amount, month: b.date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }) })),
-          dbId: customerAnomalies.find(a => a.bill_period)?.id || null,
-        });
-      }
-    }
-    return results.sort((a, b) => Math.abs(b.pctChange) - Math.abs(a.pctChange));
-  }, [customerBills, customerAnomalies]);
+    const bills = Object.values(byMonth).sort((a, b) => b.date - a.date);
+    if (bills.length < 2) return [];
+    const sorted = bills;
+    const latest = sorted[0];
+    const hist = sorted.slice(1, 7);
+    if (hist.length === 0) return [];
+    const avg = hist.reduce((s, b) => s + b.amount, 0) / hist.length;
+    if (avg === 0) return [];
+    const pct = ((latest.amount - avg) / avg) * 100;
+    if (Math.abs(pct) < 10) return [];
+    return [{
+      billName: 'Total Monthly', latestAmount: latest.amount, avgAmount: avg, pctChange: pct,
+      direction: pct > 0 ? 'increase' : 'decrease',
+      history: sorted.slice(0, 7).map(b => ({ amount: b.amount, month: b.date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }) })),
+      dbId: customerAnomalies.find(a => a.bill_period)?.id || null,
+    }];
+  }, [customerInvoices, customerAnomalies]);
 
   const handleDismissAnomaly = async (anomalyId) => {
     await client.entities.BillingAnomaly.update(anomalyId, { status: 'dismissed', reviewed_at: new Date().toISOString() });
