@@ -76,15 +76,20 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
       toast.error('Please add notes explaining why this change is expected');
       return;
     }
-    await client.entities.BillingAnomaly.update(anomalyId, {
-      status: 'acknowledged',
-      acknowledged_at: new Date().toISOString(),
-      acknowledgement_notes: acknowledgeNotes.trim(),
-    });
-    queryClient.invalidateQueries({ queryKey: ['billing_anomalies_customer', customer.id] });
-    setAcknowledgeId(null);
-    setAcknowledgeNotes('');
-    toast.success('Anomaly acknowledged');
+    try {
+      await client.entities.BillingAnomaly.update(anomalyId, {
+        status: 'acknowledged',
+        acknowledged_at: new Date().toISOString(),
+        acknowledgement_notes: `[${user?.full_name || user?.email || 'Unknown'} — ${new Date().toLocaleString()}] ${acknowledgeNotes.trim()}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['billing_anomalies_customer', customer.id] });
+      setAcknowledgeId(null);
+      setAcknowledgeNotes('');
+      toast.success('Anomaly acknowledged');
+    } catch (err) {
+      console.error('[Anomaly] Acknowledge failed:', err);
+      toast.error(err.message || 'Failed to acknowledge anomaly');
+    }
   };
 
   const handleDismissAnomaly = async (anomalyId) => {
