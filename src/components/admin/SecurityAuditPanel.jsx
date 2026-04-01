@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
-import { Shield, ShieldCheck, ShieldAlert, AlertTriangle, RefreshCw, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Shield, AlertTriangle, RefreshCw, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -16,29 +15,13 @@ export default function SecurityAuditPanel() {
   const [isRunning, setIsRunning] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: audit, isLoading } = useQuery({
-    queryKey: ['security-audit'],
-    queryFn: async () => {
-      const res = await fetch('/api/security/audit', {
-        headers: { 'Authorization': `Bearer ${(await client.auth.getSession()).data?.session?.access_token}` },
-      });
-      if (!res.ok) throw new Error('Failed to run audit');
-      return res.json();
-    },
-    enabled: false, // Only run on demand
-  });
+  const [audit, setAudit] = useState(null);
 
   const runAudit = async () => {
     setIsRunning(true);
     try {
-      await queryClient.fetchQuery({ queryKey: ['security-audit'], queryFn: async () => {
-        const session = await client.auth.getSession();
-        const res = await fetch('/api/security/audit', {
-          headers: { 'Authorization': `Bearer ${session.data?.session?.access_token}` },
-        });
-        if (!res.ok) throw new Error('Failed to run audit');
-        return res.json();
-      }});
+      const result = await client.functions.invoke('securityAudit', {});
+      setAudit(result);
       toast.success('Security audit complete');
     } catch (err) {
       toast.error(err.message || 'Audit failed');

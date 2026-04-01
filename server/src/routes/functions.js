@@ -36,6 +36,44 @@ import { syncVPenTest } from '../functions/syncVPenTest.js';
 import { syncCIPP } from '../functions/syncCIPP.js';
 import scanBillingAnomalies from '../functions/scanBillingAnomalies.js';
 import { verifyReconciliation } from '../functions/verifyReconciliation.js';
+import { getServiceSupabase } from '../lib/supabase.js';
+
+async function securityAudit() {
+  const supabase = getServiceSupabase();
+  const checks = [];
+
+  // 1. Overpermissive RLS policies
+  const { data: permissive } = await supabase.rpc('run_security_check_permissive_policies');
+  const permissiveCount = permissive?.[0]?.count || 0;
+  checks.push({ id: 'rls-permissive', name: 'No overpermissive RLS policies', status: permissiveCount === 0 ? 'pass' : 'fail', detail: permissiveCount === 0 ? 'Zero overpermissive policies' : `${permissiveCount} tables still vulnerable` });
+
+  // 2. RLS enabled on all tables
+  const { data: noRls } = await supabase.rpc('run_security_check_rls_enabled');
+  const noRlsCount = noRls?.[0]?.count || 0;
+  checks.push({ id: 'rls-enabled', name: 'RLS enabled on all tables', status: noRlsCount === 0 ? 'pass' : 'fail', detail: noRlsCount === 0 ? 'All tables have RLS' : `${noRlsCount} tables missing RLS` });
+
+  // 3. Billing anomaly constraint
+  const { data: constraint } = await supabase.rpc('run_security_check_anomaly_constraint');
+  const hasAck = constraint?.[0]?.has_acknowledged || false;
+  checks.push({ id: 'anomaly-constraint', name: 'Anomaly status constraint', status: hasAck ? 'pass' : 'warn', detail: hasAck ? 'Includes acknowledged' : 'Missing acknowledged status' });
+
+  // 4. Sensitive tables have policies
+  const sensitiveTables = ['settings', 'portal_settings', 'cron_job_runs', 'sync_logs', 'billing_anomalies'];
+  const { data: policies } = await supabase.rpc('run_security_check_sensitive_policies', { table_list: sensitiveTables });
+  const unprotected = (policies || []).filter(p => !p.has_policy);
+  checks.push({ id: 'sensitive-policies', name: 'Sensitive tables protected', status: unprotected.length === 0 ? 'pass' : 'fail', detail: unprotected.length === 0 ? 'All protected' : `${unprotected.map(u => u.tablename).join(', ')} unprotected` });
+
+  // 5. Upload bucket privacy
+  const { data: buckets } = await supabase.storage.listBuckets();
+  const uploadBucket = (buckets || []).find(b => b.id === 'uploads');
+  checks.push({ id: 'storage-private', name: 'Upload bucket is private', status: uploadBucket && !uploadBucket.public ? 'pass' : 'warn', detail: uploadBucket ? (uploadBucket.public ? 'Bucket is PUBLIC' : 'Bucket is private') : 'Not found' });
+
+  const passed = checks.filter(c => c.status === 'pass').length;
+  const failed = checks.filter(c => c.status === 'fail').length;
+  const warnings = checks.filter(c => c.status === 'warn').length;
+
+  return { checks, passed, failed, warnings, score: Math.round((passed / checks.length) * 100), timestamp: new Date().toISOString() };
+}
 
 const functionMap = {
   syncHaloPSACustomers,
@@ -72,6 +110,7 @@ const functionMap = {
   syncCIPP,
   scanBillingAnomalies,
   verifyReconciliation,
+  securityAudit,
 };
 
 const router = Router();
