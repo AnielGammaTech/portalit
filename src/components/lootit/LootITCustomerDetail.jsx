@@ -61,6 +61,34 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
     [customerAnomalies]
   );
 
+  // Build monthly history per category from invoices for anomaly visualization
+  const anomalyHistory = useMemo(() => {
+    if (!customerInvoices || customerInvoices.length === 0) return {};
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const byCategory = {};
+
+    for (const inv of customerInvoices) {
+      if (!inv.category || (parseFloat(inv.total) || 0) <= 0) continue;
+      if ((inv.billing_frequency || '').toLowerCase() === 'yearly') continue;
+      const date = new Date(inv.due_date || inv.invoice_date || inv.created_date || 0);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      if (monthKey === currentMonth) continue;
+      if (!byCategory[inv.category]) byCategory[inv.category] = {};
+      if (!byCategory[inv.category][monthKey]) byCategory[inv.category][monthKey] = 0;
+      byCategory[inv.category][monthKey] += parseFloat(inv.total) || 0;
+    }
+
+    const result = {};
+    for (const [cat, months] of Object.entries(byCategory)) {
+      result[cat] = Object.entries(months)
+        .map(([month, amount]) => ({ month, amount: Math.round(amount * 100) / 100 }))
+        .sort((a, b) => b.month.localeCompare(a.month))
+        .slice(0, 7);
+    }
+    return result;
+  }, [customerInvoices]);
+
   // Invoices for this customer (with AI category + confidence from classifier)
   const { data: customerInvoices = [] } = useQuery({
     queryKey: ['lootit_invoices_customer', customer.id],
@@ -593,29 +621,85 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
                 voip: 'VoIP',
               }[a.category] || a.category || 'Unknown';
 
+              const history = anomalyHistory[a.category] || [];
+              const maxAmount = history.length > 0 ? Math.max(...history.map(h => h.amount)) : 0;
+              const avgLine = parseFloat(a.previous_avg) || 0;
+              const avgPct = maxAmount > 0 ? (avgLine / maxAmount) * 100 : 0;
+
               return (
                 <div key={a.id} className={cn(
-                  'rounded-lg border p-3',
+                  'rounded-lg border p-4',
                   a.direction === 'decrease' ? 'bg-red-50/60 border-red-200' : 'bg-amber-50/60 border-amber-200'
                 )}>
-                  <div className="flex items-center justify-between mb-2">
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-slate-700">{categoryLabel}</span>
+                      <span className="text-sm font-semibold text-slate-800">{categoryLabel}</span>
                       <span className={cn(
-                        'text-xs font-bold',
+                        'text-sm font-bold',
                         a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600'
                       )}>
-                        {a.direction === 'decrease' ? '' : '+'}{a.pct_change}% (${Math.abs(a.dollar_change).toLocaleString()})
+                        {a.direction === 'decrease' ? '' : '+'}{a.pct_change}%
                       </span>
                     </div>
-                    <span className="text-[10px] text-slate-400">{a.bill_period}</span>
+                    <span className="text-xs text-slate-400">{a.bill_period}</span>
                   </div>
-                  <div className="text-[11px] text-slate-500 mb-2">
-                    Current: ${a.current_amount?.toLocaleString()} | Avg: ${a.previous_avg?.toLocaleString()}
+                  <div className="flex items-center gap-4 text-[11px] text-slate-500 mb-3">
+                    <span>Current: <strong className="text-slate-700">${a.current_amount?.toLocaleString()}</strong></span>
+                    <span>Avg: <strong className="text-slate-700">${a.previous_avg?.toLocaleString()}</strong></span>
+                    <span>Change: <strong className={a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600'}>${Math.abs(a.dollar_change).toLocaleString()}</strong></span>
                   </div>
 
+                  {/* Monthly History Timeline */}
+                  {history.length > 0 && (
+                    <div className="mb-3">
+                      <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-2">Monthly History</p>
+                      <div className="relative">
+                        {/* Average line */}
+                        {avgPct > 0 && avgPct < 100 && (
+                          <div
+                            className="absolute left-12 right-16 border-t border-dashed border-slate-300 z-10"
+                            style={{ bottom: `${Math.max(avgPct * 0.6, 2)}%` }}
+                          />
+                        )}
+                        <div className="space-y-1.5">
+                          {history.map((h, i) => {
+                            const barPct = maxAmount > 0 ? (h.amount / maxAmount) * 100 : 0;
+                            const isLatest = i === 0;
+                            const monthLabel = new Date(h.month + '-15').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                            return (
+                              <div key={h.month} className="flex items-center gap-2">
+                                <span className="text-[10px] text-slate-400 w-10 shrink-0 text-right">{monthLabel}</span>
+                                <div className="flex-1 h-4 bg-white/60 rounded-full overflow-hidden border border-slate-100">
+                                  <div
+                                    className={cn(
+                                      'h-full rounded-full transition-all',
+                                      isLatest
+                                        ? (a.direction === 'decrease' ? 'bg-red-400' : 'bg-amber-400')
+                                        : 'bg-slate-300'
+                                    )}
+                                    style={{ width: `${Math.max(barPct, 3)}%` }}
+                                  />
+                                </div>
+                                <span className={cn(
+                                  'text-[10px] font-semibold tabular-nums w-14 text-right',
+                                  isLatest
+                                    ? (a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600')
+                                    : 'text-slate-500'
+                                )}>
+                                  ${h.amount.toLocaleString()}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Actions */}
                   {acknowledgeId === a.id ? (
-                    <div className="space-y-2">
+                    <div className="space-y-2 pt-2 border-t border-slate-200/60">
                       <textarea
                         value={acknowledgeNotes}
                         onChange={e => setAcknowledgeNotes(e.target.value)}
@@ -639,16 +723,16 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
                       </div>
                     </div>
                   ) : (
-                    <div className="flex gap-1.5">
+                    <div className="flex gap-1.5 pt-2 border-t border-slate-200/60">
                       <button
                         onClick={() => setAcknowledgeId(a.id)}
-                        className="px-2 py-1 text-[10px] font-medium rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
+                        className="px-3 py-1.5 text-[10px] font-medium rounded-md bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
                       >
                         Acknowledge
                       </button>
                       <button
                         onClick={() => handleDismissAnomaly(a.id)}
-                        className="px-2 py-1 text-[10px] font-medium rounded bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
+                        className="px-3 py-1.5 text-[10px] font-medium rounded-md bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
                       >
                         Dismiss
                       </button>
