@@ -68,8 +68,10 @@ async function runVerification(supabase, body, user) {
   const prompt = `You are a billing reconciliation auditor for an MSP (Managed Service Provider).
 Review the following reconciliation data for customer "${customer_name}" and determine if it's ready for sign-off.
 
-RECONCILIATION ITEMS:
-${JSON.stringify(items, null, 2)}
+RECONCILIATION ITEMS (excluding no_data — those integrations are not connected):
+${JSON.stringify(items.filter(i => i.status !== 'no_data'), null, 2)}
+
+NOTE: ${items.filter(i => i.status === 'no_data').length} services were excluded because their integrations are not connected (no_data). These are NOT applicable and should be ignored completely.
 
 UNMATCHED BILLING ITEMS (line items on the invoice with no matching reconciliation rule):
 ${JSON.stringify((unmatched_items || []).map(u => ({ description: u.rule?.label, qty: u.psaQty })), null, 2)}
@@ -77,9 +79,11 @@ ${JSON.stringify((unmatched_items || []).map(u => ({ description: u.rule?.label,
 RULES FOR SIGN-OFF:
 1. All "matched" items (PSA = Vendor) are GOOD — no issues.
 2. Items with status "over" or "under" MUST have a review (review_status = "reviewed" or "dismissed") WITH notes explaining why. If they have no review or no notes, they are BLOCKERS.
-3. Items with "no_psa_data" or "no_vendor_data" should be flagged as WARNINGS (not blockers) unless they have significant quantities.
-4. Unmatched billing items should be flagged as WARNINGS — they're on the invoice but not reconciled.
-5. Items with exclusions are OK if the exclusion reason makes sense.
+3. Items with "no_data" status should be COMPLETELY IGNORED — they are not applicable. The integration is not connected for this customer so it cannot be verified. Do NOT flag these as warnings or blockers.
+4. Items with "no_psa_data" or "no_vendor_data" where the vendor integration IS connected but data is missing — flag as WARNINGS only if quantities are significant (>5).
+5. Unmatched billing items (status "unmatched_line_item") should be flagged as WARNINGS — they're on the invoice but not reconciled. However, if they are minor amounts or common items like "Remote Access" or "Server Support", they are low priority.
+6. Items with exclusions are OK if the exclusion reason makes sense.
+7. Reviewed items with notes are considered resolved — don't flag them as issues. Check that the notes make sense and explain the discrepancy.
 
 Respond with JSON:
 {
