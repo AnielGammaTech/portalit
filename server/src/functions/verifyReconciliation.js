@@ -109,23 +109,56 @@ Respond with JSON:
 
     // Store the verification attempt
     const billingPeriod = new Date().toISOString().slice(0, 7);
-    const { data: signOff } = await supabase
+
+    // Check if there's already a record for this customer+period
+    const { data: existing } = await supabase
       .from('reconciliation_sign_offs')
-      .upsert({
-        customer_id,
-        signed_by: user.id,
-        signed_at: new Date().toISOString(),
-        status: aiResult.can_sign_off ? 'verified' : 'blocked',
-        ai_verified: aiResult.can_sign_off,
-        ai_confidence: aiResult.confidence || 0,
-        ai_summary: aiResult.summary,
-        ai_issues: { blockers: aiResult.blockers || [], warnings: aiResult.warnings || [] },
-        manual_notes: aiResult.recommendation,
-        reconciliation_snapshot: { items, unmatched: unmatched_items?.length || 0 },
-        billing_period: billingPeriod,
-      }, { onConflict: 'customer_id,billing_period' })
-      .select()
-      .single();
+      .select('id')
+      .eq('customer_id', customer_id)
+      .eq('billing_period', billingPeriod)
+      .limit(1);
+
+    let signOff;
+    if (existing && existing.length > 0) {
+      // Update existing
+      const { data } = await supabase
+        .from('reconciliation_sign_offs')
+        .update({
+          signed_by: user.id,
+          signed_at: new Date().toISOString(),
+          status: aiResult.can_sign_off ? 'verified' : 'blocked',
+          ai_verified: aiResult.can_sign_off,
+          ai_confidence: aiResult.confidence || 0,
+          ai_summary: aiResult.summary,
+          ai_issues: { blockers: aiResult.blockers || [], warnings: aiResult.warnings || [] },
+          manual_notes: aiResult.recommendation,
+          reconciliation_snapshot: { items: items.filter(i => i.status !== 'no_data'), unmatched: unmatched_items?.length || 0 },
+        })
+        .eq('id', existing[0].id)
+        .select()
+        .single();
+      signOff = data;
+    } else {
+      // Insert new
+      const { data } = await supabase
+        .from('reconciliation_sign_offs')
+        .insert({
+          customer_id,
+          signed_by: user.id,
+          signed_at: new Date().toISOString(),
+          status: aiResult.can_sign_off ? 'verified' : 'blocked',
+          ai_verified: aiResult.can_sign_off,
+          ai_confidence: aiResult.confidence || 0,
+          ai_summary: aiResult.summary,
+          ai_issues: { blockers: aiResult.blockers || [], warnings: aiResult.warnings || [] },
+          manual_notes: aiResult.recommendation,
+          reconciliation_snapshot: { items: items.filter(i => i.status !== 'no_data'), unmatched: unmatched_items?.length || 0 },
+          billing_period: billingPeriod,
+        })
+        .select()
+        .single();
+      signOff = data;
+    }
 
     return {
       success: true,
