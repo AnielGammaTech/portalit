@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import crypto from 'crypto';
-import { requireAdmin } from '../middleware/auth.js';
+import { requireAdmin, requireAuth } from '../middleware/auth.js';
 import { createRateLimiter } from '../middleware/rate-limit.js';
 import { getServiceSupabase } from '../lib/supabase.js';
 import { sendEmail, isEmailConfigured } from '../lib/email.js';
@@ -12,6 +12,19 @@ const router = Router();
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const VALID_ROLES = ['admin', 'sales', 'user'];
+
+// ── Security helpers ──────────────────────────────────────────────────
+
+/**
+ * Mask an email address for safe logging.
+ * e.g. "aniel@example.com" → "an***@example.com"
+ */
+function maskEmail(email) {
+  if (typeof email !== 'string' || !email.includes('@')) return '[invalid-email]';
+  const [local, domain] = email.split('@');
+  const visible = local.slice(0, 2);
+  return `${visible}***@${domain}`;
+}
 
 function isValidEmail(email) {
   return typeof email === 'string' && EMAIL_RE.test(email) && email.length <= 254;
@@ -112,6 +125,17 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
     }
     if (invite_type === 'customer' && !customer_id) {
       return res.status(400).json({ error: 'customer_id is required for customer invitations' });
+    }
+    if (invite_type === 'customer' && customer_id) {
+      const supabaseCheck = getServiceSupabase();
+      const { data: customerCheck, error: customerCheckError } = await supabaseCheck
+        .from('customers')
+        .select('id')
+        .eq('id', customer_id)
+        .single();
+      if (customerCheckError || !customerCheck) {
+        return res.status(400).json({ error: 'Invalid customer_id: customer not found' });
+      }
     }
     if (invite_type === 'tech' && !['admin', 'sales'].includes(role)) {
       return res.status(400).json({ error: 'role must be "admin" or "sales" for tech invitations' });
@@ -242,7 +266,7 @@ router.post('/send-otp', otpSendIpLimiter, async (req, res, next) => {
       otpSendLimits, lowerEmail, OTP_SEND_WINDOW_MS, OTP_SEND_MAX
     );
     if (!emailLimit.allowed) {
-      console.warn(`OTP send rate limit exceeded for ${lowerEmail} from IP ${req.ip}`);
+      console.warn(`OTP send rate limit exceeded for ${maskEmail(lowerEmail)} from IP ${req.ip}`);
       res.set('Retry-After', String(emailLimit.retryAfterSeconds));
       return res.status(429).json({
         error: 'Too many code requests for this email. Please try again later.',
@@ -266,7 +290,7 @@ router.post('/send-otp', otpSendIpLimiter, async (req, res, next) => {
     otpStore.set(lowerEmail, { code, expiresAt: Date.now() + 10 * 60 * 1000 });
     cleanExpiredOtps();
 
-    console.log(`OTP sent to ${lowerEmail} from IP ${req.ip}`);
+    console.log(`OTP sent to ${maskEmail(lowerEmail)} from IP ${req.ip}`);
 
     const firstName = users[0].full_name?.split(' ')[0] || 'there';
 
@@ -306,7 +330,7 @@ router.post('/verify-otp', otpVerifyIpLimiter, async (req, res, next) => {
       otpVerifyLimits, lowerEmail, OTP_VERIFY_WINDOW_MS, OTP_VERIFY_MAX
     );
     if (!emailLimit.allowed) {
-      console.warn(`OTP verify rate limit exceeded for ${lowerEmail} from IP ${req.ip}`);
+      console.warn(`OTP verify rate limit exceeded for ${maskEmail(lowerEmail)} from IP ${req.ip}`);
       res.set('Retry-After', String(emailLimit.retryAfterSeconds));
       return res.status(429).json({
         error: 'Too many verification attempts. Please try again later.',
@@ -323,13 +347,13 @@ router.post('/verify-otp', otpVerifyIpLimiter, async (req, res, next) => {
       return res.status(400).json({ error: 'Code has expired. Please request a new one.' });
     }
     if (stored.code !== String(code).trim()) {
-      console.warn(`Invalid OTP attempt for ${lowerEmail} from IP ${req.ip}`);
+      console.warn(`Invalid OTP attempt for ${maskEmail(lowerEmail)} from IP ${req.ip}`);
       return res.status(400).json({ error: 'Invalid code. Please check and try again.' });
     }
 
     // Code is valid — consume it
     otpStore.delete(lowerEmail);
-    console.log(`OTP verified for ${lowerEmail} from IP ${req.ip}`);
+    console.log(`OTP verified for ${maskEmail(lowerEmail)} from IP ${req.ip}`);
 
     const supabase = getServiceSupabase();
 
@@ -430,17 +454,25 @@ router.get('/auth-details', requireAdmin, async (_req, res, next) => {
 // NOTE: Must be before /:id routes to avoid matching "email-status" as :id
 
 router.get('/email-status', requireAdmin, async (_req, res) => {
+  // Only expose whether email is configured — never return SMTP settings or sender details
   res.json({
     configured: isEmailConfigured(),
-    from: process.env.EMAIL_FROM || 'PortalIT <noreply@portalit.app>',
   });
 });
 
 // ── GET /api/users/:id/sign-ins ──────────────────────────────────────
 
-router.get('/:id/sign-ins', requireAdmin, async (req, res, next) => {
+router.get('/:id/sign-ins', requireAuth, async (req, res, next) => {
   try {
     const { id } = req.params;
+
+    // Allow admins to view any user's sign-ins; non-admins may only view their own
+    const isAdmin = req.user?.role === 'admin';
+    const isSelf = req.user?.id === id;
+    if (!isAdmin && !isSelf) {
+      return res.status(403).json({ error: 'Forbidden: you can only view your own sign-in history' });
+    }
+
     const supabase = getServiceSupabase();
 
     const { data, error } = await supabase.rpc('get_user_sign_ins', {
