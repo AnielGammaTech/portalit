@@ -305,7 +305,11 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
     };
   });
 
-  // 5. Add unmatched line items — billing items that don't match ANY rule
+  // 5. Add unmatched line items — billing items that don't match ANY rule or Pax8 override
+  // Also exclude line items already mapped via pax8_line_item_overrides
+  for (const ov of overrides) {
+    if (ov.line_item_id) matchedLineItemIds.add(ov.line_item_id);
+  }
   // Skip discounts (negative amounts or description starting with "Discount")
   const unmatchedItems = lineItems.filter((li) =>
     !matchedLineItemIds.has(li.id) &&
