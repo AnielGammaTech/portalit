@@ -153,6 +153,29 @@ function buildUrl(baseUrl, path) {
 }
 
 /**
+ * Validates that a HaloPSA ID contains only alphanumeric characters, hyphens,
+ * and underscores. Rejects any value that could manipulate a URL path or query
+ * string (e.g. "../", "?foo=bar", "%2F", etc.).
+ *
+ * Throws a 400 error when the ID is invalid so callers can propagate it as a
+ * bad-request response.
+ *
+ * @param {unknown} id - The raw user-supplied identifier.
+ * @param {string}  [label='id'] - Field name used in the error message.
+ * @returns {string} The validated ID as a trimmed string.
+ */
+export function validateHaloId(id, label = 'id') {
+  const str = String(id ?? '').trim();
+  if (!str || !/^[A-Za-z0-9_-]+$/.test(str)) {
+    throw Object.assign(
+      new Error(`Invalid ${label}: must contain only alphanumeric characters, hyphens, or underscores.`),
+      { statusCode: 400 },
+    );
+  }
+  return str;
+}
+
+/**
  * Generic GET request to HaloPSA API.
  * Includes a small delay for rate-limiting.
  */

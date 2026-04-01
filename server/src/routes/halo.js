@@ -21,6 +21,7 @@ import {
   mapHaloClientToCustomer,
   mapHaloUserToContact,
   fetchSitesByClientId,
+  validateHaloId,
 } from '../lib/halopsa.js';
 
 const router = Router();
@@ -235,10 +236,11 @@ router.post('/sync', requireAdmin, async (_req, res, next) => {
 
 router.post('/sync/customer', requireAdmin, async (req, res, next) => {
   try {
-    const { customer_id } = req.body;
-    if (!customer_id) {
+    const { customer_id: rawCustomerId } = req.body;
+    if (!rawCustomerId) {
       return res.status(400).json({ error: 'customer_id is required (HaloPSA external ID)' });
     }
+    const customer_id = validateHaloId(rawCustomerId, 'customer_id');
 
     const config = await getHaloConfig();
     const supabase = getServiceSupabase();

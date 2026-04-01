@@ -46,12 +46,18 @@ const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || '
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (server-to-server, health checks)
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(null, false);
+    // Requests from allowed origins are always permitted.
+    if (origin && allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
+    // Requests with no Origin header must not be allowed through CORS for
+    // browser-facing APIs. Reject them so that the browser blocks the response.
+    // (Server-to-server callers that legitimately omit Origin must authenticate
+    // via a service-role token and are verified independently at the route level.)
+    if (!origin) {
+      return callback(new Error('CORS: requests without an Origin header are not permitted'), false);
+    }
+    return callback(null, false);
   },
   credentials: true,
 }));
@@ -73,14 +79,25 @@ const authLimiter = createRateLimiter({
   message: 'Too many authentication requests. Please try again later.',
 });
 
-// Apply general rate limiter to all API routes
-app.use('/api', generalLimiter);
+// Apply stricter limiter to auth-related routes FIRST (before the general limiter)
+// so these paths are governed by authLimiter only — not stacked on generalLimiter.
+const AUTH_RATE_LIMITED_PATHS = [
+  '/api/users/send-otp',
+  '/api/users/verify-otp',
+  '/api/users/invite',
+  '/api/users/resend-invite',
+];
+for (const path of AUTH_RATE_LIMITED_PATHS) {
+  app.use(path, authLimiter);
+}
 
-// Apply stricter limiter to auth-related routes
-app.use('/api/users/send-otp', authLimiter);
-app.use('/api/users/verify-otp', authLimiter);
-app.use('/api/users/invite', authLimiter);
-app.use('/api/users/resend-invite', authLimiter);
+// Apply general rate limiter to all remaining API routes (skip auth paths already limited above)
+app.use('/api', (req, res, next) => {
+  if (AUTH_RATE_LIMITED_PATHS.some(p => req.path.startsWith(p.replace('/api', '')))) {
+    return next();
+  }
+  return generalLimiter(req, res, next);
+});
 
 // Health check (outside rate limiter)
 app.get('/health', (_req, res) => {

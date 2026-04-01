@@ -88,6 +88,14 @@ router.post('/run', requireAdmin, async (req, res, next) => {
       return res.status(400).json({ error: 'job_name is required' });
     }
 
+    // Validate job_name against the known allow-list to prevent arbitrary execution.
+    const knownJobNames = CRON_JOBS.map(j => j.name);
+    if (!knownJobNames.includes(job_name)) {
+      return res.status(400).json({
+        error: `Unknown job_name. Must be one of: ${knownJobNames.join(', ')}`,
+      });
+    }
+
     const result = await runCronJobManually(job_name);
     res.json(result);
   } catch (error) {
