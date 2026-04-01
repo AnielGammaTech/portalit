@@ -28,11 +28,18 @@ async function unifiApiCall(apiKey, endpoint, method = 'GET') {
  * The /ea/devices endpoint returns shortname (e.g. "UDMPRO", "U6ENT", "USWAGG").
  */
 function categorizeDeviceType(device) {
-  if (device.isConsole) return 'firewall';
-
   const shortname = (device.shortname || '').toUpperCase();
   const model = (device.model || '').toUpperCase();
   const name = (device.name || '').toUpperCase();
+
+  // NAS devices: UNAS*, or name/model contains NAS — NOT firewalls even if isConsole
+  if (shortname.includes('UNAS') || model.includes('UNAS') || model.includes('NAS') ||
+      name.includes('NAS')) {
+    return 'other';
+  }
+
+  // Console devices that aren't NAS are gateways/firewalls
+  if (device.isConsole) return 'firewall';
 
   // Access Points: U6*, U7*, UAP*, nanoHD, etc.
   // Check both shortname AND model for AP patterns (some devices have empty shortnames)
