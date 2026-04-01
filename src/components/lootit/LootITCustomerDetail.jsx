@@ -707,31 +707,44 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
               {customerInvoices
                 .slice()
                 .sort((a, b) => new Date(b.invoice_date || 0) - new Date(a.invoice_date || 0))
-                .map((inv) => (
-                  <div key={inv.id} className="flex items-center gap-3 px-4 py-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-slate-800 truncate">
-                          {inv.invoice_number || inv.id}
-                        </span>
-                        {inv.category && CATEGORY_BADGES[inv.category] && (
-                          <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', CATEGORY_BADGES[inv.category].className)}>
-                            {CATEGORY_BADGES[inv.category].label}
+                .map((inv) => {
+                  const categoryName = {
+                    monthly_recurring: 'Monthly Recurring',
+                    voip: 'VoIP Services',
+                    ticket_adhoc: 'Ticket Charges',
+                    hardware_project: 'Hardware / Project',
+                    uncategorized: inv.invoice_number || 'Unclassified',
+                  }[inv.category] || inv.invoice_number || inv.id;
+
+                  const dateStr = inv.invoice_date
+                    ? new Date(inv.invoice_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    : '—';
+
+                  return (
+                    <div key={inv.id} className="flex items-center gap-3 px-4 py-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium text-slate-800 truncate">
+                            {categoryName}
                           </span>
-                        )}
-                        {inv.classification_confidence != null && inv.classification_confidence < 70 && (
-                          <span className="text-[10px] text-red-400" title={`Confidence: ${inv.classification_confidence}%`}>Low confidence</span>
-                        )}
+                          {inv.category && CATEGORY_BADGES[inv.category] && (
+                            <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', CATEGORY_BADGES[inv.category].className)}>
+                              {CATEGORY_BADGES[inv.category].label}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-slate-400">#{inv.invoice_number || inv.id}</span>
+                          {inv.classification_confidence != null && inv.classification_confidence < 70 && (
+                            <span className="text-[10px] text-red-400" title={`Confidence: ${inv.classification_confidence}%`}>Low confidence</span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5">{dateStr}</p>
                       </div>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        {inv.invoice_date ? inv.invoice_date : '—'}
-                      </p>
+                      <div className="text-sm font-semibold text-slate-800 tabular-nums">
+                        ${(inv.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </div>
                     </div>
-                    <div className="text-sm font-semibold text-slate-800 tabular-nums">
-                      ${(inv.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
             </div>
           )}
         </div>
