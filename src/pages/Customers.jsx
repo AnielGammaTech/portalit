@@ -186,12 +186,14 @@ export default function Customers() {
     }
   };
 
-  const filteredCustomers = customers.filter(customer => {
-    const matchesSearch = customer.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         customer.email?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || customer.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredCustomers = customers
+    .filter(customer => {
+      const matchesSearch = customer.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           customer.email?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || customer.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
   const getCustomerStats = (customerId) => {
     const customerContracts = contracts.filter(c => c.customer_id === customerId && c.status === 'active');
