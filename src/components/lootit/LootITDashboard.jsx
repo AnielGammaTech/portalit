@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, AlertTriangle, CheckCircle2, TrendingDown, TrendingUp, Database, Bell, DollarSign, Check, X } from 'lucide-react';
+import { Search, AlertTriangle, CheckCircle2, TrendingDown, TrendingUp, Database, Bell, DollarSign, Check, X, Stamp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
@@ -28,6 +28,14 @@ export default function LootITDashboard({ onSelectCustomer }) {
     await client.entities.BillingAnomaly.update(anomalyId, { status: 'reviewed', reviewed_at: new Date().toISOString() });
     queryClient.invalidateQueries({ queryKey: ['billing_anomalies'] });
   };
+
+  // Fetch signed-off customers
+  const { data: signOffs = [] } = useQuery({
+    queryKey: ['all_sign_offs'],
+    queryFn: () => client.entities.ReconciliationSignOff.filter({ status: 'signed_off' }),
+    staleTime: 1000 * 60 * 2,
+  });
+  const signedOffCustomerIds = useMemo(() => new Set(signOffs.map(s => s.customer_id)), [signOffs]);
 
   // ── Anomaly Detection ──
   // Compare each customer's latest monthly invoice against their 3-6 month average
@@ -293,6 +301,7 @@ export default function LootITDashboard({ onSelectCustomer }) {
             const issues = s.over + s.under;
             const noPsa = s.noPsa || 0;
             const isFullyReconciled = active > 0 && issues === 0 && noPsa === 0;
+            const isSignedOff = signedOffCustomerIds.has(customer.id);
 
             return (
               <button
@@ -300,7 +309,9 @@ export default function LootITDashboard({ onSelectCustomer }) {
                 onClick={() => onSelectCustomer(customer)}
                 className={cn(
                   'text-left rounded-lg border p-3.5 hover:shadow-md transition-all group flex flex-col h-full',
-                  isFullyReconciled
+                  isSignedOff
+                    ? 'bg-violet-50/60 border-violet-200 hover:border-violet-300'
+                    : isFullyReconciled
                     ? 'bg-emerald-50/60 border-emerald-200 hover:border-emerald-300'
                     : 'bg-white border-slate-200 hover:border-slate-300'
                 )}
@@ -310,7 +321,9 @@ export default function LootITDashboard({ onSelectCustomer }) {
                   <h3 className="font-semibold text-slate-900 text-xs leading-tight group-hover:text-slate-600 transition-colors line-clamp-1 flex-1 min-w-0">
                     {customer.name}
                   </h3>
-                  {isFullyReconciled ? (
+                  {isSignedOff ? (
+                    <Stamp className="w-4 h-4 text-violet-500 flex-shrink-0" />
+                  ) : isFullyReconciled ? (
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
                   ) : issues > 0 ? (
                     <span className="flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-100 text-red-600 text-[10px] font-bold">

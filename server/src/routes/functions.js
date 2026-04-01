@@ -35,6 +35,7 @@ import { syncVultr } from '../functions/syncVultr.js';
 import { syncVPenTest } from '../functions/syncVPenTest.js';
 import { syncCIPP } from '../functions/syncCIPP.js';
 import scanBillingAnomalies from '../functions/scanBillingAnomalies.js';
+import { verifyReconciliation } from '../functions/verifyReconciliation.js';
 
 const functionMap = {
   syncHaloPSACustomers,
@@ -70,6 +71,7 @@ const functionMap = {
   syncVPenTest,
   syncCIPP,
   scanBillingAnomalies,
+  verifyReconciliation,
 };
 
 const router = Router();

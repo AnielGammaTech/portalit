@@ -21,6 +21,7 @@ import UploadProgressCard from './UploadProgressCard';
 import DetailDrawer from './DetailDrawer';
 import LineItemPicker from './LineItemPicker';
 import RuleEditorDialog from './RuleEditorDialog';
+import SignOffButton from './SignOffButton';
 
 export default function LootITCustomerDetail({ customer, onBack, activeTab: activeTabProp = 'reconciliation', onTabChange }) {
   const queryClient = useQueryClient();
@@ -433,6 +434,12 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
             )}>
               {healthPct}%
             </div>
+            <SignOffButton
+              customer={customer}
+              reconciliations={recons}
+              pax8Reconciliations={pax8Recons}
+              unmatchedItems={allRecons.filter(r => r.isUnmatchedLineItem)}
+            />
             <button
               onClick={handleSync}
               disabled={isSyncing}
