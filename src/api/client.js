@@ -173,6 +173,19 @@ const ENTITY_TABLE_MAP = {
 function createEntityHandler(entityName) {
   const tableName = ENTITY_TABLE_MAP[entityName] || toSnakeCase(entityName);
 
+  // For read operations, gracefully handle missing tables (404) instead of crashing
+  const safeRead = (data, error) => {
+    if (error) {
+      // 404 = table doesn't exist, PGRST = PostgREST schema errors — return empty instead of crash
+      if (error.code === '42P01' || error.message?.includes('404') || error.code === 'PGRST204' || error.code === 'PGRST200') {
+        console.warn(`[API] Table "${tableName}" not found — returning empty`);
+        return [];
+      }
+      throw error;
+    }
+    return data || [];
+  };
+
   return {
     async list(sortField, limit) {
       let query = supabase.from(tableName).select('*');
@@ -187,8 +200,7 @@ function createEntityHandler(entityName) {
       query = query.limit(limit || 1000);
 
       const { data, error } = await query;
-      if (error) throw error;
-      return data || [];
+      return safeRead(data, error);
     },
 
     async filter(filters, sortField, limit) {
@@ -211,8 +223,7 @@ function createEntityHandler(entityName) {
       }
 
       const { data, error } = await query;
-      if (error) throw error;
-      return data || [];
+      return safeRead(data, error);
     },
 
     async filterIn(column, values, sortField, limit) {
@@ -230,8 +241,7 @@ function createEntityHandler(entityName) {
       }
 
       const { data, error } = await query;
-      if (error) throw error;
-      return data || [];
+      return safeRead(data, error);
     },
 
     async count(filters) {
@@ -242,7 +252,12 @@ function createEntityHandler(entityName) {
         }
       }
       const { count, error } = await query;
-      if (error) throw error;
+      if (error) {
+        if (error.code === '42P01' || error.message?.includes('404') || error.code === 'PGRST204' || error.code === 'PGRST200') {
+          return 0;
+        }
+        throw error;
+      }
       return count || 0;
     },
 
