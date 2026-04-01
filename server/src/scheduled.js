@@ -15,6 +15,12 @@ import { autoSuspendUnusedLicenses } from './functions/autoSuspendUnusedLicenses
 import { syncHaloPSARecurringBills } from './functions/syncHaloPSARecurringBills.js';
 import { syncHaloPSAInvoices } from './functions/syncHaloPSAInvoices.js';
 import scanBillingAnomalies from './functions/scanBillingAnomalies.js';
+import { syncCIPP } from './functions/syncCIPP.js';
+import { sync3CX } from './functions/sync3CX.js';
+import { syncDarkWebID } from './functions/syncDarkWebID.js';
+import { syncDmarcReport } from './functions/syncDmarcReport.js';
+import { syncVPenTest } from './functions/syncVPenTest.js';
+import { syncVultr } from './functions/syncVultr.js';
 
 
 const SYSTEM_USER = { role: 'admin', email: 'system@portalit.app' };
@@ -36,6 +42,12 @@ export const CRON_JOBS = [
   { name: 'syncPax8Subscriptions', label: 'Pax8 Sync', description: 'Cloud subscriptions', schedule: '30 6 * * *', category: 'pax8', fn: syncPax8Subscriptions, action: 'sync_all' },
   { name: 'licenseRenewalReminder', label: 'License Renewal Reminder', description: 'Email alerts for upcoming renewals', schedule: '0 8 * * *', category: 'system', fn: licenseRenewalReminder, action: 'sync_now' },
   { name: 'autoSuspendUnusedLicenses', label: 'Auto-Suspend Licenses', description: 'Suspend unused licenses', schedule: '0 9 * * *', category: 'system', fn: autoSuspendUnusedLicenses, action: 'sync_now' },
+  { name: 'syncCIPP', label: 'CIPP / M365 Sync', description: 'Microsoft 365 users, groups & mailboxes via CIPP', schedule: '45 3 * * *', category: 'cipp', fn: syncCIPP, action: 'sync_all' },
+  { name: 'sync3CX', label: '3CX Sync', description: 'Phone system extensions & call data', schedule: '15 4 * * *', category: 'threecx', fn: sync3CX, action: 'sync_all' },
+  { name: 'syncDarkWebID', label: 'Dark Web ID Sync', description: 'Dark web monitoring alerts', schedule: '45 4 * * *', category: 'darkweb', fn: syncDarkWebID, action: 'sync_all' },
+  { name: 'syncDmarcReport', label: 'DMARC Sync', description: 'DMARC email authentication reports', schedule: '15 5 * * *', category: 'dmarc', fn: syncDmarcReport, action: 'sync_all' },
+  { name: 'syncVultr', label: 'Vultr Sync', description: 'Cloud server instances', schedule: '45 5 * * *', category: 'vultr', fn: syncVultr, action: 'sync_all' },
+  { name: 'syncVPenTest', label: 'vPenTest Sync', description: 'Automated penetration test results', schedule: '15 6 * * *', category: 'vpentest', fn: syncVPenTest, action: 'sync_all' },
   { name: 'scanBillingAnomalies', label: 'Billing Anomaly Scan', description: 'Detect billing changes >5% per category (Monthly Recurring, VoIP)', schedule: '0 7 * * 1', category: 'lootit', fn: scanBillingAnomalies, action: 'scan' },
 ];
 
