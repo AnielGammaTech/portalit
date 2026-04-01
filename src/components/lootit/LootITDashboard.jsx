@@ -71,6 +71,12 @@ export default function LootITDashboard({ onSelectCustomer }) {
 
       const pctChange = ((latest.amount - avgAmount) / avgAmount) * 100;
 
+      // Build history for explanation
+      const history = sorted.slice(0, 7).map(b => ({
+        amount: b.amount,
+        month: b.date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+      }));
+
       // Flag if change exceeds 10%
       if (Math.abs(pctChange) >= 10) {
         const customer = customerMap[custId];
@@ -83,6 +89,7 @@ export default function LootITDashboard({ onSelectCustomer }) {
           pctChange,
           direction: pctChange > 0 ? 'increase' : 'decrease',
           latestDate: latest.date,
+          history,
         });
       }
     }
@@ -216,6 +223,26 @@ export default function LootITDashboard({ onSelectCustomer }) {
                       </p>
                     </div>
                   </div>
+                  {/* Monthly history breakdown */}
+                  {a.history && a.history.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-slate-100">
+                      <p className="text-[9px] text-slate-400 mb-1 font-medium">Invoice History</p>
+                      <div className="space-y-0.5">
+                        {a.history.map((h, i) => (
+                          <div key={i} className="flex items-center justify-between text-[9px]">
+                            <span className="text-slate-400">{h.month}</span>
+                            <span className={cn(
+                              'font-semibold tabular-nums',
+                              i === 0 ? (a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600') : 'text-slate-600'
+                            )}>
+                              ${Math.round(h.amount).toLocaleString()}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Action buttons */}
                   <div className="flex gap-1.5 mt-2 pt-2 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
                     {a.dbId && (
