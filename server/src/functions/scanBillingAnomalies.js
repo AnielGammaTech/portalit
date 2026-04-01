@@ -29,7 +29,7 @@ export default async function scanBillingAnomalies({ action } = {}) {
     const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
     for (const inv of invoices) {
-      const date = new Date(inv.invoice_date || inv.due_date || inv.created_date || 0);
+      const date = new Date(inv.due_date || inv.invoice_date || inv.created_date || 0);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
       if (monthKey === currentMonthKey) continue;
