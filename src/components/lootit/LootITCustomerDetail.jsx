@@ -61,6 +61,15 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
     [customerAnomalies]
   );
 
+  const resolvedAnomalies = useMemo(
+    () => customerAnomalies
+      .filter(a => a.status === 'acknowledged' || a.status === 'dismissed')
+      .sort((a, b) => (b.acknowledged_at || b.reviewed_at || '').localeCompare(a.acknowledged_at || a.reviewed_at || '')),
+    [customerAnomalies]
+  );
+
+  const [showHistory, setShowHistory] = useState(false);
+
   // Invoices for this customer (with AI category + confidence from classifier)
   const { data: customerInvoices = [] } = useQuery({
     queryKey: ['lootit_invoices_customer', customer.id],
@@ -639,12 +648,24 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
       </div>
 
       {/* Billing Anomalies */}
-      {openAnomalies.length > 0 && (
+      {(openAnomalies.length > 0 || resolvedAnomalies.length > 0) && (
         <div className="bg-white rounded-xl border border-red-200/60 p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Bell className="w-4 h-4 text-red-500" />
-            <h3 className="text-sm font-bold text-slate-900">Billing Anomalies</h3>
-            <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">{openAnomalies.length}</span>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Bell className="w-4 h-4 text-red-500" />
+              <h3 className="text-sm font-bold text-slate-900">Billing Anomalies</h3>
+              {openAnomalies.length > 0 && (
+                <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">{openAnomalies.length}</span>
+              )}
+            </div>
+            {resolvedAnomalies.length > 0 && (
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                className="text-[10px] font-medium text-slate-400 hover:text-slate-600 transition-colors flex items-center gap-1"
+              >
+                {showHistory ? 'Hide' : 'Show'} History ({resolvedAnomalies.length})
+              </button>
+            )}
           </div>
           <div className="space-y-3">
             {openAnomalies.map((a) => {
@@ -851,6 +872,45 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
               );
             })}
           </div>
+
+          {/* History Log */}
+          {showHistory && resolvedAnomalies.length > 0 && (
+            <div className="mt-4 pt-3 border-t border-slate-100">
+              <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-2">Activity Log</p>
+              <div className="space-y-2">
+                {resolvedAnomalies.map(a => {
+                  const categoryLabel = { monthly_recurring: 'Monthly Recurring', voip: 'VoIP' }[a.category] || a.category || 'Unknown';
+                  const ts = a.acknowledged_at || a.reviewed_at;
+                  const dateStr = ts ? new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+                  const statusLabel = a.status === 'acknowledged' ? 'Acknowledged' : 'Dismissed';
+                  const statusColor = a.status === 'acknowledged' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-500 bg-slate-50';
+
+                  return (
+                    <div key={a.id} className="flex items-start gap-3 py-2 px-3 rounded-lg bg-slate-50/80">
+                      <div className="shrink-0 mt-0.5">
+                        <span className={cn('text-[9px] font-semibold px-1.5 py-0.5 rounded', statusColor)}>{statusLabel}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="font-medium text-slate-700">{categoryLabel}</span>
+                          <span className={cn('font-bold text-[11px]', a.direction === 'decrease' ? 'text-red-500' : 'text-amber-500')}>
+                            {a.direction === 'decrease' ? '' : '+'}{a.pct_change}%
+                          </span>
+                          <span className="text-slate-400">${a.current_amount?.toLocaleString()} (was ${a.previous_avg?.toLocaleString()})</span>
+                          <span className="text-slate-300">|</span>
+                          <span className="text-slate-400">{a.bill_period}</span>
+                        </div>
+                        {a.acknowledgement_notes && (
+                          <p className="text-[11px] text-slate-500 mt-1">{a.acknowledgement_notes}</p>
+                        )}
+                        {dateStr && <p className="text-[9px] text-slate-300 mt-0.5">{dateStr}</p>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
