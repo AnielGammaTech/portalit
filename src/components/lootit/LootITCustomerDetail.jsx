@@ -54,14 +54,18 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
 
   const liveAnomalies = useMemo(() => {
     if (customerBills.length < 2) return [];
-    const byName = {};
+    // Group by halopsa_id — each recurring invoice is tracked separately
+    const byBillId = {};
     for (const b of customerBills) {
-      const name = b.name || 'Unknown';
-      if (!byName[name]) byName[name] = [];
-      byName[name].push({ amount: parseFloat(b.amount) || 0, date: new Date(b.created_date || b.start_date || 0) });
+      const key = b.halopsa_id || b.external_id || b.id;
+      const label = b.description || b.name || 'Recurring';
+      if (!byBillId[key]) byBillId[key] = { label, bills: [] };
+      byBillId[key].bills.push({ amount: parseFloat(b.amount) || 0, date: new Date(b.created_date || b.start_date || 0) });
     }
     const results = [];
-    for (const [name, bills] of Object.entries(byName)) {
+    for (const [, group] of Object.entries(byBillId)) {
+      const name = group.label;
+      const bills = group.bills;
       const sorted = bills.sort((a, b) => b.date - a.date);
       if (sorted.length < 2) continue;
       const latest = sorted[0];

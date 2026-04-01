@@ -42,12 +42,13 @@ export default function LootITDashboard({ onSelectCustomer }) {
   const anomalies = useMemo(() => {
     if (!bills || bills.length === 0) return [];
 
-    // Group bills by customer + bill name (e.g. "Monthly Recurring" vs "GTVoice")
+    // Group bills by customer + halopsa_id (each recurring invoice is a separate entity)
     const billGroups = {};
     for (const bill of bills) {
       if (!bill.customer_id || !bill.amount) continue;
-      const key = `${bill.customer_id}::${bill.name || 'Unknown'}`;
-      if (!billGroups[key]) billGroups[key] = { customerId: bill.customer_id, billName: bill.name || 'Unknown', bills: [] };
+      const billId = bill.halopsa_id || bill.external_id || bill.id;
+      const key = `${bill.customer_id}::${billId}`;
+      if (!billGroups[key]) billGroups[key] = { customerId: bill.customer_id, billName: bill.description || bill.name || 'Recurring', billId, bills: [] };
       billGroups[key].bills.push({
         amount: parseFloat(bill.amount) || 0,
         date: new Date(bill.created_date || bill.start_date || 0),
