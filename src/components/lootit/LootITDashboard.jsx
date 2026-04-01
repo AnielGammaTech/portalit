@@ -76,9 +76,14 @@ export default function LootITDashboard({ onSelectCustomer }) {
       monthlyByCustomer[inv.customer_id][monthKey].amount += amount;
     }
 
-    // Convert to sorted arrays per customer
+    // Convert to sorted arrays per customer — skip current month (may be incomplete)
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
     const invoiceGroups = {};
     for (const [custId, months] of Object.entries(monthlyByCustomer)) {
+      // Remove current month — it's likely incomplete
+      delete months[currentMonthKey];
       const sorted = Object.values(months).sort((a, b) => b.date - a.date);
       if (sorted.length >= 2) {
         invoiceGroups[custId] = { customerId: custId, billName: 'Total Monthly', invoices: sorted };

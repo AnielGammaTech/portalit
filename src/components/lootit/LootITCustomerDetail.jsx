@@ -71,6 +71,11 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
       if (!byMonth[monthKey]) byMonth[monthKey] = { amount: 0, date };
       byMonth[monthKey].amount += amount;
     }
+    // Remove current month — it's likely incomplete (not all invoices generated yet)
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    delete byMonth[currentMonthKey];
+
     const bills = Object.values(byMonth).sort((a, b) => b.date - a.date);
     if (bills.length < 2) return [];
     const sorted = bills;
