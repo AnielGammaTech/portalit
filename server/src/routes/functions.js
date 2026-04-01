@@ -34,6 +34,7 @@ import { syncDmarcReport } from '../functions/syncDmarcReport.js';
 import { syncVultr } from '../functions/syncVultr.js';
 import { syncVPenTest } from '../functions/syncVPenTest.js';
 import { syncCIPP } from '../functions/syncCIPP.js';
+import scanBillingAnomalies from '../functions/scanBillingAnomalies.js';
 
 const functionMap = {
   syncHaloPSACustomers,
@@ -68,6 +69,7 @@ const functionMap = {
   syncVultr,
   syncVPenTest,
   syncCIPP,
+  scanBillingAnomalies,
 };
 
 const router = Router();

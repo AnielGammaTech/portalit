@@ -14,6 +14,7 @@ import { licenseRenewalReminder } from './functions/licenseRenewalReminder.js';
 import { autoSuspendUnusedLicenses } from './functions/autoSuspendUnusedLicenses.js';
 import { syncHaloPSARecurringBills } from './functions/syncHaloPSARecurringBills.js';
 import { syncHaloPSAInvoices } from './functions/syncHaloPSAInvoices.js';
+import scanBillingAnomalies from './functions/scanBillingAnomalies.js';
 
 
 const SYSTEM_USER = { role: 'admin', email: 'system@portalit.app' };
@@ -35,6 +36,7 @@ export const CRON_JOBS = [
   { name: 'syncPax8Subscriptions', label: 'Pax8 Sync', description: 'Cloud subscriptions', schedule: '30 6 * * *', category: 'pax8', fn: syncPax8Subscriptions, action: 'sync_all' },
   { name: 'licenseRenewalReminder', label: 'License Renewal Reminder', description: 'Email alerts for upcoming renewals', schedule: '0 8 * * *', category: 'system', fn: licenseRenewalReminder, action: 'sync_now' },
   { name: 'autoSuspendUnusedLicenses', label: 'Auto-Suspend Licenses', description: 'Suspend unused licenses', schedule: '0 9 * * *', category: 'system', fn: autoSuspendUnusedLicenses, action: 'sync_now' },
+  { name: 'scanBillingAnomalies', label: 'Billing Anomaly Scan', description: 'Detect recurring billing changes >10%', schedule: '0 7 * * 1', category: 'lootit', fn: scanBillingAnomalies, action: 'scan' },
 ];
 
 // ── Log cron job execution to database ───────────────────────────────

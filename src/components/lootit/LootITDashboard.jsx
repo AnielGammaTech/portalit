@@ -1,13 +1,33 @@
 import React, { useState, useMemo } from 'react';
-import { Search, AlertTriangle, CheckCircle2, TrendingDown, TrendingUp, Database, Bell, DollarSign } from 'lucide-react';
+import { Search, AlertTriangle, CheckCircle2, TrendingDown, TrendingUp, Database, Bell, DollarSign, Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { client } from '@/api/client';
 import { useReconciliationData } from '@/hooks/useReconciliationData';
 import { getDiscrepancySummary } from '@/lib/lootit-reconciliation';
 
 export default function LootITDashboard({ onSelectCustomer }) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
+  const queryClient = useQueryClient();
   const { reconciliations, globalSummary, bills, customers, isLoading } = useReconciliationData();
+
+  // Fetch persistent anomalies from database
+  const { data: dbAnomalies = [] } = useQuery({
+    queryKey: ['billing_anomalies'],
+    queryFn: () => client.entities.BillingAnomaly.filter({ status: 'open' }),
+    staleTime: 1000 * 60 * 2,
+  });
+
+  const handleDismissAnomaly = async (anomalyId) => {
+    await client.entities.BillingAnomaly.update(anomalyId, { status: 'dismissed', reviewed_at: new Date().toISOString() });
+    queryClient.invalidateQueries({ queryKey: ['billing_anomalies'] });
+  };
+
+  const handleReviewAnomaly = async (anomalyId) => {
+    await client.entities.BillingAnomaly.update(anomalyId, { status: 'reviewed', reviewed_at: new Date().toISOString() });
+    queryClient.invalidateQueries({ queryKey: ['billing_anomalies'] });
+  };
 
   // ── Anomaly Detection ──
   // Compare each customer's latest monthly invoice against their 3-6 month average
@@ -59,9 +79,36 @@ export default function LootITDashboard({ onSelectCustomer }) {
       }
     }
 
+    // Merge with DB anomalies — add dbId for review/dismiss actions
+    const dbMap = {};
+    for (const dba of dbAnomalies) {
+      dbMap[dba.customer_id] = dba.id;
+    }
+    for (const r of results) {
+      r.dbId = dbMap[r.customerId] || null;
+    }
+
+    // Also add DB anomalies that aren't in the computed list (from previous scans)
+    const computedIds = new Set(results.map(r => r.customerId));
+    const customerMap = Object.fromEntries((customers || []).map(c => [c.id, c]));
+    for (const dba of dbAnomalies) {
+      if (!computedIds.has(dba.customer_id)) {
+        results.push({
+          customerId: dba.customer_id,
+          customerName: customerMap[dba.customer_id]?.name || 'Unknown',
+          customer: customerMap[dba.customer_id],
+          latestAmount: parseFloat(dba.current_amount) || 0,
+          avgAmount: parseFloat(dba.previous_avg) || 0,
+          pctChange: parseFloat(dba.pct_change) || 0,
+          direction: dba.direction,
+          dbId: dba.id,
+        });
+      }
+    }
+
     // Sort by absolute % change descending (biggest anomalies first)
     return results.sort((a, b) => Math.abs(b.pctChange) - Math.abs(a.pctChange));
-  }, [bills, customers]);
+  }, [bills, customers, dbAnomalies]);
 
   const customerList = useMemo(() => {
     const entries = Object.values(reconciliations).map((entry) => {
@@ -162,7 +209,24 @@ export default function LootITDashboard({ onSelectCustomer }) {
                       </p>
                     </div>
                   </div>
-                  <p className="text-[9px] text-slate-300 mt-2 group-hover:text-slate-400 transition-colors">Click to review invoices</p>
+                  {/* Action buttons */}
+                  <div className="flex gap-1.5 mt-2 pt-2 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
+                    {a.dbId && (
+                      <>
+                        <button onClick={(e) => { e.stopPropagation(); handleReviewAnomaly(a.dbId); }}
+                          className="flex items-center gap-1 px-2 py-0.5 text-[9px] font-medium rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors">
+                          <Check className="w-2.5 h-2.5" /> Reviewed
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); handleDismissAnomaly(a.dbId); }}
+                          className="flex items-center gap-1 px-2 py-0.5 text-[9px] font-medium rounded bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors">
+                          <X className="w-2.5 h-2.5" /> Dismiss
+                        </button>
+                      </>
+                    )}
+                    {!a.dbId && (
+                      <p className="text-[9px] text-slate-300 group-hover:text-slate-400">Click to review</p>
+                    )}
+                  </div>
                 </button>
               );
             })}

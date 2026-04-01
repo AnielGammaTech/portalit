@@ -134,6 +134,7 @@ const ENTITY_TABLE_MAP = {
   InvoiceLineItem: 'invoice_line_items',
   JumpCloudMapping: 'jump_cloud_mappings',
   LootITContract: 'lootit_contracts',
+  BillingAnomaly: 'billing_anomalies',
   LicenseAssignment: 'license_assignments',
   Pax8LineItemOverride: 'pax8_line_item_overrides',
   Pax8Mapping: 'pax8_mappings',
