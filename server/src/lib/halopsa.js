@@ -242,32 +242,47 @@ export function extractRecords(data, key) {
  * addresses on Sites, not on Clients).
  */
 export function mapHaloClientToCustomer(client, site) {
-  // HaloPSA stores addresses on the Site's delivery_address nested object,
-  // NOT on top-level site/client fields. The delivery_address uses:
-  //   line1, line2, line3 (city), line4 (state/country), postcode
-  const addr = site?.delivery_address || site?.invoice_address || {};
+  // Try multiple address sources in priority order
+  const addressSources = [
+    site?.delivery_address,
+    site?.invoice_address,
+    site?.postal_address,
+    client?.delivery_address,
+    client?.invoice_address,
+    client?.postal_address,
+    // Some HaloPSA instances nest it under client_to_site or toplevel
+    client?.client_to_site?.delivery_address,
+    client?.toplevel?.delivery_address,
+  ].filter(Boolean);
 
-  // Also check top-level site/client fields as fallback
-  const src = site || {};
+  const addr = addressSources[0] || {};
+  const src = site || client || {};
 
   function pick(addrKey, ...fallbackKeys) {
-    // First try delivery_address fields
-    if (addr[addrKey] && String(addr[addrKey]).trim()) return String(addr[addrKey]).trim();
+    // Try all address source objects first
+    for (const addrObj of addressSources) {
+      if (addrObj[addrKey] && String(addrObj[addrKey]).trim()) return String(addrObj[addrKey]).trim();
+    }
     // Then try top-level site and client fields
     for (const key of fallbackKeys) {
-      const val = src[key] || client[key];
-      if (val && String(val).trim()) return String(val).trim();
+      for (const obj of [site, client].filter(Boolean)) {
+        if (obj[key] && String(obj[key]).trim()) return String(obj[key]).trim();
+      }
     }
     return '';
   }
 
-  const line1 = pick('line1', 'address1', 'Address1', 'street', 'Street');
-  const line2 = pick('line2', 'address2', 'Address2');
+  const line1 = pick('line1', 'address1', 'Address1', 'street', 'Street', 'addressline1', 'AddressLine1');
+  const line2 = pick('line2', 'address2', 'Address2', 'addressline2', 'AddressLine2');
   const city = pick('line3', 'city', 'City', 'town', 'Town');
-  const stateCountry = pick('line4', 'state', 'State', 'county', 'County');
-  const zip = pick('postcode', 'Postcode', 'zip', 'Zip', 'postal_code', 'PostalCode');
+  const stateCountry = pick('line4', 'state', 'State', 'county', 'County', 'region', 'Region');
+  const zip = pick('postcode', 'Postcode', 'zip', 'Zip', 'postal_code', 'PostalCode', 'zipcode', 'ZipCode');
 
   const addressParts = [line1, line2, city, stateCountry, zip].filter(Boolean);
+
+  if (addressParts.length === 0) {
+    console.warn(`[HaloPSA] No address found for client ${client.id} (${client.name || 'unknown'}). Site provided: ${!!site}`);
+  }
 
   return {
     name: client.name || client.Name || `Customer ${client.id}`,
@@ -298,11 +313,17 @@ export async function fetchSitesByClientId(config, clients) {
   if (clients && clients.length > 0) {
     // Collect unique site IDs from clients
     const siteEntries = [];
+    const clientsWithoutSite = [];
     for (const client of clients) {
       const siteId = client.main_site_id || client.toplevel_id;
       if (siteId && siteId > 0) {
         siteEntries.push({ clientId: String(client.id), siteId });
+      } else {
+        clientsWithoutSite.push(client);
       }
+    }
+    if (clientsWithoutSite.length > 0) {
+      console.log(`[HaloPSA] ${clientsWithoutSite.length} clients have no main_site_id — will try Site?client_id lookup`);
     }
 
     console.log(`[HaloPSA] Fetching ${siteEntries.length} individual site details for addresses...`);
@@ -339,8 +360,34 @@ export async function fetchSitesByClientId(config, clients) {
       }
     }
 
-    const withAddr = Object.values(siteMap).filter(s => s.delivery_address?.line1).length;
-    console.log(`[HaloPSA] ${withAddr}/${Object.keys(siteMap).length} sites have delivery addresses`);
+    // Fallback: for clients without main_site_id, try fetching sites by client_id
+    if (clientsWithoutSite.length > 0) {
+      for (let i = 0; i < clientsWithoutSite.length; i += 5) {
+        const batch = clientsWithoutSite.slice(i, i + 5);
+        const results = await Promise.allSettled(
+          batch.map(async (client) => {
+            const data = await haloGet(`Site?client_id=${client.id}&page_size=1`, cfg);
+            const sites = extractRecords(data, 'sites');
+            if (sites.length > 0) {
+              // Fetch full site detail (bulk list doesn't include delivery_address)
+              const detail = await haloGet(`Site/${sites[0].id}`, cfg);
+              return { clientId: String(client.id), data: detail };
+            }
+            return null;
+          })
+        );
+        for (const r of results) {
+          if (r.status === 'fulfilled' && r.value) {
+            siteMap[r.value.clientId] = r.value.data;
+          }
+        }
+      }
+    }
+
+    const withAddr = Object.values(siteMap).filter(s =>
+      s.delivery_address?.line1 || s.invoice_address?.line1 || s.postal_address?.line1
+    ).length;
+    console.log(`[HaloPSA] ${withAddr}/${Object.keys(siteMap).length} sites have addresses`);
 
     return siteMap;
   }
