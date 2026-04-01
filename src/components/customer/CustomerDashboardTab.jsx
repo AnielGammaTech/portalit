@@ -106,9 +106,17 @@ export default function CustomerDashboardTab({
     [lineItems, activeBillIds]
   );
 
+  const monthlyBillIds = useMemo(() => {
+    return new Set(
+      (recurringBills || [])
+        .filter(b => activeBillIds.has(b.id) && !['yearly', 'annual', 'annually'].includes((b.frequency || '').toLowerCase()))
+        .map(b => b.id)
+    );
+  }, [recurringBills, activeBillIds]);
+
   const monthlyCost = useMemo(
-    () => activeLineItems.reduce((sum, item) => sum + (item.net_amount || 0), 0),
-    [activeLineItems]
+    () => activeLineItems.filter(li => monthlyBillIds.has(li.recurring_bill_id)).reduce((sum, item) => sum + (item.net_amount || 0), 0),
+    [activeLineItems, monthlyBillIds]
   );
 
   const activeContracts = useMemo(
