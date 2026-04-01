@@ -88,17 +88,24 @@
     @apply border-border outline-ring/50;
   }
 
+  html {
+    overflow-y: scroll;
+    scrollbar-gutter: stable;
+  }
+
   body {
     @apply bg-background text-foreground;
     scrollbar-gutter: stable;
   }
 
-  /* Prevent Radix UI Dialog/Sheet from removing scrollbar and shifting layout */
-  body[data-scroll-locked] {
+  /* Prevent Radix UI Dialog/Sheet/Select from removing scrollbar and shifting layout */
+  body[data-scroll-locked],
+  body[style*="overflow: hidden"],
+  body[style*="overflow:hidden"] {
     scrollbar-gutter: stable !important;
     padding-right: 0px !important;
     margin-right: 0px !important;
-    overflow: hidden !important;
+    overflow-y: hidden !important;
   }
 }
 
