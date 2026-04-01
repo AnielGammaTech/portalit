@@ -411,7 +411,7 @@ export default function OverviewTab({
       {/* Stats Grid */}
       <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={Users} label="Team Members" value={contacts.length} color="blue" />
-        <StatCard icon={DollarSign} label="Monthly Spend" value={`$${recurringBills.reduce((sum, b) => sum + (b.amount || 0), 0).toLocaleString()}`} color="green" />
+        <StatCard icon={DollarSign} label="Monthly Spend" value={`$${recurringBills.filter(b => !['yearly', 'annual', 'annually'].includes((b.frequency || '').toLowerCase())).reduce((sum, b) => sum + (b.amount || 0), 0).toLocaleString()}`} color="green" />
         <StatCard icon={FileText} label="Active Contracts" value={contracts.filter(c => c.status === 'active').length} subtext={`${contracts.length} total`} color="orange" />
         <StatCard icon={Cloud} label="SaaS Licenses" value={licenses.filter(l => l.source !== 'jumpcloud' && l.vendor?.toLowerCase() !== 'jumpcloud').length} color="purple" />
       </motion.div>

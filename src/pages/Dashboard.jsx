@@ -71,7 +71,7 @@ function AdminDashboard() {
 
   // Calculate stats
   const activeCustomers = customers.filter(c => c.status === 'active').length;
-  const totalMRR = recurringBills.reduce((sum, b) => sum + (b.amount || 0), 0);
+  const totalMRR = recurringBills.filter(b => !['yearly', 'annual', 'annually'].includes((b.frequency || '').toLowerCase())).reduce((sum, b) => sum + (b.amount || 0), 0);
   const activeContracts = contracts.filter(c => c.status === 'active').length;
 
   // LootIT: customers with billing issues
@@ -568,7 +568,7 @@ function CustomerDashboard({ customer }) {
 
   const isLoadingPrimary = loadingContracts || loadingBills || loadingInvoices || loadingTickets || loadingContacts;
 
-  const monthlyTotal = recurringBills.reduce((sum, b) => sum + (b.amount || 0), 0);
+  const monthlyTotal = recurringBills.filter(b => !['yearly', 'annual', 'annually'].includes((b.frequency || '').toLowerCase())).reduce((sum, b) => sum + (b.amount || 0), 0);
   const openTickets = tickets.filter(t => ['new', 'open', 'in_progress'].includes(t.status)).length;
   const activeContracts = contracts.filter(c => c.status === 'active').length;
   const overdueAmount = invoices.filter(i => i.status === 'overdue').reduce((sum, i) => sum + (i.total || 0), 0);
