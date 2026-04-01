@@ -68,6 +68,36 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
     staleTime: 1000 * 60 * 2,
   });
 
+  // Detect yearly invoice amounts: if an amount appears in <= 2 months out of 12, it's yearly
+  const yearlyAmounts = useMemo(() => {
+    if (!customerInvoices || customerInvoices.length === 0) return new Set();
+    // Count how many distinct months each unique amount appears in
+    const amountMonths = {};
+    for (const inv of customerInvoices) {
+      const amt = (parseFloat(inv.total) || 0).toFixed(2);
+      if (parseFloat(amt) <= 0) continue;
+      const date = new Date(inv.due_date || inv.invoice_date || inv.created_date || 0);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      if (!amountMonths[amt]) amountMonths[amt] = new Set();
+      amountMonths[amt].add(monthKey);
+    }
+    // Also check billing_frequency field if populated
+    const yearly = new Set();
+    for (const inv of customerInvoices) {
+      if ((inv.billing_frequency || '').toLowerCase() === 'yearly') {
+        yearly.add((parseFloat(inv.total) || 0).toFixed(2));
+      }
+    }
+    // If an amount appears in <= 2 months but other amounts appear in 4+, it's likely yearly
+    const maxMonths = Math.max(...Object.values(amountMonths).map(s => s.size), 0);
+    if (maxMonths >= 4) {
+      for (const [amt, months] of Object.entries(amountMonths)) {
+        if (months.size <= 2) yearly.add(amt);
+      }
+    }
+    return yearly;
+  }, [customerInvoices]);
+
   // Build monthly history per category from invoices for anomaly visualization
   const anomalyHistory = useMemo(() => {
     if (!customerInvoices || customerInvoices.length === 0) return {};
@@ -77,7 +107,9 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
 
     for (const inv of customerInvoices) {
       if (!inv.category || (parseFloat(inv.total) || 0) <= 0) continue;
-      if ((inv.billing_frequency || '').toLowerCase() === 'yearly') continue;
+      // Skip yearly items — detected by frequency field OR by appearance pattern
+      const amt = (parseFloat(inv.total) || 0).toFixed(2);
+      if (yearlyAmounts.has(amt)) continue;
       const date = new Date(inv.due_date || inv.invoice_date || inv.created_date || 0);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       if (monthKey === currentMonth) continue;
@@ -94,7 +126,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
         .slice(0, 7);
     }
     return result;
-  }, [customerInvoices]);
+  }, [customerInvoices, yearlyAmounts]);
 
   const [acknowledgeId, setAcknowledgeId] = useState(null);
   const [acknowledgeNotes, setAcknowledgeNotes] = useState('');
