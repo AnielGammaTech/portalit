@@ -144,7 +144,7 @@ function useMappingCounts() {
     ['CIPPMapping', 'cipp_mappings'],
   ];
 
-  const { data: counts = {} } = useQuery({
+  const { data: counts = {}, isLoading } = useQuery({
     queryKey: ['mapping_counts'],
     queryFn: async () => {
       const results = await Promise.all(
@@ -155,15 +155,15 @@ function useMappingCounts() {
       );
       return Object.fromEntries(results);
     },
-    staleTime: 1000 * 60 * 2,
+    staleTime: 1000 * 60 * 5,
   });
 
-  return counts;
+  return { counts, isLoading };
 }
 
 // ── Status badge ─────────────────────────────────────────────────────────
 
-function IntegrationStatusBadge({ mappingEntity, mappingCounts, haloStatus }) {
+function IntegrationStatusBadge({ mappingEntity, mappingCounts, countsLoading, haloStatus }) {
   // HaloPSA has its own status
   if (haloStatus) {
     if (haloStatus.configured && haloStatus.lastSync?.status === 'success') {
@@ -183,6 +183,15 @@ function IntegrationStatusBadge({ mappingEntity, mappingCounts, haloStatus }) {
     if (haloStatus.configured) {
       return <Badge className="bg-amber-50 text-amber-700 border-amber-200 font-normal text-xs">Configured</Badge>;
     }
+  }
+
+  // Show loading while counts are being fetched
+  if (mappingEntity && countsLoading) {
+    return (
+      <Badge variant="outline" className="text-slate-300 border-slate-200 font-normal text-xs animate-pulse">
+        Loading...
+      </Badge>
+    );
   }
 
   // Other integrations use mapping counts
@@ -209,7 +218,7 @@ function IntegrationStatusBadge({ mappingEntity, mappingCounts, haloStatus }) {
 
 export default function Integrations() {
   const [expandedId, setExpandedId] = useState(null);
-  const mappingCounts = useMappingCounts();
+  const { counts: mappingCounts, isLoading: countsLoading } = useMappingCounts();
 
   const { data: haloStatus } = useQuery({
     queryKey: ['halo-status'],
@@ -265,6 +274,7 @@ export default function Integrations() {
                         <IntegrationStatusBadge
                           mappingEntity={integration.mappingEntity}
                           mappingCounts={mappingCounts}
+                          countsLoading={countsLoading}
                           haloStatus={integration.id === 'halopsa' ? haloStatus : null}
                         />
                       </div>
