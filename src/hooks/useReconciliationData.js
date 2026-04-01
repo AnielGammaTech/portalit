@@ -281,12 +281,15 @@ export function useReconciliationData(customerId) {
       const custReviews = reviewsByCustomer[customer.id] || [];
 
       const custOverrides = overridesByCustomer[customer.id] || [];
-      const recon = reconcileCustomer(custLineItems, custMappings, rules, custReviews, custOverrides);
 
-      // Auto-reconcile Pax8 subscriptions (one tile per subscription)
+      // Run Pax8 FIRST to collect matched line item IDs
       const pax8Recon = custMappings.pax8
         ? reconcilePax8Subscriptions(custLineItems, custMappings.pax8, custReviews, custOverrides)
         : [];
+      const pax8MatchedIds = pax8Recon._pax8MatchedLineItemIds || new Set();
+
+      // Then run rule-based reconciliation with Pax8 exclusions
+      const recon = reconcileCustomer(custLineItems, custMappings, rules, custReviews, custOverrides, pax8MatchedIds);
 
       // Only include customers that have at least some data to reconcile
       const hasData = recon.some(

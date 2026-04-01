@@ -239,7 +239,7 @@ export function matchLineItemToRules(lineItem, rules) {
  *
  * @returns {Array} reconciliation results, one per rule
  */
-export function reconcileCustomer(lineItems, mappings, rules, reviews = [], overrides = []) {
+export function reconcileCustomer(lineItems, mappings, rules, reviews = [], overrides = [], pax8MatchedIds = new Set()) {
   const activeRules = rules.filter((r) => r.is_active);
   const reviewMap = Object.fromEntries(
     reviews.map((r) => [r.rule_id, r])
@@ -305,10 +305,13 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
     };
   });
 
-  // 5. Add unmatched line items — billing items that don't match ANY rule or Pax8 override
-  // Also exclude line items already mapped via pax8_line_item_overrides
+  // 5. Add unmatched line items — billing items that don't match ANY rule or Pax8
+  // Exclude line items mapped via overrides AND auto-matched by Pax8
   for (const ov of overrides) {
     if (ov.line_item_id) matchedLineItemIds.add(ov.line_item_id);
+  }
+  for (const id of pax8MatchedIds) {
+    matchedLineItemIds.add(id);
   }
   // Skip discounts (negative amounts or description starting with "Discount")
   const unmatchedItems = lineItems.filter((li) =>
@@ -408,6 +411,7 @@ export function reconcilePax8Subscriptions(lineItems, pax8Mapping, reviews = [],
   const lineItemById = Object.fromEntries(lineItems.map((li) => [li.id, li]));
 
   const results = [];
+  const pax8MatchedLineItemIds = new Set();
 
   for (const product of products) {
     // Auto-match at the product level (fallback when no per-sub override)
@@ -466,6 +470,13 @@ export function reconcilePax8Subscriptions(lineItems, pax8Mapping, reviews = [],
     }
   }
 
+  // Collect all matched line item IDs from Pax8 reconciliations
+  for (const r of results) {
+    for (const li of (r.matchedLineItems || [])) {
+      pax8MatchedLineItemIds.add(li.id);
+    }
+  }
+  results._pax8MatchedLineItemIds = pax8MatchedLineItemIds;
   return results;
 }
 
