@@ -316,7 +316,7 @@ export default function CustomerPortalPreview() {
           <div className="sm:pr-4 sm:border-r sm:border-gray-200">
             <p className="text-[10px] text-gray-500 uppercase tracking-wide">Monthly Cost</p>
             <p className="text-2xl font-bold text-gray-900">
-              ${recurringBills.reduce((sum, b) => sum + (b.amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              ${recurringBills.filter(b => (b.frequency || 'monthly').toLowerCase() === 'monthly').reduce((sum, b) => sum + (b.amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </p>
           </div>
           <div className="sm:px-4 sm:border-r sm:border-gray-200">

@@ -802,7 +802,10 @@ export default function CustomerDetail() {
                           {/* Billing Dashboard Widgets */}
                           {(() => {
                             const activeBills = recurringBills.filter(b => activeBillIdSet.has(b.id));
-                            const monthlyCost = activeBills.reduce((sum, b) => sum + (b.amount || 0), 0);
+                            const monthlyBills = activeBills.filter(b => (b.frequency || 'monthly').toLowerCase() === 'monthly');
+                            const yearlyBills = activeBills.filter(b => (b.frequency || '').toLowerCase() === 'yearly');
+                            const monthlyCost = monthlyBills.reduce((sum, b) => sum + (b.amount || 0), 0);
+                            const yearlyCost = yearlyBills.reduce((sum, b) => sum + (b.amount || 0), 0);
                             const overdueInvoices = invoices.filter(i => i.status === 'overdue');
                             const pendingInvoices = invoices.filter(i => i.status === 'sent');
                             const totalOverdue = overdueInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
@@ -828,8 +831,24 @@ export default function CustomerDetail() {
                                     <p className="text-2xl font-bold text-gray-900">
                                       ${monthlyCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                     </p>
-                                    <p className="text-xs text-gray-400 mt-1">{activeBills.length} active bill{activeBills.length !== 1 ? 's' : ''}{recurringBills.length > activeBills.length ? ` (${recurringBills.length - activeBills.length} inactive)` : ''}</p>
+                                    <p className="text-xs text-gray-400 mt-1">{monthlyBills.length} bill{monthlyBills.length !== 1 ? 's' : ''}</p>
                                   </div>
+
+                                  {/* Yearly Cost */}
+                                  {yearlyBills.length > 0 && (
+                                    <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                                          <Calendar className="w-4 h-4 text-blue-600" />
+                                        </div>
+                                        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Yearly Cost</span>
+                                      </div>
+                                      <p className="text-2xl font-bold text-gray-900">
+                                        ${yearlyCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                      </p>
+                                      <p className="text-xs text-gray-400 mt-1">{yearlyBills.length} bill{yearlyBills.length !== 1 ? 's' : ''}</p>
+                                    </div>
+                                  )}
 
                                   {/* Contract */}
                                   <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
