@@ -802,8 +802,8 @@ export default function CustomerDetail() {
                           {/* Billing Dashboard Widgets */}
                           {(() => {
                             const activeBills = recurringBills.filter(b => activeBillIdSet.has(b.id));
-                            const monthlyBills = activeBills.filter(b => (b.frequency || 'monthly').toLowerCase() === 'monthly');
-                            const yearlyBills = activeBills.filter(b => (b.frequency || '').toLowerCase() === 'yearly');
+                            const yearlyBills = activeBills.filter(b => ['yearly', 'annual', 'annually'].includes((b.frequency || '').toLowerCase()));
+                            const monthlyBills = activeBills.filter(b => !['yearly', 'annual', 'annually'].includes((b.frequency || '').toLowerCase()));
                             const monthlyCost = monthlyBills.reduce((sum, b) => sum + (b.amount || 0), 0);
                             const yearlyCost = yearlyBills.reduce((sum, b) => sum + (b.amount || 0), 0);
                             const overdueInvoices = invoices.filter(i => i.status === 'overdue');
@@ -819,70 +819,66 @@ export default function CustomerDetail() {
                             return (
                               <>
                                 {/* Top Stats Row */}
-                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
                                   {/* Monthly Cost */}
                                   <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
                                     <div className="flex items-center gap-2 mb-2">
-                                      <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
-                                        <DollarSign className="w-4 h-4 text-emerald-600" />
+                                      <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
+                                        <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
                                       </div>
-                                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Monthly Cost</span>
+                                      <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Monthly</span>
                                     </div>
-                                    <p className="text-2xl font-bold text-gray-900">
+                                    <p className="text-xl font-bold text-gray-900">
                                       ${monthlyCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                     </p>
-                                    <p className="text-xs text-gray-400 mt-1">{monthlyBills.length} bill{monthlyBills.length !== 1 ? 's' : ''}</p>
+                                    <p className="text-[10px] text-gray-400 mt-1">{monthlyBills.length} bill{monthlyBills.length !== 1 ? 's' : ''}</p>
                                   </div>
 
                                   {/* Yearly Cost */}
-                                  {yearlyBills.length > 0 && (
-                                    <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                                      <div className="flex items-center gap-2 mb-2">
-                                        <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
-                                          <Calendar className="w-4 h-4 text-blue-600" />
-                                        </div>
-                                        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Yearly Cost</span>
+                                  <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+                                        <Calendar className="w-3.5 h-3.5 text-blue-600" />
                                       </div>
-                                      <p className="text-2xl font-bold text-gray-900">
-                                        ${yearlyCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                      </p>
-                                      <p className="text-xs text-gray-400 mt-1">{yearlyBills.length} bill{yearlyBills.length !== 1 ? 's' : ''}</p>
+                                      <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Yearly</span>
                                     </div>
-                                  )}
+                                    <p className="text-xl font-bold text-gray-900">
+                                      {yearlyCost > 0 ? `$${yearlyCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}
+                                    </p>
+                                    <p className="text-[10px] text-gray-400 mt-1">{yearlyBills.length > 0 ? `${yearlyBills.length} bill${yearlyBills.length !== 1 ? 's' : ''}` : 'None'}</p>
+                                  </div>
 
                                   {/* Contract */}
                                   <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                                    <div className="flex items-center justify-between mb-2">
-                                      <div className="flex items-center gap-2">
-                                        <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
-                                          <FileText className="w-4 h-4 text-blue-600" />
-                                        </div>
-                                        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Contract</span>
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center">
+                                        <FileText className="w-3.5 h-3.5 text-indigo-600" />
                                       </div>
+                                      <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Contract</span>
                                     </div>
                                     {activeContract ? (
                                       <>
                                         <p className="text-lg font-bold text-gray-900 truncate">{activeContract.name}</p>
-                                        <p className="text-xs text-gray-400 mt-1">
-                                          {contractItems.length} item{contractItems.length !== 1 ? 's' : ''}
-                                          {contractValue > 0 && ` · $${contractValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
-                                        </p>
+                                        <p className="text-[10px] text-gray-400 mt-1">{contractItems.length} item{contractItems.length !== 1 ? 's' : ''}</p>
                                       </>
                                     ) : (
-                                      <p className="text-lg text-gray-400">No contract</p>
+                                      <>
+                                        <p className="text-xl font-bold text-gray-300">—</p>
+                                        <p className="text-[10px] text-gray-400 mt-1">No contract</p>
+                                      </>
                                     )}
                                   </div>
 
                                   {/* Devices */}
                                   <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
                                     <div className="flex items-center gap-2 mb-2">
-                                      <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center">
-                                        <Monitor className="w-4 h-4 text-violet-600" />
+                                      <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center">
+                                        <Monitor className="w-3.5 h-3.5 text-violet-600" />
                                       </div>
-                                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Devices</span>
+                                      <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Devices</span>
                                     </div>
-                                    <p className="text-2xl font-bold text-gray-900">{devices.length}</p>
-                                    <p className="text-xs text-gray-400 mt-1">
+                                    <p className="text-xl font-bold text-gray-900">{devices.length}</p>
+                                    <p className="text-[10px] text-gray-400 mt-1">
                                       {workstations > 0 && `${workstations} workstation${workstations !== 1 ? 's' : ''}`}
                                       {workstations > 0 && servers > 0 && ' · '}
                                       {servers > 0 && `${servers} server${servers !== 1 ? 's' : ''}`}
@@ -893,13 +889,13 @@ export default function CustomerDetail() {
                                   {/* Users / Contacts */}
                                   <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
                                     <div className="flex items-center gap-2 mb-2">
-                                      <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
-                                        <Users className="w-4 h-4 text-amber-600" />
+                                      <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center">
+                                        <Users className="w-3.5 h-3.5 text-amber-600" />
                                       </div>
-                                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Users</span>
+                                      <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Users</span>
                                     </div>
-                                    <p className="text-2xl font-bold text-gray-900">{contacts.length}</p>
-                                    <p className="text-xs text-gray-400 mt-1">
+                                    <p className="text-xl font-bold text-gray-900">{contacts.length}</p>
+                                    <p className="text-[10px] text-gray-400 mt-1">
                                       {totalLineItems} line item{totalLineItems !== 1 ? 's' : ''} billed
                                     </p>
                                   </div>
