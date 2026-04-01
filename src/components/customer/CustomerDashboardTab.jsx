@@ -127,8 +127,8 @@ export default function CustomerDashboardTab({
     const pending = invoices.filter(i => ['pending', 'sent', 'open', 'unpaid'].includes((i.status || '').toLowerCase()));
     const overdue = invoices.filter(i => (i.status || '').toLowerCase() === 'overdue');
     const paidAmount = paid.reduce((s, i) => s + (i.total || i.amount || 0), 0);
-    const pendingAmount = pending.reduce((s, i) => s + (i.total || i.amount || 0), 0);
-    const overdueAmount = overdue.reduce((s, i) => s + (i.total || i.amount || 0), 0);
+    const pendingAmount = pending.reduce((s, i) => s + (parseFloat(i.amount_due) || i.total || i.amount || 0), 0);
+    const overdueAmount = overdue.reduce((s, i) => s + (parseFloat(i.amount_due) || i.total || i.amount || 0), 0);
     return { paid: paid.length, pending: pending.length, overdue: overdue.length, paidAmount, pendingAmount, overdueAmount };
   }, [invoices]);
 
