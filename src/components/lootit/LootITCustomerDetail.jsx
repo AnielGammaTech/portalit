@@ -654,7 +654,35 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
               }[a.category] || a.category || 'Unknown';
 
               // Reverse history: oldest first → newest last (left to right)
-              const history = [...(anomalyHistory[a.category] || [])].reverse();
+              const rawHistory = anomalyHistory[a.category] || [];
+              const history = [...rawHistory].reverse();
+
+              // Build plain-text summary of the billing pattern
+              const buildSummary = () => {
+                if (rawHistory.length < 2) return null;
+                const newest = rawHistory[0]; // sorted desc, so [0] is newest
+                const oldest = rawHistory[rawHistory.length - 1];
+                const newestLabel = new Date(newest.month + '-15').toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                const oldestLabel = new Date(oldest.month + '-15').toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+
+                // Find where the change happened (first month that differs significantly from previous)
+                const sorted = [...rawHistory]; // desc order
+                let changeIdx = -1;
+                for (let i = 0; i < sorted.length - 1; i++) {
+                  const diff = Math.abs(sorted[i].amount - sorted[i + 1].amount);
+                  if (diff > sorted[i + 1].amount * 0.05) { changeIdx = i; break; }
+                }
+                if (changeIdx < 0) return null;
+                const changeMonth = new Date(sorted[changeIdx].month + '-15').toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                const beforeAmount = sorted[changeIdx + 1].amount;
+                const afterAmount = sorted[changeIdx].amount;
+
+                if (afterAmount < beforeAmount) {
+                  return `Was $${beforeAmount.toLocaleString()}/mo (${oldestLabel} \u2013 ${new Date(sorted[changeIdx + 1].month + '-15').toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}). Dropped to $${afterAmount.toLocaleString()} in ${changeMonth}.`;
+                }
+                return `Was $${beforeAmount.toLocaleString()}/mo. Increased to $${afterAmount.toLocaleString()} in ${changeMonth}.`;
+              };
+              const summaryText = buildSummary();
               const maxAmount = history.length > 0 ? Math.max(...history.map(h => h.amount)) : 1;
 
               // Color segments between nodes
@@ -710,6 +738,11 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
                       </div>
                     </div>
                   </div>
+
+                  {/* Summary */}
+                  {summaryText && (
+                    <p className="text-[11px] text-slate-500 mb-3 px-1">{summaryText}</p>
+                  )}
 
                   {/* Horizontal Timeline */}
                   {history.length > 0 && (
