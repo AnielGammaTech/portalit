@@ -69,10 +69,10 @@ export default function LootITDashboard({ onSelectCustomer }) {
       const amount = parseFloat(inv.total || inv.amount) || 0;
       if (amount <= 0) continue;
       const invName = (inv.notes || inv.invoice_number || '').toLowerCase();
-      if (invName.includes('ticket') || invName.includes('project') || invName.includes('ad-hoc') || invName.includes('credit')) continue;
+      if (amount === 0 || invName.includes('ticket') || invName.includes('project') || invName.includes('ad-hoc') || invName.includes('credit')) continue;
 
       const type = voipInvoiceIds.has(inv.id) ? 'voip' : 'monthly';
-      const date = new Date(inv.due_date || inv.invoice_date || inv.created_date || 0);
+      const date = new Date(inv.invoice_date || inv.created_date || inv.due_date || 0);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       const groupKey = `${inv.customer_id}::${type}`;
 

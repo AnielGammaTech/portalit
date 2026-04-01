@@ -61,9 +61,9 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
       if (amount <= 0) continue;
       // Skip non-recurring: ticket charges, projects, ad-hoc, credit notes
       const invName = (inv.notes || inv.invoice_number || '').toLowerCase();
-      if (invName.includes('ticket') || invName.includes('project') || invName.includes('ad-hoc') || invName.includes('credit')) continue;
+      if (amount === 0 || invName.includes('ticket') || invName.includes('project') || invName.includes('ad-hoc') || invName.includes('credit')) continue;
       // Group by due_date month (billing period, regardless of payment status)
-      const date = new Date(inv.due_date || inv.invoice_date || inv.created_date || 0);
+      const date = new Date(inv.invoice_date || inv.created_date || inv.due_date || 0);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       if (!byMonth[monthKey]) byMonth[monthKey] = { amount: 0, date };
       byMonth[monthKey].amount += amount;
