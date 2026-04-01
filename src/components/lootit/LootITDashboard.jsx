@@ -37,134 +37,29 @@ export default function LootITDashboard({ onSelectCustomer }) {
   });
   const signedOffCustomerIds = useMemo(() => new Set(signOffs.map(s => s.customer_id)), [signOffs]);
 
-  // ── Anomaly Detection ──
-  // Fetch invoices + line items for anomaly detection
-  const { data: invoices = [] } = useQuery({
-    queryKey: ['all_invoices_for_anomalies'],
-    queryFn: () => client.entities.Invoice.list('-invoice_date', 5000),
-    staleTime: 1000 * 60 * 5,
-  });
-  const { data: invoiceLineItems = [] } = useQuery({
-    queryKey: ['all_invoice_line_items_for_anomalies'],
-    queryFn: () => client.entities.InvoiceLineItem.list(null, 10000),
-    staleTime: 1000 * 60 * 5,
-  });
-
-  // Compare each customer's monthly invoices — track by invoice name pattern
+  // ── Anomaly Detection (server-side, from billing_anomalies table) ──
   const anomalies = useMemo(() => {
-    if (!invoices || invoices.length === 0) return [];
-
-    // Classify invoices: VoIP (has GTVoice line item) vs Monthly Recurring (everything else)
-    const voipInvoiceIds = new Set();
-    for (const li of invoiceLineItems) {
-      if ((li.description || '').toLowerCase().includes('gtvoice')) {
-        voipInvoiceIds.add(li.invoice_id);
-      }
-    }
-
-    // Group by customer + type (voip vs monthly) + due_date month
-    const grouped = {}; // key: "custId::voip" or "custId::monthly"
-    for (const inv of invoices) {
-      if (!inv.customer_id) continue;
-      const amount = parseFloat(inv.total || inv.amount) || 0;
-      if (amount <= 0) continue;
-      const invName = (inv.notes || inv.invoice_number || '').toLowerCase();
-      if (amount === 0 || invName.includes('ticket') || invName.includes('project') || invName.includes('ad-hoc') || invName.includes('credit')) continue;
-
-      const type = voipInvoiceIds.has(inv.id) ? 'voip' : 'monthly';
-      const date = new Date(inv.invoice_date || inv.created_date || inv.due_date || 0);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      const groupKey = `${inv.customer_id}::${type}`;
-
-      if (!grouped[groupKey]) grouped[groupKey] = { customerId: inv.customer_id, type, months: {} };
-      if (!grouped[groupKey].months[monthKey]) grouped[groupKey].months[monthKey] = { amount: 0, date };
-      grouped[groupKey].months[monthKey].amount += amount;
-    }
-
-    // Skip current month (incomplete) and convert to sorted arrays
-    const now = new Date();
-    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-
-    const invoiceGroups = {};
-    for (const [key, group] of Object.entries(grouped)) {
-      delete group.months[currentMonthKey];
-      const sorted = Object.values(group.months).sort((a, b) => b.date - a.date);
-      if (sorted.length >= 2) {
-        invoiceGroups[key] = {
-          customerId: group.customerId,
-          billName: group.type === 'voip' ? 'VoIP (GTVoice)' : 'Monthly Recurring',
-          invoices: sorted,
-        };
-      }
-    }
-
-    const results = [];
+    if (!dbAnomalies || dbAnomalies.length === 0) return [];
     const customerMap = Object.fromEntries((customers || []).map(c => [c.id, c]));
+    const categoryLabels = { monthly_recurring: 'Monthly Recurring', voip: 'VoIP' };
 
-    for (const group of Object.values(invoiceGroups)) {
-      const sorted = group.invoices;
-      if (sorted.length < 2) continue;
-
-      const latest = sorted[0];
-      const historical = sorted.slice(1, 7);
-      if (historical.length === 0) continue;
-
-      const avgAmount = historical.reduce((s, b) => s + b.amount, 0) / historical.length;
-      if (avgAmount === 0) continue;
-
-      const pctChange = ((latest.amount - avgAmount) / avgAmount) * 100;
-
-      const history = sorted.slice(0, 7).map(b => ({
-        amount: b.amount,
-        month: b.date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
-      }));
-
-      if (Math.abs(pctChange) >= 10) {
-        const customer = customerMap[group.customerId];
-        results.push({
-          customerId: group.customerId,
-          customerName: customer?.name || 'Unknown',
-          billName: group.billName,
-          customer,
-          latestAmount: latest.amount,
-          avgAmount,
-          pctChange,
-          direction: pctChange > 0 ? 'increase' : 'decrease',
-          latestDate: latest.date,
-          history,
-        });
-      }
-    }
-
-    // Merge with DB anomalies — add dbId for review/dismiss actions
-    const dbMap = {};
-    for (const dba of dbAnomalies) {
-      dbMap[dba.customer_id] = dba.id;
-    }
-    for (const r of results) {
-      r.dbId = dbMap[r.customerId] || null;
-    }
-
-    // Also add DB anomalies that aren't in the computed list (from previous scans)
-    const computedIds = new Set(results.map(r => r.customerId));
-    for (const dba of dbAnomalies) {
-      if (!computedIds.has(dba.customer_id)) {
-        results.push({
+    return dbAnomalies
+      .map(dba => {
+        const customer = customerMap[dba.customer_id];
+        return {
           customerId: dba.customer_id,
-          customerName: customerMap[dba.customer_id]?.name || 'Unknown',
-          customer: customerMap[dba.customer_id],
+          customerName: customer?.name || 'Unknown',
+          billName: categoryLabels[dba.category] || dba.category || 'Unknown',
+          customer,
           latestAmount: parseFloat(dba.current_amount) || 0,
           avgAmount: parseFloat(dba.previous_avg) || 0,
           pctChange: parseFloat(dba.pct_change) || 0,
           direction: dba.direction,
           dbId: dba.id,
-        });
-      }
-    }
-
-    // Sort by absolute % change descending (biggest anomalies first)
-    return results.sort((a, b) => Math.abs(b.pctChange) - Math.abs(a.pctChange));
-  }, [invoices, invoiceLineItems, bills, customers, dbAnomalies]);
+        };
+      })
+      .sort((a, b) => Math.abs(b.pctChange) - Math.abs(a.pctChange));
+  }, [dbAnomalies, customers]);
 
   const customerList = useMemo(() => {
     const entries = Object.values(reconciliations).map((entry) => {
