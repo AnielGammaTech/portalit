@@ -13,7 +13,6 @@ const STATUS_CONFIG = {
 
 export default function SecurityAuditPanel() {
   const [isRunning, setIsRunning] = useState(false);
-  const queryClient = useQueryClient();
 
   const [audit, setAudit] = useState(null);
 
