@@ -38,28 +38,36 @@ export default function LootITDashboard({ onSelectCustomer }) {
   const signedOffCustomerIds = useMemo(() => new Set(signOffs.map(s => s.customer_id)), [signOffs]);
 
   // ── Anomaly Detection ──
-  // Compare each customer's recurring bills individually (per bill name)
-  const anomalies = useMemo(() => {
-    if (!bills || bills.length === 0) return [];
+  // Fetch invoices for anomaly detection (actual monthly charges, not recurring bill definitions)
+  const { data: invoices = [] } = useQuery({
+    queryKey: ['all_invoices_for_anomalies'],
+    queryFn: () => client.entities.Invoice.list('-invoice_date', 5000),
+    staleTime: 1000 * 60 * 5,
+  });
 
-    // Group bills by customer + halopsa_id (each recurring invoice is a separate entity)
-    const billGroups = {};
-    for (const bill of bills) {
-      if (!bill.customer_id || !bill.amount) continue;
-      const billId = bill.halopsa_id || bill.external_id || bill.id;
-      const key = `${bill.customer_id}::${billId}`;
-      if (!billGroups[key]) billGroups[key] = { customerId: bill.customer_id, billName: bill.description || bill.name || 'Recurring', billId, bills: [] };
-      billGroups[key].bills.push({
-        amount: parseFloat(bill.amount) || 0,
-        date: new Date(bill.created_date || bill.start_date || 0),
+  // Compare each customer's monthly invoices — track by invoice name pattern
+  const anomalies = useMemo(() => {
+    if (!invoices || invoices.length === 0) return [];
+
+    // Group invoices by customer + name pattern (strip date/number suffixes)
+    const invoiceGroups = {};
+    for (const inv of invoices) {
+      if (!inv.customer_id || !inv.amount) continue;
+      // Extract the invoice type by removing date patterns and numbers
+      const rawName = (inv.notes || inv.invoice_number || 'Invoice').replace(/\s*#?\d+\s*$/, '').replace(/\s*\d{1,2}\/\d{1,2}\/\d{2,4}\s*/g, '').trim() || 'Invoice';
+      const key = `${inv.customer_id}::${rawName}`;
+      if (!invoiceGroups[key]) invoiceGroups[key] = { customerId: inv.customer_id, billName: rawName, invoices: [] };
+      invoiceGroups[key].invoices.push({
+        amount: parseFloat(inv.total || inv.amount) || 0,
+        date: new Date(inv.invoice_date || inv.created_date || 0),
       });
     }
 
     const results = [];
     const customerMap = Object.fromEntries((customers || []).map(c => [c.id, c]));
 
-    for (const group of Object.values(billGroups)) {
-      const sorted = group.bills.sort((a, b) => b.date - a.date);
+    for (const group of Object.values(invoiceGroups)) {
+      const sorted = group.invoices.sort((a, b) => b.date - a.date);
       if (sorted.length < 2) continue;
 
       const latest = sorted[0];

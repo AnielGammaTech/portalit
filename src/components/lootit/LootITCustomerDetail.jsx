@@ -45,27 +45,25 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
     staleTime: 1000 * 60 * 2,
   });
 
-  // Also compute live anomalies from bills
-  const { data: customerBills = [] } = useQuery({
-    queryKey: ['customer_bills_for_anomaly', customer.id],
-    queryFn: () => client.entities.RecurringBill.filter({ customer_id: customer.id }),
+  // Also compute live anomalies from invoices (actual monthly charges)
+  const { data: customerInvoices = [] } = useQuery({
+    queryKey: ['customer_invoices_for_anomaly', customer.id],
+    queryFn: () => client.entities.Invoice.filter({ customer_id: customer.id }),
     staleTime: 1000 * 60 * 5,
   });
 
   const liveAnomalies = useMemo(() => {
-    if (customerBills.length < 2) return [];
-    // Group by halopsa_id — each recurring invoice is tracked separately
-    const byBillId = {};
-    for (const b of customerBills) {
-      const key = b.halopsa_id || b.external_id || b.id;
-      const label = b.description || b.name || 'Recurring';
-      if (!byBillId[key]) byBillId[key] = { label, bills: [] };
-      byBillId[key].bills.push({ amount: parseFloat(b.amount) || 0, date: new Date(b.created_date || b.start_date || 0) });
+    if (customerInvoices.length < 2) return [];
+    // Group by invoice name pattern (strip date/number suffixes)
+    const byPattern = {};
+    for (const inv of customerInvoices) {
+      if (!inv.amount) continue;
+      const rawName = (inv.notes || inv.invoice_number || 'Invoice').replace(/\s*#?\d+\s*$/, '').replace(/\s*\d{1,2}\/\d{1,2}\/\d{2,4}\s*/g, '').trim() || 'Invoice';
+      if (!byPattern[rawName]) byPattern[rawName] = [];
+      byPattern[rawName].push({ amount: parseFloat(inv.total || inv.amount) || 0, date: new Date(inv.invoice_date || inv.created_date || 0) });
     }
     const results = [];
-    for (const [, group] of Object.entries(byBillId)) {
-      const name = group.label;
-      const bills = group.bills;
+    for (const [name, bills] of Object.entries(byPattern)) {
       const sorted = bills.sort((a, b) => b.date - a.date);
       if (sorted.length < 2) continue;
       const latest = sorted[0];
