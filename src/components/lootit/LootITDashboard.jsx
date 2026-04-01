@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, AlertTriangle, CheckCircle2, TrendingDown, TrendingUp, Database, Bell, DollarSign, Check, X, Stamp, Eye } from 'lucide-react';
+import { Search, AlertTriangle, CheckCircle2, TrendingDown, TrendingUp, Database, Bell, DollarSign, Check, X, Stamp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
@@ -9,7 +9,6 @@ import { getDiscrepancySummary } from '@/lib/lootit-reconciliation';
 export default function LootITDashboard({ onSelectCustomer }) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
-  const [anomalyDetail, setAnomalyDetail] = useState(null);
   const queryClient = useQueryClient();
   const { reconciliations, globalSummary, bills, customers, isLoading } = useReconciliationData();
 
@@ -39,16 +38,17 @@ export default function LootITDashboard({ onSelectCustomer }) {
   const signedOffCustomerIds = useMemo(() => new Set(signOffs.map(s => s.customer_id)), [signOffs]);
 
   // ── Anomaly Detection ──
-  // Compare each customer's latest monthly invoice against their 3-6 month average
+  // Compare each customer's recurring bills individually (per bill name)
   const anomalies = useMemo(() => {
     if (!bills || bills.length === 0) return [];
 
-    // Group bills by customer, sorted by date descending
-    const billsByCustomer = {};
+    // Group bills by customer + bill name (e.g. "Monthly Recurring" vs "GTVoice")
+    const billGroups = {};
     for (const bill of bills) {
       if (!bill.customer_id || !bill.amount) continue;
-      if (!billsByCustomer[bill.customer_id]) billsByCustomer[bill.customer_id] = [];
-      billsByCustomer[bill.customer_id].push({
+      const key = `${bill.customer_id}::${bill.name || 'Unknown'}`;
+      if (!billGroups[key]) billGroups[key] = { customerId: bill.customer_id, billName: bill.name || 'Unknown', bills: [] };
+      billGroups[key].bills.push({
         amount: parseFloat(bill.amount) || 0,
         date: new Date(bill.created_date || bill.start_date || 0),
       });
@@ -57,13 +57,11 @@ export default function LootITDashboard({ onSelectCustomer }) {
     const results = [];
     const customerMap = Object.fromEntries((customers || []).map(c => [c.id, c]));
 
-    for (const [custId, custBills] of Object.entries(billsByCustomer)) {
-      // Sort descending by date
-      const sorted = custBills.sort((a, b) => b.date - a.date);
-      if (sorted.length < 2) continue; // Need at least 2 months
+    for (const group of Object.values(billGroups)) {
+      const sorted = group.bills.sort((a, b) => b.date - a.date);
+      if (sorted.length < 2) continue;
 
       const latest = sorted[0];
-      // Average of months 2-7 (up to 6 historical months)
       const historical = sorted.slice(1, 7);
       if (historical.length === 0) continue;
 
@@ -72,18 +70,17 @@ export default function LootITDashboard({ onSelectCustomer }) {
 
       const pctChange = ((latest.amount - avgAmount) / avgAmount) * 100;
 
-      // Build history for explanation
       const history = sorted.slice(0, 7).map(b => ({
         amount: b.amount,
         month: b.date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
       }));
 
-      // Flag if change exceeds 10%
       if (Math.abs(pctChange) >= 10) {
-        const customer = customerMap[custId];
+        const customer = customerMap[group.customerId];
         results.push({
-          customerId: custId,
+          customerId: group.customerId,
           customerName: customer?.name || 'Unknown',
+          billName: group.billName,
           customer,
           latestAmount: latest.amount,
           avgAmount,
@@ -178,74 +175,32 @@ export default function LootITDashboard({ onSelectCustomer }) {
             <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">{anomalies.length}</span>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-2">
-            {anomalies.slice(0, 8).map((a) => {
-              const diff = a.latestAmount - a.avgAmount;
-              return (
-                <button
-                  key={a.customerId}
-                  onClick={() => a.customer && onSelectCustomer(a.customer, 'recurring')}
-                  className={cn(
-                    'text-left rounded-lg border p-3 hover:shadow-md transition-all cursor-pointer group',
-                    a.direction === 'decrease' ? 'bg-red-50/60 border-red-200' : 'bg-amber-50/60 border-amber-200'
+            {anomalies.slice(0, 8).map((a) => (
+              <button
+                key={`${a.customerId}-${a.billName}`}
+                onClick={() => a.customer && onSelectCustomer(a.customer, 'recurring')}
+                className={cn(
+                  'text-left rounded-lg border p-3 hover:shadow-md transition-all cursor-pointer',
+                  a.direction === 'decrease' ? 'bg-red-50/60 border-red-200' : 'bg-amber-50/60 border-amber-200'
+                )}
+              >
+                <p className="text-xs font-semibold text-slate-900 truncate">{a.customerName}</p>
+                <p className="text-[9px] text-slate-400 truncate mb-1.5">{a.billName}</p>
+                <div className="flex items-baseline gap-1.5">
+                  {a.direction === 'decrease' ? (
+                    <TrendingDown className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                  ) : (
+                    <TrendingUp className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                   )}
-                >
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <p className="text-xs font-semibold text-slate-900 truncate flex-1">{a.customerName}</p>
-                    <DollarSign className={cn('w-3.5 h-3.5 shrink-0', a.direction === 'decrease' ? 'text-red-400' : 'text-amber-400')} />
-                  </div>
-                  <div className="flex items-baseline gap-2 mb-2">
-                    {a.direction === 'decrease' ? (
-                      <TrendingDown className="w-4 h-4 text-red-500 shrink-0" />
-                    ) : (
-                      <TrendingUp className="w-4 h-4 text-amber-500 shrink-0" />
-                    )}
-                    <span className={cn(
-                      'text-lg font-bold tabular-nums',
-                      a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600'
-                    )}>
-                      {a.pctChange > 0 ? '+' : ''}{a.pctChange.toFixed(0)}%
-                    </span>
-                    <span className={cn(
-                      'text-xs font-semibold tabular-nums',
-                      a.direction === 'decrease' ? 'text-red-500' : 'text-amber-500'
-                    )}>
-                      {diff > 0 ? '+' : ''}{diff < 0 ? '-' : ''}${Math.abs(Math.round(diff)).toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-[10px]">
-                    <div>
-                      <p className="text-slate-400">Previous avg</p>
-                      <p className="font-semibold text-slate-600 tabular-nums">${Math.round(a.avgAmount).toLocaleString()}/mo</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-slate-400">Current</p>
-                      <p className={cn('font-semibold tabular-nums', a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600')}>
-                        ${Math.round(a.latestAmount).toLocaleString()}/mo
-                      </p>
-                    </div>
-                  </div>
-                  {/* Action buttons */}
-                  <div className="flex gap-1.5 mt-2 pt-2 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
-                    {a.dbId && (
-                      <>
-                        <button onClick={(e) => { e.stopPropagation(); handleReviewAnomaly(a.dbId); }}
-                          className="flex items-center gap-1 px-2 py-0.5 text-[9px] font-medium rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors">
-                          <Check className="w-2.5 h-2.5" /> Reviewed
-                        </button>
-                        <button onClick={(e) => { e.stopPropagation(); handleDismissAnomaly(a.dbId); }}
-                          className="flex items-center gap-1 px-2 py-0.5 text-[9px] font-medium rounded bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors">
-                          <X className="w-2.5 h-2.5" /> Dismiss
-                        </button>
-                      </>
-                    )}
-                    <button onClick={(e) => { e.stopPropagation(); setAnomalyDetail(a); }}
-                      className="flex items-center gap-1 px-2 py-0.5 text-[9px] font-medium rounded bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors ml-auto">
-                      <Eye className="w-2.5 h-2.5" /> Details
-                    </button>
-                  </div>
-                </button>
-              );
-            })}
+                  <span className={cn('text-base font-bold tabular-nums', a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600')}>
+                    {a.pctChange > 0 ? '+' : ''}{a.pctChange.toFixed(0)}%
+                  </span>
+                  <span className="text-[10px] text-slate-400 tabular-nums">
+                    ${Math.round(a.avgAmount).toLocaleString()} → ${Math.round(a.latestAmount).toLocaleString()}
+                  </span>
+                </div>
+              </button>
+            ))}
           </div>
           {anomalies.length > 8 && (
             <p className="text-[10px] text-slate-400 text-center">+{anomalies.length - 8} more anomalies</p>
@@ -393,8 +348,8 @@ export default function LootITDashboard({ onSelectCustomer }) {
           })}
         </div>
       )}
-      {/* Anomaly Detail Modal */}
-      {anomalyDetail && (
+      {/* Anomaly Detail Modal — removed, details shown on customer page */}
+      {false && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setAnomalyDetail(null)}>
           <div className="absolute inset-0 bg-black/30" />
           <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden mx-4" onClick={(e) => e.stopPropagation()}>
