@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { ArrowLeft, Filter, RotateCcw, RefreshCw, AlertTriangle, Save, Upload, FileText, Download, DollarSign, Users, Hash, CloudUpload, CheckCircle2, Monitor, Server, Repeat2 } from 'lucide-react';
+import { ArrowLeft, Filter, Check, RotateCcw, RefreshCw, AlertTriangle, Save, Upload, FileText, Download, DollarSign, Users, Hash, CloudUpload, CheckCircle2, Monitor, Server, Repeat2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cn, formatLineItemDescription } from '@/lib/utils';
