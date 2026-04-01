@@ -266,6 +266,39 @@ export async function syncHaloPSAInvoices(body, _user) {
       }
     }
 
+    // ── Tag billing frequency from recurring bills ──
+    if (allInvoiceIds.length > 0) {
+      const { data: noFreq } = await supabase.from('invoices')
+        .select('id, total')
+        .in('id', allInvoiceIds)
+        .is('billing_frequency', null);
+
+      if (noFreq && noFreq.length > 0) {
+        // Fetch recurring bills for this customer with their frequencies
+        const { data: recurringBills } = await supabase.from('recurring_bills')
+          .select('amount, frequency')
+          .eq('customer_id', dbCustomer.id);
+
+        if (recurringBills && recurringBills.length > 0) {
+          // Build a map of amount -> frequency for quick lookup
+          const freqByAmount = {};
+          for (const rb of recurringBills) {
+            const amt = parseFloat(rb.amount) || 0;
+            if (amt > 0) freqByAmount[amt.toFixed(2)] = rb.frequency || 'monthly';
+          }
+
+          for (const inv of noFreq) {
+            const invAmt = (parseFloat(inv.total) || 0).toFixed(2);
+            const freq = freqByAmount[invAmt] || 'monthly';
+            await supabase.from('invoices')
+              .update({ billing_frequency: freq })
+              .eq('id', inv.id);
+          }
+          console.log(`[HaloPSA] Tagged billing frequency for ${noFreq.length} invoices`);
+        }
+      }
+    }
+
     console.log(`[HaloPSA] Synced ${recordsSynced} invoices, ${allNewLineItems.length} line items`);
 
     return {

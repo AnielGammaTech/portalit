@@ -10,11 +10,12 @@ export default async function scanBillingAnomalies({ action } = {}) {
   const results = { scanned: 0, anomalies: 0, errors: [] };
 
   try {
-    // 1. Fetch all classified invoices with amounts > 0
+    // 1. Fetch all classified MONTHLY invoices with amounts > 0 (exclude yearly/quarterly)
     const { data: invoices, error: invErr } = await supabase
       .from('invoices')
-      .select('id, customer_id, category, total, invoice_date, due_date, created_date')
+      .select('id, customer_id, category, total, invoice_date, due_date, created_date, billing_frequency')
       .in('category', SCANNED_CATEGORIES)
+      .in('billing_frequency', ['monthly', null])
       .gt('total', 0)
       .order('invoice_date', { ascending: false });
 
