@@ -1,0 +1,630 @@
+# Instincts generated from https://github.com/AnielGammaTech/portalit
+# Generated: 2026-04-01T15:22:15.629Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: portalit-commit-conventional
+trigger: "when writing a commit message"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: https://github.com/AnielGammaTech/portalit
+---
+
+# Portalit Commit Conventional
+
+## Action
+
+Use conventional commit format with prefixes: fix, feat, docs, chore
+
+## Evidence
+
+- 200 commits analyzed
+- Detected conventional commit pattern
+- Examples: feat: add invoice category badges with low-confidence indicator, chore: update anomaly scan description to reflect 5% threshold and categories
+
+---
+id: portalit-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/AnielGammaTech/portalit
+---
+
+# Portalit Commit Length
+
+## Action
+
+Write moderate-length commit messages (~66 characters)
+
+## Evidence
+
+- Average commit message length: 66 chars
+- Based on 200 commits
+
+---
+id: portalit-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/AnielGammaTech/portalit
+---
+
+# Portalit Naming Files
+
+## Action
+
+Use camelCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: camelCase
+
+---
+id: portalit-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/AnielGammaTech/portalit
+---
+
+# Portalit Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: portalit-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/AnielGammaTech/portalit
+---
+
+# Portalit Export Style
+
+## Action
+
+Prefer default exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: default
+
+---
+id: portalit-arch-type-based
+trigger: "when adding new code"
+confidence: 0.8
+domain: architecture
+source: repo-analysis
+source_repo: https://github.com/AnielGammaTech/portalit
+---
+
+# Portalit Arch Type Based
+
+## Action
+
+Place code in the appropriate type folder (components/, services/, utils/, etc.)
+
+## Evidence
+
+- Type-based module organization detected
+- Folders: api, components, hooks, lib, pages
+
+---
+id: portalit-test-separate
+trigger: "when writing tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/AnielGammaTech/portalit
+---
+
+# Portalit Test Separate
+
+## Action
+
+Place tests in the tests/ or __tests__/ directory, mirroring src structure
+
+## Evidence
+
+- Separate test directory pattern detected
+- Tests live in dedicated test folders
+
+---
+id: portalit-workflow-database-migration
+trigger: "when modifying the database schema or adding tables"
+confidence: 0.65
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/AnielGammaTech/portalit
+---
+
+# Portalit Workflow Database Migration
+
+## Action
+
+Follow the database-migration workflow:
+1. Create migration file
+2. Update schema definitions
+3. Generate/update types
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~3x per month
+- Files: migrations/*
+
+---
+id: portalit-workflow-feature-development
+trigger: "when implementing a new feature"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/AnielGammaTech/portalit
+---
+
+# Portalit Workflow Feature Development
+
+## Action
+
+Follow the feature-development workflow:
+1. Add feature implementation
+2. Add tests for feature
+3. Update documentation
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~15x per month
+- Files: src/components/lootit/*, src/components/customer/*, **/api/**
+
+---
+id: portalit-workflow-add-database-table-or-schema-change
+trigger: "when doing add database table or schema change"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/AnielGammaTech/portalit
+---
+
+# Portalit Workflow Add Database Table Or Schema Change
+
+## Action
+
+Follow the add-database-table-or-schema-change workflow:
+1. Create or modify a SQL migration file in supabase/migrations/
+2. If needed, update RLS or security policies in the same migration
+3. Backend code updated to use new/changed table
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: supabase/migrations/*.sql
+
+---
+id: portalit-workflow-add-backend-functionality-with-api-route
+trigger: "when doing add backend functionality with api route"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/AnielGammaTech/portalit
+---
+
+# Portalit Workflow Add Backend Functionality With Api Route
+
+## Action
+
+Follow the add-backend-functionality-with-api-route workflow:
+1. Create or update a function in server/src/functions/
+2. Register or update the function in server/src/routes/functions.js
+3. Update frontend API client (src/api/client.js) if needed
+4. Update frontend components to use new API
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: server/src/functions/*.js, server/src/routes/functions.js, src/api/client.js
+
+---
+id: portalit-workflow-feature-development-full-stack
+trigger: "when doing feature development full stack"
+confidence: 0.55
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/AnielGammaTech/portalit
+---
+
+# Portalit Workflow Feature Development Full Stack
+
+## Action
+
+Follow the feature-development-full-stack workflow:
+1. Create/modify backend functions and routes
+2. Create/modify frontend components (src/components/lootit/...)
+3. Update or add database migrations (supabase/migrations/...)
+4. Update API client if needed
+5. Wire up UI to backend
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~1x per month
+- Files: server/src/functions/*.js, server/src/routes/functions.js, src/api/client.js
+
+---
+id: portalit-workflow-frontend-component-enhancement-or-bugfix
+trigger: "when doing frontend component enhancement or bugfix"
+confidence: 0.8
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/AnielGammaTech/portalit
+---
+
+# Portalit Workflow Frontend Component Enhancement Or Bugfix
+
+## Action
+
+Follow the frontend-component-enhancement-or-bugfix workflow:
+1. Modify one or more components in src/components/lootit/
+2. Optionally update related hooks in src/hooks/
+3. Optionally update utility libraries in src/lib/
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~6x per month
+- Files: src/components/lootit/*.jsx, src/hooks/*.js, src/lib/*.js
+
+---
+id: portalit-workflow-security-audit-and-hardening
+trigger: "when doing security audit and hardening"
+confidence: 0.55
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/AnielGammaTech/portalit
+---
+
+# Portalit Workflow Security Audit And Hardening
+
+## Action
+
+Follow the security-audit-and-hardening workflow:
+1. Add or update security audit report in .planning/
+2. Create or update SQL migrations to fix RLS/security
+3. Update backend code for security fixes
+4. Update dependencies as needed
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~1x per month
+- Files: .planning/SECURITY-AUDIT.*, supabase/migrations/*_fix_rls_security.sql, server/src/routes/*.js
+
+---
+id: portalit-instinct-file-naming-camelcase
+trigger: "When creating or renaming a file in the codebase"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: AnielGammaTech/portalit
+---
+
+# Portalit Instinct File Naming Camelcase
+
+## Action
+
+Use camelCase for file names
+
+## Evidence
+
+- Pattern in namingConventions.files
+- Observed in src/components/lootit/LootITCustomerDetail.jsx
+
+---
+id: portalit-instinct-function-naming-camelcase
+trigger: "When defining a function"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: AnielGammaTech/portalit
+---
+
+# Portalit Instinct Function Naming Camelcase
+
+## Action
+
+Name the function using camelCase
+
+## Evidence
+
+- Pattern in namingConventions.functions
+
+---
+id: portalit-instinct-class-naming-pascalcase
+trigger: "When defining a class"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: AnielGammaTech/portalit
+---
+
+# Portalit Instinct Class Naming Pascalcase
+
+## Action
+
+Name the class using PascalCase
+
+## Evidence
+
+- Pattern in namingConventions.classes
+
+---
+id: portalit-instinct-constant-naming-screaming-snake-case
+trigger: "When defining a constant"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: AnielGammaTech/portalit
+---
+
+# Portalit Instinct Constant Naming Screaming Snake Case
+
+## Action
+
+Use SCREAMING_SNAKE_CASE for constant names
+
+## Evidence
+
+- Pattern in namingConventions.constants
+
+---
+id: portalit-instinct-import-style-relative
+trigger: "When importing modules"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: AnielGammaTech/portalit
+---
+
+# Portalit Instinct Import Style Relative
+
+## Action
+
+Use relative import paths
+
+## Evidence
+
+- Pattern in importStyle
+
+---
+id: portalit-instinct-export-style-default
+trigger: "When exporting modules"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: AnielGammaTech/portalit
+---
+
+# Portalit Instinct Export Style Default
+
+## Action
+
+Use default exports
+
+## Evidence
+
+- Pattern in exportStyle
+
+---
+id: portalit-instinct-error-handling-try-catch
+trigger: "When handling errors in code"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: AnielGammaTech/portalit
+---
+
+# Portalit Instinct Error Handling Try Catch
+
+## Action
+
+Use try-catch blocks for error handling
+
+## Evidence
+
+- Pattern in errorHandling.style
+
+---
+id: portalit-instinct-testing-location-separate
+trigger: "When adding tests for a feature or module"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: AnielGammaTech/portalit
+---
+
+# Portalit Instinct Testing Location Separate
+
+## Action
+
+Place tests in a separate test folder
+
+## Evidence
+
+- Pattern in architecture.folderStructure.testLocation
+
+---
+id: portalit-instinct-testing-after-feature
+trigger: "When implementing a new feature"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: AnielGammaTech/portalit
+---
+
+# Portalit Instinct Testing After Feature
+
+## Action
+
+Write tests for the feature after implementation
+
+## Evidence
+
+- Observed in feature-development workflow: 'Add tests for feature' step
+
+---
+id: portalit-instinct-git-conventional-commits
+trigger: "When writing a commit message"
+confidence: 0.95
+domain: git
+source: repo-analysis
+source_repo: AnielGammaTech/portalit
+---
+
+# Portalit Instinct Git Conventional Commits
+
+## Action
+
+Use conventional commit prefixes (feat, fix, docs, chore, security)
+
+## Evidence
+
+- Pattern in commits.prefixes
+- Examples: 'feat: add invoice category badges...'
+
+---
+id: portalit-instinct-git-commit-length
+trigger: "When writing a commit message"
+confidence: 0.7
+domain: git
+source: repo-analysis
+source_repo: AnielGammaTech/portalit
+---
+
+# Portalit Instinct Git Commit Length
+
+## Action
+
+Keep commit messages concise, around 66 characters on average
+
+## Evidence
+
+- Pattern in commits.averageLength
+
+---
+id: portalit-instinct-workflow-add-database-table-or-schema-change
+trigger: "When introducing a new database table or making a significant schema change"
+confidence: 0.95
+domain: workflow
+source: repo-analysis
+source_repo: AnielGammaTech/portalit
+---
+
+# Portalit Instinct Workflow Add Database Table Or Schema Change
+
+## Action
+
+Create or modify a SQL migration file in supabase/migrations/, update RLS/security if needed, and update backend code to use the new/changed table
+
+## Evidence
+
+- Workflow: add-database-table-or-schema-change
+- Files: supabase/migrations/*.sql
+
+---
+id: portalit-instinct-workflow-add-backend-functionality-with-api-route
+trigger: "When adding a new backend feature or API endpoint"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: AnielGammaTech/portalit
+---
+
+# Portalit Instinct Workflow Add Backend Functionality With Api Route
+
+## Action
+
+Create/update function in server/src/functions/, register in server/src/routes/functions.js, update src/api/client.js and frontend components as needed
+
+## Evidence
+
+- Workflow: add-backend-functionality-with-api-route
+- Files: server/src/functions/*.js, server/src/routes/functions.js, src/api/client.js
+
+---
+id: portalit-instinct-workflow-feature-development-full-stack
+trigger: "When delivering a full-stack feature"
+confidence: 0.85
+domain: workflow
+source: repo-analysis
+source_repo: AnielGammaTech/portalit
+---
+
+# Portalit Instinct Workflow Feature Development Full Stack
+
+## Action
+
+Coordinate changes across backend (functions/routes), frontend (components), database (migrations), and API client
+
+## Evidence
+
+- Workflow: feature-development-full-stack
+- Files: server/src/functions/*.js, src/components/lootit/*.jsx, supabase/migrations/*.sql
+
+---
+id: portalit-instinct-workflow-frontend-component-enhancement-or-bugfix
+trigger: "When fixing a bug or enhancing the UI for a feature"
+confidence: 0.95
+domain: workflow
+source: repo-analysis
+source_repo: AnielGammaTech/portalit
+---
+
+# Portalit Instinct Workflow Frontend Component Enhancement Or Bugfix
+
+## Action
+
+Modify components in src/components/lootit/, optionally update related hooks and utils
+
+## Evidence
+
+- Workflow: frontend-component-enhancement-or-bugfix
+- Files: src/components/lootit/*.jsx, src/hooks/*.js, src/lib/*.js
+
+---
+id: portalit-instinct-workflow-security-audit-and-hardening
+trigger: "When a security audit is performed and issues are found"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: AnielGammaTech/portalit
+---
+
+# Portalit Instinct Workflow Security Audit And Hardening
+
+## Action
+
+Update .planning/SECURITY-AUDIT.*, fix RLS/security via migrations, update backend code and dependencies
+
+## Evidence
+
+- Workflow: security-audit-and-hardening
+- Files: .planning/SECURITY-AUDIT.*, supabase/migrations/*_fix_rls_security.sql, server/package.json
+
