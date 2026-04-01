@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, AlertTriangle, CheckCircle2, TrendingDown, TrendingUp, Database, Bell, DollarSign, Check, X, Stamp } from 'lucide-react';
+import { Search, AlertTriangle, CheckCircle2, TrendingDown, TrendingUp, Database, Bell, DollarSign, Check, X, Stamp, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
@@ -9,6 +9,7 @@ import { getDiscrepancySummary } from '@/lib/lootit-reconciliation';
 export default function LootITDashboard({ onSelectCustomer }) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
+  const [anomalyDetail, setAnomalyDetail] = useState(null);
   const queryClient = useQueryClient();
   const { reconciliations, globalSummary, bills, customers, isLoading } = useReconciliationData();
 
@@ -223,26 +224,6 @@ export default function LootITDashboard({ onSelectCustomer }) {
                       </p>
                     </div>
                   </div>
-                  {/* Monthly history breakdown */}
-                  {a.history && a.history.length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-slate-100">
-                      <p className="text-[9px] text-slate-400 mb-1 font-medium">Invoice History</p>
-                      <div className="space-y-0.5">
-                        {a.history.map((h, i) => (
-                          <div key={i} className="flex items-center justify-between text-[9px]">
-                            <span className="text-slate-400">{h.month}</span>
-                            <span className={cn(
-                              'font-semibold tabular-nums',
-                              i === 0 ? (a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600') : 'text-slate-600'
-                            )}>
-                              ${Math.round(h.amount).toLocaleString()}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
                   {/* Action buttons */}
                   <div className="flex gap-1.5 mt-2 pt-2 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
                     {a.dbId && (
@@ -257,9 +238,10 @@ export default function LootITDashboard({ onSelectCustomer }) {
                         </button>
                       </>
                     )}
-                    {!a.dbId && (
-                      <p className="text-[9px] text-slate-300 group-hover:text-slate-400">Click to review</p>
-                    )}
+                    <button onClick={(e) => { e.stopPropagation(); setAnomalyDetail(a); }}
+                      className="flex items-center gap-1 px-2 py-0.5 text-[9px] font-medium rounded bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors ml-auto">
+                      <Eye className="w-2.5 h-2.5" /> Details
+                    </button>
                   </div>
                 </button>
               );
@@ -409,6 +391,102 @@ export default function LootITDashboard({ onSelectCustomer }) {
               </button>
             );
           })}
+        </div>
+      )}
+      {/* Anomaly Detail Modal */}
+      {anomalyDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setAnomalyDetail(null)}>
+          <div className="absolute inset-0 bg-black/30" />
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b">
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm">{anomalyDetail.customerName}</h3>
+                <p className="text-xs text-slate-400">Billing Anomaly Detail</p>
+              </div>
+              <button onClick={() => setAnomalyDetail(null)} className="p-1 hover:bg-slate-100 rounded-lg">
+                <X className="w-4 h-4 text-slate-400" />
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              {/* Summary */}
+              <div className={cn(
+                'flex items-center gap-3 p-3 rounded-xl border',
+                anomalyDetail.direction === 'decrease' ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'
+              )}>
+                {anomalyDetail.direction === 'decrease' ? (
+                  <TrendingDown className="w-6 h-6 text-red-500" />
+                ) : (
+                  <TrendingUp className="w-6 h-6 text-amber-500" />
+                )}
+                <div>
+                  <p className={cn('text-xl font-bold tabular-nums', anomalyDetail.direction === 'decrease' ? 'text-red-600' : 'text-amber-600')}>
+                    {anomalyDetail.pctChange > 0 ? '+' : ''}{anomalyDetail.pctChange.toFixed(1)}%
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {anomalyDetail.direction === 'decrease' ? 'Revenue decreased' : 'Billing increased'} by ${Math.abs(Math.round(anomalyDetail.latestAmount - anomalyDetail.avgAmount)).toLocaleString()}/mo
+                  </p>
+                </div>
+              </div>
+
+              {/* Explanation */}
+              <div className="bg-slate-50 rounded-lg p-3 border text-xs text-slate-600">
+                <p className="font-semibold text-slate-700 mb-1">How this was calculated:</p>
+                <p>The average of the previous {anomalyDetail.history ? anomalyDetail.history.length - 1 : '?'} months was <strong className="text-slate-900">${Math.round(anomalyDetail.avgAmount).toLocaleString()}/mo</strong>. The latest invoice is <strong className="text-slate-900">${Math.round(anomalyDetail.latestAmount).toLocaleString()}/mo</strong>.</p>
+              </div>
+
+              {/* Monthly history */}
+              <div>
+                <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Monthly Invoice History</h4>
+                <div className="space-y-1">
+                  {(anomalyDetail.history || []).map((h, i) => {
+                    const barPct = anomalyDetail.history ? (h.amount / Math.max(...anomalyDetail.history.map(x => x.amount || 1))) * 100 : 0;
+                    return (
+                      <div key={i} className="flex items-center gap-3">
+                        <span className="text-[10px] text-slate-400 w-14 shrink-0">{h.month}</span>
+                        <div className="flex-1 h-5 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className={cn(
+                              'h-full rounded-full transition-all',
+                              i === 0
+                                ? (anomalyDetail.direction === 'decrease' ? 'bg-red-400' : 'bg-amber-400')
+                                : 'bg-slate-300'
+                            )}
+                            style={{ width: `${Math.max(barPct, 3)}%` }}
+                          />
+                        </div>
+                        <span className={cn(
+                          'text-xs font-semibold tabular-nums w-20 text-right',
+                          i === 0
+                            ? (anomalyDetail.direction === 'decrease' ? 'text-red-600' : 'text-amber-600')
+                            : 'text-slate-600'
+                        )}>
+                          ${Math.round(h.amount).toLocaleString()}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2 pt-2 border-t">
+                <button
+                  onClick={() => { anomalyDetail.customer && onSelectCustomer(anomalyDetail.customer, 'recurring'); setAnomalyDetail(null); }}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-pink-500 text-white hover:bg-pink-600 transition-colors"
+                >
+                  <DollarSign className="w-3.5 h-3.5" /> View Invoices
+                </button>
+                {anomalyDetail.dbId && (
+                  <button
+                    onClick={() => { handleReviewAnomaly(anomalyDetail.dbId); setAnomalyDetail(null); }}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
+                  >
+                    <Check className="w-3.5 h-3.5" /> Mark Reviewed
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
