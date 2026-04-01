@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { ArrowLeft, Filter, Check, RotateCcw, RefreshCw, AlertTriangle, Save, Upload, FileText, Download, DollarSign, Users, Hash, CloudUpload, CheckCircle2, Monitor, Server, Repeat2, Bell, TrendingDown, TrendingUp, X } from 'lucide-react';
+import { ArrowLeft, Filter, Check, RotateCcw, RefreshCw, AlertTriangle, Save, Upload, FileText, Download, DollarSign, Users, Hash, CloudUpload, CheckCircle2, Monitor, Server, Repeat2, Bell, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cn, formatLineItemDescription } from '@/lib/utils';
@@ -38,69 +38,47 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   const { reconciliations, isLoading, rules: allRules } = useReconciliationData(customer.id);
   const { reviews, markReviewed, dismiss, resetReview, saveNotes, saveExclusion, isSaving } = useReconciliationReviews(customer.id);
 
-  // Billing anomalies for this customer
+  // Billing anomalies for this customer (from the DB scanner, grouped by category)
   const { data: customerAnomalies = [] } = useQuery({
     queryKey: ['billing_anomalies_customer', customer.id],
-    queryFn: () => client.entities.BillingAnomaly.filter({ customer_id: customer.id, status: 'open' }),
+    queryFn: () => client.entities.BillingAnomaly.filter({
+      customer_id: customer.id,
+      flagged_on_customer: true,
+    }),
     staleTime: 1000 * 60 * 2,
   });
 
-  // Also compute live anomalies from invoices (actual monthly charges)
-  const { data: customerInvoices = [] } = useQuery({
-    queryKey: ['customer_invoices_for_anomaly', customer.id],
-    queryFn: () => client.entities.Invoice.filter({ customer_id: customer.id }),
-    staleTime: 1000 * 60 * 5,
-  });
+  const openAnomalies = useMemo(
+    () => customerAnomalies.filter(a => a.status === 'open'),
+    [customerAnomalies]
+  );
 
-  const liveAnomalies = useMemo(() => {
-    if (customerInvoices.length < 2) return [];
-    // Sum RECURRING invoices by month (skip ticket charges, projects, ad-hoc)
-    const byMonth = {};
-    for (const inv of customerInvoices) {
-      const amount = parseFloat(inv.total || inv.amount) || 0;
-      if (amount <= 0) continue;
-      // Skip non-recurring: ticket charges, projects, ad-hoc, credit notes
-      const invName = (inv.notes || inv.invoice_number || '').toLowerCase();
-      if (amount === 0 || invName.includes('ticket') || invName.includes('project') || invName.includes('ad-hoc') || invName.includes('credit')) continue;
-      // Group by due_date month (billing period, regardless of payment status)
-      const date = new Date(inv.invoice_date || inv.created_date || inv.due_date || 0);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      if (!byMonth[monthKey]) byMonth[monthKey] = { amount: 0, date };
-      byMonth[monthKey].amount += amount;
+  const [acknowledgeId, setAcknowledgeId] = useState(null);
+  const [acknowledgeNotes, setAcknowledgeNotes] = useState('');
+
+  const handleAcknowledgeAnomaly = async (anomalyId) => {
+    if (!acknowledgeNotes.trim()) {
+      toast.error('Please add notes explaining why this change is expected');
+      return;
     }
-    // Remove current month — it's likely incomplete (not all invoices generated yet)
-    const now = new Date();
-    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    delete byMonth[currentMonthKey];
-
-    const bills = Object.values(byMonth).sort((a, b) => b.date - a.date);
-    if (bills.length < 2) return [];
-    const sorted = bills;
-    const latest = sorted[0];
-    const hist = sorted.slice(1, 7);
-    if (hist.length === 0) return [];
-    const avg = hist.reduce((s, b) => s + b.amount, 0) / hist.length;
-    if (avg === 0) return [];
-    const pct = ((latest.amount - avg) / avg) * 100;
-    if (Math.abs(pct) < 10) return [];
-    return [{
-      billName: 'Total Monthly', latestAmount: latest.amount, avgAmount: avg, pctChange: pct,
-      direction: pct > 0 ? 'increase' : 'decrease',
-      history: sorted.slice(0, 7).map(b => ({ amount: b.amount, month: b.date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }) })),
-      dbId: customerAnomalies.find(a => a.bill_period)?.id || null,
-    }];
-  }, [customerInvoices, customerAnomalies]);
-
-  const handleDismissAnomaly = async (anomalyId) => {
-    await client.entities.BillingAnomaly.update(anomalyId, { status: 'dismissed', reviewed_at: new Date().toISOString() });
+    await client.entities.BillingAnomaly.update(anomalyId, {
+      status: 'acknowledged',
+      acknowledged_at: new Date().toISOString(),
+      acknowledgement_notes: acknowledgeNotes.trim(),
+    });
     queryClient.invalidateQueries({ queryKey: ['billing_anomalies_customer', customer.id] });
-    toast.success('Anomaly dismissed');
+    setAcknowledgeId(null);
+    setAcknowledgeNotes('');
+    toast.success('Anomaly acknowledged');
   };
 
-  const handleReviewAnomaly = async (anomalyId) => {
-    await client.entities.BillingAnomaly.update(anomalyId, { status: 'reviewed', reviewed_at: new Date().toISOString() });
+  const handleDismissAnomaly = async (anomalyId) => {
+    await client.entities.BillingAnomaly.update(anomalyId, {
+      status: 'dismissed',
+      reviewed_at: new Date().toISOString(),
+    });
     queryClient.invalidateQueries({ queryKey: ['billing_anomalies_customer', customer.id] });
-    toast.success('Anomaly marked as reviewed');
+    toast.success('Anomaly dismissed');
   };
 
   // Integration widget data
@@ -581,54 +559,84 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
       </div>
 
       {/* Billing Anomalies */}
-      {liveAnomalies.length > 0 && (
+      {openAnomalies.length > 0 && (
         <div className="bg-white rounded-xl border border-red-200/60 p-4">
           <div className="flex items-center gap-2 mb-3">
             <Bell className="w-4 h-4 text-red-500" />
             <h3 className="text-sm font-bold text-slate-900">Billing Anomalies</h3>
-            <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">{liveAnomalies.length}</span>
+            <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">{openAnomalies.length}</span>
           </div>
           <div className="space-y-3">
-            {liveAnomalies.map((a, idx) => (
-              <div key={idx} className={cn(
-                'rounded-lg border p-3',
-                a.direction === 'decrease' ? 'bg-red-50/60 border-red-200' : 'bg-amber-50/60 border-amber-200'
-              )}>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    {a.direction === 'decrease' ? <TrendingDown className="w-4 h-4 text-red-500" /> : <TrendingUp className="w-4 h-4 text-amber-500" />}
-                    <span className="text-sm font-bold text-slate-900">{a.billName}</span>
-                    <span className={cn('text-sm font-bold tabular-nums', a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600')}>
-                      {a.pctChange > 0 ? '+' : ''}{a.pctChange.toFixed(0)}%
-                    </span>
-                  </div>
-                  <div className="flex gap-1.5">
-                    {a.dbId && (
-                      <>
-                        <button onClick={() => handleReviewAnomaly(a.dbId)} className="px-2 py-1 text-[10px] font-medium rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors">Reviewed</button>
-                        <button onClick={() => handleDismissAnomaly(a.dbId)} className="px-2 py-1 text-[10px] font-medium rounded bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors">Dismiss</button>
-                      </>
-                    )}
-                  </div>
-                </div>
-                {/* Explanation */}
-                <p className="text-xs text-slate-500 mb-2">
-                  Previous average was <strong className="text-slate-700">${Math.round(a.avgAmount).toLocaleString()}/mo</strong>, latest invoice is <strong className={a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600'}>${Math.round(a.latestAmount).toLocaleString()}/mo</strong>.
-                  {a.direction === 'decrease' ? ' Potential lost revenue.' : ' Billing increase detected.'}
-                </p>
-                {/* Month-by-month history */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 mt-1">
-                  {(a.history || []).map((h, i) => (
-                    <div key={i} className="flex items-center justify-between text-[10px]">
-                      <span className="text-slate-400">{h.month}</span>
-                      <span className={cn('font-semibold tabular-nums', i === 0 ? (a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600') : 'text-slate-600')}>
-                        ${Math.round(h.amount).toLocaleString()}
+            {openAnomalies.map((a) => {
+              const categoryLabel = {
+                monthly_recurring: 'Monthly Recurring',
+                voip: 'VoIP',
+              }[a.category] || a.category || 'Unknown';
+
+              return (
+                <div key={a.id} className={cn(
+                  'rounded-lg border p-3',
+                  a.direction === 'decrease' ? 'bg-red-50/60 border-red-200' : 'bg-amber-50/60 border-amber-200'
+                )}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-slate-700">{categoryLabel}</span>
+                      <span className={cn(
+                        'text-xs font-bold',
+                        a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600'
+                      )}>
+                        {a.direction === 'decrease' ? '' : '+'}{a.pct_change}% (${Math.abs(a.dollar_change).toLocaleString()})
                       </span>
                     </div>
-                  ))}
+                    <span className="text-[10px] text-slate-400">{a.bill_period}</span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 mb-2">
+                    Current: ${a.current_amount?.toLocaleString()} | Avg: ${a.previous_avg?.toLocaleString()}
+                  </div>
+
+                  {acknowledgeId === a.id ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={acknowledgeNotes}
+                        onChange={e => setAcknowledgeNotes(e.target.value)}
+                        placeholder="Explain why this change is expected..."
+                        className="w-full text-xs border border-slate-200 rounded-lg p-2 resize-none focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        rows={2}
+                      />
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => handleAcknowledgeAnomaly(a.id)}
+                          className="px-2 py-1 text-[10px] font-medium rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
+                        >
+                          Confirm
+                        </button>
+                        <button
+                          onClick={() => { setAcknowledgeId(null); setAcknowledgeNotes(''); }}
+                          className="px-2 py-1 text-[10px] font-medium rounded bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={() => setAcknowledgeId(a.id)}
+                        className="px-2 py-1 text-[10px] font-medium rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
+                      >
+                        Acknowledge
+                      </button>
+                      <button
+                        onClick={() => handleDismissAnomaly(a.id)}
+                        className="px-2 py-1 text-[10px] font-medium rounded bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
