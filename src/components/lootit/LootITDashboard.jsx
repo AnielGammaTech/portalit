@@ -38,10 +38,15 @@ export default function LootITDashboard({ onSelectCustomer }) {
   const signedOffCustomerIds = useMemo(() => new Set(signOffs.map(s => s.customer_id)), [signOffs]);
 
   // ── Anomaly Detection ──
-  // Fetch invoices for anomaly detection (actual monthly charges, not recurring bill definitions)
+  // Fetch invoices + line items for anomaly detection
   const { data: invoices = [] } = useQuery({
     queryKey: ['all_invoices_for_anomalies'],
     queryFn: () => client.entities.Invoice.list('-invoice_date', 5000),
+    staleTime: 1000 * 60 * 5,
+  });
+  const { data: invoiceLineItems = [] } = useQuery({
+    queryKey: ['all_invoice_line_items_for_anomalies'],
+    queryFn: () => client.entities.InvoiceLineItem.list(null, 10000),
     staleTime: 1000 * 60 * 5,
   });
 
@@ -49,40 +54,47 @@ export default function LootITDashboard({ onSelectCustomer }) {
   const anomalies = useMemo(() => {
     if (!invoices || invoices.length === 0) return [];
 
-    // Build set of recurring bill halopsa_ids to filter recurring-only invoices
-    const recurringBillIds = new Set((bills || []).map(b => b.halopsa_id).filter(Boolean));
+    // Classify invoices: VoIP (has GTVoice line item) vs Monthly Recurring (everything else)
+    const voipInvoiceIds = new Set();
+    for (const li of invoiceLineItems) {
+      if ((li.description || '').toLowerCase().includes('gtvoice')) {
+        voipInvoiceIds.add(li.invoice_id);
+      }
+    }
 
-    // Group RECURRING invoices by customer — compare total monthly spend over time
-    // Filter: only invoices whose notes/source match "recurring" or whose ID links to a recurring bill
-    const monthlyByCustomer = {};
+    // Group by customer + type (voip vs monthly) + due_date month
+    const grouped = {}; // key: "custId::voip" or "custId::monthly"
     for (const inv of invoices) {
       if (!inv.customer_id) continue;
       const amount = parseFloat(inv.total || inv.amount) || 0;
       if (amount <= 0) continue;
-
-      // Skip non-recurring: ticket charges, projects, ad-hoc, credit notes
       const invName = (inv.notes || inv.invoice_number || '').toLowerCase();
       if (invName.includes('ticket') || invName.includes('project') || invName.includes('ad-hoc') || invName.includes('credit')) continue;
 
-      // Group by due_date month (tells which billing period, regardless of payment status)
+      const type = voipInvoiceIds.has(inv.id) ? 'voip' : 'monthly';
       const date = new Date(inv.due_date || inv.invoice_date || inv.created_date || 0);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      if (!monthlyByCustomer[inv.customer_id]) monthlyByCustomer[inv.customer_id] = {};
-      if (!monthlyByCustomer[inv.customer_id][monthKey]) monthlyByCustomer[inv.customer_id][monthKey] = { amount: 0, date };
-      monthlyByCustomer[inv.customer_id][monthKey].amount += amount;
+      const groupKey = `${inv.customer_id}::${type}`;
+
+      if (!grouped[groupKey]) grouped[groupKey] = { customerId: inv.customer_id, type, months: {} };
+      if (!grouped[groupKey].months[monthKey]) grouped[groupKey].months[monthKey] = { amount: 0, date };
+      grouped[groupKey].months[monthKey].amount += amount;
     }
 
-    // Convert to sorted arrays per customer — skip current month (may be incomplete)
+    // Skip current month (incomplete) and convert to sorted arrays
     const now = new Date();
     const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
     const invoiceGroups = {};
-    for (const [custId, months] of Object.entries(monthlyByCustomer)) {
-      // Remove current month — it's likely incomplete
-      delete months[currentMonthKey];
-      const sorted = Object.values(months).sort((a, b) => b.date - a.date);
+    for (const [key, group] of Object.entries(grouped)) {
+      delete group.months[currentMonthKey];
+      const sorted = Object.values(group.months).sort((a, b) => b.date - a.date);
       if (sorted.length >= 2) {
-        invoiceGroups[custId] = { customerId: custId, billName: 'Total Monthly', invoices: sorted };
+        invoiceGroups[key] = {
+          customerId: group.customerId,
+          billName: group.type === 'voip' ? 'VoIP (GTVoice)' : 'Monthly Recurring',
+          invoices: sorted,
+        };
       }
     }
 
@@ -152,7 +164,7 @@ export default function LootITDashboard({ onSelectCustomer }) {
 
     // Sort by absolute % change descending (biggest anomalies first)
     return results.sort((a, b) => Math.abs(b.pctChange) - Math.abs(a.pctChange));
-  }, [bills, customers, dbAnomalies]);
+  }, [invoices, invoiceLineItems, bills, customers, dbAnomalies]);
 
   const customerList = useMemo(() => {
     const entries = Object.values(reconciliations).map((entry) => {
@@ -190,12 +202,13 @@ export default function LootITDashboard({ onSelectCustomer }) {
   return (
     <div className="space-y-5">
       {/* Summary Cards */}
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-6 gap-3">
         <SummaryCard icon={Database} label="Customers" value={globalSummary.totalCustomers} color="slate" />
         <SummaryCard icon={CheckCircle2} label="Matched" value={globalSummary.totalMatched} color="emerald" />
         <SummaryCard icon={TrendingDown} label="Under-billed" value={globalSummary.totalUnder} color="red" />
         <SummaryCard icon={TrendingUp} label="Over-billed" value={globalSummary.totalOver} color="amber" />
         <SummaryCard icon={AlertTriangle} label="Issues" value={globalSummary.customersWithIssues} color="amber" />
+        <SummaryCard icon={Bell} label="Anomalies" value={anomalies.length} color="red" />
       </div>
 
       {/* Billing Anomalies */}
