@@ -470,14 +470,71 @@ export function reconcilePax8Subscriptions(lineItems, pax8Mapping, reviews = [],
     }
   }
 
+  // ── Group merge: combine results that share a group_id ──
+  const groupMap = {};
+  for (const ov of overrides) {
+    if (ov.group_id) {
+      if (!groupMap[ov.group_id]) groupMap[ov.group_id] = [];
+      groupMap[ov.group_id].push(ov.rule_id);
+    }
+  }
+
+  const groupedRuleIds = new Set();
+  const mergedResults = [];
+
+  for (const [groupId, ruleIds] of Object.entries(groupMap)) {
+    if (ruleIds.length < 2) continue;
+    const groupResults = results.filter(r => ruleIds.includes(r.ruleId));
+    if (groupResults.length === 0) continue;
+
+    for (const r of groupResults) groupedRuleIds.add(r.ruleId);
+
+    const combinedVendorQty = groupResults.reduce((sum, r) => sum + (r.vendorQty || 0), 0);
+    const matched = groupResults[0].matchedLineItems || [];
+    const psaQty = matched.reduce((sum, li) => sum + (parseFloat(li.quantity) || 0), 0);
+    const difference = matched.length > 0 ? psaQty - combinedVendorQty : 0;
+
+    let status = 'missing_from_psa';
+    if (matched.length > 0) {
+      if (difference === 0) status = 'match';
+      else if (difference > 0) status = 'over';
+      else status = 'under';
+    }
+
+    mergedResults.push({
+      ruleId: `group:${groupId}`,
+      groupId,
+      productName: groupResults.map(r => r.productName).filter((v, i, a) => a.indexOf(v) === i).join(' + '),
+      vendorQty: combinedVendorQty,
+      totalVendorQty: combinedVendorQty,
+      psaQty: matched.length > 0 ? psaQty : null,
+      difference,
+      status,
+      matchedLineItems: matched,
+      billingTerm: '',
+      price: groupResults.reduce((sum, r) => sum + (r.price || 0), 0),
+      startDate: null,
+      review: groupResults[0].review,
+      integrationLabel: 'Pax8',
+      isGroup: true,
+      groupSubs: groupResults,
+    });
+  }
+
+  const finalResults = [
+    ...mergedResults,
+    ...results.filter(r => !groupedRuleIds.has(r.ruleId)),
+  ];
+
   // Collect all matched line item IDs from Pax8 reconciliations
-  for (const r of results) {
+  const outputResults = finalResults.length > 0 ? finalResults : results;
+  for (const r of outputResults) {
     for (const li of (r.matchedLineItems || [])) {
       pax8MatchedLineItemIds.add(li.id);
     }
   }
-  results._pax8MatchedLineItemIds = pax8MatchedLineItemIds;
-  return results;
+  outputResults._pax8MatchedLineItemIds = pax8MatchedLineItemIds;
+  return outputResults;
 }
 
 /**
