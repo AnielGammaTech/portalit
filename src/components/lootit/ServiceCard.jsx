@@ -99,7 +99,14 @@ export default function ServiceCard({
       <div className="px-3 py-2 flex-1 flex flex-col">
         {/* SLOT 2: Title + badge (fixed height) */}
         <div className="flex items-center justify-between gap-2 mb-0.5">
-          <h4 className="font-semibold text-slate-900 text-xs truncate flex-1 min-w-0">{rule.label}</h4>
+          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+            <h4 className="font-semibold text-slate-900 text-xs truncate">{rule.label}</h4>
+            {hasNotes && (
+              <span className="shrink-0 w-4 h-4 rounded-full bg-amber-400 flex items-center justify-center" title={review.notes}>
+                <StickyNote className="w-2.5 h-2.5 text-white" />
+              </span>
+            )}
+          </div>
           <ReconciliationBadge status={effectiveStatusFinal} difference={hasExclusions ? effectiveDifference : difference} />
         </div>
 
