@@ -166,7 +166,7 @@ export async function syncJumpCloudLicenses(body, user) {
       };
     } catch {
       // Single org - get current org
-      const systemUsers = await jumpcloudApiCall('/systemusers');
+      const systemUsers = await jumpcloudApiCall('/systemusers?limit=1');
       return {
         success: true,
         organizations: [{
@@ -249,9 +249,17 @@ export async function syncJumpCloudLicenses(body, user) {
     const mapping = mappings[0];
     const orgId = mapping.jumpcloud_org_id !== 'default' ? mapping.jumpcloud_org_id : null;
 
-    // Get JumpCloud users
-    const usersResponse = await jumpcloudApiCall('/systemusers', orgId);
-    const jcUsers = usersResponse.results || [];
+    // Get JumpCloud users (paginated — API defaults to 10 per page)
+    let jcUsers = [];
+    let skip = 0;
+    const pageLimit = 100;
+    while (true) {
+      const page = await jumpcloudApiCall(`/systemusers?limit=${pageLimit}&skip=${skip}`, orgId);
+      const results = page.results || [];
+      jcUsers = jcUsers.concat(results);
+      skip += results.length;
+      if (results.length < pageLimit || skip >= (page.totalCount || 0)) break;
+    }
 
     // Get existing contacts for this customer
     const { data: existingContacts } = await supabase
