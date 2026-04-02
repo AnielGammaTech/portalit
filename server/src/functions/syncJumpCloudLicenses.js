@@ -349,16 +349,22 @@ export async function syncJumpCloudLicenses(body, user) {
     const mapping = mappings[0];
     const orgId = mapping.jumpcloud_org_id !== 'default' ? mapping.jumpcloud_org_id : null;
 
-    // Get users for this organization
-    let totalUsers = 0;
+    // Get users for this organization (paginated)
     let jcUsers = [];
     try {
-      const usersResponse = await jumpcloudApiCall('/systemusers', orgId);
-      jcUsers = usersResponse.results || [];
-      totalUsers = usersResponse.totalCount || jcUsers.length || 0;
+      let skip = 0;
+      const pageLimit = 100;
+      while (true) {
+        const page = await jumpcloudApiCall(`/systemusers?limit=${pageLimit}&skip=${skip}`, orgId);
+        const results = page.results || [];
+        jcUsers = jcUsers.concat(results);
+        skip += results.length;
+        if (results.length < pageLimit || skip >= (page.totalCount || 0)) break;
+      }
     } catch {
       // Fallback
     }
+    const totalUsers = jcUsers.length;
 
     // Sync users to contacts
     let usersCreated = 0;
