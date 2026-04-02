@@ -141,6 +141,13 @@ export default function ServiceCard({
             <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 rounded border border-blue-100 h-full">
               <Link2 className="w-3 h-3 text-blue-500 shrink-0" />
               <span className="text-[10px] text-blue-600 flex-1 truncate">Mapped manually</span>
+              <button
+                onClick={(e) => { e.stopPropagation(); onRemoveMapping?.(rule.id); }}
+                className="text-[9px] text-red-400 hover:text-red-600 font-medium shrink-0 px-1 hover:bg-red-50 rounded transition-colors"
+                title="Remove manual mapping"
+              >
+                Unmap
+              </button>
             </div>
           ) : hasExclusions ? (
             <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-50 rounded border border-amber-100 h-full">
