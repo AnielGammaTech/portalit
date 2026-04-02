@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { ArrowLeft, Filter, Check, RotateCcw, RefreshCw, AlertTriangle, Save, Upload, FileText, Download, DollarSign, Users, Hash, CloudUpload, CheckCircle2, Monitor, Server, Repeat2, Bell, X } from 'lucide-react';
+import { ArrowLeft, Filter, Check, RotateCcw, RefreshCw, AlertTriangle, Save, Upload, FileText, Download, DollarSign, Users, Hash, CloudUpload, CheckCircle2, Monitor, Server, Repeat2, Bell, X, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cn, formatLineItemDescription } from '@/lib/utils';
@@ -21,6 +21,7 @@ import UploadProgressCard from './UploadProgressCard';
 import DetailDrawer from './DetailDrawer';
 import LineItemPicker from './LineItemPicker';
 import RuleEditorDialog from './RuleEditorDialog';
+import Pax8GroupMapper from './Pax8GroupMapper';
 import SignOffButton from './SignOffButton';
 
 const CATEGORY_BADGES = {
@@ -38,6 +39,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   const [isSyncing, setIsSyncing] = useState(false);
 
   const [mappingRecon, setMappingRecon] = useState(null); // { ruleId, productName } being mapped
+  const [showGroupMapper, setShowGroupMapper] = useState(false);
 
   const [editingRule, setEditingRule] = useState(null); // rule being edited
   const fileInputRef = useRef(null);
@@ -203,6 +205,25 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
     await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides', customer.id] });
     await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides_all'] });
     setMappingRecon(null);
+  };
+
+  const handleSaveGroupMapping = async (lineItemId, ruleIds) => {
+    const groupId = crypto.randomUUID();
+    for (const ruleId of ruleIds) {
+      const existing = existingOverrides.filter(o => o.rule_id === ruleId);
+      for (const ov of existing) {
+        await client.entities.Pax8LineItemOverride.delete(ov.id);
+      }
+      await client.entities.Pax8LineItemOverride.create({
+        customer_id: customer.id,
+        rule_id: ruleId,
+        line_item_id: lineItemId,
+        group_id: groupId,
+      });
+    }
+    await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides', customer.id] });
+    await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides_all'] });
+    setShowGroupMapper(false);
   };
 
   const handleSaveRule = async (ruleId, updates) => {
@@ -1147,9 +1168,18 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
       {/* Pax8 / M365 Per-Subscription Reconciliation */}
       {filteredPax8.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-slate-700">
-            Pax8 / M365 Licence Reconciliation
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-700">
+              Pax8 / M365 Licence Reconciliation
+            </h3>
+            <button
+              onClick={() => setShowGroupMapper(true)}
+              className="text-[10px] font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-colors"
+            >
+              <Link2 className="w-3 h-3" />
+              Group Map
+            </button>
+          </div>
           <div className="grid grid-cols-4 gap-3">
             {filteredPax8.map((recon) => (
               <Pax8SubscriptionCard
@@ -1209,6 +1239,15 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           lineItems={allLineItems}
           onSelect={(lineItemId) => handleSaveMapping(mappingRecon.ruleId, mappingRecon.productName, lineItemId)}
           onClose={() => setMappingRecon(null)}
+        />
+      )}
+      {showGroupMapper && (
+        <Pax8GroupMapper
+          pax8Recons={pax8Recons}
+          lineItems={allLineItems}
+          existingOverrides={existingOverrides}
+          onSave={handleSaveGroupMapping}
+          onClose={() => setShowGroupMapper(false)}
         />
       )}
     </div>
