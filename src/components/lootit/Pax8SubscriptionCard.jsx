@@ -25,6 +25,8 @@ export default function Pax8SubscriptionCard({ recon, onReview, onDismiss, onRes
   const [noteText, setNoteText] = useState(review?.notes || '');
   const [savingNote, setSavingNote] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
+  const [expanded, setExpanded] = useState(false);
+  const isGroup = recon.isGroup && recon.groupSubs?.length > 0;
   const hasNotes = !!(review?.notes);
   const hasExclusions = review?.exclusion_count > 0;
 
@@ -78,7 +80,14 @@ export default function Pax8SubscriptionCard({ recon, onReview, onDismiss, onRes
       <div className="px-3 py-2 flex-1 flex flex-col">
         {/* Title row */}
         <div className="flex items-center justify-between gap-2 mb-1">
-          <h4 className="font-semibold text-slate-900 text-xs leading-tight truncate flex-1">{productName}</h4>
+          <h4 className="font-semibold text-slate-900 text-xs leading-tight truncate flex-1">
+            {productName}
+            {isGroup && (
+              <span className="text-[9px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full font-medium ml-1">
+                {recon.groupSubs.length} subs
+              </span>
+            )}
+          </h4>
           <ReconciliationBadge status={isMissing ? 'missing_from_psa' : (hasExclusions ? effectiveStatus : status)} difference={hasExclusions ? effectiveDifference : difference} />
         </div>
 
@@ -124,6 +133,27 @@ export default function Pax8SubscriptionCard({ recon, onReview, onDismiss, onRes
             <p className={cn('text-[8px] uppercase tracking-widest font-semibold mt-0.5', resolvedStyles.labelText)}>PAX8</p>
           </div>
         </div>
+
+        {isGroup && (
+          <div className="mb-2">
+            <button
+              onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+              className="text-[10px] text-blue-500 hover:text-blue-700 font-medium"
+            >
+              {expanded ? 'Hide' : 'Show'} individual subs
+            </button>
+            {expanded && (
+              <div className="mt-1.5 space-y-1 pl-2 border-l-2 border-blue-200">
+                {recon.groupSubs.map(sub => (
+                  <div key={sub.ruleId} className="text-[10px] text-slate-500 flex justify-between">
+                    <span className="truncate">{sub.productName}</span>
+                    <span className="font-medium text-slate-600 shrink-0 ml-2">qty {sub.vendorQty}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Matched checkmark */}
         {(hasExclusions ? effectiveStatus : status) === 'match' && !isReviewed && (
