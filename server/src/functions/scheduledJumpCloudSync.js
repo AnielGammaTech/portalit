@@ -86,10 +86,19 @@ export async function scheduledJumpCloudSync(body, user) {
     try {
       const orgId = mapping.jumpcloud_org_id !== 'default' ? mapping.jumpcloud_org_id : null;
 
-      // Get users for this organization
-      const usersResponse = await jumpcloudApiCall('/systemusers', orgId);
-      const jcUsers = usersResponse.results || [];
-      const totalUsers = usersResponse.totalCount || jcUsers.length || 0;
+      // Get users for this organization (paginated — JumpCloud defaults to 10 per page)
+      let jcUsers = [];
+      let skip = 0;
+      const pageLimit = 100;
+      while (true) {
+        const page = await jumpcloudApiCall(`/systemusers?limit=${pageLimit}&skip=${skip}`, orgId);
+        const results = page.results || [];
+        jcUsers = jcUsers.concat(results);
+        const totalCount = page.totalCount || 0;
+        skip += results.length;
+        if (results.length < pageLimit || skip >= totalCount) break;
+      }
+      const totalUsers = jcUsers.length;
 
       // Get existing contacts
       const { data: existingContacts } = await supabase
