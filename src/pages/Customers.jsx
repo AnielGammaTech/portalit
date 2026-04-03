@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
+import { useAutoRetry } from '@/hooks/useAutoRetry';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -89,6 +90,9 @@ export default function Customers() {
     queryKey: ['customers'],
     queryFn: () => client.entities.Customer.list('-created_date', 500),
   });
+
+  // Auto-retry if customers page loads empty
+  useAutoRetry([customers], isLoading, [['customers']]);
 
   const { data: contracts = [] } = useQuery({
     queryKey: ['all_contracts'],

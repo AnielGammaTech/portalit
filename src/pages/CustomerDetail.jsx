@@ -4,6 +4,7 @@ import { client } from '@/api/client';
 import { toast } from 'sonner';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
+import { useAutoRetry } from '@/hooks/useAutoRetry';
 import { createPageUrl } from '../utils';
 import { motion } from 'framer-motion';
 import { fadeInUp, staggerContainer, staggerItem } from '@/lib/motion';
@@ -299,6 +300,13 @@ export default function CustomerDetail() {
     queryFn: () => client.entities.LicenseAssignment.filter({ customer_id: customerId }),
     enabled: !!customerId, ...qOpts
   });
+
+  // Auto-retry if page loads with all empty data
+  useAutoRetry(
+    [contacts, recurringBills, contracts, devices],
+    loadingCustomer,
+    [['contacts', customerId], ['recurring_bills', customerId], ['contracts', customerId], ['devices', customerId]]
+  );
 
   // Fetch JumpCloud mapping for this customer
   const { data: jumpcloudMapping } = useQuery({

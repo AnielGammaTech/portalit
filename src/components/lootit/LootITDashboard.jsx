@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import { useReconciliationData } from '@/hooks/useReconciliationData';
+import { useAutoRetry } from '@/hooks/useAutoRetry';
 import { getDiscrepancySummary } from '@/lib/lootit-reconciliation';
 
 export default function LootITDashboard({ onSelectCustomer }) {
@@ -87,6 +88,13 @@ export default function LootITDashboard({ onSelectCustomer }) {
       })
       .sort((a, b) => (a.customer?.name || '').localeCompare(b.customer?.name || ''));
   }, [reconciliations, search, filter]);
+
+  // Auto-retry if LootIT loads with all empty data
+  useAutoRetry(
+    [customers, bills],
+    isLoading,
+    [['reconciliation_rules'], ['reconciliation_customers'], ['reconciliation_bills'], ['reconciliation_line_items']]
+  );
 
   if (isLoading) {
     return (
