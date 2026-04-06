@@ -1215,6 +1215,11 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
             <DetailDrawer
               reconciliation={detailItem}
               customerId={customer.id}
+              onForceMatch={(ruleId, notes) => forceMatch(ruleId, notes)}
+              onReview={(ruleId, opts) => markReviewed(ruleId, opts)}
+              onDismiss={(ruleId, opts) => dismiss(ruleId, opts)}
+              onReset={(ruleId) => resetReview(ruleId)}
+              onSaveNotes={(ruleId, notes) => saveNotes(ruleId, notes)}
               onSaveExclusion={async (ruleId, exclusionCount, exclusionReason) => {
                 await saveExclusion(ruleId, exclusionCount, exclusionReason);
                 const updatedReviews = queryClient.getQueryData(['reconciliation_reviews', customer.id]);

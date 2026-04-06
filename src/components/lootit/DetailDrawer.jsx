@@ -6,7 +6,7 @@ import { SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet
 import { ACTION_LABELS } from './lootit-constants';
 import { Check, X, RotateCcw, StickyNote, ShieldCheck, AlertTriangle } from 'lucide-react';
 
-export default function DetailDrawer({ reconciliation, customerId, onSaveExclusion }) {
+export default function DetailDrawer({ reconciliation, customerId, onSaveExclusion, onForceMatch, onReview, onDismiss, onReset, onSaveNotes }) {
   const isPax8 = !!reconciliation.ruleId;
   const ruleId = isPax8 ? reconciliation.ruleId : reconciliation.rule?.id;
   const label = isPax8 ? reconciliation.productName : reconciliation.rule?.label;
@@ -54,6 +54,28 @@ export default function DetailDrawer({ reconciliation, customerId, onSaveExclusi
     }
   };
 
+  const [actionNotes, setActionNotes] = useState('');
+  const [pendingAction, setPendingAction] = useState(null); // 'force_match', 'review', 'dismiss'
+  const [savingAction, setSavingAction] = useState(false);
+  const isReviewed = review?.status === 'reviewed' || review?.status === 'dismissed' || review?.status === 'force_matched';
+  const isForceMatched = review?.status === 'force_matched';
+  const isMatch = reconciliation.status === 'match';
+
+  const handleAction = async () => {
+    if (!pendingAction) return;
+    if (pendingAction === 'force_match' && !actionNotes.trim()) return;
+    setSavingAction(true);
+    try {
+      if (pendingAction === 'force_match') await onForceMatch?.(ruleId, actionNotes);
+      else if (pendingAction === 'review') await onReview?.(ruleId, { notes: actionNotes || undefined });
+      else if (pendingAction === 'dismiss') await onDismiss?.(ruleId, { notes: actionNotes || undefined });
+    } finally {
+      setSavingAction(false);
+      setPendingAction(null);
+      setActionNotes('');
+    }
+  };
+
   // Icon map for ACTION_LABELS (icons can't be serialized in constants)
   const ACTION_ICONS = {
     reviewed: Check,
@@ -61,6 +83,7 @@ export default function DetailDrawer({ reconciliation, customerId, onSaveExclusi
     reset: RotateCcw,
     note: StickyNote,
     exclusion: ShieldCheck,
+    force_matched: ShieldCheck,
   };
 
   return (
@@ -73,27 +96,90 @@ export default function DetailDrawer({ reconciliation, customerId, onSaveExclusi
       </SheetHeader>
 
       <div className="p-6 space-y-6">
-          {/* Current Status */}
-          {review && (
-            <div className="bg-slate-50 rounded-lg px-4 py-3 border border-slate-200">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Current Status</span>
+          {/* Actions */}
+          <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Actions</span>
+              {review && (
                 <span className={cn(
-                  'text-xs font-semibold px-2 py-0.5 rounded-full',
+                  'text-[10px] font-bold px-2 py-0.5 rounded-full',
+                  review.status === 'force_matched' && 'bg-blue-100 text-blue-700',
                   review.status === 'reviewed' && 'bg-emerald-100 text-emerald-700',
                   review.status === 'dismissed' && 'bg-slate-200 text-slate-600',
                   review.status === 'pending' && 'bg-amber-100 text-amber-700',
+                  !review.status && 'bg-slate-100 text-slate-400',
                 )}>
-                  {review.status === 'reviewed' ? 'Reviewed' : review.status === 'dismissed' ? 'Dismissed' : 'Pending'}
+                  {review.status === 'force_matched' ? 'Force Matched' : review.status === 'reviewed' ? 'Reviewed' : review.status === 'dismissed' ? 'Dismissed' : 'Pending'}
                 </span>
-              </div>
-              {review.notes && (
-                <p className="text-sm text-slate-600 mt-2 bg-white rounded-md px-3 py-2 border border-slate-100">
-                  {review.notes}
-                </p>
               )}
             </div>
-          )}
+
+            {/* Action buttons */}
+            {!pendingAction && (
+              <div className="flex flex-wrap gap-2">
+                {!isMatch && !isReviewed && (
+                  <button onClick={() => setPendingAction('force_match')}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors">
+                    <ShieldCheck className="w-3.5 h-3.5" /> Force Match
+                  </button>
+                )}
+                {!isReviewed && !isMatch && (
+                  <>
+                    <button onClick={() => setPendingAction('review')}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors">
+                      <Check className="w-3.5 h-3.5" /> OK
+                    </button>
+                    <button onClick={() => setPendingAction('dismiss')}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors">
+                      <X className="w-3.5 h-3.5" /> Skip
+                    </button>
+                  </>
+                )}
+                {isReviewed && (
+                  <button onClick={() => onReset?.(ruleId)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200 transition-colors">
+                    <RotateCcw className="w-3.5 h-3.5" /> Undo
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Note input for pending action */}
+            {pendingAction && (
+              <div className="space-y-2">
+                <p className="text-xs text-slate-500">
+                  {pendingAction === 'force_match' ? 'Note is required — explain why this is being force matched:' : 'Add an optional note:'}
+                </p>
+                <textarea
+                  value={actionNotes}
+                  onChange={e => setActionNotes(e.target.value)}
+                  placeholder={pendingAction === 'force_match' ? 'Why is this being force matched?' : 'Optional note...'}
+                  rows={2}
+                  className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <button onClick={handleAction} disabled={savingAction || (pendingAction === 'force_match' && !actionNotes.trim())}
+                    className={cn('px-3 py-1.5 text-xs font-semibold rounded-lg text-white transition-colors disabled:opacity-50',
+                      pendingAction === 'force_match' ? 'bg-blue-600 hover:bg-blue-700' : pendingAction === 'review' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-slate-500 hover:bg-slate-600'
+                    )}>
+                    {savingAction ? 'Saving...' : pendingAction === 'force_match' ? 'Force Match' : pendingAction === 'review' ? 'Save & OK' : 'Save & Skip'}
+                  </button>
+                  <button onClick={() => { setPendingAction(null); setActionNotes(''); }}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Current notes */}
+            {review?.notes && !pendingAction && (
+              <div className="bg-white rounded-md px-3 py-2 border border-slate-100">
+                <p className="text-sm text-slate-600">{review.notes}</p>
+              </div>
+            )}
+          </div>
 
           {/* Excluded Accounts Section */}
           <div>
