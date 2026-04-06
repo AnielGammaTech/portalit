@@ -137,6 +137,41 @@ export async function syncUniFiDevices(params) {
     }
   }
 
+  // ─── List Devices for a Host (expand cloud-hosted sites) ───────────────
+  if (action === 'list_host_devices') {
+    const { host_id } = params;
+    if (!host_id) return { success: false, error: 'host_id required' };
+    try {
+      const hosts = await fetchHostsWithDevices(apiKey);
+      const host = hosts.find(h => h.hostId === host_id);
+      if (!host) return { success: false, error: 'Host not found' };
+
+      const devices = (host.devices || []).map(d => ({
+        ...mapDevice(d),
+        hostId: host.hostId,
+        hostName: host.hostName,
+        // Preserve raw fields for site grouping
+        siteId: d.siteId || d.site_id || null,
+        siteName: d.siteName || d.site_name || null,
+      }));
+
+      // Group consoles/firewalls as "sites" — each firewall represents a customer site
+      const gateways = devices.filter(d => d.type === 'firewall' || d.is_console);
+      const otherDevices = devices.filter(d => d.type !== 'firewall' && !d.is_console);
+
+      return {
+        success: true,
+        hostName: host.hostName,
+        totalDevices: devices.length,
+        gateways,
+        devices: otherDevices,
+        allDevices: devices,
+      };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // ─── Sync Devices for One Customer ───────────────────────────────────
   if (action === 'sync_devices') {
     const { customer_id } = params;
