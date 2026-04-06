@@ -300,6 +300,28 @@ export default function UniFiConfig() {
           <RefreshCw className={cn("w-4 h-4 mr-2", loadingSites && "animate-spin")} />
           {showMappingView ? 'Refresh Hosts' : 'Load Hosts'}
         </Button>
+        {unifiSites.length > 0 && (
+          <Button
+            onClick={async () => {
+              try {
+                const res = await client.functions.invoke('syncUniFiDevices', { action: 'auto_map' });
+                if (res.success) {
+                  toast.success(`Auto-mapped ${res.mapped} hosts. ${res.results?.filter(r => !r.customer).length || 0} unmatched.`);
+                  loadUnifiSites();
+                  queryClient.invalidateQueries({ queryKey: ['unifi-mappings'] });
+                } else {
+                  toast.error(res.error || 'Auto-map failed');
+                }
+              } catch (err) {
+                toast.error(err.message);
+              }
+            }}
+            variant="outline"
+            className="text-blue-600 border-blue-200 hover:bg-blue-50"
+          >
+            Auto-Map by Name
+          </Button>
+        )}
         {mappings.length > 0 && (
           <Button onClick={syncAllDevices} disabled={syncing} className="bg-slate-900 hover:bg-slate-800">
             <RefreshCw className={cn("w-4 h-4 mr-2", syncing && "animate-spin")} />

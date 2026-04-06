@@ -259,5 +259,92 @@ export async function syncUniFiDevices(params) {
     }
   }
 
+  // ─── Auto-Map: match unmapped hosts to customers by name ──────────────
+  if (action === 'auto_map') {
+    try {
+      const hosts = await fetchHostsWithDevices(apiKey);
+
+      // Get existing mappings to know what's already mapped
+      const { data: existingMappings } = await supabase.from('unifi_mappings').select('unifi_site_id');
+      const mappedHostIds = new Set((existingMappings || []).map(m => m.unifi_site_id));
+
+      // Get all customers
+      const { data: customers } = await supabase.from('customers').select('id, name').eq('status', 'active');
+      if (!customers || customers.length === 0) {
+        return { success: true, message: 'No customers found', mapped: 0 };
+      }
+
+      // Normalize for fuzzy matching
+      const normalize = (s) => (s || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+
+      let mapped = 0;
+      let skipped = 0;
+      const results = [];
+
+      for (const host of hosts) {
+        if (mappedHostIds.has(host.hostId)) {
+          skipped++;
+          continue;
+        }
+
+        const hostName = normalize(host.hostName || '');
+        if (!hostName) continue;
+
+        // Try exact match first, then word-overlap scoring
+        let bestMatch = null;
+        let bestScore = 0;
+
+        for (const cust of customers) {
+          const custName = normalize(cust.name);
+
+          // Exact contains
+          if (custName.includes(hostName) || hostName.includes(custName)) {
+            bestMatch = cust;
+            bestScore = 100;
+            break;
+          }
+
+          // Word overlap
+          const hostWords = hostName.split(/\s+/).filter(w => w.length > 2 && !['llc', 'inc', 'corp', 'ltd', 'the', 'and', 'of'].includes(w));
+          const custWords = custName.split(/\s+/).filter(w => w.length > 2);
+          const overlap = hostWords.filter(w => custWords.some(cw => cw.includes(w) || w.includes(cw))).length;
+          const score = hostWords.length > 0 ? (overlap / hostWords.length) * 100 : 0;
+
+          if (score > bestScore && score >= 50) {
+            bestScore = score;
+            bestMatch = cust;
+          }
+        }
+
+        if (bestMatch) {
+          const { error: insertErr } = await supabase.from('unifi_mappings').insert({
+            customer_id: bestMatch.id,
+            customer_name: bestMatch.name,
+            unifi_site_id: host.hostId,
+            unifi_site_name: host.hostName,
+          });
+
+          if (!insertErr) {
+            mapped++;
+            results.push({ host: host.hostName, customer: bestMatch.name, score: bestScore });
+          }
+        } else {
+          results.push({ host: host.hostName, customer: null, score: 0 });
+        }
+      }
+
+      return {
+        success: true,
+        mapped,
+        skipped,
+        total: hosts.length,
+        results,
+        message: `Auto-mapped ${mapped} hosts, ${skipped} already mapped, ${hosts.length - mapped - skipped} unmatched`,
+      };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   return { success: false, error: `Unknown action: ${action}` };
 }
