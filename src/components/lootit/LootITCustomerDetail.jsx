@@ -1202,6 +1202,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
                 onReview={handleReview}
                 onDismiss={handleDismiss}
                 onReset={resetReview}
+                onForceMatch={(ruleId, notes) => forceMatch(ruleId, notes)}
                 onDetails={setDetailItem}
                 onMapLineItem={() => setMappingRecon(recon)}
                 onRemoveMapping={() => handleRemoveMapping(recon.ruleId)}
