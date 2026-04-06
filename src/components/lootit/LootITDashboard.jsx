@@ -208,11 +208,12 @@ export default function LootITDashboard({ onSelectCustomer }) {
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {customerList.map(({ customer, combinedSummary: s }) => {
-            const active = s.total - s.noData - (s.noPsa || 0);
-            const pct = active > 0 ? Math.min(100, Math.round((s.matched / active) * 100)) : 0;
+            const resolved = (s.matched || 0) + (s.reviewed || 0) + (s.dismissed || 0);
+            const pct = s.total > 0 ? Math.min(100, Math.round((resolved / s.total) * 100)) : 0;
+            const active = s.total;
             const issues = s.over + s.under;
             const noPsa = s.noPsa || 0;
-            const isFullyReconciled = active > 0 && issues === 0 && noPsa === 0;
+            const isFullyReconciled = s.total > 0 && resolved === s.total;
             const isSignedOff = signedOffCustomerIds.has(customer.id);
 
             return (

@@ -23,7 +23,8 @@ export async function requireAuth(req, res, next) {
       .single();
 
     req.user = {
-      id: user.id,
+      auth_id: user.id,
+      id: profile?.id || user.id,
       email: user.email,
       ...profile,
     };
