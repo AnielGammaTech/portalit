@@ -541,10 +541,12 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   }
 
   const issueCount = summary ? summary.over + summary.under : 0;
-  const activeRules = summary ? summary.total - (summary.noData || 0) - (summary.noPsa || 0) : 0;
-  // Health = only fully matched items count. Reviewed/dismissed are acknowledged but not resolved.
-  // Denominator excludes no_data and no_psa (rules without both sides of data).
-  const healthPct = activeRules > 0 ? Math.min(100, Math.round((summary.matched / activeRules) * 100)) : 0;
+  // Health = matched + reviewed items out of ALL rules (including no_data/no_vendor)
+  // "No Data" items count as unresolved — they need vendor integration or review
+  const totalRules = summary ? summary.total : 0;
+  const resolvedCount = summary ? (summary.matched || 0) + (summary.reviewed || 0) + (summary.dismissed || 0) : 0;
+  const healthPct = totalRules > 0 ? Math.min(100, Math.round((resolvedCount / totalRules) * 100)) : 0;
+  const hasUnresolvedItems = totalRules > resolvedCount;
 
   return (
     <div className="space-y-5 relative">
@@ -592,6 +594,8 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
               reconciliations={recons}
               pax8Reconciliations={pax8Recons}
               unmatchedItems={allRecons.filter(r => r.isUnmatchedLineItem)}
+              hasUnresolvedItems={hasUnresolvedItems}
+              unresolvedCount={totalRules - resolvedCount}
             />
             <button
               onClick={handleSync}

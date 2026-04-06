@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { ShieldCheck, Loader2, AlertTriangle, CheckCircle2, X, Stamp } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function SignOffButton({ customer, reconciliations, pax8Reconciliations, unmatchedItems }) {
+export default function SignOffButton({ customer, reconciliations, pax8Reconciliations, unmatchedItems, hasUnresolvedItems, unresolvedCount }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [isVerifying, setIsVerifying] = useState(false);
@@ -101,7 +101,13 @@ export default function SignOffButton({ customer, reconciliations, pax8Reconcili
     <>
       {/* Trigger button */}
       <button
-        onClick={() => { setShowPanel(true); handleVerify(); }}
+        onClick={() => {
+          if (hasUnresolvedItems) {
+            toast.error(`Cannot sign off — ${unresolvedCount} item${unresolvedCount !== 1 ? 's' : ''} still unresolved (No Data, unmatched, or unreviewed)`);
+            return;
+          }
+          setShowPanel(true); handleVerify();
+        }}
         disabled={isVerifying}
         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-violet-600 text-white hover:bg-violet-700 shadow-sm transition-all disabled:opacity-50"
       >
