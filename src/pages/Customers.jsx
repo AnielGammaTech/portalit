@@ -94,20 +94,22 @@ export default function Customers() {
   // Auto-retry if customers page loads empty
   useAutoRetry([customers], isLoading, [['customers']]);
 
-  const { data: contracts = [] } = useQuery({
+  const { data: contracts = [], isLoading: loadingContracts } = useQuery({
     queryKey: ['all_contracts'],
     queryFn: () => client.entities.Contract.list('-created_date', 1000),
   });
 
-  const { data: recurringBills = [] } = useQuery({
+  const { data: recurringBills = [], isLoading: loadingBills } = useQuery({
     queryKey: ['all_recurring_bills'],
     queryFn: () => client.entities.RecurringBill.list('-created_date', 1000),
   });
 
-  const { data: tickets = [] } = useQuery({
+  const { data: tickets = [], isLoading: loadingTickets } = useQuery({
     queryKey: ['all_tickets'],
     queryFn: () => client.entities.Ticket.list('-created_date', 1000),
   });
+
+  const statsReady = !loadingContracts && !loadingBills && !loadingTickets;
 
   const createMutation = useMutation({
     mutationFn: (data) => client.entities.Customer.create(data),
@@ -345,18 +347,28 @@ export default function Customers() {
 
                 {/* Stats */}
                 <div className="hidden sm:flex items-center gap-2 text-xs">
-                  <div className="flex items-center gap-1 px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded-full" title="Contracts">
-                    <FileText className="w-3 h-3 text-muted-foreground" />
-                    <span className="font-medium">{stats.contracts}</span>
-                  </div>
-                  <div className="flex items-center gap-1 px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded-full" title="Open Tickets">
-                    <AlertCircle className="w-3 h-3 text-muted-foreground" />
-                    <span className="font-medium">{stats.tickets}</span>
-                  </div>
-                  <div className="flex items-center gap-1 px-2 py-1 bg-success/10 rounded-full" title="Monthly Revenue">
-                    <DollarSign className="w-3 h-3 text-success" />
-                    <span className="font-medium text-success">${stats.mrr.toLocaleString()}</span>
-                  </div>
+                  {statsReady ? (
+                    <>
+                      <div className="flex items-center gap-1 px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded-full" title="Contracts">
+                        <FileText className="w-3 h-3 text-muted-foreground" />
+                        <span className="font-medium">{stats.contracts}</span>
+                      </div>
+                      <div className="flex items-center gap-1 px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded-full" title="Open Tickets">
+                        <AlertCircle className="w-3 h-3 text-muted-foreground" />
+                        <span className="font-medium">{stats.tickets}</span>
+                      </div>
+                      <div className="flex items-center gap-1 px-2 py-1 bg-success/10 rounded-full" title="Monthly Revenue">
+                        <DollarSign className="w-3 h-3 text-success" />
+                        <span className="font-medium text-success">${stats.mrr.toLocaleString()}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex gap-2">
+                      <div className="w-10 h-5 bg-zinc-100 rounded-full animate-pulse" />
+                      <div className="w-10 h-5 bg-zinc-100 rounded-full animate-pulse" />
+                      <div className="w-12 h-5 bg-zinc-100 rounded-full animate-pulse" />
+                    </div>
+                  )}
                 </div>
 
                 {/* Actions */}
