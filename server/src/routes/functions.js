@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireAdmin } from '../middleware/auth.js';
 
 // Import all ported functions
 import { syncHaloPSACustomers } from '../functions/syncHaloPSACustomers.js';
@@ -115,7 +115,7 @@ const functionMap = {
 
 const router = Router();
 
-router.post('/:functionName', requireAuth, async (req, res, next) => {
+router.post('/:functionName', requireAdmin, async (req, res, next) => {
   try {
     const { functionName } = req.params;
     const handler = functionMap[functionName];
