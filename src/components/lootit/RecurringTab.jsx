@@ -16,7 +16,7 @@ function formatCurrency(value) {
   return `$${parseFloat(value || 0).toFixed(2)}`;
 }
 
-export default function RecurringTab({ lineItems, rules, overrides = [] }) {
+export default function RecurringTab({ lineItems, rules, overrides = [], pax8MatchedIds = new Set() }) {
   const [filter, setFilter] = useState('all');
 
   // Build set of line item IDs that have manual Pax8 overrides
@@ -42,6 +42,11 @@ export default function RecurringTab({ lineItems, rules, overrides = [] }) {
       // Check manual Pax8 override first — overrides everything
       if (overrideLineItemIds.has(lineItem.id)) {
         matched.push({ ...lineItem, matchStatus: 'matched', matchedRule: { label: 'Manually mapped' } });
+        continue;
+      }
+      // Check Pax8 auto-match (matched by product name in reconciliation engine)
+      if (pax8MatchedIds.has(lineItem.id)) {
+        matched.push({ ...lineItem, matchStatus: 'matched', matchedRule: { label: 'Pax8 auto-matched' } });
         continue;
       }
       const matchingRules = matchLineItemToRules(lineItem, activeRules);

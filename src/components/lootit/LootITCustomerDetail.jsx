@@ -437,6 +437,15 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   const recons = customerData?.reconciliations || [];
   const pax8Recons = customerData?.pax8Reconciliations || [];
 
+  // Collect all line item IDs matched by Pax8 (auto + manual)
+  const pax8MatchedLineItemIds = useMemo(() => {
+    const ids = new Set();
+    for (const r of pax8Recons) {
+      for (const li of (r.matchedLineItems || [])) ids.add(li.id);
+    }
+    return ids;
+  }, [pax8Recons]);
+
   // Combine rule-based + Pax8 for unified summary
   const allRecons = useMemo(() => [...recons, ...pax8Recons], [recons, pax8Recons]);
   const summary = customerData ? getDiscrepancySummary(allRecons) : null;
@@ -974,7 +983,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
 
       {/* ── Recurring Tab ── */}
       {activeTab === 'recurring' && (
-        <RecurringTab lineItems={allLineItems} rules={allRules || []} overrides={existingOverrides} />
+        <RecurringTab lineItems={allLineItems} rules={allRules || []} overrides={existingOverrides} pax8MatchedIds={pax8MatchedLineItemIds} />
       )}
 
       {/* ── Invoices Tab ── */}
