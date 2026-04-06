@@ -31,16 +31,18 @@ export default function ServiceCard({
   onSaveNotes,
   onMapLineItem,
   onRemoveMapping,
+  onForceMatch,
   hasOverride,
   isSaving,
 }) {
   const { rule, psaQty, vendorQty, difference, status, review } = reconciliation;
-  const isReviewed = review?.status === 'reviewed' || review?.status === 'dismissed';
+  const isReviewed = review?.status === 'reviewed' || review?.status === 'dismissed' || review?.status === 'force_matched';
+  const isForceMatched = review?.status === 'force_matched';
 
   const [showNotes, setShowNotes] = useState(false);
   const [noteText, setNoteText] = useState(review?.notes || '');
   const [savingNote, setSavingNote] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null); // 'review' or 'dismiss'
+  const [pendingAction, setPendingAction] = useState(null); // 'review', 'dismiss', or 'force_match'
 
   const hasNotes = !!(review?.notes);
   const hasExclusions = review?.exclusion_count > 0;
@@ -60,8 +62,10 @@ export default function ServiceCard({
     if (!onSaveNotes) return;
     setSavingNote(true);
     try {
-      if (pendingAction === 'review') {
-        // Save note + review in one call so notes aren't overwritten
+      if (pendingAction === 'force_match') {
+        if (!noteText.trim()) { setSavingNote(false); return; }
+        await onForceMatch?.(rule.id, noteText);
+      } else if (pendingAction === 'review') {
         await onReview?.(rule.id, { notes: noteText });
       } else if (pendingAction === 'dismiss') {
         await onDismiss?.(rule.id, { notes: noteText });
@@ -88,6 +92,7 @@ export default function ServiceCard({
     <div
       className={cn(
         'rounded-lg border overflow-hidden transition-all hover:shadow-md cursor-pointer h-full flex flex-col',
+        isForceMatched ? 'bg-gradient-to-br from-blue-50 via-blue-50 to-blue-100/80 border-blue-200' :
         isReviewed ? 'bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-100/80 border-amber-200' : styles.card,
       )}
       style={isReviewed ? { backgroundImage: 'linear-gradient(135deg, #fffbeb 0%, #fef9c3 50%, #fef3c7 100%)' } : undefined}
@@ -189,7 +194,7 @@ export default function ServiceCard({
               <div className="flex gap-1.5">
                 <button onClick={handleSaveNote} disabled={savingNote || (pendingAction && !noteText.trim())}
                   className="px-2 py-1 text-[10px] font-semibold rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50">
-                  {savingNote ? 'Saving...' : pendingAction ? `Save & ${pendingAction === 'review' ? 'OK' : 'Skip'}` : 'Save'}
+                  {savingNote ? 'Saving...' : pendingAction === 'force_match' ? 'Force Match' : pendingAction ? `Save & ${pendingAction === 'review' ? 'OK' : 'Skip'}` : 'Save'}
                 </button>
                 <button onClick={() => { setShowNotes(false); setNoteText(review?.notes || ''); setPendingAction(null); }}
                   className="px-2 py-1 text-[10px] font-semibold rounded bg-slate-100 text-slate-500 hover:bg-slate-200">Cancel</button>
@@ -204,8 +209,14 @@ export default function ServiceCard({
           'border-slate-100'
         )}>
           <TooltipProvider delayDuration={300}>
-            {!isReviewed && status !== 'match' && status !== 'no_data' && status !== 'unmatched_line_item' && (
+            {!isReviewed && status !== 'match' && (
               <>
+                <Tooltip><TooltipTrigger asChild>
+                  <button onClick={() => handleActionWithNote('force_match')} disabled={isSaving}
+                    className="p-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow-sm transition-colors disabled:opacity-50">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                  </button>
+                </TooltipTrigger><TooltipContent>Force Match (requires note)</TooltipContent></Tooltip>
                 <Tooltip><TooltipTrigger asChild>
                   <button onClick={() => handleActionWithNote('review')} disabled={isSaving}
                     className="p-1.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm transition-colors disabled:opacity-50">

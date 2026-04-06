@@ -139,6 +139,16 @@ export function useReconciliationReviews(customerId) {
     });
   };
 
+  const forceMatch = (ruleId, notes) => {
+    if (!notes || !notes.trim()) throw new Error('Notes required for force match');
+    return upsertMutation.mutateAsync({
+      ruleId,
+      status: 'force_matched',
+      action: 'force_matched',
+      notes: `[FORCE MATCH by ${user?.full_name || user?.email || 'Unknown'} — ${new Date().toLocaleString()}] ${notes.trim()}`,
+    });
+  };
+
   return {
     reviews,
     isLoading,
@@ -148,6 +158,7 @@ export function useReconciliationReviews(customerId) {
     resetReview,
     saveNotes,
     saveExclusion,
+    forceMatch,
     isSaving: upsertMutation.isPending,
   };
 }

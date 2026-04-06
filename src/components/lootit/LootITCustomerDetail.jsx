@@ -46,7 +46,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   const { user } = useAuth();
 
   const { reconciliations, isLoading, rules: allRules } = useReconciliationData(customer.id);
-  const { reviews, markReviewed, dismiss, resetReview, saveNotes, saveExclusion, isSaving } = useReconciliationReviews(customer.id);
+  const { reviews, markReviewed, dismiss, resetReview, saveNotes, saveExclusion, forceMatch, isSaving } = useReconciliationReviews(customer.id);
 
   // Billing anomalies for this customer (from the DB scanner, grouped by category)
   const { data: customerAnomalies = [] } = useQuery({
@@ -1160,6 +1160,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
               onDetails={setDetailItem}
               onEditRule={setEditingRule}
               onSaveNotes={(ruleId, notes) => saveNotes(ruleId, notes)}
+              onForceMatch={(ruleId, notes) => forceMatch(ruleId, notes)}
               onMapLineItem={(ruleId, label) => setMappingRecon({ ruleId, productName: label })}
               onRemoveMapping={(ruleId) => handleRemoveMapping(ruleId)}
               hasOverride={existingOverrides.some((o) => o.rule_id === recon.rule.id)}
