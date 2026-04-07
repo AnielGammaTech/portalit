@@ -1,74 +1,34 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { client, supabase } from '@/api/client';
+import { client } from '@/api/client';
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import {
-  RefreshCw,
-  CheckCircle2,
-  Building2,
-  Trash2,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  Cloud,
-  Clock,
-  XCircle,
-  ChevronDown,
-  Wand2
-} from 'lucide-react';
+import { RefreshCw, Zap, Cloud, Bug } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
-import { format, formatDistanceToNow } from 'date-fns';
-
-const CONNECTION_STATES = {
-  CONNECTED: 'connected',
-  CONFIGURED: 'configured',
-  NOT_CONFIGURED: 'not_configured',
-};
-
-function getConnectionStatusDisplay(status) {
-  switch (status) {
-    case CONNECTION_STATES.CONNECTED:
-      return { color: 'bg-emerald-500', label: 'Connected', bgClass: 'bg-emerald-50 border-emerald-200', textClass: 'text-emerald-700' };
-    case CONNECTION_STATES.CONFIGURED:
-      return { color: 'bg-amber-500', label: 'Configured', bgClass: 'bg-amber-50 border-amber-200', textClass: 'text-amber-700' };
-    default:
-      return { color: 'bg-slate-300', label: 'Not configured', bgClass: 'bg-slate-50 border-slate-200', textClass: 'text-slate-500' };
-  }
-}
+import {
+  CONNECTION_STATES,
+  ITEMS_PER_PAGE,
+  getConnectionStatusDisplay,
+  getRelativeTime,
+  getRowStatusDot,
+  getSuggestedMatch,
+  isStale,
+  IntegrationHeader,
+  FilterBar,
+  MappingRow,
+  TablePagination,
+} from './shared/IntegrationTableParts';
 
 export default function JumpCloudConfig() {
   const [testing, setTesting] = useState(false);
   const [configStatus, setConfigStatus] = useState(CONNECTION_STATES.NOT_CONFIGURED);
-  const [isMsp, setIsMsp] = useState(false);
   const [loadingOrgs, setLoadingOrgs] = useState(false);
   const [jumpcloudOrgs, setJumpcloudOrgs] = useState([]);
-  const [showMappingView, setShowMappingView] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [syncingCustomerId, setSyncingCustomerId] = useState(null);
-  const [syncingUsersCustomerId, setSyncingUsersCustomerId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTab, setFilterTab] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [orgSelections, setOrgSelections] = useState({});
-  const [mappingSearchQuery, setMappingSearchQuery] = useState('');
-  const [mappingPage, setMappingPage] = useState(1);
-  const [lastSyncTime, setLastSyncTime] = useState(null);
-  const [errorDetails, setErrorDetails] = useState(null);
-  const [showErrorDetails, setShowErrorDetails] = useState(false);
   const [automapping, setAutomapping] = useState(false);
-  const itemsPerPage = 10;
-  const mappingsPerPage = 10;
 
   const queryClient = useQueryClient();
 
@@ -82,695 +42,354 @@ export default function JumpCloudConfig() {
     queryFn: () => client.entities.JumpCloudMapping.list(),
   });
 
-  const fetchLastSync = useCallback(async () => {
-    try {
-      const { data } = await supabase
-        .from('sync_logs')
-        .select('completed_at')
-        .eq('integration_type', 'jumpcloud')
-        .eq('status', 'success')
-        .order('completed_at', { ascending: false })
-        .limit(1);
-      if (data && data.length > 0) {
-        setLastSyncTime(data[0].completed_at);
-      }
-    } catch (_err) {
-      // Sync logs may not exist yet
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchLastSync();
-  }, [fetchLastSync]);
-
   // Auto-detect configured status from existing mappings
   useEffect(() => {
     if (mappings.length > 0 && configStatus === CONNECTION_STATES.NOT_CONFIGURED) {
       setConfigStatus(CONNECTION_STATES.CONNECTED);
     }
-  }, [mappings.length]);
+  }, [mappings.length, configStatus]);
 
-  const testConnection = async () => {
-    setTesting(true);
-    setErrorDetails(null);
-    try {
-      const response = await client.functions.invoke('syncJumpCloudLicenses', { action: 'test_connection' });
-      if (response.success) {
-        setConfigStatus(CONNECTION_STATES.CONNECTED);
-        setIsMsp(!!response.isMsp);
-        toast.success('Connected to JumpCloud!');
-      } else {
-        const errMsg = response.error || 'Connection failed';
-        setConfigStatus(CONNECTION_STATES.CONFIGURED);
-        setErrorDetails(errMsg);
-        toast.error(errMsg);
-      }
-    } catch (error) {
-      const errMsg = error.message || 'Connection test failed';
-      setConfigStatus(CONNECTION_STATES.CONFIGURED);
-      setErrorDetails(errMsg);
-      toast.error(errMsg);
-    } finally {
-      setTesting(false);
-    }
-  };
+  // -- Derived data -----------------------------------------------------------
 
-  const loadOrganizations = async () => {
-    setLoadingOrgs(true);
-    setErrorDetails(null);
-    try {
-      const response = await client.functions.invoke('syncJumpCloudLicenses', { action: 'list_organizations' });
-      if (response.success) {
-        setJumpcloudOrgs(response.organizations);
-        setShowMappingView(true);
-        setCurrentPage(1);
-      } else {
-        const errMsg = response.error || 'Failed to load organizations';
-        setErrorDetails(errMsg);
-        toast.error(errMsg);
-      }
-    } catch (error) {
-      const errMsg = error.message || 'Failed to load organizations';
-      setErrorDetails(errMsg);
-      toast.error(errMsg);
-    } finally {
-      setLoadingOrgs(false);
-    }
-  };
-
-  const applyMapping = async (org, customerId) => {
-    if (!customerId) return;
-
-    try {
-      await client.entities.JumpCloudMapping.create({
-        customer_id: customerId,
-        jumpcloud_org_id: String(org.id),
-        jumpcloud_org_name: org.name
-      });
-      toast.success(`Mapped ${org.name} successfully!`);
-      refetchMappings();
-      setOrgSelections(prev => ({ ...prev, [org.id]: '' }));
-    } catch (error) {
-      toast.error(`Failed to map organization: ${error.message}`);
-    }
-  };
-
-  const deleteMapping = async (mappingId) => {
-    try {
-      await client.entities.JumpCloudMapping.delete(mappingId);
-      toast.success('Mapping removed');
-      refetchMappings();
-    } catch (error) {
-      toast.error(`Failed to remove mapping: ${error.message}`);
-    }
-  };
-
-  const syncAllLicenses = async () => {
-    setSyncing(true);
-    setErrorDetails(null);
-    try {
-      const response = await client.functions.invoke('syncJumpCloudLicenses', { action: 'sync_all' });
-      if (response.success) {
-        toast.success(`Synced ${response.created} new, ${response.updated} updated licenses!`);
-        queryClient.invalidateQueries({ queryKey: ['licenses'] });
-        refetchMappings();
-        fetchLastSync();
-      } else {
-        const errMsg = response.error || 'Sync failed';
-        setErrorDetails(errMsg);
-        toast.error(errMsg);
-      }
-    } catch (error) {
-      const errMsg = error.message || 'Sync failed';
-      setErrorDetails(errMsg);
-      toast.error(errMsg);
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  const syncCustomerLicenses = async (customerId) => {
-    setSyncingCustomerId(customerId);
-    setErrorDetails(null);
-    try {
-      const response = await client.functions.invoke('syncJumpCloudLicenses', {
-        action: 'sync_licenses',
-        customer_id: customerId
-      });
-      if (response.success) {
-        toast.success(`Synced ${response.totalUsers} users, ${response.ssoApps} SSO apps!`);
-        queryClient.invalidateQueries({ queryKey: ['licenses'] });
-        refetchMappings();
-      } else {
-        const errMsg = response.error || 'Sync failed';
-        setErrorDetails(errMsg);
-        toast.error(errMsg);
-      }
-    } catch (error) {
-      const errMsg = error.message || 'Sync failed';
-      setErrorDetails(errMsg);
-      toast.error(errMsg);
-    } finally {
-      setSyncingCustomerId(null);
-    }
-  };
-
-  const syncCustomerUsers = async (customerId) => {
-    setSyncingUsersCustomerId(customerId);
-    setErrorDetails(null);
-    try {
-      const response = await client.functions.invoke('syncJumpCloudLicenses', {
-        action: 'sync_users',
-        customer_id: customerId
-      });
-      if (response.success) {
-        toast.success(`Synced ${response.totalJumpCloudUsers} users: ${response.created} new, ${response.matched} matched!`);
-        queryClient.invalidateQueries({ queryKey: ['contacts'] });
-        refetchMappings();
-      } else {
-        const errMsg = response.error || 'User sync failed';
-        setErrorDetails(errMsg);
-        toast.error(errMsg);
-      }
-    } catch (error) {
-      const errMsg = error.message || 'User sync failed';
-      setErrorDetails(errMsg);
-      toast.error(errMsg);
-    } finally {
-      setSyncingUsersCustomerId(null);
-    }
-  };
-
-  const getCustomerName = (customerId) => {
+  const getCustomerName = useCallback((customerId) => {
     const customer = customers.find(c => c.id === customerId);
     return customer?.name || 'Unknown';
-  };
+  }, [customers]);
 
-  // Calculate suggested match for an org based on name similarity
-  const getSuggestedMatch = (orgName) => {
-    const nameLower = orgName.toLowerCase().trim();
-    let bestMatch = null;
-    let bestScore = 0;
-
-    for (const customer of customers) {
-      const customerNameLower = customer.name.toLowerCase().trim();
-
-      if (nameLower === customerNameLower) {
-        return { customer, score: 100 };
-      }
-
-      if (nameLower.includes(customerNameLower) || customerNameLower.includes(nameLower)) {
-        const score = Math.round((Math.min(nameLower.length, customerNameLower.length) / Math.max(nameLower.length, customerNameLower.length)) * 100);
-        if (score > bestScore) {
-          bestScore = score;
-          bestMatch = customer;
-        }
-      }
-
-      const nameWords = nameLower.split(/[\s,.-]+/).filter(w => w.length > 2);
-      const customerWords = customerNameLower.split(/[\s,.-]+/).filter(w => w.length > 2);
-      const matchingWords = nameWords.filter(sw => customerWords.some(cw => cw.includes(sw) || sw.includes(cw)));
-
-      if (matchingWords.length > 0) {
-        const score = Math.round((matchingWords.length / Math.max(nameWords.length, customerWords.length)) * 100);
-        if (score > bestScore) {
-          bestScore = score;
-          bestMatch = customer;
-        }
-      }
-    }
-
-    return bestMatch && bestScore >= 50 ? { customer: bestMatch, score: bestScore } : null;
-  };
-
-  const autoMapOrgs = async () => {
-    if (jumpcloudOrgs.length === 0) {
-      toast.error('Load organizations first before auto-mapping');
-      return;
-    }
-    setAutomapping(true);
-    let mapped = 0;
-    try {
-      const mappedOrgIds = new Set(mappings.map(m => m.jumpcloud_org_id));
-      const mappedCustomerIds = new Set(mappings.map(m => m.customer_id));
-
-      for (const org of jumpcloudOrgs) {
-        const orgId = String(org.id);
-        if (mappedOrgIds.has(orgId)) continue;
-        const match = getSuggestedMatch(org.name);
-        if (match && !mappedCustomerIds.has(match.customer.id)) {
-          await client.entities.JumpCloudMapping.create({
-            customer_id: match.customer.id,
-            jumpcloud_org_id: orgId,
-            jumpcloud_org_name: org.name
-          });
-          mappedOrgIds.add(orgId);
-          mappedCustomerIds.add(match.customer.id);
-          mapped++;
-        }
-      }
-      if (mapped > 0) {
-        toast.success(`Auto-mapped ${mapped} organizations to customers!`);
-        refetchMappings();
-      } else {
-        toast.info('No new matches found. Organizations may already be mapped or names don\'t match.');
-      }
-    } catch (error) {
-      toast.error('Auto-map failed: ' + error.message);
-    } finally {
-      setAutomapping(false);
-    }
-  };
-
-  // Filter and paginate existing mappings
-  const filteredMappings = mappings.filter(mapping => {
-    if (!mappingSearchQuery) return true;
-    const customerName = getCustomerName(mapping.customer_id).toLowerCase();
-    const orgName = (mapping.jumpcloud_org_name || '').toLowerCase();
-    const query = mappingSearchQuery.toLowerCase();
-    return customerName.includes(query) || orgName.includes(query);
-  });
-
-  const totalMappingPages = Math.ceil(filteredMappings.length / mappingsPerPage);
-  const paginatedMappings = filteredMappings.slice(
-    (mappingPage - 1) * mappingsPerPage,
-    mappingPage * mappingsPerPage
+  const mappedOrgIds = useMemo(
+    () => new Set(mappings.map(m => m.jumpcloud_org_id)),
+    [mappings],
   );
 
-  // Filter and paginate orgs
-  const getFilteredOrgs = () => {
-    let filtered = jumpcloudOrgs;
+  const mappedCount = useMemo(
+    () => jumpcloudOrgs.filter(org => mappedOrgIds.has(String(org.id))).length,
+    [jumpcloudOrgs, mappedOrgIds],
+  );
+
+  const staleCount = useMemo(
+    () => mappings.filter(m => m.last_synced && isStale(m.last_synced)).length,
+    [mappings],
+  );
+
+  // Build unified list: orgs from API + any mappings not in the API list
+  const allRows = useMemo(() => {
+    const rows = jumpcloudOrgs.map(org => {
+      const orgId = String(org.id);
+      const mapping = mappings.find(m => m.jumpcloud_org_id === orgId);
+      return {
+        orgId,
+        orgName: org.name,
+        userCount: org.userCount || 0,
+        mapping,
+        isMapped: Boolean(mapping),
+        isStale: mapping ? isStale(mapping.last_synced) : false,
+      };
+    });
+
+    // Include mappings for orgs not currently in the API response
+    const apiOrgIds = new Set(jumpcloudOrgs.map(o => String(o.id)));
+    for (const mapping of mappings) {
+      if (!apiOrgIds.has(mapping.jumpcloud_org_id)) {
+        rows.push({
+          orgId: mapping.jumpcloud_org_id,
+          orgName: mapping.jumpcloud_org_name || mapping.jumpcloud_org_id,
+          userCount: 0,
+          mapping,
+          isMapped: true,
+          isStale: isStale(mapping.last_synced),
+        });
+      }
+    }
+
+    return rows;
+  }, [jumpcloudOrgs, mappings]);
+
+  const totalOrgs = allRows.length;
+  const unmappedCount = totalOrgs - mappedCount;
+
+  const filteredRows = useMemo(() => {
+    let rows = allRows;
 
     if (searchQuery) {
-      filtered = filtered.filter(org =>
-        org.name.toLowerCase().includes(searchQuery.toLowerCase())
+      const q = searchQuery.toLowerCase();
+      rows = rows.filter(r =>
+        r.orgName.toLowerCase().includes(q) ||
+        (r.mapping && getCustomerName(r.mapping.customer_id).toLowerCase().includes(q))
       );
     }
 
-    if (filterTab === 'mapped') {
-      filtered = filtered.filter(org =>
-        mappings.some(m => m.jumpcloud_org_id === String(org.id))
-      );
-    } else if (filterTab === 'unmapped') {
-      filtered = filtered.filter(org =>
-        !mappings.some(m => m.jumpcloud_org_id === String(org.id))
-      );
+    switch (filterTab) {
+      case 'mapped':
+        rows = rows.filter(r => r.isMapped);
+        break;
+      case 'unmapped':
+        rows = rows.filter(r => !r.isMapped);
+        break;
+      case 'stale':
+        rows = rows.filter(r => r.isStale);
+        break;
+      default:
+        break;
     }
 
-    return filtered;
-  };
+    return rows;
+  }, [allRows, searchQuery, filterTab, getCustomerName]);
 
-  const filteredOrgs = getFilteredOrgs();
-  const totalPages = Math.ceil(filteredOrgs.length / itemsPerPage);
-  const paginatedOrgs = filteredOrgs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  const mappedCount = jumpcloudOrgs.filter(org => mappings.some(m => m.jumpcloud_org_id === String(org.id))).length;
-  const unmappedCount = jumpcloudOrgs.length - mappedCount;
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / ITEMS_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedRows = filteredRows.slice(
+    (safePage - 1) * ITEMS_PER_PAGE,
+    safePage * ITEMS_PER_PAGE,
+  );
 
   const statusDisplay = getConnectionStatusDisplay(configStatus);
 
+  // -- Actions ----------------------------------------------------------------
+
+  const invoke = useCallback(
+    (payload) => client.functions.invoke('syncJumpCloudLicenses', payload),
+    [],
+  );
+
+  const testConnection = useCallback(async () => {
+    setTesting(true);
+    try {
+      const res = await invoke({ action: 'test_connection' });
+      setConfigStatus(res.success ? CONNECTION_STATES.CONNECTED : CONNECTION_STATES.CONFIGURED);
+      res.success ? toast.success('Connected to JumpCloud!') : toast.error(res.error || 'Connection failed');
+    } catch (err) {
+      setConfigStatus(CONNECTION_STATES.CONFIGURED);
+      toast.error(err.message || 'Connection test failed');
+    } finally { setTesting(false); }
+  }, [invoke]);
+
+  const loadOrganizations = useCallback(async () => {
+    setLoadingOrgs(true);
+    try {
+      const res = await invoke({ action: 'list_organizations' });
+      if (res.success) { setJumpcloudOrgs(res.organizations || []); setCurrentPage(1); setConfigStatus(CONNECTION_STATES.CONNECTED); }
+      else toast.error(res.error || 'Failed to load organizations');
+    } catch (err) { toast.error(err.message || 'Failed to load organizations'); }
+    finally { setLoadingOrgs(false); }
+  }, [invoke]);
+
+  const applyMapping = useCallback(async (orgId, orgName, customer) => {
+    if (!customer) return;
+    try {
+      await client.entities.JumpCloudMapping.create({ customer_id: customer.id, jumpcloud_org_id: orgId, jumpcloud_org_name: orgName });
+      toast.success(`Mapped ${orgName} to ${customer.name}`);
+      refetchMappings();
+    } catch (err) { toast.error(`Failed to map: ${err.message}`); }
+  }, [refetchMappings]);
+
+  const deleteMapping = useCallback(async (mappingId) => {
+    try { await client.entities.JumpCloudMapping.delete(mappingId); toast.success('Mapping removed'); refetchMappings(); }
+    catch (err) { toast.error(`Failed to remove mapping: ${err.message}`); }
+  }, [refetchMappings]);
+
+  const syncAllLicenses = useCallback(async () => {
+    if (mappings.length === 0) return;
+    setSyncing(true);
+    try {
+      const res = await invoke({ action: 'sync_all' });
+      if (res.success) { toast.success(`Synced ${res.created} new, ${res.updated} updated licenses!`); queryClient.invalidateQueries({ queryKey: ['licenses'] }); refetchMappings(); }
+      else toast.error(res.error || 'Sync failed');
+    } catch (err) { toast.error(err.message || 'Sync failed'); }
+    finally { setSyncing(false); }
+  }, [mappings.length, queryClient, refetchMappings, invoke]);
+
+  const syncCustomerLicenses = useCallback(async (customerId) => {
+    try {
+      const res = await invoke({ action: 'sync_licenses', customer_id: customerId });
+      if (res.success) { toast.success(`Synced ${res.totalUsers} users, ${res.ssoApps} SSO apps!`); queryClient.invalidateQueries({ queryKey: ['licenses'] }); refetchMappings(); }
+      else toast.error(res.error || 'Sync failed');
+    } catch (err) { toast.error(err.message || 'Sync failed'); }
+  }, [queryClient, refetchMappings, invoke]);
+
+  const autoMapOrgs = useCallback(async () => {
+    if (jumpcloudOrgs.length === 0) { toast.error('Load organizations first before auto-mapping'); return; }
+    setAutomapping(true);
+    let mapped = 0;
+    try {
+      const usedOrgIds = new Set(mappings.map(m => m.jumpcloud_org_id));
+      const usedCustomerIds = new Set(mappings.map(m => m.customer_id));
+      for (const org of jumpcloudOrgs) {
+        const orgId = String(org.id);
+        if (usedOrgIds.has(orgId)) continue;
+        const match = getSuggestedMatch(org.name, customers);
+        if (match && !usedCustomerIds.has(match.customer.id)) {
+          await client.entities.JumpCloudMapping.create({ customer_id: match.customer.id, jumpcloud_org_id: orgId, jumpcloud_org_name: org.name });
+          usedOrgIds.add(orgId); usedCustomerIds.add(match.customer.id); mapped++;
+        }
+      }
+      mapped > 0 ? (toast.success(`Auto-mapped ${mapped} organizations!`), refetchMappings()) : toast.info('No new matches found.');
+    } catch (err) { toast.error('Auto-map failed: ' + err.message); }
+    finally { setAutomapping(false); }
+  }, [jumpcloudOrgs, mappings, customers, refetchMappings]);
+
+  const debugApi = useCallback(async () => {
+    try {
+      const res = await invoke({ action: 'test_connection' });
+      console.log('JumpCloud Debug:', JSON.stringify(res, null, 2)); // eslint-disable-line no-console
+      toast.success('Debug output in console (F12)');
+    } catch (err) { toast.error(err.message); }
+  }, [invoke]);
+
+  // -- Render -----------------------------------------------------------------
+
+  const hasData = jumpcloudOrgs.length > 0 || mappings.length > 0;
+
   return (
-    <div className="space-y-5">
-      {/* Connection Status Header */}
-      <div className={cn("flex items-center justify-between px-4 py-3 rounded-lg border", statusDisplay.bgClass)}>
-        <div className="flex items-center gap-3">
-          <div className={cn("w-2.5 h-2.5 rounded-full", statusDisplay.color)} />
-          <span className={cn("text-sm font-medium", statusDisplay.textClass)}>
-            {statusDisplay.label}
-          </span>
-          {configStatus === CONNECTION_STATES.CONNECTED && (
-            <Badge className="bg-emerald-100 text-emerald-700 text-xs font-normal">
-              <CheckCircle2 className="w-3 h-3 mr-1" />
-              JumpCloud {isMsp ? '(MSP)' : ''}
-            </Badge>
-          )}
-        </div>
-        {lastSyncTime && (
-          <div className="flex items-center gap-1.5 text-xs text-slate-500">
-            <Clock className="w-3.5 h-3.5" />
-            Last synced: {formatDistanceToNow(new Date(lastSyncTime), { addSuffix: true })}
-          </div>
-        )}
-      </div>
-
-      {/* Error Details (collapsible) */}
-      {errorDetails && (
-        <Collapsible open={showErrorDetails} onOpenChange={setShowErrorDetails}>
-          <div className="border border-red-200 bg-red-50 rounded-lg overflow-hidden">
-            <CollapsibleTrigger asChild>
-              <button className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-red-700 hover:bg-red-100 transition-colors">
-                <div className="flex items-center gap-2">
-                  <XCircle className="w-4 h-4" />
-                  Error details
-                </div>
-                <ChevronDown className={cn("w-4 h-4 transition-transform", showErrorDetails && "rotate-180")} />
-              </button>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="px-4 pb-3 pt-1 border-t border-red-200">
-                <pre className="text-xs text-red-600 whitespace-pre-wrap font-mono bg-red-100/50 rounded p-2">
-                  {errorDetails}
-                </pre>
-              </div>
-            </CollapsibleContent>
-          </div>
-        </Collapsible>
-      )}
-
-      {/* Info about API keys */}
-      <div className="text-sm text-slate-500 bg-slate-50 rounded-lg p-3">
-        JumpCloud API key is configured in app settings. Connect to sync SSO applications as SaaS licenses for your customers.
-      </div>
-
-      {/* Actions */}
-      <div className="flex items-center gap-3">
+    <div className="space-y-3">
+      {/* Header Bar */}
+      <IntegrationHeader
+        statusDisplay={statusDisplay}
+        integrationName="JumpCloud"
+        hasData={hasData}
+        mappedCount={mappedCount}
+        totalCount={totalOrgs}
+      >
         <Button
+          size="sm" variant="outline"
           onClick={testConnection}
           disabled={testing}
-          variant="outline"
+          className="h-7 text-xs px-2.5"
         >
-          <RefreshCw className={cn("w-4 h-4 mr-2", testing && "animate-spin")} />
-          Test Connection
+          <RefreshCw className={cn("w-3 h-3 mr-1", testing && "animate-spin")} />
+          Test
         </Button>
         <Button
+          size="sm" variant="outline"
           onClick={loadOrganizations}
           disabled={loadingOrgs}
-          variant="outline"
+          className="h-7 text-xs px-2.5"
         >
-          <RefreshCw className={cn("w-4 h-4 mr-2", loadingOrgs && "animate-spin")} />
-          {showMappingView ? 'Refresh Orgs' : 'Load Organizations'}
+          <RefreshCw className={cn("w-3 h-3 mr-1", loadingOrgs && "animate-spin")} />
+          Refresh
         </Button>
-        {jumpcloudOrgs.length > 0 && (
-          <Button
-            onClick={autoMapOrgs}
-            disabled={automapping}
-            variant="outline"
-          >
-            <Wand2 className={cn("w-4 h-4 mr-2", automapping && "animate-spin")} />
-            {automapping ? 'Mapping...' : 'Auto-Map All'}
-          </Button>
-        )}
-        {mappings.length > 0 && (
-          <Button
-            onClick={syncAllLicenses}
-            disabled={syncing}
-            className="bg-slate-900 hover:bg-slate-800"
-          >
-            <Cloud className={cn("w-4 h-4 mr-2", syncing && "animate-spin")} />
-            {syncing ? 'Syncing...' : 'Sync All Licenses'}
-          </Button>
-        )}
-      </div>
+        <Button
+          size="sm" variant="outline"
+          onClick={autoMapOrgs}
+          disabled={automapping}
+          className="h-7 text-xs px-2.5 text-blue-600 border-blue-200 hover:bg-blue-50"
+        >
+          <Zap className="w-3 h-3 mr-1" />
+          Auto-Map
+        </Button>
+        <Button
+          size="sm"
+          onClick={syncAllLicenses}
+          disabled={syncing || mappings.length === 0}
+          className="h-7 text-xs px-2.5 bg-slate-900 hover:bg-slate-800 text-white"
+        >
+          <Cloud className={cn("w-3 h-3 mr-1", syncing && "animate-spin")} />
+          {syncing ? 'Syncing...' : 'Sync All'}
+        </Button>
+        <Button
+          size="sm" variant="ghost"
+          onClick={debugApi}
+          className="h-7 text-xs px-2 text-slate-400 hover:text-slate-600"
+          title="Debug API (logs to console)"
+        >
+          <Bug className="w-3 h-3" />
+        </Button>
+      </IntegrationHeader>
 
-      {/* Organization Mappings Section */}
-      <div className="border-t border-slate-200 pt-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h4 className="font-medium text-slate-900">Organization Mappings</h4>
-            <p className="text-sm text-slate-500">Map JumpCloud organizations to your customers</p>
-          </div>
+      {/* Filter Tabs + Search */}
+      <FilterBar
+        filterTab={filterTab}
+        setFilterTab={setFilterTab}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        totalCount={totalOrgs}
+        mappedCount={mappedCount}
+        unmappedCount={unmappedCount}
+        staleCount={staleCount}
+        onPageReset={() => setCurrentPage(1)}
+        searchPlaceholder="Search orgs or customers..."
+      />
+
+      {/* Main Table */}
+      {!hasData ? (
+        <div className="text-center py-10 text-sm text-slate-500 border border-slate-200 rounded-lg">
+          No organizations loaded. Click <strong>Refresh</strong> to pull JumpCloud orgs or <strong>Test</strong> to verify the connection.
         </div>
-
-        {!showMappingView ? (
-          mappings.length === 0 ? (
-            <p className="text-sm text-slate-500 py-4 text-center">
-              No organizations mapped yet. Click "Load Organizations" to link JumpCloud orgs to customers.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {/* Search for existing mappings */}
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <Input
-                  placeholder="Search mapped customers or orgs..."
-                  value={mappingSearchQuery}
-                  onChange={(e) => { setMappingSearchQuery(e.target.value); setMappingPage(1); }}
-                  className="pl-9 h-9 text-sm"
-                />
-              </div>
-
-              <div className="space-y-2">
-                {paginatedMappings.map(mapping => (
-                  <div
-                    key={mapping.id}
-                    className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Building2 className="w-4 h-4 text-slate-400" />
-                      <div>
-                        <p className="font-medium text-slate-900">{getCustomerName(mapping.customer_id)}</p>
-                        <p className="text-sm text-slate-500">{'\u2192'} {mapping.jumpcloud_org_name}</p>
-                        {mapping.last_synced && (
-                          <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                            <Clock className="w-3 h-3" />
-                            Last synced: {format(new Date(mapping.last_synced), 'MMM d, h:mm a')}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => syncCustomerUsers(mapping.customer_id)}
-                        disabled={syncingUsersCustomerId === mapping.customer_id}
-                        className="text-xs h-7"
-                      >
-                        <RefreshCw className={cn("w-3 h-3 mr-1", syncingUsersCustomerId === mapping.customer_id && "animate-spin")} />
-                        {syncingUsersCustomerId === mapping.customer_id ? 'Syncing...' : 'Sync Users'}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => syncCustomerLicenses(mapping.customer_id)}
-                        disabled={syncingCustomerId === mapping.customer_id}
-                        className="text-xs h-7"
-                      >
-                        <Cloud className={cn("w-3 h-3 mr-1", syncingCustomerId === mapping.customer_id && "animate-spin")} />
-                        {syncingCustomerId === mapping.customer_id ? 'Syncing...' : 'Sync Licenses'}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteMapping(mapping.id)}
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50 h-7 w-7"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Pagination for mappings */}
-              {totalMappingPages > 1 && (
-                <div className="flex items-center justify-between pt-2">
-                  <p className="text-xs text-slate-500">
-                    {((mappingPage - 1) * mappingsPerPage) + 1}{'\u2013'}{Math.min(mappingPage * mappingsPerPage, filteredMappings.length)} of {filteredMappings.length}
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setMappingPage(p => Math.max(1, p - 1))}
-                      disabled={mappingPage === 1}
-                      className="h-7 px-2"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </Button>
-                    <span className="text-xs text-slate-600 px-2">{mappingPage} / {totalMappingPages}</span>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setMappingPage(p => Math.min(totalMappingPages, p + 1))}
-                      disabled={mappingPage === totalMappingPages}
-                      className="h-7 px-2"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {filteredMappings.length === 0 && mappingSearchQuery && (
-                <p className="text-sm text-slate-500 py-4 text-center">
-                  No mappings found for "{mappingSearchQuery}"
-                </p>
-              )}
-            </div>
-          )
-        ) : (
-          /* Organization Mapping View */
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
-            {/* Header */}
-            <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <Input
-                    placeholder="Search organizations..."
-                    value={searchQuery}
-                    onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                    className="pl-9 w-56 h-9 text-sm"
-                  />
-                </div>
-                <div className="flex items-center border border-slate-200 rounded-lg bg-white">
-                  <button
-                    onClick={() => { setFilterTab('all'); setCurrentPage(1); }}
-                    className={cn(
-                      "px-3 py-1.5 text-xs font-medium rounded-l-lg transition-colors",
-                      filterTab === 'all' ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
-                    )}
-                  >
-                    All ({jumpcloudOrgs.length})
-                  </button>
-                  <button
-                    onClick={() => { setFilterTab('mapped'); setCurrentPage(1); }}
-                    className={cn(
-                      "px-3 py-1.5 text-xs font-medium border-x border-slate-200 transition-colors",
-                      filterTab === 'mapped' ? "bg-emerald-600 text-white" : "text-slate-600 hover:bg-slate-100"
-                    )}
-                  >
-                    Mapped ({mappedCount})
-                  </button>
-                  <button
-                    onClick={() => { setFilterTab('unmapped'); setCurrentPage(1); }}
-                    className={cn(
-                      "px-3 py-1.5 text-xs font-medium rounded-r-lg transition-colors",
-                      filterTab === 'unmapped' ? "bg-amber-600 text-white" : "text-slate-600 hover:bg-slate-100"
-                    )}
-                  >
-                    Unmapped ({unmappedCount})
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200">
+      ) : (
+        <div className="border border-slate-200 rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  {[{ l: '', w: 'w-10' }, { l: 'Organization' }, { l: 'Users', w: 'w-16' }, { l: 'Customer' }, { l: 'Last Sync', w: 'w-24' }, { l: '', w: 'w-20', r: true }].map((col, i) => (
+                    <th key={i} className={cn("text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2", col.r ? "text-right" : "text-left", col.w)}>{col.l}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {paginatedRows.length === 0 ? (
                   <tr>
-                    <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-1/4">JumpCloud Org</th>
-                    <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-16">Users</th>
-                    <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-1/4">Customer</th>
-                    <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-1/4">Suggested Match</th>
-                    <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-20"></th>
+                    <td colSpan={6} className="text-center py-6 text-xs text-slate-400">
+                      No organizations match the current filter.
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {paginatedOrgs.map(org => {
-                    const orgId = String(org.id);
-                    const existingMapping = mappings.find(m => m.jumpcloud_org_id === orgId);
-                    const selectedCustomerId = orgSelections[orgId] || '';
-                    const suggestedMatch = !existingMapping ? getSuggestedMatch(org.name) : null;
-
-                    return (
-                      <tr key={orgId} className="hover:bg-slate-50">
-                        <td className="px-4 py-3">
-                          <p className="font-medium text-slate-900 text-sm">{org.name}</p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="text-sm text-slate-500">{org.userCount || 0}</p>
-                        </td>
-                        <td className="px-4 py-3">
-                          {existingMapping ? (
-                            <Badge className="bg-emerald-100 text-emerald-700 font-normal">
-                              <CheckCircle2 className="w-3 h-3 mr-1" />
-                              {getCustomerName(existingMapping.customer_id)}
-                            </Badge>
-                          ) : (
-                            <Select
-                              value={selectedCustomerId}
-                              onValueChange={(val) => setOrgSelections(prev => ({ ...prev, [orgId]: val }))}
-                            >
-                              <SelectTrigger className="h-8 text-sm text-slate-500 w-44">
-                                <SelectValue placeholder="Select customer..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {customers.map(customer => (
-                                  <SelectItem key={customer.id} value={customer.id}>
-                                    {customer.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          {!existingMapping && suggestedMatch ? (
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-slate-700">{suggestedMatch.customer.name}</span>
-                              <Badge className={cn(
-                                "text-xs font-normal",
-                                suggestedMatch.score === 100 ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
-                              )}>
-                                {suggestedMatch.score}%
-                              </Badge>
-                            </div>
-                          ) : !existingMapping ? (
-                            <span className="text-sm text-slate-400">{'\u2014'}</span>
-                          ) : null}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {!existingMapping && (selectedCustomerId || suggestedMatch) ? (
-                            <Button
-                              size="sm"
-                              onClick={() => applyMapping(org, selectedCustomerId || suggestedMatch?.customer.id)}
-                              className="bg-green-600 hover:bg-green-700 text-white text-xs h-7 px-3"
-                            >
-                              Apply
-                            </Button>
-                          ) : existingMapping ? (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => deleteMapping(existingMapping.id)}
-                              className="text-slate-400 hover:text-red-600 h-7"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          ) : null}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50">
-                <p className="text-xs text-slate-500">
-                  {((currentPage - 1) * itemsPerPage) + 1}{'\u2013'}{Math.min(currentPage * itemsPerPage, filteredOrgs.length)} of {filteredOrgs.length}
-                </p>
-                <div className="flex items-center gap-1">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="h-7 px-2"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </Button>
-                  <span className="text-xs text-slate-600 px-2">{currentPage} / {totalPages}</span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                    className="h-7 px-2"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
+                ) : (
+                  paginatedRows.map((row, idx) => (
+                    <OrgRow
+                      key={row.orgId}
+                      row={row}
+                      customers={customers}
+                      getCustomerName={getCustomerName}
+                      onMap={(customer) => applyMapping(row.orgId, row.orgName, customer)}
+                      onDelete={() => row.mapping && deleteMapping(row.mapping.id)}
+                      onResync={() => row.mapping && syncCustomerLicenses(row.mapping.customer_id)}
+                      isOdd={idx % 2 === 1}
+                    />
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div>
+
+          {filteredRows.length > ITEMS_PER_PAGE && (
+            <TablePagination
+              page={safePage}
+              totalPages={totalPages}
+              totalItems={filteredRows.length}
+              perPage={ITEMS_PER_PAGE}
+              onPageChange={setCurrentPage}
+            />
+          )}
+        </div>
+      )}
     </div>
+  );
+}
+
+function OrgRow({ row, customers, getCustomerName, onMap, onDelete, onResync, isOdd }) {
+  const suggestedMatch = useMemo(
+    () => (!row.isMapped ? getSuggestedMatch(row.orgName, customers) : null),
+    [row.isMapped, row.orgName, customers],
+  );
+
+  const syncTime = row.mapping ? getRelativeTime(row.mapping.last_synced) : null;
+  const statusDot = getRowStatusDot(row.mapping);
+
+  return (
+    <MappingRow
+      statusDot={statusDot}
+      itemName={row.orgName}
+      countValue={row.userCount}
+      countLabel="users"
+      isMapped={row.isMapped}
+      customerName={row.isMapped ? getCustomerName(row.mapping.customer_id) : null}
+      syncTime={syncTime}
+      suggestedMatch={suggestedMatch}
+      customers={customers}
+      onMap={onMap}
+      onDelete={onDelete}
+      onResync={onResync}
+      isStaleRow={row.isStale}
+      isOdd={isOdd}
+    />
   );
 }

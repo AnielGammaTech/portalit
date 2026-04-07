@@ -1258,6 +1258,8 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           productName={mappingRecon.productName}
           lineItems={allLineItems}
           pax8Products={pax8Recons.map(r => ({ name: r.productName, quantity: r.vendorQty, price: r.price }))}
+          devices={devices}
+          vendorMappings={customerData?.vendorMappings || {}}
           onSelect={(lineItemId) => handleSaveMapping(mappingRecon.ruleId, mappingRecon.productName, lineItemId)}
           onClose={() => setMappingRecon(null)}
         />

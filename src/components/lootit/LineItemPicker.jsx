@@ -2,17 +2,145 @@ import React, { useState, useMemo } from 'react';
 import { formatLineItemDescription } from '@/lib/utils';
 import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { INTEGRATION_LABELS } from '@/lib/lootit-reconciliation';
 
-const SOURCE_TABS = [
-  { key: 'psa', label: 'HaloPSA Billing' },
-  { key: 'pax8', label: 'Pax8 Subscriptions' },
-  { key: 'devices', label: 'Devices' },
-  { key: 'vendors', label: 'Other Vendors' },
-];
+/**
+ * Extract displayable items from a vendor mapping's cached_data.
+ * Returns an array of { id, description, quantity, unit_price?, total?, _meta? }.
+ */
+function extractVendorItems(integrationKey, mapping) {
+  const raw = typeof mapping.cached_data === 'string'
+    ? (() => { try { return JSON.parse(mapping.cached_data); } catch { return {}; } })()
+    : (mapping.cached_data || {});
 
-export default function LineItemPicker({ productName, lineItems, pax8Products = [], devices = [], vendorItems = [], onSelect, onClose }) {
+  // Device arrays (UniFi, Datto RMM, Cove)
+  if (Array.isArray(raw.devices) && raw.devices.length > 0) {
+    return raw.devices.map((d, i) => ({
+      id: `${integrationKey}:${d.id || d.mac || i}`,
+      description: d.name || d.hostname || d.model || 'Unknown device',
+      quantity: 1,
+      unit_price: 0,
+      total: 0,
+      _meta: [d.device_type || d.type, d.model, d.status].filter(Boolean).join(' · '),
+    }));
+  }
+
+  // Host arrays (Datto EDR)
+  if (Array.isArray(raw.hosts) && raw.hosts.length > 0) {
+    return raw.hosts.map((h, i) => ({
+      id: `${integrationKey}:${h.id || h.hostname || i}`,
+      description: h.hostname || h.name || 'Unknown host',
+      quantity: 1,
+      unit_price: 0,
+      total: 0,
+      _meta: [h.os, h.status].filter(Boolean).join(' · '),
+    }));
+  }
+
+  // User arrays (Spanning, JumpCloud)
+  if (Array.isArray(raw.users) && raw.users.length > 0) {
+    return raw.users.map((u, i) => ({
+      id: `${integrationKey}:${u.id || u.email || i}`,
+      description: u.displayName || u.email || u.username || u.name || 'Unknown user',
+      quantity: 1,
+      unit_price: 0,
+      total: 0,
+      _meta: u.userType || u.type || '',
+    }));
+  }
+
+  // Domain arrays (Dark Web ID)
+  if (Array.isArray(raw.domains_monitored) && raw.domains_monitored.length > 0) {
+    return raw.domains_monitored.map((d) => ({
+      id: `${integrationKey}:${d}`,
+      description: d,
+      quantity: 1,
+      unit_price: 0,
+      total: 0,
+      _meta: 'monitored domain',
+    }));
+  }
+
+  // Product arrays (Pax8 via vendorMappings)
+  if (Array.isArray(raw.products) && raw.products.length > 0) {
+    return raw.products.map((p, i) => ({
+      id: `${integrationKey}:${p.id || p.name || i}`,
+      description: p.name || p.productName || 'Unknown product',
+      quantity: p.quantity || 1,
+      unit_price: p.price || 0,
+      total: (p.quantity || 1) * (p.price || 0),
+      _meta: p.billingTerm || '',
+    }));
+  }
+
+  // Count-only vendors: show a single summary row
+  const countKeys = [
+    'total_devices', 'totalDevices', 'hostCount', 'total_agents', 'totalAgents',
+    'totalUsers', 'total_users', 'workstation_count', 'server_count',
+    'user_extensions', 'total_extensions', 'domains_count', 'domain_count',
+    'total_emails_sent', 'user_count',
+    'numberOfProtectedStandardUsers', 'numberOfProtectedArchivedUsers',
+  ];
+  for (const k of countKeys) {
+    if (typeof raw[k] === 'number' && raw[k] > 0) {
+      const label = INTEGRATION_LABELS[integrationKey] || integrationKey;
+      return [{
+        id: `${integrationKey}:count`,
+        description: `${label}`,
+        quantity: raw[k],
+        unit_price: 0,
+        total: 0,
+        _meta: `${raw[k]} total`,
+      }];
+    }
+  }
+
+  return [];
+}
+
+/**
+ * Build dynamic tabs from available data sources.
+ */
+function buildTabs(lineItems, pax8Products, devices, vendorMappings) {
+  const tabs = [];
+
+  if ((lineItems || []).length > 0) {
+    tabs.push({ key: 'psa', label: 'HaloPSA Billing' });
+  }
+
+  if ((pax8Products || []).length > 0) {
+    tabs.push({ key: 'pax8', label: 'Pax8 Subscriptions' });
+  }
+
+  if ((devices || []).length > 0) {
+    tabs.push({ key: 'devices', label: 'Devices' });
+  }
+
+  // Add a tab per vendor integration that has data (skip pax8 — handled above)
+  if (vendorMappings) {
+    for (const [key, mapping] of Object.entries(vendorMappings)) {
+      if (key === 'pax8') continue;
+      const items = extractVendorItems(key, mapping);
+      if (items.length > 0) {
+        tabs.push({
+          key: `vendor:${key}`,
+          label: INTEGRATION_LABELS[key] || key,
+        });
+      }
+    }
+  }
+
+  return tabs;
+}
+
+export default function LineItemPicker({ productName, lineItems, pax8Products = [], devices = [], vendorMappings = {}, onSelect, onClose }) {
   const [search, setSearch] = useState('');
   const [source, setSource] = useState('psa');
+
+  const visibleTabs = useMemo(
+    () => buildTabs(lineItems, pax8Products, devices, vendorMappings),
+    [lineItems, pax8Products, devices, vendorMappings],
+  );
 
   const currentItems = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -45,29 +173,17 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
       return q ? items.filter(i => i.description.toLowerCase().includes(q)) : items;
     }
 
-    if (source === 'vendors') {
-      const items = (vendorItems || []).map(v => ({
-        id: `vendor:${v.id || v.name}`,
-        description: v.name || v.description || 'Unknown',
-        quantity: v.quantity || v.count || 1,
-        unit_price: 0,
-        total: 0,
-        _meta: v.integration || v.source || '',
-      }));
-      return q ? items.filter(i => i.description.toLowerCase().includes(q)) : items;
+    // Dynamic vendor tabs: "vendor:<integration_key>"
+    if (source.startsWith('vendor:')) {
+      const integrationKey = source.replace('vendor:', '');
+      const mapping = vendorMappings[integrationKey];
+      if (!mapping) return [];
+      const items = extractVendorItems(integrationKey, mapping);
+      return q ? items.filter(i => (i.description || '').toLowerCase().includes(q) || (i._meta || '').toLowerCase().includes(q)) : items;
     }
 
     return [];
-  }, [lineItems, pax8Products, devices, vendorItems, search, source]);
-
-  // Only show tabs that have data
-  const visibleTabs = SOURCE_TABS.filter(tab => {
-    if (tab.key === 'psa') return (lineItems || []).length > 0;
-    if (tab.key === 'pax8') return (pax8Products || []).length > 0;
-    if (tab.key === 'devices') return (devices || []).length > 0;
-    if (tab.key === 'vendors') return (vendorItems || []).length > 0;
-    return false;
-  });
+  }, [lineItems, pax8Products, devices, vendorMappings, search, source]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>

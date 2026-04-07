@@ -1,560 +1,399 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { client, supabase } from '@/api/client';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { client } from '@/api/client';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import {
-  Shield,
-  RefreshCw,
-  CheckCircle2,
-  XCircle,
-  Search,
-  Link as LinkIcon,
-  AlertTriangle,
-  ChevronLeft,
-  ChevronRight,
-  Trash2,
-  Clock,
-  ChevronDown,
-  Wand2
-} from 'lucide-react';
+import { RefreshCw, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
-import { formatDistanceToNow } from 'date-fns';
+import {
+  CONNECTION_STATES,
+  ITEMS_PER_PAGE,
+  getConnectionStatusDisplay,
+  getRelativeTime,
+  getRowStatusDot,
+  getSuggestedMatch,
+  isStale,
+  IntegrationHeader,
+  FilterBar,
+  TablePagination,
+  MappingRow,
+} from './shared/IntegrationTableParts';
+
+const TH = "text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2";
 
 export default function RocketCyberConfig() {
+  const [testing, setTesting] = useState(false);
+  const [configStatus, setConfigStatus] = useState(CONNECTION_STATES.NOT_CONFIGURED);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [rcAccounts, setRcAccounts] = useState([]);
+  const [syncing, setSyncing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterTab, setFilterTab] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
   const [mspAccountId, setMspAccountId] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [mappingSearchTerm, setMappingSearchTerm] = useState('');
-  const [accounts, setAccounts] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isTesting, setIsTesting] = useState(false);
-  const [configStatus, setConfigStatus] = useState('not_configured');
-  const [lastSyncTime, setLastSyncTime] = useState(null);
-  const [errorDetails, setErrorDetails] = useState(null);
-  const [showErrorDetails, setShowErrorDetails] = useState(false);
-  const [mappingPage, setMappingPage] = useState(1);
-  const [automapping, setAutomapping] = useState(false);
-  const mappingsPerPage = 10;
 
   const queryClient = useQueryClient();
-
-  // Fetch customers and existing mappings
   const { data: customers = [] } = useQuery({
-    queryKey: ['customers'],
-    queryFn: () => client.entities.Customer.list()
+    queryKey: ['customers'], queryFn: () => client.entities.Customer.list(),
   });
-
   const { data: mappings = [], refetch: refetchMappings } = useQuery({
-    queryKey: ['rocketcyber_mappings'],
-    queryFn: () => client.entities.RocketCyberMapping.list()
+    queryKey: ['rocketcyber_mappings'], queryFn: () => client.entities.RocketCyberMapping.list(),
   });
-
-  const fetchLastSync = useCallback(async () => {
-    try {
-      const { data } = await supabase
-        .from('sync_logs')
-        .select('completed_at')
-        .eq('integration_type', 'rocketcyber')
-        .eq('status', 'success')
-        .order('completed_at', { ascending: false })
-        .limit(1);
-      if (data && data.length > 0) {
-        setLastSyncTime(data[0].completed_at);
-      }
-    } catch (_err) { /* sync logs may not exist */ }
-  }, []);
-
   useEffect(() => {
-    fetchLastSync();
-  }, [fetchLastSync]);
-
-  // Auto-detect configured status from existing mappings
-  useEffect(() => {
-    if (mappings.length > 0 && configStatus === 'not_configured') {
-      setConfigStatus('connected');
+    if (mappings.length > 0 && configStatus === CONNECTION_STATES.NOT_CONFIGURED) {
+      setConfigStatus(CONNECTION_STATES.CONNECTED);
     }
-  }, [mappings.length]);
+  }, [mappings.length, configStatus]);
 
-  const testConnection = async () => {
-    setIsTesting(true);
-    setErrorDetails(null);
+  const getCustomerName = useCallback((customerId) => {
+    const customer = customers.find(c => c.id === customerId);
+    return customer?.name || 'Unknown';
+  }, [customers]);
+  const mappedAccountIds = useMemo(
+    () => new Set(mappings.map(m => m.rc_account_id)),
+    [mappings],
+  );
+  const mappedCount = useMemo(
+    () => rcAccounts.filter(a => mappedAccountIds.has(String(a.id))).length,
+    [rcAccounts, mappedAccountIds],
+  );
+  const staleCount = useMemo(
+    () => mappings.filter(m => m.last_synced && isStale(m.last_synced)).length,
+    [mappings],
+  );
+  // Build a unified list: accounts from API + any mappings not in the API list
+  const allRows = useMemo(() => {
+    const rows = rcAccounts.map(account => {
+      const accountId = String(account.id);
+      const mapping = mappings.find(m => m.rc_account_id === accountId);
+      return {
+        accountId,
+        accountName: account.name,
+        agentCount: account.agentCount || account.agent_count || 0,
+        mapping,
+        isMapped: Boolean(mapping),
+        isStale: mapping ? isStale(mapping.last_synced) : false,
+      };
+    });
+    const apiAccountIds = new Set(rcAccounts.map(a => String(a.id)));
+    for (const mapping of mappings) {
+      if (!apiAccountIds.has(mapping.rc_account_id)) {
+        rows.push({
+          accountId: mapping.rc_account_id,
+          accountName: mapping.rc_account_name || mapping.rc_account_id,
+          agentCount: 0,
+          mapping,
+          isMapped: true,
+          isStale: isStale(mapping.last_synced),
+        });
+      }
+    }
+    return rows;
+  }, [rcAccounts, mappings]);
+  const totalAccounts = allRows.length;
+  const unmappedCount = totalAccounts - mappedCount;
+
+  const filteredRows = useMemo(() => {
+    let rows = allRows;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      rows = rows.filter(r =>
+        r.accountName.toLowerCase().includes(q) ||
+        (r.mapping && getCustomerName(r.mapping.customer_id).toLowerCase().includes(q))
+      );
+    }
+    switch (filterTab) {
+      case 'mapped':
+        rows = rows.filter(r => r.isMapped);
+        break;
+      case 'unmapped':
+        rows = rows.filter(r => !r.isMapped);
+        break;
+      case 'stale':
+        rows = rows.filter(r => r.isStale);
+        break;
+      default:
+        break;
+    }
+    return rows;
+  }, [allRows, searchQuery, filterTab, getCustomerName]);
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / ITEMS_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedRows = filteredRows.slice(
+    (safePage - 1) * ITEMS_PER_PAGE,
+    safePage * ITEMS_PER_PAGE,
+  );
+  const statusDisplay = getConnectionStatusDisplay(configStatus);
+
+  const testConnection = useCallback(async () => {
+    setTesting(true);
     try {
-      const result = await client.functions.invoke('syncRocketCyber', {
-        action: 'test_connection'
-      });
+      const result = await client.functions.invoke('syncRocketCyber', { action: 'test_connection' });
       if (result.success) {
-        setConfigStatus('connected');
+        setConfigStatus(CONNECTION_STATES.CONNECTED);
         toast.success('RocketCyber API connection successful');
       } else {
-        const errMsg = result.error || 'Connection failed';
-        setConfigStatus('configured');
-        setErrorDetails(errMsg);
-        toast.error(errMsg);
+        setConfigStatus(CONNECTION_STATES.CONFIGURED);
+        toast.error(result.error || 'Connection failed');
       }
     } catch (error) {
-      const errMsg = error.message || 'Connection test failed';
-      setConfigStatus('configured');
-      setErrorDetails(errMsg);
-      toast.error('Failed to connect: ' + errMsg);
+      setConfigStatus(CONNECTION_STATES.CONFIGURED);
+      toast.error(error.message || 'Connection test failed');
     } finally {
-      setIsTesting(false);
+      setTesting(false);
     }
-  };
-
-  const listAccounts = async () => {
+  }, []);
+  const loadAccounts = useCallback(async () => {
     if (!mspAccountId) {
-      toast.error('Please enter your MSP Account ID');
+      toast.error('Enter your MSP Account ID first');
       return;
     }
-    
-    setIsLoading(true);
+    setLoadingAccounts(true);
     try {
-      const result = await client.functions.invoke('syncRocketCyber', { 
-        action: 'list_accounts',
-        msp_account_id: mspAccountId
-      });
+      const result = await client.functions.invoke('syncRocketCyber', { action: 'list_accounts', msp_account_id: mspAccountId });
       if (result.success) {
-        setAccounts(result.customers || []);
-        toast.success(`Found ${result.customers?.length || 0} customer accounts`);
+        setRcAccounts(result.customers || []);
+        setCurrentPage(1);
+        setConfigStatus(CONNECTION_STATES.CONNECTED);
+        toast.success(`Found ${result.customers?.length || 0} accounts`);
+      } else {
+        toast.error(result.error || 'Failed to load accounts');
       }
     } catch (error) {
-      toast.error('Failed to list accounts: ' + error.message);
+      toast.error(error.message || 'Failed to load accounts');
     } finally {
-      setIsLoading(false);
+      setLoadingAccounts(false);
     }
-  };
-
-  const createMapping = async (rcAccount, customer) => {
+  }, [mspAccountId]);
+  const applyMapping = useCallback(async (accountId, accountName, customer) => {
+    if (!customer) return;
     try {
       await client.entities.RocketCyberMapping.create({
         customer_id: customer.id,
         customer_name: customer.name,
-        rc_account_id: String(rcAccount.id),
-        rc_account_name: rcAccount.name
+        rc_account_id: String(accountId),
+        rc_account_name: accountName,
       });
-      toast.success(`Mapped ${rcAccount.name} to ${customer.name}`);
+      toast.success(`Mapped ${accountName} to ${customer.name}`);
       refetchMappings();
     } catch (error) {
-      toast.error('Failed to create mapping: ' + error.message);
+      toast.error(`Failed to map: ${error.message}`);
     }
-  };
-
-  const deleteMapping = async (mappingId) => {
+  }, [refetchMappings]);
+  const deleteMapping = useCallback(async (mappingId) => {
     try {
       await client.entities.RocketCyberMapping.delete(mappingId);
       toast.success('Mapping removed');
       refetchMappings();
     } catch (error) {
-      toast.error('Failed to remove mapping: ' + error.message);
+      toast.error(`Failed to remove mapping: ${error.message}`);
     }
-  };
-
-  // Calculate suggested match for an account based on name similarity
-  const getSuggestedMatch = (accountName) => {
-    const nameLower = accountName.toLowerCase().trim();
-    let bestMatch = null;
-    let bestScore = 0;
-
-    for (const customer of customers) {
-      const customerNameLower = customer.name.toLowerCase().trim();
-
-      if (nameLower === customerNameLower) {
-        return { customer, score: 100 };
+  }, [refetchMappings]);
+  const syncAll = useCallback(async () => {
+    if (mappings.length === 0) return;
+    setSyncing(true);
+    try {
+      const result = await client.functions.invoke('syncRocketCyber', { action: 'sync_all' });
+      if (result.success) {
+        toast.success(`Synced ${result.recordsSynced || 0} incidents`);
+        queryClient.invalidateQueries({ queryKey: ['rocketcyber_incidents'] });
+        queryClient.invalidateQueries({ queryKey: ['rocketcyber_mappings'] });
+      } else {
+        toast.error(result.error || 'Sync failed');
       }
-
-      if (nameLower.includes(customerNameLower) || customerNameLower.includes(nameLower)) {
-        const score = Math.round((Math.min(nameLower.length, customerNameLower.length) / Math.max(nameLower.length, customerNameLower.length)) * 100);
-        if (score > bestScore) {
-          bestScore = score;
-          bestMatch = customer;
-        }
-      }
-
-      const nameWords = nameLower.split(/[\s,.-]+/).filter(w => w.length > 2);
-      const customerWords = customerNameLower.split(/[\s,.-]+/).filter(w => w.length > 2);
-      const matchingWords = nameWords.filter(sw => customerWords.some(cw => cw.includes(sw) || sw.includes(cw)));
-
-      if (matchingWords.length > 0) {
-        const score = Math.round((matchingWords.length / Math.max(nameWords.length, customerWords.length)) * 100);
-        if (score > bestScore) {
-          bestScore = score;
-          bestMatch = customer;
-        }
-      }
+    } catch (error) {
+      toast.error(`Sync failed: ${error.message}`);
+    } finally {
+      setSyncing(false);
     }
-
-    return bestMatch && bestScore >= 50 ? { customer: bestMatch, score: bestScore } : null;
-  };
-
-  const autoMapAccounts = async () => {
-    if (accounts.length === 0) {
+  }, [mappings.length, queryClient]);
+  const autoMapAccounts = useCallback(async () => {
+    if (rcAccounts.length === 0) {
       toast.error('Load accounts first before auto-mapping');
       return;
     }
-    setAutomapping(true);
     let mapped = 0;
     try {
-      const unmapped = accounts.filter(a => !mappedAccountIds.has(String(a.id)));
+      const unmapped = rcAccounts.filter(a => !mappedAccountIds.has(String(a.id)));
       for (const account of unmapped) {
-        const match = getSuggestedMatch(account.name);
+        const match = getSuggestedMatch(account.name, customers);
         if (match && !mappings.some(m => m.customer_id === match.customer.id)) {
           await client.entities.RocketCyberMapping.create({
             customer_id: match.customer.id,
             customer_name: match.customer.name,
             rc_account_id: String(account.id),
-            rc_account_name: account.name
+            rc_account_name: account.name,
           });
-          mapped++;
+          mapped += 1;
         }
       }
       if (mapped > 0) {
-        toast.success(`Auto-mapped ${mapped} accounts to customers!`);
+        toast.success(`Auto-mapped ${mapped} accounts`);
         refetchMappings();
       } else {
-        toast.info('No new matches found. Accounts may already be mapped or names don\'t match.');
+        toast.info('No new matches found');
       }
     } catch (error) {
-      toast.error('Auto-map failed: ' + error.message);
-    } finally {
-      setAutomapping(false);
+      toast.error(`Auto-map failed: ${error.message}`);
     }
-  };
-
-  const syncAll = async () => {
-    setIsLoading(true);
-    setErrorDetails(null);
+  }, [rcAccounts, mappedAccountIds, customers, mappings, refetchMappings]);
+  const resyncMapping = useCallback(async (mapping) => {
     try {
-      const result = await client.functions.invoke('syncRocketCyber', {
-        action: 'sync_all'
-      });
-      if (result.success) {
-        toast.success(`Synced ${result.recordsSynced} incidents`);
-        queryClient.invalidateQueries(['rocketcyber_incidents']);
-        fetchLastSync();
-      } else {
-        const errMsg = result.error || 'Sync failed';
-        setErrorDetails(errMsg);
-        toast.error(errMsg);
-      }
+      await client.functions.invoke('syncRocketCyber', { action: 'sync_all' });
+      toast.success(`Re-synced ${mapping.rc_account_name}`);
+      queryClient.invalidateQueries({ queryKey: ['rocketcyber_mappings'] });
     } catch (error) {
-      const errMsg = error.message || 'Sync failed';
-      setErrorDetails(errMsg);
-      toast.error('Sync failed: ' + errMsg);
-    } finally {
-      setIsLoading(false);
+      toast.error(`Sync failed: ${error.message}`);
     }
-  };
-
-  const mappedAccountIds = new Set(mappings.map(m => m.rc_account_id));
-  const unmappedAccounts = accounts.filter(a => !mappedAccountIds.has(String(a.id)));
-  const filteredAccounts = unmappedAccounts.filter(a => 
-    a.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-  
-  // Filter and paginate existing mappings
-  const filteredMappings = mappings.filter(mapping => {
-    if (!mappingSearchTerm) return true;
-    const customerName = (mapping.customer_name || '').toLowerCase();
-    const accountName = (mapping.rc_account_name || '').toLowerCase();
-    const query = mappingSearchTerm.toLowerCase();
-    return customerName.includes(query) || accountName.includes(query);
-  });
-  
-  const totalMappingPages = Math.ceil(filteredMappings.length / mappingsPerPage);
-  const paginatedMappings = filteredMappings.slice(
-    (mappingPage - 1) * mappingsPerPage, 
-    mappingPage * mappingsPerPage
-  );
-
-  const statusColor = configStatus === 'connected' ? 'bg-emerald-500' : configStatus === 'configured' ? 'bg-amber-500' : 'bg-slate-300';
-  const statusLabel = configStatus === 'connected' ? 'Connected' : configStatus === 'configured' ? 'Configured' : 'Not configured';
-  const statusBg = configStatus === 'connected' ? 'bg-emerald-50 border-emerald-200' : configStatus === 'configured' ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200';
-  const statusTextCls = configStatus === 'connected' ? 'text-emerald-700' : configStatus === 'configured' ? 'text-amber-700' : 'text-slate-500';
+  }, [queryClient]);
+  const hasData = rcAccounts.length > 0 || mappings.length > 0;
 
   return (
-    <div className="space-y-6">
-      {/* Connection Status Header */}
-      <div className={cn("flex items-center justify-between px-4 py-3 rounded-lg border", statusBg)}>
-        <div className="flex items-center gap-3">
-          <div className={cn("w-2.5 h-2.5 rounded-full", statusColor)} />
-          <span className={cn("text-sm font-medium", statusTextCls)}>{statusLabel}</span>
-          {configStatus === 'connected' && (
-            <Badge className="bg-emerald-100 text-emerald-700 text-xs font-normal">
-              <CheckCircle2 className="w-3 h-3 mr-1" />
-              RocketCyber
-            </Badge>
+    <div className="space-y-3">
+      <IntegrationHeader
+        statusDisplay={statusDisplay}
+        integrationName="RocketCyber"
+        hasData={hasData}
+        mappedCount={mappedCount}
+        totalCount={totalAccounts}
+      >
+        <Button
+          size="sm" variant="outline"
+          onClick={testConnection}
+          disabled={testing}
+          className="h-7 text-xs px-2.5"
+        >
+          <RefreshCw className={cn("w-3 h-3 mr-1", testing && "animate-spin")} />
+          Test
+        </Button>
+        <div className="flex items-center gap-1">
+          <Input
+            value={mspAccountId}
+            onChange={(e) => setMspAccountId(e.target.value)}
+            placeholder="MSP ID"
+            className="h-7 text-xs w-20 px-2"
+          />
+          <Button
+            size="sm" variant="outline"
+            onClick={loadAccounts}
+            disabled={loadingAccounts}
+            className="h-7 text-xs px-2.5"
+          >
+            <RefreshCw className={cn("w-3 h-3 mr-1", loadingAccounts && "animate-spin")} />
+            Refresh
+          </Button>
+        </div>
+        <Button
+          size="sm" variant="outline"
+          onClick={autoMapAccounts}
+          className="h-7 text-xs px-2.5 text-blue-600 border-blue-200 hover:bg-blue-50"
+        >
+          <Zap className="w-3 h-3 mr-1" />
+          Auto-Map
+        </Button>
+        <Button
+          size="sm"
+          onClick={syncAll}
+          disabled={syncing || mappings.length === 0}
+          className="h-7 text-xs px-2.5 bg-slate-900 hover:bg-slate-800 text-white"
+        >
+          <RefreshCw className={cn("w-3 h-3 mr-1", syncing && "animate-spin")} />
+          {syncing ? 'Syncing...' : 'Sync All'}
+        </Button>
+      </IntegrationHeader>
+      <FilterBar
+        filterTab={filterTab}
+        setFilterTab={setFilterTab}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        totalCount={totalAccounts}
+        mappedCount={mappedCount}
+        unmappedCount={unmappedCount}
+        staleCount={staleCount}
+        onPageReset={() => setCurrentPage(1)}
+        searchPlaceholder="Search accounts or customers..."
+      />
+      {!hasData ? (
+        <div className="text-center py-10 text-sm text-slate-500 border border-slate-200 rounded-lg">
+          No accounts loaded. Enter your MSP ID and click <strong>Refresh</strong> to pull RocketCyber accounts, or <strong>Test</strong> to verify the connection.
+        </div>
+      ) : (
+        <div className="border border-slate-200 rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className={cn(TH, "w-10")} />
+                  <th className={TH}>Account</th>
+                  <th className={cn(TH, "w-16")}>Agents</th>
+                  <th className={TH}>Customer</th>
+                  <th className={cn(TH, "w-24")}>Last Sync</th>
+                  <th className={cn(TH, "text-right w-20")} />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {paginatedRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-6 text-xs text-slate-400">
+                      No accounts match the current filter.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedRows.map((row, idx) => (
+                    <AccountRow
+                      key={row.accountId}
+                      row={row}
+                      customers={customers}
+                      getCustomerName={getCustomerName}
+                      onMap={(customer) => applyMapping(row.accountId, row.accountName, customer)}
+                      onDelete={() => row.mapping && deleteMapping(row.mapping.id)}
+                      onResync={() => row.mapping && resyncMapping(row.mapping)}
+                      isOdd={idx % 2 === 1}
+                    />
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          {filteredRows.length > ITEMS_PER_PAGE && (
+            <TablePagination
+              page={safePage}
+              totalPages={totalPages}
+              totalItems={filteredRows.length}
+              perPage={ITEMS_PER_PAGE}
+              onPageChange={setCurrentPage}
+            />
           )}
         </div>
-        {lastSyncTime && (
-          <div className="flex items-center gap-1.5 text-xs text-slate-500">
-            <Clock className="w-3.5 h-3.5" />
-            Last synced: {formatDistanceToNow(new Date(lastSyncTime), { addSuffix: true })}
-          </div>
-        )}
-      </div>
-
-      {/* Error Details (collapsible) */}
-      {errorDetails && (
-        <Collapsible open={showErrorDetails} onOpenChange={setShowErrorDetails}>
-          <div className="border border-red-200 bg-red-50 rounded-lg overflow-hidden">
-            <CollapsibleTrigger asChild>
-              <button className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-red-700 hover:bg-red-100 transition-colors">
-                <div className="flex items-center gap-2">
-                  <XCircle className="w-4 h-4" />
-                  Error details
-                </div>
-                <ChevronDown className={cn("w-4 h-4 transition-transform", showErrorDetails && "rotate-180")} />
-              </button>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="px-4 pb-3 pt-1 border-t border-red-200">
-                <pre className="text-xs text-red-600 whitespace-pre-wrap font-mono bg-red-100/50 rounded p-2">{errorDetails}</pre>
-              </div>
-            </CollapsibleContent>
-          </div>
-        </Collapsible>
-      )}
-
-      {/* Connection Test */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="w-5 h-5 text-orange-500" />
-            RocketCyber SOC Integration
-          </CardTitle>
-          <CardDescription>
-            Connect to RocketCyber to sync security incidents and alerts
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            <Button
-              onClick={testConnection}
-              disabled={isTesting}
-              variant="outline"
-            >
-              {isTesting ? (
-                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-              ) : configStatus === 'connected' ? (
-                <CheckCircle2 className="w-4 h-4 mr-2 text-green-500" />
-              ) : configStatus === 'configured' ? (
-                <XCircle className="w-4 h-4 mr-2 text-red-500" />
-              ) : (
-                <Shield className="w-4 h-4 mr-2" />
-              )}
-              Test Connection
-            </Button>
-            {configStatus === 'connected' && (
-              <Badge variant="outline" className="text-green-600 border-green-300">
-                Connected
-              </Badge>
-            )}
-          </div>
-
-          <div className="border-t pt-4">
-            <Label>MSP Account ID</Label>
-            <p className="text-sm text-slate-500 mb-2">
-              Enter your RocketCyber MSP/Provider account ID to list customer accounts
-            </p>
-            <div className="flex gap-2">
-              <Input
-                value={mspAccountId}
-                onChange={(e) => setMspAccountId(e.target.value)}
-                placeholder="e.g., 12345"
-                className="max-w-xs"
-              />
-              <Button onClick={listAccounts} disabled={isLoading}>
-                {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'List Accounts'}
-              </Button>
-              {accounts.length > 0 && (
-                <Button
-                  onClick={autoMapAccounts}
-                  disabled={automapping}
-                  variant="outline"
-                >
-                  <Wand2 className={cn("w-4 h-4 mr-2", automapping && "animate-spin")} />
-                  {automapping ? 'Mapping...' : 'Auto-Map All'}
-                </Button>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Current Mappings */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>Mapped Customers</CardTitle>
-            <CardDescription>{mappings.length} customers mapped</CardDescription>
-          </div>
-          {mappings.length > 0 && (
-            <Button onClick={syncAll} disabled={isLoading} size="sm">
-              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Sync All Incidents
-            </Button>
-          )}
-        </CardHeader>
-        <CardContent>
-          {mappings.length === 0 ? (
-            <p className="text-slate-500 text-sm">No customers mapped yet. List accounts above to start mapping.</p>
-          ) : (
-            <div className="space-y-3">
-              {/* Search for existing mappings */}
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <Input
-                  placeholder="Search mapped customers..."
-                  value={mappingSearchTerm}
-                  onChange={(e) => { setMappingSearchTerm(e.target.value); setMappingPage(1); }}
-                  className="pl-9 h-9 text-sm"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                {paginatedMappings.map(mapping => (
-                  <div 
-                    key={mapping.id}
-                    className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <LinkIcon className="w-4 h-4 text-slate-400" />
-                      <div>
-                        <p className="font-medium">{mapping.customer_name}</p>
-                        <p className="text-sm text-slate-500">
-                          RC Account: {mapping.rc_account_name} ({mapping.rc_account_id})
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {mapping.last_synced && (
-                        <span className="text-xs text-slate-500">
-                          Last sync: {new Date(mapping.last_synced).toLocaleDateString()}
-                        </span>
-                      )}
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={() => deleteMapping(mapping.id)}
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50 h-7 w-7"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              {/* Pagination for mappings */}
-              {totalMappingPages > 1 && (
-                <div className="flex items-center justify-between pt-2">
-                  <p className="text-xs text-slate-500">
-                    {((mappingPage - 1) * mappingsPerPage) + 1}–{Math.min(mappingPage * mappingsPerPage, filteredMappings.length)} of {filteredMappings.length}
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setMappingPage(p => Math.max(1, p - 1))}
-                      disabled={mappingPage === 1}
-                      className="h-7 px-2"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </Button>
-                    <span className="text-xs text-slate-600 px-2">{mappingPage} / {totalMappingPages}</span>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setMappingPage(p => Math.min(totalMappingPages, p + 1))}
-                      disabled={mappingPage === totalMappingPages}
-                      className="h-7 px-2"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-              
-              {filteredMappings.length === 0 && mappingSearchTerm && (
-                <p className="text-sm text-slate-500 py-4 text-center">
-                  No mappings found for "{mappingSearchTerm}"
-                </p>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Available Accounts to Map */}
-      {accounts.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Available RocketCyber Accounts</CardTitle>
-            <CardDescription>
-              Map RocketCyber accounts to your customers
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                  placeholder="Search accounts..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {filteredAccounts.map(account => (
-                <div 
-                  key={account.id}
-                  className="flex items-center justify-between p-3 border rounded-lg"
-                >
-                  <div>
-                    <p className="font-medium">{account.name}</p>
-                    <p className="text-sm text-slate-500">ID: {account.id}</p>
-                  </div>
-                  <select
-                    className="text-sm border rounded px-2 py-1"
-                    defaultValue=""
-                    onChange={(e) => {
-                      const customer = customers.find(c => c.id === e.target.value);
-                      if (customer) {
-                        createMapping(account, customer);
-                        e.target.value = '';
-                      }
-                    }}
-                  >
-                    <option value="">Map to customer...</option>
-                    {customers
-                      .filter(c => !mappings.some(m => m.customer_id === c.id))
-                      .map(customer => (
-                        <option key={customer.id} value={customer.id}>
-                          {customer.name}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-              ))}
-              {filteredAccounts.length === 0 && (
-                <p className="text-slate-500 text-sm text-center py-4">
-                  {accounts.length === mappings.length 
-                    ? 'All accounts have been mapped'
-                    : 'No accounts match your search'}
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
       )}
     </div>
+  );
+}
+
+function AccountRow({ row, customers, getCustomerName, onMap, onDelete, onResync, isOdd }) {
+  const suggestedMatch = useMemo(
+    () => (!row.isMapped ? getSuggestedMatch(row.accountName, customers) : null),
+    [row.isMapped, row.accountName, customers],
+  );
+
+  const syncTime = row.mapping ? getRelativeTime(row.mapping.last_synced) : null;
+  return (
+    <MappingRow
+      statusDot={getRowStatusDot(row.mapping)}
+      itemName={row.accountName}
+      countValue={row.agentCount}
+      countLabel="Agents"
+      isMapped={row.isMapped}
+      customerName={row.isMapped ? getCustomerName(row.mapping.customer_id) : null}
+      syncTime={syncTime}
+      suggestedMatch={suggestedMatch}
+      customers={customers}
+      onMap={onMap}
+      onDelete={onDelete}
+      onResync={onResync}
+      isStaleRow={row.isStale}
+      isOdd={isOdd}
+    />
   );
 }

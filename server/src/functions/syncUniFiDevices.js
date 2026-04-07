@@ -294,72 +294,71 @@ export async function syncUniFiDevices(params) {
       if (hostEntry) {
         rawDevices = hostEntry.devices || [];
       } else {
-        // Cloud site — try per-site device endpoint first, fall back to gateway MAC
-        let fetched = false;
-
-        // Fetch site metadata to get hostId and site name
+        // Cloud site — resolve devices using multiple strategies
         const cloudSites = await fetchSites(apiKey);
         const site = cloudSites.find(s => s.siteId === siteId);
         if (!site) return { success: false, error: `Site ${siteId} not found` };
 
-        // Attempt 1: proxy endpoint — /ea/proxies/{hostId}/api/s/{siteName}/stat/device
-        try {
-          const siteName = site.meta?.name || 'default';
-          const proxyResult = await unifiApiCall(apiKey, `/ea/proxies/${site.hostId}/api/s/${siteName}/stat/device`);
-          rawDevices = proxyResult.data || proxyResult || [];
-          if (Array.isArray(rawDevices) && rawDevices.length > 0) fetched = true;
-        } catch (e) {
-          console.log(`[UniFi] Proxy endpoint failed for site ${siteId}: ${e.message}`);
-        }
+        const parentHost = hosts.find(h => h.hostId === site.hostId);
+        const allHostDevices = parentHost?.devices || [];
+        const gatewayMac = (site.meta?.gatewayMac || '').replace(/:/g, '').toUpperCase();
+        let fetched = false;
 
-        // Attempt 2: /ea/sites/{siteId}/devices
-        if (!fetched) {
-          try {
-            const siteDevices = await unifiApiCall(apiKey, `/ea/sites/${siteId}/devices`);
-            rawDevices = siteDevices.data || siteDevices.devices || [];
-            if (rawDevices.length > 0) fetched = true;
-          } catch {
-            // fall back
+        // Strategy 1: Filter host devices by siteId field
+        if (!fetched && allHostDevices.length > 0) {
+          const siteDevices = allHostDevices.filter(d =>
+            d.siteId === siteId || d.site_id === siteId
+          );
+          if (siteDevices.length > 0) {
+            rawDevices = siteDevices;
+            fetched = true;
+            console.log(`[UniFi] Site ${site.meta?.desc}: siteId match found ${rawDevices.length} devices`);
           }
         }
 
-        // Attempt 3: match devices by gateway MAC + name prefix
-        if (!fetched) {
-          const cloudSites = await fetchSites(apiKey);
-          const site = cloudSites.find(s => s.siteId === siteId);
-          if (!site) return { success: false, error: `Site ${siteId} not found` };
+        // Strategy 2: Gateway MAC + name prefix matching
+        if (!fetched && gatewayMac && allHostDevices.length > 0) {
+          const gatewayDevice = allHostDevices.find(d => (d.mac || '').toUpperCase() === gatewayMac);
+          const gatewayName = gatewayDevice?.name || '';
+          const prefix = gatewayName.split(/[-_]/)[0]?.trim();
 
-          const parentHost = hosts.find(h => h.hostId === site.hostId);
-          if (!parentHost) return { success: false, error: `Parent host for site not found` };
-
-          const gatewayMac = (site.meta?.gatewayMac || '').replace(/:/g, '').toUpperCase();
-          const allHostDevices = parentHost.devices || [];
-
-          if (gatewayMac) {
-            // Find the gateway device to extract its name prefix
-            const gatewayDevice = allHostDevices.find(d => (d.mac || '').toUpperCase() === gatewayMac);
-            const gatewayName = gatewayDevice?.name || '';
-
-            // Extract prefix: "EMP-FW" → "EMP", "C&E-AP-03" → "C&E", "GCBSC-AP-03" → "GCBSC"
-            const prefix = gatewayName.split(/[-_]/)[0]?.trim();
-
-            if (prefix && prefix.length >= 2) {
-              // Match: gateway itself + all devices sharing the same name prefix
-              rawDevices = allHostDevices.filter(d => {
-                const mac = (d.mac || '').toUpperCase();
-                if (mac === gatewayMac) return true;
-                const devicePrefix = (d.name || '').split(/[-_]/)[0]?.trim();
-                return devicePrefix && devicePrefix === prefix;
-              });
+          if (prefix && prefix.length >= 2) {
+            rawDevices = allHostDevices.filter(d => {
+              if ((d.mac || '').toUpperCase() === gatewayMac) return true;
+              const devicePrefix = (d.name || '').split(/[-_]/)[0]?.trim();
+              return devicePrefix && devicePrefix === prefix;
+            });
+            if (rawDevices.length > 0) {
+              fetched = true;
               console.log(`[UniFi] Site ${site.meta?.desc}: prefix "${prefix}" matched ${rawDevices.length} devices`);
-            } else {
-              // No usable prefix — just include the gateway
-              // No prefix or no gateway — include all host devices as last resort
-              rawDevices = allHostDevices;
             }
-          } else {
-            rawDevices = [];
           }
+        }
+
+        // Strategy 3: Gateway MAC only — at minimum return the gateway itself
+        if (!fetched && gatewayMac && allHostDevices.length > 0) {
+          rawDevices = allHostDevices.filter(d => (d.mac || '').toUpperCase() === gatewayMac);
+          if (rawDevices.length > 0) {
+            fetched = true;
+            console.log(`[UniFi] Site ${site.meta?.desc}: gateway-only fallback, ${rawDevices.length} device(s)`);
+          }
+        }
+
+        // Strategy 4: Proxy endpoint (legacy controller API)
+        if (!fetched && site.hostId) {
+          try {
+            const siteName = site.meta?.name || 'default';
+            const proxyResult = await unifiApiCall(apiKey, `/ea/proxies/${site.hostId}/api/s/${siteName}/stat/device`);
+            rawDevices = proxyResult.data || proxyResult || [];
+            if (Array.isArray(rawDevices) && rawDevices.length > 0) fetched = true;
+          } catch (e) {
+            console.log(`[UniFi] Proxy endpoint failed for site ${siteId}: ${e.message}`);
+          }
+        }
+
+        if (!fetched) {
+          rawDevices = [];
+          console.log(`[UniFi] Site ${site.meta?.desc || siteId}: no devices resolved via any strategy`);
         }
       }
 
@@ -426,46 +425,53 @@ export async function syncUniFiDevices(params) {
           if (hostEntry) {
             rawDevices = hostEntry.devices || [];
           } else {
-            // Cloud site — try per-site endpoint, fall back to gateway MAC
+            // Cloud site — resolve devices using multiple strategies
+            const site = siteMap[siteId];
+            if (!site) {
+              errors.push({ customer: mapping.customer_name, error: 'Site/host not found' });
+              continue;
+            }
+            const parentHost = hostMap[site.hostId];
+            if (!parentHost) {
+              errors.push({ customer: mapping.customer_name, error: 'Parent host not found' });
+              continue;
+            }
+            const allHostDevices = parentHost.devices || [];
+            const gatewayMac = (site.meta?.gatewayMac || '').replace(/:/g, '').toUpperCase();
             let fetched = false;
-            try {
-              const siteDevices = await unifiApiCall(apiKey, `/ea/sites/${siteId}/devices`);
-              rawDevices = siteDevices.data || siteDevices.devices || [];
-              if (rawDevices.length > 0) fetched = true;
-            } catch { /* fall back */ }
 
-            if (!fetched) {
-              const site = siteMap[siteId];
-              if (!site) {
-                errors.push({ customer: mapping.customer_name, error: 'Site/host not found' });
-                continue;
-              }
-              const parentHost = hostMap[site.hostId];
-              if (!parentHost) {
-                errors.push({ customer: mapping.customer_name, error: 'Parent host not found' });
-                continue;
-              }
-              const gatewayMac = (site.meta?.gatewayMac || '').replace(/:/g, '').toUpperCase();
-              const allHostDevices = parentHost.devices || [];
-
-              if (gatewayMac) {
-                const gatewayDevice = allHostDevices.find(d => (d.mac || '').toUpperCase() === gatewayMac);
-                const prefix = (gatewayDevice?.name || '').split(/[-_]/)[0]?.trim();
-
-                if (prefix && prefix.length >= 2) {
-                  rawDevices = allHostDevices.filter(d => {
-                    if ((d.mac || '').toUpperCase() === gatewayMac) return true;
-                    const dp = (d.name || '').split(/[-_]/)[0]?.trim();
-                    return dp && dp === prefix;
-                  });
-                } else {
-                  // No prefix or no gateway — include all host devices as last resort
-              rawDevices = allHostDevices;
-                }
-              } else {
-                rawDevices = [];
+            // Strategy 1: Filter by siteId field on devices
+            if (allHostDevices.length > 0) {
+              const siteDevices = allHostDevices.filter(d =>
+                d.siteId === siteId || d.site_id === siteId
+              );
+              if (siteDevices.length > 0) {
+                rawDevices = siteDevices;
+                fetched = true;
               }
             }
+
+            // Strategy 2: Gateway MAC + name prefix
+            if (!fetched && gatewayMac && allHostDevices.length > 0) {
+              const gatewayDevice = allHostDevices.find(d => (d.mac || '').toUpperCase() === gatewayMac);
+              const prefix = (gatewayDevice?.name || '').split(/[-_]/)[0]?.trim();
+              if (prefix && prefix.length >= 2) {
+                rawDevices = allHostDevices.filter(d => {
+                  if ((d.mac || '').toUpperCase() === gatewayMac) return true;
+                  const dp = (d.name || '').split(/[-_]/)[0]?.trim();
+                  return dp && dp === prefix;
+                });
+                if (rawDevices.length > 0) fetched = true;
+              }
+            }
+
+            // Strategy 3: Gateway MAC only
+            if (!fetched && gatewayMac && allHostDevices.length > 0) {
+              rawDevices = allHostDevices.filter(d => (d.mac || '').toUpperCase() === gatewayMac);
+              if (rawDevices.length > 0) fetched = true;
+            }
+
+            if (!fetched) rawDevices = [];
           }
 
           const devices = rawDevices.map(mapDevice);

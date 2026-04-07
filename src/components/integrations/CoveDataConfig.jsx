@@ -1,522 +1,361 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { client, supabase } from '@/api/client';
-import { toast } from 'sonner';
-import {
-  Database,
-  RefreshCw,
-  CheckCircle2,
-  AlertCircle,
-  Link2,
-  Unlink,
-  Search,
-  HardDrive,
-  XCircle,
-  ChevronDown,
-  Clock,
-  Wand2
-} from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { client } from '@/api/client';
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { RefreshCw, Zap, Bug } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
-import { formatDistanceToNow } from 'date-fns';
+import {
+  CONNECTION_STATES, ITEMS_PER_PAGE,
+  getConnectionStatusDisplay, getRelativeTime, getRowStatusDot,
+  getSuggestedMatch, isStale,
+  IntegrationHeader, FilterBar, TablePagination, MappingRow,
+} from './shared/IntegrationTableParts';
+
+const SYNC_TIMEOUT_MS = 30_000;
 
 export default function CoveDataConfig() {
   const [testing, setTesting] = useState(false);
-  const [configStatus, setConfigStatus] = useState('not_configured');
+  const [configStatus, setConfigStatus] = useState(CONNECTION_STATES.NOT_CONFIGURED);
   const [loadingPartners, setLoadingPartners] = useState(false);
-  const [lastSyncTime, setLastSyncTime] = useState(null);
-  const [errorDetails, setErrorDetails] = useState(null);
-  const [showErrorDetails, setShowErrorDetails] = useState(false);
-  const [partners, setPartners] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [mappingCustomerId, setMappingCustomerId] = useState(null);
-  const [mappingDialogOpen, setMappingDialogOpen] = useState(false);
-  const [partnerSearchTerm, setPartnerSearchTerm] = useState('');
-  const [automapping, setAutomapping] = useState(false);
-
+  const [covePartners, setCovePartners] = useState([]);
+  const [syncing, setSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterTab, setFilterTab] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
   const queryClient = useQueryClient();
 
-  // Fetch customers
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => client.entities.Customer.list()
+    queryFn: () => client.entities.Customer.list(),
   });
 
-  // Fetch existing mappings
   const { data: mappings = [], refetch: refetchMappings } = useQuery({
     queryKey: ['cove-mappings'],
-    queryFn: () => client.entities.CoveDataMapping.list()
+    queryFn: () => client.entities.CoveDataMapping.list(),
   });
 
-  const fetchLastSync = useCallback(async () => {
-    try {
-      const { data } = await supabase
-        .from('sync_logs')
-        .select('completed_at')
-        .eq('integration_type', 'cove_data')
-        .eq('status', 'success')
-        .order('completed_at', { ascending: false })
-        .limit(1);
-      if (data && data.length > 0) {
-        setLastSyncTime(data[0].completed_at);
-      }
-    } catch (_err) { /* sync logs may not exist */ }
-  }, []);
-
   useEffect(() => {
-    fetchLastSync();
-  }, [fetchLastSync]);
-
-  // Auto-detect configured status from existing mappings
-  useEffect(() => {
-    if (mappings.length > 0 && configStatus === 'not_configured') {
-      setConfigStatus('connected');
+    if (mappings.length > 0 && configStatus === CONNECTION_STATES.NOT_CONFIGURED) {
+      setConfigStatus(CONNECTION_STATES.CONNECTED);
     }
-  }, [mappings.length]);
+  }, [mappings.length, configStatus]);
 
-  const handleTestConnection = async () => {
+  // -- Derived data ----------------------------------------------------------
+
+  const getCustomerName = useCallback((customerId) => {
+    return customers.find(c => c.id === customerId)?.name || 'Unknown';
+  }, [customers]);
+
+  const mappedPartnerIds = useMemo(
+    () => new Set(mappings.map(m => m.cove_partner_id)),
+    [mappings],
+  );
+
+  const mappedCount = useMemo(
+    () => covePartners.filter(p => mappedPartnerIds.has(String(p.id))).length,
+    [covePartners, mappedPartnerIds],
+  );
+
+  const staleCount = useMemo(
+    () => mappings.filter(m => m.last_synced && isStale(m.last_synced)).length,
+    [mappings],
+  );
+
+  const allRows = useMemo(() => {
+    const rows = covePartners.map(partner => {
+      const partnerId = String(partner.id);
+      const mapping = mappings.find(m => m.cove_partner_id === partnerId);
+      return {
+        partnerId, partnerName: partner.name,
+        deviceCount: partner.deviceCount ?? partner.device_count ?? null,
+        mapping, isMapped: Boolean(mapping),
+        isStale: mapping ? isStale(mapping.last_synced) : false,
+      };
+    });
+    const apiIds = new Set(covePartners.map(p => String(p.id)));
+    for (const mapping of mappings) {
+      if (!apiIds.has(mapping.cove_partner_id)) {
+        rows.push({
+          partnerId: mapping.cove_partner_id,
+          partnerName: mapping.cove_partner_name || mapping.cove_partner_id,
+          deviceCount: null, mapping, isMapped: true,
+          isStale: isStale(mapping.last_synced),
+        });
+      }
+    }
+    return rows;
+  }, [covePartners, mappings]);
+
+  const totalPartners = allRows.length;
+  const unmappedCount = totalPartners - mappedCount;
+
+  const filteredRows = useMemo(() => {
+    let rows = allRows;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      rows = rows.filter(r =>
+        r.partnerName.toLowerCase().includes(q) ||
+        (r.mapping && getCustomerName(r.mapping.customer_id).toLowerCase().includes(q)),
+      );
+    }
+    switch (filterTab) {
+      case 'mapped':   return rows.filter(r => r.isMapped);
+      case 'unmapped': return rows.filter(r => !r.isMapped);
+      case 'stale':    return rows.filter(r => r.isStale);
+      default:         return rows;
+    }
+  }, [allRows, searchQuery, filterTab, getCustomerName]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / ITEMS_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedRows = filteredRows.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
+  const statusDisplay = getConnectionStatusDisplay(configStatus);
+
+  // -- Actions ---------------------------------------------------------------
+
+  const testConnection = useCallback(async () => {
     setTesting(true);
-    setErrorDetails(null);
     try {
-      const response = await client.functions.invoke('syncCoveData', {
-        action: 'test_connection'
-      });
-      if (response.success) {
-        setConfigStatus('connected');
+      const res = await client.functions.invoke('syncCoveData', { action: 'test_connection' });
+      if (res.success) {
+        setConfigStatus(CONNECTION_STATES.CONNECTED);
         toast.success('Connected to Cove API');
       } else {
-        const errMsg = response.error || 'Connection failed';
-        setConfigStatus('configured');
-        setErrorDetails(errMsg);
-        toast.error(errMsg);
+        setConfigStatus(CONNECTION_STATES.CONFIGURED);
+        toast.error(res.error || 'Connection failed');
       }
     } catch (error) {
-      const errMsg = error.message || 'Connection test failed';
-      setConfigStatus('configured');
-      setErrorDetails(errMsg);
-      toast.error(errMsg);
+      setConfigStatus(CONNECTION_STATES.CONFIGURED);
+      toast.error(error.message || 'Connection test failed');
     } finally {
       setTesting(false);
     }
-  };
+  }, []);
 
-  const handleLoadPartners = async () => {
+  const loadPartners = useCallback(async () => {
     setLoadingPartners(true);
     try {
-      const response = await client.functions.invoke('syncCoveData', {
-        action: 'list_partners'
-      });
-      if (response.success) {
-        setPartners(response.partners || []);
-        toast.success(`Found ${response.partners?.length || 0} partners`);
+      const res = await client.functions.invoke('syncCoveData', { action: 'list_partners' });
+      if (res.success) {
+        setCovePartners(res.partners || []);
+        setCurrentPage(1);
+        setConfigStatus(CONNECTION_STATES.CONNECTED);
+        toast.success(`Found ${res.partners?.length || 0} partners`);
       } else {
-        toast.error(response.error || 'Failed to load partners');
+        toast.error(res.error || 'Failed to load partners');
       }
     } catch (error) {
-      toast.error(error.message);
+      toast.error(error.message || 'Failed to load partners');
     } finally {
       setLoadingPartners(false);
     }
-  };
+  }, []);
 
-  const handleOpenMappingDialog = (customerId) => {
-    setMappingCustomerId(customerId);
-    setMappingDialogOpen(true);
-    if (partners.length === 0) {
-      handleLoadPartners();
-    }
-  };
-
-  const handleMapCustomer = async (partner) => {
-    const customer = customers.find(c => c.id === mappingCustomerId);
+  const applyMapping = useCallback(async (partnerId, partnerName, customer) => {
     if (!customer) return;
-
     try {
-      // Check if mapping already exists
-      const existingMapping = mappings.find(m => m.customer_id === mappingCustomerId);
-      
-      if (existingMapping) {
-        await client.entities.CoveDataMapping.update(existingMapping.id, {
-          cove_partner_id: partner.id,
-          cove_partner_name: partner.name
-        });
+      const existing = mappings.find(m => m.cove_partner_id === partnerId);
+      const payload = {
+        customer_id: customer.id, customer_name: customer.name,
+        cove_partner_id: partnerId, cove_partner_name: partnerName,
+      };
+      if (existing) {
+        await client.entities.CoveDataMapping.update(existing.id, payload);
       } else {
-        await client.entities.CoveDataMapping.create({
-          customer_id: mappingCustomerId,
-          customer_name: customer.name,
-          cove_partner_id: partner.id,
-          cove_partner_name: partner.name
-        });
+        await client.entities.CoveDataMapping.create(payload);
       }
-
-      toast.success(`Mapped ${customer.name} to ${partner.name}`);
+      toast.success(`Mapped ${partnerName} to ${customer.name}`);
       refetchMappings();
-      setMappingDialogOpen(false);
     } catch (error) {
-      toast.error(error.message);
+      toast.error(`Failed to map: ${error.message}`);
     }
-  };
+  }, [mappings, refetchMappings]);
 
-  const handleUnmapCustomer = async (mapping) => {
+  const deleteMapping = useCallback(async (mappingId) => {
     try {
-      await client.entities.CoveDataMapping.delete(mapping.id);
+      await client.entities.CoveDataMapping.delete(mappingId);
       toast.success('Mapping removed');
       refetchMappings();
     } catch (error) {
-      toast.error(error.message);
+      toast.error(`Failed to remove mapping: ${error.message}`);
     }
-  };
+  }, [refetchMappings]);
 
-  // Calculate suggested match for a partner based on name similarity
-  const getSuggestedMatch = (partnerName) => {
-    const nameLower = partnerName.toLowerCase().trim();
-    let bestMatch = null;
-    let bestScore = 0;
-
-    for (const customer of customers) {
-      const customerNameLower = customer.name.toLowerCase().trim();
-
-      if (nameLower === customerNameLower) {
-        return { customer, score: 100 };
-      }
-
-      if (nameLower.includes(customerNameLower) || customerNameLower.includes(nameLower)) {
-        const score = Math.round((Math.min(nameLower.length, customerNameLower.length) / Math.max(nameLower.length, customerNameLower.length)) * 100);
-        if (score > bestScore) {
-          bestScore = score;
-          bestMatch = customer;
-        }
-      }
-
-      const nameWords = nameLower.split(/[\s,.-]+/).filter(w => w.length > 2);
-      const customerWords = customerNameLower.split(/[\s,.-]+/).filter(w => w.length > 2);
-      const matchingWords = nameWords.filter(sw => customerWords.some(cw => cw.includes(sw) || sw.includes(cw)));
-
-      if (matchingWords.length > 0) {
-        const score = Math.round((matchingWords.length / Math.max(nameWords.length, customerWords.length)) * 100);
-        if (score > bestScore) {
-          bestScore = score;
-          bestMatch = customer;
-        }
-      }
-    }
-
-    return bestMatch && bestScore >= 50 ? { customer: bestMatch, score: bestScore } : null;
-  };
-
-  const autoMapPartners = async () => {
-    if (partners.length === 0) {
-      toast.error('Load partners first before auto-mapping');
-      return;
-    }
-    setAutomapping(true);
+  const autoMapPartners = useCallback(async () => {
+    if (covePartners.length === 0) { toast.error('Load partners first'); return; }
     let mapped = 0;
     try {
-      const mappedCustomerIds = new Set(mappings.map(m => m.customer_id));
-      const mappedPartnerIds = new Set(mappings.map(m => m.cove_partner_id));
-
-      for (const partner of partners) {
-        if (mappedPartnerIds.has(partner.id)) continue;
-        const match = getSuggestedMatch(partner.name);
-        if (match && !mappedCustomerIds.has(match.customer.id)) {
+      const usedCustomers = new Set(mappings.map(m => m.customer_id));
+      const usedPartners = new Set(mappings.map(m => m.cove_partner_id));
+      for (const partner of covePartners) {
+        if (usedPartners.has(String(partner.id))) continue;
+        const match = getSuggestedMatch(partner.name, customers);
+        if (match && !usedCustomers.has(match.customer.id)) {
           await client.entities.CoveDataMapping.create({
-            customer_id: match.customer.id,
-            customer_name: match.customer.name,
-            cove_partner_id: partner.id,
-            cove_partner_name: partner.name
+            customer_id: match.customer.id, customer_name: match.customer.name,
+            cove_partner_id: String(partner.id), cove_partner_name: partner.name,
           });
-          mappedCustomerIds.add(match.customer.id);
-          mappedPartnerIds.add(partner.id);
+          usedCustomers.add(match.customer.id);
+          usedPartners.add(String(partner.id));
           mapped++;
         }
       }
-      if (mapped > 0) {
-        toast.success(`Auto-mapped ${mapped} partners to customers!`);
-        refetchMappings();
-      } else {
-        toast.info('No new matches found. Partners may already be mapped or names don\'t match.');
-      }
+      if (mapped > 0) { toast.success(`Auto-mapped ${mapped} partners`); refetchMappings(); }
+      else { toast.info('No new matches found'); }
     } catch (error) {
       toast.error('Auto-map failed: ' + error.message);
-    } finally {
-      setAutomapping(false);
     }
-  };
+  }, [covePartners, mappings, customers, refetchMappings]);
 
-  const getMappingForCustomer = (customerId) => {
-    return mappings.find(m => m.customer_id === customerId);
-  };
+  const syncAllMappings = useCallback(async () => {
+    if (mappings.length === 0) return;
+    setSyncing(true);
+    const total = mappings.length;
+    let synced = 0, failed = 0;
+    setSyncProgress({ current: 0, total });
+    const toastId = toast.loading(`Syncing 0/${total}...`);
+    for (const mapping of mappings) {
+      try {
+        const timeout = setTimeout(() => {}, SYNC_TIMEOUT_MS);
+        await client.functions.invoke('syncCoveData', { action: 'sync_one', mapping_id: mapping.id });
+        clearTimeout(timeout);
+        synced += 1;
+      } catch { failed += 1; }
+      const current = synced + failed;
+      setSyncProgress({ current, total });
+      toast.loading(`Syncing ${current}/${total}...`, { id: toastId });
+    }
+    const msg = `Synced ${synced}/${total}.`;
+    if (failed === 0) toast.success(`${msg} All successful.`, { id: toastId });
+    else toast.warning(`${msg} ${failed} failed.`, { id: toastId });
+    queryClient.invalidateQueries({ queryKey: ['cove-mappings'] });
+    setSyncing(false);
+    setSyncProgress({ current: 0, total: 0 });
+  }, [mappings, queryClient]);
 
-  const filteredCustomers = customers.filter(c => 
-    c.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const resyncOne = useCallback(async (mappingId, partnerName) => {
+    try {
+      await client.functions.invoke('syncCoveData', { action: 'sync_one', mapping_id: mappingId });
+      toast.success(`Re-synced ${partnerName}`);
+      refetchMappings();
+    } catch (err) { toast.error(`Sync failed: ${err.message}`); }
+  }, [refetchMappings]);
 
-  const filteredPartners = partners.filter(p =>
-    p.name?.toLowerCase().includes(partnerSearchTerm.toLowerCase())
-  );
+  const debugApi = useCallback(async () => {
+    try {
+      await client.functions.invoke('syncCoveData', { action: 'debug_api' });
+      toast.success('Debug output in console (F12)');
+    } catch (err) { toast.error(err.message); }
+  }, []);
 
-  const statusColor = configStatus === 'connected' ? 'bg-emerald-500' : configStatus === 'configured' ? 'bg-amber-500' : 'bg-slate-300';
-  const statusLabel = configStatus === 'connected' ? 'Connected' : configStatus === 'configured' ? 'Configured' : 'Not configured';
-  const statusBg = configStatus === 'connected' ? 'bg-emerald-50 border-emerald-200' : configStatus === 'configured' ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200';
-  const statusTextCls = configStatus === 'connected' ? 'text-emerald-700' : configStatus === 'configured' ? 'text-amber-700' : 'text-slate-500';
+  // -- Render ----------------------------------------------------------------
+
+  const hasData = covePartners.length > 0 || mappings.length > 0;
 
   return (
-    <div className="space-y-6">
-      {/* Connection Status Header */}
-      <div className={cn("flex items-center justify-between px-4 py-3 rounded-lg border", statusBg)}>
-        <div className="flex items-center gap-3">
-          <div className={cn("w-2.5 h-2.5 rounded-full", statusColor)} />
-          <span className={cn("text-sm font-medium", statusTextCls)}>{statusLabel}</span>
-          {configStatus === 'connected' && (
-            <Badge className="bg-emerald-100 text-emerald-700 text-xs font-normal">
-              <CheckCircle2 className="w-3 h-3 mr-1" />
-              Cove Data
-            </Badge>
+    <div className="space-y-3">
+      <IntegrationHeader
+        statusDisplay={statusDisplay}
+        integrationName="Cove Data Protection"
+        hasData={hasData}
+        mappedCount={mappedCount}
+        totalCount={totalPartners}
+      >
+        <Button size="sm" variant="outline" onClick={testConnection} disabled={testing} className="h-7 text-xs px-2.5">
+          <RefreshCw className={cn("w-3 h-3 mr-1", testing && "animate-spin")} />
+          Test
+        </Button>
+        <Button size="sm" variant="outline" onClick={loadPartners} disabled={loadingPartners} className="h-7 text-xs px-2.5">
+          <RefreshCw className={cn("w-3 h-3 mr-1", loadingPartners && "animate-spin")} />
+          Refresh
+        </Button>
+        <Button size="sm" variant="outline" onClick={autoMapPartners} className="h-7 text-xs px-2.5 text-blue-600 border-blue-200 hover:bg-blue-50">
+          <Zap className="w-3 h-3 mr-1" />
+          Auto-Map
+        </Button>
+        <Button size="sm" onClick={syncAllMappings} disabled={syncing || mappings.length === 0} className="h-7 text-xs px-2.5 bg-slate-900 hover:bg-slate-800 text-white">
+          <RefreshCw className={cn("w-3 h-3 mr-1", syncing && "animate-spin")} />
+          {syncing ? `${syncProgress.current}/${syncProgress.total}` : 'Sync All'}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={debugApi} className="h-7 text-xs px-2 text-slate-400 hover:text-slate-600" title="Debug API (logs to console)">
+          <Bug className="w-3 h-3" />
+        </Button>
+      </IntegrationHeader>
+
+      <FilterBar
+        filterTab={filterTab} setFilterTab={setFilterTab}
+        searchQuery={searchQuery} setSearchQuery={setSearchQuery}
+        totalCount={totalPartners} mappedCount={mappedCount}
+        unmappedCount={unmappedCount} staleCount={staleCount}
+        onPageReset={() => setCurrentPage(1)}
+        searchPlaceholder="Search partners or customers..."
+      />
+
+      {!hasData ? (
+        <div className="text-center py-10 text-sm text-slate-500 border border-slate-200 rounded-lg">
+          No partners loaded. Click <strong>Refresh</strong> to pull Cove partners or <strong>Test</strong> to verify the connection.
+        </div>
+      ) : (
+        <div className="border border-slate-200 rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2 w-10" />
+                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2">Partner</th>
+                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2 w-16">Devices</th>
+                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2">Customer</th>
+                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2 w-24">Last Sync</th>
+                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2 w-20" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {paginatedRows.length === 0 ? (
+                  <tr><td colSpan={6} className="text-center py-6 text-xs text-slate-400">No partners match the current filter.</td></tr>
+                ) : (
+                  paginatedRows.map((row, idx) => (
+                    <PartnerRow
+                      key={row.partnerId} row={row} customers={customers}
+                      getCustomerName={getCustomerName}
+                      onMap={(c) => applyMapping(row.partnerId, row.partnerName, c)}
+                      onDelete={() => row.mapping && deleteMapping(row.mapping.id)}
+                      onResync={() => row.mapping && resyncOne(row.mapping.id, row.partnerName)}
+                      isOdd={idx % 2 === 1}
+                    />
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          {filteredRows.length > ITEMS_PER_PAGE && (
+            <TablePagination page={safePage} totalPages={totalPages} totalItems={filteredRows.length} perPage={ITEMS_PER_PAGE} onPageChange={setCurrentPage} />
           )}
         </div>
-        {lastSyncTime && (
-          <div className="flex items-center gap-1.5 text-xs text-slate-500">
-            <Clock className="w-3.5 h-3.5" />
-            Last synced: {formatDistanceToNow(new Date(lastSyncTime), { addSuffix: true })}
-          </div>
-        )}
-      </div>
-
-      {/* Error Details (collapsible) */}
-      {errorDetails && (
-        <Collapsible open={showErrorDetails} onOpenChange={setShowErrorDetails}>
-          <div className="border border-red-200 bg-red-50 rounded-lg overflow-hidden">
-            <CollapsibleTrigger asChild>
-              <button className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-red-700 hover:bg-red-100 transition-colors">
-                <div className="flex items-center gap-2">
-                  <XCircle className="w-4 h-4" />
-                  Error details
-                </div>
-                <ChevronDown className={cn("w-4 h-4 transition-transform", showErrorDetails && "rotate-180")} />
-              </button>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="px-4 pb-3 pt-1 border-t border-red-200">
-                <pre className="text-xs text-red-600 whitespace-pre-wrap font-mono bg-red-100/50 rounded p-2">{errorDetails}</pre>
-              </div>
-            </CollapsibleContent>
-          </div>
-        </Collapsible>
       )}
-
-      {/* Connection Test */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Database className="w-5 h-5 text-blue-600" />
-            Cove Data Protection
-          </CardTitle>
-          <CardDescription>
-            Connect to N-able Cove Data Protection for backup monitoring
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            <Button
-              onClick={handleTestConnection}
-              disabled={testing}
-              variant="outline"
-              className="gap-2"
-            >
-              <RefreshCw className={cn("w-4 h-4", testing && "animate-spin")} />
-              Test Connection
-            </Button>
-
-            {configStatus === 'connected' && (
-              <Badge className="bg-green-100 text-green-700 gap-1">
-                <CheckCircle2 className="w-3 h-3" />
-                Connected
-              </Badge>
-            )}
-            {configStatus === 'configured' && (
-              <Badge className="bg-red-100 text-red-700 gap-1">
-                <AlertCircle className="w-3 h-3" />
-                Connection Failed
-              </Badge>
-            )}
-          </div>
-
-          <p className="text-sm text-slate-500">
-            Set environment variables: COVE_API_PARTNER (company name), COVE_API_USERNAME (login name), COVE_API_TOKEN (token)
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* Customer Mappings */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Customer Mappings</CardTitle>
-              <CardDescription>Map your customers to Cove partners</CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={handleLoadPartners}
-                disabled={loadingPartners}
-                variant="outline"
-                size="sm"
-                className="gap-2"
-              >
-                <RefreshCw className={cn("w-4 h-4", loadingPartners && "animate-spin")} />
-                Load Partners
-              </Button>
-              {partners.length > 0 && (
-                <Button
-                  onClick={autoMapPartners}
-                  disabled={automapping}
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                >
-                  <Wand2 className={cn("w-4 h-4", automapping && "animate-spin")} />
-                  {automapping ? 'Mapping...' : 'Auto-Map All'}
-                </Button>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                placeholder="Search customers..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-          </div>
-
-          <div className="border rounded-lg overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50">
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Cove Partner</TableHead>
-                  <TableHead>Last Synced</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredCustomers.map(customer => {
-                  const mapping = getMappingForCustomer(customer.id);
-                  return (
-                    <TableRow key={customer.id}>
-                      <TableCell className="font-medium">{customer.name}</TableCell>
-                      <TableCell>
-                        {mapping ? (
-                          <Badge className="bg-blue-100 text-blue-700 gap-1">
-                            <HardDrive className="w-3 h-3" />
-                            {mapping.cove_partner_name}
-                          </Badge>
-                        ) : (
-                          <span className="text-slate-400">Not mapped</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {mapping?.last_synced ? (
-                          <span className="text-sm text-slate-500">
-                            {new Date(mapping.last_synced).toLocaleDateString()}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {mapping ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleUnmapCustomer(mapping)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Unlink className="w-4 h-4" />
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleOpenMappingDialog(customer.id)}
-                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                          >
-                            <Link2 className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Mapping Dialog */}
-      <Dialog open={mappingDialogOpen} onOpenChange={setMappingDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Select Cove Partner</DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                placeholder="Search partners..."
-                value={partnerSearchTerm}
-                onChange={(e) => setPartnerSearchTerm(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-
-            {loadingPartners ? (
-              <div className="flex items-center justify-center py-8">
-                <RefreshCw className="w-6 h-6 animate-spin text-slate-400" />
-              </div>
-            ) : partners.length === 0 ? (
-              <div className="text-center py-8 text-slate-500">
-                <Database className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                <p>No partners found</p>
-                <Button onClick={handleLoadPartners} variant="outline" size="sm" className="mt-2">
-                  Load Partners
-                </Button>
-              </div>
-            ) : (
-              <div className="max-h-[300px] overflow-auto border rounded-lg">
-                {filteredPartners.map(partner => (
-                  <button
-                    key={partner.id}
-                    onClick={() => handleMapCustomer(partner)}
-                    className="w-full px-4 py-3 text-left hover:bg-slate-50 border-b last:border-b-0 transition-colors"
-                  >
-                    <p className="font-medium text-slate-900">{partner.name}</p>
-                    <p className="text-sm text-slate-500">ID: {partner.id}</p>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
+  );
+}
+
+// -- Table Row ---------------------------------------------------------------
+
+function PartnerRow({ row, customers, getCustomerName, onMap, onDelete, onResync, isOdd }) {
+  const suggestedMatch = useMemo(
+    () => (!row.isMapped ? getSuggestedMatch(row.partnerName, customers) : null),
+    [row.isMapped, row.partnerName, customers],
+  );
+  const syncTime = row.mapping ? getRelativeTime(row.mapping.last_synced) : null;
+
+  return (
+    <MappingRow
+      statusDot={getRowStatusDot(row.mapping)} itemName={row.partnerName}
+      countValue={row.deviceCount} countLabel="devices"
+      isMapped={row.isMapped}
+      customerName={row.isMapped ? getCustomerName(row.mapping.customer_id) : null}
+      syncTime={syncTime} suggestedMatch={suggestedMatch} customers={customers}
+      onMap={onMap} onDelete={onDelete} onResync={onResync}
+      isStaleRow={row.isStale} isOdd={isOdd}
+    />
   );
 }
