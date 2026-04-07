@@ -506,6 +506,13 @@ export default function UniFiConfig() {
           <RefreshCw className={cn("w-4 h-4 mr-2", testing && "animate-spin")} />
           Test Connection
         </Button>
+        <Button variant="outline" className="text-xs" onClick={async () => {
+          try {
+            const res = await client.functions.invoke('syncUniFiDevices', { action: 'debug_api' });
+            console.log('UniFi Debug:', JSON.stringify(res, null, 2));
+            toast.success('Debug output in console (F12)');
+          } catch (err) { toast.error(err.message); }
+        }}>Debug API</Button>
         <Button onClick={loadUnifiSites} disabled={loadingSites} variant="outline">
           <RefreshCw className={cn("w-4 h-4 mr-2", loadingSites && "animate-spin")} />
           {showMappingView ? 'Refresh Hosts' : 'Load Hosts'}
