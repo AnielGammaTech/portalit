@@ -1,22 +1,19 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   RefreshCw,
   CheckCircle2,
-  Building2,
   Trash2,
   Search,
   ChevronLeft,
   ChevronRight,
-  XCircle,
-  ChevronDown,
-  Key,
-  AlertCircle,
+  Info,
+  Bug,
+  Zap,
+  RotateCcw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
@@ -32,9 +29,9 @@ const CONNECTION_STATES = {
   NOT_CONFIGURED: 'not_configured',
 };
 
-const ITEMS_PER_PAGE = 10;
-const MAPPINGS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 25;
 const SYNC_TIMEOUT_MS = 30_000;
+const STALE_THRESHOLD_HOURS = 48;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -43,23 +40,34 @@ const SYNC_TIMEOUT_MS = 30_000;
 function getConnectionStatusDisplay(status) {
   switch (status) {
     case CONNECTION_STATES.CONNECTED:
-      return { color: 'bg-emerald-500', label: 'Connected', bgClass: 'bg-emerald-50 border-emerald-200', textClass: 'text-emerald-700' };
+      return { dotClass: 'bg-emerald-500', label: 'Connected' };
     case CONNECTION_STATES.CONFIGURED:
-      return { color: 'bg-amber-500', label: 'Configured', bgClass: 'bg-amber-50 border-amber-200', textClass: 'text-amber-700' };
+      return { dotClass: 'bg-amber-500', label: 'Configured' };
     default:
-      return { color: 'bg-slate-300', label: 'Not configured', bgClass: 'bg-slate-50 border-slate-200', textClass: 'text-slate-500' };
+      return { dotClass: 'bg-slate-300', label: 'Not configured' };
   }
 }
 
-function getFreshnessDisplay(lastSynced) {
-  if (!lastSynced) return { label: 'Never synced', colorClass: 'text-slate-400' };
-  const now = new Date();
-  const syncDate = new Date(lastSynced);
-  const hoursAgo = (now - syncDate) / (1000 * 60 * 60);
-  const label = `Last synced: ${formatDistanceToNow(syncDate, { addSuffix: true })}`;
-  if (hoursAgo < 24) return { label, colorClass: 'text-emerald-600' };
-  if (hoursAgo < 48) return { label, colorClass: 'text-amber-600' };
-  return { label, colorClass: 'text-red-600' };
+function getRelativeTime(dateStr) {
+  if (!dateStr) return { text: 'Never', colorClass: 'text-slate-400' };
+  const syncDate = new Date(dateStr);
+  const hoursAgo = (Date.now() - syncDate.getTime()) / (1000 * 60 * 60);
+  const text = formatDistanceToNow(syncDate, { addSuffix: false }) + ' ago';
+  if (hoursAgo < 24) return { text, colorClass: 'text-emerald-600' };
+  if (hoursAgo < STALE_THRESHOLD_HOURS) return { text, colorClass: 'text-amber-600' };
+  return { text, colorClass: 'text-red-500' };
+}
+
+function isStale(dateStr) {
+  if (!dateStr) return false;
+  const hoursAgo = (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60);
+  return hoursAgo >= STALE_THRESHOLD_HOURS;
+}
+
+function getRowStatusDot(mapping) {
+  if (!mapping) return 'bg-slate-300';
+  if (mapping.last_synced && isStale(mapping.last_synced)) return 'bg-amber-400';
+  return 'bg-emerald-500';
 }
 
 function getSuggestedMatch(siteName, customers) {
@@ -89,63 +97,19 @@ function getSuggestedMatch(siteName, customers) {
 }
 
 // ---------------------------------------------------------------------------
-// Progress Ring SVG
+// Inline Customer Search Cell
 // ---------------------------------------------------------------------------
 
-function ProgressRing({ mapped, total }) {
-  const percentage = total === 0 ? 0 : Math.round((mapped / total) * 100);
-  const radius = 20;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (percentage / 100) * circumference;
-
-  const ringColor = percentage >= 80 ? 'stroke-emerald-500' : percentage >= 50 ? 'stroke-amber-500' : 'stroke-red-500';
-  const textColor = percentage >= 80 ? 'text-emerald-700' : percentage >= 50 ? 'text-amber-700' : 'text-red-700';
-
-  return (
-    <div className="flex items-center gap-4">
-      <div className="relative w-12 h-12 flex-shrink-0">
-        <svg className="w-12 h-12 -rotate-90" viewBox="0 0 48 48">
-          <circle cx="24" cy="24" r={radius} fill="none" stroke="#e2e8f0" strokeWidth="4" />
-          <circle
-            cx="24" cy="24" r={radius} fill="none"
-            className={ringColor}
-            strokeWidth="4" strokeLinecap="round"
-            strokeDasharray={circumference} strokeDashoffset={offset}
-            style={{ transition: 'stroke-dashoffset 0.4s ease' }}
-          />
-        </svg>
-        <span className={cn("absolute inset-0 flex items-center justify-center text-[10px] font-bold", textColor)}>
-          {percentage}%
-        </span>
-      </div>
-      <div className="text-sm">
-        <p className={cn("font-semibold", textColor)}>{mapped}/{total} mapped</p>
-        <p className="text-xs text-slate-500">
-          {mapped} Mapped{' '}&middot;{' '}{total - mapped} Unmapped
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Searchable Customer Dropdown
-// ---------------------------------------------------------------------------
-
-function SearchableCustomerDropdown({ customers, value, onChange, className }) {
+function InlineCustomerSearch({ customers, suggestedMatch, onSelect }) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const containerRef = useRef(null);
-
-  const selected = useMemo(
-    () => customers.find(c => c.id === value),
-    [customers, value],
-  );
+  const inputRef = useRef(null);
 
   const filtered = useMemo(() => {
-    if (!query) return customers;
+    if (!query) return customers.slice(0, 20);
     const q = query.toLowerCase();
-    return customers.filter(c => c.name.toLowerCase().includes(q));
+    return customers.filter(c => c.name.toLowerCase().includes(q)).slice(0, 20);
   }, [customers, query]);
 
   useEffect(() => {
@@ -158,35 +122,53 @@ function SearchableCustomerDropdown({ customers, value, onChange, className }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSelect = useCallback((customerId) => {
-    onChange(customerId);
+  useEffect(() => {
+    function handleEscape(e) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    if (open) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [open]);
+
+  const handleSelect = useCallback((customer) => {
+    onSelect(customer);
     setOpen(false);
     setQuery('');
-  }, [onChange]);
+  }, [onSelect]);
 
   return (
-    <div ref={containerRef} className={cn("relative", className)}>
-      {selected && !open ? (
-        <button
-          type="button"
-          onClick={() => { setOpen(true); setQuery(''); }}
-          className="flex items-center gap-1.5 h-8 px-2 w-full text-left text-sm border border-slate-200 rounded-md bg-white hover:bg-slate-50 truncate"
-        >
-          <span className="truncate">{selected.name}</span>
-          <ChevronDown className="w-3 h-3 text-slate-400 ml-auto flex-shrink-0" />
-        </button>
-      ) : (
-        <Input
-          autoFocus={open}
-          placeholder="Search customer..."
+    <div ref={containerRef} className="relative">
+      <div
+        className="flex flex-col gap-0.5 cursor-text"
+        onClick={() => {
+          setOpen(true);
+          setTimeout(() => inputRef.current?.focus(), 0);
+        }}
+      >
+        <input
+          ref={inputRef}
+          type="text"
+          placeholder="Select customer..."
           value={query}
           onChange={(e) => { setQuery(e.target.value); if (!open) setOpen(true); }}
           onFocus={() => setOpen(true)}
-          className="h-8 text-sm w-full"
+          className="h-6 w-40 text-xs border border-slate-200 rounded px-2 bg-white focus:outline-none focus:ring-1 focus:ring-slate-400 placeholder:text-slate-400"
         />
-      )}
+        {suggestedMatch && !query && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); handleSelect(suggestedMatch.customer); }}
+            className="text-[10px] text-slate-400 hover:text-slate-600 text-left truncate max-w-[160px]"
+            title={`Auto-match: ${suggestedMatch.customer.name} (${suggestedMatch.score}%)`}
+          >
+            Suggested: {suggestedMatch.customer.name}
+          </button>
+        )}
+      </div>
       {open && (
-        <div className="absolute z-50 mt-1 w-56 max-h-48 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg">
+        <div className="absolute z-50 mt-0.5 w-52 max-h-44 overflow-y-auto rounded border border-slate-200 bg-white shadow-lg">
           {filtered.length === 0 ? (
             <p className="px-3 py-2 text-xs text-slate-400">No customers found</p>
           ) : (
@@ -194,11 +176,8 @@ function SearchableCustomerDropdown({ customers, value, onChange, className }) {
               <button
                 key={customer.id}
                 type="button"
-                onClick={() => handleSelect(customer.id)}
-                className={cn(
-                  "w-full text-left px-3 py-1.5 text-sm hover:bg-slate-100 transition-colors",
-                  customer.id === value && "bg-slate-50 font-medium",
-                )}
+                onClick={() => handleSelect(customer)}
+                className="w-full text-left px-3 py-1.5 text-xs hover:bg-slate-100 transition-colors truncate"
               >
                 {customer.name}
               </button>
@@ -211,12 +190,92 @@ function SearchableCustomerDropdown({ customers, value, onChange, className }) {
 }
 
 // ---------------------------------------------------------------------------
-// Freshness Badge
+// Compact Progress Bar
 // ---------------------------------------------------------------------------
 
-function FreshnessBadge({ lastSynced }) {
-  const { label, colorClass } = getFreshnessDisplay(lastSynced);
-  return <span className={cn("text-[11px]", colorClass)}>{label}</span>;
+function MiniProgressBar({ mapped, total }) {
+  const pct = total === 0 ? 0 : Math.round((mapped / total) * 100);
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs font-medium text-slate-700">
+        {mapped}/{total} mapped
+      </span>
+      <div className="w-20 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+        <div
+          className={cn(
+            "h-full rounded-full transition-all duration-300",
+            pct >= 80 ? "bg-emerald-500" : pct >= 50 ? "bg-amber-500" : "bg-red-500",
+          )}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Table Pagination
+// ---------------------------------------------------------------------------
+
+function TablePagination({ page, totalPages, totalItems, perPage, onPageChange }) {
+  const start = ((page - 1) * perPage) + 1;
+  const end = Math.min(page * perPage, totalItems);
+  return (
+    <div className="flex items-center justify-between px-4 py-2 border-t border-slate-200 bg-slate-50/50">
+      <p className="text-[11px] text-slate-500">Showing {start}-{end} of {totalItems}</p>
+      <div className="flex items-center gap-1">
+        <Button
+          size="sm" variant="ghost"
+          onClick={() => onPageChange(Math.max(1, page - 1))}
+          disabled={page === 1}
+          className="h-6 w-6 p-0"
+        >
+          <ChevronLeft className="w-3.5 h-3.5" />
+        </Button>
+        <span className="text-[11px] text-slate-600 px-1.5">{page}/{totalPages}</span>
+        <Button
+          size="sm" variant="ghost"
+          onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+          disabled={page === totalPages}
+          className="h-6 w-6 p-0"
+        >
+          <ChevronRight className="w-3.5 h-3.5" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// API Key Tooltip
+// ---------------------------------------------------------------------------
+
+function ApiKeyTooltip() {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative inline-block">
+      <button
+        type="button"
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        className="text-slate-400 hover:text-slate-600"
+      >
+        <Info className="w-3.5 h-3.5" />
+      </button>
+      {show && (
+        <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-56 p-2 bg-slate-900 text-white text-[10px] rounded-md shadow-lg">
+          <p>API key configured via environment variable <code className="bg-slate-700 px-1 rounded">unifi_api_key</code>.</p>
+          <p className="mt-1">
+            Get yours at{' '}
+            <a href="https://developer.ui.com" target="_blank" rel="noopener noreferrer" className="text-blue-300 underline">
+              developer.ui.com
+            </a>
+          </p>
+          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -228,17 +287,11 @@ export default function UniFiConfig() {
   const [configStatus, setConfigStatus] = useState(CONNECTION_STATES.NOT_CONFIGURED);
   const [loadingSites, setLoadingSites] = useState(false);
   const [unifiSites, setUnifiSites] = useState([]);
-  const [showMappingView, setShowMappingView] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTab, setFilterTab] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [siteSelections, setSiteSelections] = useState({});
-  const [mappingSearchQuery, setMappingSearchQuery] = useState('');
-  const [mappingPage, setMappingPage] = useState(1);
-  const [errorDetails, setErrorDetails] = useState(null);
-  const [showErrorDetails, setShowErrorDetails] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -268,46 +321,90 @@ export default function UniFiConfig() {
     return customer?.name || 'Unknown';
   }, [customers]);
 
-  const mappedCount = useMemo(
-    () => unifiSites.filter(site => mappings.some(m => m.unifi_site_id === String(site.id))).length,
-    [unifiSites, mappings],
+  const mappedSiteIds = useMemo(
+    () => new Set(mappings.map(m => m.unifi_site_id)),
+    [mappings],
   );
-  const unmappedCount = unifiSites.length - mappedCount;
 
-  const filteredSites = useMemo(() => {
-    let filtered = unifiSites;
+  const mappedCount = useMemo(
+    () => unifiSites.filter(site => mappedSiteIds.has(String(site.id))).length,
+    [unifiSites, mappedSiteIds],
+  );
+
+  const staleCount = useMemo(
+    () => mappings.filter(m => m.last_synced && isStale(m.last_synced)).length,
+    [mappings],
+  );
+
+  // Build a unified list: sites from API + any mappings not in the API list
+  const allRows = useMemo(() => {
+    const rows = unifiSites.map(site => {
+      const siteId = String(site.id);
+      const mapping = mappings.find(m => m.unifi_site_id === siteId);
+      return {
+        siteId,
+        siteName: site.name,
+        deviceCount: site.deviceCount || 0,
+        mapping,
+        isMapped: Boolean(mapping),
+        isStale: mapping ? isStale(mapping.last_synced) : false,
+      };
+    });
+
+    // Include mappings for sites not currently in the API response
+    const apiSiteIds = new Set(unifiSites.map(s => String(s.id)));
+    for (const mapping of mappings) {
+      if (!apiSiteIds.has(mapping.unifi_site_id)) {
+        rows.push({
+          siteId: mapping.unifi_site_id,
+          siteName: mapping.unifi_site_name || mapping.unifi_site_id,
+          deviceCount: 0,
+          mapping,
+          isMapped: true,
+          isStale: isStale(mapping.last_synced),
+        });
+      }
+    }
+
+    return rows;
+  }, [unifiSites, mappings]);
+
+  const totalSites = allRows.length;
+  const unmappedCount = totalSites - mappedCount;
+
+  const filteredRows = useMemo(() => {
+    let rows = allRows;
+
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(site => site.name.toLowerCase().includes(q));
+      rows = rows.filter(r =>
+        r.siteName.toLowerCase().includes(q) ||
+        (r.mapping && getCustomerName(r.mapping.customer_id).toLowerCase().includes(q))
+      );
     }
-    if (filterTab === 'mapped') {
-      filtered = filtered.filter(site => mappings.some(m => m.unifi_site_id === String(site.id)));
-    } else if (filterTab === 'unmapped') {
-      filtered = filtered.filter(site => !mappings.some(m => m.unifi_site_id === String(site.id)));
+
+    switch (filterTab) {
+      case 'mapped':
+        rows = rows.filter(r => r.isMapped);
+        break;
+      case 'unmapped':
+        rows = rows.filter(r => !r.isMapped);
+        break;
+      case 'stale':
+        rows = rows.filter(r => r.isStale);
+        break;
+      default:
+        break;
     }
-    return filtered;
-  }, [unifiSites, searchQuery, filterTab, mappings]);
 
-  const totalPages = Math.ceil(filteredSites.length / ITEMS_PER_PAGE);
-  const paginatedSites = filteredSites.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE,
-  );
+    return rows;
+  }, [allRows, searchQuery, filterTab, getCustomerName]);
 
-  const filteredMappings = useMemo(() => {
-    if (!mappingSearchQuery) return mappings;
-    const q = mappingSearchQuery.toLowerCase();
-    return mappings.filter(mapping => {
-      const customerName = getCustomerName(mapping.customer_id).toLowerCase();
-      const siteName = (mapping.unifi_site_name || '').toLowerCase();
-      return customerName.includes(q) || siteName.includes(q);
-    });
-  }, [mappings, mappingSearchQuery, getCustomerName]);
-
-  const totalMappingPages = Math.ceil(filteredMappings.length / MAPPINGS_PER_PAGE);
-  const paginatedMappings = filteredMappings.slice(
-    (mappingPage - 1) * MAPPINGS_PER_PAGE,
-    mappingPage * MAPPINGS_PER_PAGE,
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / ITEMS_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedRows = filteredRows.slice(
+    (safePage - 1) * ITEMS_PER_PAGE,
+    safePage * ITEMS_PER_PAGE,
   );
 
   const statusDisplay = getConnectionStatusDisplay(configStatus);
@@ -318,23 +415,18 @@ export default function UniFiConfig() {
 
   const testConnection = async () => {
     setTesting(true);
-    setErrorDetails(null);
     try {
       const response = await client.functions.invoke('syncUniFiDevices', { action: 'list_sites' });
       if (response.success) {
         setConfigStatus(CONNECTION_STATES.CONNECTED);
         toast.success(`Connected! Found ${response.sites?.length || 0} sites.`);
       } else {
-        const errMsg = response.error || 'Connection failed';
         setConfigStatus(CONNECTION_STATES.CONFIGURED);
-        setErrorDetails(errMsg);
-        toast.error(errMsg);
+        toast.error(response.error || 'Connection failed');
       }
     } catch (error) {
-      const errMsg = error.message || 'Connection test failed';
       setConfigStatus(CONNECTION_STATES.CONFIGURED);
-      setErrorDetails(errMsg);
-      toast.error(errMsg);
+      toast.error(error.message || 'Connection test failed');
     } finally {
       setTesting(false);
     }
@@ -342,46 +434,35 @@ export default function UniFiConfig() {
 
   const loadUnifiSites = async () => {
     setLoadingSites(true);
-    setErrorDetails(null);
     try {
       const response = await client.functions.invoke('syncUniFiDevices', { action: 'list_sites' });
       if (response.success) {
         setUnifiSites(response.sites || []);
-        setShowMappingView(true);
         setCurrentPage(1);
+        setConfigStatus(CONNECTION_STATES.CONNECTED);
       } else {
-        const errMsg = response.error || 'Failed to load sites';
-        setErrorDetails(errMsg);
-        toast.error(errMsg);
+        toast.error(response.error || 'Failed to load sites');
       }
     } catch (error) {
-      const errMsg = error.message || 'Failed to load sites';
-      setErrorDetails(errMsg);
-      toast.error(errMsg);
+      toast.error(error.message || 'Failed to load sites');
     } finally {
       setLoadingSites(false);
     }
   };
 
-  const applyMapping = async (site, customerId) => {
-    if (!customerId) return;
-    const customerName = customers.find(c => c.id === customerId)?.name || '';
+  const applyMapping = async (siteId, siteName, customer) => {
+    if (!customer) return;
     try {
       await client.entities.UniFiMapping.create({
-        customer_id: customerId,
-        customer_name: customerName,
-        unifi_site_id: String(site.id),
-        unifi_site_name: site.name,
+        customer_id: customer.id,
+        customer_name: customer.name,
+        unifi_site_id: siteId,
+        unifi_site_name: siteName,
       });
-      toast.success(`Mapped host ${site.name} successfully!`);
+      toast.success(`Mapped ${siteName} to ${customer.name}`);
       refetchMappings();
-      setSiteSelections(prev => {
-        const next = { ...prev };
-        delete next[site.id];
-        return next;
-      });
     } catch (error) {
-      toast.error(`Failed to map host: ${error.message}`);
+      toast.error(`Failed to map: ${error.message}`);
     }
   };
 
@@ -398,7 +479,6 @@ export default function UniFiConfig() {
   const syncAllDevices = async () => {
     if (mappings.length === 0) return;
     setSyncing(true);
-    setErrorDetails(null);
     const total = mappings.length;
     let synced = 0;
     let failed = 0;
@@ -444,10 +524,20 @@ export default function UniFiConfig() {
       if (res.success) {
         toast.success(`Auto-mapped ${res.mapped} hosts. ${res.results?.filter(r => !r.customer).length || 0} unmatched.`);
         loadUnifiSites();
-        queryClient.invalidateQueries({ queryKey: ['unifi-mappings'] });
+        queryClient.invalidateQueries({ queryKey: ['unifi_mappings'] });
       } else {
         toast.error(res.error || 'Auto-map failed');
       }
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  const debugApi = async () => {
+    try {
+      const res = await client.functions.invoke('syncUniFiDevices', { action: 'debug_api' });
+      console.log('UniFi Debug:', JSON.stringify(res, null, 2));
+      toast.success('Debug output in console (F12)');
     } catch (err) {
       toast.error(err.message);
     }
@@ -457,460 +547,274 @@ export default function UniFiConfig() {
   // Render
   // ---------------------------------------------------------------------------
 
-  return (
-    <div className="space-y-5">
-      {/* Connection Status Header */}
-      <div className={cn("flex items-center justify-between px-4 py-3 rounded-lg border", statusDisplay.bgClass)}>
-        <div className="flex items-center gap-3">
-          <div className={cn("w-2.5 h-2.5 rounded-full", statusDisplay.color)} />
-          <span className={cn("text-sm font-medium", statusDisplay.textClass)}>{statusDisplay.label}</span>
-        </div>
-      </div>
-
-      {/* Error Details */}
-      {errorDetails && (
-        <Collapsible open={showErrorDetails} onOpenChange={setShowErrorDetails}>
-          <div className="border border-red-200 bg-red-50 rounded-lg overflow-hidden">
-            <CollapsibleTrigger asChild>
-              <button className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-red-700 hover:bg-red-100 transition-colors">
-                <div className="flex items-center gap-2"><XCircle className="w-4 h-4" />Error details</div>
-                <ChevronDown className={cn("w-4 h-4 transition-transform", showErrorDetails && "rotate-180")} />
-              </button>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="px-4 pb-3 pt-1 border-t border-red-200">
-                <pre className="text-xs text-red-600 whitespace-pre-wrap font-mono bg-red-100/50 rounded p-2">{errorDetails}</pre>
-              </div>
-            </CollapsibleContent>
-          </div>
-        </Collapsible>
-      )}
-
-      {/* API Key Info */}
-      <div className="bg-slate-50 rounded-lg p-4">
-        <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-          <Key className="w-4 h-4" /> UniFi API Key
-        </div>
-        <p className="text-xs text-slate-500 mt-1">
-          API key is configured via environment variable (<code className="bg-slate-200 px-1 rounded">unifi_api_key</code>).
-          Get your key from{' '}
-          <a href="https://developer.ui.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-            developer.ui.com
-          </a>
-        </p>
-      </div>
-
-      {/* Actions */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <Button onClick={testConnection} disabled={testing} variant="outline">
-          <RefreshCw className={cn("w-4 h-4 mr-2", testing && "animate-spin")} />
-          Test Connection
-        </Button>
-        <Button variant="outline" className="text-xs" onClick={async () => {
-          try {
-            const res = await client.functions.invoke('syncUniFiDevices', { action: 'debug_api' });
-            console.log('UniFi Debug:', JSON.stringify(res, null, 2));
-            toast.success('Debug output in console (F12)');
-          } catch (err) { toast.error(err.message); }
-        }}>Debug API</Button>
-        <Button onClick={loadUnifiSites} disabled={loadingSites} variant="outline">
-          <RefreshCw className={cn("w-4 h-4 mr-2", loadingSites && "animate-spin")} />
-          {showMappingView ? 'Refresh Hosts' : 'Load Hosts'}
-        </Button>
-        {unifiSites.length > 0 && (
-          <Button
-            onClick={autoMapByName}
-            variant="outline"
-            className="text-blue-600 border-blue-200 hover:bg-blue-50"
-          >
-            Auto-Map by Name
-          </Button>
-        )}
-        {mappings.length > 0 && (
-          <Button onClick={syncAllDevices} disabled={syncing} className="bg-slate-900 hover:bg-slate-800">
-            <RefreshCw className={cn("w-4 h-4 mr-2", syncing && "animate-spin")} />
-            {syncing
-              ? `Syncing ${syncProgress.current}/${syncProgress.total}...`
-              : 'Sync All Devices'}
-          </Button>
-        )}
-      </div>
-
-      {/* Host Mappings Section */}
-      <div className="border-t border-slate-200 pt-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h4 className="font-medium text-slate-900">Host Mappings</h4>
-            <p className="text-sm text-slate-500">Map UniFi consoles/gateways to your customers</p>
-          </div>
-        </div>
-
-        {/* Summary Progress Bar */}
-        {(showMappingView && unifiSites.length > 0) && (
-          <div className="mb-4 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200">
-            <ProgressRing mapped={mappedCount} total={unifiSites.length} />
-          </div>
-        )}
-
-        {!showMappingView ? (
-          <MappingListView
-            mappings={mappings}
-            filteredMappings={filteredMappings}
-            paginatedMappings={paginatedMappings}
-            mappingSearchQuery={mappingSearchQuery}
-            onSearchChange={(val) => { setMappingSearchQuery(val); setMappingPage(1); }}
-            mappingPage={mappingPage}
-            totalMappingPages={totalMappingPages}
-            onPageChange={setMappingPage}
-            getCustomerName={getCustomerName}
-            deleteMapping={deleteMapping}
-          />
-        ) : (
-          <HostTableView
-            paginatedSites={paginatedSites}
-            filteredSites={filteredSites}
-            unifiSites={unifiSites}
-            mappings={mappings}
-            customers={customers}
-            siteSelections={siteSelections}
-            onSiteSelectionChange={(siteId, val) =>
-              setSiteSelections(prev => ({ ...prev, [siteId]: val }))
-            }
-            searchQuery={searchQuery}
-            onSearchChange={(val) => { setSearchQuery(val); setCurrentPage(1); }}
-            filterTab={filterTab}
-            onFilterChange={(tab) => { setFilterTab(tab); setCurrentPage(1); }}
-            mappedCount={mappedCount}
-            unmappedCount={unmappedCount}
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-            getCustomerName={getCustomerName}
-            applyMapping={applyMapping}
-            deleteMapping={deleteMapping}
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Mapping List View (no host table loaded)
-// ---------------------------------------------------------------------------
-
-function MappingListView({
-  mappings,
-  filteredMappings,
-  paginatedMappings,
-  mappingSearchQuery,
-  onSearchChange,
-  mappingPage,
-  totalMappingPages,
-  onPageChange,
-  getCustomerName,
-  deleteMapping,
-}) {
-  if (mappings.length === 0) {
-    return (
-      <p className="text-sm text-slate-500 py-4 text-center">
-        No hosts mapped yet. Click &quot;Load Hosts&quot; to link UniFi consoles to customers.
-      </p>
-    );
-  }
+  const hasData = unifiSites.length > 0 || mappings.length > 0;
 
   return (
     <div className="space-y-3">
-      <div className="relative">
-        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <Input
-          placeholder="Search mapped customers or hosts..."
-          value={mappingSearchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-9 h-9 text-sm"
-        />
-      </div>
-      <div className="space-y-2">
-        {paginatedMappings.map(mapping => {
-          const isMapped = Boolean(mapping.customer_id);
-          const freshness = getFreshnessDisplay(mapping.last_synced);
-          return (
-            <div
-              key={mapping.id}
-              className={cn(
-                "flex items-center justify-between p-3 rounded-lg",
-                isMapped ? "bg-emerald-50/60 border border-emerald-100" : "bg-slate-50 border border-slate-100",
-              )}
-            >
-              <div className="flex items-center gap-3">
-                <div className={cn(
-                  "w-2 h-2 rounded-full flex-shrink-0",
-                  isMapped ? "bg-emerald-500" : "bg-slate-300",
-                )} />
-                <Building2 className="w-4 h-4 text-slate-400" />
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-slate-900">{getCustomerName(mapping.customer_id)}</p>
-                    {isMapped && (
-                      <Badge className="bg-emerald-100 text-emerald-700 font-normal text-[10px] px-1.5 py-0">
-                        Mapped
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-sm text-slate-500">{'\u2192'} {mapping.unifi_site_name}</p>
-                  <FreshnessBadge lastSynced={mapping.last_synced} />
-                </div>
-              </div>
-              <Button
-                variant="ghost" size="icon"
-                onClick={() => deleteMapping(mapping.id)}
-                className="text-red-500 hover:text-red-700 hover:bg-red-50"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
-          );
-        })}
-      </div>
-      {totalMappingPages > 1 && (
-        <Pagination
-          page={mappingPage}
-          totalPages={totalMappingPages}
-          totalItems={filteredMappings.length}
-          perPage={MAPPINGS_PER_PAGE}
-          onPageChange={onPageChange}
-        />
-      )}
-    </div>
-  );
-}
+      {/* ── Header Bar ─────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-3 flex-wrap px-3 py-2 bg-slate-50 rounded-lg border border-slate-200">
+        {/* Status dot + label */}
+        <div className="flex items-center gap-2 mr-1">
+          <div className={cn("w-2 h-2 rounded-full", statusDisplay.dotClass)} />
+          <span className="text-xs font-medium text-slate-700">{statusDisplay.label}</span>
+        </div>
 
-// ---------------------------------------------------------------------------
-// Host Table View
-// ---------------------------------------------------------------------------
+        <span className="text-slate-300">|</span>
+        <span className="text-xs text-slate-600 font-medium">UniFi Network</span>
+        <ApiKeyTooltip />
 
-function HostTableView({
-  paginatedSites,
-  filteredSites,
-  unifiSites,
-  mappings,
-  customers,
-  siteSelections,
-  onSiteSelectionChange,
-  searchQuery,
-  onSearchChange,
-  filterTab,
-  onFilterChange,
-  mappedCount,
-  unmappedCount,
-  currentPage,
-  totalPages,
-  onPageChange,
-  getCustomerName,
-  applyMapping,
-  deleteMapping,
-}) {
-  return (
-    <div className="border border-slate-200 rounded-xl overflow-hidden">
-      {/* Header */}
-      <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <Input
-              placeholder="Search hosts..."
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-              className="pl-9 w-56 h-9 text-sm"
-            />
-          </div>
-          <div className="flex items-center border border-slate-200 rounded-lg bg-white">
-            <button
-              onClick={() => onFilterChange('all')}
-              className={cn(
-                "px-3 py-1.5 text-xs font-medium rounded-l-lg transition-colors",
-                filterTab === 'all' ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100",
-              )}
-            >
-              All ({unifiSites.length})
-            </button>
-            <button
-              onClick={() => onFilterChange('mapped')}
-              className={cn(
-                "px-3 py-1.5 text-xs font-medium border-x border-slate-200 transition-colors",
-                filterTab === 'mapped' ? "bg-emerald-600 text-white" : "text-slate-600 hover:bg-slate-100",
-              )}
-            >
-              Mapped ({mappedCount})
-            </button>
-            <button
-              onClick={() => onFilterChange('unmapped')}
-              className={cn(
-                "px-3 py-1.5 text-xs font-medium rounded-r-lg transition-colors",
-                filterTab === 'unmapped' ? "bg-amber-600 text-white" : "text-slate-600 hover:bg-slate-100",
-              )}
-            >
-              Unmapped ({unmappedCount})
-            </button>
-          </div>
+        {/* Inline progress */}
+        {hasData && (
+          <>
+            <span className="text-slate-300">|</span>
+            <MiniProgressBar mapped={mappedCount} total={totalSites} />
+          </>
+        )}
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Action buttons */}
+        <div className="flex items-center gap-1.5">
+          <Button
+            size="sm" variant="outline"
+            onClick={testConnection}
+            disabled={testing}
+            className="h-7 text-xs px-2.5"
+          >
+            <RefreshCw className={cn("w-3 h-3 mr-1", testing && "animate-spin")} />
+            Test
+          </Button>
+          <Button
+            size="sm" variant="outline"
+            onClick={loadUnifiSites}
+            disabled={loadingSites}
+            className="h-7 text-xs px-2.5"
+          >
+            <RefreshCw className={cn("w-3 h-3 mr-1", loadingSites && "animate-spin")} />
+            Refresh
+          </Button>
+          <Button
+            size="sm" variant="outline"
+            onClick={autoMapByName}
+            className="h-7 text-xs px-2.5 text-blue-600 border-blue-200 hover:bg-blue-50"
+          >
+            <Zap className="w-3 h-3 mr-1" />
+            Auto-Map
+          </Button>
+          <Button
+            size="sm"
+            onClick={syncAllDevices}
+            disabled={syncing || mappings.length === 0}
+            className="h-7 text-xs px-2.5 bg-slate-900 hover:bg-slate-800 text-white"
+          >
+            <RefreshCw className={cn("w-3 h-3 mr-1", syncing && "animate-spin")} />
+            {syncing ? `${syncProgress.current}/${syncProgress.total}` : 'Sync All'}
+          </Button>
+          <Button
+            size="sm" variant="ghost"
+            onClick={debugApi}
+            className="h-7 text-xs px-2 text-slate-400 hover:text-slate-600"
+            title="Debug API (logs to console)"
+          >
+            <Bug className="w-3 h-3" />
+          </Button>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-slate-50 border-b border-slate-200">
-            <tr>
-              <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-[30%]">UniFi Host</th>
-              <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-[25%]">Customer</th>
-              <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-[25%]">Suggested Match</th>
-              <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-[20%]">Freshness</th>
-              <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3 w-20"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {paginatedSites.map(site => {
-              const siteId = String(site.id);
-              const existingMapping = mappings.find(m => m.unifi_site_id === siteId);
-              const suggestedMatch = !existingMapping ? getSuggestedMatch(site.name, customers) : null;
-              const selectedCustomerId = siteSelections[siteId] || '';
-              const isMapped = Boolean(existingMapping);
+      {/* ── Filter Tabs + Search ───────────────────────────────────────── */}
+      <div className="flex items-center gap-3">
+        <div className="flex items-center border border-slate-200 rounded-md bg-white">
+          {[
+            { key: 'all', label: `All ${totalSites}` },
+            { key: 'mapped', label: `Mapped ${mappedCount}` },
+            { key: 'unmapped', label: `Unmapped ${unmappedCount}` },
+            { key: 'stale', label: `Stale ${staleCount}` },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => { setFilterTab(tab.key); setCurrentPage(1); }}
+              className={cn(
+                "px-3 py-1.5 text-[11px] font-medium transition-colors",
+                tab.key === 'all' && "rounded-l-md",
+                tab.key === 'stale' && "rounded-r-md",
+                filterTab === tab.key
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-600 hover:bg-slate-100",
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-              return (
-                <tr
-                  key={siteId}
-                  className={cn(
-                    "transition-colors",
-                    isMapped
-                      ? "bg-emerald-50/40 hover:bg-emerald-50/70"
-                      : "bg-white hover:bg-slate-50",
-                  )}
-                >
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className={cn(
-                        "w-2 h-2 rounded-full flex-shrink-0",
-                        isMapped ? "bg-emerald-500" : "bg-slate-300",
-                      )} />
-                      <div>
-                        <p className="font-medium text-slate-900 text-sm">{site.name}</p>
-                        <p className="text-xs text-slate-400">{site.deviceCount || 0} devices</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    {existingMapping ? (
-                      <Badge className="bg-emerald-100 text-emerald-700 font-normal">
-                        <CheckCircle2 className="w-3 h-3 mr-1" />
-                        {getCustomerName(existingMapping.customer_id)}
-                      </Badge>
-                    ) : (
-                      <SearchableCustomerDropdown
-                        customers={customers}
-                        value={selectedCustomerId}
-                        onChange={(val) => onSiteSelectionChange(siteId, val)}
-                        className="w-44"
-                      />
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {!existingMapping && suggestedMatch ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-slate-700">{suggestedMatch.customer.name}</span>
-                        <Badge className={cn(
-                          "text-xs font-normal",
-                          suggestedMatch.score === 100
-                            ? "bg-emerald-100 text-emerald-700"
-                            : "bg-amber-100 text-amber-700",
-                        )}>
-                          {suggestedMatch.score}%
-                        </Badge>
-                      </div>
-                    ) : !existingMapping ? (
-                      <span className="text-sm text-slate-400">{'\u2014'}</span>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-3">
-                    {existingMapping ? (
-                      <FreshnessBadge lastSynced={existingMapping.last_synced} />
-                    ) : (
-                      <span className="flex items-center gap-1 text-[11px] text-slate-400">
-                        <AlertCircle className="w-3 h-3" />
-                        Action needed
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {!existingMapping && (selectedCustomerId || suggestedMatch) ? (
-                      <Button
-                        size="sm"
-                        onClick={() => applyMapping(site, selectedCustomerId || suggestedMatch?.customer.id)}
-                        className="bg-purple-600 hover:bg-purple-700 text-white text-xs h-7 px-3"
-                      >
-                        Apply
-                      </Button>
-                    ) : existingMapping ? (
-                      <Button
-                        size="sm" variant="ghost"
-                        onClick={() => deleteMapping(existingMapping.id)}
-                        className="text-slate-400 hover:text-red-600 h-7"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    ) : null}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+        <div className="flex-1" />
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="px-4 py-3 border-t border-slate-200 bg-slate-50">
-          <Pagination
-            page={currentPage}
-            totalPages={totalPages}
-            totalItems={filteredSites.length}
-            perPage={ITEMS_PER_PAGE}
-            onPageChange={onPageChange}
+        <div className="relative">
+          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Input
+            placeholder="Search sites or customers..."
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+            className="pl-8 h-7 text-xs w-60"
           />
         </div>
+      </div>
+
+      {/* ── Main Table ─────────────────────────────────────────────────── */}
+      {!hasData ? (
+        <div className="text-center py-10 text-sm text-slate-500 border border-slate-200 rounded-lg">
+          No hosts loaded. Click <strong>Refresh</strong> to pull UniFi sites or <strong>Test</strong> to verify the connection.
+        </div>
+      ) : (
+        <div className="border border-slate-200 rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2 w-10" />
+                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2">Site</th>
+                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2 w-16">Devices</th>
+                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2">Customer</th>
+                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2 w-24">Last Sync</th>
+                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2 w-20" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {paginatedRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-6 text-xs text-slate-400">
+                      No sites match the current filter.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedRows.map((row, idx) => (
+                    <SiteRow
+                      key={row.siteId}
+                      row={row}
+                      customers={customers}
+                      getCustomerName={getCustomerName}
+                      onMap={(customer) => applyMapping(row.siteId, row.siteName, customer)}
+                      onDelete={() => row.mapping && deleteMapping(row.mapping.id)}
+                      isOdd={idx % 2 === 1}
+                    />
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {filteredRows.length > ITEMS_PER_PAGE && (
+            <TablePagination
+              page={safePage}
+              totalPages={totalPages}
+              totalItems={filteredRows.length}
+              perPage={ITEMS_PER_PAGE}
+              onPageChange={setCurrentPage}
+            />
+          )}
+        </div>
       )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Shared Pagination
+// Table Row
 // ---------------------------------------------------------------------------
 
-function Pagination({ page, totalPages, totalItems, perPage, onPageChange }) {
-  const start = ((page - 1) * perPage) + 1;
-  const end = Math.min(page * perPage, totalItems);
+function SiteRow({ row, customers, getCustomerName, onMap, onDelete, isOdd }) {
+  const suggestedMatch = useMemo(
+    () => (!row.isMapped ? getSuggestedMatch(row.siteName, customers) : null),
+    [row.isMapped, row.siteName, customers],
+  );
+
+  const syncTime = row.mapping ? getRelativeTime(row.mapping.last_synced) : null;
+  const statusDot = getRowStatusDot(row.mapping);
+
   return (
-    <div className="flex items-center justify-between pt-2">
-      <p className="text-xs text-slate-500">{start}&ndash;{end} of {totalItems}</p>
-      <div className="flex items-center gap-1">
-        <Button
-          size="sm" variant="outline"
-          onClick={() => onPageChange(Math.max(1, page - 1))}
-          disabled={page === 1}
-          className="h-7 px-2"
-        >
-          <ChevronLeft className="w-4 h-4" />
-        </Button>
-        <span className="text-xs text-slate-600 px-2">{page} / {totalPages}</span>
-        <Button
-          size="sm" variant="outline"
-          onClick={() => onPageChange(Math.min(totalPages, page + 1))}
-          disabled={page === totalPages}
-          className="h-7 px-2"
-        >
-          <ChevronRight className="w-4 h-4" />
-        </Button>
-      </div>
-    </div>
+    <tr className={cn(
+      "transition-colors",
+      isOdd ? "bg-slate-50/40" : "bg-white",
+      "hover:bg-slate-100/60",
+    )}>
+      {/* Status dot */}
+      <td className="px-3 py-2 text-center">
+        <div className={cn("w-2 h-2 rounded-full mx-auto", statusDot)} />
+      </td>
+
+      {/* Site name */}
+      <td className="px-3 py-2">
+        <span className="text-sm font-medium text-slate-900">{row.siteName}</span>
+      </td>
+
+      {/* Device count */}
+      <td className="px-3 py-2">
+        <span className="text-xs text-slate-500">{row.deviceCount}</span>
+      </td>
+
+      {/* Customer */}
+      <td className="px-3 py-2">
+        {row.isMapped ? (
+          <span className="inline-flex items-center gap-1 text-sm text-slate-800">
+            {getCustomerName(row.mapping.customer_id)}
+            <CheckCircle2 className="w-3 h-3 text-emerald-500 flex-shrink-0" />
+          </span>
+        ) : (
+          <InlineCustomerSearch
+            customers={customers}
+            suggestedMatch={suggestedMatch}
+            onSelect={onMap}
+          />
+        )}
+      </td>
+
+      {/* Last sync */}
+      <td className="px-3 py-2">
+        {syncTime ? (
+          <span className={cn("text-[11px]", syncTime.colorClass)}>
+            {syncTime.text}
+          </span>
+        ) : (
+          <span className="text-[11px] text-slate-400">Never</span>
+        )}
+      </td>
+
+      {/* Actions */}
+      <td className="px-3 py-2 text-right">
+        <div className="flex items-center justify-end gap-1">
+          {row.isStale && row.mapping && (
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await client.functions.invoke('syncUniFiDevices', {
+                    action: 'sync_one',
+                    mapping_id: row.mapping.id,
+                  });
+                  toast.success(`Re-synced ${row.siteName}`);
+                } catch (err) {
+                  toast.error(`Sync failed: ${err.message}`);
+                }
+              }}
+              className="p-1 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded"
+              title="Re-sync stale site"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {row.isMapped && (
+            <button
+              type="button"
+              onClick={onDelete}
+              className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
+              title="Remove mapping"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </td>
+    </tr>
   );
 }
