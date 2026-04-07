@@ -175,17 +175,21 @@ export async function syncUniFiDevices(params) {
 
       // Add cloud-managed sites (individual customer sites within a cloud console)
       for (const site of cloudSites) {
-        const siteId = site.siteId || site.id || site._id;
-        const siteName = site.siteName || site.name || site.desc || 'Unknown Site';
-        // Skip if already represented as a host
+        const siteId = site.siteId;
+        const meta = site.meta || {};
+        const stats = site.statistics?.counts || {};
+        const siteName = meta.desc || meta.name || 'Unknown Site';
+        // Skip "Default" sites and sites already represented as hosts
+        if (siteName === 'Default' || siteName === 'default') continue;
         if (sites.some(s => s.id === siteId)) continue;
         sites.push({
           id: siteId,
           name: siteName,
-          deviceCount: site.deviceCount || site.devices?.length || 0,
+          deviceCount: stats.totalDevice || 0,
           updatedAt: site.updatedAt || null,
           type: 'site',
           hostId: site.hostId || null,
+          gatewayMac: meta.gatewayMac || null,
         });
       }
 
@@ -280,22 +284,35 @@ export async function syncUniFiDevices(params) {
 
       let rawDevices;
 
-      // Check if this is a console-based site (hostId:mac format)
-      if (siteId.includes(':')) {
-        const [hostId, mac] = siteId.split(':');
-        const hostEntry = hosts.find(h => h.hostId === hostId);
-        if (!hostEntry) return { success: false, error: `Host ${hostId} not found` };
-        // Find the console device and all devices on the same network
-        rawDevices = (hostEntry.devices || []).filter(d =>
-          d.mac === mac || d.name?.includes(mapping.customer_name?.split(' ')[0] || '___')
-        );
-        // If only the console matched, include all devices (fallback for cloud setups)
-        if (rawDevices.length <= 1) rawDevices = [hostEntry.devices.find(d => d.mac === mac)].filter(Boolean);
-      } else {
-        // Standard host-level mapping
-        const hostEntry = hosts.find(h => h.hostId === siteId);
-        if (!hostEntry) return { success: false, error: `Host ${siteId} not found` };
+      // Try to find as a host first (standard mapping)
+      const hostEntry = hosts.find(h => h.hostId === siteId);
+      if (hostEntry) {
         rawDevices = hostEntry.devices || [];
+      } else {
+        // Cloud site — fetch site details to get gateway MAC, then find devices in parent host
+        const cloudSites = await fetchSites(apiKey);
+        const site = cloudSites.find(s => s.siteId === siteId);
+        if (!site) return { success: false, error: `Site ${siteId} not found` };
+
+        const parentHost = hosts.find(h => h.hostId === site.hostId);
+        if (!parentHost) return { success: false, error: `Parent host for site not found` };
+
+        const gatewayMac = site.meta?.gatewayMac?.replace(/:/g, '').toUpperCase();
+        if (gatewayMac) {
+          // Find the gateway + all devices adopted to this site
+          // UniFi devices on the same site share the gateway — filter by matching
+          rawDevices = (parentHost.devices || []).filter(d => {
+            const mac = (d.mac || '').toUpperCase();
+            return mac === gatewayMac;
+          });
+          // If only gateway found, we need all site devices — use site device count as hint
+          if (rawDevices.length <= 1 && site.statistics?.counts?.totalDevice > 1) {
+            // Fallback: just use the gateway device for now
+            // Full site-device mapping requires /ea/sites/{siteId}/devices endpoint
+          }
+        } else {
+          rawDevices = [];
+        }
       }
 
       const devices = rawDevices.map(mapDevice);
@@ -340,22 +357,44 @@ export async function syncUniFiDevices(params) {
         return { success: true, message: 'No mappings to sync', synced: 0 };
       }
 
-      // Fetch all hosts once, then match per mapping
-      const hosts = await fetchHostsWithDevices(apiKey);
+      // Fetch all hosts + cloud sites once
+      const [hosts, cloudSites] = await Promise.all([
+        fetchHostsWithDevices(apiKey),
+        fetchSites(apiKey),
+      ]);
       const hostMap = Object.fromEntries(hosts.map(h => [h.hostId, h]));
+      const siteMap = Object.fromEntries(cloudSites.map(s => [s.siteId, s]));
 
       let synced = 0;
       const errors = [];
 
       for (const mapping of mappings) {
         try {
-          const hostEntry = hostMap[mapping.unifi_site_id];
-          if (!hostEntry) {
-            errors.push({ customer: mapping.customer_name, error: 'Host not found in API' });
-            continue;
+          let rawDevices;
+          const siteId = mapping.unifi_site_id;
+
+          // Try host-level first
+          const hostEntry = hostMap[siteId];
+          if (hostEntry) {
+            rawDevices = hostEntry.devices || [];
+          } else {
+            // Cloud site — find via gateway MAC in parent host
+            const site = siteMap[siteId];
+            if (!site) {
+              errors.push({ customer: mapping.customer_name, error: 'Site/host not found' });
+              continue;
+            }
+            const parentHost = hostMap[site.hostId];
+            if (!parentHost) {
+              errors.push({ customer: mapping.customer_name, error: 'Parent host not found' });
+              continue;
+            }
+            const gatewayMac = (site.meta?.gatewayMac || '').replace(/:/g, '').toUpperCase();
+            rawDevices = gatewayMac
+              ? (parentHost.devices || []).filter(d => (d.mac || '').toUpperCase() === gatewayMac)
+              : [];
           }
 
-          const rawDevices = hostEntry.devices || [];
           const devices = rawDevices.map(mapDevice);
 
           const summary = {
