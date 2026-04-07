@@ -297,16 +297,33 @@ export async function syncUniFiDevices(params) {
         // Cloud site — try per-site device endpoint first, fall back to gateway MAC
         let fetched = false;
 
-        // Attempt 1: /ea/sites/{siteId}/devices (direct per-site listing)
+        // Fetch site metadata to get hostId and site name
+        const cloudSites = await fetchSites(apiKey);
+        const site = cloudSites.find(s => s.siteId === siteId);
+        if (!site) return { success: false, error: `Site ${siteId} not found` };
+
+        // Attempt 1: proxy endpoint — /ea/proxies/{hostId}/api/s/{siteName}/stat/device
         try {
-          const siteDevices = await unifiApiCall(apiKey, `/ea/sites/${siteId}/devices`);
-          rawDevices = siteDevices.data || siteDevices.devices || [];
-          if (rawDevices.length > 0) fetched = true;
-        } catch {
-          // Endpoint may not exist — fall back
+          const siteName = site.meta?.name || 'default';
+          const proxyResult = await unifiApiCall(apiKey, `/ea/proxies/${site.hostId}/api/s/${siteName}/stat/device`);
+          rawDevices = proxyResult.data || proxyResult || [];
+          if (Array.isArray(rawDevices) && rawDevices.length > 0) fetched = true;
+        } catch (e) {
+          console.log(`[UniFi] Proxy endpoint failed for site ${siteId}: ${e.message}`);
         }
 
-        // Attempt 2: match devices by gateway MAC + name prefix
+        // Attempt 2: /ea/sites/{siteId}/devices
+        if (!fetched) {
+          try {
+            const siteDevices = await unifiApiCall(apiKey, `/ea/sites/${siteId}/devices`);
+            rawDevices = siteDevices.data || siteDevices.devices || [];
+            if (rawDevices.length > 0) fetched = true;
+          } catch {
+            // fall back
+          }
+        }
+
+        // Attempt 3: match devices by gateway MAC + name prefix
         if (!fetched) {
           const cloudSites = await fetchSites(apiKey);
           const site = cloudSites.find(s => s.siteId === siteId);
@@ -337,7 +354,8 @@ export async function syncUniFiDevices(params) {
               console.log(`[UniFi] Site ${site.meta?.desc}: prefix "${prefix}" matched ${rawDevices.length} devices`);
             } else {
               // No usable prefix — just include the gateway
-              rawDevices = gatewayDevice ? [gatewayDevice] : [];
+              // No prefix or no gateway — include all host devices as last resort
+              rawDevices = allHostDevices;
             }
           } else {
             rawDevices = [];
@@ -441,7 +459,8 @@ export async function syncUniFiDevices(params) {
                     return dp && dp === prefix;
                   });
                 } else {
-                  rawDevices = gatewayDevice ? [gatewayDevice] : [];
+                  // No prefix or no gateway — include all host devices as last resort
+              rawDevices = allHostDevices;
                 }
               } else {
                 rawDevices = [];
