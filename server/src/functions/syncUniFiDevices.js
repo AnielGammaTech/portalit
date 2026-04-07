@@ -134,6 +134,25 @@ export async function syncUniFiDevices(params) {
   // ─── List Hosts (for mapping UI) ──────────────────────────────────────
   // Each host is a console/gateway (UDM, Cloud Key, etc.) managing devices.
   // The user maps hosts to customers.
+  // Debug: inspect raw API responses
+  if (action === 'debug_api') {
+    try {
+      const [hostsRaw, sitesRaw] = await Promise.all([
+        unifiApiCall(apiKey, '/ea/devices'),
+        unifiApiCall(apiKey, '/ea/sites').catch(() => ({ data: [] })),
+      ]);
+      const firstHost = (hostsRaw.data || [])[0];
+      const firstSite = (sitesRaw.data || [])[0];
+      return {
+        success: true,
+        hosts: { count: (hostsRaw.data || []).length, firstHostKeys: firstHost ? Object.keys(firstHost) : [], firstHost: firstHost ? { ...firstHost, devices: `[${(firstHost.devices || []).length} devices - first: ${JSON.stringify((firstHost.devices || [])[0] || {}).slice(0, 500)}]` } : null },
+        sites: { count: (sitesRaw.data || []).length, firstSiteKeys: firstSite ? Object.keys(firstSite) : [], firstSite: firstSite ? JSON.stringify(firstSite).slice(0, 1000) : null },
+      };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   if (action === 'list_sites') {
     try {
       const [hosts, cloudSites] = await Promise.all([
