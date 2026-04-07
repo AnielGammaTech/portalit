@@ -41,6 +41,13 @@ function categorizeDeviceType(device) {
   // Console devices that aren't NAS are gateways/firewalls
   if (device.isConsole) return 'firewall';
 
+  // Gateways/Firewalls: UDM*, UXG*, USG*, UGW*, UCG* — check BEFORE APs/switches
+  if (shortname.startsWith('UDM') || shortname.startsWith('UXG') ||
+      shortname.startsWith('USG') || shortname.startsWith('UGW') || shortname.startsWith('UCG') ||
+      model.startsWith('UDM') || model.startsWith('UXG') || model.startsWith('UCG') ||
+      model.includes('DREAM') || model.includes('GATEWAY') || model.includes('CLOUD')) {
+    return 'firewall';
+  }
   // Switches: USW*, US-* — check BEFORE APs (USW Lite would falsely match AP 'LITE' pattern)
   if (shortname.startsWith('USW') || shortname.startsWith('US-') ||
       model.startsWith('USW') || model.includes('SWITCH') ||
@@ -55,13 +62,6 @@ function categorizeDeviceType(device) {
       model.includes(' AP') || model.includes('ACCESS POINT') ||
       name.includes(' AP')) {
     return 'access_point';
-  }
-  // Gateways/Firewalls: UDM*, UXG*, USG*, UGW*, UCG*
-  if (shortname.startsWith('UDM') || shortname.startsWith('UXG') ||
-      shortname.startsWith('USG') || shortname.startsWith('UGW') || shortname.startsWith('UCG') ||
-      model.startsWith('UDM') || model.startsWith('UXG') || model.startsWith('UCG') ||
-      model.includes('DREAM') || model.includes('GATEWAY') || model.includes('CLOUD')) {
-    return 'firewall';
   }
   return 'other';
 }
