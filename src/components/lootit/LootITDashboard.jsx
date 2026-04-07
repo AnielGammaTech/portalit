@@ -84,10 +84,12 @@ export default function LootITDashboard({ onSelectCustomer }) {
         if (filter === 'issues') return s.over > 0 || s.under > 0;
         if (filter === 'matched') return s.matched > 0 && s.over === 0 && s.under === 0;
         if (filter === 'no_data') return s.noData > 0;
+        if (filter === 'signed_off') return signedOffCustomerIds.has(entry.customer.id);
+        if (filter === 'pending') return !signedOffCustomerIds.has(entry.customer.id);
         return true;
       })
       .sort((a, b) => (a.customer?.name || '').localeCompare(b.customer?.name || ''));
-  }, [reconciliations, search, filter]);
+  }, [reconciliations, search, filter, signedOffCustomerIds]);
 
   // Auto-retry if LootIT loads with all empty data
   useAutoRetry(
@@ -107,12 +109,13 @@ export default function LootITDashboard({ onSelectCustomer }) {
   return (
     <div className="space-y-5">
       {/* Summary Cards */}
-      <div className="grid grid-cols-6 gap-3">
+      <div className="grid grid-cols-7 gap-3">
         <SummaryCard icon={Database} label="Customers" value={globalSummary.totalCustomers} color="slate" />
         <SummaryCard icon={CheckCircle2} label="Matched" value={globalSummary.totalMatched} color="emerald" />
         <SummaryCard icon={TrendingDown} label="Under-billed" value={globalSummary.totalUnder} color="red" />
         <SummaryCard icon={TrendingUp} label="Over-billed" value={globalSummary.totalOver} color="amber" />
         <SummaryCard icon={AlertTriangle} label="Issues" value={globalSummary.customersWithIssues} color="amber" />
+        <SummaryCard icon={Stamp} label="Signed Off" value={signedOffCustomerIds.size} color="violet" />
         <SummaryCard icon={Bell} label="Anomalies" value={anomalies.length} color="red" />
       </div>
 
@@ -175,6 +178,8 @@ export default function LootITDashboard({ onSelectCustomer }) {
             { key: 'all', label: 'All' },
             { key: 'issues', label: 'Issues' },
             { key: 'matched', label: 'Matched' },
+            { key: 'signed_off', label: 'Signed Off' },
+            { key: 'pending', label: 'Pending' },
           ].map((f) => (
             <button
               key={f.key}
@@ -398,6 +403,7 @@ function SummaryCard({ icon: Icon, label, value, color }) {
     emerald: { icon: 'bg-emerald-100 text-emerald-600', border: 'border-emerald-200' },
     red: { icon: 'bg-red-100 text-red-600', border: 'border-red-200' },
     amber: { icon: 'bg-amber-100 text-amber-600', border: 'border-amber-200' },
+    violet: { icon: 'bg-violet-100 text-violet-600', border: 'border-violet-200' },
   };
   const s = styles[color] || styles.slate;
 
