@@ -145,8 +145,13 @@ export async function syncUniFiDevices(params) {
       const firstSite = (sitesRaw.data || [])[0];
       return {
         success: true,
-        hosts: { count: (hostsRaw.data || []).length, firstHostKeys: firstHost ? Object.keys(firstHost) : [], firstHost: firstHost ? { ...firstHost, devices: `[${(firstHost.devices || []).length} devices - first: ${JSON.stringify((firstHost.devices || [])[0] || {}).slice(0, 500)}]` } : null },
+        hosts: { count: (hostsRaw.data || []).length, firstHostKeys: firstHost ? Object.keys(firstHost) : [], firstHost: firstHost ? { ...firstHost, devices: `[${(firstHost.devices || []).length} devices]`, allDeviceKeys: (firstHost.devices || []).slice(0, 3).map(d => ({ keys: Object.keys(d), name: d.name, mac: d.mac, siteId: d.siteId, site_id: d.site_id, hostSiteId: d.hostSiteId })) } : null },
         sites: { count: (sitesRaw.data || []).length, firstSiteKeys: firstSite ? Object.keys(firstSite) : [], firstSite: firstSite ? JSON.stringify(firstSite).slice(0, 1000) : null },
+        largeHost: (() => {
+          const large = (hostsRaw.data || []).find(h => (h.devices || []).length > 10);
+          if (!large) return null;
+          return { name: large.hostName, deviceCount: large.devices.length, sampleDevices: large.devices.slice(0, 5).map(d => ({ name: d.name, mac: d.mac, ...Object.fromEntries(Object.entries(d).filter(([k]) => /site/i.test(k))) })) };
+        })(),
       };
     } catch (error) {
       return { success: false, error: error.message };
