@@ -89,6 +89,20 @@ async function fetchHostsWithDevices(apiKey) {
 }
 
 /**
+ * Fetch all sites from /ea/sites (cloud-managed sites).
+ * Returns sites that can be mapped individually to customers.
+ */
+async function fetchSites(apiKey) {
+  try {
+    const result = await unifiApiCall(apiKey, '/ea/sites');
+    return result.data || [];
+  } catch {
+    // Endpoint may not exist on all setups
+    return [];
+  }
+}
+
+/**
  * Map a raw device from the API to our cached format.
  */
 function mapDevice(device) {
@@ -122,15 +136,66 @@ export async function syncUniFiDevices(params) {
   // The user maps hosts to customers.
   if (action === 'list_sites') {
     try {
-      const hosts = await fetchHostsWithDevices(apiKey);
-      const sites = hosts.map(host => ({
-        id: host.hostId,
-        name: host.hostName || 'Unknown Host',
-        deviceCount: (host.devices || []).length,
-        updatedAt: host.updatedAt || null,
-      }));
-      // Sort by name for a clean UI
+      const [hosts, cloudSites] = await Promise.all([
+        fetchHostsWithDevices(apiKey),
+        fetchSites(apiKey),
+      ]);
+
+      const sites = [];
+
+      // Add standalone hosts (direct consoles like UDM Pro)
+      for (const host of hosts) {
+        sites.push({
+          id: host.hostId,
+          name: host.hostName || 'Unknown Host',
+          deviceCount: (host.devices || []).length,
+          updatedAt: host.updatedAt || null,
+          type: 'host',
+        });
+      }
+
+      // Add cloud-managed sites (individual customer sites within a cloud console)
+      for (const site of cloudSites) {
+        const siteId = site.siteId || site.id || site._id;
+        const siteName = site.siteName || site.name || site.desc || 'Unknown Site';
+        // Skip if already represented as a host
+        if (sites.some(s => s.id === siteId)) continue;
+        sites.push({
+          id: siteId,
+          name: siteName,
+          deviceCount: site.deviceCount || site.devices?.length || 0,
+          updatedAt: site.updatedAt || null,
+          type: 'site',
+          hostId: site.hostId || null,
+        });
+      }
+
+      // If no cloud sites found, try to extract sites from device groupings within large hosts
+      if (cloudSites.length === 0) {
+        for (const host of hosts) {
+          if ((host.devices || []).length <= 5) continue; // Only expand large hosts
+          // Group devices by their gateway/console — each console represents a customer site
+          const consoleDevices = (host.devices || []).filter(d => d.isConsole);
+          if (consoleDevices.length > 1) {
+            // Multiple consoles in one host = multi-site cloud setup
+            for (const console of consoleDevices) {
+              const consoleName = console.name || console.hostname || `Site-${console.mac?.slice(-6)}`;
+              sites.push({
+                id: `${host.hostId}:${console.mac}`,
+                name: consoleName,
+                deviceCount: 1,
+                updatedAt: host.updatedAt || null,
+                type: 'console',
+                hostId: host.hostId,
+                mac: console.mac,
+              });
+            }
+          }
+        }
+      }
+
       sites.sort((a, b) => a.name.localeCompare(b.name));
+      console.log(`[UniFi] list_sites: ${hosts.length} hosts, ${cloudSites.length} cloud sites, ${sites.length} total`);
       return { success: true, sites };
     } catch (error) {
       return { success: false, error: error.message };
@@ -189,17 +254,31 @@ export async function syncUniFiDevices(params) {
       }
 
       const mapping = mappings[0];
-      const hostId = mapping.unifi_site_id; // stores the hostId
+      const siteId = mapping.unifi_site_id;
 
-      // Fetch all hosts with devices and find the matching one
+      // Fetch all hosts with devices
       const hosts = await fetchHostsWithDevices(apiKey);
-      const hostEntry = hosts.find(h => h.hostId === hostId);
 
-      if (!hostEntry) {
-        return { success: false, error: `Host ${hostId} not found in UniFi API` };
+      let rawDevices;
+
+      // Check if this is a console-based site (hostId:mac format)
+      if (siteId.includes(':')) {
+        const [hostId, mac] = siteId.split(':');
+        const hostEntry = hosts.find(h => h.hostId === hostId);
+        if (!hostEntry) return { success: false, error: `Host ${hostId} not found` };
+        // Find the console device and all devices on the same network
+        rawDevices = (hostEntry.devices || []).filter(d =>
+          d.mac === mac || d.name?.includes(mapping.customer_name?.split(' ')[0] || '___')
+        );
+        // If only the console matched, include all devices (fallback for cloud setups)
+        if (rawDevices.length <= 1) rawDevices = [hostEntry.devices.find(d => d.mac === mac)].filter(Boolean);
+      } else {
+        // Standard host-level mapping
+        const hostEntry = hosts.find(h => h.hostId === siteId);
+        if (!hostEntry) return { success: false, error: `Host ${siteId} not found` };
+        rawDevices = hostEntry.devices || [];
       }
 
-      const rawDevices = hostEntry.devices || [];
       const devices = rawDevices.map(mapDevice);
 
       const summary = {
