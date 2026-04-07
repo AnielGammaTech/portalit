@@ -289,29 +289,60 @@ export async function syncUniFiDevices(params) {
       if (hostEntry) {
         rawDevices = hostEntry.devices || [];
       } else {
-        // Cloud site — fetch site details to get gateway MAC, then find devices in parent host
-        const cloudSites = await fetchSites(apiKey);
-        const site = cloudSites.find(s => s.siteId === siteId);
-        if (!site) return { success: false, error: `Site ${siteId} not found` };
+        // Cloud site — try per-site device endpoint first, fall back to gateway MAC
+        let fetched = false;
 
-        const parentHost = hosts.find(h => h.hostId === site.hostId);
-        if (!parentHost) return { success: false, error: `Parent host for site not found` };
+        // Attempt 1: /ea/sites/{siteId}/devices (direct per-site listing)
+        try {
+          const siteDevices = await unifiApiCall(apiKey, `/ea/sites/${siteId}/devices`);
+          rawDevices = siteDevices.data || siteDevices.devices || [];
+          if (rawDevices.length > 0) fetched = true;
+        } catch {
+          // Endpoint may not exist — fall back
+        }
 
-        const gatewayMac = site.meta?.gatewayMac?.replace(/:/g, '').toUpperCase();
-        if (gatewayMac) {
-          // Find the gateway + all devices adopted to this site
-          // UniFi devices on the same site share the gateway — filter by matching
-          rawDevices = (parentHost.devices || []).filter(d => {
-            const mac = (d.mac || '').toUpperCase();
-            return mac === gatewayMac;
-          });
-          // If only gateway found, we need all site devices — use site device count as hint
-          if (rawDevices.length <= 1 && site.statistics?.counts?.totalDevice > 1) {
-            // Fallback: just use the gateway device for now
-            // Full site-device mapping requires /ea/sites/{siteId}/devices endpoint
+        // Attempt 2: /ea/devices filtered by hostId, then match by gateway MAC
+        if (!fetched) {
+          const cloudSites = await fetchSites(apiKey);
+          const site = cloudSites.find(s => s.siteId === siteId);
+          if (!site) return { success: false, error: `Site ${siteId} not found` };
+
+          const parentHost = hosts.find(h => h.hostId === site.hostId);
+          if (!parentHost) return { success: false, error: `Parent host for site not found` };
+
+          // Collect all gateway MACs from OTHER sites on the same host
+          const otherSiteGatewayMacs = new Set();
+          for (const s of cloudSites) {
+            if (s.hostId === site.hostId && s.siteId !== siteId && s.meta?.gatewayMac) {
+              otherSiteGatewayMacs.add(s.meta.gatewayMac.replace(/:/g, '').toUpperCase());
+            }
           }
-        } else {
-          rawDevices = [];
+
+          const gatewayMac = (site.meta?.gatewayMac || '').replace(/:/g, '').toUpperCase();
+          const allHostDevices = parentHost.devices || [];
+
+          if (gatewayMac) {
+            // Include: the gateway itself + any device NOT claimed by another site's gateway
+            rawDevices = allHostDevices.filter(d => {
+              const mac = (d.mac || '').toUpperCase();
+              // This device IS our gateway
+              if (mac === gatewayMac) return true;
+              // This device is another site's gateway — exclude
+              if (otherSiteGatewayMacs.has(mac)) return false;
+              // If device is a console/gateway and NOT ours — exclude
+              if (d.isConsole && mac !== gatewayMac) return false;
+              // Non-gateway devices: include only if this host has just this site's gateway
+              // (can't distinguish without site-device association from API)
+              return false;
+            });
+
+            // If only gateway found but site has more devices, log it
+            if (rawDevices.length < (site.statistics?.counts?.totalDevice || 0)) {
+              console.warn(`[UniFi] Site ${siteId} (${site.meta?.desc}): found ${rawDevices.length}/${site.statistics?.counts?.totalDevice} devices — per-site endpoint not available`);
+            }
+          } else {
+            rawDevices = [];
+          }
         }
       }
 
@@ -378,21 +409,43 @@ export async function syncUniFiDevices(params) {
           if (hostEntry) {
             rawDevices = hostEntry.devices || [];
           } else {
-            // Cloud site — find via gateway MAC in parent host
-            const site = siteMap[siteId];
-            if (!site) {
-              errors.push({ customer: mapping.customer_name, error: 'Site/host not found' });
-              continue;
+            // Cloud site — try per-site endpoint, fall back to gateway MAC
+            let fetched = false;
+            try {
+              const siteDevices = await unifiApiCall(apiKey, `/ea/sites/${siteId}/devices`);
+              rawDevices = siteDevices.data || siteDevices.devices || [];
+              if (rawDevices.length > 0) fetched = true;
+            } catch { /* fall back */ }
+
+            if (!fetched) {
+              const site = siteMap[siteId];
+              if (!site) {
+                errors.push({ customer: mapping.customer_name, error: 'Site/host not found' });
+                continue;
+              }
+              const parentHost = hostMap[site.hostId];
+              if (!parentHost) {
+                errors.push({ customer: mapping.customer_name, error: 'Parent host not found' });
+                continue;
+              }
+              const gatewayMac = (site.meta?.gatewayMac || '').replace(/:/g, '').toUpperCase();
+              // Include gateway + exclude other sites' gateways
+              const otherGateways = new Set();
+              for (const s of cloudSites) {
+                if (s.hostId === site.hostId && s.siteId !== siteId && s.meta?.gatewayMac) {
+                  otherGateways.add(s.meta.gatewayMac.replace(/:/g, '').toUpperCase());
+                }
+              }
+              rawDevices = gatewayMac
+                ? (parentHost.devices || []).filter(d => {
+                    const mac = (d.mac || '').toUpperCase();
+                    if (mac === gatewayMac) return true;
+                    if (otherGateways.has(mac)) return false;
+                    if (d.isConsole) return false;
+                    return false;
+                  })
+                : [];
             }
-            const parentHost = hostMap[site.hostId];
-            if (!parentHost) {
-              errors.push({ customer: mapping.customer_name, error: 'Parent host not found' });
-              continue;
-            }
-            const gatewayMac = (site.meta?.gatewayMac || '').replace(/:/g, '').toUpperCase();
-            rawDevices = gatewayMac
-              ? (parentHost.devices || []).filter(d => (d.mac || '').toUpperCase() === gatewayMac)
-              : [];
           }
 
           const devices = rawDevices.map(mapDevice);

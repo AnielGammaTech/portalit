@@ -300,6 +300,7 @@ export function useReconciliationData(customerId) {
           customer,
           reconciliations: recon,
           pax8Reconciliations: pax8Recon,
+          vendorMappings: custMappings,
           summary: getDiscrepancySummary(recon),
         };
       }
