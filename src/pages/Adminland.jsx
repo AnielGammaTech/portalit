@@ -652,6 +652,27 @@ export default function Adminland() {
     }
   };
 
+  if (!user) {
+    return (
+      <div className="max-w-5xl mx-auto py-8 px-4 space-y-6">
+        <div className="flex items-center gap-3 mb-8">
+          <div className="w-11 h-11 rounded-xl bg-slate-200 animate-pulse" />
+          <div className="h-7 w-40 bg-slate-200 rounded-lg animate-pulse" />
+        </div>
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className="space-y-3">
+            <div className="h-4 w-24 bg-slate-100 rounded animate-pulse" />
+            <div className="grid grid-cols-2 gap-3">
+              {[1, 2].map(j => (
+                <div key={j} className="h-20 bg-slate-100 rounded-xl animate-pulse" />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-5xl mx-auto py-8 px-4">
       {/* Header */}
