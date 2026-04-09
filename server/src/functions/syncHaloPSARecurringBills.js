@@ -67,6 +67,35 @@ export async function syncHaloPSARecurringBills(body, _user) {
     return { success: true, message: 'HaloPSA connection successful!' };
   }
 
+  if (action === 'debug_frequency') {
+    // Dump raw HaloPSA recurring invoice fields to diagnose frequency mapping
+    const raw = await haloGet('RecurringInvoice?page_size=20&includelines=false', config);
+    const bills = extractRecords(raw);
+    const samples = bills.slice(0, 15).map(b => ({
+      id: b.id,
+      name: b.name || b.Name,
+      client_name: b.client_name || b.ClientName,
+      // All possible frequency fields
+      period: b.period,
+      Period: b.Period,
+      frequency: b.frequency,
+      Frequency: b.Frequency,
+      billing_cycle: b.billing_cycle,
+      BillingCycle: b.BillingCycle,
+      repeat_period: b.repeat_period,
+      RepeatPeriod: b.RepeatPeriod,
+      recurringtype: b.recurringtype,
+      RecurringType: b.RecurringType,
+      type: b.type,
+      Type: b.Type,
+      // Dump all keys so we can find the right field
+      allKeys: Object.keys(b),
+      // Show what we currently map it to
+      currentMapping: normalizeFrequency(b),
+    }));
+    return { success: true, samples };
+  }
+
   if (action === 'sync_customer') {
     if (!customer_id) {
       const err = new Error('customer_id is required');
