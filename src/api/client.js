@@ -46,29 +46,47 @@ function toSnakeCase(str) {
 let _cachedToken = null;
 let _tokenExpiresAt = 0;
 
-supabase.auth.onAuthStateChange((_event, session) => {
+function updateTokenCache(session) {
   _cachedToken = session?.access_token || null;
-  // Cache until 60s before expiry (Supabase tokens are typically 3600s)
   _tokenExpiresAt = session?.expires_at
     ? (session.expires_at * 1000) - 60000
     : 0;
+}
+
+supabase.auth.onAuthStateChange((_event, session) => {
+  updateTokenCache(session);
 });
 
+// Re-validate session when tab regains focus (handles background token expiry)
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        updateTokenCache(session);
+      }).catch(() => {});
+    }
+  });
+}
+
 async function getAuthToken() {
-  // Use cached token if still valid
   if (_cachedToken && Date.now() < _tokenExpiresAt) {
     return _cachedToken;
   }
-  // Fallback: fetch fresh session (cold start or expired)
   const { data: { session } } = await supabase.auth.getSession();
-  _cachedToken = session?.access_token || null;
-  _tokenExpiresAt = session?.expires_at
-    ? (session.expires_at * 1000) - 60000
-    : 0;
+  updateTokenCache(session);
   return _cachedToken;
 }
 
-async function apiFetch(path, { method = 'POST', body, timeout = 60000 } = {}) {
+// Force-refresh the token by clearing cache and fetching a new session
+async function forceRefreshToken() {
+  _cachedToken = null;
+  _tokenExpiresAt = 0;
+  const { data: { session } } = await supabase.auth.refreshSession();
+  updateTokenCache(session);
+  return _cachedToken;
+}
+
+async function apiFetch(path, { method = 'POST', body, timeout = 60000, _retried = false } = {}) {
   const token = await getAuthToken();
   const headers = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -83,6 +101,15 @@ async function apiFetch(path, { method = 'POST', body, timeout = 60000 } = {}) {
       body: body != null ? JSON.stringify(body) : undefined,
       signal: controller.signal,
     });
+
+    // On 401, force-refresh the token and retry once
+    if (response.status === 401 && !_retried) {
+      clearTimeout(timeoutId);
+      const freshToken = await forceRefreshToken();
+      if (freshToken) {
+        return apiFetch(path, { method, body, timeout, _retried: true });
+      }
+    }
 
     const data = await response.json();
     if (!response.ok) {
