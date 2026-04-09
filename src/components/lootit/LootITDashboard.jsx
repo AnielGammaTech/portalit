@@ -11,7 +11,7 @@ export default function LootITDashboard({ onSelectCustomer }) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
   const queryClient = useQueryClient();
-  const { reconciliations, globalSummary, bills, customers, isLoading } = useReconciliationData();
+  const { reconciliations, globalSummary, bills, customers, isLoading, isError } = useReconciliationData();
 
   // Fetch persistent anomalies from database
   const { data: dbAnomalies = [] } = useQuery({
@@ -106,8 +106,23 @@ export default function LootITDashboard({ onSelectCustomer }) {
     );
   }
 
+  const handleRetry = () => {
+    queryClient.invalidateQueries();
+  };
+
   return (
     <div className="space-y-5">
+      {/* Connection error banner */}
+      {isError && (
+        <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-lg">
+          <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+          <p className="text-xs text-red-700 flex-1">Some data failed to load. This usually resolves automatically.</p>
+          <button onClick={handleRetry} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors">
+            Retry Now
+          </button>
+        </div>
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-7 gap-3">
         <SummaryCard icon={Database} label="Customers" value={globalSummary.totalCustomers} color="slate" />

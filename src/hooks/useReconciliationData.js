@@ -15,33 +15,37 @@ import {
  * When omitted, returns reconciliations for ALL customers (dashboard view).
  */
 export function useReconciliationData(customerId) {
+  const refetchInterval = 1000 * 60 * 3; // Refetch every 3 min to keep data fresh
+
   // 1. Fetch all reconciliation rules
-  const { data: rules = [], isLoading: loadingRules } = useQuery({
+  const { data: rules = [], isLoading: loadingRules, isError: errorRules } = useQuery({
     queryKey: ['reconciliation_rules'],
     queryFn: () => client.entities.ReconciliationRule.list('created_date'),
     staleTime: 1000 * 60 * 5,
+    refetchInterval,
   });
 
   // 2. Fetch customers
-  const { data: customers = [], isLoading: loadingCustomers } = useQuery({
+  const { data: customers = [], isLoading: loadingCustomers, isError: errorCustomers } = useQuery({
     queryKey: ['customers'],
     queryFn: () => client.entities.Customer.list('name', 500),
     staleTime: 1000 * 60 * 5,
+    refetchInterval,
   });
 
   // 3. Fetch recurring bills + line items
-  const { data: bills = [], isLoading: loadingBills } = useQuery({
+  const { data: bills = [], isLoading: loadingBills, isError: errorBills } = useQuery({
     queryKey: ['recurring_bills'],
     queryFn: () => client.entities.RecurringBill.list('-created_date', 1000),
     staleTime: 1000 * 60 * 5,
-    retry: 2,
+    refetchInterval,
   });
 
-  const { data: lineItems = [], isLoading: loadingLineItems } = useQuery({
+  const { data: lineItems = [], isLoading: loadingLineItems, isError: errorLineItems } = useQuery({
     queryKey: ['recurring_bill_line_items'],
     queryFn: () => client.entities.RecurringBillLineItem.list(null, 5000),
     staleTime: 1000 * 60 * 5,
-    retry: 2,
+    refetchInterval,
   });
 
   // 4. Fetch all integration mapping tables (useQueries to avoid hooks-in-loop)
@@ -334,6 +338,8 @@ export function useReconciliationData(customerId) {
     };
   }, [reconciliations]);
 
+  const isError = errorRules || errorCustomers || errorBills || errorLineItems;
+
   return {
     reconciliations,
     globalSummary,
@@ -342,5 +348,6 @@ export function useReconciliationData(customerId) {
     bills,
     lineItems,
     isLoading,
+    isError,
   };
 }
