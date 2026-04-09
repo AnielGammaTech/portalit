@@ -73,15 +73,27 @@ router.get('/file/:fileName', async (req, res, next) => {
     const supabase = getServiceSupabase();
     const { data, error } = await supabase.storage
       .from('uploads')
-      .createSignedUrl(safeFile, 3600); // 1-hour signed URL
+      .download(safeFile);
 
-    if (error) {
+    if (error || !data) {
       return res.status(404).json({ error: 'File not found' });
     }
 
-    // Cache the redirect for 30 minutes to reduce repeated Supabase calls
-    res.set('Cache-Control', 'public, max-age=1800');
-    res.redirect(data.signedUrl);
+    // Detect content type from filename
+    const ext = safeFile.split('.').pop().toLowerCase();
+    const mimeTypes = {
+      jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+      webp: 'image/webp', ico: 'image/x-icon', svg: 'image/svg+xml',
+      pdf: 'application/pdf', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    };
+    const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+    // Stream the file content directly — avoids cross-origin issues with Supabase redirects
+    res.set('Content-Type', contentType);
+    res.set('Cache-Control', 'public, max-age=3600');
+    const buffer = Buffer.from(await data.arrayBuffer());
+    res.send(buffer);
   } catch (error) {
     next(error);
   }
