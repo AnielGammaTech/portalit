@@ -188,6 +188,7 @@ function UserRow({
   resendInviteMutation,
   deleteUserMutation,
   getRoleBadge,
+  onResetPassword,
 }) {
   return (
     <div className={cn('transition-all', isExpanded ? 'bg-slate-50/50' : '')}>
@@ -273,7 +274,7 @@ function UserRow({
                   </button>
                   <button
                     className="w-full px-3.5 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
-                    onClick={() => { setResetPasswordUser(user); setNewPassword(''); setActiveUserMenu(null); }}
+                    onClick={() => { onResetPassword(user); setActiveUserMenu(null); }}
                   >
                     <KeyRound className="w-3.5 h-3.5 text-slate-400" />
                     Reset Password
@@ -650,6 +651,7 @@ export default function UserAssignmentPanel() {
                 resendInviteMutation={resendInviteMutation}
                 deleteUserMutation={deleteUserMutation}
                 getRoleBadge={getRoleBadge}
+                onResetPassword={(u) => { setResetPasswordUser(u); setNewPassword(''); }}
               />
               {isExpanded && renderExpandedPanel(user)}
             </div>
