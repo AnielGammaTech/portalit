@@ -504,6 +504,12 @@ const users = {
   async resendInvite(email) {
     return apiFetch('/api/users/resend-invite', { body: { email } });
   },
+
+  async resetPassword(userId, newPassword) {
+    return apiFetch('/api/users/reset-password', {
+      body: { user_id: userId, new_password: newPassword || undefined },
+    });
+  },
 };
 
 // ── HaloPSA ─────────────────────────────────────────────────────────────

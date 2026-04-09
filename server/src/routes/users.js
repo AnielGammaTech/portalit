@@ -449,6 +449,58 @@ router.post('/resend-invite', requireAdmin, async (req, res, next) => {
   }
 });
 
+// ── POST /api/users/reset-password ────────────────────────────────────
+
+router.post('/reset-password', requireAdmin, async (req, res, next) => {
+  try {
+    const { user_id, new_password } = req.body;
+    if (!user_id) {
+      return res.status(400).json({ error: 'user_id is required' });
+    }
+
+    const supabase = getServiceSupabase();
+
+    // Look up the user's auth_id
+    const { data: profile } = await supabase
+      .from('users')
+      .select('auth_id, email, full_name')
+      .eq('id', user_id)
+      .single();
+
+    if (!profile || !profile.auth_id) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (new_password) {
+      // Direct password set by admin
+      if (new_password.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters' });
+      }
+      const { error } = await supabase.auth.admin.updateUserById(profile.auth_id, {
+        password: new_password,
+      });
+      if (error) {
+        return res.status(500).json({ error: error.message });
+      }
+      res.json({ success: true, method: 'direct', email: profile.email });
+    } else {
+      // Send password reset email via Supabase
+      const portalUrl = getPortalUrl();
+      const { error } = await supabase.auth.admin.generateLink({
+        type: 'recovery',
+        email: profile.email,
+        options: { redirectTo: `${portalUrl}/login` },
+      });
+      if (error) {
+        return res.status(500).json({ error: error.message });
+      }
+      res.json({ success: true, method: 'email', email: profile.email });
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
 // ── GET /api/users/auth-details ───────────────────────────────────────
 
 router.get('/auth-details', requireAdmin, async (_req, res, next) => {

@@ -271,6 +271,13 @@ function UserRow({
                     <Pencil className="w-3.5 h-3.5 text-slate-400" />
                     Edit Profile
                   </button>
+                  <button
+                    className="w-full px-3.5 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                    onClick={() => { setResetPasswordUser(user); setNewPassword(''); setActiveUserMenu(null); }}
+                  >
+                    <KeyRound className="w-3.5 h-3.5 text-slate-400" />
+                    Reset Password
+                  </button>
                   {user.role !== 'admin' && (
                     <>
                       <div className="border-t border-slate-100 my-1" />
@@ -319,6 +326,8 @@ export default function UserAssignmentPanel() {
   const [editName, setEditName] = useState('');
   const [editAvatarUrl, setEditAvatarUrl] = useState('');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [resetPasswordUser, setResetPasswordUser] = useState(null);
+  const [newPassword, setNewPassword] = useState('');
 
   const { data: allUsers = [], isLoading: loadingUsers } = useQuery({
     queryKey: ['all-users'],
@@ -381,6 +390,19 @@ export default function UserAssignmentPanel() {
       queryClient.invalidateQueries({ queryKey: ['all-users'] });
     },
     onError: (error) => toast.error('Failed to delete: ' + error.message),
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: ({ userId, password }) => client.users.resetPassword(userId, password),
+    onSuccess: (data) => {
+      toast.success(data.method === 'email'
+        ? `Password reset email sent to ${data.email}`
+        : `Password updated for ${data.email}`
+      );
+      setResetPasswordUser(null);
+      setNewPassword('');
+    },
+    onError: (error) => toast.error('Failed to reset password: ' + error.message),
   });
 
   const handleRoleChange = (user, newRole) => {
@@ -828,6 +850,45 @@ export default function UserAssignmentPanel() {
             <Button variant="outline" onClick={() => setInviteType(null)}>Cancel</Button>
             <Button onClick={handleInviteUser} disabled={!inviteName || !inviteEmail || isInviting} className="bg-purple-600 hover:bg-purple-700 gap-2">
               <UserPlus className="w-4 h-4" /> {isInviting ? 'Sending...' : 'Send Invitation'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={!!resetPasswordUser} onOpenChange={(open) => { if (!open) { setResetPasswordUser(null); setNewPassword(''); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reset Password</DialogTitle>
+            <DialogDescription>
+              Reset password for {resetPasswordUser?.full_name || resetPasswordUser?.email}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-sm font-medium text-slate-700 mb-1.5 block">New Password</label>
+              <Input
+                type="text"
+                placeholder="Enter new password (min 8 characters)"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+              <p className="text-xs text-slate-400 mt-1">Leave empty to send a reset email instead.</p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setResetPasswordUser(null); setNewPassword(''); }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => resetPasswordMutation.mutate({ userId: resetPasswordUser?.id, password: newPassword || undefined })}
+              disabled={resetPasswordMutation.isPending || (newPassword && newPassword.length < 8)}
+            >
+              {resetPasswordMutation.isPending ? (
+                <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />{newPassword ? 'Setting...' : 'Sending...'}</>
+              ) : (
+                <><KeyRound className="w-3.5 h-3.5 mr-1.5" />{newPassword ? 'Set Password' : 'Send Reset Email'}</>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
