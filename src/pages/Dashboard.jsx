@@ -71,7 +71,29 @@ function AdminDashboard() {
 
   // Calculate stats
   const activeCustomers = customers.filter(c => c.status === 'active').length;
-  const totalMRR = recurringBills.filter(b => !['yearly', 'annual', 'annually'].includes((b.frequency || '').toLowerCase())).reduce((sum, b) => sum + (b.amount || 0), 0);
+  const totalMRR = (() => {
+    const now = new Date();
+    return recurringBills
+      .filter(b => {
+        // Only active bills
+        if ((b.status || '').toLowerCase() === 'inactive') return false;
+        // Exclude expired bills
+        if (b.end_date) {
+          const end = new Date(b.end_date);
+          if (end.getFullYear() < 2090 && end < now) return false;
+        }
+        return true;
+      })
+      .reduce((sum, b) => {
+        const freq = (b.frequency || 'monthly').toLowerCase();
+        const amount = b.amount || 0;
+        // Normalize to monthly
+        if (freq === 'quarterly' || freq === 'quarter') return sum + amount / 3;
+        if (['yearly', 'annual', 'annually', 'year'].includes(freq)) return sum + amount / 12;
+        if (freq === 'weekly' || freq === 'week') return sum + amount * 4.33;
+        return sum + amount; // monthly or unknown
+      }, 0);
+  })();
   const activeContracts = contracts.filter(c => c.status === 'active').length;
 
   // LootIT: customers with billing issues

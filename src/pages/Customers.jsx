@@ -204,8 +204,23 @@ export default function Customers() {
   const getCustomerStats = (customerId) => {
     const customerContracts = contracts.filter(c => c.customer_id === customerId && c.status === 'active');
     const customerTickets = tickets.filter(t => t.customer_id === customerId && ['new', 'open', 'in_progress'].includes(t.status));
-    const customerBills = recurringBills.filter(b => b.customer_id === customerId && b.status === 'active');
-    const mrr = customerBills.reduce((sum, b) => sum + (b.amount || 0), 0);
+    const now = new Date();
+    const customerBills = recurringBills.filter(b => {
+      if (b.customer_id !== customerId) return false;
+      if ((b.status || '').toLowerCase() === 'inactive') return false;
+      if (b.end_date) {
+        const end = new Date(b.end_date);
+        if (end.getFullYear() < 2090 && end < now) return false;
+      }
+      return true;
+    });
+    const mrr = customerBills.reduce((sum, b) => {
+      const freq = (b.frequency || 'monthly').toLowerCase();
+      const amount = b.amount || 0;
+      if (freq === 'quarterly' || freq === 'quarter') return sum + amount / 3;
+      if (['yearly', 'annual', 'annually', 'year'].includes(freq)) return sum + amount / 12;
+      return sum + amount;
+    }, 0);
     return { contracts: customerContracts.length, tickets: customerTickets.length, mrr };
   };
 
