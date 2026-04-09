@@ -527,6 +527,21 @@ const cronJobs = {
   },
 };
 
+// ── File URL resolver ──────────────────────────────────────────────────
+// Rewrites old Supabase public storage URLs to go through the backend proxy,
+// so files work regardless of bucket privacy settings.
+export function resolveFileUrl(url) {
+  if (!url) return url;
+  // Already a proxied URL
+  if (url.includes('/api/upload/file/')) return url;
+  // Old format: https://[ref].supabase.co/storage/v1/object/public/uploads/[filename]
+  const match = url.match(/\/storage\/v1\/object\/public\/uploads\/(.+)$/);
+  if (match) {
+    return `${apiBaseUrl}/api/upload/file/${encodeURIComponent(match[1])}`;
+  }
+  return url;
+}
+
 // ── Exported Client ────────────────────────────────────────────────────
 
 export const client = {

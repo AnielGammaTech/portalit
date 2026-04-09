@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../../utils';
+import { resolveFileUrl } from '@/api/client';
 import { Building2, ChevronRight, Users, Monitor } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -37,7 +38,7 @@ export default function CustomersList({ customers, limit = 5 }) {
           >
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
               {customer.logo_url ? (
-                <img src={customer.logo_url} alt={customer.name} className="w-6 h-6 rounded" />
+                <img src={resolveFileUrl(customer.logo_url)} alt={customer.name} className="w-6 h-6 rounded" />
               ) : (
                 <Building2 className="w-5 h-5 text-slate-500" />
               )}

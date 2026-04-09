@@ -46,11 +46,42 @@ router.post('/', uploadRateLimit, requireAuth, upload.single('file'), async (req
       return res.status(500).json({ error: uploadError.message });
     }
 
-    const { data: { publicUrl } } = supabase.storage
-      .from('uploads')
-      .getPublicUrl(fileName);
+    // Return a proxied URL that works regardless of bucket privacy
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const fileUrl = `${baseUrl}/api/upload/file/${encodeURIComponent(fileName)}`;
 
-    res.json({ file_url: publicUrl });
+    res.json({ file_url: fileUrl });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Public file proxy — serves files from private Supabase storage via signed URL redirect
+router.get('/file/:fileName', async (req, res, next) => {
+  try {
+    const { fileName } = req.params;
+    if (!fileName) {
+      return res.status(400).json({ error: 'File name required' });
+    }
+
+    // Prevent path traversal
+    const safeFile = fileName.replace(/[\/\\]/g, '').replace(/\.\./g, '').slice(0, 300);
+    if (!safeFile) {
+      return res.status(400).json({ error: 'Invalid file name' });
+    }
+
+    const supabase = getServiceSupabase();
+    const { data, error } = await supabase.storage
+      .from('uploads')
+      .createSignedUrl(safeFile, 3600); // 1-hour signed URL
+
+    if (error) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    // Cache the redirect for 30 minutes to reduce repeated Supabase calls
+    res.set('Cache-Control', 'public, max-age=1800');
+    res.redirect(data.signedUrl);
   } catch (error) {
     next(error);
   }

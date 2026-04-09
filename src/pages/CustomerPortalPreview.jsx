@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { client } from '@/api/client';
+import { client, resolveFileUrl } from '@/api/client';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { 
@@ -271,7 +271,7 @@ export default function CustomerPortalPreview() {
           <div className="flex items-center gap-4 flex-1">
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center flex-shrink-0 shadow-lg shadow-purple-500/20">
               {customer.logo_url ? (
-                <img src={customer.logo_url} alt={customer.name} className="w-10 h-10 rounded-xl object-cover" />
+                <img src={resolveFileUrl(customer.logo_url)} alt={customer.name} className="w-10 h-10 rounded-xl object-cover" />
               ) : (
                 <Building2 className="w-7 h-7 text-white" />
               )}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { client } from '@/api/client';
+import { client, resolveFileUrl } from '@/api/client';
 import { useAutoRetry } from '@/hooks/useAutoRetry';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '../utils';
@@ -322,7 +322,7 @@ export default function Customers() {
                 {/* Avatar */}
                 <div className="w-10 h-10 rounded-hero-md bg-primary/10 flex items-center justify-center flex-shrink-0">
                   {customer.logo_url ? (
-                    <img src={customer.logo_url} alt={customer.name} className="w-6 h-6 rounded" />
+                    <img src={resolveFileUrl(customer.logo_url)} alt={customer.name} className="w-6 h-6 rounded" />
                   ) : (
                     <Building2 className="w-5 h-5 text-primary" />
                   )}

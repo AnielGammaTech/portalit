@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { client } from '@/api/client';
+import { client, resolveFileUrl } from '@/api/client';
 import { toast } from 'sonner';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
@@ -653,7 +653,7 @@ export default function CustomerDetail() {
                 onClick={() => isAdmin && logoInputRef.current?.click()}
               >
                 {customer.logo_url ? (
-                  <img src={customer.logo_url} alt={customer.name} className="w-14 h-14 rounded-hero-lg object-cover" />
+                  <img src={resolveFileUrl(customer.logo_url)} alt={customer.name} className="w-14 h-14 rounded-hero-lg object-cover" />
                 ) : (
                   <span className="text-2xl font-bold text-primary">
                     {customer.name?.charAt(0)?.toUpperCase() || 'C'}
