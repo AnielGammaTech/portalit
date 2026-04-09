@@ -10,11 +10,11 @@ function normalizeFrequency(haloBill) {
 
   const val = String(raw).toLowerCase().trim();
 
-  // Handle numeric codes (HaloPSA sometimes uses 1=monthly, 2=quarterly, 3=yearly etc.)
-  if (val === '1' || val === 'monthly' || val === 'month') return 'monthly';
-  if (val === '2' || val === 'quarterly' || val === 'quarter') return 'quarterly';
-  if (val === '3' || val === '4' || val === 'yearly' || val === 'annual' || val === 'annually' || val === 'year') return 'yearly';
-  if (val === 'weekly' || val === 'week') return 'weekly';
+  // HaloPSA numeric period codes: 1=Weekly, 2=Monthly, 3=Quarterly, 4=Semi-Annual, 5=Annual
+  if (val === '1' || val === 'weekly' || val === 'week') return 'weekly';
+  if (val === '2' || val === 'monthly' || val === 'month') return 'monthly';
+  if (val === '3' || val === 'quarterly' || val === 'quarter') return 'quarterly';
+  if (val === '4' || val === '5' || val === 'yearly' || val === 'annual' || val === 'annually' || val === 'year') return 'yearly';
 
   // If we got nothing, log and default to monthly
   if (!val) return 'monthly';
