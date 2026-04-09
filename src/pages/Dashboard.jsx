@@ -64,36 +64,40 @@ function AdminDashboard() {
     staleTime: 1000 * 60 * 2,
   });
 
-  // LootIT reconciliation data
-  const { reconciliations, globalSummary, isLoading: loadingRecon } = useReconciliationData();
+  // LootIT reconciliation data (also provides bills + line items for MRR)
+  const { reconciliations, globalSummary, bills: reconBills, lineItems: reconLineItems, isLoading: loadingRecon } = useReconciliationData();
 
   const isLoading = loadingCustomers || loadingContracts;
 
-  // Calculate stats
-  const activeCustomers = customers.filter(c => c.status === 'active').length;
-  const totalMRR = (() => {
+  // Calculate MRR from line items (net_amount, excludes tax) of active monthly bills
+  const totalMRR = useMemo(() => {
     const now = new Date();
-    return recurringBills
-      .filter(b => {
-        // Only active bills
-        if ((b.status || '').toLowerCase() === 'inactive') return false;
-        // Exclude expired bills
-        if (b.end_date) {
-          const end = new Date(b.end_date);
-          if (end.getFullYear() < 2090 && end < now) return false;
-        }
-        return true;
-      })
-      .reduce((sum, b) => {
-        const freq = (b.frequency || 'monthly').toLowerCase();
-        const amount = b.amount || 0;
-        // Normalize to monthly
-        if (freq === 'quarterly' || freq === 'quarter') return sum + amount / 3;
-        if (['yearly', 'annual', 'annually', 'year'].includes(freq)) return sum + amount / 12;
-        if (freq === 'weekly' || freq === 'week') return sum + amount * 4.33;
-        return sum + amount; // monthly or unknown
-      }, 0);
-  })();
+    // Build set of active, non-expired, monthly bill IDs
+    const monthlyBillIds = new Set();
+    const allBills = reconBills.length > 0 ? reconBills : recurringBills;
+    for (const b of allBills) {
+      if ((b.status || '').toLowerCase() === 'inactive') continue;
+      if (b.end_date) {
+        const end = new Date(b.end_date);
+        if (end.getFullYear() < 2090 && end < now) continue;
+      }
+      const freq = (b.frequency || 'monthly').toLowerCase();
+      if (['yearly', 'annual', 'annually', 'year'].includes(freq)) continue;
+      monthlyBillIds.add(b.id);
+    }
+    // Sum net_amount from line items (excludes tax) if available
+    if (reconLineItems.length > 0) {
+      return reconLineItems
+        .filter(li => monthlyBillIds.has(li.recurring_bill_id))
+        .reduce((sum, li) => sum + (parseFloat(li.net_amount) || 0), 0);
+    }
+    // Fallback to bill amounts if line items not loaded yet
+    return allBills
+      .filter(b => monthlyBillIds.has(b.id))
+      .reduce((sum, b) => sum + (b.amount || 0), 0);
+  }, [reconBills, reconLineItems, recurringBills]);
+
+  const activeCustomers = customers.filter(c => c.status === 'active').length;
   const activeContracts = contracts.filter(c => c.status === 'active').length;
 
   // LootIT: customers with billing issues
