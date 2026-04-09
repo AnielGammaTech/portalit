@@ -83,11 +83,12 @@ export default function CustomerDetail() {
   };
   const { user, isLoadingAuth: userLoading } = useAuth();
 
-  // Security: non-admin users can ONLY access their own customer
+  // Security: customer portal users can ONLY access their own customer; staff (admin + sales) can browse any
   const isAdmin = user?.role === 'admin';
-  const resolvedCustomerId = (!isAdmin || isCustomerPortal)
+  const isStaff = user?.role === 'admin' || user?.role === 'sales';
+  const resolvedCustomerId = (!isStaff || isCustomerPortal)
     ? user?.customer_id   // customers always scoped to their own data
-    : (customerIdParam || user?.customer_id || null);  // admins can browse any customer
+    : (customerIdParam || user?.customer_id || null);  // staff can browse any customer
 
   // Logo upload handler
   const handleLogoUpload = async (e) => {

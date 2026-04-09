@@ -72,7 +72,7 @@ export const ROLE_FEATURES = {
     canManageIntegrations: false,
     canManageUsers: false,
     canAccessLootIT: false,
-    canEditCustomers: true,
+    canEditCustomers: false,
     canInviteUsers: false,
     canViewAdminland: false,
   },
