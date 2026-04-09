@@ -97,6 +97,61 @@ function AdminDashboard() {
       .reduce((sum, b) => sum + (b.amount || 0), 0);
   }, [reconBills, reconLineItems, recurringBills]);
 
+  // MRR breakdown by customer (for audit view)
+  const mrrBreakdown = useMemo(() => {
+    const now = new Date();
+    const allBills = reconBills.length > 0 ? reconBills : recurringBills;
+    const activeBills = allBills.filter(b => {
+      if ((b.status || '').toLowerCase() === 'inactive') return false;
+      if (b.end_date) {
+        const end = new Date(b.end_date);
+        if (end.getFullYear() < 2090 && end < now) return false;
+      }
+      const freq = (b.frequency || 'monthly').toLowerCase();
+      if (['yearly', 'annual', 'annually', 'year'].includes(freq)) return false;
+      return true;
+    });
+
+    const billIds = new Set(activeBills.map(b => b.id));
+    const billMap = Object.fromEntries(activeBills.map(b => [b.id, b]));
+
+    // Group line items by customer via bill
+    const byCustomer = {};
+    const items = reconLineItems.length > 0 ? reconLineItems : [];
+    for (const li of items) {
+      if (!billIds.has(li.recurring_bill_id)) continue;
+      const bill = billMap[li.recurring_bill_id];
+      const custId = bill?.customer_id;
+      if (!custId) continue;
+      if (!byCustomer[custId]) byCustomer[custId] = { bills: new Set(), lineTotal: 0, lines: [] };
+      byCustomer[custId].bills.add(li.recurring_bill_id);
+      byCustomer[custId].lineTotal += parseFloat(li.net_amount) || 0;
+      byCustomer[custId].lines.push(li);
+    }
+
+    // If no line items, fall back to bill amounts
+    if (items.length === 0) {
+      for (const b of activeBills) {
+        if (!byCustomer[b.customer_id]) byCustomer[b.customer_id] = { bills: new Set(), lineTotal: 0, lines: [] };
+        byCustomer[b.customer_id].bills.add(b.id);
+        byCustomer[b.customer_id].lineTotal += b.amount || 0;
+      }
+    }
+
+    const customerMap = Object.fromEntries(customers.map(c => [c.id, c.name]));
+    return Object.entries(byCustomer)
+      .map(([custId, data]) => ({
+        customerId: custId,
+        customerName: customerMap[custId] || 'Unknown',
+        mrr: data.lineTotal,
+        billCount: data.bills.size,
+        lineCount: data.lines.length,
+      }))
+      .sort((a, b) => b.mrr - a.mrr);
+  }, [reconBills, reconLineItems, recurringBills, customers]);
+
+  const [showMrrBreakdown, setShowMrrBreakdown] = useState(false);
+
   const activeCustomers = customers.filter(c => c.status === 'active').length;
   const activeContracts = contracts.filter(c => c.status === 'active').length;
 
@@ -178,17 +233,18 @@ function AdminDashboard() {
             </div>
           </div>
         </Link>
-        <Link to={createPageUrl('Billing')} className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md hover:border-emerald-200 transition-all group">
+        <button onClick={() => setShowMrrBreakdown(!showMrrBreakdown)} className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md hover:border-emerald-200 transition-all group text-left">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
               <DollarSign className="w-5 h-5 text-emerald-600" />
             </div>
-            <div>
-              <p className="text-2xl font-bold text-slate-900">${totalMRR.toLocaleString()}</p>
-              <p className="text-xs text-slate-500">Monthly Revenue</p>
+            <div className="flex-1">
+              <p className="text-2xl font-bold text-slate-900">${Math.round(totalMRR).toLocaleString()}</p>
+              <p className="text-xs text-slate-500">Monthly Revenue (net)</p>
             </div>
+            <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", showMrrBreakdown && "rotate-180")} />
           </div>
-        </Link>
+        </button>
         <div className="bg-white rounded-xl border border-slate-200 p-5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
@@ -201,6 +257,49 @@ function AdminDashboard() {
           </div>
         </div>
       </div>
+
+      {/* MRR Breakdown */}
+      {showMrrBreakdown && (
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900">MRR Breakdown by Customer</h3>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                {mrrBreakdown.length} customers &middot; Net amounts (excl. tax) &middot; Active monthly bills only &middot; Excludes yearly
+              </p>
+            </div>
+            <p className="text-sm font-bold text-emerald-600">${Math.round(totalMRR).toLocaleString()}</p>
+          </div>
+          <div className="max-h-96 overflow-y-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-slate-50 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                  <th className="text-left px-4 py-2">Customer</th>
+                  <th className="text-right px-4 py-2 w-20">Bills</th>
+                  <th className="text-right px-4 py-2 w-20">Lines</th>
+                  <th className="text-right px-4 py-2 w-28">MRR</th>
+                  <th className="text-right px-4 py-2 w-20">% Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {mrrBreakdown.map((row) => (
+                  <tr key={row.customerId} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-4 py-2 text-sm text-slate-800">{row.customerName}</td>
+                    <td className="px-4 py-2 text-xs text-slate-500 text-right">{row.billCount}</td>
+                    <td className="px-4 py-2 text-xs text-slate-500 text-right">{row.lineCount}</td>
+                    <td className="px-4 py-2 text-sm font-medium text-slate-900 text-right tabular-nums">
+                      ${Math.round(row.mrr).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-2 text-xs text-slate-400 text-right tabular-nums">
+                      {totalMRR > 0 ? Math.round((row.mrr / totalMRR) * 100) : 0}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* LootIT Reconciliation Section */}
       <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-6 text-white relative overflow-hidden">
