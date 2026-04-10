@@ -132,20 +132,14 @@ async function showSyncView() {
 
   for (let i = 0; i < matched.length; i++) {
     const m = matched[i];
-    if (m.customer) {
-      html += `<div class="team">
-        <span class="name">${m.customer.name}</span>
-        <span class="count">${m.count ?? '?'} ${currentVendor.dataLabel || ''}</span>
-      </div>`;
-    } else {
-      html += `<div class="team">
-        <span class="name">${m.name}</span>
-        <select data-idx="${i}" class="match-select">
-          <option value="">-- Pick customer --</option>
-          ${customers.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
-        </select>
-      </div>`;
-    }
+    const selectedId = m.customer?.id || '';
+    html += `<div class="team">
+      <select data-idx="${i}" class="match-select">
+        <option value="">-- Pick customer --</option>
+        ${customers.map(c => `<option value="${c.id}" ${c.id === selectedId ? 'selected' : ''}>${c.name}</option>`).join('')}
+      </select>
+      <span class="count">${m.count ?? '?'} ${currentVendor.dataLabel || ''}</span>
+    </div>`;
   }
 
   html += '</div>';
