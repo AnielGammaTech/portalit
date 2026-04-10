@@ -195,51 +195,19 @@ function UserCountEditor({ customers, reports, queryClient }) {
   );
 }
 
-// INKY auto-sync panel — paste session cookie, hit sync
+// INKY auto-sync panel — paste Bearer token, hit sync immediately
 function InkySyncPanel({ queryClient }) {
-  const [cookieValue, setCookieValue] = useState('');
-  const [showCookieInput, setShowCookieInput] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [tokenValue, setTokenValue] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
-  const [testing, setTesting] = useState(false);
-
-  const handleSaveCookie = async () => {
-    if (!cookieValue.trim()) { toast.error('Paste the AWSALB cookie value'); return; }
-    setSaving(true);
-    try {
-      await client.functions.invoke('syncInky', { action: 'save_cookies', awsalb: cookieValue.trim() });
-      toast.success('INKY session saved');
-      setShowCookieInput(false);
-      setCookieValue('');
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleTest = async () => {
-    setTesting(true);
-    try {
-      const res = await client.functions.invoke('syncInky', { action: 'test_connection' });
-      if (res.success) {
-        toast.success(res.message);
-      } else {
-        toast.error(res.error);
-      }
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setTesting(false);
-    }
-  };
 
   const handleSync = async () => {
+    const token = tokenValue.trim().replace(/^Bearer\s+/i, '');
+    if (!token) { toast.error('Paste the Bearer token from INKY first'); return; }
     setSyncing(true);
     setSyncResult(null);
     try {
-      const res = await client.functions.invoke('syncInky', { action: 'sync_users' });
+      const res = await client.functions.invoke('syncInky', { action: 'sync_users', bearer_token: token });
       if (res.success) {
         setSyncResult(res);
         toast.success(`Synced ${res.synced} customers. ${res.unmatched} unmatched.`);
@@ -256,42 +224,27 @@ function InkySyncPanel({ queryClient }) {
 
   return (
     <div className="border border-slate-200 rounded-lg overflow-hidden">
-      <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-3">
-        <RefreshCw className="w-4 h-4 text-blue-600" />
-        <h4 className="text-sm font-semibold text-slate-900 flex-1">Auto Sync</h4>
-        <div className="flex items-center gap-1.5">
-          <Button size="sm" variant="outline" onClick={() => setShowCookieInput(!showCookieInput)} className="h-7 text-xs px-2.5">
-            <KeyRound className="w-3 h-3 mr-1" />
-            {showCookieInput ? 'Cancel' : 'Set Cookie'}
-          </Button>
-          <Button size="sm" variant="outline" onClick={handleTest} disabled={testing} className="h-7 text-xs px-2.5">
-            <RefreshCw className={cn("w-3 h-3 mr-1", testing && "animate-spin")} />
-            Test
-          </Button>
-          <Button size="sm" onClick={handleSync} disabled={syncing} className="h-7 text-xs px-2.5 bg-blue-600 hover:bg-blue-700 text-white">
-            <RefreshCw className={cn("w-3 h-3 mr-1", syncing && "animate-spin")} />
-            {syncing ? 'Syncing...' : 'Sync Users'}
+      <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
+        <div className="flex items-center gap-3 mb-2">
+          <RefreshCw className="w-4 h-4 text-blue-600" />
+          <h4 className="text-sm font-semibold text-slate-900 flex-1">Sync from INKY</h4>
+        </div>
+        <p className="text-[10px] text-slate-400 mb-3">
+          INKY portal &rarr; F12 &rarr; Network &rarr; click any <code className="bg-slate-100 px-1 rounded">api/dashboard</code> request &rarr; copy the <strong>Authorization</strong> header value. Token expires in ~5 min so paste and sync right away.
+        </p>
+        <div className="flex gap-2">
+          <Input
+            value={tokenValue}
+            onChange={e => setTokenValue(e.target.value)}
+            placeholder="Paste Bearer eyJ... token here"
+            className="h-8 text-xs font-mono flex-1"
+          />
+          <Button size="sm" onClick={handleSync} disabled={syncing} className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white px-4">
+            <RefreshCw className={cn("w-3 h-3 mr-1.5", syncing && "animate-spin")} />
+            {syncing ? 'Syncing...' : 'Sync Now'}
           </Button>
         </div>
       </div>
-
-      {showCookieInput && (
-        <div className="px-4 py-3 border-b border-slate-100 space-y-2">
-          <p className="text-xs text-slate-500">
-            Open <a href="https://app.inkyphishfence.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">app.inkyphishfence.com</a> &rarr; F12 &rarr; Application &rarr; Cookies &rarr; Copy the <strong>AWSALB</strong> value
-          </p>
-          <div className="flex gap-2">
-            <Input
-              value={cookieValue}
-              onChange={e => setCookieValue(e.target.value)}
-              placeholder="Paste AWSALB cookie value..."
-              className="h-8 text-xs font-mono flex-1"
-            />
-            <Button size="sm" onClick={handleSaveCookie} disabled={saving} className="h-8 text-xs">
-              {saving ? '...' : 'Save'}
-            </Button>
-          </div>
-        </div>
       )}
 
       {syncResult && (

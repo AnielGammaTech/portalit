@@ -2,11 +2,11 @@ import { getServiceSupabase } from '../lib/supabase.js';
 
 const INKY_API = 'https://app.inkyphishfence.com/api';
 
-async function inkyFetch(endpoint, { method = 'GET', body, cookies } = {}) {
+async function inkyFetch(endpoint, { method = 'GET', body, token } = {}) {
   const headers = {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
-    'Cookie': cookies,
+    'Authorization': `Bearer ${token}`,
   };
 
   const response = await fetch(`${INKY_API}${endpoint}`, {
@@ -21,18 +21,6 @@ async function inkyFetch(endpoint, { method = 'GET', body, cookies } = {}) {
   }
 
   return response.json();
-}
-
-/**
- * Get the INKY session cookies from settings.
- */
-async function getInkyCookies(supabase) {
-  const { data } = await supabase
-    .from('settings')
-    .select('value')
-    .eq('key', 'inky_session_cookies')
-    .single();
-  return data?.value || null;
 }
 
 /**
@@ -53,89 +41,63 @@ function buildDateFilter() {
 }
 
 export async function syncInky(params) {
-  const { action } = params;
+  const { action, bearer_token } = params;
   const supabase = getServiceSupabase();
 
-  // Save cookies from the frontend
-  if (action === 'save_cookies') {
-    const { awsalb, awsalbcors } = params;
-    if (!awsalb) return { success: false, error: 'AWSALB cookie value required' };
-    const cookieString = `AWSALB=${awsalb}; AWSALBCORS=${awsalbcors || awsalb}`;
-
-    await supabase.from('settings').upsert({
-      key: 'inky_session_cookies',
-      value: cookieString,
-      updated_date: new Date().toISOString(),
-    }, { onConflict: 'key' });
-
-    return { success: true, message: 'INKY session cookies saved' };
+  if (!bearer_token) {
+    return { success: false, error: 'Bearer token required. Copy it from INKY Network tab → Authorization header.' };
   }
 
   // Test connection
   if (action === 'test_connection') {
-    const cookies = await getInkyCookies(supabase);
-    if (!cookies) return { success: false, error: 'No INKY session cookies configured. Paste your AWSALB cookie first.' };
-
     try {
-      const perms = await inkyFetch('/dashboard/users/permissions', { cookies });
+      const perms = await inkyFetch('/dashboard/users/permissions', { token: bearer_token });
       const teamIds = Object.keys(perms);
-      return { success: true, message: `Connected. Found ${teamIds.length} team entries.`, teams: teamIds };
+      return { success: true, message: `Connected! Found ${teamIds.length} team entries.`, teams: teamIds };
     } catch (err) {
-      return { success: false, error: `Connection failed: ${err.message}. Cookie may be expired — re-paste from INKY.` };
+      return { success: false, error: `Connection failed: ${err.message}` };
     }
   }
 
   // Sync user counts per team
   if (action === 'sync_users') {
-    const cookies = await getInkyCookies(supabase);
-    if (!cookies) return { success: false, error: 'No INKY session cookies configured.' };
-
     try {
       // 1. Get team list
-      const perms = await inkyFetch('/dashboard/users/permissions', { cookies });
+      const perms = await inkyFetch('/dashboard/users/permissions', { token: bearer_token });
 
-      // Find the parent team that has child_teamids (customer teams)
+      // Find customer teams from the parent group
       let customerTeams = [];
       for (const [teamId, info] of Object.entries(perms)) {
         if ((info.child_teamids || []).length > 0 && info.type !== 'k1_role') {
-          customerTeams = info.child_teamids.filter(t =>
-            !t.startsWith('$') && t !== teamId
-          );
+          customerTeams = info.child_teamids.filter(t => !t.startsWith('$') && t !== teamId);
           break;
         }
       }
-
       if (customerTeams.length === 0) {
-        // Fallback: use all non-prefixed team IDs
         customerTeams = Object.keys(perms).filter(t => !t.startsWith('$'));
       }
 
       console.log(`[INKY] Found ${customerTeams.length} customer teams`);
 
-      // 2. Get total user count (all teams)
+      // 2. Get total user count
       const dateFilter = buildDateFilter();
       const totalResult = await inkyFetch(
         '/dashboard/messages/aggregations/cardinality/email?direction=both',
-        { method: 'POST', body: dateFilter, cookies }
+        { method: 'POST', body: dateFilter, token: bearer_token }
       );
 
-      // 3. Get all customers from our DB for name matching
+      // 3. Get customers for name matching
       const { data: customers } = await supabase.from('customers').select('id, name').eq('status', 'active');
-      const customerMap = {};
-      for (const c of (customers || [])) {
-        customerMap[c.name.toLowerCase().trim()] = c;
-      }
 
-      // 4. For each team, try to get user count and match to customer
+      // 4. Per-team user counts
       const results = [];
       for (const teamSlug of customerTeams) {
-        // Team slug format: "allen-concrete-masonry" → "Allen Concrete Masonry"
         const teamName = teamSlug
-          .replace(/-id-\d+$/, '') // Remove ID suffix
+          .replace(/-id-\d+$/, '')
           .replace(/-/g, ' ')
           .replace(/\b\w/g, c => c.toUpperCase());
 
-        // Try to get per-team user count via team-scoped endpoint
+        // Try per-team user count
         let userCount = null;
         try {
           const teamFilter = {
@@ -147,43 +109,31 @@ export async function syncInky(params) {
           };
           const result = await inkyFetch(
             '/dashboard/messages/aggregations/cardinality/email?direction=both',
-            { method: 'POST', body: teamFilter, cookies }
+            { method: 'POST', body: teamFilter, token: bearer_token }
           );
           userCount = result.count ?? null;
         } catch {
-          // Team filter might not work — skip
+          // Team filter might not work
         }
 
         // Match to customer by name
-        const normalize = (s) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+        const normalize = (s) => (s || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
         const teamNorm = normalize(teamName);
         let matchedCustomer = null;
 
-        // Exact match first
-        for (const [custName, cust] of Object.entries(customerMap)) {
-          if (normalize(custName) === teamNorm) {
+        for (const cust of (customers || [])) {
+          const cn = normalize(cust.name);
+          if (cn === teamNorm || cn.includes(teamNorm) || teamNorm.includes(cn)) {
             matchedCustomer = cust;
             break;
           }
         }
-
-        // Fuzzy: check if team name contains customer name or vice versa
-        if (!matchedCustomer) {
-          for (const [custName, cust] of Object.entries(customerMap)) {
-            const cn = normalize(custName);
-            if (cn.includes(teamNorm) || teamNorm.includes(cn)) {
-              matchedCustomer = cust;
-              break;
-            }
-          }
-        }
-
-        // Word overlap
+        // Word overlap fallback
         if (!matchedCustomer) {
           const teamWords = teamNorm.split(/\s+/).filter(w => w.length > 2);
           let bestScore = 0;
-          for (const [custName, cust] of Object.entries(customerMap)) {
-            const custWords = normalize(custName).split(/\s+/).filter(w => w.length > 2);
+          for (const cust of (customers || [])) {
+            const custWords = normalize(cust.name).split(/\s+/).filter(w => w.length > 2);
             const overlap = teamWords.filter(tw => custWords.some(cw => cw.includes(tw) || tw.includes(cw))).length;
             const score = teamWords.length > 0 ? overlap / teamWords.length : 0;
             if (score > bestScore && score >= 0.5) {
@@ -193,14 +143,9 @@ export async function syncInky(params) {
           }
         }
 
-        results.push({
-          teamSlug,
-          teamName,
-          userCount,
-          customer: matchedCustomer ? { id: matchedCustomer.id, name: matchedCustomer.name } : null,
-        });
+        results.push({ teamSlug, teamName, userCount, customer: matchedCustomer ? { id: matchedCustomer.id, name: matchedCustomer.name } : null });
 
-        // Save to inky_reports if we have both a customer match and a count
+        // Save if matched
         if (matchedCustomer && userCount != null) {
           const { data: existing } = await supabase
             .from('inky_reports')
@@ -232,14 +177,7 @@ export async function syncInky(params) {
       const synced = results.filter(r => r.customer && r.userCount != null).length;
       const unmatched = results.filter(r => !r.customer).length;
 
-      return {
-        success: true,
-        totalUsers: totalResult.count ?? null,
-        synced,
-        unmatched,
-        total: results.length,
-        results,
-      };
+      return { success: true, totalUsers: totalResult.count ?? null, synced, unmatched, total: results.length, results };
     } catch (err) {
       return { success: false, error: err.message };
     }
