@@ -22,11 +22,7 @@ async function getInkyToken() {
       });
       if (resp.ok) {
         const t = await resp.json();
-        await chrome.storage.local.set({
-          inky_bearer_token: t.access_token,
-          inky_token_time: Date.now(),
-          inky_refresh_token: t.refresh_token || data.inky_refresh_token,
-        });
+        await chrome.storage.local.set({ inky_bearer_token: t.access_token, inky_token_time: Date.now(), inky_refresh_token: t.refresh_token || data.inky_refresh_token });
         return t.access_token;
       }
     } catch {}
@@ -70,74 +66,12 @@ async function getPortalToken() {
   return null;
 }
 
-// Call INKY API directly from extension (has host_permissions)
 async function inkyGet(endpoint, token, body) {
-  const opts = {
-    method: body ? 'POST' : 'GET',
-    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-  };
+  const opts = { method: body ? 'POST' : 'GET', headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` } };
   if (body) opts.body = JSON.stringify(body);
   const r = await fetch(`${INKY_API}${endpoint}`, opts);
   if (!r.ok) throw new Error(`${r.status}`);
   return r.json();
-}
-
-// Get per-team user count by trying multiple INKY API patterns
-async function getTeamCount(teamSlug, token) {
-  const now = Math.floor(Date.now() / 1000);
-  const from = String(now - 30 * 86400);
-  const to = String(now);
-  const dateFilter = {
-    dashboardFilters: [
-      { type: 'date', name: 'processed_date', format: 'STANDARD', value: { from, to }, not: false },
-      { name: 'outbound', type: 'boolean_exists', value: false, not: false },
-    ],
-    setFilters: [],
-    dashboardFilterMode: 'AND',
-    setFilterMode: 'AND',
-  };
-
-  // Try 1: team_id in dashboardFilters
-  try {
-    const body = { ...dateFilter, dashboardFilters: [...dateFilter.dashboardFilters, { type: 'term', name: 'team_id', value: teamSlug, not: false }] };
-    const r = await inkyGet('/dashboard/messages/aggregations/cardinality/email?direction=both', token, body);
-    if (r.count > 0) return r.count;
-  } catch {}
-
-  // Try 2: team in setFilters
-  try {
-    const body = { ...dateFilter, setFilters: [{ type: 'term', name: 'team_id', value: teamSlug, not: false }] };
-    const r = await inkyGet('/dashboard/messages/aggregations/cardinality/email?direction=both', token, body);
-    if (r.count > 0) return r.count;
-  } catch {}
-
-  // Try 3: team query param
-  try {
-    const r = await inkyGet(`/dashboard/messages/aggregations/cardinality/email?direction=both&team=${teamSlug}`, token, dateFilter);
-    if (r.count > 0) return r.count;
-  } catch {}
-
-  // Try 4: X-Team header approach
-  try {
-    const opts = {
-      method: 'POST',
-      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, 'X-Team-Id': teamSlug },
-      body: JSON.stringify(dateFilter),
-    };
-    const r = await fetch(`${INKY_API}/dashboard/messages/aggregations/cardinality/email?direction=both`, opts);
-    if (r.ok) { const d = await r.json(); if (d.count > 0) return d.count; }
-  } catch {}
-
-  // Try 5: messages count scoped to team (different field names)
-  for (const field of ['team', 'team_name', 'teamId', 'team_slug']) {
-    try {
-      const body = { ...dateFilter, dashboardFilters: [...dateFilter.dashboardFilters, { type: 'term', name: field, value: teamSlug, not: false }] };
-      const r = await inkyGet('/dashboard/messages/aggregations/cardinality/email?direction=both', token, body);
-      if (r.count > 0) return r.count;
-    } catch {}
-  }
-
-  return null;
 }
 
 async function init() {
@@ -147,11 +81,8 @@ async function init() {
     statusEl.innerHTML = '<div class="dot"></div><span>INKY session active</span>';
     syncBtn.disabled = false;
   } else {
-    const data = await chrome.storage.local.get(['inky_refresh_token']);
     statusEl.className = 'status warn';
-    statusEl.innerHTML = data.inky_refresh_token
-      ? '<div class="dot"></div><span>Refresh failed — browse INKY once</span>'
-      : '<div class="dot"></div><span>Browse INKY portal once to capture session</span>';
+    statusEl.innerHTML = '<div class="dot"></div><span>Browse INKY portal once to capture session</span>';
   }
 }
 init();
@@ -167,7 +98,7 @@ syncBtn.addEventListener('click', async () => {
 
     statusEl.innerHTML = '<div class="dot"></div><span>Getting teams from INKY...</span>';
 
-    // 1. Get teams from INKY directly
+    // 1. Get teams
     const perms = await inkyGet('/dashboard/users/permissions', inkyToken);
     let teams = [];
     for (const [id, info] of Object.entries(perms)) {
@@ -178,7 +109,7 @@ syncBtn.addEventListener('click', async () => {
     }
     if (teams.length === 0) teams = Object.keys(perms).filter(t => !t.startsWith('$'));
 
-    // 2. Get total
+    // 2. Total user count
     const now = Math.floor(Date.now() / 1000);
     const totalBody = {
       dashboardFilters: [
@@ -190,17 +121,15 @@ syncBtn.addEventListener('click', async () => {
     const totalR = await inkyGet('/dashboard/messages/aggregations/cardinality/email?direction=both', inkyToken, totalBody);
     const totalUsers = totalR.count || 0;
 
-    // 3. Try per-team counts
-    statusEl.innerHTML = `<div class="dot"></div><span>Checking ${teams.length} teams...</span>`;
-    const teamResults = [];
-    for (const slug of teams) {
-      const name = slug.replace(/-id-\d+$/, '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-      const count = await getTeamCount(slug, inkyToken);
-      teamResults.push({ slug, name, count });
-    }
+    // 3. Build team list (no per-team counts — INKY API doesn't support it)
+    const teamResults = teams.map(slug => ({
+      slug,
+      name: slug.replace(/-id-\d+$/, '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+      count: null,
+    }));
 
-    // 4. Send to PortalIT backend to save
-    statusEl.innerHTML = '<div class="dot"></div><span>Saving to PortalIT...</span>';
+    // 4. Save mappings to PortalIT
+    statusEl.innerHTML = '<div class="dot"></div><span>Saving mappings to PortalIT...</span>';
     const portalToken = await getPortalToken();
     if (!portalToken) { statusEl.className = 'status err'; statusEl.innerHTML = '<div class="dot"></div><span>PortalIT login failed</span>'; return; }
 
@@ -213,23 +142,23 @@ syncBtn.addEventListener('click', async () => {
 
     if (data.success) {
       statusEl.className = 'status ok';
-      statusEl.innerHTML = `<div class="dot"></div><span>Synced ${data.synced} customers</span>`;
+      statusEl.innerHTML = `<div class="dot"></div><span>Mapped ${data.synced} customers</span>`;
 
       let html = `
         <div class="row"><span class="label">Total INKY Users</span><span class="value">${totalUsers}</span></div>
-        <div class="row"><span class="label">Matched & Synced</span><span class="value green">${data.synced}</span></div>
-        <div class="row"><span class="label">Unmatched</span><span class="value ${data.unmatched > 0 ? 'amber' : ''}">${data.unmatched}</span></div>
+        <div class="row"><span class="label">Mapped to Customers</span><span class="value green">${data.synced}</span></div>
+        ${data.unmatched > 0 ? `<div class="row"><span class="label">Unmatched Teams</span><span class="value amber">${data.unmatched}</span></div>` : ''}
       `;
-      if (data.results?.length > 0) {
-        html += '<div class="team-list">';
-        for (const r of data.results) {
-          const ct = r.userCount != null ? `${r.userCount} users` : '? users';
-          html += r.customer
-            ? `<div class="team"><span class="name">${r.customer.name}</span><span class="count">${ct}</span></div>`
-            : `<div class="team"><span class="name">${r.teamName}</span><span class="unmatched">unmatched</span></div>`;
-        }
-        html += '</div>';
+
+      html += '<div class="team-list">';
+      for (const r of (data.results || [])) {
+        html += r.customer
+          ? `<div class="team"><span class="name">${r.customer.name}</span><span class="count">mapped</span></div>`
+          : `<div class="team"><span class="name">${r.teamName}</span><span class="unmatched">unmatched</span></div>`;
       }
+      html += '</div>';
+      html += '<div style="margin-top:8px;padding:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;font-size:10px;color:#92400e;">INKY API doesn\'t expose per-team user counts. Go to PortalIT Integrations → INKY to enter counts per customer.</div>';
+
       resultsEl.innerHTML = html;
       resultsEl.style.display = 'block';
     } else {
