@@ -3,15 +3,13 @@ import { getServiceSupabase } from '../lib/supabase.js';
 const INKY_API = 'https://app.inkyphishfence.com/api';
 
 async function inkyFetch(endpoint, { method = 'GET', body, token } = {}) {
-  const headers = {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`,
-  };
-
   const response = await fetch(`${INKY_API}${endpoint}`, {
     method,
-    headers,
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
     body: body ? JSON.stringify(body) : undefined,
   });
 
@@ -19,13 +17,9 @@ async function inkyFetch(endpoint, { method = 'GET', body, token } = {}) {
     const text = await response.text();
     throw new Error(`INKY API ${response.status}: ${text.slice(0, 200)}`);
   }
-
   return response.json();
 }
 
-/**
- * Build date filter for the last 30 days.
- */
 function buildDateFilter() {
   const now = Math.floor(Date.now() / 1000);
   const thirtyDaysAgo = now - (30 * 24 * 60 * 60);
@@ -40,32 +34,74 @@ function buildDateFilter() {
   };
 }
 
+/**
+ * Try multiple approaches to get per-team user count.
+ */
+async function getTeamUserCount(teamSlug, dateFilter, token) {
+  // Approach 1: team_id filter in POST body
+  try {
+    const body = {
+      ...dateFilter,
+      dashboardFilters: [
+        ...dateFilter.dashboardFilters,
+        { type: 'term', name: 'team_id', value: teamSlug, not: false },
+      ],
+    };
+    const r = await inkyFetch('/dashboard/messages/aggregations/cardinality/email?direction=both', { method: 'POST', body, token });
+    if (typeof r.count === 'number' && r.count > 0) return r.count;
+  } catch {}
+
+  // Approach 2: team slug in URL path (INKY dashboard pattern)
+  try {
+    const r = await inkyFetch(`/dashboard/${teamSlug}/messages/aggregations/cardinality/email?direction=both`, { method: 'POST', body: dateFilter, token });
+    if (typeof r.count === 'number' && r.count > 0) return r.count;
+  } catch {}
+
+  // Approach 3: setFilters instead of dashboardFilters
+  try {
+    const body = {
+      ...dateFilter,
+      setFilters: [{ type: 'term', name: 'team_id', value: teamSlug, not: false }],
+    };
+    const r = await inkyFetch('/dashboard/messages/aggregations/cardinality/email?direction=both', { method: 'POST', body, token });
+    if (typeof r.count === 'number' && r.count > 0) return r.count;
+  } catch {}
+
+  // Approach 4: GraphQL team query
+  try {
+    const gql = {
+      query: `query TeamStats($teamId: ID!) { team(teamId: $teamId) { teamId userCount activeUsers } }`,
+      variables: { teamId: teamSlug },
+    };
+    const r = await inkyFetch('/graphql', { method: 'POST', body: gql, token });
+    const count = r.data?.team?.userCount ?? r.data?.team?.activeUsers;
+    if (typeof count === 'number') return count;
+  } catch {}
+
+  return null;
+}
+
 export async function syncInky(params) {
   const { action, bearer_token } = params;
   const supabase = getServiceSupabase();
 
   if (!bearer_token) {
-    return { success: false, error: 'Bearer token required. Copy it from INKY Network tab → Authorization header.' };
+    return { success: false, error: 'Bearer token required.' };
   }
 
-  // Test connection
   if (action === 'test_connection') {
     try {
       const perms = await inkyFetch('/dashboard/users/permissions', { token: bearer_token });
-      const teamIds = Object.keys(perms);
-      return { success: true, message: `Connected! Found ${teamIds.length} team entries.`, teams: teamIds };
+      return { success: true, message: `Connected! Found ${Object.keys(perms).length} team entries.` };
     } catch (err) {
       return { success: false, error: `Connection failed: ${err.message}` };
     }
   }
 
-  // Sync user counts per team
   if (action === 'sync_users') {
     try {
-      // 1. Get team list
+      // 1. Get team structure
       const perms = await inkyFetch('/dashboard/users/permissions', { token: bearer_token });
-
-      // Find customer teams from the parent group
       let customerTeams = [];
       for (const [teamId, info] of Object.entries(perms)) {
         if ((info.child_teamids || []).length > 0 && info.type !== 'k1_role') {
@@ -77,46 +113,25 @@ export async function syncInky(params) {
         customerTeams = Object.keys(perms).filter(t => !t.startsWith('$'));
       }
 
-      console.log(`[INKY] Found ${customerTeams.length} customer teams`);
-
-      // 2. Get total user count
+      // 2. Total user count
       const dateFilter = buildDateFilter();
       const totalResult = await inkyFetch(
         '/dashboard/messages/aggregations/cardinality/email?direction=both',
         { method: 'POST', body: dateFilter, token: bearer_token }
       );
 
-      // 3. Get customers for name matching
+      // 3. Get customers for matching
       const { data: customers } = await supabase.from('customers').select('id, name').eq('status', 'active');
 
-      // 4. Per-team user counts
+      // 4. Per-team counts
       const results = [];
+      const debugApproaches = {};
+
       for (const teamSlug of customerTeams) {
-        const teamName = teamSlug
-          .replace(/-id-\d+$/, '')
-          .replace(/-/g, ' ')
-          .replace(/\b\w/g, c => c.toUpperCase());
+        const teamName = teamSlug.replace(/-id-\d+$/, '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        const userCount = await getTeamUserCount(teamSlug, dateFilter, bearer_token);
 
-        // Try per-team user count
-        let userCount = null;
-        try {
-          const teamFilter = {
-            ...dateFilter,
-            dashboardFilters: [
-              ...dateFilter.dashboardFilters,
-              { type: 'term', name: 'team_id', value: teamSlug, not: false },
-            ],
-          };
-          const result = await inkyFetch(
-            '/dashboard/messages/aggregations/cardinality/email?direction=both',
-            { method: 'POST', body: teamFilter, token: bearer_token }
-          );
-          userCount = result.count ?? null;
-        } catch {
-          // Team filter might not work
-        }
-
-        // Match to customer by name
+        // Name matching
         const normalize = (s) => (s || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
         const teamNorm = normalize(teamName);
         let matchedCustomer = null;
@@ -128,7 +143,6 @@ export async function syncInky(params) {
             break;
           }
         }
-        // Word overlap fallback
         if (!matchedCustomer) {
           const teamWords = teamNorm.split(/\s+/).filter(w => w.length > 2);
           let bestScore = 0;
@@ -143,32 +157,28 @@ export async function syncInky(params) {
           }
         }
 
-        results.push({ teamSlug, teamName, userCount, customer: matchedCustomer ? { id: matchedCustomer.id, name: matchedCustomer.name } : null });
+        results.push({
+          teamSlug, teamName, userCount,
+          customer: matchedCustomer ? { id: matchedCustomer.id, name: matchedCustomer.name } : null,
+        });
 
-        // Save if matched
+        // Save if matched with count
         if (matchedCustomer && userCount != null) {
           const { data: existing } = await supabase
-            .from('inky_reports')
-            .select('id')
-            .eq('customer_id', matchedCustomer.id)
-            .limit(1);
+            .from('inky_reports').select('id').eq('customer_id', matchedCustomer.id).limit(1);
 
           const reportData = { total_users: userCount };
           if (existing && existing.length > 0) {
             await supabase.from('inky_reports').update({
-              total_users: userCount,
-              report_data: reportData,
+              total_users: userCount, report_data: reportData,
               report_date: new Date().toISOString().split('T')[0],
               updated_date: new Date().toISOString(),
             }).eq('id', existing[0].id);
           } else {
             await supabase.from('inky_reports').insert({
-              customer_id: matchedCustomer.id,
-              customer_name: matchedCustomer.name,
-              total_users: userCount,
-              report_data: reportData,
-              report_type: 'user_count',
-              report_date: new Date().toISOString().split('T')[0],
+              customer_id: matchedCustomer.id, customer_name: matchedCustomer.name,
+              total_users: userCount, report_data: reportData,
+              report_type: 'user_count', report_date: new Date().toISOString().split('T')[0],
             });
           }
         }
@@ -176,8 +186,15 @@ export async function syncInky(params) {
 
       const synced = results.filter(r => r.customer && r.userCount != null).length;
       const unmatched = results.filter(r => !r.customer).length;
+      const noCount = results.filter(r => r.userCount == null).length;
 
-      return { success: true, totalUsers: totalResult.count ?? null, synced, unmatched, total: results.length, results };
+      return {
+        success: true,
+        totalUsers: totalResult.count ?? null,
+        synced, unmatched, noCount,
+        total: results.length,
+        results,
+      };
     } catch (err) {
       return { success: false, error: err.message };
     }

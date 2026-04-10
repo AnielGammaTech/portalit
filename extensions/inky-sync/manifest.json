@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "INKY → PortalIT Sync",
+  "version": "1.0",
+  "description": "Sync INKY user counts to PortalIT LootIT with one click",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://app.inkyphishfence.com/*",
+    "https://backend-production-58b4.up.railway.app/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://app.inkyphishfence.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["inject.js"],
+      "matches": ["https://app.inkyphishfence.com/*"]
+    }
+  ],
+  "icons": {
+    "48": "icon.png",
+    "128": "icon.png"
+  }
+}
