@@ -200,5 +200,80 @@ export async function syncInky(params) {
     }
   }
 
+  // Extension sends pre-fetched team results — just match to customers and save
+  if (action === 'save_team_counts') {
+    const { team_results, total_users } = params;
+    if (!team_results || !Array.isArray(team_results)) {
+      return { success: false, error: 'team_results array required' };
+    }
+
+    try {
+      const { data: customers } = await supabase.from('customers').select('id, name').eq('status', 'active');
+      const normalize = (s) => (s || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+
+      const results = [];
+      for (const team of team_results) {
+        const teamNorm = normalize(team.name);
+        let matched = null;
+
+        // Exact / contains match
+        for (const c of (customers || [])) {
+          const cn = normalize(c.name);
+          if (cn === teamNorm || cn.includes(teamNorm) || teamNorm.includes(cn)) {
+            matched = c;
+            break;
+          }
+        }
+        // Word overlap
+        if (!matched) {
+          const tw = teamNorm.split(/\s+/).filter(w => w.length > 2);
+          let best = 0;
+          for (const c of (customers || [])) {
+            const cw = normalize(c.name).split(/\s+/).filter(w => w.length > 2);
+            const overlap = tw.filter(t => cw.some(w => w.includes(t) || t.includes(w))).length;
+            const score = tw.length > 0 ? overlap / tw.length : 0;
+            if (score > best && score >= 0.5) { best = score; matched = c; }
+          }
+        }
+
+        const userCount = team.count;
+        results.push({
+          teamSlug: team.slug,
+          teamName: team.name,
+          userCount,
+          customer: matched ? { id: matched.id, name: matched.name } : null,
+        });
+
+        // Save — even without count, save with total_users=null so the mapping exists
+        if (matched) {
+          const { data: existing } = await supabase
+            .from('inky_reports').select('id').eq('customer_id', matched.id).limit(1);
+
+          const reportData = { total_users: userCount ?? null, synced_from: 'extension' };
+          if (existing && existing.length > 0) {
+            await supabase.from('inky_reports').update({
+              total_users: userCount ?? existing[0].total_users ?? null,
+              report_data: reportData,
+              report_date: new Date().toISOString().split('T')[0],
+              updated_date: new Date().toISOString(),
+            }).eq('id', existing[0].id);
+          } else {
+            await supabase.from('inky_reports').insert({
+              customer_id: matched.id, customer_name: matched.name,
+              total_users: userCount ?? null, report_data: reportData,
+              report_type: 'user_count', report_date: new Date().toISOString().split('T')[0],
+            });
+          }
+        }
+      }
+
+      const synced = results.filter(r => r.customer).length;
+      const unmatched = results.filter(r => !r.customer).length;
+      return { success: true, synced, unmatched, total: results.length, results };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
   return { success: false, error: `Unknown action: ${action}` };
 }
