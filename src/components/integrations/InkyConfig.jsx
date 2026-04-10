@@ -43,10 +43,160 @@ const REPORT_TYPES = [
   { key: 'user_reporting', label: 'User Reporting', description: 'User reporting metrics', icon: Users, color: 'text-purple-600 bg-purple-50' },
 ];
 
+// Quick user count editor — inline editable per customer
+function UserCountEditor({ customers, reports, queryClient }) {
+  const [editingId, setEditingId] = useState(null);
+  const [editValue, setEditValue] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
+
+  // Get latest user count per customer from reports
+  const userCounts = useMemo(() => {
+    const map = {};
+    for (const r of reports) {
+      if (!r.customer_id) continue;
+      const existing = map[r.customer_id];
+      if (!existing || new Date(r.report_date || r.created_date) > new Date(existing.report_date || existing.created_date)) {
+        map[r.customer_id] = r;
+      }
+    }
+    return map;
+  }, [reports]);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return customers
+      .filter(c => !q || c.name.toLowerCase().includes(q))
+      .sort((a, b) => {
+        const aHas = userCounts[a.id] ? 1 : 0;
+        const bHas = userCounts[b.id] ? 1 : 0;
+        if (aHas !== bHas) return bHas - aHas;
+        return a.name.localeCompare(b.name);
+      });
+  }, [customers, search, userCounts]);
+
+  const handleSave = async (customerId, customerName) => {
+    const count = parseInt(editValue, 10);
+    if (isNaN(count) || count < 0) { toast.error('Enter a valid number'); return; }
+    setSaving(true);
+    try {
+      const existing = userCounts[customerId];
+      const reportData = { total_users: count };
+      if (existing) {
+        await client.entities.InkyReport.update(existing.id, {
+          total_users: count,
+          report_data: reportData,
+          report_date: new Date().toISOString().split('T')[0],
+        });
+      } else {
+        await client.entities.InkyReport.create({
+          customer_id: customerId,
+          customer_name: customerName,
+          total_users: count,
+          report_data: reportData,
+          report_type: 'user_count',
+          report_date: new Date().toISOString().split('T')[0],
+        });
+      }
+      toast.success(`${customerName}: ${count} users saved`);
+      queryClient.invalidateQueries({ queryKey: ['inky-reports'] });
+      setEditingId(null);
+    } catch (err) {
+      toast.error(err.message || 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="border border-slate-200 rounded-lg overflow-hidden">
+      <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-3">
+        <Users className="w-4 h-4 text-blue-600" />
+        <h4 className="text-sm font-semibold text-slate-900 flex-1">Protected Users per Customer</h4>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search..."
+            className="pl-8 h-7 text-xs border border-slate-200 rounded-md px-2 w-48 focus:outline-none focus:ring-1 focus:ring-slate-400"
+          />
+        </div>
+      </div>
+      <div className="max-h-96 overflow-y-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider bg-slate-50/50">
+              <th className="text-left px-4 py-2">Customer</th>
+              <th className="text-right px-4 py-2 w-28">Users</th>
+              <th className="text-right px-4 py-2 w-20" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {filtered.map(c => {
+              const report = userCounts[c.id];
+              const count = report?.total_users;
+              const isEditing = editingId === c.id;
+
+              return (
+                <tr key={c.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-4 py-2 text-sm text-slate-800">{c.name}</td>
+                  <td className="px-4 py-2 text-right">
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        min="0"
+                        value={editValue}
+                        onChange={e => setEditValue(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleSave(c.id, c.name); if (e.key === 'Escape') setEditingId(null); }}
+                        className="w-20 h-7 text-xs text-right border border-blue-300 rounded px-2 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        autoFocus
+                      />
+                    ) : (
+                      <button
+                        onClick={() => { setEditingId(c.id); setEditValue(count != null ? String(count) : ''); }}
+                        className={cn(
+                          "text-sm tabular-nums font-medium px-2 py-0.5 rounded hover:bg-slate-100 transition-colors",
+                          count != null ? "text-slate-900" : "text-slate-300"
+                        )}
+                      >
+                        {count != null ? count : '—'}
+                      </button>
+                    )}
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    {isEditing && (
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => handleSave(c.id, c.name)}
+                          disabled={saving}
+                          className="px-2 py-1 text-[10px] font-semibold rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50"
+                        >
+                          {saving ? '...' : 'Save'}
+                        </button>
+                        <button
+                          onClick={() => setEditingId(null)}
+                          className="px-2 py-1 text-[10px] font-semibold rounded bg-slate-100 text-slate-500 hover:bg-slate-200"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function InkyConfig() {
   const [customerSearch, setCustomerSearch] = useState('');
   const [expandedCustomer, setExpandedCustomer] = useState(null);
-  const [uploadingType, setUploadingType] = useState(null); // { customerId, customerName, reportType }
+  const [uploadingType, setUploadingType] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -237,12 +387,8 @@ If a field is not found in the report, use 0 for numbers and null for strings.`,
         </div>
       </div>
 
-      {/* Info */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <p className="text-sm text-blue-800">
-          <strong>Note:</strong> Inky doesn't have a public API. Export your 4 report types (Threat Level Overview, Graymail, Link Clicks, User Reporting) as PDF and upload them per customer.
-        </p>
-      </div>
+      {/* Quick User Count Editor */}
+      <UserCountEditor customers={customers} reports={reports} queryClient={queryClient} />
 
       {/* Search */}
       <div className="relative">
