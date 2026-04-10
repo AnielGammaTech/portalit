@@ -1,0 +1,62 @@
+{
+  "manifest_version": 3,
+  "name": "LootIT Link",
+  "version": "1.0",
+  "description": "Sync vendor data to PortalIT LootIT with one click",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://app.inkyphishfence.com/*",
+    "https://*.bullphishid.com/*",
+    "https://*.kaseya.com/*",
+    "https://*.darkwebid.com/*",
+    "https://*.3cx.com/*",
+    "https://*.3cx.us/*",
+    "https://backend-production-58b4.up.railway.app/*",
+    "https://rgsvvywlnnkckvockdoj.supabase.co/*",
+    "https://auth.dashboard.inky.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://app.inkyphishfence.com/*"],
+      "js": ["content-scripts/inky.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://*.bullphishid.com/*", "https://bullphish.kaseya.com/*"],
+      "js": ["content-scripts/bullphish.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://*.darkwebid.com/*", "https://darkweb.kaseya.com/*"],
+      "js": ["content-scripts/darkweb.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://*.3cx.com/*", "https://*.3cx.us/*"],
+      "js": ["content-scripts/threecx.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["inject.js"],
+      "matches": ["https://app.inkyphishfence.com/*"]
+    }
+  ],
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
+}

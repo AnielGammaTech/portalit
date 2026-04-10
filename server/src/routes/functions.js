@@ -35,6 +35,7 @@ import { syncVultr } from '../functions/syncVultr.js';
 import { syncVPenTest } from '../functions/syncVPenTest.js';
 import { syncCIPP } from '../functions/syncCIPP.js';
 import { syncInky } from '../functions/syncInky.js';
+import { lootitLink } from '../functions/lootitLink.js';
 import scanBillingAnomalies from '../functions/scanBillingAnomalies.js';
 import { verifyReconciliation } from '../functions/verifyReconciliation.js';
 import { getServiceSupabase } from '../lib/supabase.js';
@@ -110,6 +111,7 @@ const functionMap = {
   syncVPenTest,
   syncCIPP,
   syncInky,
+  lootitLink,
   scanBillingAnomalies,
   verifyReconciliation,
   securityAudit,
