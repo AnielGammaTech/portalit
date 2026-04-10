@@ -2,10 +2,22 @@ import { getServiceSupabase } from '../lib/supabase.js';
 
 // Map vendor keys to their report/mapping table and count field
 const VENDOR_CONFIG = {
-  inky: { table: 'inky_reports', countField: 'total_users', nameField: 'customer_name', reportType: 'user_count' },
-  bullphish: { table: 'bull_phish_id_reports', countField: 'total_emails_sent', nameField: 'customer_name', reportType: 'extension_sync' },
-  darkweb: { table: 'dark_web_id_reports', countField: 'domains_count', nameField: 'customer_name', reportType: 'extension_sync' },
-  threecx: { table: 'threecx_reports', countField: 'user_extensions', nameField: 'customer_name', reportType: 'extension_sync' },
+  inky: {
+    table: 'inky_reports',
+    buildRecord: (count, name) => ({ total_users: count, report_data: { total_users: count }, report_type: 'user_count' }),
+  },
+  bullphish: {
+    table: 'bull_phish_id_reports',
+    buildRecord: (count, name) => ({ total_emails_sent: count, report_data: { total_emails_sent: count, user_count: count }, report_type: 'extension_sync' }),
+  },
+  darkweb: {
+    table: 'dark_web_id_reports',
+    buildRecord: (count, name) => ({ domains_count: count, report_data: { domains_count: count }, report_type: 'extension_sync' }),
+  },
+  threecx: {
+    table: 'threecx_reports',
+    buildRecord: (count, name) => ({ user_extensions: count, total_extensions: count, report_data: { user_extensions: count, synced_from: 'lootit_link' } }),
+  },
 };
 
 export async function lootitLink(params) {
@@ -33,28 +45,25 @@ export async function lootitLink(params) {
       if (!customer_id) { results.push({ teamName: name, error: 'no customer_id' }); continue; }
 
       try {
-        // Check for existing record
         const { data: existing } = await supabase
           .from(config.table)
           .select('id')
           .eq('customer_id', customer_id)
           .limit(1);
 
-        const reportData = { [config.countField]: count, synced_from: 'lootit_link', vendor_name: name };
+        const vendorFields = config.buildRecord(count, name);
 
         if (existing && existing.length > 0) {
           await supabase.from(config.table).update({
-            [config.countField]: count,
-            report_data: reportData,
+            ...vendorFields,
             report_date: new Date().toISOString().split('T')[0],
             updated_date: new Date().toISOString(),
           }).eq('id', existing[0].id);
         } else {
           const record = {
             customer_id,
-            [config.nameField]: customer_name,
-            [config.countField]: count,
-            report_data: reportData,
+            customer_name,
+            ...vendorFields,
             report_date: new Date().toISOString().split('T')[0],
           };
           if (config.reportType) record.report_type = config.reportType;
