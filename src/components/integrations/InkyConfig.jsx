@@ -30,7 +30,9 @@ import {
   BarChart3,
   MousePointerClick,
   AlertTriangle,
-  Users
+  Users,
+  RefreshCw,
+  KeyRound
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -189,6 +191,126 @@ function UserCountEditor({ customers, reports, queryClient }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+// INKY auto-sync panel — paste session cookie, hit sync
+function InkySyncPanel({ queryClient }) {
+  const [cookieValue, setCookieValue] = useState('');
+  const [showCookieInput, setShowCookieInput] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState(null);
+  const [testing, setTesting] = useState(false);
+
+  const handleSaveCookie = async () => {
+    if (!cookieValue.trim()) { toast.error('Paste the AWSALB cookie value'); return; }
+    setSaving(true);
+    try {
+      await client.functions.invoke('syncInky', { action: 'save_cookies', awsalb: cookieValue.trim() });
+      toast.success('INKY session saved');
+      setShowCookieInput(false);
+      setCookieValue('');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTest = async () => {
+    setTesting(true);
+    try {
+      const res = await client.functions.invoke('syncInky', { action: 'test_connection' });
+      if (res.success) {
+        toast.success(res.message);
+      } else {
+        toast.error(res.error);
+      }
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await client.functions.invoke('syncInky', { action: 'sync_users' });
+      if (res.success) {
+        setSyncResult(res);
+        toast.success(`Synced ${res.synced} customers. ${res.unmatched} unmatched.`);
+        queryClient.invalidateQueries({ queryKey: ['inky-reports'] });
+      } else {
+        toast.error(res.error);
+      }
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  return (
+    <div className="border border-slate-200 rounded-lg overflow-hidden">
+      <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-3">
+        <RefreshCw className="w-4 h-4 text-blue-600" />
+        <h4 className="text-sm font-semibold text-slate-900 flex-1">Auto Sync</h4>
+        <div className="flex items-center gap-1.5">
+          <Button size="sm" variant="outline" onClick={() => setShowCookieInput(!showCookieInput)} className="h-7 text-xs px-2.5">
+            <KeyRound className="w-3 h-3 mr-1" />
+            {showCookieInput ? 'Cancel' : 'Set Cookie'}
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleTest} disabled={testing} className="h-7 text-xs px-2.5">
+            <RefreshCw className={cn("w-3 h-3 mr-1", testing && "animate-spin")} />
+            Test
+          </Button>
+          <Button size="sm" onClick={handleSync} disabled={syncing} className="h-7 text-xs px-2.5 bg-blue-600 hover:bg-blue-700 text-white">
+            <RefreshCw className={cn("w-3 h-3 mr-1", syncing && "animate-spin")} />
+            {syncing ? 'Syncing...' : 'Sync Users'}
+          </Button>
+        </div>
+      </div>
+
+      {showCookieInput && (
+        <div className="px-4 py-3 border-b border-slate-100 space-y-2">
+          <p className="text-xs text-slate-500">
+            Open <a href="https://app.inkyphishfence.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">app.inkyphishfence.com</a> &rarr; F12 &rarr; Application &rarr; Cookies &rarr; Copy the <strong>AWSALB</strong> value
+          </p>
+          <div className="flex gap-2">
+            <Input
+              value={cookieValue}
+              onChange={e => setCookieValue(e.target.value)}
+              placeholder="Paste AWSALB cookie value..."
+              className="h-8 text-xs font-mono flex-1"
+            />
+            <Button size="sm" onClick={handleSaveCookie} disabled={saving} className="h-8 text-xs">
+              {saving ? '...' : 'Save'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {syncResult && (
+        <div className="px-4 py-3 text-xs">
+          <div className="flex gap-4 text-slate-600 mb-2">
+            <span>Total users: <strong>{syncResult.totalUsers}</strong></span>
+            <span>Synced: <strong className="text-emerald-600">{syncResult.synced}</strong></span>
+            <span>Unmatched: <strong className={syncResult.unmatched > 0 ? "text-amber-600" : "text-slate-400"}>{syncResult.unmatched}</strong></span>
+          </div>
+          {syncResult.results?.filter(r => !r.customer).length > 0 && (
+            <div className="bg-amber-50 rounded p-2 mt-1">
+              <p className="text-[10px] font-semibold text-amber-700 mb-1">Unmatched INKY teams:</p>
+              {syncResult.results.filter(r => !r.customer).map(r => (
+                <p key={r.teamSlug} className="text-[10px] text-amber-600">{r.teamName} ({r.userCount ?? '?'} users)</p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -387,7 +509,10 @@ If a field is not found in the report, use 0 for numbers and null for strings.`,
         </div>
       </div>
 
-      {/* Quick User Count Editor */}
+      {/* Auto Sync */}
+      <InkySyncPanel queryClient={queryClient} />
+
+      {/* Manual User Count Editor */}
       <UserCountEditor customers={customers} reports={reports} queryClient={queryClient} />
 
       {/* Search */}
