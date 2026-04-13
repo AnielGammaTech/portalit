@@ -84,7 +84,7 @@ const INTEGRATION_CATEGORIES = [
   {
     title: 'PSA & TICKETING',
     items: [
-      { id: 'halopsa', label: 'HaloPSA', desc: 'Sync customers, contacts, contracts & tickets', icon: Ticket, iconBg: 'bg-indigo-50', iconColor: 'text-indigo-600' },
+      { id: 'halopsa', label: 'HaloPSA', desc: 'Sync customers, contacts, contracts & tickets', icon: Ticket, iconBg: 'bg-indigo-50', iconColor: 'text-indigo-600', statusType: 'halopsa' },
     ],
   },
   {
@@ -147,13 +147,13 @@ const INTEGRATION_CATEGORIES = [
   {
     title: 'AI & AUTOMATION',
     items: [
-      { id: 'ai', label: 'AI Provider', desc: 'Choose between OpenAI and Claude AI', icon: Brain, iconBg: 'bg-gradient-to-br from-amber-50 to-orange-50', iconColor: 'text-amber-600' },
+      { id: 'ai', label: 'AI Provider', desc: 'Choose between OpenAI and Claude AI', icon: Brain, iconBg: 'bg-gradient-to-br from-amber-50 to-orange-50', iconColor: 'text-amber-600', statusType: 'settings' },
     ],
   },
   {
     title: 'MAPS & LOCATION',
     items: [
-      { id: 'mapbox', label: 'Mapbox', desc: 'Customer location maps and geocoding', icon: MapPin, iconBg: 'bg-indigo-50', iconColor: 'text-indigo-600' },
+      { id: 'mapbox', label: 'Mapbox', desc: 'Customer location maps and geocoding', icon: MapPin, iconBg: 'bg-indigo-50', iconColor: 'text-indigo-600', statusType: 'settings' },
     ],
   },
   {
@@ -189,7 +189,13 @@ const INTEGRATION_COMPONENTS = {
 
 function IntegrationsPanel({ activeIntegration, setActiveIntegration }) {
 
-  // Single query to fetch all mapping counts (instead of 9 full-table fetches)
+  const { data: haloStatus } = useQuery({
+    queryKey: ['halo-status-integrations'],
+    queryFn: () => client.halo.getStatus().catch(() => null),
+    staleTime: 60_000,
+  });
+
+  // Single query to fetch all mapping counts
   const { data: mappingCounts = {} } = useQuery({
     queryKey: ['integration_mapping_counts'],
     queryFn: async () => {
@@ -267,8 +273,22 @@ function IntegrationsPanel({ activeIntegration, setActiveIntegration }) {
           <div className="grid grid-cols-3 gap-2.5">
             {category.items.map((item) => {
               const count = item.mappingKey ? mappingCounts[item.mappingKey] : 0;
-              const isConfigured = count > 0;
               const ItemIcon = item.icon;
+
+              // Determine status based on type
+              let isConfigured = false;
+              let statusLabel = 'Not connected';
+
+              if (item.statusType === 'halopsa') {
+                isConfigured = haloStatus?.configured || false;
+                statusLabel = isConfigured ? `${haloStatus?.customerCount || 0} customers` : 'Not connected';
+              } else if (item.statusType === 'settings') {
+                isConfigured = true; // Settings pages are always accessible
+                statusLabel = 'Settings';
+              } else if (item.mappingKey) {
+                isConfigured = count > 0;
+                statusLabel = isConfigured ? `${count} mapped` : 'Not connected';
+              }
 
               return (
                 <button
@@ -284,13 +304,9 @@ function IntegrationsPanel({ activeIntegration, setActiveIntegration }) {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-slate-900 truncate">{item.label}</p>
-                    {isConfigured ? (
-                      <p className="text-[10px] text-emerald-600 font-medium mt-0.5">{count} mapped</p>
-                    ) : (
-                      <p className="text-[10px] text-slate-400 mt-0.5">Not connected</p>
-                    )}
+                    <p className={cn("text-[10px] mt-0.5", isConfigured ? "text-emerald-600 font-medium" : "text-slate-400")}>{statusLabel}</p>
                   </div>
-                  {isConfigured && (
+                  {isConfigured && item.statusType !== 'settings' && (
                     <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 shrink-0">Connected</span>
                   )}
                 </button>
