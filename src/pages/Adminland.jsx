@@ -261,11 +261,11 @@ function IntegrationsPanel() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       {INTEGRATION_CATEGORIES.map((category) => (
         <div key={category.title}>
-          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">{category.title}</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <h3 className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">{category.title}</h3>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
             {category.items.map((item) => {
               const count = item.mappingKey ? mappingCounts[item.mappingKey] : 0;
               const isConfigured = count > 0;
@@ -275,29 +275,25 @@ function IntegrationsPanel() {
                 <button
                   key={item.id}
                   onClick={() => setActiveIntegration(item.id)}
-                  className="w-full flex items-center gap-4 p-4 bg-white rounded-xl border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all text-left group"
+                  className={cn(
+                    "flex items-center gap-2.5 p-2.5 rounded-lg border text-left transition-all hover:shadow-md group",
+                    isConfigured ? "bg-white border-emerald-200 hover:border-emerald-300" : "bg-white border-slate-200 hover:border-slate-300"
+                  )}
                 >
-                  <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0", item.iconBg)}>
-                    <ItemIcon className={cn("w-5 h-5", item.iconColor)} />
+                  <div className={cn("w-7 h-7 rounded-md flex items-center justify-center shrink-0", item.iconBg)}>
+                    <ItemIcon className={cn("w-3.5 h-3.5", item.iconColor)} />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <h4 className="font-medium text-slate-900 text-sm">{item.label}</h4>
-                      {item.mappingKey && (
-                        isConfigured ? (
-                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px] px-1.5 py-0">
-                            ● {count} mapped
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-slate-400 text-[10px] px-1.5 py-0">
-                            ● Not configured
-                          </Badge>
-                        )
-                      )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", isConfigured ? "bg-emerald-500" : "bg-slate-300")} />
+                      <p className="text-xs font-medium text-slate-900 truncate">{item.label}</p>
                     </div>
-                    <p className="text-xs text-slate-500 truncate">{item.desc}</p>
+                    {item.mappingKey && (
+                      <p className={cn("text-[10px] mt-0.5 truncate", isConfigured ? "text-emerald-600" : "text-slate-400")}>
+                        {isConfigured ? `${count} mapped` : 'Not configured'}
+                      </p>
+                    )}
                   </div>
-                  <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors flex-shrink-0" />
                 </button>
               );
             })}
