@@ -80,6 +80,31 @@ import {
 // IntegrationsPanel — Category-grouped card grid with drill-in
 // ═══════════════════════════════════════════════════════════════════════
 
+const LOGO = (domain) => `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+const LOGOS = {
+  halopsa: LOGO('halopsa.com'),
+  'datto-rmm': LOGO('datto.com'),
+  'datto-edr': LOGO('datto.com'),
+  rocketcyber: LOGO('rocketcyber.com'),
+  unifi: LOGO('ui.com'),
+  vpentest: LOGO('vonahi.io'),
+  'saas-alerts': LOGO('saasalerts.com'),
+  cipp: LOGO('cipp.app'),
+  jumpcloud: LOGO('jumpcloud.com'),
+  spanning: LOGO('unitrends.com'),
+  cove: LOGO('n-able.com'),
+  pax8: LOGO('pax8.com'),
+  darkweb: LOGO('idagent.com'),
+  bullphish: LOGO('idagent.com'),
+  inky: LOGO('inky.com'),
+  dmarc: LOGO('dmarcreport.com'),
+  threecx: LOGO('3cx.com'),
+  vultr: LOGO('vultr.com'),
+  ai: LOGO('anthropic.com'),
+  mapbox: LOGO('mapbox.com'),
+  'external-api': null,
+};
+
 const INTEGRATION_CATEGORIES = [
   {
     title: 'PSA & TICKETING',
@@ -126,9 +151,9 @@ const INTEGRATION_CATEGORIES = [
   {
     title: 'SECURITY AWARENESS',
     items: [
-      { id: 'darkweb', label: 'Dark Web ID', desc: 'Monitor dark web compromises', icon: AlertTriangle, iconBg: 'bg-red-50', iconColor: 'text-red-600' },
-      { id: 'bullphish', label: 'BullPhish ID', desc: 'Phishing simulation reports', icon: Fish, iconBg: 'bg-orange-50', iconColor: 'text-orange-600' },
-      { id: 'inky', label: 'Inky', desc: 'Email protection reports', icon: ShieldCheck, iconBg: 'bg-blue-50', iconColor: 'text-blue-600' },
+      { id: 'darkweb', label: 'Dark Web ID', desc: 'Monitor dark web compromises', icon: AlertTriangle, iconBg: 'bg-red-50', iconColor: 'text-red-600', statusType: 'reports' },
+      { id: 'bullphish', label: 'BullPhish ID', desc: 'Phishing simulation reports', icon: Fish, iconBg: 'bg-orange-50', iconColor: 'text-orange-600', statusType: 'reports' },
+      { id: 'inky', label: 'Inky', desc: 'Email protection reports', icon: ShieldCheck, iconBg: 'bg-blue-50', iconColor: 'text-blue-600', statusType: 'reports' },
     ],
   },
   {
@@ -282,8 +307,11 @@ function IntegrationsPanel({ activeIntegration, setActiveIntegration }) {
               if (item.statusType === 'halopsa') {
                 isConfigured = haloStatus?.configured || false;
                 statusLabel = isConfigured ? `${haloStatus?.customerCount || 0} customers` : 'Not connected';
+              } else if (item.statusType === 'reports') {
+                isConfigured = true;
+                statusLabel = 'Reports';
               } else if (item.statusType === 'settings') {
-                isConfigured = true; // Settings pages are always accessible
+                isConfigured = true;
                 statusLabel = 'Settings';
               } else if (item.mappingKey) {
                 isConfigured = count > 0;
@@ -299,8 +327,11 @@ function IntegrationsPanel({ activeIntegration, setActiveIntegration }) {
                     isConfigured ? "bg-white border-emerald-200 hover:border-emerald-300" : "bg-white border-slate-200 hover:border-slate-300"
                   )}
                 >
-                  <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0", item.iconBg)}>
-                    <ItemIcon className={cn("w-4 h-4", item.iconColor)} />
+                  <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 overflow-hidden", item.iconBg)}>
+                    {LOGOS[item.id] ? (
+                      <img src={LOGOS[item.id]} alt="" className="w-5 h-5 object-contain" onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
+                    ) : null}
+                    <ItemIcon className={cn("w-4 h-4", item.iconColor, LOGOS[item.id] ? "hidden" : "")} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-slate-900 truncate">{item.label}</p>
