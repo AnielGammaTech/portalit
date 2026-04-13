@@ -187,8 +187,7 @@ const INTEGRATION_COMPONENTS = {
   'cipp': CIPPConfig,
 };
 
-function IntegrationsPanel() {
-  const [activeIntegration, setActiveIntegration] = useState(null);
+function IntegrationsPanel({ activeIntegration, setActiveIntegration }) {
 
   // Single query to fetch all mapping counts (instead of 9 full-table fetches)
   const { data: mappingCounts = {} } = useQuery({
@@ -606,10 +605,16 @@ export default function Adminland() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const activeSection = searchParams.get('section') || null;
+  const activeIntegrationId = searchParams.get('id') || null;
 
   const setActiveSection = (sectionId) => {
-    if (sectionId === null) setSearchParams({}, { replace: true });
-    else setSearchParams({ section: sectionId }, { replace: true });
+    if (sectionId === null) setSearchParams({}, { replace: false });
+    else setSearchParams({ section: sectionId }, { replace: false });
+  };
+
+  const setActiveIntegration = (integrationId) => {
+    if (integrationId === null) setSearchParams({ section: 'integrations' }, { replace: false });
+    else setSearchParams({ section: 'integrations', id: integrationId }, { replace: false });
   };
 
   useEffect(() => {
@@ -637,7 +642,7 @@ export default function Adminland() {
     switch (activeSection) {
       case 'users': return <div className="bg-white rounded-2xl border border-slate-200 p-6"><UserAssignmentPanel /></div>;
       case 'branding': return <BrandingPanel />;
-      case 'integrations': return <IntegrationsPanel />;
+      case 'integrations': return <IntegrationsPanel activeIntegration={activeIntegrationId} setActiveIntegration={setActiveIntegration} />;
       case 'cron': return <div className="bg-white rounded-2xl border border-slate-200 p-6"><CronJobsPanel /></div>;
       case 'email': return <ResendEmailConfig />;
       case 'api': return <ApiDocsPanel />;
@@ -677,7 +682,19 @@ export default function Adminland() {
           <div className="flex items-center gap-2 text-sm text-slate-500 mb-2">
             <button onClick={() => setActiveSection(null)} className="hover:text-slate-900 hover:underline">Adminland</button>
             <ChevronRight className="w-4 h-4" />
-            <span className="text-slate-900 font-medium">{allMenuItems.find((i) => i.id === activeSection)?.label || activeSection}</span>
+            {activeIntegrationId ? (
+              <>
+                <button onClick={() => setActiveIntegration(null)} className="hover:text-slate-900 hover:underline">
+                  {allMenuItems.find((i) => i.id === activeSection)?.label || activeSection}
+                </button>
+                <ChevronRight className="w-4 h-4" />
+                <span className="text-slate-900 font-medium">
+                  {INTEGRATION_CATEGORIES.flatMap(c => c.items).find(i => i.id === activeIntegrationId)?.label || activeIntegrationId}
+                </span>
+              </>
+            ) : (
+              <span className="text-slate-900 font-medium">{allMenuItems.find((i) => i.id === activeSection)?.label || activeSection}</span>
+            )}
           </div>
         ) : (
           <div>

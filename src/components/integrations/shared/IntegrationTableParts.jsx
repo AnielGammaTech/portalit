@@ -133,13 +133,13 @@ export function InlineCustomerSearch({ customers, suggestedMatch, onSelect }) {
           value={query}
           onChange={(e) => { setQuery(e.target.value); if (!open) setOpen(true); }}
           onFocus={() => setOpen(true)}
-          className="h-6 w-40 text-xs border border-slate-200 rounded px-2 bg-white focus:outline-none focus:ring-1 focus:ring-slate-400 placeholder:text-slate-400"
+          className="h-6 w-56 text-xs border border-slate-200 rounded px-2 bg-white focus:outline-none focus:ring-1 focus:ring-slate-400 placeholder:text-slate-400"
         />
         {suggestedMatch && !query && (
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); handleSelect(suggestedMatch.customer); }}
-            className="text-[10px] text-slate-400 hover:text-slate-600 text-left truncate max-w-[160px]"
+            className="text-[10px] text-slate-400 hover:text-slate-600 text-left truncate max-w-[220px]"
             title={`Auto-match: ${suggestedMatch.customer.name} (${suggestedMatch.score}%)`}
           >
             Suggested: {suggestedMatch.customer.name}
@@ -147,7 +147,7 @@ export function InlineCustomerSearch({ customers, suggestedMatch, onSelect }) {
         )}
       </div>
       {open && (
-        <div className="absolute z-50 mt-0.5 w-52 max-h-44 overflow-y-auto rounded border border-slate-200 bg-white shadow-lg">
+        <div className="absolute z-50 mt-0.5 w-72 max-h-44 overflow-y-auto rounded border border-slate-200 bg-white shadow-lg">
           {filtered.length === 0 ? (
             <p className="px-3 py-2 text-xs text-slate-400">No customers found</p>
           ) : (
