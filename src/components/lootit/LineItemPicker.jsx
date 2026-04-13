@@ -137,6 +137,9 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
   const [search, setSearch] = useState('');
   const [source, setSource] = useState('psa');
 
+  // Only PSA line items can be selected as mapping targets
+  const isSelectableSource = source === 'psa';
+
   const visibleTabs = useMemo(
     () => buildTabs(lineItems, pax8Products, devices, vendorMappings),
     [lineItems, pax8Products, devices, vendorMappings],
@@ -243,8 +246,21 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
             currentItems.map((li) => (
               <button
                 key={li.id}
-                onClick={() => onSelect(li.id)}
-                className="w-full text-left px-6 py-3 hover:bg-slate-50 border-b border-slate-50 transition-colors"
+                onClick={() => {
+                  if (isSelectableSource) {
+                    onSelect(li.id);
+                  } else {
+                    // Non-PSA item clicked: jump to HaloPSA tab with product name as search
+                    setSource('psa');
+                    setSearch(li.description || '');
+                  }
+                }}
+                className={cn(
+                  "w-full text-left px-6 py-3 border-b border-slate-50 transition-colors",
+                  isSelectableSource
+                    ? "hover:bg-slate-50 cursor-pointer"
+                    : "hover:bg-blue-50 cursor-pointer"
+                )}
               >
                 <p className="text-sm font-medium text-slate-700 truncate">
                   {source === 'psa' ? formatLineItemDescription(li.description) : li.description}
@@ -255,6 +271,9 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
                   {li.total > 0 && <span>Total: ${parseFloat(li.total).toFixed(2)}</span>}
                   {li._meta && <span className="text-slate-300">{li._meta}</span>}
                 </div>
+                {!isSelectableSource && (
+                  <p className="text-[10px] text-blue-500 mt-1">Click to find matching HaloPSA line item</p>
+                )}
               </button>
             ))
           )}

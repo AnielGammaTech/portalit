@@ -196,15 +196,20 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   });
 
   const handleSaveMapping = async (ruleId, productName, lineItemId) => {
-    await client.entities.Pax8LineItemOverride.create({
-      customer_id: customer.id,
-      rule_id: ruleId,
-      pax8_product_name: productName || null,
-      line_item_id: lineItemId,
-    });
-    await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides', customer.id] });
-    await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides_all'] });
-    setMappingRecon(null);
+    try {
+      await client.entities.Pax8LineItemOverride.create({
+        customer_id: customer.id,
+        rule_id: ruleId,
+        pax8_product_name: productName || null,
+        line_item_id: lineItemId,
+      });
+      await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides', customer.id] });
+      await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides_all'] });
+      setMappingRecon(null);
+      toast.success('Mapping saved');
+    } catch (err) {
+      toast.error(err.message || 'Failed to save mapping');
+    }
   };
 
   const handleSaveGroupMapping = async (lineItemId, ruleIds) => {
