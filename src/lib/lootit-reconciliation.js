@@ -254,13 +254,39 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
   }
   const lineItemById = Object.fromEntries(lineItems.map((li) => [li.id, li]));
 
+  // Resolve an override ID to a line item — supports both real UUIDs and
+  // synthetic IDs (pax8:Name, device:id, vendor:key:id) from cross-source mappings.
+  const resolveOverrideItem = (id) => {
+    // Direct HaloPSA line item lookup (UUID)
+    const direct = lineItemById[id];
+    if (direct) return direct;
+
+    // Synthetic Pax8 product reference
+    if (id.startsWith('pax8:')) {
+      const productName = id.slice(5);
+      const pax8Mapping = mappings.pax8;
+      const products = pax8Mapping?.cached_data?.products || [];
+      const product = products.find(p => p.name === productName);
+      if (product) {
+        return { id, description: product.name, quantity: product.quantity || 1, _synthetic: true };
+      }
+    }
+
+    // Synthetic vendor reference (vendor:key:id)
+    if (id.startsWith('vendor:') || id.startsWith('device:')) {
+      return { id, description: id, quantity: 1, _synthetic: true };
+    }
+
+    return null;
+  };
+
   // Track which line items are matched by any rule or override
   const matchedLineItemIds = new Set();
 
   const ruleResults = activeRules.map((rule) => {
     // 1. Check for manual overrides first, then fall back to pattern matching
     const overrideIds = overrideMap[rule.id] || [];
-    const overrideItems = overrideIds.map((id) => lineItemById[id]).filter(Boolean);
+    const overrideItems = overrideIds.map(resolveOverrideItem).filter(Boolean);
     const matched = overrideItems.length > 0
       ? overrideItems
       : lineItems.filter((li) => lineItemMatchesRule(li, rule));
