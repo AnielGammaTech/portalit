@@ -1,64 +1,54 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client, supabase } from '@/api/client';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import {
-  Shield,
-  RefreshCw,
-  Link2,
-  Unlink,
-  CheckCircle2,
-  AlertCircle,
-  Search,
-  Building2,
-  Loader2,
-  XCircle,
-  ChevronDown,
-  Clock,
-  Wand2
-} from 'lucide-react';
-import { cn } from "@/lib/utils";
+import { RefreshCw, Zap } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from "@/lib/utils";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+  CONNECTION_STATES,
+  getConnectionStatusDisplay,
+  getRelativeTime,
+  isStale,
+  getRowStatusDot,
+  getSuggestedMatch,
+  IntegrationHeader,
+  FilterBar,
+  MappingRow,
+  TablePagination,
+  ITEMS_PER_PAGE,
+} from './shared/IntegrationTableParts';
+
+// ---------------------------------------------------------------------------
+// Main Component
+// ---------------------------------------------------------------------------
 
 export default function DattoEDRConfig() {
-  const queryClient = useQueryClient();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [edrTenants, setEdrTenants] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
   const [testing, setTesting] = useState(false);
+  const [configStatus, setConfigStatus] = useState(CONNECTION_STATES.NOT_CONFIGURED);
+  const [loadingTenants, setLoadingTenants] = useState(false);
+  const [edrTenants, setEdrTenants] = useState([]);
+  const [syncing, setSyncing] = useState(false);
   const [automapping, setAutomapping] = useState(false);
-  const [configStatus, setConfigStatus] = useState('not_configured');
-  const [lastSyncTime, setLastSyncTime] = useState(null);
-  const [errorDetails, setErrorDetails] = useState(null);
-  const [showErrorDetails, setShowErrorDetails] = useState(false);
-  const itemsPerPage = 10;
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterTab, setFilterTab] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
 
-  // Fetch customers
+  const queryClient = useQueryClient();
+
+  // --- Data queries (unchanged entity names & query keys) ---
+
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => client.entities.Customer.filter({ status: 'active' })
+    queryFn: () => client.entities.Customer.filter({ status: 'active' }),
   });
 
-  // Fetch existing mappings
   const { data: mappings = [], refetch: refetchMappings } = useQuery({
     queryKey: ['datto-edr-mappings'],
-    queryFn: () => client.entities.DattoEDRMapping.list()
+    queryFn: () => client.entities.DattoEDRMapping.list(),
   });
+
+  // --- Sync log ---
 
   const fetchLastSync = useCallback(async () => {
     try {
@@ -69,161 +59,191 @@ export default function DattoEDRConfig() {
         .eq('status', 'success')
         .order('completed_at', { ascending: false })
         .limit(1);
-      if (data && data.length > 0) {
-        setLastSyncTime(data[0].completed_at);
-      }
-    } catch (_err) { /* sync logs may not exist */ }
-  }, []);
-
-  // Auto-detect configured status from existing mappings
-  useEffect(() => {
-    if (mappings.length > 0 && configStatus === 'not_configured') {
-      setConfigStatus('connected');
+      // last sync is informational only; no state needed beyond the query
+      return data?.[0]?.completed_at ?? null;
+    } catch (_err) {
+      return null;
     }
-  }, [mappings.length]);
+  }, []);
 
   useEffect(() => {
     fetchLastSync();
   }, [fetchLastSync]);
 
-  // Test connection to EDR API
-  const testConnection = async () => {
+  // Auto-detect configured status
+  useEffect(() => {
+    if (mappings.length > 0 && configStatus === CONNECTION_STATES.NOT_CONFIGURED) {
+      setConfigStatus(CONNECTION_STATES.CONNECTED);
+    }
+  }, [mappings.length, configStatus]);
+
+  // --- Derived data ---
+
+  const getCustomerName = useCallback((customerId) => {
+    const customer = customers.find(c => c.id === customerId);
+    return customer?.name || 'Unknown';
+  }, [customers]);
+
+  const mappedTenantIds = useMemo(
+    () => new Set(mappings.map(m => m.edr_tenant_id)),
+    [mappings],
+  );
+
+  const allRows = useMemo(() => {
+    const rows = edrTenants.map(tenant => {
+      const tenantId = String(tenant.id);
+      const mapping = mappings.find(m => m.edr_tenant_id === tenantId);
+      return {
+        tenantId,
+        tenantName: tenant.name,
+        hostCount: tenant.host_count || 0,
+        mapping,
+        isMapped: Boolean(mapping),
+        isStale: mapping ? isStale(mapping.last_synced) : false,
+      };
+    });
+
+    // Include mappings for tenants not currently in the API response
+    const apiTenantIds = new Set(edrTenants.map(t => String(t.id)));
+    for (const mapping of mappings) {
+      if (!apiTenantIds.has(mapping.edr_tenant_id)) {
+        rows.push({
+          tenantId: mapping.edr_tenant_id,
+          tenantName: mapping.edr_tenant_name || mapping.edr_tenant_id,
+          hostCount: 0,
+          mapping,
+          isMapped: true,
+          isStale: isStale(mapping.last_synced),
+        });
+      }
+    }
+
+    return rows;
+  }, [edrTenants, mappings]);
+
+  const totalTenants = allRows.length;
+
+  const mappedCount = useMemo(
+    () => allRows.filter(r => r.isMapped).length,
+    [allRows],
+  );
+
+  const unmappedCount = totalTenants - mappedCount;
+
+  const staleCount = useMemo(
+    () => mappings.filter(m => m.last_synced && isStale(m.last_synced)).length,
+    [mappings],
+  );
+
+  const filteredRows = useMemo(() => {
+    let rows = allRows;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      rows = rows.filter(r =>
+        r.tenantName.toLowerCase().includes(q) ||
+        (r.mapping && getCustomerName(r.mapping.customer_id).toLowerCase().includes(q)),
+      );
+    }
+    switch (filterTab) {
+      case 'mapped':
+        rows = rows.filter(r => r.isMapped);
+        break;
+      case 'unmapped':
+        rows = rows.filter(r => !r.isMapped);
+        break;
+      case 'stale':
+        rows = rows.filter(r => r.isStale);
+        break;
+      default:
+        break;
+    }
+    return rows;
+  }, [allRows, searchQuery, filterTab, getCustomerName]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / ITEMS_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedRows = filteredRows.slice(
+    (safePage - 1) * ITEMS_PER_PAGE,
+    safePage * ITEMS_PER_PAGE,
+  );
+
+  const statusDisplay = getConnectionStatusDisplay(configStatus);
+
+  // --- Actions (all original API calls preserved) ---
+
+  const testConnection = useCallback(async () => {
     setTesting(true);
-    setErrorDetails(null);
     try {
       const response = await client.functions.invoke('syncDattoEDR', { action: 'test_connection' });
       if (response.success) {
-        setConfigStatus('connected');
+        setConfigStatus(CONNECTION_STATES.CONNECTED);
         toast.success('Connected to Datto EDR');
       } else {
-        const errMsg = response.error || 'Connection failed';
-        setConfigStatus('configured');
-        setErrorDetails(errMsg);
-        toast.error(errMsg);
+        setConfigStatus(CONNECTION_STATES.CONFIGURED);
+        toast.error(response.error || 'Connection failed');
       }
     } catch (error) {
-      const errMsg = error.message || 'Connection test failed';
-      setConfigStatus('configured');
-      setErrorDetails(errMsg);
-      toast.error(errMsg);
+      setConfigStatus(CONNECTION_STATES.CONFIGURED);
+      toast.error(error.message || 'Connection test failed');
     } finally {
       setTesting(false);
     }
-  };
+  }, []);
 
-  // Fetch EDR tenants from API
-  const fetchEDRTenants = async () => {
-    setLoading(true);
+  const loadEDRTenants = useCallback(async () => {
+    setLoadingTenants(true);
     try {
       const response = await client.functions.invoke('syncDattoEDR', { action: 'list_tenants' });
       if (response.success) {
         setEdrTenants(response.tenants || []);
+        setCurrentPage(1);
+        setConfigStatus(CONNECTION_STATES.CONNECTED);
         toast.success(`Found ${response.tenants?.length || 0} EDR tenants`);
       } else {
         toast.error(response.error || 'Failed to fetch tenants');
       }
     } catch (error) {
-      const errMsg = error.message || 'Failed to connect to Datto EDR';
-      setErrorDetails(errMsg);
-      toast.error(errMsg);
+      toast.error(error.message || 'Failed to connect to Datto EDR');
     } finally {
-      setLoading(false);
+      setLoadingTenants(false);
     }
-  };
+  }, []);
 
-  // Map a customer to an EDR tenant
-  const mapCustomer = async (customerId, tenantId, tenantName) => {
-    const customer = customers.find(c => c.id === customerId);
-    
-    // Check if already mapped
-    const existingMapping = mappings.find(m => m.customer_id === customerId);
-    if (existingMapping) {
-      await client.entities.DattoEDRMapping.update(existingMapping.id, {
-        edr_tenant_id: tenantId,
-        edr_tenant_name: tenantName
-      });
-    } else {
-      await client.entities.DattoEDRMapping.create({
-        customer_id: customerId,
-        customer_name: customer?.name,
-        edr_tenant_id: tenantId,
-        edr_tenant_name: tenantName
-      });
-    }
-    
-    refetchMappings();
-    toast.success(`Mapped ${customer?.name} to ${tenantName}`);
-  };
-
-  // Remove mapping
-  const removeMapping = async (mappingId) => {
-    await client.entities.DattoEDRMapping.delete(mappingId);
-    refetchMappings();
-    toast.success('Mapping removed');
-  };
-
-  // Sync all mapped customers
-  const syncAll = async () => {
-    setSyncing(true);
-    setErrorDetails(null);
+  const applyMapping = useCallback(async (tenantId, tenantName, customer) => {
+    if (!customer) return;
     try {
-      const response = await client.functions.invoke('syncDattoEDR', { action: 'sync_all' });
-      if (response.success) {
-        toast.success(`Synced ${response.synced || 0} customers`);
-        refetchMappings();
-        fetchLastSync();
+      const existingMapping = mappings.find(m => m.customer_id === customer.id);
+      if (existingMapping) {
+        await client.entities.DattoEDRMapping.update(existingMapping.id, {
+          edr_tenant_id: tenantId,
+          edr_tenant_name: tenantName,
+        });
       } else {
-        const errMsg = response.error || 'Sync failed';
-        setErrorDetails(errMsg);
-        toast.error(errMsg);
+        await client.entities.DattoEDRMapping.create({
+          customer_id: customer.id,
+          customer_name: customer.name,
+          edr_tenant_id: tenantId,
+          edr_tenant_name: tenantName,
+        });
       }
+      toast.success(`Mapped ${tenantName} to ${customer.name}`);
+      refetchMappings();
     } catch (error) {
-      const errMsg = error.message || 'Sync failed';
-      setErrorDetails(errMsg);
-      toast.error(errMsg);
-    } finally {
-      setSyncing(false);
+      toast.error(`Failed to map: ${error.message}`);
     }
-  };
+  }, [mappings, refetchMappings]);
 
-  // Calculate suggested match for a tenant based on name similarity
-  const getSuggestedMatch = (tenantName) => {
-    const nameLower = tenantName.toLowerCase().trim();
-    let bestMatch = null;
-    let bestScore = 0;
-
-    for (const customer of customers) {
-      const customerNameLower = customer.name.toLowerCase().trim();
-
-      if (nameLower === customerNameLower) {
-        return { customer, score: 100 };
-      }
-
-      if (nameLower.includes(customerNameLower) || customerNameLower.includes(nameLower)) {
-        const score = Math.round((Math.min(nameLower.length, customerNameLower.length) / Math.max(nameLower.length, customerNameLower.length)) * 100);
-        if (score > bestScore) {
-          bestScore = score;
-          bestMatch = customer;
-        }
-      }
-
-      const nameWords = nameLower.split(/[\s,.-]+/).filter(w => w.length > 2);
-      const customerWords = customerNameLower.split(/[\s,.-]+/).filter(w => w.length > 2);
-      const matchingWords = nameWords.filter(sw => customerWords.some(cw => cw.includes(sw) || sw.includes(cw)));
-
-      if (matchingWords.length > 0) {
-        const score = Math.round((matchingWords.length / Math.max(nameWords.length, customerWords.length)) * 100);
-        if (score > bestScore) {
-          bestScore = score;
-          bestMatch = customer;
-        }
-      }
+  const deleteMapping = useCallback(async (mappingId) => {
+    try {
+      await client.entities.DattoEDRMapping.delete(mappingId);
+      toast.success('Mapping removed');
+      refetchMappings();
+    } catch (error) {
+      toast.error(`Failed to remove mapping: ${error.message}`);
     }
+  }, [refetchMappings]);
 
-    return bestMatch && bestScore >= 50 ? { customer: bestMatch, score: bestScore } : null;
-  };
-
-  const autoMapTenants = async () => {
+  const autoMapTenants = useCallback(async () => {
     if (edrTenants.length === 0) {
       toast.error('Load tenants first before auto-mapping');
       return;
@@ -235,17 +255,17 @@ export default function DattoEDRConfig() {
       const mappedTenantSet = new Set(mappings.map(m => m.edr_tenant_id));
 
       for (const tenant of edrTenants) {
-        if (mappedTenantSet.has(tenant.id)) continue;
-        const match = getSuggestedMatch(tenant.name);
+        if (mappedTenantSet.has(String(tenant.id))) continue;
+        const match = getSuggestedMatch(tenant.name, customers);
         if (match && !mappedCustomerIds.has(match.customer.id)) {
           await client.entities.DattoEDRMapping.create({
             customer_id: match.customer.id,
             customer_name: match.customer.name,
-            edr_tenant_id: tenant.id,
-            edr_tenant_name: tenant.name
+            edr_tenant_id: String(tenant.id),
+            edr_tenant_name: tenant.name,
           });
           mappedCustomerIds.add(match.customer.id);
-          mappedTenantSet.add(tenant.id);
+          mappedTenantSet.add(String(tenant.id));
           mapped++;
         }
       }
@@ -253,278 +273,197 @@ export default function DattoEDRConfig() {
         toast.success(`Auto-mapped ${mapped} tenants to customers!`);
         refetchMappings();
       } else {
-        toast.info('No new matches found. Tenants may already be mapped or names don\'t match.');
+        toast.info('No new matches found. Tenants may already be mapped or names do not match.');
       }
     } catch (error) {
       toast.error('Auto-map failed: ' + error.message);
     } finally {
       setAutomapping(false);
     }
-  };
+  }, [edrTenants, mappings, customers, refetchMappings]);
 
-  // Filter customers
-  const filteredCustomers = customers.filter(c =>
-    c.name?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  
-  // Pagination for filtered customers
-  const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage);
-  const paginatedCustomers = filteredCustomers.slice(
-    (currentPage - 1) * itemsPerPage, 
-    currentPage * itemsPerPage
-  );
+  const syncAll = useCallback(async () => {
+    if (mappings.length === 0) return;
+    setSyncing(true);
+    try {
+      const response = await client.functions.invoke('syncDattoEDR', { action: 'sync_all' });
+      if (response.success) {
+        toast.success(`Synced ${response.synced || 0} customers`);
+        refetchMappings();
+        fetchLastSync();
+      } else {
+        toast.error(response.error || 'Sync failed');
+      }
+    } catch (error) {
+      toast.error(error.message || 'Sync failed');
+    } finally {
+      setSyncing(false);
+    }
+  }, [mappings.length, refetchMappings, fetchLastSync]);
 
-  // Get mapping for a customer
-  const getMapping = (customerId) => mappings.find(m => m.customer_id === customerId);
+  // --- Render ---
 
-  // Get unmapped tenants
-  const mappedTenantIds = mappings.map(m => m.edr_tenant_id);
-  const unmappedTenants = edrTenants.filter(t => !mappedTenantIds.includes(t.id));
-
-  const statusColor = configStatus === 'connected' ? 'bg-emerald-500' : configStatus === 'configured' ? 'bg-amber-500' : 'bg-slate-300';
-  const statusLabel = configStatus === 'connected' ? 'Connected' : configStatus === 'configured' ? 'Configured' : 'Not configured';
-  const statusBg = configStatus === 'connected' ? 'bg-emerald-50 border-emerald-200' : configStatus === 'configured' ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200';
-  const statusText = configStatus === 'connected' ? 'text-emerald-700' : configStatus === 'configured' ? 'text-amber-700' : 'text-slate-500';
+  const hasData = edrTenants.length > 0 || mappings.length > 0;
 
   return (
-    <div className="space-y-6">
-      {/* Connection Status Header */}
-      <div className={cn("flex items-center justify-between px-4 py-3 rounded-lg border", statusBg)}>
-        <div className="flex items-center gap-3">
-          <div className={cn("w-2.5 h-2.5 rounded-full", statusColor)} />
-          <span className={cn("text-sm font-medium", statusText)}>{statusLabel}</span>
-          {configStatus === 'connected' && (
-            <Badge className="bg-emerald-100 text-emerald-700 text-xs font-normal">
-              <CheckCircle2 className="w-3 h-3 mr-1" />
-              Datto EDR
-            </Badge>
+    <div className="space-y-3">
+      {/* Header Bar */}
+      <IntegrationHeader
+        statusDisplay={statusDisplay}
+        integrationName="Datto EDR"
+        hasData={hasData}
+        mappedCount={mappedCount}
+        totalCount={totalTenants}
+      >
+        <Button
+          size="sm" variant="outline"
+          onClick={testConnection}
+          disabled={testing}
+          className="h-7 text-xs px-2.5"
+        >
+          <RefreshCw className={cn("w-3 h-3 mr-1", testing && "animate-spin")} />
+          Test
+        </Button>
+        <Button
+          size="sm" variant="outline"
+          onClick={loadEDRTenants}
+          disabled={loadingTenants}
+          className="h-7 text-xs px-2.5"
+        >
+          <RefreshCw className={cn("w-3 h-3 mr-1", loadingTenants && "animate-spin")} />
+          Refresh
+        </Button>
+        <Button
+          size="sm" variant="outline"
+          onClick={autoMapTenants}
+          disabled={automapping}
+          className="h-7 text-xs px-2.5 text-blue-600 border-blue-200 hover:bg-blue-50"
+        >
+          <Zap className={cn("w-3 h-3 mr-1", automapping && "animate-spin")} />
+          Auto-Map
+        </Button>
+        <Button
+          size="sm"
+          onClick={syncAll}
+          disabled={syncing || mappings.length === 0}
+          className="h-7 text-xs px-2.5 bg-slate-900 hover:bg-slate-800 text-white"
+        >
+          <RefreshCw className={cn("w-3 h-3 mr-1", syncing && "animate-spin")} />
+          {syncing ? 'Syncing...' : 'Sync All'}
+        </Button>
+      </IntegrationHeader>
+
+      {/* Filter Tabs + Search */}
+      <FilterBar
+        filterTab={filterTab}
+        setFilterTab={setFilterTab}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        totalCount={totalTenants}
+        mappedCount={mappedCount}
+        unmappedCount={unmappedCount}
+        staleCount={staleCount}
+        onPageReset={() => setCurrentPage(1)}
+        searchPlaceholder="Search tenants or customers..."
+      />
+
+      {/* Main Table */}
+      {!hasData ? (
+        <div className="text-center py-10 text-sm text-slate-500 border border-slate-200 rounded-lg">
+          No tenants loaded. Click <strong>Refresh</strong> to pull Datto EDR tenants or <strong>Test</strong> to verify the connection.
+        </div>
+      ) : (
+        <div className="border border-slate-200 rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2 w-10" />
+                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2">Tenant</th>
+                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2 w-16">Hosts</th>
+                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2">Customer</th>
+                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2 w-24">Last Sync</th>
+                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2 w-20" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {paginatedRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-6 text-xs text-slate-400">
+                      No tenants match the current filter.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedRows.map((row, idx) => (
+                    <TenantRow
+                      key={row.tenantId}
+                      row={row}
+                      customers={customers}
+                      getCustomerName={getCustomerName}
+                      onMap={(customer) => applyMapping(row.tenantId, row.tenantName, customer)}
+                      onDelete={() => row.mapping && deleteMapping(row.mapping.id)}
+                      isOdd={idx % 2 === 1}
+                    />
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {filteredRows.length > ITEMS_PER_PAGE && (
+            <TablePagination
+              page={safePage}
+              totalPages={totalPages}
+              totalItems={filteredRows.length}
+              perPage={ITEMS_PER_PAGE}
+              onPageChange={setCurrentPage}
+            />
           )}
         </div>
-        {lastSyncTime && (
-          <div className="flex items-center gap-1.5 text-xs text-slate-500">
-            <Clock className="w-3.5 h-3.5" />
-            Last synced: {formatDistanceToNow(new Date(lastSyncTime), { addSuffix: true })}
-          </div>
-        )}
-      </div>
-
-      {/* Error Details (collapsible) */}
-      {errorDetails && (
-        <Collapsible open={showErrorDetails} onOpenChange={setShowErrorDetails}>
-          <div className="border border-red-200 bg-red-50 rounded-lg overflow-hidden">
-            <CollapsibleTrigger asChild>
-              <button className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-red-700 hover:bg-red-100 transition-colors">
-                <div className="flex items-center gap-2">
-                  <XCircle className="w-4 h-4" />
-                  Error details
-                </div>
-                <ChevronDown className={cn("w-4 h-4 transition-transform", showErrorDetails && "rotate-180")} />
-              </button>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="px-4 pb-3 pt-1 border-t border-red-200">
-                <pre className="text-xs text-red-600 whitespace-pre-wrap font-mono bg-red-100/50 rounded p-2">{errorDetails}</pre>
-              </div>
-            </CollapsibleContent>
-          </div>
-        </Collapsible>
-      )}
-
-      {/* Header */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-                <Shield className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <CardTitle className="text-lg">Datto EDR Integration</CardTitle>
-                <p className="text-sm text-slate-500">
-                  {mappings.length} customer{mappings.length !== 1 ? 's' : ''} mapped
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                onClick={testConnection}
-                disabled={testing}
-              >
-                {testing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Shield className="w-4 h-4 mr-2" />}
-                Test Connection
-              </Button>
-              <Button
-                variant="outline"
-                onClick={fetchEDRTenants}
-                disabled={loading}
-              >
-                {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-                {edrTenants.length > 0 ? 'Refresh Tenants' : 'Load Tenants'}
-              </Button>
-              {edrTenants.length > 0 && (
-                <Button
-                  variant="outline"
-                  onClick={autoMapTenants}
-                  disabled={automapping}
-                >
-                  <Wand2 className={cn("w-4 h-4 mr-2", automapping && "animate-spin")} />
-                  {automapping ? 'Mapping...' : 'Auto-Map All'}
-                </Button>
-              )}
-              {mappings.length > 0 && (
-                <Button onClick={syncAll} disabled={syncing}>
-                  {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-                  {syncing ? 'Syncing...' : 'Sync All'}
-                </Button>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
-
-      {/* Search & Filter */}
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <Input 
-            placeholder="Search customers..."
-            value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-            className="pl-9"
-          />
-        </div>
-        <Badge variant="outline" className="py-2">
-          {mappings.length} Mapped
-        </Badge>
-        <Badge variant="outline" className="py-2 bg-amber-50 text-amber-700 border-amber-200">
-          {customers.length - mappings.length} Unmapped
-        </Badge>
-      </div>
-
-      {/* Tenants Status */}
-      {edrTenants.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="py-8 text-center">
-            <Shield className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <h3 className="font-medium text-slate-900 mb-1">No EDR Tenants Loaded</h3>
-            <p className="text-sm text-slate-500 mb-4">
-              Click "Load Tenants" to fetch available tenants from Datto EDR
-            </p>
-            <Button onClick={fetchEDRTenants} disabled={loading}>
-              {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Shield className="w-4 h-4 mr-2" />}
-              Load EDR Tenants
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">
-              Customer Mappings ({edrTenants.length} tenants available)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {paginatedCustomers.map(customer => {
-                const mapping = getMapping(customer.id);
-                return (
-                  <div 
-                    key={customer.id}
-                    className={cn(
-                      "flex items-center justify-between p-3 rounded-lg border",
-                      mapping ? "bg-green-50 border-green-200" : "bg-slate-50 border-slate-200"
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "w-8 h-8 rounded-full flex items-center justify-center",
-                        mapping ? "bg-green-100" : "bg-slate-200"
-                      )}>
-                        {mapping ? (
-                          <CheckCircle2 className="w-4 h-4 text-green-600" />
-                        ) : (
-                          <Building2 className="w-4 h-4 text-slate-500" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium text-slate-900">{customer.name}</p>
-                        {mapping && (
-                          <p className="text-xs text-green-600">
-                            Mapped to: {mapping.edr_tenant_name}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      {mapping ? (
-                        <Button 
-                          size="sm" 
-                          variant="ghost"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => removeMapping(mapping.id)}
-                        >
-                          <Unlink className="w-4 h-4 mr-1" />
-                          Unmap
-                        </Button>
-                      ) : (
-                        <Select onValueChange={(value) => {
-                          const tenant = edrTenants.find(t => t.id === value);
-                          if (tenant) {
-                            mapCustomer(customer.id, tenant.id, tenant.name);
-                          }
-                        }}>
-                          <SelectTrigger className="w-48 h-8">
-                            <SelectValue placeholder="Select EDR tenant..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {unmappedTenants.map(tenant => (
-                              <SelectItem key={tenant.id} value={tenant.id}>
-                                {tenant.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between pt-4 border-t border-slate-200 mt-4">
-                <p className="text-xs text-slate-500">
-                  {((currentPage - 1) * itemsPerPage) + 1}–{Math.min(currentPage * itemsPerPage, filteredCustomers.length)} of {filteredCustomers.length}
-                </p>
-                <div className="flex items-center gap-1">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="h-7 px-2"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </Button>
-                  <span className="text-xs text-slate-600 px-2">{currentPage} / {totalPages}</span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                    className="h-7 px-2"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
       )}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Row Component
+// ---------------------------------------------------------------------------
+
+function TenantRow({ row, customers, getCustomerName, onMap, onDelete, isOdd }) {
+  const suggestedMatch = useMemo(
+    () => (!row.isMapped ? getSuggestedMatch(row.tenantName, customers) : null),
+    [row.isMapped, row.tenantName, customers],
+  );
+
+  const syncTime = row.mapping ? getRelativeTime(row.mapping.last_synced) : null;
+  const statusDot = getRowStatusDot(row.mapping);
+
+  const handleResync = useCallback(async () => {
+    if (!row.mapping) return;
+    try {
+      await client.functions.invoke('syncDattoEDR', { action: 'sync_all' });
+      toast.success(`Re-synced ${row.tenantName}`);
+    } catch (err) {
+      toast.error(`Sync failed: ${err.message}`);
+    }
+  }, [row.mapping, row.tenantName]);
+
+  return (
+    <MappingRow
+      statusDot={statusDot}
+      itemName={row.tenantName}
+      countValue={row.hostCount}
+      countLabel="hosts"
+      isMapped={row.isMapped}
+      customerName={row.isMapped ? getCustomerName(row.mapping.customer_id) : null}
+      syncTime={syncTime}
+      suggestedMatch={suggestedMatch}
+      customers={customers}
+      onMap={onMap}
+      onDelete={onDelete}
+      onResync={handleResync}
+      isStaleRow={row.isStale}
+      isOdd={isOdd}
+    />
   );
 }

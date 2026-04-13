@@ -1,40 +1,36 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { client, supabase } from '@/api/client';
+import { client } from '@/api/client';
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  RefreshCw,
-  CheckCircle2,
-  Building2,
-  Trash2,
-  Wand2,
-  Search,
-  XCircle,
-  Clock,
-  Key,
-} from 'lucide-react';
+import { RefreshCw, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
-import { formatDistanceToNow } from 'date-fns';
+import {
+  CONNECTION_STATES,
+  getConnectionStatusDisplay,
+  getRelativeTime,
+  isStale,
+  getRowStatusDot,
+  getSuggestedMatch,
+  IntegrationHeader,
+  FilterBar,
+  MappingRow,
+  TablePagination,
+  ITEMS_PER_PAGE,
+} from './shared/IntegrationTableParts';
 
 export default function Pax8Config() {
-  const queryClient = useQueryClient();
   const [testing, setTesting] = useState(false);
+  const [configStatus, setConfigStatus] = useState(CONNECTION_STATES.NOT_CONFIGURED);
   const [loadingCompanies, setLoadingCompanies] = useState(false);
   const [pax8Companies, setPax8Companies] = useState([]);
-  const [showMapping, setShowMapping] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [automapping, setAutomapping] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selections, setSelections] = useState({});
+  const [filterTab, setFilterTab] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const queryClient = useQueryClient();
 
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
@@ -47,256 +43,350 @@ export default function Pax8Config() {
     queryFn: () => client.entities.Pax8Mapping.list(),
   });
 
-  // Test connection
-  const handleTestConnection = async () => {
+  // Auto-detect configured status from existing mappings
+  useEffect(() => {
+    if (mappings.length > 0 && configStatus === CONNECTION_STATES.NOT_CONFIGURED) {
+      setConfigStatus(CONNECTION_STATES.CONNECTED);
+    }
+  }, [mappings.length, configStatus]);
+
+  const getCustomerName = useCallback((customerId) => {
+    const customer = customers.find(c => c.id === customerId);
+    return customer?.name || 'Unknown';
+  }, [customers]);
+
+  const allRows = useMemo(() => {
+    const rows = pax8Companies.map(company => {
+      const companyId = String(company.id);
+      const mapping = mappings.find(m => m.pax8_company_id === companyId);
+      return {
+        companyId,
+        companyName: company.name,
+        subscriptionCount: company.totalSubscriptions ?? mapping?.cached_data?.totalSubscriptions ?? null,
+        mapping,
+        isMapped: Boolean(mapping),
+        isStale: mapping ? isStale(mapping.last_synced) : false,
+      };
+    });
+
+    // Include mappings for companies not in the current API response
+    const apiCompanyIds = new Set(pax8Companies.map(c => String(c.id)));
+    for (const mapping of mappings) {
+      if (!apiCompanyIds.has(mapping.pax8_company_id)) {
+        rows.push({
+          companyId: mapping.pax8_company_id,
+          companyName: mapping.pax8_company_name || mapping.pax8_company_id,
+          subscriptionCount: mapping.cached_data?.totalSubscriptions ?? null,
+          mapping,
+          isMapped: true,
+          isStale: isStale(mapping.last_synced),
+        });
+      }
+    }
+
+    return rows;
+  }, [pax8Companies, mappings]);
+
+  const totalCompanies = allRows.length;
+  const mappedCount = allRows.filter(r => r.isMapped).length;
+  const unmappedCount = totalCompanies - mappedCount;
+  const staleCount = useMemo(
+    () => mappings.filter(m => m.last_synced && isStale(m.last_synced)).length,
+    [mappings],
+  );
+
+  const filteredRows = useMemo(() => {
+    let rows = allRows;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      rows = rows.filter(r =>
+        r.companyName.toLowerCase().includes(q) ||
+        (r.mapping && getCustomerName(r.mapping.customer_id).toLowerCase().includes(q)),
+      );
+    }
+    switch (filterTab) {
+      case 'mapped':
+        rows = rows.filter(r => r.isMapped);
+        break;
+      case 'unmapped':
+        rows = rows.filter(r => !r.isMapped);
+        break;
+      case 'stale':
+        rows = rows.filter(r => r.isStale);
+        break;
+      default:
+        break;
+    }
+    return rows;
+  }, [allRows, searchQuery, filterTab, getCustomerName]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / ITEMS_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedRows = filteredRows.slice(
+    (safePage - 1) * ITEMS_PER_PAGE,
+    safePage * ITEMS_PER_PAGE,
+  );
+
+  const statusDisplay = getConnectionStatusDisplay(configStatus);
+
+  // -- API actions ------------------------------------------------------------
+
+  const testConnection = useCallback(async () => {
     setTesting(true);
     try {
       const result = await client.functions.invoke('syncPax8Subscriptions', { action: 'test_connection' });
       if (result.success) {
-        toast.success(result.message);
+        setConfigStatus(CONNECTION_STATES.CONNECTED);
+        toast.success(result.message || 'Connected to Pax8');
       } else {
+        setConfigStatus(CONNECTION_STATES.CONFIGURED);
         toast.error(result.error || 'Connection failed');
       }
-    } catch (e) {
-      toast.error(e.message);
+    } catch (error) {
+      setConfigStatus(CONNECTION_STATES.CONFIGURED);
+      toast.error(error.message || 'Connection test failed');
     } finally {
       setTesting(false);
     }
-  };
+  }, []);
 
-  // Load Pax8 companies
-  const handleLoadCompanies = async () => {
+  const loadCompanies = useCallback(async () => {
     setLoadingCompanies(true);
     try {
       const result = await client.functions.invoke('syncPax8Subscriptions', { action: 'list_companies' });
       if (result.success) {
         setPax8Companies(result.companies || []);
-        setShowMapping(true);
-        toast.success(`Found ${result.companies.length} Pax8 companies`);
+        setCurrentPage(1);
+        setConfigStatus(CONNECTION_STATES.CONNECTED);
+        toast.success(`Found ${(result.companies || []).length} Pax8 companies`);
       } else {
-        toast.error(result.error);
+        toast.error(result.error || 'Failed to load companies');
       }
-    } catch (e) {
-      toast.error(e.message);
+    } catch (error) {
+      toast.error(error.message || 'Failed to load companies');
     } finally {
       setLoadingCompanies(false);
     }
-  };
+  }, []);
 
-  // Auto-map by name matching
-  const handleAutoMap = useCallback(() => {
-    const newSelections = { ...selections };
-    const mapped = new Set(mappings.map((m) => m.pax8_company_id));
-
-    for (const company of pax8Companies) {
-      if (mapped.has(company.id)) continue;
-      const pName = (company.name || '').toLowerCase().trim();
-      const match = customers.find(
-        (c) => (c.name || '').toLowerCase().trim() === pName
-      );
-      if (match) {
-        newSelections[company.id] = match.id;
-      }
-    }
-
-    setSelections(newSelections);
-    const count = Object.keys(newSelections).length - Object.keys(selections).length;
-    toast.success(`Auto-mapped ${count} companies`);
-  }, [pax8Companies, customers, mappings, selections]);
-
-  // Save a single mapping
-  const handleSaveMapping = async (pax8Company) => {
-    const customerId = selections[pax8Company.id];
-    if (!customerId) return;
-
-    const customer = customers.find((c) => c.id === customerId);
-
+  const applyMapping = useCallback(async (companyId, companyName, customer) => {
+    if (!customer) return;
     try {
-      const { error } = await supabase.from('pax8_mappings').insert({
-        customer_id: customerId,
-        customer_name: customer?.name || '',
-        pax8_company_id: pax8Company.id,
-        pax8_company_name: pax8Company.name,
+      await client.entities.Pax8Mapping.create({
+        customer_id: customer.id,
+        customer_name: customer.name,
+        pax8_company_id: companyId,
+        pax8_company_name: companyName,
       });
-
-      if (error) throw error;
-
-      toast.success(`Mapped ${pax8Company.name}`);
+      toast.success(`Mapped ${companyName} to ${customer.name}`);
       refetchMappings();
-      setSelections((prev) => {
-        const next = { ...prev };
-        delete next[pax8Company.id];
-        return next;
-      });
-    } catch (e) {
-      toast.error(e.message);
+    } catch (error) {
+      toast.error(`Failed to map: ${error.message}`);
     }
-  };
+  }, [refetchMappings]);
 
-  // Delete a mapping
-  const handleDeleteMapping = async (mappingId) => {
+  const deleteMapping = useCallback(async (mappingId) => {
     try {
-      const { error } = await supabase.from('pax8_mappings').delete().eq('id', mappingId);
-      if (error) throw error;
+      await client.entities.Pax8Mapping.delete(mappingId);
       toast.success('Mapping removed');
       refetchMappings();
-    } catch (e) {
-      toast.error(e.message);
+    } catch (error) {
+      toast.error(`Failed to remove mapping: ${error.message}`);
     }
-  };
+  }, [refetchMappings]);
 
-  // Sync all
-  const handleSyncAll = async () => {
+  const autoMapCompanies = useCallback(() => {
+    const unmappedRows = allRows.filter(r => !r.isMapped);
+    let count = 0;
+    for (const row of unmappedRows) {
+      const match = getSuggestedMatch(row.companyName, customers);
+      if (match && match.score >= 80) {
+        applyMapping(row.companyId, row.companyName, match.customer);
+        count += 1;
+      }
+    }
+    if (count > 0) {
+      toast.success(`Auto-mapped ${count} companies`);
+    } else {
+      toast.info('No new matches found. Companies may already be mapped or names do not match.');
+    }
+  }, [allRows, customers, applyMapping]);
+
+  const syncAll = useCallback(async () => {
+    if (mappings.length === 0) return;
     setSyncing(true);
     try {
       const result = await client.functions.invoke('syncPax8Subscriptions', { action: 'sync_all' });
       if (result.success) {
         toast.success(`Synced ${result.synced} companies (${result.errors} errors)`);
-        refetchMappings();
         queryClient.invalidateQueries({ queryKey: ['pax8_mappings'] });
       } else {
-        toast.error(result.error);
+        toast.error(result.error || 'Sync failed');
       }
-    } catch (e) {
-      toast.error(e.message);
+    } catch (error) {
+      toast.error(error.message || 'Sync failed');
     } finally {
       setSyncing(false);
     }
-  };
+  }, [mappings.length, queryClient]);
 
-  const mappedIds = new Set(mappings.map((m) => m.pax8_company_id));
-
-  const unmappedCompanies = pax8Companies.filter((c) => !mappedIds.has(c.id));
-  const filteredUnmapped = searchQuery
-    ? unmappedCompanies.filter((c) => c.name?.toLowerCase().includes(searchQuery.toLowerCase()))
-    : unmappedCompanies;
+  const hasData = pax8Companies.length > 0 || mappings.length > 0;
 
   return (
-    <div className="space-y-6">
-      {/* Connection */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
-        <h3 className="text-sm font-semibold text-slate-900 mb-1">Connection</h3>
-        <p className="text-xs text-slate-500 mb-4">
-          Set <code className="bg-slate-100 px-1 rounded">PAX8_CLIENT_ID</code> and{' '}
-          <code className="bg-slate-100 px-1 rounded">PAX8_CLIENT_SECRET</code> as environment variables on the server.
-        </p>
-        <div className="flex gap-2">
-          <Button size="sm" onClick={handleTestConnection} disabled={testing}>
-            {testing ? <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1" /> : <Key className="w-3.5 h-3.5 mr-1" />}
-            Test Connection
-          </Button>
-          <Button size="sm" variant="outline" onClick={handleLoadCompanies} disabled={loadingCompanies}>
-            {loadingCompanies ? <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1" /> : <Building2 className="w-3.5 h-3.5 mr-1" />}
-            Load Companies
-          </Button>
-          {mappings.length > 0 && (
-            <Button size="sm" variant="outline" onClick={handleSyncAll} disabled={syncing}>
-              {syncing ? <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1" /> : <RefreshCw className="w-3.5 h-3.5 mr-1" />}
-              Sync All ({mappings.length})
-            </Button>
-          )}
-        </div>
-      </div>
+    <div className="space-y-3">
+      {/* Header Bar */}
+      <IntegrationHeader
+        statusDisplay={statusDisplay}
+        integrationName="Pax8"
+        hasData={hasData}
+        mappedCount={mappedCount}
+        totalCount={totalCompanies}
+      >
+        <Button
+          size="sm" variant="outline"
+          onClick={testConnection}
+          disabled={testing}
+          className="h-7 text-xs px-2.5"
+        >
+          <RefreshCw className={cn("w-3 h-3 mr-1", testing && "animate-spin")} />
+          Test
+        </Button>
+        <Button
+          size="sm" variant="outline"
+          onClick={loadCompanies}
+          disabled={loadingCompanies}
+          className="h-7 text-xs px-2.5"
+        >
+          <RefreshCw className={cn("w-3 h-3 mr-1", loadingCompanies && "animate-spin")} />
+          Refresh
+        </Button>
+        <Button
+          size="sm" variant="outline"
+          onClick={autoMapCompanies}
+          disabled={automapping}
+          className="h-7 text-xs px-2.5 text-blue-600 border-blue-200 hover:bg-blue-50"
+        >
+          <Zap className={cn("w-3 h-3 mr-1", automapping && "animate-spin")} />
+          Auto-Map
+        </Button>
+        <Button
+          size="sm"
+          onClick={syncAll}
+          disabled={syncing || mappings.length === 0}
+          className="h-7 text-xs px-2.5 bg-slate-900 hover:bg-slate-800 text-white"
+        >
+          <RefreshCw className={cn("w-3 h-3 mr-1", syncing && "animate-spin")} />
+          {syncing ? 'Syncing...' : 'Sync All'}
+        </Button>
+      </IntegrationHeader>
 
-      {/* Existing Mappings */}
-      {mappings.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <h3 className="text-sm font-semibold text-slate-900 mb-3">
-            Mapped Companies ({mappings.length})
-          </h3>
-          <div className="space-y-2">
-            {mappings.map((m) => (
-              <div key={m.id} className="flex items-center justify-between bg-slate-50 rounded-lg px-4 py-2.5">
-                <div className="flex items-center gap-3 min-w-0">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">{m.pax8_company_name}</p>
-                    <p className="text-xs text-slate-500">→ {m.customer_name}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {m.last_synced && (
-                    <span className="text-xs text-slate-400">
-                      <Clock className="w-3 h-3 inline mr-0.5" />
-                      {formatDistanceToNow(new Date(m.last_synced), { addSuffix: true })}
-                    </span>
-                  )}
-                  {m.cached_data?.totalSubscriptions != null && (
-                    <Badge variant="secondary" className="text-xs">
-                      {m.cached_data.totalSubscriptions} subs
-                    </Badge>
-                  )}
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7"
-                    onClick={() => handleDeleteMapping(m.id)}
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Filter Tabs + Search */}
+      <FilterBar
+        filterTab={filterTab}
+        setFilterTab={setFilterTab}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        totalCount={totalCompanies}
+        mappedCount={mappedCount}
+        unmappedCount={unmappedCount}
+        staleCount={staleCount}
+        onPageReset={() => setCurrentPage(1)}
+        searchPlaceholder="Search companies or customers..."
+      />
 
-      {/* Unmapped Companies */}
-      {showMapping && unmappedCompanies.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-slate-900">
-              Unmapped Pax8 Companies ({unmappedCompanies.length})
-            </h3>
-            <Button size="sm" variant="outline" onClick={handleAutoMap}>
-              <Wand2 className="w-3.5 h-3.5 mr-1" />
-              Auto-Map
-            </Button>
+      {/* Main Table */}
+      {!hasData ? (
+        <div className="text-center py-10 text-sm text-slate-500 border border-slate-200 rounded-lg">
+          No companies loaded. Click <strong>Refresh</strong> to pull Pax8 companies or <strong>Test</strong> to verify the connection.
+        </div>
+      ) : (
+        <div className="border border-slate-200 rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2 w-10" />
+                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2">Company</th>
+                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2 w-24">Subscriptions</th>
+                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2">Customer</th>
+                  <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2 w-24">Last Sync</th>
+                  <th className="text-right text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2 w-20" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {paginatedRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-6 text-xs text-slate-400">
+                      No companies match the current filter.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedRows.map((row, idx) => (
+                    <CompanyRow
+                      key={row.companyId}
+                      row={row}
+                      customers={customers}
+                      getCustomerName={getCustomerName}
+                      onMap={(customer) => applyMapping(row.companyId, row.companyName, customer)}
+                      onDelete={() => row.mapping && deleteMapping(row.mapping.id)}
+                      isOdd={idx % 2 === 1}
+                    />
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-          <div className="relative mb-3">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search unmapped companies..."
-              className="pl-9"
+
+          {filteredRows.length > ITEMS_PER_PAGE && (
+            <TablePagination
+              page={safePage}
+              totalPages={totalPages}
+              totalItems={filteredRows.length}
+              perPage={ITEMS_PER_PAGE}
+              onPageChange={setCurrentPage}
             />
-          </div>
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {filteredUnmapped.map((company) => (
-              <div key={company.id} className="flex items-center gap-2 bg-slate-50 rounded-lg px-4 py-2.5">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-slate-900 truncate">{company.name}</p>
-                  {company.city && <p className="text-xs text-slate-400">{company.city}</p>}
-                </div>
-                <Select
-                  value={selections[company.id] || ''}
-                  onValueChange={(val) => setSelections((prev) => ({ ...prev, [company.id]: val }))}
-                >
-                  <SelectTrigger className="w-48 h-8 text-xs">
-                    <SelectValue placeholder="Select customer..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customers.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  size="sm"
-                  className="h-8"
-                  disabled={!selections[company.id]}
-                  onClick={() => handleSaveMapping(company)}
-                >
-                  Map
-                </Button>
-              </div>
-            ))}
-          </div>
+          )}
         </div>
       )}
     </div>
+  );
+}
+
+function CompanyRow({ row, customers, getCustomerName, onMap, onDelete, isOdd }) {
+  const suggestedMatch = useMemo(
+    () => (!row.isMapped ? getSuggestedMatch(row.companyName, customers) : null),
+    [row.isMapped, row.companyName, customers],
+  );
+
+  const syncTime = row.mapping ? getRelativeTime(row.mapping.last_synced) : null;
+  const statusDot = getRowStatusDot(row.mapping);
+
+  const handleResync = useCallback(async () => {
+    if (!row.mapping) return;
+    try {
+      await client.functions.invoke('syncPax8Subscriptions', { action: 'sync_all' });
+      toast.success(`Re-synced ${row.companyName}`);
+    } catch (err) {
+      toast.error(`Sync failed: ${err.message}`);
+    }
+  }, [row.mapping, row.companyName]);
+
+  return (
+    <MappingRow
+      statusDot={statusDot}
+      itemName={row.companyName}
+      countValue={row.subscriptionCount}
+      countLabel="subscriptions"
+      isMapped={row.isMapped}
+      customerName={row.isMapped ? getCustomerName(row.mapping.customer_id) : null}
+      syncTime={syncTime}
+      suggestedMatch={suggestedMatch}
+      customers={customers}
+      onMap={onMap}
+      onDelete={onDelete}
+      onResync={handleResync}
+      isStaleRow={row.isStale}
+      isOdd={isOdd}
+    />
   );
 }
