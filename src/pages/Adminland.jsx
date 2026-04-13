@@ -265,7 +265,7 @@ function IntegrationsPanel() {
       {INTEGRATION_CATEGORIES.map((category) => (
         <div key={category.title}>
           <h3 className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">{category.title}</h3>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2.5">
             {category.items.map((item) => {
               const count = item.mappingKey ? mappingCounts[item.mappingKey] : 0;
               const isConfigured = count > 0;
@@ -276,20 +276,23 @@ function IntegrationsPanel() {
                   key={item.id}
                   onClick={() => setActiveIntegration(item.id)}
                   className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-all hover:shadow-sm",
+                    "flex items-center gap-3 px-3.5 py-3 rounded-xl border text-left transition-all hover:shadow-md",
                     isConfigured ? "bg-white border-emerald-200 hover:border-emerald-300" : "bg-white border-slate-200 hover:border-slate-300"
                   )}
                 >
-                  <div className={cn("w-6 h-6 rounded flex items-center justify-center shrink-0", item.iconBg)}>
-                    <ItemIcon className={cn("w-3 h-3", item.iconColor)} />
+                  <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0", item.iconBg)}>
+                    <ItemIcon className={cn("w-4 h-4", item.iconColor)} />
                   </div>
-                  <span className="text-xs font-medium text-slate-800 truncate flex-1">{item.label}</span>
-                  {item.mappingKey ? (
-                    <span className={cn("text-[10px] font-medium shrink-0", isConfigured ? "text-emerald-600" : "text-slate-400")}>
-                      {isConfigured ? count : '--'}
-                    </span>
-                  ) : (
-                    <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", isConfigured ? "bg-emerald-500" : "bg-slate-300")} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-slate-900 truncate">{item.label}</p>
+                    {isConfigured ? (
+                      <p className="text-[10px] text-emerald-600 font-medium mt-0.5">{count} mapped</p>
+                    ) : (
+                      <p className="text-[10px] text-slate-400 mt-0.5">Not connected</p>
+                    )}
+                  </div>
+                  {isConfigured && (
+                    <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 shrink-0">Connected</span>
                   )}
                 </button>
               );
