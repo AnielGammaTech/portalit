@@ -858,6 +858,44 @@ Look for:
     setExcludedExtensions(new Set());
   };
 
+  const [expandedReport, setExpandedReport] = useState(null);
+  const [reportExclusions, setReportExclusions] = useState(new Set());
+
+  const handleExpandReport = (report) => {
+    if (expandedReport?.id === report.id) {
+      setExpandedReport(null);
+      return;
+    }
+    const detail = typeof report.extensions_detail === 'string'
+      ? JSON.parse(report.extensions_detail)
+      : (report.extensions_detail || []);
+    // Load existing exclusions from report_data
+    const existing = report.report_data?.excluded_extensions || [];
+    setReportExclusions(new Set(existing));
+    setExpandedReport({ ...report, parsedExtensions: detail });
+  };
+
+  const handleSaveExclusions = async (reportId) => {
+    const report = expandedReport;
+    if (!report) return;
+    const excluded = Array.from(reportExclusions);
+    const allExts = report.parsedExtensions || [];
+    const included = allExts.filter(e => !reportExclusions.has(e.number || e.name));
+
+    try {
+      await client.entities.ThreeCXReport.update(reportId, {
+        user_extensions: included.length,
+        total_extensions: allExts.length,
+        report_data: { ...(report.report_data || {}), excluded_extensions: excluded, synced_from: report.report_data?.synced_from },
+      });
+      toast.success(`Saved — ${included.length} billable extensions (${excluded.length} excluded)`);
+      queryClient.invalidateQueries({ queryKey: ['threecx-reports'] });
+      setExpandedReport(null);
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
   const handleDeleteReport = async (reportId) => {
     if (!confirm('Delete this report?')) return;
     try {
@@ -939,63 +977,118 @@ Look for:
                 </TableCell>
               </TableRow>
             ) : (
-              reports.map(report => (
-                <TableRow key={report.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Building2 className="w-4 h-4 text-slate-400" />
-                      <span className="font-medium">{report.customer_name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {format(new Date(report.report_date), 'MMM d, yyyy')}
-                  </TableCell>
-                  <TableCell className="text-xs text-slate-500">
-                    {report.report_period_start && report.report_period_end
-                      ? `${format(new Date(report.report_period_start), 'MM/dd/yy')} - ${format(new Date(report.report_period_end), 'MM/dd/yy')}`
-                      : '—'
-                    }
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      <Phone className="w-3 h-3 mr-1" />
-                      {report.user_extensions || report.total_extensions || 0}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {report.total_calls > 0 ? (
-                      <span className="font-medium">{report.total_calls.toLocaleString()}</span>
-                    ) : (
-                      <span className="text-slate-400">—</span>
+              reports.map(report => {
+                const isExpanded = expandedReport?.id === report.id;
+                const hasDetail = report.extensions_detail && report.extensions_detail !== '[]';
+                return (
+                  <React.Fragment key={report.id}>
+                    <TableRow className={cn("cursor-pointer transition-colors", isExpanded && "bg-slate-50")} onClick={() => hasDetail && handleExpandReport(report)}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {hasDetail && <ChevronDown className={cn("w-3 h-3 text-slate-400 transition-transform", isExpanded && "rotate-180")} />}
+                          {!hasDetail && <Building2 className="w-4 h-4 text-slate-400" />}
+                          <span className="font-medium">{report.customer_name}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {format(new Date(report.report_date), 'MMM d, yyyy')}
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-500">
+                        {report.report_period_start && report.report_period_end
+                          ? `${format(new Date(report.report_period_start), 'MM/dd/yy')} - ${format(new Date(report.report_period_end), 'MM/dd/yy')}`
+                          : '—'
+                        }
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          <Phone className="w-3 h-3 mr-1" />
+                          {report.user_extensions || report.total_extensions || 0}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {report.total_calls > 0 ? (
+                          <span className="font-medium">{report.total_calls.toLocaleString()}</span>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {report.missed_calls > 0 ? (
+                          <Badge className="bg-orange-100 text-orange-700">{report.missed_calls}</Badge>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-2">
+                          {report.pdf_url && (
+                            <Button size="sm" variant="outline" onClick={() => window.open(report.pdf_url, '_blank')}>
+                              <Eye className="w-3 h-3 mr-1" />
+                              View
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleDeleteReport(report.id)}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                    {isExpanded && expandedReport.parsedExtensions?.length > 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="p-0">
+                          <div className="bg-slate-50 border-t border-slate-200 px-4 py-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-xs font-semibold text-slate-600">
+                                Extensions ({expandedReport.parsedExtensions.length}) — uncheck to exclude from billing
+                              </p>
+                              <div className="flex items-center gap-2">
+                                {reportExclusions.size > 0 && (
+                                  <span className="text-[10px] text-amber-600 font-medium">{reportExclusions.size} excluded</span>
+                                )}
+                                <Button size="sm" onClick={() => handleSaveExclusions(report.id)} className="h-7 text-xs px-3 bg-emerald-600 hover:bg-emerald-700">
+                                  <CheckCircle2 className="w-3 h-3 mr-1" />
+                                  Save ({expandedReport.parsedExtensions.length - reportExclusions.size} billable)
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-lg bg-white divide-y divide-slate-50">
+                              {expandedReport.parsedExtensions.map((ext) => {
+                                const key = ext.number || ext.name;
+                                const isExcluded = reportExclusions.has(key);
+                                return (
+                                  <label key={key} className={cn("flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-slate-50 transition-colors", isExcluded && "opacity-50 bg-red-50/50")}>
+                                    <input
+                                      type="checkbox"
+                                      checked={!isExcluded}
+                                      onChange={() => {
+                                        const next = new Set(reportExclusions);
+                                        isExcluded ? next.delete(key) : next.add(key);
+                                        setReportExclusions(next);
+                                      }}
+                                      className="rounded border-slate-300"
+                                    />
+                                    <span className="text-xs font-mono text-slate-500 w-10">{ext.number || '—'}</span>
+                                    <span className={cn("text-sm flex-1", isExcluded ? "line-through text-slate-400" : "text-slate-800")}>{ext.name || 'Unknown'}</span>
+                                    {ext.email && <span className="text-[10px] text-slate-400">{ext.email}</span>}
+                                    {ext.department && ext.department !== 'DEFAULT' && (
+                                      <Badge variant="outline" className="text-[9px]">{ext.department}</Badge>
+                                    )}
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
                     )}
-                  </TableCell>
-                  <TableCell>
-                    {report.missed_calls > 0 ? (
-                      <Badge className="bg-orange-100 text-orange-700">{report.missed_calls}</Badge>
-                    ) : (
-                      <span className="text-slate-400">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      {report.pdf_url && (
-                        <Button size="sm" variant="outline" onClick={() => window.open(report.pdf_url, '_blank')}>
-                          <Eye className="w-3 h-3 mr-1" />
-                          View
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => handleDeleteReport(report.id)}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+                  </React.Fragment>
+                );
+              })
             )}
           </TableBody>
         </Table>
