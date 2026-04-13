@@ -591,10 +591,10 @@ export default function CIPPMicrosoftTab({ customerId }) {
                               <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">
                                 Members ({members.length})
                               </p>
-                              {members.map((member, i) => (
+                              {members.filter(Boolean).map((member, i) => (
                                 <div key={i} className="flex items-center gap-2 text-xs text-slate-700 py-1">
                                   <div className="w-6 h-6 rounded-full bg-white border border-slate-200 flex items-center justify-center text-[10px] font-medium text-slate-500 shrink-0">
-                                    {member.charAt(0).toUpperCase()}
+                                    {(member || '?').charAt(0).toUpperCase()}
                                   </div>
                                   <span className="truncate">{member}</span>
                                 </div>
