@@ -211,9 +211,9 @@ function AdminDashboard() {
           <h1 className="text-2xl font-semibold text-slate-900">Dashboard</h1>
           <p className="text-slate-500 text-sm">Overview of your managed services</p>
         </div>
-        {syncLogs.length > 0 && (
+        {syncLogs.length > 0 && syncLogs[0] && (
           <div className="text-right text-xs text-slate-400">
-            Last sync: {syncLogs[0].created_date
+            Last sync: {syncLogs[0]?.created_date
               ? format(parseISO(syncLogs[0].created_date), 'MMM d, h:mm a')
               : 'Unknown'}
           </div>
@@ -865,14 +865,14 @@ function CustomerDashboard({ customer }) {
               <Button size="sm" className="bg-red-600 hover:bg-red-700">Pay Now</Button>
             </div>
           )}
-          {upcomingRenewals.length > 0 && upcomingRenewals[0].daysUntil <= 30 && (
+          {upcomingRenewals.length > 0 && upcomingRenewals[0]?.daysUntil <= 30 && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-4">
               <div className="p-2 bg-amber-100 rounded-lg">
                 <Calendar className="w-5 h-5 text-amber-600" />
               </div>
               <div className="flex-1">
                 <p className="font-medium text-amber-900">Contract Renewal Coming Up</p>
-                <p className="text-sm text-amber-700">{upcomingRenewals[0].name} renews in {upcomingRenewals[0].daysUntil} days</p>
+                <p className="text-sm text-amber-700">{upcomingRenewals[0]?.name} renews in {upcomingRenewals[0]?.daysUntil} days</p>
               </div>
             </div>
           )}

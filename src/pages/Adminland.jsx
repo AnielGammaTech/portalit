@@ -329,7 +329,7 @@ function IntegrationsPanel({ activeIntegration, setActiveIntegration }) {
                 >
                   <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 overflow-hidden", item.iconBg)}>
                     {LOGOS[item.id] ? (
-                      <img src={LOGOS[item.id]} alt="" className="w-5 h-5 object-contain" onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
+                      <img src={LOGOS[item.id]} alt="" className="w-5 h-5 object-contain" onError={(e) => { e.target.style.display = 'none'; if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex'; }} />
                     ) : null}
                     <ItemIcon className={cn("w-4 h-4", item.iconColor, LOGOS[item.id] ? "hidden" : "")} />
                   </div>

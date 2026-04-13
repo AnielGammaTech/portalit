@@ -42,13 +42,13 @@ const DEFAULT_PRIMARY = '#5B21B6';
 
 function getUserInitials(fullName, email) {
   if (fullName && fullName.trim()) {
-    const parts = fullName.trim().split(/\s+/);
+    const parts = fullName.trim().split(/\s+/).filter(Boolean);
     if (parts.length >= 2) {
-      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+      return ((parts[0]?.[0] || '') + (parts[parts.length - 1]?.[0] || '')).toUpperCase();
     }
-    return parts[0][0].toUpperCase();
+    return (parts[0]?.[0] || 'U').toUpperCase();
   }
-  if (email) {
+  if (email && email.length > 0) {
     return email[0].toUpperCase();
   }
   return 'U';

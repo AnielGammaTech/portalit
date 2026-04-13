@@ -576,4 +576,150 @@ router.get('/:id/sign-ins', requireAuth, async (req, res, next) => {
   }
 });
 
+// ── DELETE /api/users/:id ─────────────────────────────────────────────
+// Full user deletion: removes both profile AND Supabase Auth record
+
+router.delete('/:id', requireAdmin, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const supabase = getServiceSupabase();
+
+    // Prevent self-deletion
+    if (req.user?.id === id) {
+      return res.status(400).json({ error: 'You cannot delete your own account' });
+    }
+
+    // Get auth_id before deleting profile
+    const { data: profile } = await supabase
+      .from('users')
+      .select('auth_id, email, full_name')
+      .eq('id', id)
+      .single();
+
+    if (!profile) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Log the deletion for audit
+    await supabase.from('user_audit_log').insert({
+      actor_id: req.user?.id || null,
+      action: 'delete',
+      target_user_id: id,
+      target_email: profile.email,
+      details: { full_name: profile.full_name, deleted_by: req.user?.email },
+    }).then(() => null, () => null); // don't fail if audit table missing
+
+    // Delete profile first
+    const { error: profileErr } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', id);
+
+    if (profileErr) {
+      return res.status(500).json({ error: profileErr.message });
+    }
+
+    // Then delete auth record (cleanup)
+    if (profile.auth_id) {
+      const { error: authErr } = await supabase.auth.admin.deleteUser(profile.auth_id);
+      if (authErr) {
+        console.error(`[Users] Auth cleanup failed for ${maskEmail(profile.email)}:`, authErr.message);
+        // Profile already deleted — log but don't fail the request
+      }
+    }
+
+    res.json({ success: true, message: `User ${maskEmail(profile.email)} deleted` });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ── POST /api/users/:id/suspend ──────────────────────────────────────
+// Suspend a user (ban in Supabase Auth) without deleting
+
+router.post('/:id/suspend', requireAdmin, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const supabase = getServiceSupabase();
+
+    if (req.user?.id === id) {
+      return res.status(400).json({ error: 'You cannot suspend your own account' });
+    }
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('auth_id, email, full_name')
+      .eq('id', id)
+      .single();
+
+    if (!profile || !profile.auth_id) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Ban the user in Supabase Auth (prevents login)
+    const { error: banErr } = await supabase.auth.admin.updateUserById(profile.auth_id, {
+      ban_duration: '876000h', // ~100 years = effectively permanent until unsuspended
+    });
+
+    if (banErr) {
+      return res.status(500).json({ error: banErr.message });
+    }
+
+    // Audit log
+    await supabase.from('user_audit_log').insert({
+      actor_id: req.user?.id || null,
+      action: 'suspend',
+      target_user_id: id,
+      target_email: profile.email,
+      details: { suspended_by: req.user?.email },
+    }).then(() => null, () => null);
+
+    res.json({ success: true, email: profile.email, message: `${profile.full_name} suspended` });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ── POST /api/users/:id/unsuspend ────────────────────────────────────
+// Reactivate a suspended user
+
+router.post('/:id/unsuspend', requireAdmin, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const supabase = getServiceSupabase();
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('auth_id, email, full_name')
+      .eq('id', id)
+      .single();
+
+    if (!profile || !profile.auth_id) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Unban the user
+    const { error: unbanErr } = await supabase.auth.admin.updateUserById(profile.auth_id, {
+      ban_duration: 'none',
+    });
+
+    if (unbanErr) {
+      return res.status(500).json({ error: unbanErr.message });
+    }
+
+    // Audit log
+    await supabase.from('user_audit_log').insert({
+      actor_id: req.user?.id || null,
+      action: 'unsuspend',
+      target_user_id: id,
+      target_email: profile.email,
+      details: { unsuspended_by: req.user?.email },
+    }).then(() => null, () => null);
+
+    res.json({ success: true, email: profile.email, message: `${profile.full_name} reactivated` });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export { router as usersRouter };
