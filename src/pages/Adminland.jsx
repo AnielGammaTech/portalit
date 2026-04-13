@@ -221,7 +221,7 @@ function IntegrationsPanel({ activeIntegration, setActiveIntegration }) {
   });
 
   // Single query to fetch all mapping counts
-  const { data: mappingCounts = {} } = useQuery({
+  const { data: mappingCounts = {}, isLoading: countsLoading } = useQuery({
     queryKey: ['integration_mapping_counts'],
     queryFn: async () => {
       const safeCount = (fn) => fn().catch(() => 0);
@@ -302,7 +302,7 @@ function IntegrationsPanel({ activeIntegration, setActiveIntegration }) {
 
               // Determine status based on type
               let isConfigured = false;
-              let statusLabel = 'Not connected';
+              let statusLabel = countsLoading && item.mappingKey ? '...' : 'Not connected';
 
               if (item.statusType === 'halopsa') {
                 isConfigured = haloStatus?.configured || false;

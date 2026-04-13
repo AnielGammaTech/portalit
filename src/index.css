@@ -89,13 +89,20 @@
   }
 
   html {
-    overflow-y: scroll;
+    overflow-y: scroll !important;
     scrollbar-gutter: stable;
   }
 
   body {
     @apply bg-background text-foreground;
     scrollbar-gutter: stable;
+  }
+
+  /* Prevent layout shift when Radix dialogs add overflow:hidden to body */
+  body[data-scroll-locked] {
+    overflow-y: scroll !important;
+    padding-right: 0 !important;
+    margin-right: 0 !important;
   }
 
   /* Prevent Radix UI Dialog/Sheet/Select from removing scrollbar and shifting layout */
