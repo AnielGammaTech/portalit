@@ -24,7 +24,7 @@ const TH = "text-left text-[10px] font-semibold text-slate-500 uppercase trackin
 
 export default function RocketCyberConfig() {
   const [testing, setTesting] = useState(false);
-  const [configStatus, setConfigStatus] = useState(CONNECTION_STATES.NOT_CONFIGURED);
+  // configStatus is now derived from data, not manual state
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [rcAccounts, setRcAccounts] = useState([]);
   const [syncing, setSyncing] = useState(false);
@@ -37,14 +37,15 @@ export default function RocketCyberConfig() {
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'], queryFn: () => client.entities.Customer.list(),
   });
-  const { data: mappings = [], refetch: refetchMappings } = useQuery({
+  const { data: mappings = [], isLoading: loadingMappings, refetch: refetchMappings } = useQuery({
     queryKey: ['rocketcyber_mappings'], queryFn: () => client.entities.RocketCyberMapping.list(),
   });
   useEffect(() => {
     if (mappings.length > 0 && configStatus === CONNECTION_STATES.NOT_CONFIGURED) {
-      setConfigStatus(CONNECTION_STATES.CONNECTED);
-    }
+          }
   }, [mappings.length, configStatus]);
+
+    const configStatus = loadingMappings ? CONNECTION_STATES.CONFIGURED : (mappings.length > 0 ? CONNECTION_STATES.CONNECTED : CONNECTION_STATES.NOT_CONFIGURED);
 
   const getCustomerName = useCallback((customerId) => {
     const customer = customers.find(c => c.id === customerId);
@@ -132,15 +133,12 @@ export default function RocketCyberConfig() {
     try {
       const result = await client.functions.invoke('syncRocketCyber', { action: 'test_connection' });
       if (result.success) {
-        setConfigStatus(CONNECTION_STATES.CONNECTED);
-        toast.success('RocketCyber API connection successful');
+                toast.success('RocketCyber API connection successful');
       } else {
-        setConfigStatus(CONNECTION_STATES.CONFIGURED);
-        toast.error(result.error || 'Connection failed');
+                toast.error(result.error || 'Connection failed');
       }
     } catch (error) {
-      setConfigStatus(CONNECTION_STATES.CONFIGURED);
-      toast.error(error.message || 'Connection test failed');
+            toast.error(error.message || 'Connection test failed');
     } finally {
       setTesting(false);
     }
@@ -156,8 +154,7 @@ export default function RocketCyberConfig() {
       if (result.success) {
         setRcAccounts(result.customers || []);
         setCurrentPage(1);
-        setConfigStatus(CONNECTION_STATES.CONNECTED);
-        toast.success(`Found ${result.customers?.length || 0} accounts`);
+                toast.success(`Found ${result.customers?.length || 0} accounts`);
       } else {
         toast.error(result.error || 'Failed to load accounts');
       }

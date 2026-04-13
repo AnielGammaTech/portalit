@@ -25,7 +25,7 @@ import {
 
 export default function DattoEDRConfig() {
   const [testing, setTesting] = useState(false);
-  const [configStatus, setConfigStatus] = useState(CONNECTION_STATES.NOT_CONFIGURED);
+  // configStatus is now derived from data, not manual state
   const [loadingTenants, setLoadingTenants] = useState(false);
   const [edrTenants, setEdrTenants] = useState([]);
   const [syncing, setSyncing] = useState(false);
@@ -43,7 +43,7 @@ export default function DattoEDRConfig() {
     queryFn: () => client.entities.Customer.filter({ status: 'active' }),
   });
 
-  const { data: mappings = [], refetch: refetchMappings } = useQuery({
+  const { data: mappings = [], isLoading: loadingMappings, refetch: refetchMappings } = useQuery({
     queryKey: ['datto-edr-mappings'],
     queryFn: () => client.entities.DattoEDRMapping.list(),
   });
@@ -73,11 +73,12 @@ export default function DattoEDRConfig() {
   // Auto-detect configured status
   useEffect(() => {
     if (mappings.length > 0 && configStatus === CONNECTION_STATES.NOT_CONFIGURED) {
-      setConfigStatus(CONNECTION_STATES.CONNECTED);
-    }
+          }
   }, [mappings.length, configStatus]);
 
   // --- Derived data ---
+
+    const configStatus = loadingMappings ? CONNECTION_STATES.CONFIGURED : (mappings.length > 0 ? CONNECTION_STATES.CONNECTED : CONNECTION_STATES.NOT_CONFIGURED);
 
   const getCustomerName = useCallback((customerId) => {
     const customer = customers.find(c => c.id === customerId);
@@ -176,15 +177,12 @@ export default function DattoEDRConfig() {
     try {
       const response = await client.functions.invoke('syncDattoEDR', { action: 'test_connection' });
       if (response.success) {
-        setConfigStatus(CONNECTION_STATES.CONNECTED);
-        toast.success('Connected to Datto EDR');
+                toast.success('Connected to Datto EDR');
       } else {
-        setConfigStatus(CONNECTION_STATES.CONFIGURED);
-        toast.error(response.error || 'Connection failed');
+                toast.error(response.error || 'Connection failed');
       }
     } catch (error) {
-      setConfigStatus(CONNECTION_STATES.CONFIGURED);
-      toast.error(error.message || 'Connection test failed');
+            toast.error(error.message || 'Connection test failed');
     } finally {
       setTesting(false);
     }
@@ -197,8 +195,7 @@ export default function DattoEDRConfig() {
       if (response.success) {
         setEdrTenants(response.tenants || []);
         setCurrentPage(1);
-        setConfigStatus(CONNECTION_STATES.CONNECTED);
-        toast.success(`Found ${response.tenants?.length || 0} EDR tenants`);
+                toast.success(`Found ${response.tenants?.length || 0} EDR tenants`);
       } else {
         toast.error(response.error || 'Failed to fetch tenants');
       }

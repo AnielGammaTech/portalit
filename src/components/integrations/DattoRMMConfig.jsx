@@ -21,7 +21,7 @@ import {
 
 export default function DattoRMMConfig() {
   const [testing, setTesting] = useState(false);
-  const [configStatus, setConfigStatus] = useState(CONNECTION_STATES.NOT_CONFIGURED);
+  // configStatus is now derived from data, not manual state
   const [loadingSites, setLoadingSites] = useState(false);
   const [dattoSites, setDattoSites] = useState([]);
   const [syncing, setSyncing] = useState(false);
@@ -37,17 +37,14 @@ export default function DattoRMMConfig() {
     queryFn: () => client.entities.Customer.list(),
   });
 
-  const { data: mappings = [], refetch: refetchMappings } = useQuery({
+  const { data: mappings = [], isLoading: loadingMappings, refetch: refetchMappings } = useQuery({
     queryKey: ['datto_mappings'],
     queryFn: () => client.entities.DattoSiteMapping.list(),
   });
 
-  // Auto-detect configured status from existing mappings
-  useEffect(() => {
-    if (mappings.length > 0 && configStatus === CONNECTION_STATES.NOT_CONFIGURED) {
-      setConfigStatus(CONNECTION_STATES.CONNECTED);
-    }
-  }, [mappings.length, configStatus]);
+  
+
+    const configStatus = loadingMappings ? CONNECTION_STATES.CONFIGURED : (mappings.length > 0 ? CONNECTION_STATES.CONNECTED : CONNECTION_STATES.NOT_CONFIGURED);
 
   const getCustomerName = useCallback((customerId) => {
     const customer = customers.find(c => c.id === customerId);
@@ -143,15 +140,12 @@ export default function DattoRMMConfig() {
     try {
       const response = await client.functions.invoke('syncDattoRMMDevices', { action: 'test_connection' });
       if (response.success) {
-        setConfigStatus(CONNECTION_STATES.CONNECTED);
-        toast.success(`Connected to ${response.account?.name || 'Datto RMM'}`);
+                toast.success(`Connected to ${response.account?.name || 'Datto RMM'}`);
       } else {
-        setConfigStatus(CONNECTION_STATES.CONFIGURED);
-        toast.error(response.error || 'Connection failed');
+                toast.error(response.error || 'Connection failed');
       }
     } catch (error) {
-      setConfigStatus(CONNECTION_STATES.CONFIGURED);
-      toast.error(error.message || 'Connection test failed');
+            toast.error(error.message || 'Connection test failed');
     } finally {
       setTesting(false);
     }
@@ -163,8 +157,7 @@ export default function DattoRMMConfig() {
       if (response.success) {
         setDattoSites(response.sites || []);
         setCurrentPage(1);
-        setConfigStatus(CONNECTION_STATES.CONNECTED);
-      } else {
+              } else {
         toast.error(response.error || 'Failed to load sites');
       }
     } catch (error) {

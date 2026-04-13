@@ -21,7 +21,7 @@ import {
 
 export default function SaaSAlertsConfig() {
   const [testing, setTesting] = useState(false);
-  const [configStatus, setConfigStatus] = useState(CONNECTION_STATES.NOT_CONFIGURED);
+  // configStatus is now derived from data, not manual state
   const [loadingCustomers, setLoadingCustomers] = useState(false);
   const [saasCustomers, setSaasCustomers] = useState([]);
   const [syncing, setSyncing] = useState(false);
@@ -37,16 +37,17 @@ export default function SaaSAlertsConfig() {
     queryFn: () => client.entities.Customer.list(),
   });
 
-  const { data: mappings = [], refetch: refetchMappings } = useQuery({
+  const { data: mappings = [], isLoading: loadingMappings, refetch: refetchMappings } = useQuery({
     queryKey: ['saas_alerts_mappings'],
     queryFn: () => client.entities.SaaSAlertsMapping.list(),
   });
 
   useEffect(() => {
     if (mappings.length > 0 && configStatus === CONNECTION_STATES.NOT_CONFIGURED) {
-      setConfigStatus(CONNECTION_STATES.CONNECTED);
-    }
+          }
   }, [mappings.length, configStatus]);
+
+    const configStatus = loadingMappings ? CONNECTION_STATES.CONFIGURED : (mappings.length > 0 ? CONNECTION_STATES.CONNECTED : CONNECTION_STATES.NOT_CONFIGURED);
 
   const getCustomerName = useCallback((customerId) => {
     const customer = customers.find(c => c.id === customerId);
@@ -144,15 +145,12 @@ export default function SaaSAlertsConfig() {
     try {
       const response = await client.functions.invoke('syncSaaSAlerts', { action: 'test_connection' });
       if (response.success) {
-        setConfigStatus(CONNECTION_STATES.CONNECTED);
-        toast.success(`Connected! Found ${response.totalCustomers || 0} customers.`);
+                toast.success(`Connected! Found ${response.totalCustomers || 0} customers.`);
       } else {
-        setConfigStatus(CONNECTION_STATES.CONFIGURED);
-        toast.error(response.error || 'Connection failed');
+                toast.error(response.error || 'Connection failed');
       }
     } catch (error) {
-      setConfigStatus(CONNECTION_STATES.CONFIGURED);
-      toast.error(error.message || 'Connection test failed');
+            toast.error(error.message || 'Connection test failed');
     } finally {
       setTesting(false);
     }
@@ -165,8 +163,7 @@ export default function SaaSAlertsConfig() {
       if (response.success) {
         setSaasCustomers(response.customers || []);
         setCurrentPage(1);
-        setConfigStatus(CONNECTION_STATES.CONNECTED);
-      } else {
+              } else {
         toast.error(response.error || 'Failed to load customers');
       }
     } catch (error) {

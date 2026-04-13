@@ -16,7 +16,7 @@ const SYNC_TIMEOUT_MS = 30_000;
 
 export default function CoveDataConfig() {
   const [testing, setTesting] = useState(false);
-  const [configStatus, setConfigStatus] = useState(CONNECTION_STATES.NOT_CONFIGURED);
+  // configStatus is now derived from data, not manual state
   const [loadingPartners, setLoadingPartners] = useState(false);
   const [covePartners, setCovePartners] = useState([]);
   const [syncing, setSyncing] = useState(false);
@@ -31,18 +31,19 @@ export default function CoveDataConfig() {
     queryFn: () => client.entities.Customer.list(),
   });
 
-  const { data: mappings = [], refetch: refetchMappings } = useQuery({
+  const { data: mappings = [], isLoading: loadingMappings, refetch: refetchMappings } = useQuery({
     queryKey: ['cove-mappings'],
     queryFn: () => client.entities.CoveDataMapping.list(),
   });
 
   useEffect(() => {
     if (mappings.length > 0 && configStatus === CONNECTION_STATES.NOT_CONFIGURED) {
-      setConfigStatus(CONNECTION_STATES.CONNECTED);
-    }
+          }
   }, [mappings.length, configStatus]);
 
   // -- Derived data ----------------------------------------------------------
+
+    const configStatus = loadingMappings ? CONNECTION_STATES.CONFIGURED : (mappings.length > 0 ? CONNECTION_STATES.CONNECTED : CONNECTION_STATES.NOT_CONFIGURED);
 
   const getCustomerName = useCallback((customerId) => {
     return customers.find(c => c.id === customerId)?.name || 'Unknown';
@@ -121,15 +122,12 @@ export default function CoveDataConfig() {
     try {
       const res = await client.functions.invoke('syncCoveData', { action: 'test_connection' });
       if (res.success) {
-        setConfigStatus(CONNECTION_STATES.CONNECTED);
-        toast.success('Connected to Cove API');
+                toast.success('Connected to Cove API');
       } else {
-        setConfigStatus(CONNECTION_STATES.CONFIGURED);
-        toast.error(res.error || 'Connection failed');
+                toast.error(res.error || 'Connection failed');
       }
     } catch (error) {
-      setConfigStatus(CONNECTION_STATES.CONFIGURED);
-      toast.error(error.message || 'Connection test failed');
+            toast.error(error.message || 'Connection test failed');
     } finally {
       setTesting(false);
     }
@@ -142,8 +140,7 @@ export default function CoveDataConfig() {
       if (res.success) {
         setCovePartners(res.partners || []);
         setCurrentPage(1);
-        setConfigStatus(CONNECTION_STATES.CONNECTED);
-        toast.success(`Found ${res.partners?.length || 0} partners`);
+                toast.success(`Found ${res.partners?.length || 0} partners`);
       } else {
         toast.error(res.error || 'Failed to load partners');
       }

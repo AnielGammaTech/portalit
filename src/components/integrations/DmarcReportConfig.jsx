@@ -53,7 +53,7 @@ function buildUnifiedRows(flatDomains, mappings) {
 
 export default function DmarcReportConfig() {
   const [testing, setTesting] = useState(false);
-  const [configStatus, setConfigStatus] = useState(CONNECTION_STATES.NOT_CONFIGURED);
+  // configStatus is now derived from data, not manual state
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [accounts, setAccounts] = useState([]);
   const [syncing, setSyncing] = useState(false);
@@ -69,7 +69,7 @@ export default function DmarcReportConfig() {
     staleTime: 1000 * 60 * 5,
   });
 
-  const { data: mappings = [], refetch: refetchMappings } = useQuery({
+  const { data: mappings = [], isLoading: loadingMappings, refetch: refetchMappings } = useQuery({
     queryKey: ['dmarc_report_mappings'],
     queryFn: () => client.entities.DmarcReportMapping.list(),
     staleTime: 1000 * 60 * 5,
@@ -77,8 +77,7 @@ export default function DmarcReportConfig() {
 
   useEffect(() => {
     if (mappings.length > 0 && configStatus === CONNECTION_STATES.NOT_CONFIGURED) {
-      setConfigStatus(CONNECTION_STATES.CONNECTED);
-    }
+          }
   }, [mappings.length, configStatus]);
 
   // -- Derived data --------------------------------------------------------
@@ -90,6 +89,8 @@ export default function DmarcReportConfig() {
   const staleCount = useMemo(() => mappings.filter(m => m.last_synced && isStale(m.last_synced)).length, [mappings]);
   const totalDomains = allRows.length;
   const unmappedCount = totalDomains - mappedCount;
+
+    const configStatus = loadingMappings ? CONNECTION_STATES.CONFIGURED : (mappings.length > 0 ? CONNECTION_STATES.CONNECTED : CONNECTION_STATES.NOT_CONFIGURED);
 
   const getCustomerName = useCallback((customerId) => {
     return customers.find(c => c.id === customerId)?.name || 'Unknown';
@@ -126,15 +127,12 @@ export default function DmarcReportConfig() {
     try {
       const res = await client.functions.invoke('syncDmarcReport', { action: 'test_connection' });
       if (res.success) {
-        setConfigStatus(CONNECTION_STATES.CONNECTED);
-        toast.success(res.message || 'Connected to DMARC Report');
+                toast.success(res.message || 'Connected to DMARC Report');
       } else {
-        setConfigStatus(CONNECTION_STATES.CONFIGURED);
-        toast.error(res.error || 'Connection failed');
+                toast.error(res.error || 'Connection failed');
       }
     } catch (error) {
-      setConfigStatus(CONNECTION_STATES.CONFIGURED);
-      toast.error(error.message || 'Connection test failed');
+            toast.error(error.message || 'Connection test failed');
     } finally { setTesting(false); }
   }, []);
 
@@ -145,8 +143,7 @@ export default function DmarcReportConfig() {
       if (res.success) {
         setAccounts(res.accounts || []);
         setCurrentPage(1);
-        setConfigStatus(CONNECTION_STATES.CONNECTED);
-        const total = (res.accounts || []).reduce((s, a) => s + (a.domainCount || 0), 0);
+                const total = (res.accounts || []).reduce((s, a) => s + (a.domainCount || 0), 0);
         toast.success(`Loaded ${res.accounts?.length || 0} accounts with ${total} domains`);
       } else {
         toast.error(res.error || 'Failed to load accounts');

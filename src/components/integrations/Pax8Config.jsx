@@ -21,7 +21,7 @@ import {
 
 export default function Pax8Config() {
   const [testing, setTesting] = useState(false);
-  const [configStatus, setConfigStatus] = useState(CONNECTION_STATES.NOT_CONFIGURED);
+  // configStatus is now derived from data, not manual state
   const [loadingCompanies, setLoadingCompanies] = useState(false);
   const [pax8Companies, setPax8Companies] = useState([]);
   const [syncing, setSyncing] = useState(false);
@@ -38,17 +38,14 @@ export default function Pax8Config() {
     staleTime: 1000 * 60 * 5,
   });
 
-  const { data: mappings = [], refetch: refetchMappings } = useQuery({
+  const { data: mappings = [], isLoading: loadingMappings, refetch: refetchMappings } = useQuery({
     queryKey: ['pax8_mappings'],
     queryFn: () => client.entities.Pax8Mapping.list(),
   });
 
-  // Auto-detect configured status from existing mappings
-  useEffect(() => {
-    if (mappings.length > 0 && configStatus === CONNECTION_STATES.NOT_CONFIGURED) {
-      setConfigStatus(CONNECTION_STATES.CONNECTED);
-    }
-  }, [mappings.length, configStatus]);
+  
+
+    const configStatus = loadingMappings ? CONNECTION_STATES.CONFIGURED : (mappings.length > 0 ? CONNECTION_STATES.CONNECTED : CONNECTION_STATES.NOT_CONFIGURED);
 
   const getCustomerName = useCallback((customerId) => {
     const customer = customers.find(c => c.id === customerId);
@@ -136,15 +133,12 @@ export default function Pax8Config() {
     try {
       const result = await client.functions.invoke('syncPax8Subscriptions', { action: 'test_connection' });
       if (result.success) {
-        setConfigStatus(CONNECTION_STATES.CONNECTED);
-        toast.success(result.message || 'Connected to Pax8');
+                toast.success(result.message || 'Connected to Pax8');
       } else {
-        setConfigStatus(CONNECTION_STATES.CONFIGURED);
-        toast.error(result.error || 'Connection failed');
+                toast.error(result.error || 'Connection failed');
       }
     } catch (error) {
-      setConfigStatus(CONNECTION_STATES.CONFIGURED);
-      toast.error(error.message || 'Connection test failed');
+            toast.error(error.message || 'Connection test failed');
     } finally {
       setTesting(false);
     }
@@ -157,8 +151,7 @@ export default function Pax8Config() {
       if (result.success) {
         setPax8Companies(result.companies || []);
         setCurrentPage(1);
-        setConfigStatus(CONNECTION_STATES.CONNECTED);
-        toast.success(`Found ${(result.companies || []).length} Pax8 companies`);
+                toast.success(`Found ${(result.companies || []).length} Pax8 companies`);
       } else {
         toast.error(result.error || 'Failed to load companies');
       }

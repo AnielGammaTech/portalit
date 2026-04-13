@@ -21,7 +21,7 @@ import {
 
 export default function JumpCloudConfig() {
   const [testing, setTesting] = useState(false);
-  const [configStatus, setConfigStatus] = useState(CONNECTION_STATES.NOT_CONFIGURED);
+  // configStatus is now derived from data, not manual state
   const [loadingOrgs, setLoadingOrgs] = useState(false);
   const [jumpcloudOrgs, setJumpcloudOrgs] = useState([]);
   const [syncing, setSyncing] = useState(false);
@@ -37,19 +37,16 @@ export default function JumpCloudConfig() {
     queryFn: () => client.entities.Customer.list(),
   });
 
-  const { data: mappings = [], refetch: refetchMappings } = useQuery({
+  const { data: mappings = [], isLoading: loadingMappings, refetch: refetchMappings } = useQuery({
     queryKey: ['jumpcloud_mappings'],
     queryFn: () => client.entities.JumpCloudMapping.list(),
   });
 
-  // Auto-detect configured status from existing mappings
-  useEffect(() => {
-    if (mappings.length > 0 && configStatus === CONNECTION_STATES.NOT_CONFIGURED) {
-      setConfigStatus(CONNECTION_STATES.CONNECTED);
-    }
-  }, [mappings.length, configStatus]);
+  
 
   // -- Derived data -----------------------------------------------------------
+
+    const configStatus = loadingMappings ? CONNECTION_STATES.CONFIGURED : (mappings.length > 0 ? CONNECTION_STATES.CONNECTED : CONNECTION_STATES.NOT_CONFIGURED);
 
   const getCustomerName = useCallback((customerId) => {
     const customer = customers.find(c => c.id === customerId);
@@ -159,8 +156,7 @@ export default function JumpCloudConfig() {
       setConfigStatus(res.success ? CONNECTION_STATES.CONNECTED : CONNECTION_STATES.CONFIGURED);
       res.success ? toast.success('Connected to JumpCloud!') : toast.error(res.error || 'Connection failed');
     } catch (err) {
-      setConfigStatus(CONNECTION_STATES.CONFIGURED);
-      toast.error(err.message || 'Connection test failed');
+            toast.error(err.message || 'Connection test failed');
     } finally { setTesting(false); }
   }, [invoke]);
 
@@ -168,7 +164,7 @@ export default function JumpCloudConfig() {
     setLoadingOrgs(true);
     try {
       const res = await invoke({ action: 'list_organizations' });
-      if (res.success) { setJumpcloudOrgs(res.organizations || []); setCurrentPage(1); setConfigStatus(CONNECTION_STATES.CONNECTED); }
+      if (res.success) { setJumpcloudOrgs(res.organizations || []); setCurrentPage(1);  }
       else toast.error(res.error || 'Failed to load organizations');
     } catch (err) { toast.error(err.message || 'Failed to load organizations'); }
     finally { setLoadingOrgs(false); }

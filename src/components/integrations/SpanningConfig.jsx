@@ -21,7 +21,7 @@ import {
 
 export default function SpanningConfig() {
   const [testing, setTesting] = useState(false);
-  const [configStatus, setConfigStatus] = useState(CONNECTION_STATES.NOT_CONFIGURED);
+  // configStatus is now derived from data, not manual state
   const [loadingDomains, setLoadingDomains] = useState(false);
   const [spanningDomains, setSpanningDomains] = useState([]);
   const [syncing, setSyncing] = useState(false);
@@ -36,18 +36,19 @@ export default function SpanningConfig() {
     queryFn: () => client.entities.Customer.list(),
   });
 
-  const { data: mappings = [], refetch: refetchMappings } = useQuery({
+  const { data: mappings = [], isLoading: loadingMappings, refetch: refetchMappings } = useQuery({
     queryKey: ['spanning_mappings'],
     queryFn: () => client.entities.SpanningMapping.list(),
   });
 
   useEffect(() => {
     if (mappings.length > 0 && configStatus === CONNECTION_STATES.NOT_CONFIGURED) {
-      setConfigStatus(CONNECTION_STATES.CONNECTED);
-    }
+          }
   }, [mappings.length, configStatus]);
 
   // Derived data
+
+    const configStatus = loadingMappings ? CONNECTION_STATES.CONFIGURED : (mappings.length > 0 ? CONNECTION_STATES.CONNECTED : CONNECTION_STATES.NOT_CONFIGURED);
 
   const getCustomerName = useCallback((customerId) => {
     const customer = customers.find(c => c.id === customerId);
@@ -132,15 +133,12 @@ export default function SpanningConfig() {
     try {
       const response = await client.functions.invoke('syncSpanningBackup', { action: 'test_connection' });
       if (response.success) {
-        setConfigStatus(CONNECTION_STATES.CONNECTED);
-        toast.success('Connected to Unitrends MSP!');
+                toast.success('Connected to Unitrends MSP!');
       } else {
-        setConfigStatus(CONNECTION_STATES.CONFIGURED);
-        toast.error(response.error || 'Connection failed');
+                toast.error(response.error || 'Connection failed');
       }
     } catch (error) {
-      setConfigStatus(CONNECTION_STATES.CONFIGURED);
-      toast.error(error.message || 'Connection test failed');
+            toast.error(error.message || 'Connection test failed');
     } finally {
       setTesting(false);
     }
@@ -153,8 +151,7 @@ export default function SpanningConfig() {
       if (response.success) {
         setSpanningDomains(response.domains || []);
         setCurrentPage(1);
-        setConfigStatus(CONNECTION_STATES.CONNECTED);
-      } else {
+              } else {
         toast.error(response.error || 'Failed to load domains');
       }
     } catch (error) {

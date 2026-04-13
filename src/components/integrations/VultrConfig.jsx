@@ -21,7 +21,7 @@ import {
 
 export default function VultrConfig() {
   const [testing, setTesting] = useState(false);
-  const [configStatus, setConfigStatus] = useState(CONNECTION_STATES.NOT_CONFIGURED);
+  // configStatus is now derived from data, not manual state
   const [loadingInstances, setLoadingInstances] = useState(false);
   const [vultrInstances, setVultrInstances] = useState([]);
   const [syncing, setSyncing] = useState(false);
@@ -36,16 +36,17 @@ export default function VultrConfig() {
     queryFn: () => client.entities.Customer.list(),
   });
 
-  const { data: mappings = [], refetch: refetchMappings } = useQuery({
+  const { data: mappings = [], isLoading: loadingMappings, refetch: refetchMappings } = useQuery({
     queryKey: ['vultr_mappings'],
     queryFn: () => client.entities.VultrMapping.list(),
   });
 
   useEffect(() => {
     if (mappings.length > 0 && configStatus === CONNECTION_STATES.NOT_CONFIGURED) {
-      setConfigStatus(CONNECTION_STATES.CONNECTED);
-    }
+          }
   }, [mappings.length, configStatus]);
+
+    const configStatus = loadingMappings ? CONNECTION_STATES.CONFIGURED : (mappings.length > 0 ? CONNECTION_STATES.CONNECTED : CONNECTION_STATES.NOT_CONFIGURED);
 
   const getCustomerName = useCallback((customerId) => {
     const customer = customers.find(c => c.id === customerId);
@@ -145,15 +146,12 @@ export default function VultrConfig() {
     try {
       const response = await client.functions.invoke('syncVultr', { action: 'test_connection' });
       if (response.success) {
-        setConfigStatus(CONNECTION_STATES.CONNECTED);
-        toast.success(`Connected! Found ${response.instanceCount || 0} instances.`);
+                toast.success(`Connected! Found ${response.instanceCount || 0} instances.`);
       } else {
-        setConfigStatus(CONNECTION_STATES.CONFIGURED);
-        toast.error(response.error || 'Connection failed');
+                toast.error(response.error || 'Connection failed');
       }
     } catch (error) {
-      setConfigStatus(CONNECTION_STATES.CONFIGURED);
-      toast.error(error.message || 'Connection test failed');
+            toast.error(error.message || 'Connection test failed');
     } finally {
       setTesting(false);
     }
@@ -166,8 +164,7 @@ export default function VultrConfig() {
       if (response.success) {
         setVultrInstances(response.instances || []);
         setCurrentPage(1);
-        setConfigStatus(CONNECTION_STATES.CONNECTED);
-      } else {
+              } else {
         toast.error(response.error || 'Failed to load instances');
       }
     } catch (error) {
