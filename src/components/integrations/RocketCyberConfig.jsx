@@ -54,10 +54,6 @@ export default function RocketCyberConfig() {
     () => new Set(mappings.map(m => m.rc_account_id)),
     [mappings],
   );
-  const mappedCount = useMemo(
-    () => allRows.filter(r => r.isMapped).length,
-    [allRows],
-  );
   const staleCount = useMemo(
     () => mappings.filter(m => m.last_synced && isStale(m.last_synced)).length,
     [mappings],
@@ -91,6 +87,11 @@ export default function RocketCyberConfig() {
     }
     return rows;
   }, [rcAccounts, mappings]);
+  const mappedCount = useMemo(
+    () => allRows.filter(r => r.isMapped).length,
+    [allRows],
+  );
+
   const totalAccounts = allRows.length;
   const unmappedCount = totalAccounts - mappedCount;
 

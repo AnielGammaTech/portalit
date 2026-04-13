@@ -59,10 +59,6 @@ export default function DattoRMMConfig() {
     [mappings],
   );
 
-  const mappedCount = useMemo(
-    () => allRows.filter(r => r.isMapped).length,
-    [allRows],
-  );
 
   const staleCount = useMemo(
     () => mappings.filter(m => m.last_synced && isStale(m.last_synced)).length,
@@ -100,6 +96,11 @@ export default function DattoRMMConfig() {
 
     return rows;
   }, [dattoSites, mappings]);
+
+  const mappedCount = useMemo(
+    () => allRows.filter(r => r.isMapped).length,
+    [allRows],
+  );
 
   const totalSites = allRows.length;
   const unmappedCount = totalSites - mappedCount;

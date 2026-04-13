@@ -77,10 +77,6 @@ export default function CIPPConfig() {
     [mappings],
   );
 
-  const mappedCount = useMemo(
-    () => allRows.filter(r => r.isMapped).length,
-    [allRows],
-  );
 
   const staleCount = useMemo(
     () => mappings.filter(m => m.last_synced && isStale(m.last_synced)).length,
@@ -120,6 +116,11 @@ export default function CIPPConfig() {
 
     return rows;
   }, [cippTenants, mappings]);
+
+  const mappedCount = useMemo(
+    () => allRows.filter(r => r.isMapped).length,
+    [allRows],
+  );
 
   const totalTenants = allRows.length;
   const unmappedCount = totalTenants - mappedCount;

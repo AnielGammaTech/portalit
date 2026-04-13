@@ -58,10 +58,6 @@ export default function SaaSAlertsConfig() {
     [mappings],
   );
 
-  const mappedCount = useMemo(
-    () => allRows.filter(r => r.isMapped).length,
-    [allRows],
-  );
 
   const staleCount = useMemo(
     () => mappings.filter(m => m.last_synced && isStale(m.last_synced)).length,
@@ -99,6 +95,11 @@ export default function SaaSAlertsConfig() {
 
     return rows;
   }, [saasCustomers, mappings]);
+
+  const mappedCount = useMemo(
+    () => allRows.filter(r => r.isMapped).length,
+    [allRows],
+  );
 
   const totalItems = allRows.length;
   const unmappedCount = totalItems - mappedCount;

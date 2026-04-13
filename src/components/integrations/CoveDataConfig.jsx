@@ -53,10 +53,6 @@ export default function CoveDataConfig() {
     [mappings],
   );
 
-  const mappedCount = useMemo(
-    () => allRows.filter(r => r.isMapped).length,
-    [allRows],
-  );
 
   const staleCount = useMemo(
     () => mappings.filter(m => m.last_synced && isStale(m.last_synced)).length,
@@ -87,6 +83,11 @@ export default function CoveDataConfig() {
     }
     return rows;
   }, [covePartners, mappings]);
+
+  const mappedCount = useMemo(
+    () => allRows.filter(r => r.isMapped).length,
+    [allRows],
+  );
 
   const totalPartners = allRows.length;
   const unmappedCount = totalPartners - mappedCount;

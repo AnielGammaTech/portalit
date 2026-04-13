@@ -61,10 +61,6 @@ export default function JumpCloudConfig() {
     [mappings],
   );
 
-  const mappedCount = useMemo(
-    () => allRows.filter(r => r.isMapped).length,
-    [allRows],
-  );
 
   const staleCount = useMemo(
     () => mappings.filter(m => m.last_synced && isStale(m.last_synced)).length,
@@ -103,6 +99,11 @@ export default function JumpCloudConfig() {
 
     return rows;
   }, [jumpcloudOrgs, mappings]);
+
+  const mappedCount = useMemo(
+    () => allRows.filter(r => r.isMapped).length,
+    [allRows],
+  );
 
   const totalOrgs = allRows.length;
   const unmappedCount = totalOrgs - mappedCount;

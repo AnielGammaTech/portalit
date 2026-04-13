@@ -70,7 +70,6 @@ export default function UniFiConfig() {
   }, [customers]);
 
   const mappedSiteIds = useMemo(() => new Set(mappings.map(m => m.unifi_site_id)), [mappings]);
-  const mappedCount = useMemo(() => allRows.filter(r => r.isMapped).length, [allRows]);
   const staleCount = useMemo(() => mappings.filter(m => m.last_synced && isStale(m.last_synced)).length, [mappings]);
 
   const allRows = useMemo(() => {
@@ -87,6 +86,8 @@ export default function UniFiConfig() {
     }
     return rows;
   }, [unifiSites, mappings]);
+
+  const mappedCount = useMemo(() => allRows.filter(r => r.isMapped).length, [allRows]);
 
   const totalSites = allRows.length;
   const unmappedCount = totalSites - mappedCount;

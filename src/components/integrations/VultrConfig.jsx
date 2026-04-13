@@ -57,10 +57,6 @@ export default function VultrConfig() {
     [mappings],
   );
 
-  const mappedCount = useMemo(
-    () => allRows.filter(r => r.isMapped).length,
-    [allRows],
-  );
 
   const staleCount = useMemo(
     () => mappings.filter(m => m.last_synced && isStale(m.last_synced)).length,
@@ -99,6 +95,11 @@ export default function VultrConfig() {
 
     return rows;
   }, [vultrInstances, mappings]);
+
+  const mappedCount = useMemo(
+    () => allRows.filter(r => r.isMapped).length,
+    [allRows],
+  );
 
   const totalInstances = allRows.length;
   const unmappedCount = totalInstances - mappedCount;
