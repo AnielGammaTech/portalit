@@ -195,13 +195,15 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
     staleTime: 1000 * 60 * 2,
   });
 
-  const handleSaveMapping = async (ruleId, productName, lineItemId) => {
+  const handleSaveMapping = async (ruleId, productName, selectedId) => {
     try {
+      // PSA line items have UUID ids; non-PSA items have prefixed ids (pax8:Name, device:id, etc.)
+      const isPsaLineItem = selectedId && !selectedId.includes(':');
       await client.entities.Pax8LineItemOverride.create({
         customer_id: customer.id,
         rule_id: ruleId,
-        pax8_product_name: productName || null,
-        line_item_id: lineItemId,
+        pax8_product_name: isPsaLineItem ? (productName || null) : selectedId,
+        line_item_id: isPsaLineItem ? selectedId : null,
       });
       await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides', customer.id] });
       await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides_all'] });

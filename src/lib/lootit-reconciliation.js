@@ -245,12 +245,13 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
     reviews.map((r) => [r.rule_id, r])
   );
 
-  // Build override lookup: rule_id → [line_item_id, ...]
+  // Build override lookup: rule_id → [resolved reference, ...]
   const overrideMap = {};
   for (const ov of overrides) {
     const key = ov.rule_id || '';
     if (!overrideMap[key]) overrideMap[key] = [];
-    overrideMap[key].push(ov.line_item_id);
+    // line_item_id holds PSA UUIDs; pax8_product_name holds non-PSA refs (pax8:Name, device:id)
+    overrideMap[key].push(ov.line_item_id || ov.pax8_product_name);
   }
   const lineItemById = Object.fromEntries(lineItems.map((li) => [li.id, li]));
 
@@ -427,12 +428,12 @@ export function reconcilePax8Subscriptions(lineItems, pax8Mapping, reviews = [],
     reviews.filter((r) => r.rule_id?.startsWith('pax8:')).map((r) => [r.rule_id, r])
   );
 
-  // Build override lookup: rule_id → [line_item_id, ...]
+  // Build override lookup: rule_id → [resolved reference, ...]
   const overrideMap = {};
   for (const ov of overrides) {
     const key = ov.rule_id || '';
     if (!overrideMap[key]) overrideMap[key] = [];
-    overrideMap[key].push(ov.line_item_id);
+    overrideMap[key].push(ov.line_item_id || ov.pax8_product_name);
   }
   const lineItemById = Object.fromEntries(lineItems.map((li) => [li.id, li]));
 
