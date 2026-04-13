@@ -121,11 +121,12 @@ async function showSyncView() {
   const matchedCount = matched.filter(m => m.customer).length;
   const unmatchedCount = matched.filter(m => !m.customer).length;
 
+  const showMatchStats = matched.length > 1;
   let html = `
     <div class="stats">
       <div class="stat"><div class="num pink">${totalCount}</div><div class="label">Total ${currentVendor.dataLabel || ''}</div></div>
-      <div class="stat"><div class="num green">${matchedCount}</div><div class="label">Matched</div></div>
-      ${unmatchedCount > 0 ? `<div class="stat"><div class="num amber">${unmatchedCount}</div><div class="label">Unmatched</div></div>` : ''}
+      ${showMatchStats ? `<div class="stat"><div class="num green">${matchedCount}</div><div class="label">Customers</div></div>` : ''}
+      ${showMatchStats && unmatchedCount > 0 ? `<div class="stat"><div class="num amber">${unmatchedCount}</div><div class="label">Unmatched</div></div>` : ''}
     </div>
     <button class="btn btn-sync" id="sync-btn">Sync to LootIT</button>
     <div class="team-list">`;
