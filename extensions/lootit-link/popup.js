@@ -181,11 +181,12 @@ async function showSyncView() {
       // Persist mappings
       await chrome.storage.local.set({ lootit_mappings: savedMappings });
 
-      // Build results for backend
+      // Build results for backend (include extensions detail if available)
       const teamResults = matched.filter(m => m.customer).map(m => ({
         slug: m.vendorId || m.name,
         name: m.name,
         count: m.count,
+        extensions: m.extensions || null,
         customer_id: m.customer.id,
         customer_name: m.customer.name,
       }));

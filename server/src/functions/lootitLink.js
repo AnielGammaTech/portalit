@@ -1,22 +1,32 @@
 import { getServiceSupabase } from '../lib/supabase.js';
 
-// Map vendor keys to their report/mapping table and count field
+// Local date helper (avoids UTC offset showing yesterday)
+function localDate() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 const VENDOR_CONFIG = {
   inky: {
     table: 'inky_reports',
-    buildRecord: (count, name) => ({ total_users: count, report_data: { total_users: count }, report_type: 'user_count' }),
+    buildRecord: (team) => ({ total_users: team.count, report_data: { total_users: team.count }, report_type: 'user_count' }),
   },
   bullphish: {
     table: 'bull_phish_id_reports',
-    buildRecord: (count, name) => ({ total_emails_sent: count, report_data: { total_emails_sent: count, user_count: count }, report_type: 'extension_sync' }),
+    buildRecord: (team) => ({ total_emails_sent: team.count, report_data: { total_emails_sent: team.count, user_count: team.count }, report_type: 'extension_sync' }),
   },
   darkweb: {
     table: 'dark_web_id_reports',
-    buildRecord: (count, name) => ({ domains_count: count, report_data: { domains_count: count }, report_type: 'extension_sync' }),
+    buildRecord: (team) => ({ domains_count: team.count, report_data: { domains_count: team.count }, report_type: 'extension_sync' }),
   },
   threecx: {
     table: 'threecx_reports',
-    buildRecord: (count, name) => ({ user_extensions: count, total_extensions: count, report_data: { user_extensions: count, synced_from: 'lootit_link' } }),
+    buildRecord: (team) => ({
+      user_extensions: team.count,
+      total_extensions: team.count,
+      extensions_detail: team.extensions ? JSON.stringify(team.extensions) : null,
+      report_data: { user_extensions: team.count, synced_from: 'lootit_link' },
+    }),
   },
 };
 
@@ -36,6 +46,7 @@ export async function lootitLink(params) {
     }
 
     const config = VENDOR_CONFIG[vendor];
+    const today = localDate();
     const results = [];
     let synced = 0;
     let failed = 0;
@@ -51,23 +62,21 @@ export async function lootitLink(params) {
           .eq('customer_id', customer_id)
           .limit(1);
 
-        const vendorFields = config.buildRecord(count, name);
+        const vendorFields = config.buildRecord(team);
 
         if (existing && existing.length > 0) {
           await supabase.from(config.table).update({
             ...vendorFields,
-            report_date: new Date().toISOString().split('T')[0],
+            report_date: today,
             updated_date: new Date().toISOString(),
           }).eq('id', existing[0].id);
         } else {
-          const record = {
+          await supabase.from(config.table).insert({
             customer_id,
             customer_name,
             ...vendorFields,
-            report_date: new Date().toISOString().split('T')[0],
-          };
-          if (config.reportType) record.report_type = config.reportType;
-          await supabase.from(config.table).insert(record);
+            report_date: today,
+          });
         }
 
         synced++;
@@ -78,16 +87,7 @@ export async function lootitLink(params) {
       }
     }
 
-    return {
-      success: true,
-      vendor,
-      synced,
-      failed,
-      unmatched: team_results.filter(t => !t.customer_id).length,
-      total: team_results.length,
-      totalCount: total_count,
-      results,
-    };
+    return { success: true, vendor, synced, failed, total: team_results.length, totalCount: total_count, results };
   }
 
   return { success: false, error: `Unknown action: ${action}` };

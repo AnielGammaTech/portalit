@@ -1,74 +1,91 @@
 // 3CX scraper — single-tenant: each customer has their own 3CX instance
-// Detects company from subdomain/page content and counts extensions
+// Captures full extension list with names for audit/exclusion in PortalIT
 
 function scrape3CX() {
   const hostname = window.location.hostname;
-  // Extract company slug from subdomain (e.g., "venturechurch" from venturechurch.fl.3cx.us)
   const companySlug = hostname.split('.')[0] || 'unknown';
 
-  // Try to get a better name from page content
+  // Get company name from page content
   let companyName = '';
-
-  // Look for License Owner or FQDN on the page
   const body = document.body?.innerText || '';
 
-  // Try "License Owner" field
   const ownerMatch = body.match(/License\s*Owner\s+([^\n]+)/i);
   if (ownerMatch) companyName = ownerMatch[1].trim();
 
-  // Try FQDN field (e.g., "venturechurch.fl.3cx.us")
   if (!companyName) {
     const fqdnMatch = body.match(/FQDN\s+(\S+\.3cx\.\w+)/i);
     if (fqdnMatch) companyName = fqdnMatch[1].split('.')[0];
   }
 
-  // Fallback: split slug into words (venturechurch → Venture Church)
   if (!companyName) {
-    // Try splitting camelCase or known word boundaries
     companyName = companySlug
-      .replace(/([a-z])([A-Z])/g, '$1 $2')  // camelCase
-      .replace(/(tech|church|group|construction|service|farm|medical|star|coast|house|point|star|counsel)/gi, ' $1')
-      .replace(/\s+/g, ' ')
-      .trim();
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/(tech|church|group|construction|service|farm|medical|star|coast|house|point|counsel)/gi, ' $1')
+      .replace(/\s+/g, ' ').trim();
   }
 
   companyName = companyName.replace(/\b\w/g, c => c.toUpperCase());
 
-  // Count extensions/users
+  // Scrape full extension list from Users table
+  const extensions = [];
   let userCount = 0;
 
-  // Strategy 1: count table rows with extension numbers (3-4 digits)
   document.querySelectorAll('tr').forEach(row => {
     const cells = row.querySelectorAll('td');
     if (cells.length >= 3) {
-      const hasExtension = Array.from(cells).some(c => /^\d{3,4}$/.test(c.textContent?.trim()));
-      if (hasExtension) userCount++;
+      // Find the extension number cell (3-4 digit number)
+      let extNum = null;
+      let name = '';
+      let email = '';
+      let dept = '';
+
+      Array.from(cells).forEach(c => {
+        const txt = c.textContent?.trim() || '';
+        if (/^\d{3,4}$/.test(txt) && !extNum) {
+          extNum = txt;
+        } else if (txt.includes('@') && !email) {
+          email = txt;
+        } else if (['DEFAULT', 'SALES', 'SUPPORT', 'ADMIN'].includes(txt.toUpperCase()) || dept) {
+          if (!dept) dept = txt;
+        } else if (txt.length > 2 && !extNum && !name) {
+          name = txt;
+        }
+      });
+
+      // Fallback: first cell is usually the name
+      if (!name && cells[0]) name = cells[0].textContent?.trim() || '';
+
+      if (extNum) {
+        userCount++;
+        extensions.push({
+          number: extNum,
+          name: name.replace(/\s*\(.*?\)\s*/g, '').trim(), // Remove "(User)", "(System Owner)" etc
+          type: name.includes('System Owner') ? 'system_owner' : 'user',
+          email: email || null,
+          department: dept || 'DEFAULT',
+        });
+      }
     }
   });
 
-  // Strategy 2: "Export (N)" button text
+  // Fallback: "Export (N)" button
   if (userCount === 0) {
     const exportMatch = body.match(/Export\s*\((\d+)\)/);
     if (exportMatch) userCount = parseInt(exportMatch[1], 10);
   }
 
-  // Strategy 3: "TOTAL EXTENSIONS" or "X Extensions" on dashboard
+  // Fallback: "X Extensions" on dashboard
   if (userCount === 0) {
     const extMatch = body.match(/(\d+)\s*(?:Total\s*)?Extensions/i);
     if (extMatch) userCount = parseInt(extMatch[1], 10);
   }
 
-  // Strategy 4: "Simultaneous Calls" nearby number on dashboard
-  if (userCount === 0) {
-    const simMatch = body.match(/(\d+)\s*Simultaneous/i);
-    if (simMatch) userCount = parseInt(simMatch[1], 10);
-  }
-
-  if (userCount > 0 || companyName) {
+  if (userCount > 0 || extensions.length > 0) {
     return [{
       name: companyName || companySlug,
       vendorId: companySlug,
-      count: userCount || null,
+      count: extensions.length || userCount,
+      extensions,
       instanceUrl: hostname,
     }];
   }
@@ -79,11 +96,10 @@ function scrape3CX() {
 function check() {
   const teams = scrape3CX();
   if (teams.length > 0) {
-    // Store with instance URL so different 3CX instances don't overwrite each other
     chrome.storage.local.set({
       lootit_vendor_data: { vendor: 'threecx', teams, time: Date.now(), instance: window.location.hostname }
     });
-    console.log(`[LootIT Link] 3CX: ${teams[0].count} extensions at ${teams[0].name} (${window.location.hostname})`);
+    console.log(`[LootIT Link] 3CX: ${teams[0].count} extensions (${teams[0].extensions.length} detailed) at ${teams[0].name}`);
   }
 }
 
