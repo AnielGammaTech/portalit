@@ -55,8 +55,8 @@ export default function RocketCyberConfig() {
     [mappings],
   );
   const mappedCount = useMemo(
-    () => rcAccounts.filter(a => mappedAccountIds.has(String(a.id))).length,
-    [rcAccounts, mappedAccountIds],
+    () => allRows.filter(r => r.isMapped).length,
+    [allRows],
   );
   const staleCount = useMemo(
     () => mappings.filter(m => m.last_synced && isStale(m.last_synced)).length,

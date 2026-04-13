@@ -60,8 +60,8 @@ export default function DattoRMMConfig() {
   );
 
   const mappedCount = useMemo(
-    () => dattoSites.filter(site => mappedSiteIds.has(String(site.id || site.uid))).length,
-    [dattoSites, mappedSiteIds],
+    () => allRows.filter(r => r.isMapped).length,
+    [allRows],
   );
 
   const staleCount = useMemo(

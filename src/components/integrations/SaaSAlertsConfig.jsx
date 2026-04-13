@@ -59,8 +59,8 @@ export default function SaaSAlertsConfig() {
   );
 
   const mappedCount = useMemo(
-    () => saasCustomers.filter(c => mappedSaasIds.has(String(c.id))).length,
-    [saasCustomers, mappedSaasIds],
+    () => allRows.filter(r => r.isMapped).length,
+    [allRows],
   );
 
   const staleCount = useMemo(

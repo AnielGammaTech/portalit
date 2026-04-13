@@ -78,8 +78,8 @@ export default function CIPPConfig() {
   );
 
   const mappedCount = useMemo(
-    () => cippTenants.filter(t => mappedTenantIds.has(t.id)).length,
-    [cippTenants, mappedTenantIds],
+    () => allRows.filter(r => r.isMapped).length,
+    [allRows],
   );
 
   const staleCount = useMemo(

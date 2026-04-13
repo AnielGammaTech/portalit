@@ -58,8 +58,8 @@ export default function VultrConfig() {
   );
 
   const mappedCount = useMemo(
-    () => vultrInstances.filter(inst => mappedInstanceIds.has(String(inst.id))).length,
-    [vultrInstances, mappedInstanceIds],
+    () => allRows.filter(r => r.isMapped).length,
+    [allRows],
   );
 
   const staleCount = useMemo(

@@ -54,8 +54,8 @@ export default function CoveDataConfig() {
   );
 
   const mappedCount = useMemo(
-    () => covePartners.filter(p => mappedPartnerIds.has(String(p.id))).length,
-    [covePartners, mappedPartnerIds],
+    () => allRows.filter(r => r.isMapped).length,
+    [allRows],
   );
 
   const staleCount = useMemo(
