@@ -261,11 +261,11 @@ function IntegrationsPanel() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {INTEGRATION_CATEGORIES.map((category) => (
         <div key={category.title}>
-          <h3 className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">{category.title}</h3>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+          <h3 className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">{category.title}</h3>
+          <div className="grid grid-cols-3 gap-2">
             {category.items.map((item) => {
               const count = item.mappingKey ? mappingCounts[item.mappingKey] : 0;
               const isConfigured = count > 0;
@@ -276,24 +276,21 @@ function IntegrationsPanel() {
                   key={item.id}
                   onClick={() => setActiveIntegration(item.id)}
                   className={cn(
-                    "flex items-center gap-2.5 p-2.5 rounded-lg border text-left transition-all hover:shadow-md group",
+                    "flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-all hover:shadow-sm",
                     isConfigured ? "bg-white border-emerald-200 hover:border-emerald-300" : "bg-white border-slate-200 hover:border-slate-300"
                   )}
                 >
-                  <div className={cn("w-7 h-7 rounded-md flex items-center justify-center shrink-0", item.iconBg)}>
-                    <ItemIcon className={cn("w-3.5 h-3.5", item.iconColor)} />
+                  <div className={cn("w-6 h-6 rounded flex items-center justify-center shrink-0", item.iconBg)}>
+                    <ItemIcon className={cn("w-3 h-3", item.iconColor)} />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", isConfigured ? "bg-emerald-500" : "bg-slate-300")} />
-                      <p className="text-xs font-medium text-slate-900 truncate">{item.label}</p>
-                    </div>
-                    {item.mappingKey && (
-                      <p className={cn("text-[10px] mt-0.5 truncate", isConfigured ? "text-emerald-600" : "text-slate-400")}>
-                        {isConfigured ? `${count} mapped` : 'Not configured'}
-                      </p>
-                    )}
-                  </div>
+                  <span className="text-xs font-medium text-slate-800 truncate flex-1">{item.label}</span>
+                  {item.mappingKey ? (
+                    <span className={cn("text-[10px] font-medium shrink-0", isConfigured ? "text-emerald-600" : "text-slate-400")}>
+                      {isConfigured ? count : '--'}
+                    </span>
+                  ) : (
+                    <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", isConfigured ? "bg-emerald-500" : "bg-slate-300")} />
+                  )}
                 </button>
               );
             })}
