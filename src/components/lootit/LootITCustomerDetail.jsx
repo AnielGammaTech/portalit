@@ -557,9 +557,9 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   }
 
   const issueCount = summary ? summary.over + summary.under : 0;
-  // Health = matched + reviewed items out of ALL rules (including no_data/no_vendor)
-  // "No Data" items count as unresolved — they need vendor integration or review
-  const totalRules = summary ? summary.total : 0;
+  // Health = matched + reviewed items out of rules that have data
+  // Exclude no_data items (integration not connected) — they're not applicable
+  const totalRules = summary ? summary.total - (summary.noData || 0) : 0;
   const resolvedCount = summary ? (summary.matched || 0) + (summary.reviewed || 0) + (summary.dismissed || 0) : 0;
   const healthPct = totalRules > 0 ? Math.min(100, Math.round((resolvedCount / totalRules) * 100)) : 0;
   const hasUnresolvedItems = totalRules > resolvedCount;
