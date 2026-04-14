@@ -696,7 +696,7 @@ function CustomerDashboard({ customer }) {
   const monthlyTotal = recurringBills.filter(b => !['yearly', 'annual', 'annually'].includes((b.frequency || '').toLowerCase())).reduce((sum, b) => sum + (b.amount || 0), 0);
   const openTickets = tickets.filter(t => ['new', 'open', 'in_progress'].includes(t.status)).length;
   const activeContracts = contracts.filter(c => c.status === 'active').length;
-  const overdueAmount = invoices.filter(i => i.status === 'overdue').reduce((sum, i) => sum + (i.total || 0), 0);
+  const overdueAmount = invoices.filter(i => i.status === 'overdue').reduce((sum, i) => sum + (parseFloat(i.amount_due) || 0), 0);
 
   const upcomingRenewals = contracts
     .filter(c => c.renewal_date || c.end_date)

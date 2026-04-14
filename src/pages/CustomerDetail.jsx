@@ -817,8 +817,8 @@ export default function CustomerDetail() {
                             const yearlyCost = yearlyBills.reduce((sum, b) => sum + (b.amount || 0), 0);
                             const overdueInvoices = invoices.filter(i => i.status === 'overdue');
                             const pendingInvoices = invoices.filter(i => i.status === 'sent');
-                            const totalOverdue = overdueInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
-                            const totalPending = pendingInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
+                            const totalOverdue = overdueInvoices.reduce((sum, inv) => sum + (parseFloat(inv.amount_due) || 0), 0);
+                            const totalPending = pendingInvoices.reduce((sum, inv) => sum + (parseFloat(inv.amount_due) || inv.total || 0), 0);
                             const activeContract = contracts.find(c => c.status === 'active') || contracts[0];
                             const contractValue = contractItems.reduce((sum, ci) => sum + (ci.net_amount || ci.price || 0), 0);
                             const totalLineItems = activeLineItems.length;
@@ -966,7 +966,7 @@ export default function CustomerDetail() {
                                 <h3 className="text-lg font-semibold text-gray-900">Invoices</h3>
                                 {invoices.filter(i => i.status === 'overdue').length > 0 && (
                                   <span className="text-sm text-red-600 font-medium">
-                                    ${invoices.filter(i => i.status === 'overdue').reduce((sum, inv) => sum + (inv.total || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} overdue ({invoices.filter(i => i.status === 'overdue').length})
+                                    ${invoices.filter(i => i.status === 'overdue').reduce((sum, inv) => sum + (parseFloat(inv.amount_due) || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} overdue ({invoices.filter(i => i.status === 'overdue').length})
                                   </span>
                                 )}
                               </div>
