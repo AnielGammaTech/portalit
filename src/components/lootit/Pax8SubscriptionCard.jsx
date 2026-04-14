@@ -238,20 +238,22 @@ export default function Pax8SubscriptionCard({ recon, onReview, onDismiss, onRes
         {/* Action bar */}
         <div onClick={(e) => e.stopPropagation()} className={cn('flex items-center gap-1.5 pt-1.5 border-t mt-auto', resolvedStyles.borderT)}>
           <TooltipProvider delayDuration={300}>
-            {!isReviewed && status !== 'match' && (
+            {!isReviewed && (
               <>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => handleActionWithNote('force_match')}
-                      disabled={isSaving}
-                      className="p-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow-sm transition-colors disabled:opacity-50"
-                    >
-                      <ShieldCheck className="w-3.5 h-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>Force Match (requires note)</TooltipContent>
-                </Tooltip>
+                {status !== 'match' && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => handleActionWithNote('force_match')}
+                        disabled={isSaving}
+                        className="p-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow-sm transition-colors disabled:opacity-50"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Force Match (requires note)</TooltipContent>
+                  </Tooltip>
+                )}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
