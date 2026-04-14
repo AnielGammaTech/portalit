@@ -70,13 +70,14 @@ export default function ServiceCard({
       } else if (pendingAction === 'dismiss') {
         await onDismiss?.(rule.id, { notes: noteText });
       } else {
-        // Standalone note save
         await onSaveNotes(rule.id, noteText);
       }
-    } finally {
-      setSavingNote(false);
       setShowNotes(false);
       setPendingAction(null);
+    } catch (_err) {
+      // Error toast is shown by the mutation's onError
+    } finally {
+      setSavingNote(false);
     }
   };
 

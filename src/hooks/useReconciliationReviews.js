@@ -2,6 +2,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import { supabase } from '@/api/client';
 import { useAuth } from '@/lib/AuthContext';
+import { toast } from 'sonner';
+
+// Strip synthetic prefixes from rule IDs to get a valid DB value.
+// Unmatched items use "unmatched_<uuid>" — the DB column is UUID so we need just the UUID part.
+// Pax8 items use "pax8:<name>" — these are text-safe already.
+function toDbRuleId(ruleId) {
+  if (typeof ruleId === 'string' && ruleId.startsWith('unmatched_')) {
+    return ruleId.slice('unmatched_'.length);
+  }
+  return ruleId;
+}
 
 export function useReconciliationReviews(customerId) {
   const queryClient = useQueryClient();
@@ -21,27 +32,38 @@ export function useReconciliationReviews(customerId) {
     staleTime: 1000 * 60 * 2,
   });
 
+  // Find existing review — check both the raw ruleId and the DB-safe version
+  const findReview = (ruleId) => {
+    const dbId = toDbRuleId(ruleId);
+    return reviews.find((r) => r.rule_id === ruleId || r.rule_id === dbId);
+  };
+
   // Log every action to the history table
   const logHistory = async ({ reviewId, ruleId, action, status, notes, psaQty, vendorQty }) => {
-    await supabase.from('reconciliation_review_history').insert({
-      review_id: reviewId || null,
-      customer_id: customerId,
-      rule_id: ruleId,
-      action,
-      status,
-      notes: notes || null,
-      psa_qty: psaQty ?? null,
-      vendor_qty: vendorQty ?? null,
-      created_by: user?.id || null,
-    });
+    try {
+      await supabase.from('reconciliation_review_history').insert({
+        review_id: reviewId || null,
+        customer_id: customerId,
+        rule_id: toDbRuleId(ruleId),
+        action,
+        status,
+        notes: notes || null,
+        psa_qty: psaQty ?? null,
+        vendor_qty: vendorQty ?? null,
+        created_by: user?.id || null,
+      });
+    } catch (_err) {
+      // History logging is non-critical — don't block the main operation
+    }
   };
 
   const upsertMutation = useMutation({
     mutationFn: async ({ ruleId, status, notes, psaQty, vendorQty, action, exclusionCount, exclusionReason }) => {
-      const existing = reviews.find((r) => r.rule_id === ruleId);
+      const dbRuleId = toDbRuleId(ruleId);
+      const existing = findReview(ruleId);
       const payload = {
         customer_id: customerId,
-        rule_id: ruleId,
+        rule_id: dbRuleId,
         status,
         reviewed_by: user?.id || null,
         reviewed_at: new Date().toISOString(),
@@ -62,7 +84,7 @@ export function useReconciliationReviews(customerId) {
 
       if (error) throw error;
 
-      // Log to history (fire-and-forget, don't block the UI)
+      // Log to history (fire-and-forget)
       logHistory({
         reviewId: data.id,
         ruleId,
@@ -78,6 +100,9 @@ export function useReconciliationReviews(customerId) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: reviewsKey });
       queryClient.invalidateQueries({ queryKey: historyKey });
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Failed to save review');
     },
   });
 
@@ -102,7 +127,7 @@ export function useReconciliationReviews(customerId) {
     });
 
   const resetReview = (ruleId) => {
-    const existing = reviews.find((r) => r.rule_id === ruleId);
+    const existing = findReview(ruleId);
     return upsertMutation.mutateAsync({
       ruleId,
       status: 'pending',
@@ -114,7 +139,7 @@ export function useReconciliationReviews(customerId) {
   };
 
   const saveNotes = async (ruleId, notes) => {
-    const existing = reviews.find((r) => r.rule_id === ruleId);
+    const existing = findReview(ruleId);
     return upsertMutation.mutateAsync({
       ruleId,
       status: existing?.status || 'pending',
@@ -126,7 +151,7 @@ export function useReconciliationReviews(customerId) {
   };
 
   const saveExclusion = async (ruleId, exclusionCount, exclusionReason) => {
-    const existing = reviews.find((r) => r.rule_id === ruleId);
+    const existing = findReview(ruleId);
     return upsertMutation.mutateAsync({
       ruleId,
       status: existing?.status || 'reviewed',
