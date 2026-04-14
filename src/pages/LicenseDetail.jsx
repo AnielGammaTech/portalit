@@ -25,8 +25,8 @@ import AddIndividualLicenseModal from '../components/saas/AddIndividualLicenseMo
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
-import { format, parseISO, differenceInDays } from 'date-fns';
+import { cn, safeFormatDate, safeDifferenceInDays } from "@/lib/utils";
+// date-fns calls replaced by safe wrappers from @/lib/utils
 import LicenseAssignmentModal from '../components/saas/LicenseAssignmentModal';
 import EditLicenseModal from '../components/saas/EditLicenseModal';
 import EditIndividualLicenseModal from '../components/saas/EditIndividualLicenseModal';
@@ -853,7 +853,7 @@ export default function LicenseDetail() {
                           {ml.renewal_date && (
                             <span className="flex items-center gap-0.5">
                               <Calendar className="w-2.5 h-2.5" />
-                              {format(parseISO(ml.renewal_date), 'MMM d')}
+                              {safeFormatDate(ml.renewal_date, 'MMM d')}
                             </span>
                           )}
                         </div>
@@ -910,7 +910,7 @@ export default function LicenseDetail() {
                           {a.renewal_date && (
                             <span className="flex items-center gap-0.5">
                               <Calendar className="w-2.5 h-2.5" />
-                              {format(parseISO(a.renewal_date), 'MMM d')}
+                              {safeFormatDate(a.renewal_date, 'MMM d')}
                             </span>
                           )}
                         </div>
@@ -1016,8 +1016,8 @@ export default function LicenseDetail() {
                       const mlAssignments = getAssignmentsForLicense(ml.id);
                       const mlUnusedSeats = (ml.quantity || 0) - mlAssignments.length;
                       const mlUtilization = ml.quantity > 0 ? (mlAssignments.length / ml.quantity) * 100 : 0;
-                      const mlDaysUntilRenewal = ml.renewal_date 
-                        ? differenceInDays(parseISO(ml.renewal_date), new Date()) : null;
+                      const mlDaysUntilRenewal = ml.renewal_date
+                        ? safeDifferenceInDays(ml.renewal_date, new Date()) : null;
                       const renewalPassed = mlDaysUntilRenewal !== null && mlDaysUntilRenewal < 0;
                       
                       // Calculate cost display based on billing cycle
@@ -1045,7 +1045,7 @@ export default function LicenseDetail() {
                                     mlDaysUntilRenewal !== null && mlDaysUntilRenewal <= 30 ? "text-amber-600" : "text-slate-400"
                                   )}>
                                     <Calendar className="w-3 h-3" />
-                                    <span>{format(parseISO(ml.renewal_date), 'MMM d')}</span>
+                                    <span>{safeFormatDate(ml.renewal_date, 'MMM d')}</span>
                                   </div>
                                 )}
                                 {ml.card_last_four && (
@@ -1198,8 +1198,8 @@ export default function LicenseDetail() {
                             <div className="divide-y divide-slate-100">
                               {ilAssignments.map(assignment => {
                                 const contact = contacts.find(c => c.id === assignment.contact_id);
-                                const ilDaysUntilRenewal = assignment.renewal_date 
-                                  ? differenceInDays(parseISO(assignment.renewal_date), new Date()) : null;
+                                const ilDaysUntilRenewal = assignment.renewal_date
+                                  ? safeDifferenceInDays(assignment.renewal_date, new Date()) : null;
                                 const ilRenewalPassed = ilDaysUntilRenewal !== null && ilDaysUntilRenewal < 0;
                                 
                                 return (
@@ -1229,9 +1229,9 @@ export default function LicenseDetail() {
                                           )}>
                                             <Calendar className="w-3 h-3" />
                                             <span>
-                                              {ilRenewalPassed 
-                                                ? `Passed ${format(parseISO(assignment.renewal_date), 'MMM d')}` 
-                                                : format(parseISO(assignment.renewal_date), 'MMM d')}
+                                              {ilRenewalPassed
+                                                ? `Passed ${safeFormatDate(assignment.renewal_date, 'MMM d')}`
+                                                : safeFormatDate(assignment.renewal_date, 'MMM d')}
                                             </span>
                                             {ilDaysUntilRenewal !== null && ilDaysUntilRenewal > 0 && ilDaysUntilRenewal <= 30 && (
                                               <span className="font-medium">({ilDaysUntilRenewal}d)</span>
@@ -1271,8 +1271,8 @@ export default function LicenseDetail() {
                       <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
                         {individualAssignments.map(assignment => {
                           const contact = contacts.find(c => c.id === assignment.contact_id);
-                          const assignmentDaysUntilRenewal = assignment.renewal_date 
-                            ? differenceInDays(parseISO(assignment.renewal_date), new Date()) : null;
+                          const assignmentDaysUntilRenewal = assignment.renewal_date
+                            ? safeDifferenceInDays(assignment.renewal_date, new Date()) : null;
                           const assignmentRenewalPassed = assignmentDaysUntilRenewal !== null && assignmentDaysUntilRenewal < 0;
                           
                           return (
@@ -1303,9 +1303,9 @@ export default function LicenseDetail() {
                                     )}>
                                       <Calendar className="w-3 h-3" />
                                       <span>
-                                        {assignmentRenewalPassed 
-                                          ? `Passed ${format(parseISO(assignment.renewal_date), 'MMM d')}` 
-                                          : format(parseISO(assignment.renewal_date), 'MMM d, yyyy')}
+                                        {assignmentRenewalPassed
+                                          ? `Passed ${safeFormatDate(assignment.renewal_date, 'MMM d')}`
+                                          : safeFormatDate(assignment.renewal_date, 'MMM d, yyyy')}
                                       </span>
                                       {assignmentDaysUntilRenewal !== null && assignmentDaysUntilRenewal > 0 && assignmentDaysUntilRenewal <= 30 && (
                                         <span className="font-medium">({assignmentDaysUntilRenewal}d)</span>

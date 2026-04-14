@@ -208,20 +208,28 @@ export async function syncPax8Subscriptions(body, _user) {
 // ── Product name resolver ────────────────────────────────────────────────
 
 // Cache product names across syncs to avoid repeated lookups
+// Stores { name, ts } with 24h TTL
 const productNameCache = new Map();
+const PRODUCT_NAME_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 async function resolveProductName(productId) {
   if (!productId) return 'Unknown';
-  if (productNameCache.has(productId)) return productNameCache.get(productId);
+  const cached = productNameCache.get(productId);
+  if (cached) {
+    if (Date.now() - cached.ts <= PRODUCT_NAME_CACHE_TTL_MS) {
+      return cached.name;
+    }
+    productNameCache.delete(productId);
+  }
 
   try {
     const product = await pax8ApiCall(`/products/${productId}`);
     const name = product.name || product.productName || productId;
-    productNameCache.set(productId, name);
+    productNameCache.set(productId, { name, ts: Date.now() });
     return name;
   } catch (err) {
     console.log(`[Pax8] Could not resolve product ${productId}: ${err.message}`);
-    productNameCache.set(productId, productId); // cache the miss too
+    productNameCache.set(productId, { name: productId, ts: Date.now() }); // cache the miss too
     return productId;
   }
 }
@@ -256,7 +264,7 @@ async function syncCompanySubscriptions(supabase, mapping) {
     const byProduct = {};
     for (const sub of activeSubscriptions) {
       const productName = sub.productName || sub.product?.name
-        || productNameCache.get(sub.productId) || sub.productId || 'Unknown';
+        || productNameCache.get(sub.productId)?.name || sub.productId || 'Unknown';
       if (!byProduct[productName]) {
         byProduct[productName] = { name: productName, quantity: 0, subscriptions: [] };
       }

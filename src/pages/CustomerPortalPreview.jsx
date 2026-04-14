@@ -25,8 +25,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
-import { format, parseISO } from 'date-fns';
+import { cn, safeFormatDate } from "@/lib/utils";
+// date-fns calls replaced by safe wrappers from @/lib/utils
 import CustomerServicesTab from '../components/customer/CustomerServicesTab';
 import CustomerMap from '../components/customer/CustomerMap';
 import SoftwareCard from '../components/saas/SoftwareCard';
@@ -494,7 +494,7 @@ export default function CustomerPortalPreview() {
                                   </div>
                                   <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
                                     {invoice.due_date && (
-                                      <span>Due {format(parseISO(invoice.due_date), 'MMM d, yyyy')}</span>
+                                      <span>Due {safeFormatDate(invoice.due_date, 'MMM d, yyyy')}</span>
                                     )}
                                   </div>
                                 </div>
@@ -664,7 +664,7 @@ export default function CustomerPortalPreview() {
                         </p>
                         <div className="flex items-center gap-2 mt-1 text-sm text-slate-500">
                           {ticket.date_opened && (
-                            <span>{format(parseISO(ticket.date_opened), 'MMM d, yyyy')}</span>
+                            <span>{safeFormatDate(ticket.date_opened, 'MMM d, yyyy')}</span>
                           )}
                         </div>
                       </div>

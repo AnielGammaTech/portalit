@@ -116,7 +116,7 @@ Return JSON with:
         }));
       }
     } catch (error) {
-      console.log('Could not fetch app info:', error);
+      console.warn('Could not fetch app info:', error);
     } finally {
       setIsLoadingLogo(false);
       setIsLoadingInfo(false);

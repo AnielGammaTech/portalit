@@ -105,11 +105,12 @@ export async function syncHaloPSAInvoices(body, _user) {
     // Fetch all invoices with pagination
     console.log(`[HaloPSA] Syncing invoices + line items for customer ${customer_id}`);
 
+    const safeId = String(customer_id).replace(/[^a-zA-Z0-9_-]/g, '');
     let allInvoices = [];
     let page = 1;
 
     while (true) {
-      const data = await haloGet(`Invoice?client_id=${customer_id}&page_size=200&page_no=${page}`, config);
+      const data = await haloGet(`Invoice?client_id=${safeId}&page_size=200&page_no=${page}`, config);
       const pageInvoices = extractRecords(data, 'invoices');
       if (pageInvoices.length === 0) break;
       allInvoices = allInvoices.concat(pageInvoices);

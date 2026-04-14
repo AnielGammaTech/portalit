@@ -95,7 +95,8 @@ export async function syncHaloPSATickets(body, _user) {
       if (!dbCustomer) throw new Error(`Customer not found in database for external_id: ${customer_id}`);
 
       // Fetch tickets for this client (most recent 50)
-      const data = await haloGet(`Tickets?client_id=${customer_id}&pageinate=true&page_size=50&page_no=1&order=dateoccurred&orderdesc=true`, config);
+      const safeId = String(customer_id).replace(/[^a-zA-Z0-9_-]/g, '');
+      const data = await haloGet(`Tickets?client_id=${safeId}&pageinate=true&page_size=50&page_no=1&order=dateoccurred&orderdesc=true`, config);
       const tickets = extractRecords(data, 'tickets');
       const totalTicketCount = data.record_count || data.recordCount || data.total_count || tickets.length;
       console.log(`Found ${tickets.length} tickets (total: ${totalTicketCount}) for customer ${customer_id}`);

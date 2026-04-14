@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '../../utils';
 import { FileText, AlertTriangle, Calendar } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
-import { format, differenceInDays, parseISO } from 'date-fns';
-import { cn } from "@/lib/utils";
+// date-fns calls replaced by safe wrappers from @/lib/utils
+import { cn, safeFormatDate, safeDifferenceInDays } from "@/lib/utils";
 
 export default function ContractsOverview({ contracts, limit = 5 }) {
   // Sort by renewal date to show upcoming renewals first
@@ -19,7 +19,7 @@ export default function ContractsOverview({ contracts, limit = 5 }) {
 
   const getUrgencyLevel = (dateStr) => {
     if (!dateStr) return null;
-    const days = differenceInDays(parseISO(dateStr), new Date());
+    const days = safeDifferenceInDays(dateStr, new Date());
     if (days < 0) return 'expired';
     if (days <= 30) return 'urgent';
     if (days <= 60) return 'warning';
@@ -50,7 +50,7 @@ export default function ContractsOverview({ contracts, limit = 5 }) {
         {sortedContracts.map((contract) => {
           const renewalDate = contract.renewal_date || contract.end_date;
           const urgency = getUrgencyLevel(renewalDate);
-          const daysUntil = renewalDate ? differenceInDays(parseISO(renewalDate), new Date()) : null;
+          const daysUntil = renewalDate ? safeDifferenceInDays(renewalDate, new Date()) : null;
           
           return (
             <div
@@ -79,7 +79,7 @@ export default function ContractsOverview({ contracts, limit = 5 }) {
               </div>
               <div className="text-right">
                 <p className="text-sm font-medium text-slate-900">
-                  {renewalDate ? format(parseISO(renewalDate), 'MMM d, yyyy') : 'No date'}
+                  {renewalDate ? safeFormatDate(renewalDate, 'MMM d, yyyy', 'No date') : 'No date'}
                 </p>
                 {daysUntil !== null && (
                   <p className={cn(

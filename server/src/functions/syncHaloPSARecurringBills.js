@@ -124,7 +124,8 @@ export async function syncHaloPSARecurringBills(body, _user) {
       if (!dbCustomer) throw new Error('Customer not found in database');
 
       // Fetch recurring bills WITH line items included (single API call)
-      const data = await haloGet(`RecurringInvoice?client_id=${customer_id}&page_size=1000&includelines=true`, config);
+      const safeId = String(customer_id).replace(/[^a-zA-Z0-9_-]/g, '');
+      const data = await haloGet(`RecurringInvoice?client_id=${safeId}&page_size=1000&includelines=true`, config);
       const recurringBills = extractRecords(data, 'invoices');
 
       // Batch-fetch existing bills for this customer (avoid N+1)

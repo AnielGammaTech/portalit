@@ -46,8 +46,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonStats, SkeletonTable } from "@/components/ui/shimmer-skeleton";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { EmptyState } from "@/components/ui/empty-state";
-import { cn } from "@/lib/utils";
-import { format, parseISO } from 'date-fns';
+import { cn, safeFormatDate } from "@/lib/utils";
+// date-fns calls replaced by safe wrappers from @/lib/utils
 import LicenseAssignmentModal from '../components/saas/LicenseAssignmentModal';
 import AddLicenseModal from '../components/saas/AddLicenseModal';
 import AddSoftwareModal from '../components/saas/AddSoftwareModal';
@@ -1083,10 +1083,10 @@ export default function CustomerDetail() {
                                               </span>
                                             </div>
                                             <div className="text-sm text-gray-600">
-                                              {invoice.invoice_date ? format(parseISO(invoice.invoice_date), 'MMM d, yyyy') : '—'}
+                                              {invoice.invoice_date ? safeFormatDate(invoice.invoice_date, 'MMM d, yyyy') : '—'}
                                             </div>
                                             <div className={cn("text-sm", isOverdue ? "text-red-600 font-medium" : "text-gray-600")}>
-                                              {invoice.due_date ? format(parseISO(invoice.due_date), 'MMM d, yyyy') : '—'}
+                                              {invoice.due_date ? safeFormatDate(invoice.due_date, 'MMM d, yyyy') : '—'}
                                             </div>
                                             <div className="text-sm font-semibold text-gray-900 text-right">
                                               ${(invoice.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
@@ -1689,13 +1689,13 @@ export default function CustomerDetail() {
                               {quote.quote_date && (
                                 <span className="flex items-center gap-1">
                                   <Calendar className="w-3 h-3" />
-                                  {format(parseISO(quote.quote_date), 'MM/dd/yyyy')}
+                                  {safeFormatDate(quote.quote_date, 'MM/dd/yyyy')}
                                 </span>
                               )}
                               {quote.expiry_date && (
                                 <span className="flex items-center gap-1">
                                   <Calendar className="w-3 h-3" />
-                                  Expires: {format(parseISO(quote.expiry_date), 'MM/dd/yyyy')}
+                                  Expires: {safeFormatDate(quote.expiry_date, 'MM/dd/yyyy')}
                                 </span>
                               )}
                             </div>
@@ -1811,7 +1811,7 @@ export default function CustomerDetail() {
                                           )}
                                           {(ticket.contact_name || ticket.assigned_to) && ticket.created_date && <span>•</span>}
                                           {ticket.created_date && (
-                                            <span>{format(parseISO(ticket.created_date), 'MMM d, yyyy')}</span>
+                                            <span>{safeFormatDate(ticket.created_date, 'MMM d, yyyy')}</span>
                                           )}
                                         </div>
                                       </div>

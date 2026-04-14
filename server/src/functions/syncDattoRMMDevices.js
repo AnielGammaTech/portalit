@@ -5,6 +5,7 @@ const DATTO_API_SECRET = process.env.DATTO_RMM_API_SECRET;
 const DATTO_API_URL = process.env.DATTO_RMM_API_URL;
 
 async function getDattoAccessToken() {
+  if (!DATTO_API_URL) throw new Error('DATTO_RMM_API_URL not configured');
   // Remove trailing slash from URL if present
   const baseUrl = DATTO_API_URL.replace(/\/$/, '');
   // Datto RMM OAuth2 token endpoint

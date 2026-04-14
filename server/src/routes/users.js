@@ -199,7 +199,7 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
 
     if (authError) {
       if (authError.message?.includes('already been registered')) {
-        const { data: { users: authUsers } } = await supabase.auth.admin.listUsers();
+        const { data: { users: authUsers } } = await supabase.auth.admin.listUsers({ perPage: 1000 });
         const existing = authUsers?.find(u => u.email === lowerEmail);
         if (!existing) {
           return res.status(409).json({ error: 'A user with this email already exists but could not be found' });
@@ -451,7 +451,14 @@ router.post('/resend-invite', requireAdmin, async (req, res, next) => {
 
 // ── POST /api/users/reset-password ────────────────────────────────────
 
-router.post('/reset-password', requireAdmin, async (req, res, next) => {
+const resetPasswordLimiter = createRateLimiter({
+  storeId: 'reset-password',
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  message: 'Too many password reset attempts. Please try again later.',
+});
+
+router.post('/reset-password', requireAdmin, resetPasswordLimiter, async (req, res, next) => {
   try {
     const { user_id, new_password } = req.body;
     if (!user_id) {

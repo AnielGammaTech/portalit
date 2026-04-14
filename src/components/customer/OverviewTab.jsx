@@ -44,9 +44,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn, safeJsonParse } from "@/lib/utils";
+import { cn, safeJsonParse, safeFormatDate } from "@/lib/utils";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
-import { format, parseISO } from 'date-fns';
+// date-fns calls replaced by safe wrappers from @/lib/utils
 import { client } from '@/api/client';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
@@ -136,7 +136,7 @@ const ContractCard = ({ contract }) => {
             <p className={cn(
               "text-sm font-bold",
               isUrgent ? "text-destructive" : isWarning ? "text-warning" : "text-success"
-            )}>{format(parseISO(renewalDate), 'MMM d')}</p>
+            )}>{safeFormatDate(renewalDate, 'MMM d')}</p>
           </div>
         )}
         <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors duration-[250ms]" />

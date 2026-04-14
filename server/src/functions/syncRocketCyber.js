@@ -138,11 +138,19 @@ async function fetchAgentCount(rcAccountId) {
 }
 
 // Cache endpoint probe results to avoid redundant API calls per account
+// Stores { endpoint, ts } with 24h TTL
 const endpointCache = new Map();
+const ENDPOINT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 async function fetchOpenIncidents(rcAccountId) {
-  // Determine correct endpoint (cached per account)
-  let endpoint = endpointCache.get(rcAccountId);
+  // Determine correct endpoint (cached per account with 24h TTL)
+  const cached = endpointCache.get(rcAccountId);
+  let endpoint = null;
+  if (cached && Date.now() - cached.ts <= ENDPOINT_CACHE_TTL_MS) {
+    endpoint = cached.endpoint;
+  } else {
+    if (cached) endpointCache.delete(rcAccountId);
+  }
   if (!endpoint) {
     endpoint = `/account/${rcAccountId}/incidents`;
     try {
@@ -150,7 +158,7 @@ async function fetchOpenIncidents(rcAccountId) {
     } catch (err) {
       endpoint = `/account/${rcAccountId}/events`;
     }
-    endpointCache.set(rcAccountId, endpoint);
+    endpointCache.set(rcAccountId, { endpoint, ts: Date.now() });
   }
 
   let allIncidents = [];

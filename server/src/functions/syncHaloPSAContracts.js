@@ -30,7 +30,8 @@ export async function syncHaloPSAContracts(body, _user) {
     console.log(`Found customer: ${dbCustomer.name} (id: ${dbCustomer.id})`);
 
     // Fetch contracts from HaloPSA for this client
-    const data = await haloGet(`ClientContract?client_id=${customer_id}&pageinate=false`, config);
+    const safeId = String(customer_id).replace(/[^a-zA-Z0-9_-]/g, '');
+    const data = await haloGet(`ClientContract?client_id=${safeId}&pageinate=false`, config);
     const contracts = extractRecords(data, 'contracts');
 
     console.log(`[HaloPSA] Found ${contracts.length} contracts for client ${customer_id}`);

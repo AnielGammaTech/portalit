@@ -27,8 +27,8 @@ import {
   X
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn, safeJsonParse } from "@/lib/utils";
-import { format, parseISO } from 'date-fns';
+import { cn, safeJsonParse, safeFormatDate } from "@/lib/utils";
+// date-fns calls replaced by safe wrappers from @/lib/utils
 import DeviceDetailModal from './DeviceDetailModal';
 
 const deviceIcons = {
@@ -173,7 +173,7 @@ export default function DevicesTab({ customerId, customerExternalId }) {
       {/* Last synced */}
       {lastSynced && (
         <p className="text-xs text-muted-foreground text-right">
-          Last synced: {format(parseISO(lastSynced), 'MMM d, yyyy h:mm a')}
+          Last synced: {safeFormatDate(lastSynced, 'MMM d, yyyy h:mm a')}
         </p>
       )}
 
@@ -280,7 +280,7 @@ export default function DevicesTab({ customerId, customerExternalId }) {
                     <div className="text-right text-sm hidden sm:block">
                       {device.last_seen && (
                         <p className="text-muted-foreground">
-                          Last seen: {format(parseISO(device.last_seen), 'MMM d, h:mm a')}
+                          Last seen: {safeFormatDate(device.last_seen, 'MMM d, h:mm a')}
                         </p>
                       )}
                       {device.serial_number && (

@@ -21,8 +21,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
-import { format, parseISO, formatDistanceToNow } from 'date-fns';
+import { cn, safeFormatDistanceToNow } from "@/lib/utils";
+
 
 const ACTIVITY_ICONS = {
   customer_created: { icon: Plus, color: 'bg-emerald-100 text-emerald-600' },
@@ -253,8 +253,8 @@ export default function ActivityFeed({ limit = 20, showFilters = true, compact =
                       "text-slate-400 whitespace-nowrap flex-shrink-0",
                       compact ? "text-xs" : "text-xs"
                     )}>
-                      {activity.created_date 
-                        ? formatDistanceToNow(parseISO(activity.created_date), { addSuffix: true })
+                      {activity.created_date
+                        ? safeFormatDistanceToNow(activity.created_date, { addSuffix: true }, 'Just now')
                         : 'Just now'}
                     </span>
                   </div>

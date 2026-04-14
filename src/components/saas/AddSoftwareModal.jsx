@@ -95,7 +95,7 @@ Return JSON with:
         setForm(prev => ({ ...prev, ...updates }));
       }
     } catch (error) {
-      console.log('Could not fetch app info:', error);
+      console.warn('Could not fetch app info:', error);
     } finally {
       setIsLoadingInfo(false);
     }
@@ -149,7 +149,7 @@ Return JSON with:
         }));
       }
     } catch (error) {
-      console.log('Could not fetch app info:', error);
+      console.warn('Could not fetch app info:', error);
     } finally {
       setIsLoadingLogo(false);
       setIsLoadingInfo(false);
@@ -204,7 +204,7 @@ Return JSON with:
       };
       img.src = brandfetchUrl;
     } catch (error) {
-      console.log('Could not fetch logo:', error);
+      console.warn('Could not fetch logo:', error);
       setIsLoadingLogo(false);
     }
   };

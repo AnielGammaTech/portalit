@@ -32,8 +32,8 @@ import {
   Save
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from "@/lib/utils";
-import { format, parseISO } from 'date-fns';
+import { cn, safeFormatDate } from "@/lib/utils";
+
 
 const deviceIcons = {
   desktop: Monitor,
@@ -152,7 +152,7 @@ export default function DeviceDetailModal({ device, open, onClose, customerId })
             <div>
               <p className="text-slate-500">Last Seen</p>
               <p className="font-medium text-slate-900">
-                {device.last_seen ? format(parseISO(device.last_seen), 'MMM d, yyyy h:mm a') : '—'}
+                {device.last_seen ? safeFormatDate(device.last_seen, 'MMM d, yyyy h:mm a') : '—'}
               </p>
             </div>
             <div className="col-span-2">

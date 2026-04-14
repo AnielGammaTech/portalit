@@ -17,8 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
-import { format, parseISO, differenceInDays } from 'date-fns';
+import { cn, safeFormatDate, safeDifferenceInDays } from "@/lib/utils";
+// date-fns calls replaced by safe wrappers from @/lib/utils
 
 export default function Contracts() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -56,7 +56,7 @@ export default function Contracts() {
     const date = c.renewal_date || c.end_date;
     if (!date) return false;
     if (!date || date.length === 0) return false;
-    const days = differenceInDays(parseISO(date), new Date());
+    const days = safeDifferenceInDays(date, new Date());
     return days >= 0 && days <= 30;
   }).length;
 
@@ -163,7 +163,7 @@ export default function Contracts() {
             const customer = customers.find(c => c.id === contract.customer_id);
             const items = contractItems.filter(i => i.contract_id === contract.id);
             const renewalDate = contract.renewal_date || contract.end_date;
-            const daysUntil = renewalDate ? differenceInDays(parseISO(renewalDate), new Date()) : null;
+            const daysUntil = renewalDate ? safeDifferenceInDays(renewalDate, new Date()) : null;
             const isExpanded = expandedContract === contract.id;
 
             return (
@@ -213,7 +213,7 @@ export default function Contracts() {
                         daysUntil !== null && daysUntil <= 90 ? 'bg-amber-100 text-amber-700' :
                         'bg-emerald-100 text-emerald-700'
                       )}>
-                        <p className="font-medium">{format(parseISO(renewalDate), 'MMM d')}</p>
+                        <p className="font-medium">{safeFormatDate(renewalDate, 'MMM d')}</p>
                       </div>
                     )}
                     <ChevronDown className={cn(

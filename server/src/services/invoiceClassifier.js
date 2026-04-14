@@ -6,6 +6,7 @@ const CONFIDENCE_THRESHOLD = 70;
 let anthropicClient = null;
 
 function getAnthropic() {
+  if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY not configured');
   if (!anthropicClient) {
     anthropicClient = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   }

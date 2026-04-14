@@ -32,8 +32,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn, formatLineItemDescription } from "@/lib/utils";
-import { format, parseISO, differenceInDays } from 'date-fns';
+import { cn, formatLineItemDescription, safeFormatDate, safeDifferenceInDays } from "@/lib/utils";
+// date-fns calls replaced by safe wrappers from @/lib/utils
 import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { toast } from 'sonner';
@@ -214,7 +214,7 @@ function AdminDashboard() {
         {syncLogs.length > 0 && syncLogs[0] && (
           <div className="text-right text-xs text-slate-400">
             Last sync: {syncLogs[0]?.created_date
-              ? format(parseISO(syncLogs[0].created_date), 'MMM d, h:mm a')
+              ? safeFormatDate(syncLogs[0].created_date, 'MMM d, h:mm a', 'Unknown')
               : 'Unknown'}
           </div>
         )}
@@ -557,7 +557,7 @@ function AdminDashboard() {
                 {log.sync_type || 'Sync'}
               </span>
               <span className="text-[11px] text-slate-400">
-                {log.created_date ? format(parseISO(log.created_date), 'h:mm a') : ''}
+                {log.created_date ? safeFormatDate(log.created_date, 'h:mm a', '') : ''}
               </span>
             </div>
           ))}
@@ -703,7 +703,7 @@ function CustomerDashboard({ customer }) {
     .map(c => ({
       ...c,
       renewalDate: c.renewal_date || c.end_date,
-      daysUntil: (c.renewal_date || c.end_date) ? differenceInDays(parseISO(c.renewal_date || c.end_date), new Date()) : -1
+      daysUntil: (c.renewal_date || c.end_date) ? safeDifferenceInDays(c.renewal_date || c.end_date, new Date(), -1) : -1
     }))
     .filter(c => c.daysUntil >= 0 && c.daysUntil <= 90)
     .sort((a, b) => a.daysUntil - b.daysUntil);
@@ -966,7 +966,7 @@ function CustomerDashboard({ customer }) {
                               </Badge>
                             </div>
                             <p className="text-xs text-slate-500">
-                              {invoice.due_date && `Due: ${format(parseISO(invoice.due_date), 'MMM d, yyyy')}`}
+                              {invoice.due_date && `Due: ${safeFormatDate(invoice.due_date, 'MMM d, yyyy')}`}
                             </p>
                           </div>
                         </div>

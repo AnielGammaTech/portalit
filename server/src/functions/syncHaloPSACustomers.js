@@ -54,7 +54,8 @@ export async function syncHaloPSACustomers(body, _user) {
     if (syncLogError) throw new Error(syncLogError.message);
 
     try {
-      const clientData = await haloGet(`Client/${customer_id}`, config);
+      const safeId = String(customer_id).replace(/[^a-zA-Z0-9_-]/g, '');
+      const clientData = await haloGet(`Client/${safeId}`, config);
 
       // Fetch site detail for address resolution (delivery_address is on individual site endpoint)
       let site = null;

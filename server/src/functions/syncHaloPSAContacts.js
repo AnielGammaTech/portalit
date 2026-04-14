@@ -39,7 +39,8 @@ export async function syncHaloPSAContacts(body, _user) {
     );
 
     // Fetch users from HaloPSA
-    const data = await haloGet(`Users?client_id=${customer_id}&page_size=500`, config);
+    const safeId = String(customer_id).replace(/[^a-zA-Z0-9_-]/g, '');
+    const data = await haloGet(`Users?client_id=${safeId}&page_size=500`, config);
     const users = extractRecords(data, 'users');
 
     const syncedHaloPSAIds = new Set();

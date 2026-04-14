@@ -28,8 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
-import { format, parseISO } from 'date-fns';
+import { cn, safeFormatDate } from "@/lib/utils";
 
 const SOURCE_COLORS = {
   halopsa: { bg: 'bg-purple-100', text: 'text-purple-700', label: 'HaloPSA' },
@@ -242,7 +241,7 @@ export default function AdminTicketsPanel() {
                         </span>
                       )}
                       {ticket.date_opened && (
-                        <span>{format(parseISO(ticket.date_opened), 'MMM d, yyyy')}</span>
+                        <span>{safeFormatDate(ticket.date_opened, 'MMM d, yyyy')}</span>
                       )}
                     </div>
                   </div>
