@@ -4,15 +4,11 @@ import { supabase } from '@/api/client';
 import { useAuth } from '@/lib/AuthContext';
 import { toast } from 'sonner';
 
-// Strip synthetic prefixes from rule IDs to get a valid DB value.
-// Unmatched items use "unmatched_<uuid>" — the DB column is UUID so we need just the UUID part.
-// Pax8 items use "pax8:<name>" — these are text-safe already.
-function toDbRuleId(ruleId) {
-  if (typeof ruleId === 'string' && ruleId.startsWith('unmatched_')) {
-    return ruleId.slice('unmatched_'.length);
-  }
-  return ruleId;
-}
+// The rule_id column is TEXT. Values can be:
+// - A UUID (from reconciliation_rules)
+// - "unmatched_<uuid>" (synthetic, from unmatched line items)
+// - "pax8:<name>" or "pax8:<uuid>" (from Pax8 reconciliation)
+// All are stored as-is — no stripping needed.
 
 export function useReconciliationReviews(customerId) {
   const queryClient = useQueryClient();
@@ -32,11 +28,8 @@ export function useReconciliationReviews(customerId) {
     staleTime: 1000 * 60 * 2,
   });
 
-  // Find existing review — check both the raw ruleId and the DB-safe version
-  const findReview = (ruleId) => {
-    const dbId = toDbRuleId(ruleId);
-    return reviews.find((r) => r.rule_id === ruleId || r.rule_id === dbId);
-  };
+  const findReview = (ruleId) =>
+    reviews.find((r) => r.rule_id === ruleId);
 
   // Log every action to the history table
   const logHistory = async ({ reviewId, ruleId, action, status, notes, psaQty, vendorQty }) => {
@@ -44,7 +37,7 @@ export function useReconciliationReviews(customerId) {
       await supabase.from('reconciliation_review_history').insert({
         review_id: reviewId || null,
         customer_id: customerId,
-        rule_id: toDbRuleId(ruleId),
+        rule_id: ruleId,
         action,
         status,
         notes: notes || null,
@@ -59,11 +52,10 @@ export function useReconciliationReviews(customerId) {
 
   const upsertMutation = useMutation({
     mutationFn: async ({ ruleId, status, notes, psaQty, vendorQty, action, exclusionCount, exclusionReason }) => {
-      const dbRuleId = toDbRuleId(ruleId);
       const existing = findReview(ruleId);
       const payload = {
         customer_id: customerId,
-        rule_id: dbRuleId,
+        rule_id: ruleId,
         status,
         reviewed_by: user?.id || null,
         reviewed_at: new Date().toISOString(),
@@ -81,7 +73,7 @@ export function useReconciliationReviews(customerId) {
         .from('reconciliation_reviews')
         .select('id')
         .eq('customer_id', customerId)
-        .eq('rule_id', dbRuleId)
+        .eq('rule_id', ruleId)
         .maybeSingle();
 
       let data;
