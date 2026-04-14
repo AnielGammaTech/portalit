@@ -153,8 +153,12 @@ export default function JumpCloudConfig() {
     setTesting(true);
     try {
       const res = await invoke({ action: 'test_connection' });
-      setConfigStatus(res.success ? CONNECTION_STATES.CONNECTED : CONNECTION_STATES.CONFIGURED);
-      res.success ? toast.success('Connected to JumpCloud!') : toast.error(res.error || 'Connection failed');
+      if (res.success) {
+        toast.success(`Connected to JumpCloud! Found ${res.organizations?.length || 1} organization(s)`);
+        if (res.organizations) setJumpcloudOrgs(res.organizations.map(o => ({ id: o.id || o._id, name: o.displayName || o.name, userCount: o.totalUserCount || 0 })));
+      } else {
+        toast.error(res.error || 'Connection failed');
+      }
     } catch (err) {
             toast.error(err.message || 'Connection test failed');
     } finally { setTesting(false); }
