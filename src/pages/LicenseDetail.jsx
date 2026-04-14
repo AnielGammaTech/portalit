@@ -211,7 +211,6 @@ export default function LicenseDetail() {
       // Fetch all applications and find by ID since filter by id may not work
       const allApps = await client.entities.Application.list();
       const foundApp = allApps.find(a => a.id === appId);
-      console.log('[LicenseDetail] Fetching app by ID:', appId, 'Found:', foundApp?.name);
       return foundApp;
     },
     enabled: !!appId && !licenseId,
@@ -243,8 +242,6 @@ export default function LicenseDetail() {
     _isApplication: true // Flag to identify this is a catalog entry
   } : null);
   
-  console.log('[LicenseDetail] Software object:', software?.application_name, 'customer:', software?.customer_id);
-
   const { data: customer } = useQuery({
     queryKey: ['customer', software?.customer_id],
     queryFn: async () => {
@@ -260,8 +257,6 @@ export default function LicenseDetail() {
   const { data: relatedLicenses = [], isLoading: loadingRelated, refetch: refetchLicenses } = useQuery({
     queryKey: ['related_licenses', software?.application_name, software?.customer_id],
     queryFn: async () => {
-      console.log('[LicenseDetail] Fetching licenses for:', software.application_name, 'customer:', software.customer_id);
-      
       // Fetch ALL licenses for this customer first, then filter by app name
       // This avoids any potential issues with the filter query
       const allCustomerLicenses = await client.entities.SaaSLicense.filter({ 
@@ -271,10 +266,6 @@ export default function LicenseDetail() {
       // Filter by exact application name match
       const appLicenses = allCustomerLicenses.filter(l => 
         l.application_name === software.application_name
-      );
-      
-      console.log('[LicenseDetail] Found', appLicenses.length, 'licenses:', 
-        appLicenses.map(l => `${l.license_type || 'no-type'} (${l.management_type}, id:${l.id.slice(-6)})`).join(', ')
       );
       
       return appLicenses;
@@ -297,16 +288,6 @@ export default function LicenseDetail() {
     [relatedLicenses]
   );
   
-  // Debug logging - helps track rendering issues
-  React.useEffect(() => {
-    if (relatedLicenses.length > 0) {
-      console.log('[LicenseDetail] === LICENSE DATA ===');
-      console.log('[LicenseDetail] Total related:', relatedLicenses.length);
-      console.log('[LicenseDetail] Managed:', managedLicenses.length, managedLicenses.map(l => `${l.license_type || 'Standard'}(${l.id.slice(-6)})`));
-      console.log('[LicenseDetail] Individual:', individualLicenses.length);
-    }
-  }, [relatedLicenses, managedLicenses, individualLicenses]);
-
   const { data: contacts = [] } = useQuery({
     queryKey: ['contacts', software?.customer_id],
     queryFn: () => client.entities.Contact.filter({ customer_id: software.customer_id }),
@@ -327,15 +308,11 @@ export default function LicenseDetail() {
       const licenseIds = relatedLicenses.map(l => l.id);
       if (licenseIds.length === 0) return [];
       
-      console.log('[LicenseDetail] Fetching assignments for', licenseIds.length, 'licenses');
-      
       const assignmentPromises = licenseIds.map(id => 
         client.entities.LicenseAssignment.filter({ license_id: id })
       );
       const results = await Promise.all(assignmentPromises);
       const allResults = results.flat();
-      
-      console.log('[LicenseDetail] Found', allResults.length, 'total assignments');
       return allResults;
     },
     enabled: relatedLicenses.length > 0,
@@ -349,7 +326,6 @@ export default function LicenseDetail() {
 
     const unsubAssignments = client.entities.LicenseAssignment.subscribe((event) => {
       if (event.data?.customer_id === software.customer_id) {
-        console.log('[LicenseDetail] Assignment changed, refreshing...');
         queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
       }
     });
@@ -357,7 +333,6 @@ export default function LicenseDetail() {
     const unsubLicenses = client.entities.SaaSLicense.subscribe((event) => {
       if (event.data?.customer_id === software.customer_id && 
           event.data?.application_name === software.application_name) {
-        console.log('[LicenseDetail] License changed, refreshing...');
         queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
       }
     });

@@ -47,7 +47,7 @@ import {
   Eye,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from "@/lib/utils";
+import { cn, safeJsonParse } from "@/lib/utils";
 import { format, formatDistanceToNow } from 'date-fns';
 
 // ── Tab constants ───────────────────────────────────────────────────────
@@ -867,7 +867,7 @@ Look for:
       return;
     }
     const detail = typeof report.extensions_detail === 'string'
-      ? JSON.parse(report.extensions_detail)
+      ? safeJsonParse(report.extensions_detail, [])
       : (report.extensions_detail || []);
     // Load existing exclusions from report_data
     const existing = report.report_data?.excluded_extensions || [];

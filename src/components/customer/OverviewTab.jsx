@@ -44,7 +44,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
+import { cn, safeJsonParse } from "@/lib/utils";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { format, parseISO } from 'date-fns';
 import { client } from '@/api/client';
@@ -214,7 +214,7 @@ export default function OverviewTab({
       
       // For each alert, get the contact's license assignments
       const alertsWithLicenses = await Promise.all(recentAlerts.map(async (alert) => {
-        const metadata = alert.metadata ? JSON.parse(alert.metadata) : {};
+        const metadata = safeJsonParse(alert.metadata, {});
         if (metadata.contact_id) {
           const assignments = await client.entities.LicenseAssignment.filter({
             contact_id: metadata.contact_id,

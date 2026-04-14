@@ -95,8 +95,8 @@ export async function fetchDattoRMMBilling(body, user) {
     } else {
       // Try to match by name
       customer = customers.find(c =>
-        c.name.toLowerCase().includes(billing.site_name.toLowerCase()) ||
-        billing.site_name.toLowerCase().includes(c.name.toLowerCase())
+        (c.name || '').toLowerCase().includes((billing.site_name || '').toLowerCase()) ||
+        (billing.site_name || '').toLowerCase().includes((c.name || '').toLowerCase())
       );
     }
 

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+import { cn, safeJsonParse } from "@/lib/utils";
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
@@ -114,7 +114,7 @@ export default function FeedbackPanel() {
             const TypeIcon = typeIcons[feedback.type] || MessageSquare;
             const color = typeColors[feedback.type] || 'slate';
             const status = statusConfig[feedback.status] || statusConfig.new;
-            const screenshots = feedback.screenshot_urls ? JSON.parse(feedback.screenshot_urls) : [];
+            const screenshots = safeJsonParse(feedback.screenshot_urls, []);
 
             return (
               <div
@@ -212,7 +212,7 @@ export default function FeedbackPanel() {
                   <div className="space-y-2">
                     <p className="text-sm font-medium text-slate-700">Screenshots</p>
                     <div className="flex flex-wrap gap-2">
-                      {JSON.parse(selectedFeedback.screenshot_urls).map((url, i) => (
+                      {(safeJsonParse(selectedFeedback.screenshot_urls, [])).map((url, i) => (
                         <a
                           key={i}
                           href={url}

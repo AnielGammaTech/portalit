@@ -46,20 +46,32 @@ export async function fetchJumpCloudBilling(body, user) {
 
   // For each organization, get user count
   for (const org of organizations.results || organizations) {
-    // Fetch users for this organization
-    const usersResponse = await fetch(`https://console.jumpcloud.com/api/systemusers?limit=1000`, {
-      headers: {
-        'x-api-key': apiKey,
-        'x-org-id': org.id || org._id,
-        'Content-Type': 'application/json'
-      }
-    });
+    // Fetch all users for this organization with pagination (JumpCloud max is 100)
+    let allUsers = [];
+    let skip = 0;
+    const userPageLimit = 100;
+    while (true) {
+      const usersResponse = await fetch(
+        `https://console.jumpcloud.com/api/systemusers?limit=${userPageLimit}&skip=${skip}`,
+        {
+          headers: {
+            'x-api-key': apiKey,
+            'x-org-id': org.id || org._id,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
 
-    let userCount = 0;
-    if (usersResponse.ok) {
+      if (!usersResponse.ok) break;
+
       const usersData = await usersResponse.json();
-      userCount = usersData.totalCount || usersData.results?.length || 0;
+      const users = usersData.results || [];
+      allUsers = allUsers.concat(users);
+      if (users.length < userPageLimit) break;
+      skip += userPageLimit;
     }
+
+    const userCount = allUsers.length;
 
     billingData.push({
       org_id: org.id || org._id,
@@ -88,8 +100,8 @@ export async function fetchJumpCloudBilling(body, user) {
     } else {
       // Try to match by name
       customer = customers.find(c =>
-        c.name.toLowerCase().includes(billing.org_name.toLowerCase()) ||
-        billing.org_name.toLowerCase().includes(c.name.toLowerCase())
+        (c.name || '').toLowerCase().includes((billing.org_name || '').toLowerCase()) ||
+        (billing.org_name || '').toLowerCase().includes((c.name || '').toLowerCase())
       );
     }
 

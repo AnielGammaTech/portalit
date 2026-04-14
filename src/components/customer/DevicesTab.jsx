@@ -27,7 +27,7 @@ import {
   X
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from "@/lib/utils";
+import { cn, safeJsonParse } from "@/lib/utils";
 import { format, parseISO } from 'date-fns';
 import DeviceDetailModal from './DeviceDetailModal';
 
@@ -76,7 +76,7 @@ export default function DevicesTab({ customerId, customerExternalId }) {
   });
 
   const cachedData = mappings[0]?.cached_data
-    ? (typeof mappings[0].cached_data === 'string' ? JSON.parse(mappings[0].cached_data) : mappings[0].cached_data)
+    ? safeJsonParse(mappings[0].cached_data)
     : null;
   const lastSynced = mappings[0]?.last_synced;
 
