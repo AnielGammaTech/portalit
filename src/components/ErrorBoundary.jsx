@@ -1,42 +1,59 @@
 import React from 'react';
 import { toast } from 'sonner';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
 
-/**
- * Graceful error boundary — logs the error, shows a toast, and
- * auto-recovers by re-rendering children instead of nuking the whole page.
- */
+const MAX_RETRIES = 2;
+
 export class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, errorKey: 0 };
+    this.state = { hasError: false, errorKey: 0, retries: 0, lastError: null };
   }
 
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error) {
+    return { hasError: true, lastError: error };
   }
 
   componentDidCatch(error, info) {
     console.error('[ErrorBoundary] Caught:', error, info?.componentStack);
 
-    // Show a non-blocking toast instead of a full-page crash
-    toast.error(error?.message || 'Something went wrong', {
-      description: 'A component failed to render. The page will try to recover.',
-      duration: 5000,
-    });
-
-    // Auto-recover after a brief moment — bump the key to force a fresh render
-    setTimeout(() => {
-      this.setState((prev) => ({ hasError: false, errorKey: prev.errorKey + 1 }));
-    }, 500);
+    if (this.state.retries < MAX_RETRIES) {
+      toast.error(error?.message || 'Something went wrong', {
+        description: 'A component failed to render. Retrying...',
+        duration: 3000,
+      });
+      setTimeout(() => {
+        this.setState((prev) => ({
+          hasError: false,
+          errorKey: prev.errorKey + 1,
+          retries: prev.retries + 1,
+        }));
+      }, 500);
+    }
   }
 
   render() {
     if (this.state.hasError) {
-      // Return null briefly while recovering — avoids the full-page error screen
+      // Exhausted retries — show minimal inline error, NOT full page crash
+      if (this.state.retries >= MAX_RETRIES) {
+        return (
+          <div className="flex flex-col items-center justify-center py-12 px-4">
+            <AlertTriangle className="w-8 h-8 text-amber-500 mb-2" />
+            <p className="text-sm font-medium text-slate-700 mb-1">This section failed to load</p>
+            <p className="text-xs text-slate-400 mb-3">{this.state.lastError?.message}</p>
+            <button
+              onClick={() => this.setState({ hasError: false, retries: 0, errorKey: this.state.errorKey + 1 })}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200"
+            >
+              <RefreshCw className="w-3 h-3" />
+              Try Again
+            </button>
+          </div>
+        );
+      }
       return null;
     }
 
-    // key change forces React to remount children cleanly after recovery
     return (
       <React.Fragment key={this.state.errorKey}>
         {this.props.children}
