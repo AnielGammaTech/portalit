@@ -1,7 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { client } from '@/api/client';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import Breadcrumbs from '../components/ui/breadcrumbs';
 import { 
@@ -19,15 +19,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 export default function SpendAnalysis() {
-  const params = new URLSearchParams(window.location.search);
-  const customerId = params.get('customerId');
+  const [searchParams] = useSearchParams();
+  const customerId = searchParams.get('customerId');
 
-  const { data: customers = [], isLoading: loadingCustomer } = useQuery({
-    queryKey: ['customers'],
-    queryFn: () => client.entities.Customer.list(),
+  const { data: customer, isLoading: loadingCustomer } = useQuery({
+    queryKey: ['customer', customerId],
+    queryFn: async () => {
+      const results = await client.entities.Customer.filter({ id: customerId });
+      return results[0] || null;
+    },
+    enabled: !!customerId
   });
-
-  const customer = customers.find(c => c.id === customerId);
 
   const { data: licenses = [], isLoading: loadingLicenses } = useQuery({
     queryKey: ['licenses', customerId],

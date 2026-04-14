@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from 'react-markdown';
+import { toast } from 'sonner';
 
 const QUICK_SUGGESTIONS = [
   "My computer is slow",
@@ -40,8 +41,20 @@ export default function SupportAssistantChat({
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    initConversation();
-  }, []);
+    let unsubscribe = null;
+    let cancelled = false;
+
+    const init = async () => {
+      const unsub = await initConversation(cancelled);
+      if (!cancelled) unsubscribe = unsub;
+    };
+    init();
+
+    return () => {
+      cancelled = true;
+      if (unsubscribe) unsubscribe();
+    };
+  }, [customerId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -74,8 +87,8 @@ export default function SupportAssistantChat({
               status: t.status,
               date: t.date_opened
             }));
-        } catch (e) {
-          console.error('Failed to fetch customer data:', e);
+        } catch (_e) {
+          // Customer data is supplementary; continue without it
         }
       }
 
@@ -91,7 +104,7 @@ export default function SupportAssistantChat({
       setConversation(conv);
       
       // Subscribe to updates
-      client.agents.subscribeToConversation(conv.id, (data) => {
+      const unsub = client.agents.subscribeToConversation(conv.id, (data) => {
         setMessages(data.messages || []);
       });
 
@@ -100,11 +113,13 @@ export default function SupportAssistantChat({
         role: 'assistant',
         content: "Hi! I'm here to help with your IT issue. What's going on?"
       }]);
-      
+
       setIsInitializing(false);
+      return unsub;
     } catch (error) {
-      console.error('Failed to init conversation:', error);
+      toast.error('Failed to start support chat');
       setIsInitializing(false);
+      return null;
     }
   };
 
@@ -129,7 +144,7 @@ export default function SupportAssistantChat({
 
       await client.agents.addMessage(conversation, messagePayload);
     } catch (error) {
-      console.error('Failed to send message:', error);
+      toast.error(error.message || 'Failed to send message');
     } finally {
       setIsLoading(false);
     }
@@ -147,7 +162,7 @@ export default function SupportAssistantChat({
         setAttachedImages(prev => [...prev, file_url]);
       }
     } catch (error) {
-      console.error('Failed to upload file:', error);
+      toast.error(error.message || 'Failed to upload file');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -169,7 +184,7 @@ export default function SupportAssistantChat({
           const { file_url } = await client.integrations.Core.UploadFile({ file });
           setAttachedImages(prev => [...prev, file_url]);
         } catch (error) {
-          console.error('Failed to upload pasted image:', error);
+          toast.error(error.message || 'Failed to upload pasted image');
         } finally {
           setIsUploading(false);
         }

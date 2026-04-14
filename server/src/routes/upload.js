@@ -5,7 +5,26 @@ import { requireAuth } from '../middleware/auth.js';
 import { getServiceSupabase } from '../lib/supabase.js';
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+const ALLOWED_MIME_TYPES = [
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+  'application/pdf',
+  'text/csv', 'text/plain',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+];
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('File type not allowed'), false);
+    }
+  }
+});
 
 // M-6: Rate limit uploads — 10 per minute per IP to prevent abuse
 const uploadRateLimit = rateLimit({

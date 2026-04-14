@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { client } from '@/api/client';
 import { createPageUrl } from '../utils';
 import { Settings as SettingsIcon, Shield } from 'lucide-react';
@@ -12,6 +13,8 @@ import { Settings as SettingsIcon, Shield } from 'lucide-react';
  */
 export default function Settings() {
   const [isLoading, setIsLoading] = useState(true);
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const redirect = async () => {
@@ -20,8 +23,7 @@ export default function Settings() {
 
         if (user?.role === 'admin') {
           // Carry over any ?tab= query param so deep-links keep working
-          const urlParams = new URLSearchParams(window.location.search);
-          const tab = urlParams.get('tab');
+          const tab = searchParams.get('tab');
 
           // Map legacy tab names that existed in old Settings page
           const legacyMap = {
@@ -33,12 +35,12 @@ export default function Settings() {
           };
 
           const resolvedTab = legacyMap[tab] || tab || 'branding';
-          window.location.href = createPageUrl('Adminland') + `?tab=${resolvedTab}`;
+          navigate(createPageUrl('Adminland') + `?tab=${resolvedTab}`, { replace: true });
         } else {
           // Non-admin users go to CustomerSettings
-          window.location.href = createPageUrl('CustomerSettings');
+          navigate(createPageUrl('CustomerSettings'), { replace: true });
         }
-      } catch (error) {
+      } catch (_error) {
         setIsLoading(false);
       }
     };

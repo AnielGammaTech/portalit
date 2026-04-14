@@ -341,7 +341,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
         toast.error('Could not extract contract data');
       }
     } catch (err) {
-      console.error('[LootIT] Contract extraction failed:', err);
+      // toast.error already called below; no console needed
       await client.entities.LootITContract.update(contract.id, {
         extraction_status: 'failed',
       });

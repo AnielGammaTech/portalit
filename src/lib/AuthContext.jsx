@@ -63,8 +63,7 @@ export const AuthProvider = ({ children }) => {
 
       setUser(fullUser);
       setIsAuthenticated(true);
-    } catch (error) {
-      console.error('Failed to load user profile:', error);
+    } catch (_error) {
       // Still set as authenticated even if profile fetch fails
       setUser({
         id: authUser.id,
@@ -94,11 +93,9 @@ export const AuthProvider = ({ children }) => {
         setIsAuthenticated(false);
       }
     } catch (error) {
-      console.error('Auth check failed:', error);
       // On timeout, clear the stale session so the user
       // isn't stuck in a loop on next reload.
       if (error.message === 'Auth check timed out') {
-        console.warn('Auth timed out — clearing stale session');
         await supabase.auth.signOut().catch(() => {});
         setAuthError(null);
       } else {

@@ -39,6 +39,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from 'sonner';
 import {
   Select,
@@ -74,6 +84,7 @@ export default function Customers() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [errorDialogOpen, setErrorDialogOpen] = useState(false);
   const [syncError, setSyncError] = useState(null);
+  const [deleteConfirmCustomer, setDeleteConfirmCustomer] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     primary_contact: '',
@@ -116,7 +127,8 @@ export default function Customers() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       handleCloseDialog();
-    }
+    },
+    onError: (error) => toast.error(error.message || 'Failed to create customer')
   });
 
   const updateMutation = useMutation({
@@ -124,12 +136,17 @@ export default function Customers() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       handleCloseDialog();
-    }
+    },
+    onError: (error) => toast.error(error.message || 'Failed to update customer')
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id) => client.entities.Customer.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['customers'] })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      setDeleteConfirmCustomer(null);
+    },
+    onError: (error) => toast.error(error.message || 'Failed to delete customer')
   });
 
   const handleOpenDialog = (customer = null) => {
@@ -405,7 +422,7 @@ export default function Customers() {
                       className="text-destructive"
                       onClick={(e) => {
                         e.stopPropagation();
-                        deleteMutation.mutate(customer.id);
+                        setDeleteConfirmCustomer(customer);
                       }}
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
@@ -442,6 +459,27 @@ export default function Customers() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirmCustomer} onOpenChange={(open) => { if (!open) setDeleteConfirmCustomer(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Customer</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <span className="font-semibold">{deleteConfirmCustomer?.name}</span>? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteMutation.mutate(deleteConfirmCustomer.id)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

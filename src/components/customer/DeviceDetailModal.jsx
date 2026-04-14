@@ -66,7 +66,7 @@ export default function DeviceDetailModal({ device, open, onClose, customerId })
   useEffect(() => {
     if (device) {
       setNotes(device.notes || '');
-      setAssignedContactId(device.assigned_contact_id || '');
+      setAssignedContactId(device.assigned_contact_id || '__unassigned__');
     }
   }, [device]);
 
@@ -79,9 +79,10 @@ export default function DeviceDetailModal({ device, open, onClose, customerId })
   const handleSave = async () => {
     setSaving(true);
     try {
+      const contactToSave = assignedContactId === '__unassigned__' ? null : assignedContactId;
       await client.entities.Device.update(device.id, {
         notes,
-        assigned_contact_id: assignedContactId || null
+        assigned_contact_id: contactToSave,
       });
       toast.success('Device updated');
       queryClient.invalidateQueries({ queryKey: ['devices', customerId] });
@@ -176,7 +177,7 @@ export default function DeviceDetailModal({ device, open, onClose, customerId })
                 <SelectValue placeholder="Select a contact..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={null}>Unassigned</SelectItem>
+                <SelectItem value="__unassigned__">Unassigned</SelectItem>
                 {contacts.map(contact => (
                   <SelectItem key={contact.id} value={contact.id}>
                     {contact.full_name} {contact.email ? `(${contact.email})` : ''}

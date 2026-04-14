@@ -58,7 +58,7 @@ export default function MapboxConfig() {
         setStyle(s.mapbox_style || 'dark-v11');
       }
     } catch (error) {
-      console.error('Failed to load Mapbox settings:', error);
+      toast.error(error.message || 'Failed to load Mapbox settings');
     } finally {
       setLoading(false);
     }

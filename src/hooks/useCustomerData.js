@@ -8,8 +8,12 @@ import { client } from '@/api/client';
 
 export function useCustomer(customerId) {
   return useQuery({
-    queryKey: ['customers'],
-    queryFn: () => client.entities.Customer.list(),
+    queryKey: ['customer', customerId],
+    queryFn: async () => {
+      const customers = await client.entities.Customer.filter({ id: customerId });
+      return customers[0] || null;
+    },
+    enabled: !!customerId,
   });
 }
 

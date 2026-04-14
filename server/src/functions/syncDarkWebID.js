@@ -302,7 +302,7 @@ export async function syncDarkWebID(body, user) {
           darkweb_id: compromiseId,
           email: compromise.email || compromise.username,
           domain: compromise.domain,
-          password: compromise.password,
+          password_exposed: !!compromise.password,
           source: compromise.source || compromise.breach_name,
           breach_date: compromise.breach_date || compromise.published_date,
           discovered_date: compromise.discovered_date || new Date().toISOString().split('T')[0],

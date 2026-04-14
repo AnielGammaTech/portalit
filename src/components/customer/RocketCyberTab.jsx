@@ -101,9 +101,12 @@ export default function RocketCyberTab({ customer }) {
 
   // Fetch mapping
   const { data: mappings = [], isLoading: loadingMapping } = useQuery({
-    queryKey: ['rocketcyber_mapping', customer.id],
-    queryFn: () => client.entities.RocketCyberMapping.filter({ customer_id: customer.id })
+    queryKey: ['rocketcyber_mapping', customer?.id],
+    queryFn: () => client.entities.RocketCyberMapping.filter({ customer_id: customer.id }),
+    enabled: !!customer?.id
   });
+
+  if (!customer) return null;
 
   // Fetch incidents
   const { data: incidents = [], isLoading: loadingIncidents, refetch: refetchIncidents } = useQuery({

@@ -136,8 +136,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
         toast.error(result.data?.error || 'Sync failed');
       }
     } catch (error) {
-      console.error('Sync failed:', error);
-      toast.error('Failed to sync Spanning data');
+      toast.error(error.message || 'Failed to sync Spanning data');
     } finally {
       setSyncingSpanning(false);
     }
@@ -153,7 +152,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
       });
       if (response.success) setSharePointSites(response.sites || []);
     } catch (error) {
-      console.error('Failed to fetch SharePoint sites:', error);
+      toast.error(error.message || 'Failed to fetch SharePoint sites');
     } finally {
       setLoadingSharePoint(false);
     }
@@ -169,7 +168,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
       });
       if (response.success) setTeamsChannels(response.teams || []);
     } catch (error) {
-      console.error('Failed to fetch Teams channels:', error);
+      toast.error(error.message || 'Failed to fetch Teams channels');
     } finally {
       setLoadingTeams(false);
     }

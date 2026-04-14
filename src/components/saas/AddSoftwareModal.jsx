@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { client } from '@/api/client';
 import { Cloud, Upload, Globe, Loader2, X, Image } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import { toast } from 'sonner';
 
 const CATEGORIES = [
   { value: 'productivity', label: 'Productivity', icon: '📊' },
@@ -94,8 +95,8 @@ Return JSON with:
         
         setForm(prev => ({ ...prev, ...updates }));
       }
-    } catch (error) {
-      console.warn('Could not fetch app info:', error);
+    } catch (_error) {
+      // Non-critical: auto-fetch is best-effort
     } finally {
       setIsLoadingInfo(false);
     }
@@ -148,8 +149,8 @@ Return JSON with:
           category: result.category || prev.category
         }));
       }
-    } catch (error) {
-      console.warn('Could not fetch app info:', error);
+    } catch (_error) {
+      // Non-critical: auto-fetch is best-effort
     } finally {
       setIsLoadingLogo(false);
       setIsLoadingInfo(false);
@@ -203,8 +204,8 @@ Return JSON with:
         setIsLoadingLogo(false);
       };
       img.src = brandfetchUrl;
-    } catch (error) {
-      console.warn('Could not fetch logo:', error);
+    } catch (_error) {
+      // Non-critical: logo fetch is best-effort
       setIsLoadingLogo(false);
     }
   };
@@ -233,7 +234,7 @@ Return JSON with:
       const { file_url } = await client.integrations.Core.UploadFile({ file });
       setForm(prev => ({ ...prev, logo_url: file_url }));
     } catch (error) {
-      console.error('Upload failed:', error);
+      toast.error(error.message || 'Upload failed');
     } finally {
       setIsUploading(false);
     }

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client, resolveFileUrl } from '@/api/client';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { 
   ArrowLeft,
@@ -35,8 +35,9 @@ import LicenseAssignmentModal from '../components/saas/LicenseAssignmentModal';
 import { toast } from 'sonner';
 
 export default function CustomerPortalPreview() {
-  const params = new URLSearchParams(window.location.search);
-  const customerId = params.get('id');
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const customerId = searchParams.get('id');
   const queryClient = useQueryClient();
   const [isSyncing, setIsSyncing] = useState(false);
   const [expandedBills, setExpandedBills] = useState({ _section: true });
@@ -184,12 +185,12 @@ export default function CustomerPortalPreview() {
   const handleAddSoftware = async (softwareData) => {
     try {
       setShowAddSoftware(false);
-      toast.success('Software added!');
       const newApp = await client.entities.Application.create(softwareData);
+      toast.success('Software added!');
       queryClient.invalidateQueries({ queryKey: ['applications', customerId] });
-      window.location.href = createPageUrl(`LicenseDetail?appId=${newApp.id}`);
-    } catch (err) {
-      toast.error(err.message || 'Operation failed');
+      navigate(createPageUrl(`LicenseDetail?appId=${newApp.id}`));
+    } catch (error) {
+      toast.error(error.message || 'Failed to add software');
     }
   };
 
@@ -207,8 +208,8 @@ export default function CustomerPortalPreview() {
       queryClient.invalidateQueries({ queryKey: ['license_assignments', customerId] });
       queryClient.invalidateQueries({ queryKey: ['licenses', customerId] });
       toast.success('License assigned!');
-    } catch (err) {
-      toast.error(err.message || 'Operation failed');
+    } catch (error) {
+      toast.error(error.message || 'Failed to assign license');
     }
   };
 
@@ -227,8 +228,8 @@ export default function CustomerPortalPreview() {
         queryClient.invalidateQueries({ queryKey: ['licenses', customerId] });
         toast.success('License revoked!');
       }
-    } catch (err) {
-      toast.error(err.message || 'Operation failed');
+    } catch (error) {
+      toast.error(error.message || 'Failed to revoke license');
     }
   };
 

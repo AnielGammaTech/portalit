@@ -65,6 +65,7 @@ import { UserPlus, Eye } from 'lucide-react';
 import { isCustomerPortal } from '@/lib/portal-mode';
 
 export default function CustomerDetail() {
+  const navigate = useNavigate();
   const [isSyncing, setIsSyncing] = useState(false);
   const [selectedLicense, setSelectedLicense] = useState(null);
   const [showAddLicense, setShowAddLicense] = useState(false);
@@ -366,28 +367,28 @@ export default function CustomerDetail() {
       queryClient.invalidateQueries({ queryKey: ['license_assignments', customerId] });
       queryClient.invalidateQueries({ queryKey: ['licenses', customerId] });
       toast.success('License assigned!');
-    } catch (err) {
-      toast.error(err.message || 'Operation failed');
+    } catch (error) {
+      toast.error(error.message || 'Failed to assign license');
     }
   };
 
   const handleRevokeLicense = async (contactId) => {
-    try {
-      const assignment = licenseAssignments.find(a =>
-        a.license_id === selectedLicense.id &&
-        a.contact_id === contactId &&
-        a.status === 'active'
-      );
-      if (assignment) {
+    const assignment = licenseAssignments.find(a =>
+      a.license_id === selectedLicense.id &&
+      a.contact_id === contactId &&
+      a.status === 'active'
+    );
+    if (assignment) {
+      try {
         await client.entities.LicenseAssignment.update(assignment.id, { status: 'revoked' });
         const newCount = Math.max(0, licenseAssignments.filter(a => a.license_id === selectedLicense.id && a.status === 'active').length - 1);
         await client.entities.SaaSLicense.update(selectedLicense.id, { assigned_users: newCount });
         queryClient.invalidateQueries({ queryKey: ['license_assignments', customerId] });
         queryClient.invalidateQueries({ queryKey: ['licenses', customerId] });
         toast.success('License revoked!');
+      } catch (error) {
+        toast.error(error.message || 'Failed to revoke license');
       }
-    } catch (err) {
-      toast.error(err.message || 'Operation failed');
     }
   };
 
@@ -397,17 +398,18 @@ export default function CustomerDetail() {
       queryClient.invalidateQueries({ queryKey: ['licenses', customerId] });
       setShowAddLicense(false);
       toast.success('License added!');
-    } catch (err) {
-      toast.error(err.message || 'Operation failed');
+    } catch (error) {
+      toast.error(error.message || 'Failed to add license');
     }
   };
 
   const handleAddSoftware = async (softwareData) => {
     try {
+      setShowAddSoftware(false);
+
       // Create the software in the Application catalog
       const newApp = await client.entities.Application.create(softwareData);
       toast.success('Software added!');
-      setShowAddSoftware(false);
 
       // Pre-populate the query cache for instant load
       queryClient.setQueryData(['application', newApp.id], newApp);
@@ -415,7 +417,7 @@ export default function CustomerDetail() {
       queryClient.setQueryData(['all_license_assignments', softwareData.name, customerId], []);
 
       // Navigate to the software detail page
-      window.location.href = createPageUrl(`LicenseDetail?appId=${newApp.id}`);
+      navigate(createPageUrl(`LicenseDetail?appId=${newApp.id}`));
     } catch (error) {
       toast.error(error.message || 'Failed to add software');
     }
@@ -469,8 +471,8 @@ export default function CustomerDetail() {
       queryClient.invalidateQueries({ queryKey: ['contacts', customerId] });
       setShowAddContact(false);
       toast.success('Team member added!');
-    } catch (err) {
-      toast.error(err.message || 'Operation failed');
+    } catch (error) {
+      toast.error(error.message || 'Failed to add team member');
     }
   };
 
@@ -603,7 +605,7 @@ export default function CustomerDetail() {
         description="We couldn't find your account. Please contact support."
         action={{
           label: 'Back to Dashboard',
-          onClick: () => window.location.href = createPageUrl('Dashboard'),
+          onClick: () => navigate(createPageUrl('Dashboard')),
         }}
       />
     );

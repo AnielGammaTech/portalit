@@ -83,8 +83,8 @@ Be specific with dollar amounts and percentages. Focus on actionable insights.`,
       });
 
       setAnalysis(result);
-    } catch (error) {
-      console.error('Anomaly detection failed:', error);
+    } catch (_error) {
+      // AI analysis is non-critical; fail silently
     } finally {
       setIsLoading(false);
     }

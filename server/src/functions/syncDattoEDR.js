@@ -1,7 +1,7 @@
 import { getServiceSupabase } from '../lib/supabase.js';
 
 const DATTO_EDR_API_TOKEN = process.env.DATTO_EDR_API_TOKEN;
-const DATTO_EDR_BASE_URL = "https://rmmcon69c80001.infocyte.com/api";
+const DATTO_EDR_BASE_URL = process.env.DATTO_EDR_BASE_URL;
 
 // Mask access tokens in URLs before logging
 const maskUrl = (url) => url.replace(/access_token=[^&]+/, 'access_token=***');
@@ -11,29 +11,24 @@ export async function syncDattoEDR(body, user) {
 
   const { action, customer_id, report_name, report_type, start_date, end_date } = body;
 
-  // Check if API token is configured
-  if (!DATTO_EDR_API_TOKEN) {
+  // Check if API token and base URL are configured
+  if (!DATTO_EDR_BASE_URL || !DATTO_EDR_API_TOKEN) {
     return {
       success: false,
-      error: 'Datto EDR API token not configured. Please set DATTO_EDR_API_TOKEN in settings.'
+      error: 'Datto EDR not configured'
     };
   }
 
-  // Datto EDR uses accessToken as query parameter or in Authorization header
+  // Datto EDR uses Authorization header for API token
   const headers = {
-    'Content-Type': 'application/json'
-  };
-
-  // Helper to add auth to URL
-  const addAuth = (url) => {
-    const separator = url.includes('?') ? '&' : '?';
-    return `${url}${separator}access_token=${DATTO_EDR_API_TOKEN}`;
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${DATTO_EDR_API_TOKEN}`
   };
 
   // Action: Test connection
   if (action === 'test_connection') {
     try {
-      const testRes = await fetch(addAuth(`${DATTO_EDR_BASE_URL}/targets`), { headers });
+      const testRes = await fetch(`${DATTO_EDR_BASE_URL}/targets`, { headers });
       if (!testRes.ok) {
         return { success: false, error: `EDR API returned ${testRes.status}: ${testRes.statusText}` };
       }
@@ -49,7 +44,7 @@ export async function syncDattoEDR(body, user) {
   }
 
   if (action === 'list_tenants') {
-    const targetsRes = await fetch(addAuth(`${DATTO_EDR_BASE_URL}/targets`), { headers });
+    const targetsRes = await fetch(`${DATTO_EDR_BASE_URL}/targets`, { headers });
 
     if (!targetsRes.ok) {
       const errorText = await targetsRes.text();
@@ -125,7 +120,7 @@ export async function syncDattoEDR(body, user) {
 
     console.log('Target ID:', targetId);
 
-    const targetUrl = addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}`);
+    const targetUrl = `${DATTO_EDR_BASE_URL}/targets/${targetId}`;
     const targetRes = await fetch(targetUrl, { headers }).catch(e => null);
 
     let targetData = null;
@@ -140,7 +135,7 @@ export async function syncDattoEDR(body, user) {
 
     // Primary: target-scoped endpoint (returns only this customer's agents)
     for (let skip = 0; ; skip += PAGE_SIZE) {
-      const url = addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`);
+      const url = `${DATTO_EDR_BASE_URL}/targets/${targetId}/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`;
       const res = await fetch(url, { headers }).catch(() => null);
       if (!res?.ok) break;
       const raw = await res.text();
@@ -157,7 +152,7 @@ export async function syncDattoEDR(body, user) {
     if (allAgents.length === 0) {
       console.log('[DattoEDR] Target-scoped endpoint returned 0 agents, falling back to global');
       for (let skip = 0; ; skip += PAGE_SIZE) {
-        const url = addAuth(`${DATTO_EDR_BASE_URL}/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`);
+        const url = `${DATTO_EDR_BASE_URL}/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`;
         const res = await fetch(url, { headers }).catch(() => null);
         if (!res?.ok) break;
         const raw = await res.text();
@@ -249,7 +244,7 @@ export async function syncDattoEDR(body, user) {
   }
 
   if (action === 'get_reports') {
-    const reportsUrl = addAuth(`${DATTO_EDR_BASE_URL}/Reports`);
+    const reportsUrl = `${DATTO_EDR_BASE_URL}/Reports`;
     const reportsRes = await fetch(reportsUrl, { headers });
 
     if (!reportsRes.ok) {
@@ -272,7 +267,7 @@ export async function syncDattoEDR(body, user) {
     }
 
     // Get report details to check status
-    const reportUrl = addAuth(`${DATTO_EDR_BASE_URL}/Reports/${report_id}`);
+    const reportUrl = `${DATTO_EDR_BASE_URL}/Reports/${report_id}`;
     const reportRes = await fetch(reportUrl, { headers });
 
     if (!reportRes.ok) {
@@ -291,9 +286,9 @@ export async function syncDattoEDR(body, user) {
 
     // Try multiple download URL patterns
     const downloadUrls = [
-      addAuth(`${DATTO_EDR_BASE_URL}/Reports/${report_id}/download`),
-      addAuth(`${DATTO_EDR_BASE_URL}/Reports/${report_id}/file`),
-      addAuth(`${DATTO_EDR_BASE_URL}/reports/${report_id}/download`)
+      `${DATTO_EDR_BASE_URL}/Reports/${report_id}/download`,
+      `${DATTO_EDR_BASE_URL}/Reports/${report_id}/file`,
+      `${DATTO_EDR_BASE_URL}/reports/${report_id}/download`
     ];
 
     let pdfBuffer = null;
@@ -322,7 +317,7 @@ export async function syncDattoEDR(body, user) {
         console.log('Report has S3 data, trying presigned URL:', report.data);
 
         // Try to get a presigned URL from the API
-        const presignedUrl = addAuth(`${DATTO_EDR_BASE_URL}/Reports/${report_id}/presignedUrl`);
+        const presignedUrl = `${DATTO_EDR_BASE_URL}/Reports/${report_id}/presignedUrl`;
         const presignedRes = await fetch(presignedUrl, { headers }).catch(() => null);
 
         if (presignedRes?.ok) {
@@ -364,7 +359,7 @@ export async function syncDattoEDR(body, user) {
       return { success: false, error: 'report_id required' };
     }
 
-    const reportUrl = addAuth(`${DATTO_EDR_BASE_URL}/Reports/${report_id}`);
+    const reportUrl = `${DATTO_EDR_BASE_URL}/Reports/${report_id}`;
     const reportRes = await fetch(reportUrl, { headers });
 
     if (!reportRes.ok) {
@@ -406,7 +401,7 @@ export async function syncDattoEDR(body, user) {
 
     console.log('Creating report with payload:', JSON.stringify(reportPayload));
 
-    const createRes = await fetch(addAuth(`${DATTO_EDR_BASE_URL}/Reports`), {
+    const createRes = await fetch(`${DATTO_EDR_BASE_URL}/Reports`, {
       method: 'POST',
       headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify(reportPayload)
@@ -440,7 +435,7 @@ export async function syncDattoEDR(body, user) {
         const targetId = mapping.edr_tenant_id;
         if (!targetId) { failed++; continue; }
 
-        const targetUrl = addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}`);
+        const targetUrl = `${DATTO_EDR_BASE_URL}/targets/${targetId}`;
         const targetRes = await fetch(targetUrl, { headers }).catch(() => null);
 
         let targetData = null;
@@ -449,7 +444,7 @@ export async function syncDattoEDR(body, user) {
           try { targetData = JSON.parse(raw); } catch(e) { console.warn('[DattoEDR] Non-critical error parsing target data:', e.message); }
         }
 
-        const agentsUrl = addAuth(`${DATTO_EDR_BASE_URL}/agents`);
+        const agentsUrl = `${DATTO_EDR_BASE_URL}/agents`;
         const agentsRes = await fetch(agentsUrl, { headers }).catch(() => null);
 
         let allAgents = [];
@@ -542,8 +537,8 @@ export async function syncDattoEDR(body, user) {
     const mapping = mappings[0];
 
     const [hostsRes, alertsRes] = await Promise.all([
-      fetch(addAuth(`${DATTO_EDR_BASE_URL}/targets/${mapping.edr_tenant_id}/hosts`), { headers }),
-      fetch(addAuth(`${DATTO_EDR_BASE_URL}/targets/${mapping.edr_tenant_id}/alerts`), { headers }).catch(() => null)
+      fetch(`${DATTO_EDR_BASE_URL}/targets/${mapping.edr_tenant_id}/hosts`, { headers }),
+      fetch(`${DATTO_EDR_BASE_URL}/targets/${mapping.edr_tenant_id}/alerts`, { headers }).catch(() => null)
     ]);
 
     const hostsData = hostsRes.ok ? await hostsRes.json() : { data: [] };
