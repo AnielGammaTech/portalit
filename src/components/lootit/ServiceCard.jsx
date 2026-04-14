@@ -209,16 +209,14 @@ export default function ServiceCard({
           'border-slate-100'
         )}>
           <TooltipProvider delayDuration={300}>
-            {!isReviewed && (
+            {!isReviewed && status !== 'match' && (
               <>
-                {status !== 'match' && (
-                  <Tooltip><TooltipTrigger asChild>
-                    <button onClick={() => handleActionWithNote('force_match')} disabled={isSaving}
-                      className="p-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow-sm transition-colors disabled:opacity-50">
-                      <ShieldCheck className="w-3.5 h-3.5" />
-                    </button>
-                  </TooltipTrigger><TooltipContent>Force Match (requires note)</TooltipContent></Tooltip>
-                )}
+                <Tooltip><TooltipTrigger asChild>
+                  <button onClick={() => handleActionWithNote('force_match')} disabled={isSaving}
+                    className="p-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow-sm transition-colors disabled:opacity-50">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                  </button>
+                </TooltipTrigger><TooltipContent>Force Match (requires note)</TooltipContent></Tooltip>
                 <Tooltip><TooltipTrigger asChild>
                   <button onClick={() => handleActionWithNote('review')} disabled={isSaving}
                     className="p-1.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm transition-colors disabled:opacity-50">
