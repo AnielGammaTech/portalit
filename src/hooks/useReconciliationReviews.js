@@ -76,13 +76,35 @@ export function useReconciliationReviews(customerId) {
         payload.exclusion_count = exclusionCount ?? existing?.exclusion_count ?? 0;
         payload.exclusion_reason = exclusionReason ?? existing?.exclusion_reason ?? null;
       }
-      const { data, error } = await supabase
+      // Check if a review already exists for this customer+rule
+      const { data: existingRow } = await supabase
         .from('reconciliation_reviews')
-        .upsert(payload, { onConflict: 'customer_id,rule_id' })
-        .select()
-        .single();
+        .select('id')
+        .eq('customer_id', customerId)
+        .eq('rule_id', dbRuleId)
+        .maybeSingle();
 
-      if (error) throw error;
+      let data;
+      if (existingRow) {
+        // Update existing review
+        const { data: updated, error: updateErr } = await supabase
+          .from('reconciliation_reviews')
+          .update(payload)
+          .eq('id', existingRow.id)
+          .select()
+          .single();
+        if (updateErr) throw new Error(updateErr.message || 'Failed to update review');
+        data = updated;
+      } else {
+        // Insert new review
+        const { data: inserted, error: insertErr } = await supabase
+          .from('reconciliation_reviews')
+          .insert(payload)
+          .select()
+          .single();
+        if (insertErr) throw new Error(insertErr.message || 'Failed to save review');
+        data = inserted;
+      }
 
       // Log to history (fire-and-forget)
       logHistory({
