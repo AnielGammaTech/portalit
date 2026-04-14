@@ -38,13 +38,10 @@ export function useReconciliationReviews(customerId) {
 
   const upsertMutation = useMutation({
     mutationFn: async ({ ruleId, status, notes, psaQty, vendorQty, action, exclusionCount, exclusionReason }) => {
-      // Unmatched line items have synthetic rule IDs like "unmatched_<uuid>"
-      // Strip the prefix to get a valid UUID for the database
-      const dbRuleId = ruleId.startsWith('unmatched_') ? ruleId.replace('unmatched_', '') : ruleId;
-      const existing = reviews.find((r) => r.rule_id === dbRuleId || r.rule_id === ruleId);
+      const existing = reviews.find((r) => r.rule_id === ruleId);
       const payload = {
         customer_id: customerId,
-        rule_id: dbRuleId,
+        rule_id: ruleId,
         status,
         reviewed_by: user?.id || null,
         reviewed_at: new Date().toISOString(),
@@ -68,7 +65,7 @@ export function useReconciliationReviews(customerId) {
       // Log to history (fire-and-forget, don't block the UI)
       logHistory({
         reviewId: data.id,
-        ruleId: dbRuleId,
+        ruleId,
         action: action || status,
         status,
         notes,
