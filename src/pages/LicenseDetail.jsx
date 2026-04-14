@@ -397,21 +397,21 @@ export default function LicenseDetail() {
       toast.error('No license selected');
       return;
     }
-    
+
     // Get current assignments from cache to check for duplicates (handles optimistic updates)
     const currentAssignments = queryClient.getQueryData(['all_license_assignments', software?.application_name, software?.customer_id]) || allAssignments;
-    
+
     // Check if user is already assigned to this license
-    const existingAssignment = currentAssignments.find(a => 
-      a.license_id === licenseToAssign && 
-      a.contact_id === contactId && 
+    const existingAssignment = currentAssignments.find(a =>
+      a.license_id === licenseToAssign &&
+      a.contact_id === contactId &&
       a.status === 'active'
     );
     if (existingAssignment) {
       toast.error('This user is already assigned to this license');
       return;
     }
-    
+
     // Check if seats are available (for managed licenses)
     const targetLicense = relatedLicenses.find(l => l.id === licenseToAssign);
     if (targetLicense?.management_type === 'managed') {
@@ -421,124 +421,144 @@ export default function LicenseDetail() {
         return;
       }
     }
-    
-    // Optimistic update - add to cache immediately
-    const newAssignment = {
-      id: `temp-${Date.now()}-${contactId}`,
-      license_id: licenseToAssign,
-      contact_id: contactId,
-      customer_id: software.customer_id,
-      assigned_date: new Date().toISOString().split('T')[0],
-      status: 'active'
-    };
-    
-    queryClient.setQueryData(['all_license_assignments', software?.application_name, software?.customer_id], (old) => 
-      old ? [...old, newAssignment] : [newAssignment]
-    );
-    
-    toast.success('License assigned!');
-    
-    // Then persist to database
-    await client.entities.LicenseAssignment.create({
-      license_id: licenseToAssign,
-      contact_id: contactId,
-      customer_id: software.customer_id,
-      assigned_date: new Date().toISOString().split('T')[0],
-      status: 'active'
-    });
-    
-    // Refresh to get real IDs
-    queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
+
+    try {
+      // Optimistic update - add to cache immediately
+      const newAssignment = {
+        id: `temp-${Date.now()}-${contactId}`,
+        license_id: licenseToAssign,
+        contact_id: contactId,
+        customer_id: software.customer_id,
+        assigned_date: new Date().toISOString().split('T')[0],
+        status: 'active'
+      };
+
+      queryClient.setQueryData(['all_license_assignments', software?.application_name, software?.customer_id], (old) =>
+        old ? [...old, newAssignment] : [newAssignment]
+      );
+
+      toast.success('License assigned!');
+
+      // Then persist to database
+      await client.entities.LicenseAssignment.create({
+        license_id: licenseToAssign,
+        contact_id: contactId,
+        customer_id: software.customer_id,
+        assigned_date: new Date().toISOString().split('T')[0],
+        status: 'active'
+      });
+
+      // Refresh to get real IDs
+      queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
+    } catch (err) {
+      toast.error(err.message || 'Operation failed');
+    }
   };
 
   const handleAddIndividualLicense = async (data) => {
-    const contact = contacts.find(c => c.id === data.contact_id);
-    
-    // Find existing per_user license or create one
-    let perUserLicense = individualLicenses[0];
-    
-    if (!perUserLicense) {
-      perUserLicense = await client.entities.SaaSLicense.create({
+    try {
+      const contact = contacts.find(c => c.id === data.contact_id);
+
+      // Find existing per_user license or create one
+      let perUserLicense = individualLicenses[0];
+
+      if (!perUserLicense) {
+        perUserLicense = await client.entities.SaaSLicense.create({
+          customer_id: software.customer_id,
+          application_name: software.application_name,
+          vendor: software.vendor,
+          logo_url: software.logo_url,
+          website_url: software.website_url,
+          category: software.category,
+          management_type: 'per_user',
+          status: 'active',
+          source: 'manual'
+        });
+        queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
+      }
+
+      await client.entities.LicenseAssignment.create({
+        license_id: perUserLicense.id,
+        contact_id: data.contact_id,
+        customer_id: software.customer_id,
+        assigned_date: new Date().toISOString().split('T')[0],
+        status: 'active',
+        renewal_date: data.renewal_date,
+        card_last_four: data.card_last_four,
+        cost_per_license: data.cost_per_license,
+        license_type: data.license_type
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
+
+      // Close modal and show success AFTER save completes
+      setShowAddIndividualLicense(false);
+      toast.success(`License added for ${contact?.full_name || 'user'}!`);
+    } catch (err) {
+      toast.error(err.message || 'Operation failed');
+    }
+  };
+
+  const handleAddManagedLicense = async (data) => {
+    try {
+      // Always create a NEW managed license record (supports multiple license types per software)
+      await client.entities.SaaSLicense.create({
         customer_id: software.customer_id,
         application_name: software.application_name,
         vendor: software.vendor,
         logo_url: software.logo_url,
         website_url: software.website_url,
         category: software.category,
-        management_type: 'per_user',
+        management_type: 'managed',
+        license_type: data.license_type || null, // Don't default to anything
+        quantity: data.quantity,
+        cost_per_license: data.cost_per_license,
+        total_cost: data.total_cost,
+        billing_cycle: data.billing_cycle,
+        renewal_date: data.renewal_date || null,
+        card_last_four: data.card_last_four || null,
         status: 'active',
         source: 'manual'
       });
-      queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
-    }
-    
-    await client.entities.LicenseAssignment.create({
-      license_id: perUserLicense.id,
-      contact_id: data.contact_id,
-      customer_id: software.customer_id,
-      assigned_date: new Date().toISOString().split('T')[0],
-      status: 'active',
-      renewal_date: data.renewal_date,
-      card_last_four: data.card_last_four,
-      cost_per_license: data.cost_per_license,
-      license_type: data.license_type
-    });
-    
-    queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
-    
-    // Close modal and show success AFTER save completes
-    setShowAddIndividualLicense(false);
-    toast.success(`License added for ${contact?.full_name || 'user'}!`);
-  };
 
-  const handleAddManagedLicense = async (data) => {
-    // Always create a NEW managed license record (supports multiple license types per software)
-    await client.entities.SaaSLicense.create({
-      customer_id: software.customer_id,
-      application_name: software.application_name,
-      vendor: software.vendor,
-      logo_url: software.logo_url,
-      website_url: software.website_url,
-      category: software.category,
-      management_type: 'managed',
-      license_type: data.license_type || null, // Don't default to anything
-      quantity: data.quantity,
-      cost_per_license: data.cost_per_license,
-      total_cost: data.total_cost,
-      billing_cycle: data.billing_cycle,
-      renewal_date: data.renewal_date || null,
-      card_last_four: data.card_last_four || null,
-      status: 'active',
-      source: 'manual'
-    });
-    
-    queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
-    queryClient.invalidateQueries({ queryKey: ['license', licenseId] });
-    setShowAddManagedLicense(false);
-    toast.success('Managed license added!');
+      queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
+      queryClient.invalidateQueries({ queryKey: ['license', licenseId] });
+      setShowAddManagedLicense(false);
+      toast.success('Managed license added!');
+    } catch (err) {
+      toast.error(err.message || 'Operation failed');
+    }
   };
 
   const handleRevoke = async (contactId) => {
-    const assignment = allAssignments.find(a => a.contact_id === contactId && a.status === 'active');
-    if (assignment) {
-      // Optimistic update - remove from cache immediately
-      queryClient.setQueryData(['all_license_assignments', software?.application_name, software?.customer_id], (old) => 
-        old ? old.filter(a => a.id !== assignment.id) : []
-      );
-      
-      toast.success('License revoked!');
-      
-      // Then persist to database
-      await client.entities.LicenseAssignment.update(assignment.id, { status: 'revoked' });
-      queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
+    try {
+      const assignment = allAssignments.find(a => a.contact_id === contactId && a.status === 'active');
+      if (assignment) {
+        // Optimistic update - remove from cache immediately
+        queryClient.setQueryData(['all_license_assignments', software?.application_name, software?.customer_id], (old) =>
+          old ? old.filter(a => a.id !== assignment.id) : []
+        );
+
+        toast.success('License revoked!');
+
+        // Then persist to database
+        await client.entities.LicenseAssignment.update(assignment.id, { status: 'revoked' });
+        queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
+      }
+    } catch (err) {
+      toast.error(err.message || 'Operation failed');
     }
   };
 
   const handleEditSave = async (updatedData) => {
-    await client.entities.SaaSLicense.update(licenseId, updatedData);
-    queryClient.invalidateQueries({ queryKey: ['license', licenseId] });
-    setShowEditModal(false);
-    toast.success('License updated!');
+    try {
+      await client.entities.SaaSLicense.update(licenseId, updatedData);
+      queryClient.invalidateQueries({ queryKey: ['license', licenseId] });
+      setShowEditModal(false);
+      toast.success('License updated!');
+    } catch (err) {
+      toast.error(err.message || 'Operation failed');
+    }
   };
 
   const handleDeleteApp = async () => {

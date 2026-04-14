@@ -91,7 +91,8 @@ router.get('/file/:fileName', async (req, res, next) => {
 
     // Stream the file content directly — avoids cross-origin issues with Supabase redirects
     res.set('Content-Type', contentType);
-    res.set('Cache-Control', 'public, max-age=3600');
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.set('X-Content-Type-Options', 'nosniff');
     res.set('Cross-Origin-Resource-Policy', 'cross-origin');
     res.set('Access-Control-Allow-Origin', '*');
     const buffer = Buffer.from(await data.arrayBuffer());

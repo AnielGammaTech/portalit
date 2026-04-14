@@ -13,15 +13,21 @@ export async function fetchDattoRMMBilling(body, user) {
     throw err;
   }
 
-  // Get auth token
-  const authString = Buffer.from(`${apiKey}:${apiSecret}`).toString('base64');
-  const tokenResponse = await fetch(`${apiUrl}/auth/oauth/token`, {
+  // Get auth token — Datto RMM uses password grant with public-client:public as Basic auth
+  const baseUrl = apiUrl.replace(/\/$/, '');
+  const params = new URLSearchParams();
+  params.append('grant_type', 'password');
+  params.append('username', apiKey);
+  params.append('password', apiSecret);
+
+  const basicAuth = Buffer.from('public-client:public').toString('base64');
+  const tokenResponse = await fetch(`${baseUrl}/auth/oauth/token`, {
     method: 'POST',
     headers: {
-      'Authorization': `Basic ${authString}`,
+      'Authorization': `Basic ${basicAuth}`,
       'Content-Type': 'application/x-www-form-urlencoded'
     },
-    body: 'grant_type=client_credentials'
+    body: params.toString()
   });
 
   if (!tokenResponse.ok) {
@@ -33,39 +39,62 @@ export async function fetchDattoRMMBilling(body, user) {
   const tokenData = await tokenResponse.json();
   const accessToken = tokenData.access_token;
 
-  // Fetch all sites (customers in Datto RMM)
-  const sitesResponse = await fetch(`${apiUrl}/api/v2/account/sites`, {
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
-    }
-  });
+  // Fetch all sites with pagination (Datto paginates at 250 items, 0-based pages)
+  let sites = [];
+  let sitePage = 0;
+  const pageSize = 250;
 
-  if (!sitesResponse.ok) {
-    const err = new Error('Failed to fetch Datto RMM sites');
-    err.statusCode = 500;
-    throw err;
-  }
-
-  const sitesData = await sitesResponse.json();
-  const sites = sitesData.sites || [];
-
-  // Fetch device counts per site
-  const billingData = [];
-
-  for (const site of sites) {
-    // Fetch devices for this site
-    const devicesResponse = await fetch(`${apiUrl}/api/v2/site/${site.uid}/devices`, {
+  while (true) {
+    const sitesResponse = await fetch(`${baseUrl}/api/v2/account/sites?max=${pageSize}&page=${sitePage}`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
       }
     });
 
+    if (!sitesResponse.ok) {
+      const err = new Error('Failed to fetch Datto RMM sites');
+      err.statusCode = 500;
+      throw err;
+    }
+
+    const sitesData = await sitesResponse.json();
+    const pageSites = sitesData.sites || [];
+
+    if (pageSites.length === 0) break;
+    sites = sites.concat(pageSites);
+
+    if (pageSites.length < pageSize) break;
+    sitePage++;
+    if (sitePage > 20) break; // Safety limit
+  }
+
+  // Fetch device counts per site
+  const billingData = [];
+
+  for (const site of sites) {
+    // Fetch devices for this site with pagination (Datto paginates at 250)
     let deviceCount = 0;
-    if (devicesResponse.ok) {
+    let devPage = 0;
+
+    while (true) {
+      const devicesResponse = await fetch(`${baseUrl}/api/v2/site/${site.uid}/devices?max=${pageSize}&page=${devPage}`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!devicesResponse.ok) break;
+
       const devicesData = await devicesResponse.json();
-      deviceCount = devicesData.devices?.length || 0;
+      const pageDevices = devicesData.devices || [];
+
+      deviceCount += pageDevices.length;
+
+      if (pageDevices.length < pageSize) break;
+      devPage++;
+      if (devPage > 50) break; // Safety limit
     }
 
     billingData.push({

@@ -25,6 +25,7 @@ export async function autoSuspendUnusedLicenses(body, user) {
 
     // If no active assignments
     if (activeAssignments.length === 0) {
+      if (!license.created_date) continue;
       const createdDate = new Date(license.created_date);
       const daysSinceCreated = Math.ceil((today - createdDate) / (1000 * 60 * 60 * 24));
 

@@ -3,6 +3,9 @@ import { getServiceSupabase } from '../lib/supabase.js';
 const DATTO_EDR_API_TOKEN = process.env.DATTO_EDR_API_TOKEN;
 const DATTO_EDR_BASE_URL = "https://rmmcon69c80001.infocyte.com/api";
 
+// Mask access tokens in URLs before logging
+const maskUrl = (url) => url.replace(/access_token=[^&]+/, 'access_token=***');
+
 export async function syncDattoEDR(body, user) {
   const supabase = getServiceSupabase();
 
@@ -92,7 +95,7 @@ export async function syncDattoEDR(body, user) {
           data: mapping.cached_data
         };
       } catch (e) {
-        // Cache invalid
+        console.warn('[DattoEDR] Non-critical error reading cached data:', e.message);
       }
     }
 
@@ -145,7 +148,7 @@ export async function syncDattoEDR(body, user) {
       try {
         const parsed = JSON.parse(raw);
         page = Array.isArray(parsed) ? parsed : (parsed?.data || parsed?.value || []);
-      } catch (e) { break; }
+      } catch (e) { console.warn('[DattoEDR] Non-critical error parsing target agents page:', e.message); break; }
       allAgents.push(...page);
       if (page.length < PAGE_SIZE) break; // last page
     }
@@ -162,7 +165,7 @@ export async function syncDattoEDR(body, user) {
         try {
           const parsed = JSON.parse(raw);
           page = Array.isArray(parsed) ? parsed : (parsed?.data || parsed?.value || []);
-        } catch (e) { break; }
+        } catch (e) { console.warn('[DattoEDR] Non-critical error parsing global agents page:', e.message); break; }
         allAgents.push(...page);
         if (page.length < PAGE_SIZE) break;
       }
@@ -297,7 +300,7 @@ export async function syncDattoEDR(body, user) {
     let downloadError = null;
 
     for (const downloadUrl of downloadUrls) {
-      console.log('Trying download URL:', downloadUrl.replace(DATTO_EDR_API_TOKEN, '***'));
+      console.log('Trying download URL:', maskUrl(downloadUrl));
       const downloadRes = await fetch(downloadUrl, { headers });
 
       if (downloadRes.ok) {
@@ -324,10 +327,10 @@ export async function syncDattoEDR(body, user) {
 
         if (presignedRes?.ok) {
           const presignedData = await presignedRes.json();
-          console.log('Presigned URL response:', presignedData);
+          console.log('Presigned URL response: received', presignedData.url ? 'valid URL' : 'no URL');
 
           if (presignedData.url) {
-            // Download from the presigned URL
+            // Download from the presigned URL (do not log presignedData — may contain tokens)
             const s3Res = await fetch(presignedData.url);
             if (s3Res.ok) {
               pdfBuffer = Buffer.from(await s3Res.arrayBuffer());
@@ -443,7 +446,7 @@ export async function syncDattoEDR(body, user) {
         let targetData = null;
         if (targetRes?.ok) {
           const raw = await targetRes.text();
-          try { targetData = JSON.parse(raw); } catch(e) { /* ignore */ }
+          try { targetData = JSON.parse(raw); } catch(e) { console.warn('[DattoEDR] Non-critical error parsing target data:', e.message); }
         }
 
         const agentsUrl = addAuth(`${DATTO_EDR_BASE_URL}/agents`);
@@ -457,7 +460,7 @@ export async function syncDattoEDR(body, user) {
             if (!Array.isArray(allAgents)) {
               allAgents = allAgents?.data || [];
             }
-          } catch(e) { /* ignore */ }
+          } catch(e) { console.warn('[DattoEDR] Non-critical error parsing agents data:', e.message); }
         }
 
         // Try multiple matching strategies for agents

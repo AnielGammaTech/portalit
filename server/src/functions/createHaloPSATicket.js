@@ -69,7 +69,8 @@ export async function createHaloPSATicket(body, _user) {
     .from('tickets')
     .insert({
       customer_id,
-      halopsa_id: String(createdTicket.id),
+      external_id: String(createdTicket.id),
+      source: 'halopsa',
       ticket_number: String(createdTicket.id),
       summary,
       details: details || '',

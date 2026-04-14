@@ -506,14 +506,22 @@ router.post('/reset-password', requireAdmin, async (req, res, next) => {
 router.get('/auth-details', requireAdmin, async (_req, res, next) => {
   try {
     const supabase = getServiceSupabase();
-    const { data: { users }, error } = await supabase.auth.admin.listUsers({ perPage: 100 });
 
-    if (error) {
-      return res.status(500).json({ error: error.message });
+    // Fetch all auth users with pagination (API returns max 100 per page)
+    let allUsers = [];
+    let page = 1;
+    while (true) {
+      const { data: { users: pageUsers }, error } = await supabase.auth.admin.listUsers({ page, perPage: 100 });
+      if (error) {
+        return res.status(500).json({ error: error.message });
+      }
+      allUsers = allUsers.concat(pageUsers);
+      if (pageUsers.length < 100) break;
+      page++;
     }
 
     const details = {};
-    for (const user of users) {
+    for (const user of allUsers) {
       details[user.id] = {
         last_sign_in_at: user.last_sign_in_at || null,
         created_at: user.created_at,

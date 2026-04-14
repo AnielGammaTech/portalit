@@ -182,41 +182,53 @@ export default function CustomerPortalPreview() {
   });
 
   const handleAddSoftware = async (softwareData) => {
-    setShowAddSoftware(false);
-    toast.success('Software added!');
-    const newApp = await client.entities.Application.create(softwareData);
-    queryClient.invalidateQueries({ queryKey: ['applications', customerId] });
-    window.location.href = createPageUrl(`LicenseDetail?appId=${newApp.id}`);
+    try {
+      setShowAddSoftware(false);
+      toast.success('Software added!');
+      const newApp = await client.entities.Application.create(softwareData);
+      queryClient.invalidateQueries({ queryKey: ['applications', customerId] });
+      window.location.href = createPageUrl(`LicenseDetail?appId=${newApp.id}`);
+    } catch (err) {
+      toast.error(err.message || 'Operation failed');
+    }
   };
 
   const handleAssignLicense = async (contactId) => {
-    await client.entities.LicenseAssignment.create({
-      license_id: selectedLicense.id,
-      contact_id: contactId,
-      customer_id: customerId,
-      assigned_date: new Date().toISOString().split('T')[0],
-      status: 'active'
-    });
-    const newCount = licenseAssignments.filter(a => a.license_id === selectedLicense.id && a.status === 'active').length + 1;
-    await client.entities.SaaSLicense.update(selectedLicense.id, { assigned_users: newCount });
-    queryClient.invalidateQueries({ queryKey: ['license_assignments', customerId] });
-    queryClient.invalidateQueries({ queryKey: ['licenses', customerId] });
-    toast.success('License assigned!');
-  };
-
-  const handleRevokeLicense = async (contactId) => {
-    const assignment = licenseAssignments.find(a => 
-      a.license_id === selectedLicense.id && 
-      a.contact_id === contactId && 
-      a.status === 'active'
-    );
-    if (assignment) {
-      await client.entities.LicenseAssignment.update(assignment.id, { status: 'revoked' });
-      const newCount = Math.max(0, licenseAssignments.filter(a => a.license_id === selectedLicense.id && a.status === 'active').length - 1);
+    try {
+      await client.entities.LicenseAssignment.create({
+        license_id: selectedLicense.id,
+        contact_id: contactId,
+        customer_id: customerId,
+        assigned_date: new Date().toISOString().split('T')[0],
+        status: 'active'
+      });
+      const newCount = licenseAssignments.filter(a => a.license_id === selectedLicense.id && a.status === 'active').length + 1;
       await client.entities.SaaSLicense.update(selectedLicense.id, { assigned_users: newCount });
       queryClient.invalidateQueries({ queryKey: ['license_assignments', customerId] });
       queryClient.invalidateQueries({ queryKey: ['licenses', customerId] });
-      toast.success('License revoked!');
+      toast.success('License assigned!');
+    } catch (err) {
+      toast.error(err.message || 'Operation failed');
+    }
+  };
+
+  const handleRevokeLicense = async (contactId) => {
+    try {
+      const assignment = licenseAssignments.find(a =>
+        a.license_id === selectedLicense.id &&
+        a.contact_id === contactId &&
+        a.status === 'active'
+      );
+      if (assignment) {
+        await client.entities.LicenseAssignment.update(assignment.id, { status: 'revoked' });
+        const newCount = Math.max(0, licenseAssignments.filter(a => a.license_id === selectedLicense.id && a.status === 'active').length - 1);
+        await client.entities.SaaSLicense.update(selectedLicense.id, { assigned_users: newCount });
+        queryClient.invalidateQueries({ queryKey: ['license_assignments', customerId] });
+        queryClient.invalidateQueries({ queryKey: ['licenses', customerId] });
+        toast.success('License revoked!');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Operation failed');
     }
   };
 

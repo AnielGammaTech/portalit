@@ -17,7 +17,8 @@ export default async function scanBillingAnomalies({ action } = {}) {
       .in('category', SCANNED_CATEGORIES)
       .in('billing_frequency', ['monthly', null])
       .gt('total', 0)
-      .order('invoice_date', { ascending: false });
+      .order('invoice_date', { ascending: false })
+      .limit(10000);
 
     if (invErr) throw invErr;
     if (!invoices || invoices.length === 0) {
