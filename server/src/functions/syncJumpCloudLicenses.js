@@ -64,6 +64,21 @@ function categorizeApp(appName) {
   return 'other';
 }
 
+async function fetchAllOrganizations() {
+  let allOrgs = [];
+  let skip = 0;
+  const pageLimit = 100;
+  while (true) {
+    const page = await jumpcloudApiCall(`/organizations?limit=${pageLimit}&skip=${skip}`);
+    const results = page.results || page;
+    const orgs = Array.isArray(results) ? results : [];
+    allOrgs = allOrgs.concat(orgs);
+    skip += orgs.length;
+    if (orgs.length < pageLimit) break;
+  }
+  return allOrgs;
+}
+
 export async function syncJumpCloudLicenses(body, user) {
   const supabase = getServiceSupabase();
   const { action, customer_id } = body;
@@ -129,11 +144,11 @@ export async function syncJumpCloudLicenses(body, user) {
   if (action === 'test_connection') {
     try {
       // Try to get organizations (for MSP accounts) or current org info
-      const orgs = await jumpcloudApiCall('/organizations');
+      const orgs = await fetchAllOrganizations();
       return {
         success: true,
         isMsp: true,
-        organizations: orgs.results || orgs
+        organizations: orgs
       };
     } catch {
       // If organizations endpoint fails, try single-org approach
@@ -155,10 +170,10 @@ export async function syncJumpCloudLicenses(body, user) {
   // Action: List organizations (for MSP accounts)
   if (action === 'list_organizations') {
     try {
-      const orgs = await jumpcloudApiCall('/organizations');
+      const orgs = await fetchAllOrganizations();
       return {
         success: true,
-        organizations: (orgs.results || orgs).map(org => ({
+        organizations: orgs.map(org => ({
           id: org.id || org._id,
           name: org.displayName || org.name,
           userCount: org.totalUserCount || 0

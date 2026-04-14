@@ -41,12 +41,7 @@ export default function VultrConfig() {
     queryFn: () => client.entities.VultrMapping.list(),
   });
 
-  useEffect(() => {
-    if (mappings.length > 0 && configStatus === CONNECTION_STATES.NOT_CONFIGURED) {
-          }
-  }, [mappings.length, configStatus]);
-
-    const configStatus = loadingMappings ? CONNECTION_STATES.CONFIGURED : (mappings.length > 0 ? CONNECTION_STATES.CONNECTED : CONNECTION_STATES.NOT_CONFIGURED);
+  const configStatus = loadingMappings ? CONNECTION_STATES.CONFIGURED : (mappings.length > 0 ? CONNECTION_STATES.CONNECTED : CONNECTION_STATES.NOT_CONFIGURED);
 
   const getCustomerName = useCallback((customerId) => {
     const customer = customers.find(c => c.id === customerId);

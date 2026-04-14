@@ -12,21 +12,36 @@ export async function fetchJumpCloudBilling(body, user) {
     throw err;
   }
 
-  // Fetch all organizations (customers) from JumpCloud MSP
-  const orgsResponse = await fetch(`https://console.jumpcloud.com/api/organizations`, {
-    headers: {
-      'x-api-key': apiKey,
-      'Content-Type': 'application/json'
-    }
-  });
+  // Fetch all organizations (customers) from JumpCloud MSP with pagination
+  let allOrgs = [];
+  let orgSkip = 0;
+  const orgPageLimit = 100;
+  while (true) {
+    const orgsResponse = await fetch(
+      `https://console.jumpcloud.com/api/organizations?limit=${orgPageLimit}&skip=${orgSkip}`,
+      {
+        headers: {
+          'x-api-key': apiKey,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
 
-  if (!orgsResponse.ok) {
-    const err = new Error('Failed to fetch JumpCloud organizations');
-    err.statusCode = 500;
-    throw err;
+    if (!orgsResponse.ok) {
+      const err = new Error('Failed to fetch JumpCloud organizations');
+      err.statusCode = 500;
+      throw err;
+    }
+
+    const page = await orgsResponse.json();
+    const results = page.results || page;
+    const orgs = Array.isArray(results) ? results : [];
+    allOrgs = allOrgs.concat(orgs);
+    orgSkip += orgs.length;
+    if (orgs.length < orgPageLimit) break;
   }
 
-  const organizations = await orgsResponse.json();
+  const organizations = { results: allOrgs };
   const billingData = [];
 
   // For each organization, get user count
@@ -89,7 +104,7 @@ export async function fetchJumpCloudBilling(body, user) {
   return {
     success: true,
     data: matchedData,
-    total_orgs: organizations.results?.length || organizations.length || 0,
+    total_orgs: allOrgs.length,
     total_users: billingData.reduce((sum, b) => sum + b.user_count, 0)
   };
 }

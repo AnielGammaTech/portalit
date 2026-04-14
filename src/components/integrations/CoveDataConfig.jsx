@@ -36,14 +36,9 @@ export default function CoveDataConfig() {
     queryFn: () => client.entities.CoveDataMapping.list(),
   });
 
-  useEffect(() => {
-    if (mappings.length > 0 && configStatus === CONNECTION_STATES.NOT_CONFIGURED) {
-          }
-  }, [mappings.length, configStatus]);
-
   // -- Derived data ----------------------------------------------------------
 
-    const configStatus = loadingMappings ? CONNECTION_STATES.CONFIGURED : (mappings.length > 0 ? CONNECTION_STATES.CONNECTED : CONNECTION_STATES.NOT_CONFIGURED);
+  const configStatus = loadingMappings ? CONNECTION_STATES.CONFIGURED : (mappings.length > 0 ? CONNECTION_STATES.CONNECTED : CONNECTION_STATES.NOT_CONFIGURED);
 
   const getCustomerName = useCallback((customerId) => {
     return customers.find(c => c.id === customerId)?.name || 'Unknown';

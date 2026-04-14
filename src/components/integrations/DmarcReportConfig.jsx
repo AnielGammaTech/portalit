@@ -75,12 +75,9 @@ export default function DmarcReportConfig() {
     staleTime: 1000 * 60 * 5,
   });
 
-  useEffect(() => {
-    if (mappings.length > 0 && configStatus === CONNECTION_STATES.NOT_CONFIGURED) {
-          }
-  }, [mappings.length, configStatus]);
-
   // -- Derived data --------------------------------------------------------
+
+  const configStatus = loadingMappings ? CONNECTION_STATES.CONFIGURED : (mappings.length > 0 ? CONNECTION_STATES.CONNECTED : CONNECTION_STATES.NOT_CONFIGURED);
 
   const flatDomains = useMemo(() => flattenAccountDomains(accounts), [accounts]);
   const allRows = useMemo(() => buildUnifiedRows(flatDomains, mappings), [flatDomains, mappings]);
@@ -89,8 +86,6 @@ export default function DmarcReportConfig() {
   const staleCount = useMemo(() => mappings.filter(m => m.last_synced && isStale(m.last_synced)).length, [mappings]);
   const totalDomains = allRows.length;
   const unmappedCount = totalDomains - mappedCount;
-
-    const configStatus = loadingMappings ? CONNECTION_STATES.CONFIGURED : (mappings.length > 0 ? CONNECTION_STATES.CONNECTED : CONNECTION_STATES.NOT_CONFIGURED);
 
   const getCustomerName = useCallback((customerId) => {
     return customers.find(c => c.id === customerId)?.name || 'Unknown';
