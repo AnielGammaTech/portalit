@@ -26,7 +26,7 @@ export async function requireAuth(req, res, next) {
       auth_id: user.id,
       id: profile?.id || user.id,
       email: user.email,
-      ...profile,
+      ...(profile || {}),
     };
 
     next();

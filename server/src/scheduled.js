@@ -83,8 +83,13 @@ function wrapJob(jobDef) {
       await logCronRun(jobDef.name, 'success', result, null, durationMs);
     } catch (error) {
       const durationMs = Date.now() - startTime;
-      console.error(`[CRON] ${jobDef.name} failed after ${durationMs}ms:`, error.message);
-      await logCronRun(jobDef.name, 'failed', null, error.message, durationMs);
+      const errMsg = error?.message || String(error) || 'Unknown error';
+      console.error(`[CRON] ${jobDef.name} failed after ${durationMs}ms:`, errMsg);
+      try {
+        await logCronRun(jobDef.name, 'failed', null, errMsg, durationMs);
+      } catch (logErr) {
+        console.error(`[CRON] Failed to log cron failure for ${jobDef.name}:`, logErr?.message);
+      }
     }
   };
 }

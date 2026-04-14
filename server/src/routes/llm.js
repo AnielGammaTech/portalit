@@ -11,6 +11,9 @@ let anthropicClient = null;
 let openaiClient = null;
 
 function getAnthropic() {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error('Anthropic API key not configured — set ANTHROPIC_API_KEY environment variable');
+  }
   if (!anthropicClient) {
     anthropicClient = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   }
@@ -18,6 +21,9 @@ function getAnthropic() {
 }
 
 function getOpenAI() {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OpenAI API key not configured — set OPENAI_API_KEY environment variable');
+  }
   if (!openaiClient) {
     openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   }
@@ -26,12 +32,13 @@ function getOpenAI() {
 
 async function getAISettings() {
   const supabase = getServiceSupabase();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('portal_settings')
     .select('ai_provider, ai_model')
     .limit(1)
-    .single();
+    .maybeSingle();
 
+  if (error) console.error('[LLM] Failed to load AI settings:', error.message);
   const provider = data?.ai_provider || 'anthropic';
   let model = data?.ai_model || 'claude-sonnet-4-20250514';
   if (model === 'claude-haiku-4-20250514') model = 'claude-haiku-4-5-20251001';
@@ -77,11 +84,21 @@ async function getFileContentType(url) {
  */
 async function extractPdfText(url) {
   const safeUrl = validateFileUrl(url);
-  const response = await fetch(safeUrl);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
+  let response;
+  try {
+    response = await fetch(safeUrl, { signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
   if (!response.ok) {
     throw new Error(`Failed to download PDF: ${response.status}`);
   }
   const arrayBuffer = await response.arrayBuffer();
+  if (arrayBuffer.byteLength > 50 * 1024 * 1024) {
+    throw new Error('PDF too large (max 50MB)');
+  }
   const buffer = Buffer.from(arrayBuffer);
   const parser = new PDFParse({ data: new Uint8Array(buffer) });
   const result = await parser.getText();
