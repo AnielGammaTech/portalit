@@ -65,7 +65,6 @@ import { UserPlus, Eye } from 'lucide-react';
 import { isCustomerPortal } from '@/lib/portal-mode';
 
 export default function CustomerDetail() {
-  const navigate = useNavigate();
   const [isSyncing, setIsSyncing] = useState(false);
   const [selectedLicense, setSelectedLicense] = useState(null);
   const [showAddLicense, setShowAddLicense] = useState(false);
