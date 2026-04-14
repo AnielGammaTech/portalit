@@ -568,7 +568,7 @@ export function reconcilePax8Subscriptions(lineItems, pax8Mapping, reviews = [],
  * Summarise a set of reconciliations.
  */
 export function getDiscrepancySummary(reconciliations) {
-  const summary = { total: 0, matched: 0, over: 0, under: 0, noData: 0, noPsa: 0, reviewed: 0, dismissed: 0, forceMatched: 0 };
+  const summary = { total: 0, matched: 0, over: 0, under: 0, noData: 0, noVendor: 0, unmatched: 0, noPsa: 0, reviewed: 0, dismissed: 0, forceMatched: 0 };
 
   for (const r of reconciliations) {
     summary.total++;
@@ -584,6 +584,8 @@ export function getDiscrepancySummary(reconciliations) {
     else if (r.status === 'over') summary.over++;
     else if (r.status === 'no_psa_data') summary.noPsa++;
     else if (r.status === 'under' || r.status === 'missing_from_psa') summary.under++;
+    else if (r.status === 'no_data') summary.noData++;
+    else if (r.status === 'unmatched_line_item' || r.status === 'no_vendor_data') summary.unmatched++;
     else summary.noData++;
 
     if (r.review?.status === 'reviewed') summary.reviewed++;
