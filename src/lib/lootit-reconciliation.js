@@ -360,7 +360,7 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
     difference: 0,
     status: 'unmatched_line_item',
     matchedLineItems: [li],
-    review: null,
+    review: reviewMap[li.id] || null,
     integrationLabel: 'Unmatched Billing Item',
     isUnmatchedLineItem: true,
   }));
