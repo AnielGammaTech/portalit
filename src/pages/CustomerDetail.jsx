@@ -403,19 +403,22 @@ export default function CustomerDetail() {
   };
 
   const handleAddSoftware = async (softwareData) => {
-    setShowAddSoftware(false);
+    try {
+      // Create the software in the Application catalog
+      const newApp = await client.entities.Application.create(softwareData);
+      toast.success('Software added!');
+      setShowAddSoftware(false);
 
-    // Create the software in the Application catalog
-    const newApp = await client.entities.Application.create(softwareData);
-    toast.success('Software added!');
-    
-    // Pre-populate the query cache for instant load
-    queryClient.setQueryData(['application', newApp.id], newApp);
-    queryClient.setQueryData(['related_licenses', softwareData.name, customerId], []);
-    queryClient.setQueryData(['all_license_assignments', softwareData.name, customerId], []);
-    
-    // Navigate to the software detail page
-    window.location.href = createPageUrl(`LicenseDetail?appId=${newApp.id}`);
+      // Pre-populate the query cache for instant load
+      queryClient.setQueryData(['application', newApp.id], newApp);
+      queryClient.setQueryData(['related_licenses', softwareData.name, customerId], []);
+      queryClient.setQueryData(['all_license_assignments', softwareData.name, customerId], []);
+
+      // Navigate to the software detail page
+      window.location.href = createPageUrl(`LicenseDetail?appId=${newApp.id}`);
+    } catch (error) {
+      toast.error(error.message || 'Failed to add software');
+    }
   };
 
   // Group licenses by application name for the new UI

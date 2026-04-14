@@ -55,6 +55,7 @@ export default function Contracts() {
   const expiringCount = contracts.filter(c => {
     const date = c.renewal_date || c.end_date;
     if (!date) return false;
+    if (!date || date.length === 0) return false;
     const days = differenceInDays(parseISO(date), new Date());
     return days >= 0 && days <= 30;
   }).length;

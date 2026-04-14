@@ -272,7 +272,7 @@ export default function LicenseDetail() {
     },
     enabled: !!software?.customer_id && !!software?.application_name,
     staleTime: 0,
-    cacheTime: 0,
+    gcTime: 0,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true
   });
@@ -317,7 +317,7 @@ export default function LicenseDetail() {
     },
     enabled: relatedLicenses.length > 0,
     staleTime: 0,
-    cacheTime: 0
+    gcTime: 0
   });
 
   // Real-time subscription for license assignments AND licenses
@@ -609,29 +609,37 @@ export default function LicenseDetail() {
   };
 
       const handleUpdateAssignment = async (assignmentId, data) => {
-        await client.entities.LicenseAssignment.update(assignmentId, data);
-        queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
-        toast.success('License updated!');
+        try {
+          await client.entities.LicenseAssignment.update(assignmentId, data);
+          queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
+          toast.success('License updated!');
+        } catch (error) {
+          toast.error('Failed to update license assignment');
+        }
       };
 
   const handleModifySeats = async () => {
     const targetLicense = getSelectedManagedLicense();
     if (!targetLicense || seatChange === 0) return;
-    
-    const licenseAssignments = getAssignmentsForLicense(targetLicense.id);
-    const newQuantity = Math.max(licenseAssignments.length, (targetLicense.quantity || 0) + seatChange);
-    const newTotalCost = newQuantity * (targetLicense.cost_per_license || 0);
-    
-    await client.entities.SaaSLicense.update(targetLicense.id, { 
-      quantity: newQuantity,
-      total_cost: newTotalCost
-    });
-    
-    queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
-    setShowModifySeatsModal(false);
-    setSelectedManagedLicenseId(null);
-    setSeatChange(0);
-    toast.success(`Seats updated to ${newQuantity}!`);
+
+    try {
+      const currentAssignments = getAssignmentsForLicense(targetLicense.id);
+      const newQuantity = Math.max(currentAssignments.length, (targetLicense.quantity || 0) + seatChange);
+      const newTotalCost = newQuantity * (targetLicense.cost_per_license || 0);
+
+      await client.entities.SaaSLicense.update(targetLicense.id, {
+        quantity: newQuantity,
+        total_cost: newTotalCost
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
+      setShowModifySeatsModal(false);
+      setSelectedManagedLicenseId(null);
+      setSeatChange(0);
+      toast.success(`Seats updated to ${newQuantity}!`);
+    } catch (error) {
+      toast.error('Failed to modify seats');
+    }
   };
 
   // Check if any license is from JumpCloud or Spanning for sync options
@@ -1595,8 +1603,8 @@ export default function LicenseDetail() {
           </DialogHeader>
           {(() => {
             const targetLicense = getSelectedManagedLicense();
-            const licenseAssignments = targetLicense ? getAssignmentsForLicense(targetLicense.id) : [];
-            const assignedCount = licenseAssignments.length;
+            const currentAssignments = targetLicense ? getAssignmentsForLicense(targetLicense.id) : [];
+            const assignedCount = currentAssignments.length;
             
             return (
               <div className="space-y-4 py-4">
@@ -1681,9 +1689,9 @@ export default function LicenseDetail() {
                 const targetLicense = getSelectedManagedLicense();
                 if (!targetLicense) return;
                 
-                const licenseAssignments = getAssignmentsForLicense(targetLicense.id);
-                if (modifyFormData.quantity < licenseAssignments.length) {
-                  toast.error(`Cannot set seats below assigned count (${licenseAssignments.length})`);
+                const currentAssignments = getAssignmentsForLicense(targetLicense.id);
+                if (modifyFormData.quantity < currentAssignments.length) {
+                  toast.error(`Cannot set seats below assigned count (${currentAssignments.length})`);
                   return;
                 }
                 

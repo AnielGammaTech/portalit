@@ -703,7 +703,7 @@ function CustomerDashboard({ customer }) {
     .map(c => ({
       ...c,
       renewalDate: c.renewal_date || c.end_date,
-      daysUntil: differenceInDays(parseISO(c.renewal_date || c.end_date), new Date())
+      daysUntil: (c.renewal_date || c.end_date) ? differenceInDays(parseISO(c.renewal_date || c.end_date), new Date()) : -1
     }))
     .filter(c => c.daysUntil >= 0 && c.daysUntil <= 90)
     .sort((a, b) => a.daysUntil - b.daysUntil);

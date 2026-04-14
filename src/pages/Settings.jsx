@@ -39,7 +39,6 @@ export default function Settings() {
           window.location.href = createPageUrl('CustomerSettings');
         }
       } catch (error) {
-        console.error('Settings: failed to load user', error);
         setIsLoading(false);
       }
     };

@@ -670,7 +670,7 @@ export default function Adminland() {
         const currentUser = await client.auth.me();
         setUser(currentUser);
         if (currentUser?.role !== 'admin') window.location.href = createPageUrl('Dashboard');
-      } catch (error) { console.error('Failed to load user'); }
+      } catch (error) { /* auth redirect handled by layout */ }
     };
     loadUser();
   }, []);
