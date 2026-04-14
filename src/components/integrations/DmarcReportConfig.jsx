@@ -53,9 +53,6 @@ function buildUnifiedRows(flatDomains, mappings) {
 
 export default function DmarcReportConfig() {
   const [testing, setTesting] = useState(false);
-  // configStatus is now derived from data, not manual state
-  const [loadingAccounts, setLoadingAccounts] = useState(false);
-  const [accounts, setAccounts] = useState([]);
   const [syncing, setSyncing] = useState(false);
   const [automapping, setAutomapping] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -73,6 +70,17 @@ export default function DmarcReportConfig() {
     queryKey: ['dmarc_report_mappings'],
     queryFn: () => client.entities.DmarcReportMapping.list(),
     staleTime: 1000 * 60 * 5,
+  });
+
+  // Accounts cached in React Query so they persist across navigation
+  const { data: accounts = [], isLoading: loadingAccounts, refetch: refetchAccounts } = useQuery({
+    queryKey: ['dmarc_accounts'],
+    queryFn: async () => {
+      const res = await client.functions.invoke('syncDmarcReport', { action: 'list_accounts' });
+      return res.success ? (res.accounts || []) : [];
+    },
+    staleTime: 1000 * 60 * 30, // cache 30 min
+    retry: false,
   });
 
   // -- Derived data --------------------------------------------------------
@@ -132,21 +140,14 @@ export default function DmarcReportConfig() {
   }, []);
 
   const loadAccounts = useCallback(async () => {
-    setLoadingAccounts(true);
     try {
-      const res = await client.functions.invoke('syncDmarcReport', { action: 'list_accounts' });
-      if (res.success) {
-        setAccounts(res.accounts || []);
-        setCurrentPage(1);
-                const total = (res.accounts || []).reduce((s, a) => s + (a.domainCount || 0), 0);
-        toast.success(`Loaded ${res.accounts?.length || 0} accounts with ${total} domains`);
-      } else {
-        toast.error(res.error || 'Failed to load accounts');
-      }
+      await refetchAccounts();
+      setCurrentPage(1);
+      toast.success('Accounts refreshed');
     } catch (error) {
       toast.error(error.message || 'Failed to load accounts');
-    } finally { setLoadingAccounts(false); }
-  }, []);
+    }
+  }, [refetchAccounts]);
 
   const applyMapping = useCallback(async (row, customer) => {
     if (!customer) return;
@@ -247,7 +248,19 @@ export default function DmarcReportConfig() {
         onPageReset={() => setCurrentPage(1)} searchPlaceholder="Search domains or customers..."
       />
 
-      {!hasData ? (
+      {(loadingMappings || loadingAccounts) ? (
+        <div className="border border-slate-200 rounded-lg overflow-hidden">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 px-4 py-3 border-b border-slate-100 animate-pulse">
+              <div className="w-2 h-2 rounded-full bg-slate-200" />
+              <div className="h-4 bg-slate-200 rounded w-1/3" />
+              <div className="h-4 bg-slate-200 rounded w-12" />
+              <div className="h-4 bg-slate-200 rounded w-1/4" />
+              <div className="h-4 bg-slate-200 rounded w-16" />
+            </div>
+          ))}
+        </div>
+      ) : !hasData ? (
         <div className="text-center py-10 text-sm text-slate-500 border border-slate-200 rounded-lg">
           No accounts loaded. Click <strong>Refresh</strong> to pull DMARC Report accounts or <strong>Test</strong> to verify the connection.
         </div>
