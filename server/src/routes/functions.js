@@ -38,6 +38,7 @@ import { syncInky } from '../functions/syncInky.js';
 import { lootitLink } from '../functions/lootitLink.js';
 import scanBillingAnomalies from '../functions/scanBillingAnomalies.js';
 import { verifyReconciliation } from '../functions/verifyReconciliation.js';
+import { expireReconciliationReviews } from '../functions/expireReconciliationReviews.js';
 import { getServiceSupabase } from '../lib/supabase.js';
 
 async function securityAudit() {
@@ -114,6 +115,7 @@ const functionMap = {
   lootitLink,
   scanBillingAnomalies,
   verifyReconciliation,
+  expireReconciliationReviews,
   securityAudit,
 };
 
