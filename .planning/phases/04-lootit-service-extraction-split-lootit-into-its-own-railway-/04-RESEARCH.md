@@ -895,35 +895,41 @@ Every plan that touches `auth-storage.js` or `api/client.js` MUST include a code
 
 **Planner action on assumptions:** A2, A3, A8 should be resolved by reading specific files / asking the user before Wave 1 of the plan. A5 should be surfaced to the user explicitly as a Discuss item before phase 6.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **What is the actual Railway build pattern for the existing `frontend` service?**
    - What we know: Repo has a root `Caddyfile` but no root `Dockerfile` [VERIFIED].
    - What's unclear: Whether Railway uses nixpacks auto-detection, or if there's a service-level Dockerfile path set in the dashboard.
    - Recommendation: **Planner asks user to confirm via Railway dashboard OR just creates a Dockerfile in `apps/lootit/` — the Dockerfile path is defensively explicit regardless of what portalit does.**
+   - **RESOLVED:** Don't care — `apps/lootit/` ships its own explicit Dockerfile (per plan 04-01 Task 2) so it doesn't matter what the existing `frontend` service uses. The new service is self-contained.
 
 2. **Does `RuleEditorDialog.jsx` use `@/components/ui/dialog`?**
    - What we know: It's named `*Dialog.jsx` so it almost certainly does. Not directly imported by `LootITCustomerDetail.jsx` but likely referenced somewhere else in lootit/.
    - What's unclear: Exact shadcn surface it touches.
    - Recommendation: **Planner opens the file during planning and updates the UI copy list.** A grep for `@/components/ui/` across ALL of `src/components/lootit/*` + `src/lib/lootit-reconciliation.js` + the 5 copied hooks should be the definitive list.
+   - **RESOLVED:** Resolved by execution strategy in plan 04-03 Task 1 — the executor runs `grep -rh "@/components/ui/" src/components/lootit/ | sort -u` BEFORE starting the copy, produces the real surface list, then copies every file that appears. The initial conservative list in CONTEXT.md D-07 is a starting point; the grep is authoritative.
 
 3. **Is `zod` transitively required?**
    - What we know: Portalit has it in package.json; nothing in the grepped lootit code imports it directly.
    - What's unclear: Whether a copied shadcn primitive (e.g., if they add `form.jsx`) pulls it in.
    - Recommendation: Start without zod. Add if `npm run build` fails.
+   - **RESOLVED:** Grep `src/components/lootit/ src/hooks/useReconciliation*.js src/lib/lootit-reconciliation.js` for `from 'zod'` during the audit in 04-03 Task 1. Include or exclude from apps/lootit/package.json based on the result. Default: EXCLUDE unless grep proves otherwise.
 
 4. **Is the "Back to PortalIT" link a hard link or a SPA-to-SPA navigation?**
    - Locked: D-14 says "link pointing to `VITE_PORTALIT_URL`". This is a cross-origin hard nav. `<a href={VITE_PORTALIT_URL}>` is correct.
+   - **RESOLVED:** (see CONTEXT.md D-14)
 
 5. **Does the `customer-portal` service also need the cookie adapter?**
    - What we know: Per CONTEXT, the three frontends share the Supabase project.
    - What's unclear: Whether `customer.portalit.gtools.io` should also get the backcompat adapter so it participates in the SSO.
    - Recommendation: **Not in phase 4.** Phase 4 only touches `lootit-frontend`. Phase 5 touches portalit `frontend`. Whether `customer-portal` gets the same treatment is a **deferred decision** — flag for user to confirm the scope intentionally excludes it.
+   - **RESOLVED:** NO — out of scope for phase 4. The `customer-portal` service runs the same portalit repo with `VITE_PORTAL_MODE=customer`, so when plan 04-04 modifies portalit's src/api/client.js, the customer-portal service picks it up automatically at its next rebuild. No extra plan needed.
 
 6. **What is Supabase's refresh token default lifetime for this project?**
    - What we know: Default is "one week" on Supabase free tier, configurable up to longer on paid.
    - What's unclear: Specific setting on `rgsvvywlnnkckvockdoj.supabase.co`.
    - Recommendation: Set `MAX_AGE_SECONDS = 60 days` in the adapter (matches Supabase's default refresh rotation horizon without being over-permissive). Cookie will be rewritten on every successful refresh anyway.
+   - **RESOLVED:** Use `Max-Age=5184000` (60 days), which exceeds the default Supabase refresh token lifetime of 30 days. If the refresh token expires before the cookie, Supabase's built-in refresh flow handles it — the cookie just holds a stale token briefly, which is harmless. Lock this value in plan 04-02 Task 1's adapter code.
 
 ## Sources
 
