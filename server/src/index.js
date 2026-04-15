@@ -35,6 +35,35 @@ for (const key of OPTIONAL_ENV) {
 
 const app = express();
 
+// ── Public file proxy — mounted BEFORE helmet/CORS so <img> tags work cross-origin ──
+import { getServiceSupabase } from './lib/supabase.js';
+app.get('/api/upload/file/:fileName', async (req, res) => {
+  try {
+    const { fileName } = req.params;
+    if (!fileName) return res.status(400).json({ error: 'File name required' });
+    const safeFile = fileName.replace(/[\/\\]/g, '').replace(/\.\./g, '').slice(0, 300);
+    if (!safeFile) return res.status(400).json({ error: 'Invalid file name' });
+
+    const supabase = getServiceSupabase();
+    const { data, error } = await supabase.storage.from('uploads').download(safeFile);
+    if (error || !data) return res.status(404).json({ error: 'File not found' });
+
+    const ext = safeFile.split('.').pop().toLowerCase();
+    const mimeTypes = {
+      jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+      webp: 'image/webp', ico: 'image/x-icon', svg: 'image/svg+xml',
+      gif: 'image/gif', pdf: 'application/pdf',
+    };
+    res.set('Content-Type', mimeTypes[ext] || 'application/octet-stream');
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.set('Access-Control-Allow-Origin', '*');
+    res.send(Buffer.from(await data.arrayBuffer()));
+  } catch (_err) {
+    res.status(500).json({ error: 'Failed to load file' });
+  }
+});
+
 // Security headers
 app.use(helmet({
   contentSecurityPolicy: false, // CSP managed by frontend
