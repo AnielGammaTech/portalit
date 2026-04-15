@@ -21,7 +21,7 @@ export default function M365Tab({ customerId, queryClient }) {
   });
   const pax8Mapping = pax8Mappings[0] || null;
 
-  const { data: cippMappings = [] } = useQuery({
+  const { data: cippMappings = [], isLoading: loadingCIPP } = useQuery({
     queryKey: ['cipp-mapping', customerId],
     queryFn: () => client.entities.CIPPMapping.filter({ customer_id: customerId }),
     enabled: !!customerId,
@@ -61,7 +61,11 @@ export default function M365Tab({ customerId, queryClient }) {
 
       {/* Microsoft / CIPP sub-tab */}
       {activeSubTab === 'microsoft' && (
-        hasCIPP ? (
+        loadingCIPP ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="w-6 h-6 border-2 border-slate-200 border-t-slate-600 rounded-full animate-spin" />
+          </div>
+        ) : hasCIPP ? (
           <CIPPMicrosoftTab customerId={customerId} />
         ) : (
           <div className="text-center py-16">
