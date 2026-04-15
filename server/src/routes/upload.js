@@ -66,7 +66,9 @@ router.post('/', uploadRateLimit, requireAuth, upload.single('file'), async (req
     }
 
     // Return a proxied URL that works regardless of bucket privacy
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    // Use x-forwarded-proto to get the real protocol behind Railway's TLS-terminating LB
+    const proto = req.get('x-forwarded-proto') || req.protocol;
+    const baseUrl = `${proto}://${req.get('host')}`;
     const fileUrl = `${baseUrl}/api/upload/file/${encodeURIComponent(fileName)}`;
 
     res.json({ file_url: fileUrl });
