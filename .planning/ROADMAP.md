@@ -85,8 +85,8 @@ Plans:
 **Plans**: 7 plans
 
 Plans:
-- [ ] 04-01-PLAN.md -- Scaffold apps/lootit/ Vite app shell (configs, Dockerfile, Caddyfile, placeholder App)
-- [ ] 04-02-PLAN.md -- Write cookie+localStorage auth storage adapter with chunking and localhost fallback
+- [x] 04-01-PLAN.md -- Scaffold apps/lootit/ Vite app shell (configs, Dockerfile, Caddyfile, placeholder App)
+- [x] 04-02-PLAN.md -- Write cookie+localStorage auth storage adapter with chunking and localhost fallback
 - [ ] 04-03-PLAN.md -- Copy LootIT source (lib/hooks/ui/components) into apps/lootit and wire cookie adapter into api/client.js
 - [ ] 04-04-PLAN.md -- Duplicate auth-storage adapter into portalit src/lib/ and wire createClient (backwards-compat) — includes STRIDE threat model
 - [ ] 04-05-PLAN.md -- Create lootit-frontend Railway service, deploy to temporary Railway URL, update backend CORS_ORIGIN
