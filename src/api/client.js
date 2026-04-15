@@ -569,16 +569,15 @@ const cronJobs = {
 // so files work regardless of bucket privacy settings.
 export function resolveFileUrl(url) {
   if (!url) return url;
-  // Extract filename from any backend proxy URL and rebuild with current apiBaseUrl
-  // Handles http:// URLs stored when Railway's LB terminates TLS
-  const proxyMatch = url.match(/\/api\/upload\/file\/(.+)$/);
-  if (proxyMatch) {
-    return `${apiBaseUrl}/api/upload/file/${proxyMatch[1]}`;
+  // Force http:// to https:// for Railway backend URLs
+  if (url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
   }
   // Old format: https://[ref].supabase.co/storage/v1/object/public/uploads/[filename]
   const storageMatch = url.match(/\/storage\/v1\/object\/public\/uploads\/(.+)$/);
   if (storageMatch) {
-    return `${apiBaseUrl}/api/upload/file/${encodeURIComponent(storageMatch[1])}`;
+    const base = apiBaseUrl || `https://backend-production-58b4.up.railway.app`;
+    return `${base}/api/upload/file/${encodeURIComponent(storageMatch[1])}`;
   }
   return url;
 }
