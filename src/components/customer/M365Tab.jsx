@@ -14,7 +14,7 @@ const M365_SUB_TABS = [
 export default function M365Tab({ customerId, queryClient }) {
   const [activeSubTab, setActiveSubTab] = useState('microsoft');
 
-  const { data: pax8Mappings = [] } = useQuery({
+  const { data: pax8Mappings = [], isLoading: loadingPax8 } = useQuery({
     queryKey: ['pax8-mapping', customerId],
     queryFn: () => client.entities.Pax8Mapping.filter({ customer_id: customerId }),
     enabled: !!customerId,
@@ -82,7 +82,11 @@ export default function M365Tab({ customerId, queryClient }) {
 
       {/* Pax8 sub-tab */}
       {activeSubTab === 'pax8' && (
-        hasPax8 ? (
+        loadingPax8 ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="w-6 h-6 border-2 border-slate-200 border-t-slate-600 rounded-full animate-spin" />
+          </div>
+        ) : hasPax8 ? (
           <Pax8Tab customerId={customerId} pax8Mapping={pax8Mapping} queryClient={queryClient} />
         ) : (
           <div className="text-center py-16">
