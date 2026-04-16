@@ -27,9 +27,13 @@ export default function Layout({ children }) {
     <div className="flex flex-col h-screen bg-pink-50/50">
       <header className="shrink-0" style={{ backgroundColor: '#2E0820' }}>
         <div className="flex items-center h-14 px-6">
-          <div className="flex items-center gap-2 shrink-0 w-48">
-            <span className="text-pink-400 font-bold text-lg tracking-tight" style={{ textShadow: '0 0 12px rgba(236,72,153,0.4)' }}>
-              LootIT
+          <div className="flex items-center gap-2.5 shrink-0 w-48">
+            <div className="w-7 h-7 rounded-md flex items-center justify-center relative" style={{ background: 'linear-gradient(135deg, #2E0820, #4A1035)' }}>
+              <span className="text-white font-extrabold text-sm leading-none">L</span>
+              <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-pink-400" />
+            </div>
+            <span className="font-bold text-lg tracking-tight">
+              <span className="text-pink-400" style={{ textShadow: '0 0 12px rgba(236,72,153,0.4)' }}>Loot</span><span className="text-white">IT</span>
             </span>
           </div>
 
