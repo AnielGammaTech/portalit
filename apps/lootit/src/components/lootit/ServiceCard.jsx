@@ -125,9 +125,9 @@ function QtyBlock({ psaQty, vendorQty, cardState, styles }) {
 
   return (
     <div className="flex items-center justify-center gap-1.5 flex-1">
-      <div className="text-center">
+      <div className="text-center w-16">
         <div
-          className="text-[28px] font-bold leading-none tabular-nums"
+          className="text-[28px] font-bold leading-none tabular-nums h-[32px] flex items-end justify-center"
           style={{ color: styles.psaNum }}
         >
           {psaQty !== null ? psaQty : '\u2014'}
@@ -144,12 +144,9 @@ function QtyBlock({ psaQty, vendorQty, cardState, styles }) {
         {separator}
       </span>
 
-      <div className="text-center">
+      <div className="text-center w-16">
         <div
-          className={cn(
-            'font-bold leading-none tabular-nums',
-            isNoVendor ? 'text-[20px]' : 'text-[28px]'
-          )}
+          className="text-[28px] font-bold leading-none tabular-nums h-[32px] flex items-end justify-center"
           style={{ color: styles.vendorNum }}
         >
           {isNoVendor ? '\u2014' : (vendorQty !== null ? vendorQty : '\u2014')}
@@ -169,7 +166,7 @@ function QtyBlock({ psaQty, vendorQty, cardState, styles }) {
    Bottom action zone
    ───────────────────────────────────────────── */
 
-function CardActionZone({ cardState, ruleId, ruleLabel, onForceMatch, onReset, onMapLineItem, isSaving }) {
+function CardActionZone({ cardState, ruleId, ruleLabel, onForceMatch, onReset, onMapLineItem, overrideCount, isSaving }) {
   const btnBase = 'block w-full py-[7px] rounded-lg text-[12px] font-semibold text-center transition-all';
 
   switch (cardState) {
@@ -184,21 +181,30 @@ function CardActionZone({ cardState, ruleId, ruleLabel, onForceMatch, onReset, o
               className="inline-block w-[5px] h-[5px] rounded-full"
               style={{ background: '#22C55E' }}
             />
-            Matched
+            Auto-Matched
           </div>
         </div>
       );
 
     case 'force_matched':
       return (
-        <div className="px-2 pb-[10px]">
+        <div className="px-2 pb-[10px] space-y-1">
           <div
             className={cn(btnBase, 'cursor-default flex items-center justify-center gap-1.5')}
             style={{ background: '#DBEAFE', color: '#1E40AF' }}
           >
             <Check className="w-3 h-3" strokeWidth={2.5} />
-            Approved
+            {overrideCount > 0 ? `Mapped to ${overrideCount} item${overrideCount > 1 ? 's' : ''}` : 'Approved'}
           </div>
+          {overrideCount > 0 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onMapLineItem?.(ruleId, ruleLabel); }}
+              disabled={isSaving}
+              className="text-center text-[10px] text-blue-400 cursor-pointer hover:text-blue-600 transition-colors w-full"
+            >
+              Edit mapping
+            </button>
+          )}
         </div>
       );
 
@@ -370,6 +376,7 @@ export default function ServiceCard({
           onForceMatch={handleForceMatchAction}
           onReset={onReset}
           onMapLineItem={onMapLineItem}
+          overrideCount={overrideCount || 0}
           isSaving={isSaving}
         />
       </div>

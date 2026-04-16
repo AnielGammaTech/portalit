@@ -365,13 +365,16 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
       const multiMapping = multiMappingMap[ov.rule_id];
       const vendorKey = ov.pax8_product_name || null;
       const vendorMapping = vendorKey ? mappings[vendorKey] : null;
+      const isApprovedAsIs = vendorKey === 'approved_as_is';
       let vendorQty = null;
-      if (multiMapping) {
+      if (isApprovedAsIs) {
+        vendorQty = psaQty;
+      } else if (multiMapping) {
         vendorQty = multiMapping.totalQty;
       } else if (vendorKey && vendorMapping) {
         vendorQty = extractVendorCount(vendorKey, vendorMapping.cached_data);
       }
-      if (vendorQty === null && vendorKey) {
+      if (vendorQty === null && vendorKey && !isApprovedAsIs) {
         for (const [mk, mv] of Object.entries(mappings)) {
           if (mk === vendorKey || mk.startsWith(vendorKey)) {
             const q = extractVendorCount(mk, mv.cached_data);
@@ -389,12 +392,13 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
         else status = 'under';
       }
       const review = reviewMap[ov.rule_id] || reviewMap[liId] || null;
-      const vendorLabel = vendorKey ? (INTEGRATION_LABELS[vendorKey] || vendorKey) : null;
+      const approvalNote = isApprovedAsIs && ov.group_id ? ov.group_id.replace('approved:', '') : null;
+      const vendorLabel = vendorKey && !isApprovedAsIs ? (INTEGRATION_LABELS[vendorKey] || vendorKey) : null;
       overridedUnmatchedResults.push({
         rule: {
           id: ov.rule_id,
           label: (li.description || 'Unknown').replace(/\s*\$recurringbillingdate\s*/gi, '').trim() || li.description,
-          integration_key: vendorKey || 'manually_mapped',
+          integration_key: isApprovedAsIs ? 'approved_as_is' : (vendorKey || 'manually_mapped'),
           is_active: true,
         },
         psaQty,
@@ -402,8 +406,8 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
         difference,
         status,
         matchedLineItems: [li],
-        review,
-        integrationLabel: multiMapping ? `Mapped to ${multiMapping.items.length} vendor item(s)` : (vendorLabel ? `Mapped → ${vendorLabel}` : 'Manually Mapped'),
+        review: isApprovedAsIs ? { status: 'force_matched', notes: approvalNote } : review,
+        integrationLabel: isApprovedAsIs ? 'Approved as-is' : multiMapping ? `Mapped to ${multiMapping.items.length} vendor item(s)` : (vendorLabel ? `Mapped → ${vendorLabel}` : 'Manually Mapped'),
         isUnmatchedLineItem: false,
       });
     }
