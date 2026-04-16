@@ -1,8 +1,29 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { formatLineItemDescription } from '@/lib/utils';
-import { Search, Square, CheckSquare, X } from 'lucide-react';
+import { Search, Square, CheckSquare, ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { INTEGRATION_LABELS } from '@/lib/lootit-reconciliation';
+
+/**
+ * Map an integration key to its top-level vendor group name.
+ */
+function getVendorName(integrationKey) {
+  if (integrationKey.startsWith('datto')) return 'Datto';
+  if (integrationKey.startsWith('spanning')) return 'Spanning';
+  if (integrationKey.startsWith('cove')) return 'Cove';
+  if (integrationKey.startsWith('rocketcyber') || integrationKey.startsWith('rocket_cyber')) return 'RocketCyber';
+  if (integrationKey.startsWith('jumpcloud')) return 'JumpCloud';
+  if (integrationKey.startsWith('unifi')) return 'UniFi';
+  if (integrationKey.startsWith('saas_alerts')) return 'SaaS Alerts';
+  if (integrationKey.startsWith('darkweb')) return 'Dark Web ID';
+  if (integrationKey.startsWith('bullphish')) return 'BullPhish ID';
+  if (integrationKey.startsWith('threecx')) return '3CX';
+  if (integrationKey.startsWith('inky')) return 'Inky';
+  if (integrationKey.startsWith('pax8')) return 'Pax8';
+  // Fallback: capitalize first word
+  const first = integrationKey.split('_')[0];
+  return first.charAt(0).toUpperCase() + first.slice(1);
+}
 
 /**
  * Extract displayable items from a vendor mapping's cached_data.
@@ -120,6 +141,7 @@ function extractVendorItems(integrationKey, mapping) {
         unit_price: 0,
         total: 0,
         _meta: `${raw[k]} total`,
+        _isSummary: true,
       }];
     }
   }
@@ -128,34 +150,49 @@ function extractVendorItems(integrationKey, mapping) {
 }
 
 /**
- * Build dynamic tabs from available data sources.
+ * Build dynamic tabs grouped by vendor name.
+ * Instead of one tab per integration key, groups related integrations
+ * (e.g. datto_rmm, datto_rmm_workstations, datto_edr) under a single "Datto" tab.
  */
 function buildTabs(lineItems, pax8Products, devices, vendorMappings) {
   const tabs = [];
 
   if ((lineItems || []).length > 0) {
-    tabs.push({ key: 'psa', label: 'HaloPSA Billing' });
+    tabs.push({ key: 'psa', label: 'HaloPSA' });
   }
 
   if ((pax8Products || []).length > 0) {
-    tabs.push({ key: 'pax8', label: 'Pax8 Subscriptions' });
+    tabs.push({ key: 'pax8', label: 'Pax8' });
+  }
+
+  // Group vendor integration keys by vendor name
+  const vendorGroups = new Map(); // vendorName -> [integrationKey, ...]
+  if (vendorMappings) {
+    for (const [key, mapping] of Object.entries(vendorMappings)) {
+      if (key === 'pax8') continue; // already handled above
+      const items = extractVendorItems(key, mapping);
+      if (items.length > 0) {
+        const vendorName = getVendorName(key);
+        const existing = vendorGroups.get(vendorName) || [];
+        vendorGroups.set(vendorName, [...existing, key]);
+      }
+    }
+  }
+
+  // Add one tab per vendor group
+  for (const [vendorName, keys] of vendorGroups) {
+    tabs.push({
+      key: `vendor:${vendorName}`,
+      label: vendorName,
+      _integrationKeys: keys,
+    });
   }
 
   if ((devices || []).length > 0) {
-    tabs.push({ key: 'devices', label: 'Devices' });
-  }
-
-  // Add a tab per vendor integration that has data (skip pax8 -- handled above)
-  if (vendorMappings) {
-    for (const [key, mapping] of Object.entries(vendorMappings)) {
-      if (key === 'pax8') continue;
-      const items = extractVendorItems(key, mapping);
-      if (items.length > 0) {
-        tabs.push({
-          key: `vendor:${key}`,
-          label: INTEGRATION_LABELS[key] || key,
-        });
-      }
+    // Only add Devices tab if devices aren't already covered by vendor tabs
+    const hasDeviceVendor = vendorGroups.has('Datto') || vendorGroups.has('UniFi') || vendorGroups.has('Cove');
+    if (!hasDeviceVendor) {
+      tabs.push({ key: 'devices', label: 'Devices' });
     }
   }
 
@@ -170,8 +207,7 @@ function sourceTabLabel(source) {
   if (source === 'pax8') return 'Pax8';
   if (source === 'devices') return 'Devices';
   if (source.startsWith('vendor:')) {
-    const key = source.replace('vendor:', '');
-    return INTEGRATION_LABELS[key] || key;
+    return source.replace('vendor:', '');
   }
   return source;
 }
@@ -181,11 +217,25 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
   const [source, setSource] = useState('psa');
   // Map of id -> { id, description, quantity, source_tab }
   const [selected, setSelected] = useState(new Map());
+  // Track which integration sub-sections are expanded within a vendor tab
+  const [expandedSections, setExpandedSections] = useState(new Set());
 
   const visibleTabs = useMemo(
     () => buildTabs(lineItems, pax8Products, devices, vendorMappings),
     [lineItems, pax8Products, devices, vendorMappings],
   );
+
+  const toggleSection = useCallback((sectionKey) => {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(sectionKey)) {
+        next.delete(sectionKey);
+      } else {
+        next.add(sectionKey);
+      }
+      return next;
+    });
+  }, []);
 
   const currentItems = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -202,6 +252,7 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
         quantity: p.quantity || 0,
         unit_price: p.price || 0,
         total: (p.quantity || 0) * (p.price || 0),
+        _isSummary: true,
       }));
       return q ? items.filter(i => i.description.toLowerCase().includes(q)) : items;
     }
@@ -218,17 +269,27 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
       return q ? items.filter(i => i.description.toLowerCase().includes(q)) : items;
     }
 
-    // Dynamic vendor tabs: "vendor:<integration_key>"
+    // Vendor group tabs: "vendor:<VendorName>" — combine all integration keys for this vendor
     if (source.startsWith('vendor:')) {
-      const integrationKey = source.replace('vendor:', '');
-      const mapping = vendorMappings[integrationKey];
-      if (!mapping) return [];
-      const items = extractVendorItems(integrationKey, mapping);
-      return q ? items.filter(i => (i.description || '').toLowerCase().includes(q) || (i._meta || '').toLowerCase().includes(q)) : items;
+      const activeTab = visibleTabs.find(t => t.key === source);
+      const integrationKeys = activeTab?._integrationKeys || [];
+
+      // Combine items from all integration keys in this vendor group
+      const allItems = [];
+      for (const key of integrationKeys) {
+        const mapping = vendorMappings[key];
+        if (!mapping) continue;
+        const items = extractVendorItems(key, mapping);
+        allItems.push(...items);
+      }
+
+      return q
+        ? allItems.filter(i => (i.description || '').toLowerCase().includes(q) || (i._meta || '').toLowerCase().includes(q))
+        : allItems;
     }
 
     return [];
-  }, [lineItems, pax8Products, devices, vendorMappings, search, source]);
+  }, [lineItems, pax8Products, devices, vendorMappings, search, source, visibleTabs]);
 
   const toggleItem = useCallback((item) => {
     setSelected((prev) => {
@@ -341,52 +402,82 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
           ) : (
             currentItems.map((li) => {
               const isChecked = selected.has(li.id);
-              return (
-                <button
-                  key={li.id}
-                  onClick={() => toggleItem(li)}
-                  className={cn(
-                    "w-full text-left px-6 py-3 border-b transition-colors cursor-pointer flex items-start gap-3",
-                    isChecked
-                      ? "bg-pink-50 border-pink-100"
-                      : li._isSummary
-                        ? "bg-pink-50/50 hover:bg-pink-50 border-pink-100"
-                        : "hover:bg-slate-50 border-slate-50"
-                  )}
-                >
-                  {/* Checkbox */}
-                  <div className="pt-0.5 shrink-0">
-                    {isChecked ? (
-                      <CheckSquare className="w-4 h-4 text-pink-500" />
-                    ) : (
-                      <Square className="w-4 h-4 text-slate-300" />
-                    )}
-                  </div>
+              const isDetailRow = !li._isSummary && source.startsWith('vendor:');
+              // Extract integration key prefix: "datto_rmm:total" -> "datto_rmm", "datto_rmm:device123" -> "datto_rmm"
+              const colonIdx = li.id.indexOf(':');
+              const sectionKey = colonIdx > 0 ? li.id.substring(0, colonIdx) : li.id;
+              const isSectionExpanded = expandedSections.has(sectionKey);
 
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className={cn(
-                        "text-sm truncate",
-                        li._isSummary ? "font-bold text-pink-700" : "font-medium text-slate-700"
-                      )}>
-                        {li._isSummary ? `${li.description} (Total)` : source === 'psa' ? formatLineItemDescription(li.description) : li.description}
-                      </p>
-                      {li._isSummary && (
-                        <span className="text-sm font-bold text-pink-600 tabular-nums shrink-0 ml-3">
-                          Qty: {li.quantity}
-                        </span>
+              // In vendor tabs, hide detail rows unless their section is expanded
+              if (isDetailRow && !isSectionExpanded) return null;
+
+              return (
+                <div key={li.id}>
+                  <button
+                    onClick={() => toggleItem(li)}
+                    className={cn(
+                      "w-full text-left px-6 border-b transition-colors cursor-pointer flex items-start gap-3",
+                      li._isSummary ? "py-3.5" : "py-2.5",
+                      isChecked
+                        ? "bg-pink-50 border-pink-100"
+                        : li._isSummary
+                          ? "bg-slate-50 hover:bg-pink-50/60 border-slate-100"
+                          : "hover:bg-slate-50 border-slate-50",
+                      isDetailRow && "pl-12"
+                    )}
+                  >
+                    {/* Checkbox */}
+                    <div className="pt-0.5 shrink-0">
+                      {isChecked ? (
+                        <CheckSquare className="w-4 h-4 text-pink-500" />
+                      ) : (
+                        <Square className="w-4 h-4 text-slate-300" />
                       )}
                     </div>
-                    <div className="flex gap-4 mt-0.5 text-xs text-slate-400">
-                      {!li._isSummary && <span>Qty: {li.quantity}</span>}
-                      {li._isSummary && <span className="text-pink-400">{li._meta}</span>}
-                      {!li._isSummary && li.unit_price > 0 && <span>Price: ${parseFloat(li.unit_price).toFixed(2)}</span>}
-                      {!li._isSummary && li.total > 0 && <span>Total: ${parseFloat(li.total).toFixed(2)}</span>}
-                      {!li._isSummary && li._meta && <span className="text-slate-300">{li._meta}</span>}
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <p className={cn(
+                          "text-sm truncate",
+                          li._isSummary ? "font-bold text-slate-800" : "font-medium text-slate-600"
+                        )}>
+                          {li._isSummary ? li.description : source === 'psa' ? formatLineItemDescription(li.description) : li.description}
+                        </p>
+                        <span className={cn(
+                          "text-sm tabular-nums shrink-0 ml-3",
+                          li._isSummary ? "font-bold text-pink-600" : "font-medium text-slate-500"
+                        )}>
+                          Qty: {li.quantity}
+                        </span>
+                      </div>
+                      {!li._isSummary && (
+                        <div className="flex gap-4 mt-0.5 text-xs text-slate-400">
+                          {li.unit_price > 0 && <span>Price: ${parseFloat(li.unit_price).toFixed(2)}</span>}
+                          {li.total > 0 && <span>Total: ${parseFloat(li.total).toFixed(2)}</span>}
+                          {li._meta && <span className="text-slate-300">{li._meta}</span>}
+                        </div>
+                      )}
+                      {li._isSummary && li._meta && (
+                        <p className="text-[11px] text-slate-400 mt-0.5">{li._meta}</p>
+                      )}
                     </div>
-                  </div>
-                </button>
+                  </button>
+
+                  {/* Expand/collapse toggle for summary rows in vendor tabs */}
+                  {li._isSummary && source.startsWith('vendor:') && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); toggleSection(sectionKey); }}
+                      className="w-full px-6 py-1 text-[10px] font-medium text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-1 border-b border-slate-50"
+                    >
+                      {expandedSections.has(sectionKey) ? (
+                        <><ChevronDown className="w-3 h-3" /> Hide individual items</>
+                      ) : (
+                        <><ChevronRight className="w-3 h-3" /> Show individual items</>
+                      )}
+                    </button>
+                  )}
+                </div>
               );
             })
           )}
