@@ -85,6 +85,25 @@ function parseUsersResponse(usersResponse) {
   return users;
 }
 
+const PAGE_SIZE = 1000;
+const MAX_PAGES = 20;
+
+async function fetchAllUsers(tenantId) {
+  let allUsers = [];
+  let page = 1;
+  while (true) {
+    const resp = await unitrendsApiCall(
+      `/v2/spanning/domains/${tenantId}/users?page_size=${PAGE_SIZE}&page=${page}`
+    );
+    const users = parseUsersResponse(resp);
+    allUsers = allUsers.concat(users);
+    if (users.length < PAGE_SIZE) break;
+    page++;
+    if (page > MAX_PAGES) break;
+  }
+  return allUsers;
+}
+
 function formatUser(u) {
   const storageInfo = u.storageInformation || {};
   const mailBytes = storageInfo.protectedMailBytes || u.mailStorageBytes || u.exchangeStorageBytes || 0;
@@ -275,8 +294,7 @@ export async function syncSpanningBackup(body, user) {
     }
 
     const mapping = mappings[0];
-    const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?page_size=1000`);
-    const users = parseUsersResponse(usersResponse);
+    const users = await fetchAllUsers(mapping.spanning_tenant_id);
 
     // Get all domains and find this one by ID
     const allDomains = await unitrendsApiCall('/v2/spanning/domains?page_size=500');
@@ -428,8 +446,7 @@ export async function syncSpanningBackup(body, user) {
     }
 
     const mapping = mappings[0];
-    const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?page_size=1000`);
-    const spanningUsers = parseUsersResponse(usersResponse);
+    const spanningUsers = await fetchAllUsers(mapping.spanning_tenant_id);
 
     // Get domain info for cache data
     const allDomains = await unitrendsApiCall('/v2/spanning/domains?page_size=500');
@@ -522,8 +539,7 @@ export async function syncSpanningBackup(body, user) {
     const protectedShared = domainInfo?.numberOfProtectedSharedMailboxes || 0;
 
     // Also get user list for contact syncing
-    const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?page_size=1000`);
-    const users = parseUsersResponse(usersResponse);
+    const users = await fetchAllUsers(mapping.spanning_tenant_id);
 
     // Sync contacts
     const { data: existingContacts } = await supabase
@@ -600,8 +616,7 @@ export async function syncSpanningBackup(body, user) {
 
     for (const mapping of (allMappings || [])) {
       try {
-        const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?page_size=1000`);
-        const users = parseUsersResponse(usersResponse);
+        const users = await fetchAllUsers(mapping.spanning_tenant_id);
 
         // Sync contacts
         const { data: existingContacts } = await supabase
