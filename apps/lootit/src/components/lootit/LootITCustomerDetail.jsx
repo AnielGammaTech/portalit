@@ -196,18 +196,20 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
 
   const handleSaveMapping = async (ruleId, productName, selectedId) => {
     try {
-      // PSA line items have UUID ids; non-PSA items have prefixed ids (pax8:Name, device:id, etc.)
       const isPsaLineItem = selectedId && !selectedId.includes(':');
+      const isVendorTotal = selectedId && selectedId.endsWith(':total');
+      const vendorKey = isVendorTotal ? selectedId.replace(':total', '') : null;
+
       await client.entities.Pax8LineItemOverride.create({
         customer_id: customer.id,
         rule_id: ruleId,
-        pax8_product_name: isPsaLineItem ? (productName || null) : selectedId,
-        line_item_id: isPsaLineItem ? selectedId : null,
+        pax8_product_name: isPsaLineItem ? (productName || null) : (vendorKey || selectedId),
+        line_item_id: isPsaLineItem ? selectedId : `vendor:${vendorKey || selectedId}`,
       });
       await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides', customer.id] });
       await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides_all'] });
       setMappingRecon(null);
-      toast.success('Mapping saved');
+      toast.success(vendorKey ? `Mapped to ${vendorKey} vendor total` : 'Mapping saved');
     } catch (err) {
       toast.error(err.message || 'Failed to save mapping');
     }
