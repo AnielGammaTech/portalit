@@ -450,7 +450,7 @@ function HistoryTimeline({ customerId, ruleId }) {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!customerId && !!ruleId,
+    enabled: !!customerId && !!ruleId && !ruleId.startsWith('unmatched_'),
   });
 
   return (
