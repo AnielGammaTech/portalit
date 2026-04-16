@@ -638,10 +638,10 @@ export default function ReconciliationDetailModal({
           {/* Actions */}
           <ActionSection
             reconciliation={reconciliation}
-            onForceMatch={async (ruleId, notes) => { await onForceMatch?.(ruleId, notes); onClose?.(); }}
-            onReview={async (ruleId, opts) => { await onReview?.(ruleId, opts); onClose?.(); }}
-            onDismiss={async (ruleId, opts) => { await onDismiss?.(ruleId, opts); onClose?.(); }}
-            onReset={async (ruleId) => { await onReset?.(ruleId); onClose?.(); }}
+            onForceMatch={async (ruleId, notes) => { const cleanId = ruleId.startsWith('unmatched_') ? ruleId.replace('unmatched_', '') : ruleId; await onForceMatch?.(cleanId, notes); onClose?.(); }}
+            onReview={async (ruleId, opts) => { const cleanId = ruleId.startsWith('unmatched_') ? ruleId.replace('unmatched_', '') : ruleId; await onReview?.(cleanId, opts); onClose?.(); }}
+            onDismiss={async (ruleId, opts) => { const cleanId = ruleId.startsWith('unmatched_') ? ruleId.replace('unmatched_', '') : ruleId; await onDismiss?.(cleanId, opts); onClose?.(); }}
+            onReset={async (ruleId) => { const cleanId = ruleId.startsWith('unmatched_') ? ruleId.replace('unmatched_', '') : ruleId; await onReset?.(cleanId); onClose?.(); }}
             onMapLineItem={onMapLineItem}
             isSaving={false}
           />
