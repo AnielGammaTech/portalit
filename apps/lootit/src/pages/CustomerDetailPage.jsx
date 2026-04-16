@@ -1,8 +1,8 @@
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Loader2 } from 'lucide-react'
 import { client } from '@/api/client'
 import LootITCustomerDetail from '@/components/lootit/LootITCustomerDetail'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export default function CustomerDetailPage() {
   const { customerId } = useParams()
@@ -33,8 +33,37 @@ export default function CustomerDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 text-slate-400 animate-spin" />
+      <div className="animate-in space-y-6">
+        {/* Header skeleton */}
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-8 w-8 rounded-lg" />
+          <Skeleton className="h-7 w-48" />
+          <Skeleton className="h-5 w-20 rounded-full" />
+          <Skeleton className="h-5 w-16 rounded-full" />
+        </div>
+
+        {/* Tab bar skeleton */}
+        <div className="flex gap-2">
+          <Skeleton className="h-9 w-32 rounded-md" />
+          <Skeleton className="h-9 w-28 rounded-md" />
+          <Skeleton className="h-9 w-24 rounded-md" />
+        </div>
+
+        {/* Stat cards row */}
+        <div className="grid grid-cols-3 gap-4">
+          <Skeleton className="h-24 rounded-xl" />
+          <Skeleton className="h-24 rounded-xl" />
+          <Skeleton className="h-24 rounded-xl" />
+        </div>
+
+        {/* Table rows */}
+        <div className="space-y-3">
+          <Skeleton className="h-10 w-full rounded-md" />
+          <Skeleton className="h-10 w-full rounded-md" />
+          <Skeleton className="h-10 w-full rounded-md" />
+          <Skeleton className="h-10 w-full rounded-md" />
+          <Skeleton className="h-10 w-3/4 rounded-md" />
+        </div>
       </div>
     )
   }

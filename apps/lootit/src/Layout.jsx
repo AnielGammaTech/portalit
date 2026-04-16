@@ -82,7 +82,7 @@ export default function Layout({ children }) {
       </header>
 
       <main className="flex-1 overflow-auto">
-        <div className="max-w-[1400px] mx-auto px-6 py-6">
+        <div className="max-w-[1400px] mx-auto px-6 py-6 animate-in">
           {children}
         </div>
       </main>
