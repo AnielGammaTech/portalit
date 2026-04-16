@@ -144,6 +144,7 @@ export default function ServiceCard({
   onRemoveMapping,
   onForceMatch,
   hasOverride,
+  overrideCount = 0,
   isSaving,
 }) {
   const { rule, psaQty, vendorQty, status, review } = reconciliation;
@@ -238,6 +239,13 @@ export default function ServiceCard({
             <span className="text-[8px] text-amber-500 font-medium" title={`${exclusionCount} excluded`}>-{exclusionCount}</span>
           )}
         </div>
+
+        {/* Multi-mapping indicator */}
+        {hasOverride && overrideCount > 1 && (
+          <p className="text-[10px] font-medium text-pink-500 text-center -mt-0.5 mb-0.5">
+            {overrideCount} items mapped
+          </p>
+        )}
 
         {/* Bottom: action */}
         <div className="mt-auto pt-1 border-t border-slate-100">
