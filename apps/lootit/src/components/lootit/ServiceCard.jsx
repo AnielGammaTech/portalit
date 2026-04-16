@@ -188,7 +188,7 @@ export default function ServiceCard({
   return (
     <div
       className={cn(
-        'rounded-xl border overflow-hidden transition-all cursor-pointer h-full flex flex-col',
+        'rounded-xl border overflow-hidden transition-all cursor-pointer min-h-[180px] flex flex-col',
         'hover:shadow-md hover:shadow-slate-200/60',
         cardBg,
       )}
