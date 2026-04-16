@@ -197,6 +197,20 @@ export default function ServiceCard({
       <div className={cn('h-1', styles.bar)} />
 
       <div className="px-3 py-2.5 flex-1 flex flex-col gap-1.5">
+        {/* Difference badge — top right corner */}
+        {effectiveStatus !== 'match' && psaQty !== null && effectiveVendorQty !== null && (
+          <div className="flex justify-end -mb-1">
+            <span className={cn(
+              'text-[11px] font-bold tabular-nums px-2 py-0.5 rounded-full',
+              (psaQty - effectiveVendorQty) > 0
+                ? 'bg-amber-100 text-amber-700'
+                : 'bg-red-100 text-red-700'
+            )}>
+              {(psaQty - effectiveVendorQty) > 0 ? '+' : ''}{psaQty - effectiveVendorQty}
+            </span>
+          </div>
+        )}
+
         {/* Top zone: name + integration */}
         <div className="min-w-0">
           <h4 className="font-bold text-[13px] text-slate-900 truncate leading-tight">
