@@ -682,7 +682,7 @@ export default function ReconciliationDetailModal({
             onReview={async (ruleId, opts) => { await onReview?.(ruleId, opts); onClose?.(); }}
             onDismiss={async (ruleId, opts) => { await onDismiss?.(ruleId, opts); onClose?.(); }}
             onReset={async (ruleId) => { await onReset?.(ruleId); onClose?.(); }}
-            onMapLineItem={onMapLineItem}
+            onMapLineItem={(ruleId, label) => { onClose?.(); setTimeout(() => onMapLineItem?.(ruleId, label), 100); }}
             isSaving={false}
           />
 
