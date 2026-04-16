@@ -548,16 +548,12 @@ export default function ReconciliationDetailModal({
   onMapLineItem,
   overrides = [],
 }) {
-  if (!reconciliation) return null;
+  const isPax8 = !!reconciliation?.ruleId;
+  const ruleId = isPax8 ? reconciliation.ruleId : reconciliation?.rule?.id;
+  const vendorQtyRaw = reconciliation?.vendorQty;
 
-  const isPax8 = !!reconciliation.ruleId;
-  const ruleId = isPax8 ? reconciliation.ruleId : reconciliation.rule?.id;
-  const label = isPax8 ? reconciliation.productName : reconciliation.rule?.label;
-  const integrationLabel = reconciliation.integrationLabel || '';
-  const { matchedLineItems = [], psaQty, vendorQty } = reconciliation;
-
-  // Parse multi-mapping vendor items from overrides
   const mappedVendorItems = useMemo(() => {
+    if (!ruleId) return [];
     const matched = overrides.filter(ov => ov.rule_id === ruleId);
     for (const ov of matched) {
       if (ov.pax8_product_name && ov.pax8_product_name.startsWith('[')) {
@@ -567,10 +563,16 @@ export default function ReconciliationDetailModal({
       }
     }
     if (matched.length > 0 && matched[0].pax8_product_name && !matched[0].pax8_product_name.startsWith('[')) {
-      return [{ name: matched[0].pax8_product_name, qty: vendorQty || 0 }];
+      return [{ name: matched[0].pax8_product_name, qty: vendorQtyRaw || 0 }];
     }
     return [];
-  }, [overrides, ruleId, vendorQty]);
+  }, [overrides, ruleId, vendorQtyRaw]);
+
+  if (!reconciliation) return null;
+
+  const label = isPax8 ? reconciliation.productName : reconciliation.rule?.label;
+  const integrationLabel = reconciliation.integrationLabel || '';
+  const { matchedLineItems = [], psaQty, vendorQty } = reconciliation;
 
   return (
     <Dialog open={!!reconciliation} onOpenChange={(open) => { if (!open) onClose?.(); }}>
