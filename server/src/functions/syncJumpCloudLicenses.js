@@ -54,6 +54,36 @@ async function jumpcloudV2ApiCall(endpoint, orgId = null) {
   return response.json();
 }
 
+async function fetchAllApplications(orgId) {
+  let allApps = [];
+  let skip = 0;
+  const limit = 100;
+  while (true) {
+    const batch = await jumpcloudV2ApiCall(`/applications?limit=${limit}&skip=${skip}`, orgId);
+    if (!Array.isArray(batch) || batch.length === 0) break;
+    allApps = allApps.concat(batch);
+    if (batch.length < limit) break;
+    skip += limit;
+    if (skip > 5000) break;
+  }
+  return allApps;
+}
+
+async function fetchApplicationUsers(appId, orgId) {
+  let allUsers = [];
+  let skip = 0;
+  const limit = 100;
+  while (true) {
+    const batch = await jumpcloudV2ApiCall(`/applications/${appId}/users?limit=${limit}&skip=${skip}`, orgId);
+    if (!Array.isArray(batch) || batch.length === 0) break;
+    allUsers = allUsers.concat(batch);
+    if (batch.length < limit) break;
+    skip += limit;
+    if (skip > 5000) break;
+  }
+  return allUsers;
+}
+
 function categorizeApp(appName) {
   const name = appName.toLowerCase();
   if (name.includes('slack') || name.includes('teams') || name.includes('zoom')) return 'collaboration';
@@ -126,7 +156,7 @@ export async function syncJumpCloudLicenses(body, user) {
           ...mapping.cached_data
         };
       } catch (e) {
-        // Cache invalid
+        console.error('Failed to parse cached JumpCloud data:', e.message);
       }
     }
 
@@ -150,7 +180,8 @@ export async function syncJumpCloudLicenses(body, user) {
         isMsp: true,
         organizations: orgs
       };
-    } catch {
+    } catch (err) {
+      console.error('Failed to fetch JumpCloud organizations:', err.message);
       // If organizations endpoint fails, try single-org approach
       try {
         const org = await jumpcloudApiCall('/organizations/me');
@@ -179,7 +210,8 @@ export async function syncJumpCloudLicenses(body, user) {
           userCount: org.totalUserCount || 0
         }))
       };
-    } catch {
+    } catch (err) {
+      console.error('Failed to list JumpCloud organizations:', err.message);
       // Single org - get current org
       const systemUsers = await jumpcloudApiCall('/systemusers?limit=1');
       return {
@@ -197,22 +229,24 @@ export async function syncJumpCloudLicenses(body, user) {
   if (action === 'get_applications') {
     const { org_id } = body;
 
-    // Get SSO applications
-    const applications = await jumpcloudV2ApiCall('/applications', org_id !== 'default' ? org_id : null);
+    // Get SSO applications (paginated)
+    const effectiveOrgId = org_id !== 'default' ? org_id : null;
+    const applications = await fetchAllApplications(effectiveOrgId);
 
-    // Get user count for each application
+    // Get user count for each application (paginated)
     const appsWithUsers = await Promise.all(
       (applications || []).map(async (app) => {
         try {
-          const users = await jumpcloudV2ApiCall(`/applications/${app.id}/users`, org_id !== 'default' ? org_id : null);
+          const users = await fetchApplicationUsers(app.id, effectiveOrgId);
           return {
             id: app.id,
             name: app.displayName || app.name,
             type: app.sso?.type || 'SSO',
             logo: app.logo?.url,
-            userCount: users?.length || 0
+            userCount: users.length
           };
-        } catch {
+        } catch (err) {
+          console.error(`Failed to fetch users for app ${app.id}:`, err.message);
           return {
             id: app.id,
             name: app.displayName || app.name,
@@ -234,9 +268,10 @@ export async function syncJumpCloudLicenses(body, user) {
   if (action === 'debug_applications') {
     const { org_id } = body;
     try {
-      const applications = await jumpcloudV2ApiCall('/applications', org_id !== 'default' ? org_id : null);
+      const applications = await fetchAllApplications(org_id !== 'default' ? org_id : null);
       return { success: true, raw: applications };
     } catch (e) {
+      console.error('Failed to fetch JumpCloud applications for debug:', e.message);
       return { success: false, error: e.message };
     }
   }
@@ -376,8 +411,8 @@ export async function syncJumpCloudLicenses(body, user) {
         skip += results.length;
         if (results.length < pageLimit || skip >= (page.totalCount || 0)) break;
       }
-    } catch {
-      // Fallback
+    } catch (err) {
+      console.error('Failed to fetch JumpCloud users for license sync:', err.message);
     }
     const totalUsers = jcUsers.length;
 
@@ -487,17 +522,17 @@ export async function syncJumpCloudLicenses(body, user) {
       created++;
     }
 
-    // Get SSO applications
-    const applications = await jumpcloudV2ApiCall('/applications', orgId);
+    // Get SSO applications (paginated)
+    const applications = await fetchAllApplications(orgId);
 
     for (const app of (applications || [])) {
-      // Get users assigned to this application
+      // Get users assigned to this application (paginated)
       let userCount = 0;
       try {
-        const users = await jumpcloudV2ApiCall(`/applications/${app.id}/users`, orgId);
-        userCount = users?.length || 0;
-      } catch {
-        // Ignore errors getting user count
+        const users = await fetchApplicationUsers(app.id, orgId);
+        userCount = users.length;
+      } catch (err) {
+        console.error(`Failed to fetch users for app ${app.id}:`, err.message);
       }
 
       const licenseData = {
@@ -581,7 +616,7 @@ export async function syncJumpCloudLicenses(body, user) {
     for (const mapping of allMappings) {
       try {
         const orgId = mapping.jumpcloud_org_id !== 'default' ? mapping.jumpcloud_org_id : null;
-        const applications = await jumpcloudV2ApiCall('/applications', orgId);
+        const applications = await fetchAllApplications(orgId);
 
         const { data: existingLicenses } = await supabase
           .from('saas_licenses')
@@ -595,10 +630,10 @@ export async function syncJumpCloudLicenses(body, user) {
         for (const app of (applications || [])) {
           let userCount = 0;
           try {
-            const users = await jumpcloudV2ApiCall(`/applications/${app.id}/users`, orgId);
-            userCount = users?.length || 0;
-          } catch {
-            // Ignore
+            const users = await fetchApplicationUsers(app.id, orgId);
+            userCount = users.length;
+          } catch (err) {
+            console.error(`Failed to fetch users for app ${app.id} during sync_all:`, err.message);
           }
 
           const licenseData = {
