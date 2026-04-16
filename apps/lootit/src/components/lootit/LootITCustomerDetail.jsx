@@ -955,37 +955,36 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex justify-center border-b border-pink-100">
-        {[
-          { key: 'reconciliation', label: 'Reconciliation', icon: RotateCcw },
-          { key: 'recurring', label: 'Recurring', icon: Repeat2, badge: allLineItems.length || null },
-          { key: 'invoices', label: 'Invoices', icon: DollarSign, badge: customerInvoices.length || null },
-          { key: 'contract', label: 'Contract', icon: FileText, badge: contracts.length || null },
-        ].map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={cn(
-              'inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium transition-colors relative',
-              activeTab === tab.key
-                ? 'text-pink-600'
-                : 'text-slate-400 hover:text-slate-600'
-            )}
-          >
-            <tab.icon className="w-4 h-4" />
-            {tab.label}
-            {tab.badge && (
-              <span className={cn(
-                'text-[10px] px-1.5 py-0.5 rounded-full font-semibold',
-                activeTab === tab.key ? 'bg-pink-100 text-pink-600' : 'bg-slate-100 text-slate-400'
-              )}>{tab.badge}</span>
-            )}
-            {activeTab === tab.key && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-pink-500 rounded-full" />
-            )}
-          </button>
-        ))}
+      {/* Tabs — prominent sticky bar */}
+      <div className="sticky top-0 z-10 bg-white shadow-sm">
+        <div className="flex w-full">
+          {[
+            { key: 'reconciliation', label: 'Reconciliation', icon: RotateCcw },
+            { key: 'recurring', label: 'Recurring', icon: Repeat2, badge: allLineItems.length || null },
+            { key: 'invoices', label: 'Invoices', icon: DollarSign, badge: customerInvoices.length || null },
+            { key: 'contract', label: 'Contract', icon: FileText, badge: contracts.length || null },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={cn(
+                'flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-all rounded-lg mx-1 my-1.5',
+                activeTab === tab.key
+                  ? 'bg-pink-500 text-white shadow-sm'
+                  : 'text-slate-500 hover:bg-pink-50'
+              )}
+            >
+              <tab.icon className="w-5 h-5" />
+              {tab.label}
+              {tab.badge != null && (
+                <span className={cn(
+                  'text-[10px] px-1.5 py-0.5 rounded-full font-bold',
+                  activeTab === tab.key ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                )}>{tab.badge}</span>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ── Recurring Tab ── */}
