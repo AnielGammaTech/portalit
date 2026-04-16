@@ -25,7 +25,7 @@ export default function Layout({ children }) {
 
   return (
     <div className="flex flex-col h-screen bg-pink-50/50">
-      <header className="shrink-0" style={{ backgroundColor: '#13082E' }}>
+      <header className="shrink-0" style={{ backgroundColor: '#2E0820' }}>
         <div className="flex items-center h-14 px-6">
           <div className="flex items-center gap-2 shrink-0 w-48">
             <span className="text-pink-400 font-bold text-lg tracking-tight" style={{ textShadow: '0 0 12px rgba(236,72,153,0.4)' }}>
