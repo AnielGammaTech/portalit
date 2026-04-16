@@ -211,11 +211,15 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
       if (items.length === 1) {
         const item = items[0];
         const isPsaLineItem = item.id && !item.id.includes(':');
+        const vendorKey = item.id?.endsWith(':total') || item.id?.endsWith(':count')
+          ? item.id.replace(/:total$|:count$/, '')
+          : null;
         await client.entities.Pax8LineItemOverride.create({
           customer_id: customer.id,
           rule_id: ruleId,
-          pax8_product_name: isPsaLineItem ? (productName || null) : (item.description || item.id),
+          pax8_product_name: isPsaLineItem ? (productName || null) : (vendorKey || item.description || item.id),
           line_item_id: isPsaLineItem ? item.id : (psaLineItemId || item.id),
+          group_id: `qty:${item.quantity || 0}`,
         });
       } else {
         const mappingData = items.map(item => ({
