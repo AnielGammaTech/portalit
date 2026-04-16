@@ -50,7 +50,7 @@ function getCardState(reconciliation) {
   return 'no_vendor';
 }
 
-function CardActionZone({ cardState, ruleId, onForceMatch, onDismiss, onReset, isSaving }) {
+function CardActionZone({ cardState, ruleId, onForceMatch, onDismiss, onReset, onMapLineItem, ruleLabel, isSaving }) {
   switch (cardState) {
     case 'auto_matched':
       return (
@@ -98,13 +98,22 @@ function CardActionZone({ cardState, ruleId, onForceMatch, onDismiss, onReset, i
 
     case 'no_vendor':
       return (
-        <button
-          onClick={(e) => { e.stopPropagation(); onForceMatch?.(ruleId); }}
-          disabled={isSaving}
-          className="w-full py-1.5 text-[11px] font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors disabled:opacity-50"
-        >
-          Approve
-        </button>
+        <div className="flex flex-col gap-1.5 w-full">
+          <button
+            onClick={(e) => { e.stopPropagation(); onMapLineItem?.(ruleId, ruleLabel); }}
+            disabled={isSaving}
+            className="w-full py-1.5 text-[11px] font-semibold rounded-lg bg-pink-500 text-white hover:bg-pink-600 transition-colors disabled:opacity-50"
+          >
+            Map to Vendor
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onForceMatch?.(ruleId); }}
+            disabled={isSaving}
+            className="w-full text-[10px] text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50"
+          >
+            Approve as-is
+          </button>
+        </div>
       );
 
     case 'mismatch':
@@ -219,9 +228,11 @@ export default function ServiceCard({
           <CardActionZone
             cardState={cardState}
             ruleId={rule.id}
+            ruleLabel={rule.label}
             onForceMatch={handleForceMatchAction}
             onDismiss={onDismiss}
             onReset={onReset}
+            onMapLineItem={onMapLineItem}
             isSaving={isSaving}
           />
         </div>
