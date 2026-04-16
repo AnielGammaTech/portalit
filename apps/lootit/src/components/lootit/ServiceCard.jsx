@@ -207,17 +207,23 @@ export default function ServiceCard({
           </p>
         </div>
 
-        {/* Middle zone: PSA vs Vendor qty on one line */}
-        <div className="flex items-center gap-1.5 py-1">
-          <span className={cn('text-xs font-semibold tabular-nums', qtyColor(psaQty, false))}>
-            PSA: {psaQty !== null ? psaQty : '\u2014'}
-          </span>
-          <span className="text-[10px] text-slate-300 font-medium">vs</span>
-          <span className={cn('text-xs font-semibold tabular-nums', qtyColor(effectiveVendorQty, true))}>
-            Vendor: {effectiveVendorQty !== null ? effectiveVendorQty : '\u2014'}
-          </span>
+        {/* Middle zone: PSA vs Vendor qty — big numbers */}
+        <div className="flex items-center justify-center gap-3 py-2">
+          <div className="text-center">
+            <span className={cn('text-2xl font-bold tabular-nums leading-none', qtyColor(psaQty, false))}>
+              {psaQty !== null ? psaQty : '\u2014'}
+            </span>
+            <p className="text-[9px] uppercase tracking-wider font-semibold text-slate-400 mt-0.5">PSA</p>
+          </div>
+          <span className="text-xs text-slate-300 font-medium">vs</span>
+          <div className="text-center">
+            <span className={cn('text-2xl font-bold tabular-nums leading-none', qtyColor(effectiveVendorQty, true))}>
+              {effectiveVendorQty !== null ? effectiveVendorQty : '\u2014'}
+            </span>
+            <p className="text-[9px] uppercase tracking-wider font-semibold text-slate-400 mt-0.5">Vendor</p>
+          </div>
           {exclusionCount > 0 && (
-            <span className="text-[9px] text-amber-500 font-medium ml-auto" title={`${exclusionCount} excluded`}>
+            <span className="text-[9px] text-amber-500 font-medium" title={`${exclusionCount} excluded`}>
               -{exclusionCount}
             </span>
           )}
