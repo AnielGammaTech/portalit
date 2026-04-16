@@ -373,7 +373,10 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
       } else if (multiMapping) {
         vendorQty = multiMapping.totalQty;
       } else if (vendorKey && vendorMapping) {
-        vendorQty = extractVendorCount(vendorKey, vendorMapping.cached_data);
+        const cd = typeof vendorMapping.cached_data === 'string'
+          ? (() => { try { return JSON.parse(vendorMapping.cached_data); } catch { return vendorMapping.cached_data; } })()
+          : vendorMapping.cached_data;
+        vendorQty = extractVendorCount(vendorKey, cd);
       }
       if (vendorQty === null && vendorKey && !isApprovedAsIs) {
         for (const [mk, mv] of Object.entries(mappings)) {
