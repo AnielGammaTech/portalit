@@ -1,30 +1,10 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { Check, RotateCcw, ShieldCheck, ShieldOff } from 'lucide-react';
-import { STATUS_COLORS } from './lootit-constants';
+import { Check, X, RotateCcw } from 'lucide-react';
 
-const STATUS_STYLES = {
-  match: {
-    card: STATUS_COLORS.match.card,
-    bar: STATUS_COLORS.match.bar,
-    qtyText: 'text-emerald-700',
-  },
-  over: {
-    card: STATUS_COLORS.over.card,
-    bar: STATUS_COLORS.over.bar,
-    qtyText: 'text-amber-700',
-  },
-  under: {
-    card: STATUS_COLORS.under.card,
-    bar: STATUS_COLORS.under.bar,
-    qtyText: 'text-red-700',
-  },
-  default: {
-    card: STATUS_COLORS.neutral.card,
-    bar: STATUS_COLORS.neutral.bar,
-    qtyText: 'text-slate-600',
-  },
-};
+/* ─────────────────────────────────────────────
+   Card-state resolution (unchanged logic)
+   ───────────────────────────────────────────── */
 
 function getEffectiveStatus(reconciliation) {
   const { psaQty, vendorQty, status, review } = reconciliation;
@@ -45,71 +25,211 @@ function getCardState(reconciliation) {
   if (reviewStatus === 'force_matched') return 'force_matched';
   if (reviewStatus === 'dismissed') return 'dismissed';
   if (effectiveStatus === 'match') return 'auto_matched';
-  if (status === 'no_vendor_data' || status === 'no_data' || status === 'unmatched_line_item' || status === 'no_psa_data' || status === 'missing_from_psa') return 'no_vendor';
+  if (
+    status === 'no_vendor_data' ||
+    status === 'no_data' ||
+    status === 'unmatched_line_item' ||
+    status === 'no_psa_data' ||
+    status === 'missing_from_psa'
+  ) {
+    return 'no_vendor';
+  }
   if (effectiveStatus === 'over' || effectiveStatus === 'under') return 'mismatch';
   return 'no_vendor';
 }
 
-function CardActionZone({ cardState, ruleId, onForceMatch, onDismiss, onReset, onMapLineItem, ruleLabel, isSaving }) {
+/* ─────────────────────────────────────────────
+   Visual config per card state
+   ───────────────────────────────────────────── */
+
+const CARD_STYLES = {
+  auto_matched: {
+    bg: 'linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%)',
+    border: '1.5px solid #BBF7D0',
+    bar: '#22C55E',
+    psaNum: '#166534',
+    vendorNum: '#166534',
+    psaLabel: '#166534',
+    vendorLabel: '#166534',
+  },
+  mismatch: {
+    bg: 'linear-gradient(135deg, #FFF7ED 0%, #FFFBEB 100%)',
+    border: '1.5px solid #FED7AA',
+    bar: '#F97316',
+    psaNum: '#C2410C',
+    vendorNum: '#B45309',
+    psaLabel: '#C2410C',
+    vendorLabel: '#B45309',
+  },
+  no_vendor: {
+    bg: 'linear-gradient(135deg, #FFF1F5 0%, #FFF5F7 100%)',
+    border: '1.5px solid #FBCFE8',
+    bar: '#EC4899',
+    psaNum: '#9D174D',
+    vendorNum: '#CBD5E1',
+    psaLabel: '#9D174D',
+    vendorLabel: '#CBD5E1',
+  },
+  force_matched: {
+    bg: 'linear-gradient(135deg, #EFF6FF 0%, #F0F9FF 100%)',
+    border: '1.5px solid #BFDBFE',
+    bar: '#3B82F6',
+    psaNum: '#1E40AF',
+    vendorNum: '#1E40AF',
+    psaLabel: '#1E40AF',
+    vendorLabel: '#1E40AF',
+  },
+  dismissed: {
+    bg: '#F8FAFC',
+    border: '1.5px solid #E2E8F0',
+    bar: '#CBD5E1',
+    psaNum: '#94A3B8',
+    vendorNum: '#94A3B8',
+    psaLabel: '#94A3B8',
+    vendorLabel: '#94A3B8',
+  },
+};
+
+/* ─────────────────────────────────────────────
+   Diff badge (absolute top-right)
+   ───────────────────────────────────────────── */
+
+function DiffBadge({ diff }) {
+  if (diff === 0) return null;
+
+  const isPositive = diff > 0;
+  const style = {
+    background: isPositive ? '#FEF3C7' : '#FEE2E2',
+    color: isPositive ? '#B45309' : '#DC2626',
+  };
+
+  return (
+    <span
+      className="absolute top-[10px] right-[10px] text-[10px] font-bold tabular-nums px-2 py-0.5 rounded-full z-10"
+      style={style}
+    >
+      {isPositive ? '+' : ''}{diff}
+    </span>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   Quantity display block (center zone)
+   ───────────────────────────────────────────── */
+
+function QtyBlock({ psaQty, vendorQty, cardState, styles }) {
+  const isNoVendor = cardState === 'no_vendor';
+  const isMatched = cardState === 'auto_matched' || cardState === 'force_matched';
+
+  const separator = isNoVendor ? '\u2014' : isMatched ? '=' : 'vs';
+
+  return (
+    <div className="flex items-center justify-center gap-1.5 flex-1">
+      <div className="text-center">
+        <div
+          className="text-[28px] font-bold leading-none tabular-nums"
+          style={{ color: styles.psaNum }}
+        >
+          {psaQty !== null ? psaQty : '\u2014'}
+        </div>
+        <div
+          className="text-[9px] font-semibold uppercase tracking-wider mt-1"
+          style={{ color: styles.psaLabel, opacity: 0.5 }}
+        >
+          PSA
+        </div>
+      </div>
+
+      <span className="text-[10px] font-medium text-slate-300 mx-0.5">
+        {separator}
+      </span>
+
+      <div className="text-center">
+        <div
+          className={cn(
+            'font-bold leading-none tabular-nums',
+            isNoVendor ? 'text-[20px]' : 'text-[28px]'
+          )}
+          style={{ color: styles.vendorNum }}
+        >
+          {isNoVendor ? '\u2014' : (vendorQty !== null ? vendorQty : '\u2014')}
+        </div>
+        <div
+          className="text-[9px] font-semibold uppercase tracking-wider mt-1"
+          style={{ color: styles.vendorLabel, opacity: 0.5 }}
+        >
+          Vendor
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   Bottom action zone
+   ───────────────────────────────────────────── */
+
+function CardActionZone({ cardState, ruleId, ruleLabel, onForceMatch, onReset, onMapLineItem, isSaving }) {
+  const btnBase = 'block w-full py-[7px] rounded-lg text-[12px] font-semibold text-center transition-all';
+
   switch (cardState) {
     case 'auto_matched':
       return (
-        <div className="flex items-center gap-1.5">
-          <Check className="w-3.5 h-3.5 text-emerald-500" />
-          <span className="text-[11px] font-semibold text-emerald-600">Matched</span>
+        <div className="px-2 pb-[10px]">
+          <div
+            className={cn(btnBase, 'cursor-default flex items-center justify-center gap-1.5')}
+            style={{ background: '#DCFCE7', color: '#166534' }}
+          >
+            <span
+              className="inline-block w-[5px] h-[5px] rounded-full"
+              style={{ background: '#22C55E' }}
+            />
+            Matched
+          </div>
         </div>
       );
 
     case 'force_matched':
       return (
-        <div className="flex items-center justify-between w-full">
-          <div className="flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
-            <span className="text-[11px] font-semibold text-blue-600">Approved</span>
-          </div>
-          <button
-            onClick={(e) => { e.stopPropagation(); onReset?.(ruleId); }}
-            disabled={isSaving}
-            className="p-1 rounded-md text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors disabled:opacity-50"
-            title="Undo approval"
+        <div className="px-2 pb-[10px]">
+          <div
+            className={cn(btnBase, 'cursor-default flex items-center justify-center gap-1.5')}
+            style={{ background: '#DBEAFE', color: '#1E40AF' }}
           >
-            <RotateCcw className="w-3 h-3" />
-          </button>
+            <Check className="w-3 h-3" strokeWidth={2.5} />
+            Approved
+          </div>
         </div>
       );
 
     case 'dismissed':
       return (
-        <div className="flex items-center justify-between w-full">
-          <div className="flex items-center gap-1.5">
-            <ShieldOff className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-[11px] font-semibold text-slate-400">Skipped</span>
-          </div>
-          <button
-            onClick={(e) => { e.stopPropagation(); onReset?.(ruleId); }}
-            disabled={isSaving}
-            className="p-1 rounded-md text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors disabled:opacity-50"
-            title="Undo skip"
+        <div className="px-2 pb-[10px]">
+          <div
+            className={cn(btnBase, 'cursor-default flex items-center justify-center gap-1.5')}
+            style={{ background: '#F1F5F9', color: '#94A3B8' }}
           >
-            <RotateCcw className="w-3 h-3" />
-          </button>
+            <X className="w-3 h-3" strokeWidth={2.5} />
+            Skipped
+          </div>
         </div>
       );
 
     case 'no_vendor':
       return (
-        <div className="flex flex-col gap-1.5 w-full">
+        <div className="px-2 pb-1 flex flex-col gap-1">
           <button
             onClick={(e) => { e.stopPropagation(); onMapLineItem?.(ruleId, ruleLabel); }}
             disabled={isSaving}
-            className="w-full py-1.5 text-[11px] font-semibold rounded-lg bg-pink-500 text-white hover:bg-pink-600 transition-colors disabled:opacity-50"
+            className={cn(btnBase, 'text-white hover:brightness-[0.92] disabled:opacity-50')}
+            style={{ background: 'linear-gradient(135deg, #EC4899, #DB2777)' }}
           >
             Map to Vendor
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onForceMatch?.(ruleId); }}
             disabled={isSaving}
-            className="w-full text-[10px] text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50"
+            className="text-center text-[10px] text-slate-400 cursor-pointer pb-1 hover:text-slate-600 transition-colors disabled:opacity-50"
           >
             Approve as-is
           </button>
@@ -118,19 +238,26 @@ function CardActionZone({ cardState, ruleId, onForceMatch, onDismiss, onReset, o
 
     case 'mismatch':
       return (
-        <button
-          onClick={(e) => { e.stopPropagation(); onForceMatch?.(ruleId); }}
-          disabled={isSaving}
-          className="w-full py-1.5 text-[11px] font-semibold rounded-lg bg-pink-500 text-white hover:bg-pink-600 transition-colors disabled:opacity-50"
-        >
-          Force Match
-        </button>
+        <div className="px-2 pb-[10px]">
+          <button
+            onClick={(e) => { e.stopPropagation(); onForceMatch?.(ruleId); }}
+            disabled={isSaving}
+            className={cn(btnBase, 'text-white cursor-pointer hover:brightness-[0.92] disabled:opacity-50')}
+            style={{ background: 'linear-gradient(135deg, #F97316, #EA580C)' }}
+          >
+            Force Match
+          </button>
+        </div>
       );
 
     default:
       return null;
   }
 }
+
+/* ─────────────────────────────────────────────
+   ServiceCard (main export)
+   ───────────────────────────────────────────── */
 
 export default function ServiceCard({
   reconciliation,
@@ -147,119 +274,104 @@ export default function ServiceCard({
   overrideCount = 0,
   isSaving,
 }) {
-  const { rule, psaQty, vendorQty, status, review } = reconciliation;
+  const { rule, psaQty, vendorQty, review } = reconciliation;
 
   const exclusionCount = review?.exclusion_count || 0;
   const effectiveVendorQty = vendorQty !== null ? vendorQty - exclusionCount : null;
-  const effectiveStatus = getEffectiveStatus(reconciliation);
   const cardState = getCardState(reconciliation);
+  const styles = CARD_STYLES[cardState] || CARD_STYLES.no_vendor;
 
-  const styles = STATUS_STYLES[effectiveStatus] || STATUS_STYLES.default;
-
-  const isForceMatched = review?.status === 'force_matched';
-  const isDismissed = review?.status === 'dismissed';
-
-  const cardBg = isForceMatched
-    ? 'bg-gradient-to-br from-blue-50 via-blue-50/80 to-blue-100/60 border-blue-200'
-    : isDismissed
-    ? 'bg-slate-50/80 border-slate-200'
-    : styles.card;
-
-  const qtyColor = (qty, isVendor) => {
-    if (qty === null || qty === undefined) return 'text-slate-400';
-    if (effectiveStatus === 'match') return 'text-emerald-700';
-    if (isVendor && effectiveStatus === 'under') return 'text-red-600';
-    if (isVendor && effectiveStatus === 'over') return 'text-amber-600';
-    if (!isVendor && effectiveStatus === 'under') return 'text-red-600';
-    if (!isVendor && effectiveStatus === 'over') return 'text-amber-600';
-    return 'text-slate-600';
-  };
+  const isDismissed = cardState === 'dismissed';
+  const showDiff = cardState === 'mismatch' && psaQty !== null && effectiveVendorQty !== null;
+  const diff = showDiff ? psaQty - effectiveVendorQty : 0;
 
   const handleCardClick = () => {
     onDetails?.(reconciliation);
   };
 
-  // Card action triggers -- "no_vendor" and "mismatch" open the modal
-  // (the modal will handle the note requirement before executing)
   const handleForceMatchAction = (ruleId) => {
     onDetails?.(reconciliation);
   };
 
+  const multiMapLabel = hasOverride && overrideCount > 1
+    ? `Mapped to ${overrideCount} items`
+    : null;
+
   return (
     <div
-      className={cn(
-        'rounded-xl border overflow-hidden transition-all cursor-pointer min-h-[180px] flex flex-col',
-        'hover:shadow-md hover:shadow-slate-200/60',
-        cardBg,
-      )}
+      className="relative rounded-[14px] overflow-hidden flex flex-col cursor-pointer"
+      style={{
+        height: '190px',
+        background: styles.bg,
+        border: styles.border,
+        opacity: isDismissed ? 0.7 : 1,
+        transition: 'all 0.2s ease',
+      }}
       onClick={handleCardClick}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'translateY(-2px)';
+        e.currentTarget.style.boxShadow = '0 8px 24px -4px rgba(236, 72, 153, 0.15)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = 'none';
+      }}
     >
-      {/* Status bar */}
-      <div className={cn('h-1', styles.bar)} />
+      {/* Status bar — 3px colored strip */}
+      <div className="h-[3px] w-full" style={{ background: styles.bar }} />
 
-      <div className="px-3 py-2 flex-1 flex flex-col">
-        {/* Top: name + integration + diff badge inline */}
-        <div className="flex items-start justify-between gap-1">
-          <div className="min-w-0 flex-1">
-            <h4 className="font-bold text-[13px] text-slate-900 truncate leading-tight">
-              {rule.label}
-            </h4>
-            <p className="text-[10px] text-slate-400 truncate leading-tight">
-              {reconciliation.integrationLabel}
-            </p>
-          </div>
-          {effectiveStatus !== 'match' && psaQty !== null && effectiveVendorQty !== null && (
-            <span className={cn(
-              'text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-full shrink-0',
-              (psaQty - effectiveVendorQty) > 0
-                ? 'bg-amber-100 text-amber-700'
-                : 'bg-red-100 text-red-700'
-            )}>
-              {(psaQty - effectiveVendorQty) > 0 ? '+' : ''}{psaQty - effectiveVendorQty}
-            </span>
-          )}
-        </div>
+      {/* Diff badge — absolute top-right for mismatches */}
+      {showDiff && <DiffBadge diff={diff} />}
 
-        {/* Middle: PSA vs Vendor — compact big numbers */}
-        <div className="flex items-center justify-center gap-3 py-1.5">
-          <div className="text-center">
-            <span className={cn('text-xl font-bold tabular-nums leading-none', qtyColor(psaQty, false))}>
-              {psaQty !== null ? psaQty : '\u2014'}
-            </span>
-            <p className="text-[8px] uppercase tracking-wider font-semibold text-slate-400">PSA</p>
-          </div>
-          <span className="text-[10px] text-slate-300">vs</span>
-          <div className="text-center">
-            <span className={cn('text-xl font-bold tabular-nums leading-none', qtyColor(effectiveVendorQty, true))}>
-              {effectiveVendorQty !== null ? effectiveVendorQty : '\u2014'}
-            </span>
-            <p className="text-[8px] uppercase tracking-wider font-semibold text-slate-400">Vendor</p>
-          </div>
-          {exclusionCount > 0 && (
-            <span className="text-[8px] text-amber-500 font-medium" title={`${exclusionCount} excluded`}>-{exclusionCount}</span>
-          )}
-        </div>
-
-        {/* Multi-mapping indicator */}
-        {hasOverride && overrideCount > 1 && (
-          <p className="text-[10px] font-medium text-pink-500 text-center -mt-0.5 mb-0.5">
-            {overrideCount} items mapped
+      {/* Card header */}
+      <div className="px-3 pt-[10px]">
+        <h4 className="text-[13px] font-bold text-slate-800 leading-tight truncate">
+          {rule.label}
+        </h4>
+        {multiMapLabel && cardState === 'force_matched' ? (
+          <p className="text-[10px] font-medium text-blue-500 leading-tight truncate">
+            {multiMapLabel}
+          </p>
+        ) : (
+          <p className="text-[10px] text-slate-400 leading-tight truncate">
+            {reconciliation.integrationLabel}
           </p>
         )}
+      </div>
 
-        {/* Bottom: action */}
-        <div className="mt-auto pt-1 border-t border-slate-100">
-          <CardActionZone
-            cardState={cardState}
-            ruleId={rule.id}
-            ruleLabel={rule.label}
-            onForceMatch={handleForceMatchAction}
-            onDismiss={onDismiss}
-            onReset={onReset}
-            onMapLineItem={onMapLineItem}
-            isSaving={isSaving}
-          />
-        </div>
+      {/* Center zone: big quantity numbers */}
+      <QtyBlock
+        psaQty={psaQty}
+        vendorQty={effectiveVendorQty}
+        cardState={cardState}
+        styles={styles}
+      />
+
+      {/* Multi-mapping indicator (below integration label for non-approved states) */}
+      {multiMapLabel && cardState !== 'force_matched' && (
+        <p className="text-[10px] font-medium text-pink-500 text-center -mt-1 mb-0.5">
+          {multiMapLabel}
+        </p>
+      )}
+
+      {/* Exclusion indicator */}
+      {exclusionCount > 0 && (
+        <p className="text-[8px] text-amber-500 font-medium text-center -mt-1" title={`${exclusionCount} excluded`}>
+          -{exclusionCount} excluded
+        </p>
+      )}
+
+      {/* Bottom action zone */}
+      <div className="mt-auto">
+        <CardActionZone
+          cardState={cardState}
+          ruleId={rule.id}
+          ruleLabel={rule.label}
+          onForceMatch={handleForceMatchAction}
+          onReset={onReset}
+          onMapLineItem={onMapLineItem}
+          isSaving={isSaving}
+        />
       </div>
     </div>
   );
