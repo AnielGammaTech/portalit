@@ -38,6 +38,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { toast } from 'sonner';
 
+const LOOTIT_URL = import.meta.env.VITE_LOOTIT_URL || 'https://lootit-frontend-production.up.railway.app';
+
 // Admin Dashboard Component
 function AdminDashboard() {
   const navigate = useNavigate();
@@ -315,11 +317,11 @@ function AdminDashboard() {
                 <p className="text-xs text-slate-400">Billing health across all customers</p>
               </div>
             </div>
-            <Link to={createPageUrl('LootIT')}>
+            <a href={LOOTIT_URL}>
               <Button variant="ghost" size="sm" className="text-pink-300 hover:text-white hover:bg-white/10">
                 View All <ChevronRight className="w-3.5 h-3.5 ml-1" />
               </Button>
-            </Link>
+            </a>
           </div>
 
           {loadingRecon ? (
@@ -391,9 +393,9 @@ function AdminDashboard() {
                     {lootITIssueCustomers.slice(0, 6).map(({ customer, combinedSummary: s }) => {
                       const issues = s.over + s.under;
                       return (
-                        <Link
+                        <a
                           key={customer.id}
-                          to={createPageUrl(`LootIT?customer=${customer.id}`)}
+                          href={`${LOOTIT_URL}?customer=${customer.id}`}
                           className="flex items-center gap-3 bg-white/5 hover:bg-white/10 rounded-lg px-3 py-2.5 transition-colors group"
                         >
                           <div className="flex-1 min-w-0">
@@ -416,16 +418,16 @@ function AdminDashboard() {
                           <span className="flex-shrink-0 w-6 h-6 rounded-full bg-red-500/20 text-red-300 text-xs font-bold flex items-center justify-center">
                             {issues}
                           </span>
-                        </Link>
+                        </a>
                       );
                     })}
                   </div>
                   {lootITIssueCustomers.length > 6 && (
-                    <Link to={createPageUrl('LootIT')} className="block text-center mt-2">
+                    <a href={LOOTIT_URL} className="block text-center mt-2">
                       <span className="text-xs text-pink-300 hover:text-white transition-colors">
                         +{lootITIssueCustomers.length - 6} more customers with issues
                       </span>
-                    </Link>
+                    </a>
                   )}
                 </div>
               )}
