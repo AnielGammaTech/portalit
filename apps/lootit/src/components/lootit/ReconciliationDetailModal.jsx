@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/api/client';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -126,28 +125,20 @@ function ActionSection({
 
   const handleExecute = async () => {
     if (!pendingAction) return;
-    if ((pendingAction === 'force_match' || pendingAction === 'approve') && !actionNotes.trim()) {
-      toast.error('Note is required');
-      return;
-    }
+    if ((pendingAction === 'force_match' || pendingAction === 'approve') && !actionNotes.trim()) return;
     setSaving(true);
     try {
       if (pendingAction === 'force_match' || pendingAction === 'approve') {
         await onForceMatch?.(ruleId, actionNotes);
-        toast.success('Approved successfully');
       } else if (pendingAction === 'review') {
         await onReview?.(ruleId, { notes: actionNotes || undefined });
-        toast.success('Marked as reviewed');
       } else if (pendingAction === 'dismiss') {
         await onDismiss?.(ruleId, { notes: actionNotes || undefined });
-        toast.success('Dismissed');
       }
       setPendingAction(null);
       setActionNotes('');
     } catch (err) {
       console.error('[Modal Action]', err);
-      toast.error(err.message || 'Action failed — check console');
-      setSaving(false);
     } finally {
       setSaving(false);
     }
