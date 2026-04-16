@@ -196,55 +196,51 @@ export default function ServiceCard({
       {/* Status bar */}
       <div className={cn('h-1', styles.bar)} />
 
-      <div className="px-3 py-2.5 flex-1 flex flex-col gap-1.5">
-        {/* Difference badge — top right corner */}
-        {effectiveStatus !== 'match' && psaQty !== null && effectiveVendorQty !== null && (
-          <div className="flex justify-end -mb-1">
+      <div className="px-3 py-2 flex-1 flex flex-col">
+        {/* Top: name + integration + diff badge inline */}
+        <div className="flex items-start justify-between gap-1">
+          <div className="min-w-0 flex-1">
+            <h4 className="font-bold text-[13px] text-slate-900 truncate leading-tight">
+              {rule.label}
+            </h4>
+            <p className="text-[10px] text-slate-400 truncate leading-tight">
+              {reconciliation.integrationLabel}
+            </p>
+          </div>
+          {effectiveStatus !== 'match' && psaQty !== null && effectiveVendorQty !== null && (
             <span className={cn(
-              'text-[11px] font-bold tabular-nums px-2 py-0.5 rounded-full',
+              'text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-full shrink-0',
               (psaQty - effectiveVendorQty) > 0
                 ? 'bg-amber-100 text-amber-700'
                 : 'bg-red-100 text-red-700'
             )}>
               {(psaQty - effectiveVendorQty) > 0 ? '+' : ''}{psaQty - effectiveVendorQty}
             </span>
-          </div>
-        )}
-
-        {/* Top zone: name + integration */}
-        <div className="min-w-0">
-          <h4 className="font-bold text-[13px] text-slate-900 truncate leading-tight">
-            {rule.label}
-          </h4>
-          <p className="text-[10px] text-slate-400 truncate leading-tight mt-0.5">
-            {reconciliation.integrationLabel}
-          </p>
-        </div>
-
-        {/* Middle zone: PSA vs Vendor qty — big numbers */}
-        <div className="flex items-center justify-center gap-3 py-2">
-          <div className="text-center">
-            <span className={cn('text-2xl font-bold tabular-nums leading-none', qtyColor(psaQty, false))}>
-              {psaQty !== null ? psaQty : '\u2014'}
-            </span>
-            <p className="text-[9px] uppercase tracking-wider font-semibold text-slate-400 mt-0.5">PSA</p>
-          </div>
-          <span className="text-xs text-slate-300 font-medium">vs</span>
-          <div className="text-center">
-            <span className={cn('text-2xl font-bold tabular-nums leading-none', qtyColor(effectiveVendorQty, true))}>
-              {effectiveVendorQty !== null ? effectiveVendorQty : '\u2014'}
-            </span>
-            <p className="text-[9px] uppercase tracking-wider font-semibold text-slate-400 mt-0.5">Vendor</p>
-          </div>
-          {exclusionCount > 0 && (
-            <span className="text-[9px] text-amber-500 font-medium" title={`${exclusionCount} excluded`}>
-              -{exclusionCount}
-            </span>
           )}
         </div>
 
-        {/* Bottom zone: single action */}
-        <div className="mt-auto pt-1.5 border-t border-slate-100">
+        {/* Middle: PSA vs Vendor — compact big numbers */}
+        <div className="flex items-center justify-center gap-3 py-1.5">
+          <div className="text-center">
+            <span className={cn('text-xl font-bold tabular-nums leading-none', qtyColor(psaQty, false))}>
+              {psaQty !== null ? psaQty : '\u2014'}
+            </span>
+            <p className="text-[8px] uppercase tracking-wider font-semibold text-slate-400">PSA</p>
+          </div>
+          <span className="text-[10px] text-slate-300">vs</span>
+          <div className="text-center">
+            <span className={cn('text-xl font-bold tabular-nums leading-none', qtyColor(effectiveVendorQty, true))}>
+              {effectiveVendorQty !== null ? effectiveVendorQty : '\u2014'}
+            </span>
+            <p className="text-[8px] uppercase tracking-wider font-semibold text-slate-400">Vendor</p>
+          </div>
+          {exclusionCount > 0 && (
+            <span className="text-[8px] text-amber-500 font-medium" title={`${exclusionCount} excluded`}>-{exclusionCount}</span>
+          )}
+        </div>
+
+        {/* Bottom: action */}
+        <div className="mt-auto pt-1 border-t border-slate-100">
           <CardActionZone
             cardState={cardState}
             ruleId={rule.id}
