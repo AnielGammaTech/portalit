@@ -1272,6 +1272,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
         <ReconciliationDetailModal
           reconciliation={detailItem}
           customerId={customer.id}
+          overrides={existingOverrides}
           onClose={() => setDetailItem(null)}
           onForceMatch={(ruleId, notes) => forceMatch(ruleId, notes)}
           onReview={(ruleId, opts) => markReviewed(ruleId, opts)}

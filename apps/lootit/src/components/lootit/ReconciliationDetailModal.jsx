@@ -555,6 +555,7 @@ export default function ReconciliationDetailModal({
   onSaveNotes,
   onSaveExclusion,
   onMapLineItem,
+  overrides = [],
 }) {
   if (!reconciliation) return null;
 
@@ -563,6 +564,22 @@ export default function ReconciliationDetailModal({
   const label = isPax8 ? reconciliation.productName : reconciliation.rule?.label;
   const integrationLabel = reconciliation.integrationLabel || '';
   const { matchedLineItems = [], psaQty, vendorQty } = reconciliation;
+
+  // Parse multi-mapping vendor items from overrides
+  const ruleOverrides = overrides.filter(ov => ov.rule_id === ruleId || (ruleId?.startsWith('unmatched_') && ov.rule_id === ruleId));
+  const mappedVendorItems = useMemo(() => {
+    for (const ov of ruleOverrides) {
+      if (ov.pax8_product_name && ov.pax8_product_name.startsWith('[')) {
+        try {
+          return JSON.parse(ov.pax8_product_name);
+        } catch {}
+      }
+    }
+    if (ruleOverrides.length > 0 && ruleOverrides[0].pax8_product_name && !ruleOverrides[0].pax8_product_name.startsWith('[')) {
+      return [{ name: ruleOverrides[0].pax8_product_name, qty: vendorQty || 0 }];
+    }
+    return [];
+  }, [ruleOverrides, vendorQty]);
 
   return (
     <Dialog open={!!reconciliation} onOpenChange={(open) => { if (!open) onClose?.(); }}>
@@ -634,6 +651,29 @@ export default function ReconciliationDetailModal({
               </div>
             )}
           </div>
+
+          {/* Mapped Vendor Items breakdown */}
+          {mappedVendorItems.length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-pink-400 mb-2">
+                Mapped Vendor Items ({mappedVendorItems.length})
+              </h4>
+              <div className="bg-pink-50 rounded-xl border border-pink-200 divide-y divide-pink-100 overflow-hidden">
+                {mappedVendorItems.map((item, i) => (
+                  <div key={i} className="flex items-center justify-between px-4 py-2.5">
+                    <span className="text-sm font-medium text-slate-700">{item.name}</span>
+                    <span className="text-sm font-bold text-pink-600 tabular-nums">Qty: {item.qty}</span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between px-4 py-2.5 bg-pink-100/60">
+                  <span className="text-xs font-semibold text-pink-700 uppercase">Total</span>
+                  <span className="text-sm font-bold text-pink-700 tabular-nums">
+                    {mappedVendorItems.reduce((sum, m) => sum + (m.qty || 0), 0)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Actions */}
           <ActionSection
