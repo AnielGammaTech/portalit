@@ -344,7 +344,7 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
   }, [selected]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/30" />
       <div
         className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden mx-4 flex flex-col"
