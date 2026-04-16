@@ -362,6 +362,7 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
       const li = lineItemById[liId];
       if (!li) continue;
       overridedUnmatchedIds.add(liId);
+      const psaQty = parseFloat(li.quantity) || 0;
       const multiMapping = multiMappingMap[ov.rule_id];
       const vendorKey = ov.pax8_product_name || null;
       const vendorMapping = vendorKey ? mappings[vendorKey] : null;
@@ -382,7 +383,6 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
           }
         }
       }
-      const psaQty = parseFloat(li.quantity) || 0;
       const hasVendorData = vendorQty !== null;
       const difference = hasVendorData ? psaQty - vendorQty : 0;
       let status = 'no_vendor_data';
