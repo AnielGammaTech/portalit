@@ -1,320 +1,379 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { cn } from '@/lib/utils';
-import ReconciliationBadge from './ReconciliationBadge';
-import { getDiscrepancyMessage } from '@/lib/lootit-reconciliation';
-import { STATUS_COLORS } from './lootit-constants';
-import { Check, X, RotateCcw, ChevronRight, StickyNote, Link2, ShieldCheck, AlertTriangle, Trash2 } from 'lucide-react';
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
+import { Check, X } from 'lucide-react';
 
-const PAX8_REVIEWED_STYLES = {
-  card: 'border-amber-200', bar: 'bg-amber-400', numBg: 'bg-amber-50/60 border-amber-200', numText: 'text-amber-800', labelText: 'text-amber-400', borderT: 'border-amber-200',
+/* ─────────────────────────────────────────────
+   Card-state resolution (maps recon -> visual state)
+   ───────────────────────────────────────────── */
+
+function getEffectiveStatus(recon) {
+  const { psaQty, vendorQty, status, review } = recon;
+  const exclusionCount = review?.exclusion_count || 0;
+  if (exclusionCount <= 0) return status;
+  const effectiveVendorQty = vendorQty !== null ? vendorQty - exclusionCount : null;
+  if (psaQty === null || effectiveVendorQty === null) return status;
+  const diff = psaQty - effectiveVendorQty;
+  if (diff === 0) return 'match';
+  return diff > 0 ? 'over' : 'under';
+}
+
+function getCardState(recon) {
+  const { status, review } = recon;
+  const reviewStatus = review?.status;
+  const effectiveStatus = getEffectiveStatus(recon);
+
+  if (reviewStatus === 'force_matched') return 'force_matched';
+  if (reviewStatus === 'dismissed') return 'dismissed';
+  if (effectiveStatus === 'match') return 'auto_matched';
+  if (
+    status === 'no_vendor_data' ||
+    status === 'no_data' ||
+    status === 'unmatched_line_item' ||
+    status === 'no_psa_data' ||
+    status === 'missing_from_psa'
+  ) {
+    return 'no_vendor';
+  }
+  if (effectiveStatus === 'over' || effectiveStatus === 'under') return 'mismatch';
+  return 'no_vendor';
+}
+
+/* ─────────────────────────────────────────────
+   Visual config per card state
+   (mirrors ServiceCard CARD_STYLES exactly)
+   ───────────────────────────────────────────── */
+
+const CARD_STYLES = {
+  auto_matched: {
+    bg: 'linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%)',
+    border: '1.5px solid #BBF7D0',
+    bar: '#22C55E',
+    psaNum: '#166534',
+    vendorNum: '#166534',
+    psaLabel: '#166534',
+    vendorLabel: '#166534',
+  },
+  mismatch: {
+    bg: 'linear-gradient(135deg, #FFF7ED 0%, #FFFBEB 100%)',
+    border: '1.5px solid #FED7AA',
+    bar: '#F97316',
+    psaNum: '#C2410C',
+    vendorNum: '#B45309',
+    psaLabel: '#C2410C',
+    vendorLabel: '#B45309',
+  },
+  no_vendor: {
+    bg: 'linear-gradient(135deg, #FFF1F5 0%, #FFF5F7 100%)',
+    border: '1.5px solid #FBCFE8',
+    bar: '#EC4899',
+    psaNum: '#9D174D',
+    vendorNum: '#CBD5E1',
+    psaLabel: '#9D174D',
+    vendorLabel: '#CBD5E1',
+  },
+  force_matched: {
+    bg: 'linear-gradient(135deg, #EFF6FF 0%, #F0F9FF 100%)',
+    border: '1.5px solid #BFDBFE',
+    bar: '#3B82F6',
+    psaNum: '#1E40AF',
+    vendorNum: '#1E40AF',
+    psaLabel: '#1E40AF',
+    vendorLabel: '#1E40AF',
+  },
+  dismissed: {
+    bg: '#F8FAFC',
+    border: '1.5px solid #E2E8F0',
+    bar: '#CBD5E1',
+    psaNum: '#94A3B8',
+    vendorNum: '#94A3B8',
+    psaLabel: '#94A3B8',
+    vendorLabel: '#94A3B8',
+  },
 };
 
-export default function Pax8SubscriptionCard({ recon, onReview, onDismiss, onReset, onForceMatch, onDetails, onMapLineItem, onRemoveMapping, onSaveNotes, hasOverride, isSaving }) {
+/* ─────────────────────────────────────────────
+   Diff badge (absolute top-right)
+   ───────────────────────────────────────────── */
+
+function DiffBadge({ diff }) {
+  if (diff === 0) return null;
+
+  const isPositive = diff > 0;
+  const style = {
+    background: isPositive ? '#FEF3C7' : '#FEE2E2',
+    color: isPositive ? '#B45309' : '#DC2626',
+  };
+
+  return (
+    <span
+      className="absolute top-[10px] right-[10px] text-[10px] font-bold tabular-nums px-2 py-0.5 rounded-full z-10"
+      style={style}
+    >
+      {isPositive ? '+' : ''}{diff}
+    </span>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   Quantity display block (center zone)
+   Uses "PAX8" label instead of "Vendor"
+   ───────────────────────────────────────────── */
+
+function QtyBlock({ psaQty, vendorQty, cardState, styles }) {
+  const isNoVendor = cardState === 'no_vendor';
+  const isMatched = cardState === 'auto_matched' || cardState === 'force_matched';
+
+  const separator = isNoVendor ? '\u2014' : isMatched ? '=' : 'vs';
+
+  return (
+    <div className="flex items-center justify-center gap-1.5 flex-1">
+      <div className="text-center w-16">
+        <div
+          className="text-[28px] font-bold leading-none tabular-nums h-[32px] flex items-end justify-center"
+          style={{ color: styles.psaNum }}
+        >
+          {psaQty !== null ? psaQty : '\u2014'}
+        </div>
+        <div
+          className="text-[9px] font-semibold uppercase tracking-wider mt-1"
+          style={{ color: styles.psaLabel, opacity: 0.5 }}
+        >
+          PSA
+        </div>
+      </div>
+
+      <span className="text-[10px] font-medium text-slate-300 mx-0.5">
+        {separator}
+      </span>
+
+      <div className="text-center w-16">
+        <div
+          className="text-[28px] font-bold leading-none tabular-nums h-[32px] flex items-end justify-center"
+          style={{ color: styles.vendorNum }}
+        >
+          {isNoVendor ? '\u2014' : (vendorQty !== null ? vendorQty : '\u2014')}
+        </div>
+        <div
+          className="text-[9px] font-semibold uppercase tracking-wider mt-1"
+          style={{ color: styles.vendorLabel, opacity: 0.5 }}
+        >
+          PAX8
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   Bottom action zone
+   ───────────────────────────────────────────── */
+
+function CardActionZone({ cardState, ruleId, onForceMatch, onReset, onMapLineItem, onRemoveMapping, hasOverride, isSaving }) {
+  const btnBase = 'block w-full py-[7px] rounded-lg text-[12px] font-semibold text-center transition-all';
+
+  switch (cardState) {
+    case 'auto_matched':
+      return (
+        <div className="px-2 pb-[10px]">
+          <div
+            className={cn(btnBase, 'cursor-default flex items-center justify-center gap-1.5')}
+            style={{ background: '#DCFCE7', color: '#166534' }}
+          >
+            <span
+              className="inline-block w-[5px] h-[5px] rounded-full"
+              style={{ background: '#22C55E' }}
+            />
+            Auto-Matched
+          </div>
+        </div>
+      );
+
+    case 'force_matched':
+      return (
+        <div className="px-2 pb-[10px] space-y-1">
+          <div
+            className={cn(btnBase, 'cursor-default flex items-center justify-center gap-1.5')}
+            style={{ background: '#DBEAFE', color: '#1E40AF' }}
+          >
+            <Check className="w-3 h-3" strokeWidth={2.5} />
+            Approved
+          </div>
+          <div className="flex items-center justify-center gap-3">
+            <button
+              onClick={(e) => { e.stopPropagation(); hasOverride ? onRemoveMapping?.(ruleId) : onReset?.(ruleId); }}
+              disabled={isSaving}
+              className="text-[10px] text-red-400 cursor-pointer hover:text-red-600 transition-colors"
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+      );
+
+    case 'dismissed':
+      return (
+        <div className="px-2 pb-[10px]">
+          <div
+            className={cn(btnBase, 'cursor-default flex items-center justify-center gap-1.5')}
+            style={{ background: '#F1F5F9', color: '#94A3B8' }}
+          >
+            <X className="w-3 h-3" strokeWidth={2.5} />
+            Skipped
+          </div>
+        </div>
+      );
+
+    case 'no_vendor':
+      return (
+        <div className="px-2 pb-1 flex flex-col gap-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); onMapLineItem?.(ruleId); }}
+            disabled={isSaving}
+            className={cn(btnBase, 'text-white hover:brightness-[0.92] disabled:opacity-50')}
+            style={{ background: 'linear-gradient(135deg, #EC4899, #DB2777)' }}
+          >
+            Map to Vendor
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onForceMatch?.(ruleId); }}
+            disabled={isSaving}
+            className="text-center text-[10px] text-slate-400 cursor-pointer pb-1 hover:text-slate-600 transition-colors disabled:opacity-50"
+          >
+            Approve as-is
+          </button>
+        </div>
+      );
+
+    case 'mismatch':
+      return (
+        <div className="px-2 pb-[10px]">
+          <button
+            onClick={(e) => { e.stopPropagation(); onForceMatch?.(ruleId); }}
+            disabled={isSaving}
+            className={cn(btnBase, 'text-white cursor-pointer hover:brightness-[0.92] disabled:opacity-50')}
+            style={{ background: 'linear-gradient(135deg, #F97316, #EA580C)' }}
+          >
+            Force Match
+          </button>
+        </div>
+      );
+
+    default:
+      return null;
+  }
+}
+
+/* ─────────────────────────────────────────────
+   Pax8SubscriptionCard (main export)
+   Matches ServiceCard design with PAX8 branding
+   ───────────────────────────────────────────── */
+
+export default function Pax8SubscriptionCard({
+  recon,
+  onReview,
+  onDismiss,
+  onReset,
+  onForceMatch,
+  onDetails,
+  onMapLineItem,
+  onRemoveMapping,
+  onSaveNotes,
+  hasOverride,
+  isSaving,
+}) {
   const {
-    ruleId, productName, vendorQty, totalVendorQty, psaQty,
-    difference, status, matchedLineItems, billingTerm, price,
-    startDate, review,
+    ruleId, productName, vendorQty, psaQty,
+    billingTerm, price, review,
   } = recon;
 
-  const message = getDiscrepancyMessage(recon);
-  const isReviewed = review?.status === 'reviewed' || review?.status === 'dismissed' || review?.status === 'force_matched';
-  const isForceMatched = review?.status === 'force_matched';
-  const isMissing = status === 'missing_from_psa';
-
-  const [showNotes, setShowNotes] = useState(false);
-  const [noteText, setNoteText] = useState(review?.notes || '');
-  const [savingNote, setSavingNote] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null);
-  const [expanded, setExpanded] = useState(false);
-  const isGroup = recon.isGroup && recon.groupSubs?.length > 0;
-  const hasNotes = !!(review?.notes);
-  const hasExclusions = review?.exclusion_count > 0;
-
-  // Compute effective vendor qty after exclusions
   const exclusionCount = review?.exclusion_count || 0;
   const effectiveVendorQty = vendorQty !== null ? vendorQty - exclusionCount : null;
-  const effectiveDifference = psaQty !== null && effectiveVendorQty !== null ? psaQty - effectiveVendorQty : difference;
-  const effectiveStatus = hasExclusions
-    ? (effectiveDifference === 0 ? 'match' : effectiveDifference > 0 ? 'over' : 'under')
-    : status;
+  const cardState = getCardState(recon);
+  const styles = CARD_STYLES[cardState] || CARD_STYLES.no_vendor;
 
-  const styles = STATUS_COLORS[hasExclusions ? effectiveStatus : status] || STATUS_COLORS.neutral;
-
-  const handleSaveNote = async () => {
-    if (!onSaveNotes) return;
-    setSavingNote(true);
-    try {
-      if (pendingAction === 'force_match') {
-        if (!noteText.trim()) { setSavingNote(false); return; }
-        await onForceMatch?.(ruleId, noteText);
-      } else if (pendingAction === 'review') {
-        await onReview?.(ruleId, { notes: noteText });
-      } else if (pendingAction === 'dismiss') {
-        await onDismiss?.(ruleId, { notes: noteText });
-      } else {
-        await onSaveNotes(ruleId, noteText);
-      }
-    } finally {
-      setSavingNote(false);
-      setShowNotes(false);
-      setPendingAction(null);
-    }
-  };
-
-  const handleActionWithNote = (action) => {
-    setPendingAction(action);
-    setShowNotes(true);
-  };
+  const isDismissed = cardState === 'dismissed';
+  const showDiff = cardState === 'mismatch' && psaQty !== null && effectiveVendorQty !== null;
+  const diff = showDiff ? psaQty - effectiveVendorQty : 0;
 
   const totalCost = price > 0 ? (parseFloat(price) * vendorQty).toFixed(2) : null;
-  const resolvedStyles = isReviewed ? { ...styles, ...PAX8_REVIEWED_STYLES } : styles;
+
+  const billingLine = [
+    billingTerm || 'Pax8',
+    price > 0 ? `$${parseFloat(price).toFixed(2)}/unit` : null,
+    totalCost ? `$${totalCost}/mo` : null,
+  ].filter(Boolean).join(' \u00B7 ');
+
+  const handleCardClick = () => {
+    onDetails?.(recon);
+  };
+
+  const handleForceMatchAction = (ruleId) => {
+    onDetails?.(recon);
+  };
 
   return (
     <div
-      className={cn(
-        'rounded-lg border overflow-hidden transition-all hover:shadow-md cursor-pointer h-full flex flex-col',
-        isReviewed ? 'border-amber-200' : resolvedStyles.card,
-      )}
-      style={isReviewed ? { backgroundImage: 'linear-gradient(135deg, #fffbeb 0%, #fef9c3 50%, #fef3c7 100%)' } : undefined}
-      onClick={() => onDetails?.(recon)}
+      className="relative rounded-[14px] overflow-hidden flex flex-col cursor-pointer"
+      style={{
+        height: '190px',
+        background: styles.bg,
+        border: styles.border,
+        opacity: isDismissed ? 0.7 : 1,
+        transition: 'all 0.2s ease',
+      }}
+      onClick={handleCardClick}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'translateY(-2px)';
+        e.currentTarget.style.boxShadow = '0 8px 24px -4px rgba(236, 72, 153, 0.15)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = 'none';
+      }}
     >
-      <div className={cn('h-1', resolvedStyles.bar)} />
+      {/* Status bar -- 3px colored strip */}
+      <div className="h-[3px] w-full" style={{ background: styles.bar }} />
 
-      <div className="px-3 py-2 flex-1 flex flex-col">
-        {/* Title row */}
-        <div className="flex items-center justify-between gap-2 mb-1">
-          <h4 className="font-semibold text-slate-900 text-xs leading-tight truncate flex-1">
-            {productName}
-            {isGroup && (
-              <span className="text-[9px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full font-medium ml-1">
-                {recon.groupSubs.length} subs
-              </span>
-            )}
-          </h4>
-          <ReconciliationBadge status={isMissing ? 'missing_from_psa' : (hasExclusions ? effectiveStatus : status)} difference={hasExclusions ? effectiveDifference : difference} />
-        </div>
+      {/* Diff badge -- absolute top-right for mismatches */}
+      {showDiff && <DiffBadge diff={diff} />}
 
-        {/* Price line */}
-        {(billingTerm || totalCost) && (
-          <p className="text-[10px] text-slate-400 mb-1.5 truncate">
-            {billingTerm || 'Pax8'}{price > 0 ? ` · $${parseFloat(price).toFixed(2)}/unit` : ''}{totalCost ? ` · $${totalCost}/mo` : ''}
-          </p>
-        )}
+      {/* Card header */}
+      <div className="px-3 pt-[10px]">
+        <h4 className="text-[13px] font-bold text-slate-800 leading-tight truncate">
+          {productName}
+        </h4>
+        <p className="text-[10px] text-slate-400 leading-tight truncate">
+          {billingLine}
+        </p>
+      </div>
 
-        {/* Override / Not Billed */}
-        {isMissing && (
-          <div className="flex items-center gap-2 mb-2 px-2.5 py-1.5 bg-red-100/60 rounded-md border border-red-200" onClick={(e) => e.stopPropagation()}>
-            <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />
-            <span className="text-[11px] font-medium text-red-700 flex-1">Not billed in PSA</span>
-            <button onClick={() => onMapLineItem?.()} className="text-[10px] font-bold text-red-600 hover:text-red-800">MAP</button>
-          </div>
-        )}
-        {hasOverride && !isMissing && (
-          <div className="flex items-center gap-2 mb-2 px-2.5 py-1.5 bg-blue-50/80 rounded-md border border-blue-100" onClick={(e) => e.stopPropagation()}>
-            <Link2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-            <span className="text-[11px] text-blue-600 flex-1">Mapped manually</span>
-            <button onClick={() => onRemoveMapping?.()} className="text-[10px] font-bold text-blue-600 hover:text-blue-800">UNMAP</button>
-          </div>
-        )}
+      {/* Center zone: big quantity numbers */}
+      <QtyBlock
+        psaQty={psaQty}
+        vendorQty={effectiveVendorQty}
+        cardState={cardState}
+        styles={styles}
+      />
 
-        {/* Compact numbers */}
-        <div className="flex items-center mb-2 gap-1">
-          <div className={cn('flex-1 text-center py-1 rounded-md border', resolvedStyles.numBg)}>
-            <p className={cn('text-base font-bold tabular-nums leading-none', resolvedStyles.numText)}>
-              {psaQty !== null ? psaQty : '\u2014'}
-            </p>
-            <p className={cn('text-[8px] uppercase tracking-widest font-semibold mt-0.5', resolvedStyles.labelText)}>PSA</p>
-          </div>
-          <span className="text-[10px] text-slate-300 font-medium">vs</span>
-          <div className={cn('flex-1 text-center py-1 rounded-md border', resolvedStyles.numBg)}>
-            <p className={cn('text-base font-bold tabular-nums leading-none', resolvedStyles.numText)}>
-              {effectiveVendorQty !== null ? effectiveVendorQty : '\u2014'}
-            </p>
-            {hasExclusions && vendorQty !== null && (
-              <p className="text-[10px] text-amber-500 line-through">{vendorQty}</p>
-            )}
-            <p className={cn('text-[8px] uppercase tracking-widest font-semibold mt-0.5', resolvedStyles.labelText)}>PAX8</p>
-          </div>
-        </div>
+      {/* Exclusion indicator */}
+      {exclusionCount > 0 && (
+        <p className="text-[8px] text-amber-500 font-medium text-center -mt-1" title={`${exclusionCount} excluded`}>
+          -{exclusionCount} excluded
+        </p>
+      )}
 
-        {isGroup && (
-          <div className="mb-2">
-            <button
-              onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-              className="text-[10px] text-blue-500 hover:text-blue-700 font-medium"
-            >
-              {expanded ? 'Hide' : 'Show'} individual subs
-            </button>
-            {expanded && (
-              <div className="mt-1.5 space-y-1 pl-2 border-l-2 border-blue-200">
-                {recon.groupSubs.map(sub => (
-                  <div key={sub.ruleId} className="text-[10px] text-slate-500 flex justify-between">
-                    <span className="truncate">{sub.productName}</span>
-                    <span className="font-medium text-slate-600 shrink-0 ml-2">qty {sub.vendorQty}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Matched checkmark */}
-        {(hasExclusions ? effectiveStatus : status) === 'match' && !isReviewed && (
-          <div className="flex items-center justify-center gap-1.5 mb-2 text-emerald-600">
-            <Check className="w-3.5 h-3.5" />
-            <span className="text-[11px] font-semibold">
-              {hasExclusions ? 'Counts match (after exclusions)' : message}
-            </span>
-          </div>
-        )}
-
-        {/* Message for non-match */}
-        {(hasExclusions ? effectiveStatus : status) !== 'match' && (
-          <p className={cn(
-            'text-[11px] mb-2 text-center text-slate-500',
-            ((hasExclusions ? effectiveStatus : status) === 'under' || isMissing) && 'text-red-600 font-semibold',
-            (hasExclusions ? effectiveStatus : status) === 'over' && 'text-amber-600 font-semibold'
-          )}>
-            {isReviewed && <span className="text-slate-400 mr-1">[{review.status === 'reviewed' ? 'Reviewed' : 'Dismissed'}]</span>}
-            {message}
-          </p>
-        )}
-
-        {/* Exclusion badge */}
-        {hasExclusions && (
-          <div className="flex items-center gap-2 mb-2 px-2.5 py-1.5 bg-amber-50 rounded-md border border-amber-200">
-            <ShieldCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-            <span className="text-[11px] font-medium text-amber-700 flex-1">
-              {review.exclusion_count} {review.exclusion_reason || 'excluded'} -- not counted
-            </span>
-          </div>
-        )}
-
-        {/* Note preview strip */}
-        {hasNotes && !showNotes && (
-          <button onClick={(e) => { e.stopPropagation(); setShowNotes(true); }} className="w-full text-left mb-2 flex items-center gap-1.5 px-2 py-1 bg-amber-50 rounded-md border border-amber-100 hover:bg-amber-100 transition-colors">
-            <StickyNote className="w-3 h-3 text-amber-500 shrink-0" />
-            <span className="text-[10px] text-amber-700 truncate">{review.notes}</span>
-          </button>
-        )}
-
-        {/* Notes editing -- only shown when user clicks the note icon */}
-        {showNotes && (
-          <div className="mb-2" onClick={(e) => e.stopPropagation()}>
-            <div className="space-y-2">
-              {pendingAction && (
-                <p className="text-xs font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded-md border border-amber-200">
-                  Please add a note explaining why this is being {pendingAction === 'review' ? 'marked OK' : 'skipped'}
-                </p>
-              )}
-              <textarea
-                value={noteText}
-                onChange={(e) => setNoteText(e.target.value)}
-                placeholder={pendingAction ? 'Required: explain the discrepancy...' : 'Add a note...'}
-                rows={2}
-                className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none bg-white"
-                autoFocus
-              />
-              <div className="flex gap-1.5">
-                <button
-                  onClick={handleSaveNote}
-                  disabled={savingNote || (pendingAction && !noteText.trim())}
-                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 transition-colors"
-                >
-                  {savingNote ? 'Saving...' : pendingAction === 'force_match' ? 'Force Match' : pendingAction ? `Save & ${pendingAction === 'review' ? 'OK' : 'Skip'}` : 'Save'}
-                </button>
-                <button
-                  onClick={() => { setShowNotes(false); setNoteText(review?.notes || ''); setPendingAction(null); }}
-                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Action bar */}
-        <div onClick={(e) => e.stopPropagation()} className={cn('flex items-center gap-1.5 pt-1.5 border-t mt-auto', resolvedStyles.borderT)}>
-          <TooltipProvider delayDuration={300}>
-            {!isReviewed && status !== 'match' && (
-              <>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => handleActionWithNote('force_match')}
-                      disabled={isSaving}
-                      className="p-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow-sm transition-colors disabled:opacity-50"
-                    >
-                      <ShieldCheck className="w-3.5 h-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>Force Match (requires note)</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => handleActionWithNote('review')}
-                      disabled={isSaving}
-                      className="p-1.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm transition-colors disabled:opacity-50"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>OK</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => handleActionWithNote('dismiss')}
-                      disabled={isSaving}
-                      className="p-1.5 rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors disabled:opacity-50"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>Skip</TooltipContent>
-                </Tooltip>
-              </>
-            )}
-            {isReviewed && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button onClick={() => onReset?.(ruleId)} disabled={isSaving}
-                    className="p-1.5 rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200 transition-colors disabled:opacity-50">
-                    <RotateCcw className="w-3.5 h-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Undo</TooltipContent>
-              </Tooltip>
-            )}
-            {!showNotes && !pendingAction && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button onClick={() => setShowNotes(true)} className={cn('p-1.5 rounded-lg transition-colors', hasNotes ? 'text-amber-500 hover:bg-amber-50' : 'text-slate-300 hover:bg-slate-50')}>
-                    <StickyNote className="w-3.5 h-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Note</TooltipContent>
-              </Tooltip>
-            )}
-            {!isMissing && !hasOverride && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button onClick={() => onMapLineItem?.()}
-                    className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors">
-                    <Link2 className="w-3.5 h-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Map</TooltipContent>
-              </Tooltip>
-            )}
-          </TooltipProvider>
-          <span className="ml-auto inline-flex items-center gap-1 text-xs text-slate-300">
-            <ChevronRight className="w-3.5 h-3.5" />
-          </span>
-        </div>
+      {/* Bottom action zone */}
+      <div className="mt-auto">
+        <CardActionZone
+          cardState={cardState}
+          ruleId={ruleId}
+          onForceMatch={handleForceMatchAction}
+          onReset={onReset}
+          onMapLineItem={onMapLineItem}
+          onRemoveMapping={onRemoveMapping}
+          hasOverride={hasOverride}
+          isSaving={isSaving}
+        />
       </div>
     </div>
   );
