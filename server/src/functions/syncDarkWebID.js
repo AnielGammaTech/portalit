@@ -330,6 +330,78 @@ export async function syncDarkWebID(body, user) {
     };
   }
 
+  if (action === 'sync_all') {
+    const { data: allMappings } = await supabase
+      .from('dark_web_id_mappings')
+      .select('*');
+
+    if (!allMappings || allMappings.length === 0) {
+      return { success: true, synced: 0, message: 'No Dark Web ID mappings found' };
+    }
+
+    let totalSynced = 0;
+    const errors = [];
+
+    for (const mapping of allMappings) {
+      try {
+        const compromises = await fetchCompromises(mapping.darkweb_organization_uuid, authHeader);
+
+        const { data: existingCompromises } = await supabase
+          .from('dark_web_compromises')
+          .select('*')
+          .eq('customer_id', mapping.customer_id);
+
+        const existingIds = new Set((existingCompromises || []).map(c => c.darkweb_id));
+
+        const compromiseList = Array.isArray(compromises) ? compromises : (compromises.compromises || []);
+
+        for (const compromise of compromiseList) {
+          const compromiseId = compromise.id || compromise.uuid || `${compromise.email}-${compromise.source}`;
+
+          if (existingIds.has(compromiseId)) {
+            continue;
+          }
+
+          const { error } = await supabase
+            .from('dark_web_compromises')
+            .insert({
+              customer_id: mapping.customer_id,
+              darkweb_id: compromiseId,
+              email: compromise.email || compromise.username,
+              domain: compromise.domain,
+              password: compromise.password,
+              source: compromise.source || compromise.breach_name,
+              breach_date: compromise.breach_date || compromise.published_date,
+              discovered_date: compromise.discovered_date || new Date().toISOString().split('T')[0],
+              status: 'new',
+              severity: compromise.severity || 'medium'
+            });
+
+          if (error) {
+            console.error(`[DarkWebID] Failed to insert compromise ${compromiseId}:`, error.message);
+          }
+          totalSynced++;
+        }
+
+        // Update last sync time for this mapping
+        await supabase
+          .from('dark_web_id_mappings')
+          .update({ last_sync: new Date().toISOString() })
+          .eq('id', mapping.id);
+
+      } catch (err) {
+        console.error(`[DarkWebID] Error syncing customer ${mapping.customer_id}:`, err.message);
+        errors.push({ customer_id: mapping.customer_id, error: err.message });
+      }
+    }
+
+    return {
+      success: true,
+      synced: totalSynced,
+      errors: errors.length > 0 ? errors : undefined
+    };
+  }
+
   const err = new Error('Invalid action');
   err.statusCode = 400;
   throw err;
