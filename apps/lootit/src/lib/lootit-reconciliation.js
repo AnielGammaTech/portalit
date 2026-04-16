@@ -367,9 +367,12 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
       const vendorKey = ov.pax8_product_name || null;
       const vendorMapping = vendorKey ? mappings[vendorKey] : null;
       const isApprovedAsIs = vendorKey === 'approved_as_is';
+      const storedQty = ov.group_id?.startsWith('qty:') ? parseFloat(ov.group_id.replace('qty:', '')) : null;
       let vendorQty = null;
       if (isApprovedAsIs) {
         vendorQty = psaQty;
+      } else if (storedQty !== null && !isNaN(storedQty)) {
+        vendorQty = storedQty;
       } else if (multiMapping) {
         vendorQty = multiMapping.totalQty;
       } else if (vendorKey && vendorMapping) {
@@ -381,7 +384,10 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
       if (vendorQty === null && vendorKey && !isApprovedAsIs) {
         for (const [mk, mv] of Object.entries(mappings)) {
           if (mk === vendorKey || mk.startsWith(vendorKey)) {
-            const q = extractVendorCount(mk, mv.cached_data);
+            const cd2 = typeof mv.cached_data === 'string'
+              ? (() => { try { return JSON.parse(mv.cached_data); } catch { return mv.cached_data; } })()
+              : mv.cached_data;
+            const q = extractVendorCount(mk, cd2);
             if (q !== null) { vendorQty = q; break; }
           }
         }
