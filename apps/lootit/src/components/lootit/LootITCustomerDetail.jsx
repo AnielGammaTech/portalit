@@ -9,7 +9,6 @@ import { useReconciliationReviews } from '@/hooks/useReconciliationReviews';
 import { useCustomerContacts, useCustomerDevices } from '@/hooks/useCustomerData';
 import { useAuth } from '@/lib/AuthContext';
 import { getDiscrepancySummary, getDiscrepancyMessage } from '@/lib/lootit-reconciliation';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import ServiceCard from './ServiceCard';
 import Pax8SubscriptionCard from './Pax8SubscriptionCard';
 import ReconciliationBadge from './ReconciliationBadge';
@@ -18,7 +17,7 @@ import CustomerDetailHeader from './CustomerDetailHeader';
 import ContractTab from './ContractTab';
 import ContractCard from './ContractCard';
 import UploadProgressCard from './UploadProgressCard';
-import DetailDrawer from './DetailDrawer';
+import ReconciliationDetailModal from './ReconciliationDetailModal';
 import LineItemPicker from './LineItemPicker';
 import RuleEditorDialog from './RuleEditorDialog';
 import Pax8GroupMapper from './Pax8GroupMapper';
@@ -1225,30 +1224,28 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
       </>
       )}
 
-      {/* Details Drawer */}
-      <Sheet open={!!detailItem} onOpenChange={(open) => { if (!open) setDetailItem(null); }}>
-        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto p-0">
-          {detailItem && (
-            <DetailDrawer
-              reconciliation={detailItem}
-              customerId={customer.id}
-              onForceMatch={(ruleId, notes) => forceMatch(ruleId, notes)}
-              onReview={(ruleId, opts) => markReviewed(ruleId, opts)}
-              onDismiss={(ruleId, opts) => dismiss(ruleId, opts)}
-              onReset={(ruleId) => resetReview(ruleId)}
-              onSaveNotes={(ruleId, notes) => saveNotes(ruleId, notes)}
-              onSaveExclusion={async (ruleId, exclusionCount, exclusionReason) => {
-                await saveExclusion(ruleId, exclusionCount, exclusionReason);
-                const updatedReviews = queryClient.getQueryData(['reconciliation_reviews', customer.id]);
-                const updatedReview = updatedReviews?.find((r) => r.rule_id === ruleId);
-                if (updatedReview) {
-                  setDetailItem((prev) => prev ? { ...prev, review: updatedReview } : prev);
-                }
-              }}
-            />
-          )}
-        </SheetContent>
-      </Sheet>
+      {/* Detail Modal */}
+      {detailItem && (
+        <ReconciliationDetailModal
+          reconciliation={detailItem}
+          customerId={customer.id}
+          onClose={() => setDetailItem(null)}
+          onForceMatch={(ruleId, notes) => forceMatch(ruleId, notes)}
+          onReview={(ruleId, opts) => markReviewed(ruleId, opts)}
+          onDismiss={(ruleId, opts) => dismiss(ruleId, opts)}
+          onReset={(ruleId) => resetReview(ruleId)}
+          onSaveNotes={(ruleId, notes) => saveNotes(ruleId, notes)}
+          onSaveExclusion={async (ruleId, exclusionCount, exclusionReason) => {
+            await saveExclusion(ruleId, exclusionCount, exclusionReason);
+            const updatedReviews = queryClient.getQueryData(['reconciliation_reviews', customer.id]);
+            const updatedReview = updatedReviews?.find((r) => r.rule_id === ruleId);
+            if (updatedReview) {
+              setDetailItem((prev) => prev ? { ...prev, review: updatedReview } : prev);
+            }
+          }}
+          onMapLineItem={(ruleId, label) => setMappingRecon({ ruleId, productName: label })}
+        />
+      )}
 
       {/* Rule Editor Dialog */}
       {editingRule && (
