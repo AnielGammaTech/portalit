@@ -566,20 +566,20 @@ export default function ReconciliationDetailModal({
   const { matchedLineItems = [], psaQty, vendorQty } = reconciliation;
 
   // Parse multi-mapping vendor items from overrides
-  const ruleOverrides = overrides.filter(ov => ov.rule_id === ruleId || (ruleId?.startsWith('unmatched_') && ov.rule_id === ruleId));
   const mappedVendorItems = useMemo(() => {
-    for (const ov of ruleOverrides) {
+    const matched = overrides.filter(ov => ov.rule_id === ruleId);
+    for (const ov of matched) {
       if (ov.pax8_product_name && ov.pax8_product_name.startsWith('[')) {
         try {
           return JSON.parse(ov.pax8_product_name);
         } catch {}
       }
     }
-    if (ruleOverrides.length > 0 && ruleOverrides[0].pax8_product_name && !ruleOverrides[0].pax8_product_name.startsWith('[')) {
-      return [{ name: ruleOverrides[0].pax8_product_name, qty: vendorQty || 0 }];
+    if (matched.length > 0 && matched[0].pax8_product_name && !matched[0].pax8_product_name.startsWith('[')) {
+      return [{ name: matched[0].pax8_product_name, qty: vendorQty || 0 }];
     }
     return [];
-  }, [ruleOverrides, vendorQty]);
+  }, [overrides, ruleId, vendorQty]);
 
   return (
     <Dialog open={!!reconciliation} onOpenChange={(open) => { if (!open) onClose?.(); }}>
