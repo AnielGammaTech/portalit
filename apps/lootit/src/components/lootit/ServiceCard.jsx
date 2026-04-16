@@ -118,10 +118,10 @@ function DiffBadge({ diff }) {
    ───────────────────────────────────────────── */
 
 function QtyBlock({ psaQty, vendorQty, cardState, styles }) {
-  const isNoVendor = cardState === 'no_vendor';
   const isMatched = cardState === 'auto_matched' || cardState === 'force_matched';
+  const hasAnyData = psaQty !== null || vendorQty !== null;
 
-  const separator = isNoVendor ? '\u2014' : isMatched ? '=' : 'vs';
+  const separator = isMatched ? '=' : hasAnyData ? 'vs' : '\u2014';
 
   return (
     <div className="flex items-center justify-center gap-1.5 flex-1">
@@ -149,7 +149,7 @@ function QtyBlock({ psaQty, vendorQty, cardState, styles }) {
           className="text-[28px] font-bold leading-none tabular-nums h-[32px] flex items-end justify-center"
           style={{ color: styles.vendorNum }}
         >
-          {isNoVendor ? '\u2014' : (vendorQty !== null ? vendorQty : '\u2014')}
+          {vendorQty !== null ? vendorQty : '\u2014'}
         </div>
         <div
           className="text-[9px] font-semibold uppercase tracking-wider mt-1"
