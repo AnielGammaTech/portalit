@@ -88,27 +88,30 @@ async function rocketCyberV3ApiCall(endpoint, params = {}) {
   return response.json();
 }
 
-function extractAgentCount(data) {
-  if (typeof data.totalCount === 'number') return data.totalCount;
-  if (typeof data.total === 'number') return data.total;
-  if (data.meta?.totalCount) return data.meta.totalCount;
-  if (data.meta?.total) return data.meta.total;
-  if (data.pagination?.total) return data.pagination.total;
-  if (Array.isArray(data.data) && data.data.length > 0) return data.data.length;
-  if (Array.isArray(data) && data.length > 0) return data.length;
-
-  // Check any key that holds an array
-  if (data && typeof data === 'object' && !Array.isArray(data)) {
-    for (const key of Object.keys(data)) {
+function extractAgents(data) {
+  let agents = [];
+  if (Array.isArray(data.data)) agents = data.data;
+  else if (Array.isArray(data.agents)) agents = data.agents;
+  else if (Array.isArray(data)) agents = data;
+  else {
+    for (const key of Object.keys(data || {})) {
       if (Array.isArray(data[key]) && data[key].length > 0) {
-        return data[key].length;
+        agents = data[key];
+        break;
       }
     }
   }
-  return 0;
+  return agents.map(a => ({
+    id: a.id || a.agentId,
+    hostname: a.hostname || a.name || a.computerName || 'Unknown',
+    os: a.os || a.operatingSystem || a.platform || '',
+    status: a.status || a.state || '',
+    ip: a.ip || a.ipAddress || a.privateIp || '',
+    lastSeen: a.lastSeen || a.lastConnected || a.updatedAt || '',
+  }));
 }
 
-async function fetchAgentCount(rcAccountId) {
+async function fetchAgents(rcAccountId) {
   // Try v3 first, then v2 with multiple endpoint formats
   const attempts = [
     { label: 'v3 /agents', fn: () => rocketCyberV3ApiCall('/agents', { accountId: rcAccountId }) },
@@ -123,10 +126,10 @@ async function fetchAgentCount(rcAccountId) {
       const snippet = JSON.stringify(data).slice(0, 500);
       console.log(`[RocketCyber] ${label} for ${rcAccountId}: ${snippet}`);
 
-      const count = extractAgentCount(data);
-      if (count > 0) {
-        console.log(`[RocketCyber] Found ${count} agents via ${label} for ${rcAccountId}`);
-        return count;
+      const agents = extractAgents(data);
+      if (agents.length > 0) {
+        console.log(`[RocketCyber] Found ${agents.length} agents via ${label} for ${rcAccountId}`);
+        return { count: agents.length, agents };
       }
     } catch (err) {
       console.log(`[RocketCyber] ${label} failed for ${rcAccountId}: ${err.message}`);
@@ -134,7 +137,7 @@ async function fetchAgentCount(rcAccountId) {
   }
 
   console.warn(`[RocketCyber] All agent endpoints returned 0 for account ${rcAccountId}`);
-  return 0;
+  return { count: 0, agents: [] };
 }
 
 // Cache endpoint probe results to avoid redundant API calls per account
@@ -406,12 +409,12 @@ export async function syncRocketCyber(body, user) {
       }
     }
 
-    // Fetch agent/device count from RocketCyber API
-    let totalAgents = 0;
+    // Fetch agent details from RocketCyber API
+    let agentResult = { count: 0, agents: [] };
     try {
-      totalAgents = await fetchAgentCount(rcAccountId);
+      agentResult = await fetchAgents(rcAccountId);
     } catch (err) {
-      console.error(`Failed to fetch agent count for account ${rcAccountId}:`, err.message);
+      console.error(`Failed to fetch agents for account ${rcAccountId}:`, err.message);
     }
 
     // Build cached_data summary for fast frontend reads
@@ -422,7 +425,8 @@ export async function syncRocketCyber(body, user) {
     const allCustomerIncidents = allDbIncidents.data || [];
 
     const cachedData = {
-      total_agents: totalAgents,
+      total_agents: agentResult.count,
+      agents: agentResult.agents,
       totalIncidents: allCustomerIncidents.length,
       openIncidents: allCustomerIncidents.filter(i => i.status === 'open' || i.status === 'investigating').length,
       resolvedIncidents: allCustomerIncidents.filter(i => i.status === 'resolved' || i.status === 'closed').length,
@@ -445,7 +449,7 @@ export async function syncRocketCyber(body, user) {
       success: true,
       recordsSynced: syncedCount,
       totalIncidents: allIncidents.length,
-      totalAgents
+      totalAgents: agentResult.count
     };
   }
 
@@ -499,12 +503,12 @@ export async function syncRocketCyber(body, user) {
           }
         }
 
-        // Fetch agent/device count from RocketCyber API (all statuses: online + offline + isolated)
-        let totalAgents = 0;
+        // Fetch agent details from RocketCyber API (all statuses: online + offline + isolated)
+        let agentResult = { count: 0, agents: [] };
         try {
-          totalAgents = await fetchAgentCount(rcAccountId);
+          agentResult = await fetchAgents(rcAccountId);
         } catch (err) {
-          console.error(`Failed to fetch agent count for account ${rcAccountId}:`, err.message);
+          console.error(`Failed to fetch agents for account ${rcAccountId}:`, err.message);
         }
 
         // Build cached_data summary
@@ -515,7 +519,8 @@ export async function syncRocketCyber(body, user) {
         const allCustomerIncidents = allDbIncidents.data || [];
 
         const cachedData = {
-          total_agents: totalAgents,
+          total_agents: agentResult.count,
+          agents: agentResult.agents,
           totalIncidents: allCustomerIncidents.length,
           openIncidents: allCustomerIncidents.filter(i => i.status === 'open' || i.status === 'investigating').length,
           resolvedIncidents: allCustomerIncidents.filter(i => i.status === 'resolved' || i.status === 'closed').length,
