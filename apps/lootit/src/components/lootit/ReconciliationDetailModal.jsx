@@ -81,9 +81,9 @@ function formatTimestamp(ts) {
 function InfoRow({ label, value, mono }) {
   if (value === null || value === undefined) return null;
   return (
-    <div className="flex justify-between items-baseline gap-4">
+    <div className="flex justify-between items-baseline gap-4 min-w-0">
       <dt className="text-xs text-slate-500 shrink-0">{label}</dt>
-      <dd className={cn('text-sm font-semibold text-slate-700 text-right truncate', mono && 'font-mono text-xs bg-slate-50 px-2 py-0.5 rounded')}>
+      <dd className={cn('text-sm font-semibold text-slate-700 text-right truncate min-w-0 max-w-[60%]', mono && 'font-mono text-xs bg-slate-50 px-2 py-0.5 rounded')}>
         {value}
       </dd>
     </div>
@@ -572,7 +572,7 @@ export default function ReconciliationDetailModal({
 
   return (
     <Dialog open={!!reconciliation} onOpenChange={(open) => { if (!open) onClose?.(); }}>
-      <DialogContent className="max-w-2xl rounded-2xl p-0 gap-0 backdrop-blur-sm border-slate-200">
+      <DialogContent className="max-w-2xl rounded-2xl p-0 gap-0 backdrop-blur-sm border-slate-200 overflow-hidden">
         {/* Header */}
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100">
           <div className="flex items-center justify-between gap-3">
