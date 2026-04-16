@@ -74,7 +74,23 @@ export default function SignOffButton({ customer, reconciliations, pax8Reconcili
     }
   };
 
-  // Already signed off for this period — show stamp
+  const handleRemoveSignOff = async () => {
+    if (!signOffData?.id) return;
+    try {
+      await client.entities.ReconciliationSignOff.update(signOffData.id, {
+        status: 'revoked',
+        revoked_at: new Date().toISOString(),
+        revoked_by: user?.id || null,
+      });
+      toast.success('Sign-off removed');
+      queryClient.invalidateQueries({ queryKey: ['sign_off_status', customer.id] });
+      queryClient.invalidateQueries({ queryKey: ['all_sign_offs'] });
+    } catch (err) {
+      toast.error(`Failed to remove sign-off: ${err.message}`);
+    }
+  };
+
+  // Already signed off for this period — show stamp with remove option
   if (isSignedOff && isCurrentPeriod) {
     return (
       <div className="flex items-center gap-2">
@@ -87,6 +103,12 @@ export default function SignOffButton({ customer, reconciliations, pax8Reconcili
             </span>
           </div>
         </div>
+        <button
+          onClick={handleRemoveSignOff}
+          className="text-[10px] text-red-400 hover:text-red-600 underline"
+        >
+          Remove
+        </button>
         <button
           onClick={() => { setShowPanel(true); setVerifyResult(null); }}
           className="text-[10px] text-slate-400 hover:text-slate-600 underline"
