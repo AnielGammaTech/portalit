@@ -627,10 +627,10 @@ export default function ReconciliationDetailModal({
           {/* Actions */}
           <ActionSection
             reconciliation={reconciliation}
-            onForceMatch={onForceMatch}
-            onReview={onReview}
-            onDismiss={onDismiss}
-            onReset={onReset}
+            onForceMatch={async (ruleId, notes) => { await onForceMatch?.(ruleId, notes); onClose?.(); }}
+            onReview={async (ruleId, opts) => { await onReview?.(ruleId, opts); onClose?.(); }}
+            onDismiss={async (ruleId, opts) => { await onDismiss?.(ruleId, opts); onClose?.(); }}
+            onReset={async (ruleId) => { await onReset?.(ruleId); onClose?.(); }}
             onMapLineItem={onMapLineItem}
             isSaving={false}
           />

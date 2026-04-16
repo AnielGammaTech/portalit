@@ -196,9 +196,12 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
 
   const handleSaveMapping = async (ruleId, productName, selectedItems) => {
     try {
-      // selectedItems is an array of { id, description, quantity }
       const items = Array.isArray(selectedItems) ? selectedItems : [{ id: selectedItems, description: productName, quantity: 0 }];
-      const NIL_UUID = '00000000-0000-0000-0000-000000000000';
+
+      // Find the PSA line item ID from the reconciliation data for FK compliance
+      const recon = recons.find(r => r.rule?.id === ruleId);
+      const pax8Recon = pax8Recons.find(r => r.ruleId === ruleId);
+      const psaLineItemId = recon?.matchedLineItems?.[0]?.id || pax8Recon?.matchedLineItems?.[0]?.id || null;
 
       // Delete existing overrides for this rule_id (clean replace)
       const toRemove = existingOverrides.filter((o) => o.rule_id === ruleId);
@@ -206,7 +209,6 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
         await client.entities.Pax8LineItemOverride.delete(ov.id);
       }
 
-      // Create a shared group_id when mapping multiple items
       const groupId = items.length > 1 ? crypto.randomUUID() : null;
 
       for (const item of items) {
@@ -221,7 +223,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           customer_id: customer.id,
           rule_id: ruleId,
           pax8_product_name: isPsaLineItem ? (productName || null) : (vendorKey || item.description || item.id),
-          line_item_id: isPsaLineItem ? item.id : NIL_UUID,
+          line_item_id: isPsaLineItem ? item.id : (psaLineItemId || item.id),
           ...(groupId ? { group_id: groupId } : {}),
         });
       }
