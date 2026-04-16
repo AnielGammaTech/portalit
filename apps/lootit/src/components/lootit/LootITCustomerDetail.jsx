@@ -1274,7 +1274,26 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           customerId={customer.id}
           overrides={existingOverrides}
           onClose={() => setDetailItem(null)}
-          onForceMatch={(ruleId, notes) => forceMatch(ruleId, notes)}
+          onForceMatch={async (ruleId, notes) => {
+            const rawId = ruleId.startsWith('unmatched_') ? ruleId : null;
+            const liId = rawId ? rawId.replace('unmatched_', '') : null;
+            if (liId) {
+              const toRemove = existingOverrides.filter(o => o.rule_id === rawId);
+              for (const ov of toRemove) await client.entities.Pax8LineItemOverride.delete(ov.id);
+              await client.entities.Pax8LineItemOverride.create({
+                customer_id: customer.id,
+                rule_id: rawId,
+                pax8_product_name: 'approved_as_is',
+                line_item_id: liId,
+                group_id: `approved:${(notes || '').slice(0, 200)}`,
+              });
+              await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides', customer.id] });
+              await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides_all'] });
+              toast.success('Approved as-is');
+            } else {
+              await forceMatch(ruleId, notes);
+            }
+          }}
           onReview={(ruleId, opts) => markReviewed(ruleId, opts)}
           onDismiss={(ruleId, opts) => dismiss(ruleId, opts)}
           onReset={(ruleId) => resetReview(ruleId)}
