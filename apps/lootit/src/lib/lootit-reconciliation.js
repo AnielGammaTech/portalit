@@ -351,17 +351,55 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
     };
   });
 
-  // 5. Add unmatched line items — billing items that don't match ANY rule or Pax8
-  // Exclude line items mapped via overrides AND auto-matched by Pax8
+  // 5. Handle overrides on unmatched items — these have rule_id starting with "unmatched_"
+  // and need their own reconciliation results with vendor qty from the override
+  const overridedUnmatchedIds = new Set();
+  const overridedUnmatchedResults = [];
   for (const ov of overrides) {
     if (ov.line_item_id) matchedLineItemIds.add(ov.line_item_id);
+    if (ov.rule_id && ov.rule_id.startsWith('unmatched_')) {
+      const liId = ov.rule_id.replace('unmatched_', '');
+      const li = lineItemById[liId];
+      if (!li) continue;
+      overridedUnmatchedIds.add(liId);
+      const multiMapping = multiMappingMap[ov.rule_id];
+      const vendorQty = multiMapping ? multiMapping.totalQty : null;
+      const psaQty = parseFloat(li.quantity) || 0;
+      const hasVendorData = vendorQty !== null;
+      const difference = hasVendorData ? psaQty - vendorQty : 0;
+      let status = 'no_vendor_data';
+      if (hasVendorData) {
+        if (difference === 0) status = 'match';
+        else if (difference > 0) status = 'over';
+        else status = 'under';
+      }
+      const review = reviewMap[ov.rule_id] || null;
+      overridedUnmatchedResults.push({
+        rule: {
+          id: ov.rule_id,
+          label: (li.description || 'Unknown').replace(/\s*\$recurringbillingdate\s*/gi, '').trim() || li.description,
+          integration_key: 'manually_mapped',
+          is_active: true,
+        },
+        psaQty,
+        vendorQty,
+        difference,
+        status,
+        matchedLineItems: [li],
+        review,
+        integrationLabel: multiMapping ? `Mapped to ${multiMapping.items.length} vendor item(s)` : 'Manually Mapped',
+        isUnmatchedLineItem: false,
+      });
+    }
   }
+
+  // 6. Add remaining unmatched line items
   for (const id of pax8MatchedIds) {
     matchedLineItemIds.add(id);
   }
-  // Skip discounts (negative amounts or description starting with "Discount")
   const unmatchedItems = lineItems.filter((li) =>
     !matchedLineItemIds.has(li.id) &&
+    !overridedUnmatchedIds.has(li.id) &&
     li.description &&
     (parseFloat(li.quantity) || 0) !== 0 &&
     !(li.description || '').toLowerCase().startsWith('discount')
@@ -384,7 +422,7 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
     isUnmatchedLineItem: true,
   }));
 
-  return [...ruleResults, ...unmatchedResults];
+  return [...ruleResults, ...overridedUnmatchedResults, ...unmatchedResults];
 }
 
 // ── Pax8 per-subscription auto-reconciliation ────────────────────────
