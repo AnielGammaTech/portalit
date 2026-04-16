@@ -1,12 +1,23 @@
-import { Link } from 'react-router-dom'
-import { Home, Settings, ExternalLink, LogOut } from 'lucide-react'
+import { Link, useLocation } from 'react-router-dom'
+import { LayoutDashboard, Settings, ExternalLink, LogOut } from 'lucide-react'
 import { useAuth } from '@/lib/AuthContext'
 import { supabase } from '@/api/client'
 
 const PORTALIT_URL = import.meta.env.VITE_PORTALIT_URL || 'https://portalit.gtools.io'
 
+const NAV_ITEMS = [
+  { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+  { name: 'Settings', path: '/settings', icon: Settings },
+]
+
+function getUserInitials(email) {
+  if (email && email.length > 0) return email[0].toUpperCase()
+  return 'U'
+}
+
 export default function Layout({ children }) {
   const { user } = useAuth()
+  const location = useLocation()
 
   const handleSignOut = async () => {
     try {
@@ -18,43 +29,63 @@ export default function Layout({ children }) {
   }
 
   return (
-    <div className="flex h-screen bg-slate-50">
-      <aside className="w-56 bg-slate-900 text-slate-100 flex flex-col">
-        <div className="px-4 py-5 border-b border-slate-800">
-          <h1 className="text-lg font-semibold">LootIT</h1>
-          <p className="text-xs text-slate-400 mt-0.5">Billing Reconciliation</p>
+    <div className="flex flex-col h-screen bg-slate-50">
+      <header className="flex items-center h-14 px-4 shrink-0" style={{ backgroundColor: '#13082E' }}>
+        <div className="flex items-center gap-6 flex-1 min-w-0">
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-pink-400 font-bold text-lg tracking-tight" style={{ textShadow: '0 0 12px rgba(236,72,153,0.4)' }}>
+              LootIT
+            </span>
+            <span className="text-white/30 text-xs font-medium uppercase tracking-wider hidden sm:inline">
+              Billing Reconciliation
+            </span>
+          </div>
+
+          <nav className="flex items-center h-14">
+            {NAV_ITEMS.map((item) => {
+              const isActive = location.pathname === item.path
+              const Icon = item.icon
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`relative flex items-center gap-2 px-4 h-14 text-sm font-medium transition-colors ${
+                    isActive ? 'text-white' : 'text-white/60 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{item.name}</span>
+                  {isActive && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-pink-500" />
+                  )}
+                </Link>
+              )
+            })}
+            <a
+              href={PORTALIT_URL}
+              className="relative flex items-center gap-2 px-4 h-14 text-sm font-medium text-white/40 hover:text-white/70 transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" />
+              <span className="hidden md:inline">PortalIT</span>
+            </a>
+          </nav>
         </div>
-        <nav className="flex-1 px-2 py-4 space-y-1">
-          <Link
-            to="/"
-            className="flex items-center gap-2 px-3 py-2 rounded hover:bg-slate-800 text-sm"
-          >
-            <Home className="h-4 w-4" /> Dashboard
-          </Link>
-          <Link
-            to="/settings"
-            className="flex items-center gap-2 px-3 py-2 rounded hover:bg-slate-800 text-sm"
-          >
-            <Settings className="h-4 w-4" /> Settings
-          </Link>
-          <a
-            href={PORTALIT_URL}
-            className="flex items-center gap-2 px-3 py-2 rounded hover:bg-slate-800 text-sm"
-          >
-            <ExternalLink className="h-4 w-4" /> Back to PortalIT
-          </a>
-        </nav>
-        <div className="px-3 py-3 border-t border-slate-800">
-          <div className="text-xs text-slate-400 mb-2 truncate">{user?.email}</div>
+
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="text-white/50 text-xs hidden sm:inline truncate max-w-[160px]">
+            {user?.email}
+          </span>
           <button
             type="button"
             onClick={handleSignOut}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded hover:bg-slate-800 text-sm"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-md text-white/60 hover:text-white hover:bg-white/10 transition-colors text-sm"
           >
-            <LogOut className="h-4 w-4" /> Sign out
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline">Sign out</span>
           </button>
         </div>
-      </aside>
+      </header>
+
       <main className="flex-1 overflow-auto">
         {children}
       </main>
