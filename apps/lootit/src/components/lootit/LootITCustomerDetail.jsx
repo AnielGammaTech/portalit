@@ -198,33 +198,37 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
     try {
       const items = Array.isArray(selectedItems) ? selectedItems : [{ id: selectedItems, description: productName, quantity: 0 }];
 
-      // Find the PSA line item ID from the reconciliation data for FK compliance
       const recon = recons.find(r => r.rule?.id === ruleId);
       const pax8Recon = pax8Recons.find(r => r.ruleId === ruleId);
       const psaLineItemId = recon?.matchedLineItems?.[0]?.id || pax8Recon?.matchedLineItems?.[0]?.id || null;
 
-      // Delete existing overrides for this rule_id (clean replace)
       const toRemove = existingOverrides.filter((o) => o.rule_id === ruleId);
       for (const ov of toRemove) {
         await client.entities.Pax8LineItemOverride.delete(ov.id);
       }
 
-      const groupId = items.length > 1 ? crypto.randomUUID() : null;
-
-      for (const item of items) {
+      if (items.length === 1) {
+        const item = items[0];
         const isPsaLineItem = item.id && !item.id.includes(':');
-        const isVendorTotal = item.id && item.id.endsWith(':total');
-        const isVendorCount = item.id && item.id.endsWith(':count');
-        const vendorKey = (isVendorTotal || isVendorCount)
-          ? item.id.replace(/:total$|:count$/, '')
-          : null;
-
         await client.entities.Pax8LineItemOverride.create({
           customer_id: customer.id,
           rule_id: ruleId,
-          pax8_product_name: isPsaLineItem ? (productName || null) : (vendorKey || item.description || item.id),
+          pax8_product_name: isPsaLineItem ? (productName || null) : (item.description || item.id),
           line_item_id: isPsaLineItem ? item.id : (psaLineItemId || item.id),
-          ...(groupId ? { group_id: groupId } : {}),
+        });
+      } else {
+        const mappingData = items.map(item => ({
+          id: item.id,
+          name: item.description,
+          qty: item.quantity || 0,
+        }));
+        const totalQty = mappingData.reduce((sum, m) => sum + m.qty, 0);
+        await client.entities.Pax8LineItemOverride.create({
+          customer_id: customer.id,
+          rule_id: ruleId,
+          pax8_product_name: JSON.stringify(mappingData),
+          line_item_id: psaLineItemId || items[0].id,
+          group_id: `multi:${totalQty}`,
         });
       }
 
