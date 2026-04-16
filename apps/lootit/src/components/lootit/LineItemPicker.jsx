@@ -13,40 +13,69 @@ function extractVendorItems(integrationKey, mapping) {
     ? (() => { try { return JSON.parse(mapping.cached_data); } catch { return {}; } })()
     : (mapping.cached_data || {});
 
+  const label = INTEGRATION_LABELS[integrationKey] || integrationKey;
+
   // Device arrays (UniFi, Datto RMM, Cove)
   if (Array.isArray(raw.devices) && raw.devices.length > 0) {
-    return raw.devices.map((d, i) => ({
+    const summary = {
+      id: `${integrationKey}:total`,
+      description: label,
+      quantity: raw.devices.length,
+      unit_price: 0,
+      total: 0,
+      _meta: `${raw.devices.length} total devices`,
+      _isSummary: true,
+    };
+    return [summary, ...raw.devices.map((d, i) => ({
       id: `${integrationKey}:${d.id || d.mac || i}`,
       description: d.name || d.hostname || d.model || 'Unknown device',
       quantity: 1,
       unit_price: 0,
       total: 0,
       _meta: [d.device_type || d.type, d.model, d.status].filter(Boolean).join(' · '),
-    }));
+    }))];
   }
 
   // Host arrays (Datto EDR)
   if (Array.isArray(raw.hosts) && raw.hosts.length > 0) {
-    return raw.hosts.map((h, i) => ({
+    const summary = {
+      id: `${integrationKey}:total`,
+      description: label,
+      quantity: raw.hosts.length,
+      unit_price: 0,
+      total: 0,
+      _meta: `${raw.hosts.length} total hosts`,
+      _isSummary: true,
+    };
+    return [summary, ...raw.hosts.map((h, i) => ({
       id: `${integrationKey}:${h.id || h.hostname || i}`,
       description: h.hostname || h.name || 'Unknown host',
       quantity: 1,
       unit_price: 0,
       total: 0,
       _meta: [h.os, h.status].filter(Boolean).join(' · '),
-    }));
+    }))];
   }
 
   // User arrays (Spanning, JumpCloud)
   if (Array.isArray(raw.users) && raw.users.length > 0) {
-    return raw.users.map((u, i) => ({
+    const summary = {
+      id: `${integrationKey}:total`,
+      description: label,
+      quantity: raw.users.length,
+      unit_price: 0,
+      total: 0,
+      _meta: `${raw.users.length} total users`,
+      _isSummary: true,
+    };
+    return [summary, ...raw.users.map((u, i) => ({
       id: `${integrationKey}:${u.id || u.email || i}`,
       description: u.displayName || u.email || u.username || u.name || 'Unknown user',
       quantity: 1,
       unit_price: 0,
       total: 0,
       _meta: u.userType || u.type || '',
-    }));
+    }))];
   }
 
   // Domain arrays (Dark Web ID)
@@ -244,16 +273,32 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
               <button
                 key={li.id}
                 onClick={() => onSelect(li.id)}
-                className="w-full text-left px-6 py-3 hover:bg-slate-50 border-b border-slate-50 transition-colors cursor-pointer"
+                className={cn(
+                  "w-full text-left px-6 py-3 border-b transition-colors cursor-pointer",
+                  li._isSummary
+                    ? "bg-pink-50 hover:bg-pink-100 border-pink-100"
+                    : "hover:bg-slate-50 border-slate-50"
+                )}
               >
-                <p className="text-sm font-medium text-slate-700 truncate">
-                  {source === 'psa' ? formatLineItemDescription(li.description) : li.description}
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className={cn(
+                    "text-sm truncate",
+                    li._isSummary ? "font-bold text-pink-700" : "font-medium text-slate-700"
+                  )}>
+                    {li._isSummary ? `${li.description} (Total)` : source === 'psa' ? formatLineItemDescription(li.description) : li.description}
+                  </p>
+                  {li._isSummary && (
+                    <span className="text-sm font-bold text-pink-600 tabular-nums shrink-0 ml-3">
+                      Qty: {li.quantity}
+                    </span>
+                  )}
+                </div>
                 <div className="flex gap-4 mt-0.5 text-xs text-slate-400">
-                  <span>Qty: {li.quantity}</span>
-                  {li.unit_price > 0 && <span>Price: ${parseFloat(li.unit_price).toFixed(2)}</span>}
-                  {li.total > 0 && <span>Total: ${parseFloat(li.total).toFixed(2)}</span>}
-                  {li._meta && <span className="text-slate-300">{li._meta}</span>}
+                  {!li._isSummary && <span>Qty: {li.quantity}</span>}
+                  {li._isSummary && <span className="text-pink-400">{li._meta}</span>}
+                  {!li._isSummary && li.unit_price > 0 && <span>Price: ${parseFloat(li.unit_price).toFixed(2)}</span>}
+                  {!li._isSummary && li.total > 0 && <span>Total: ${parseFloat(li.total).toFixed(2)}</span>}
+                  {!li._isSummary && li._meta && <span className="text-slate-300">{li._meta}</span>}
                 </div>
               </button>
             ))
