@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/api/client';
 import { cn } from '@/lib/utils';
@@ -548,31 +548,27 @@ export default function ReconciliationDetailModal({
   onMapLineItem,
   overrides = [],
 }) {
-  const isPax8 = !!reconciliation?.ruleId;
-  const ruleId = isPax8 ? reconciliation.ruleId : reconciliation?.rule?.id;
-  const vendorQtyRaw = reconciliation?.vendorQty;
-
-  const mappedVendorItems = useMemo(() => {
-    if (!ruleId) return [];
-    const matched = overrides.filter(ov => ov.rule_id === ruleId);
-    for (const ov of matched) {
-      if (ov.pax8_product_name && ov.pax8_product_name.startsWith('[')) {
-        try {
-          return JSON.parse(ov.pax8_product_name);
-        } catch {}
-      }
-    }
-    if (matched.length > 0 && matched[0].pax8_product_name && !matched[0].pax8_product_name.startsWith('[')) {
-      return [{ name: matched[0].pax8_product_name, qty: vendorQtyRaw || 0 }];
-    }
-    return [];
-  }, [overrides, ruleId, vendorQtyRaw]);
-
   if (!reconciliation) return null;
 
+  const isPax8 = !!reconciliation.ruleId;
+  const ruleId = isPax8 ? reconciliation.ruleId : reconciliation.rule?.id;
   const label = isPax8 ? reconciliation.productName : reconciliation.rule?.label;
   const integrationLabel = reconciliation.integrationLabel || '';
   const { matchedLineItems = [], psaQty, vendorQty } = reconciliation;
+
+  let mappedVendorItems = [];
+  if (ruleId) {
+    const ruleOverrides = overrides.filter(ov => ov.rule_id === ruleId);
+    for (const ov of ruleOverrides) {
+      if (ov.pax8_product_name && ov.pax8_product_name.startsWith('[')) {
+        try { mappedVendorItems = JSON.parse(ov.pax8_product_name); } catch {}
+        break;
+      }
+    }
+    if (mappedVendorItems.length === 0 && ruleOverrides.length > 0 && ruleOverrides[0].pax8_product_name && !ruleOverrides[0].pax8_product_name.startsWith('[')) {
+      mappedVendorItems = [{ name: ruleOverrides[0].pax8_product_name, qty: vendorQty || 0 }];
+    }
+  }
 
   return (
     <Dialog open={!!reconciliation} onOpenChange={(open) => { if (!open) onClose?.(); }}>
