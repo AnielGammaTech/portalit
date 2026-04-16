@@ -89,7 +89,7 @@ Plans:
 - [x] 04-02-PLAN.md -- Write cookie+localStorage auth storage adapter with chunking and localhost fallback
 - [x] 04-03-PLAN.md -- Copy LootIT source (lib/hooks/ui/components) into apps/lootit and wire cookie adapter into api/client.js
 - [x] 04-04-PLAN.md -- Duplicate auth-storage adapter into portalit src/lib/ and wire createClient (backwards-compat) — includes STRIDE threat model
-- [ ] 04-05-PLAN.md -- Create lootit-frontend Railway service, deploy to temporary Railway URL, update backend CORS_ORIGIN
+- [x] 04-05-PLAN.md -- Create lootit-frontend Railway service, deploy to temporary Railway URL, update backend CORS_ORIGIN
 - [ ] 04-06-PLAN.md -- Replace portalit in-app LootIT route with external link (VITE_LOOTIT_URL), merge feat/lootit-split to production
 - [ ] 04-07-PLAN.md -- Add lootit.gtools.io custom domain + DNS CNAME, finalize env vars, verify full SSO loop end-to-end
 **UI hint**: no
