@@ -216,7 +216,7 @@ export async function syncDattoEDR(body, user) {
     const responseData = {
       hostCount: hostCount,
       activeHostCount: activeCount,
-      hosts: hosts.slice(0, 100).map(h => {
+      hosts: hosts.map(h => {
         const heartbeatDate = h.heartbeat ? new Date(h.heartbeat) : null;
         const isOnline = heartbeatDate ? heartbeatDate > twentyFourHoursAgo : h.active === true;
         return {
@@ -449,27 +449,56 @@ export async function syncDattoEDR(body, user) {
           try { targetData = JSON.parse(raw); } catch(e) { console.warn('[DattoEDR] Non-critical error parsing target data:', e.message); }
         }
 
-        const agentsUrl = addAuth(`${DATTO_EDR_BASE_URL}/agents`);
-        const agentsRes = await fetch(agentsUrl, { headers }).catch(() => null);
-
+        // Fetch agents scoped to this target — paginate to get all
         let allAgents = [];
-        if (agentsRes?.ok) {
-          const raw = await agentsRes.text();
+        const PAGE_SIZE = 100;
+
+        // Primary: target-scoped endpoint (returns only this customer's agents)
+        for (let skip = 0; ; skip += PAGE_SIZE) {
+          const url = addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`);
+          const res = await fetch(url, { headers }).catch(() => null);
+          if (!res?.ok) break;
+          const raw = await res.text();
+          let page = [];
           try {
-            allAgents = JSON.parse(raw);
-            if (!Array.isArray(allAgents)) {
-              allAgents = allAgents?.data || [];
-            }
-          } catch(e) { console.warn('[DattoEDR] Non-critical error parsing agents data:', e.message); }
+            const parsed = JSON.parse(raw);
+            page = Array.isArray(parsed) ? parsed : (parsed?.data || parsed?.value || []);
+          } catch (e) { console.warn('[DattoEDR] Non-critical error parsing target agents page:', e.message); break; }
+          allAgents.push(...page);
+          if (page.length < PAGE_SIZE) break; // last page
         }
 
-        // Try multiple matching strategies for agents
-        let hosts = allAgents.filter(a => a.locationId === targetId);
-        if (hosts.length === 0) {
-          hosts = allAgents.filter(a => a.targetId === targetId);
+        // Fallback: global agents endpoint filtered client-side
+        if (allAgents.length === 0) {
+          console.log(`[DattoEDR] sync_all: Target-scoped endpoint returned 0 agents for ${targetId}, falling back to global`);
+          for (let skip = 0; ; skip += PAGE_SIZE) {
+            const url = addAuth(`${DATTO_EDR_BASE_URL}/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`);
+            const res = await fetch(url, { headers }).catch(() => null);
+            if (!res?.ok) break;
+            const raw = await res.text();
+            let page = [];
+            try {
+              const parsed = JSON.parse(raw);
+              page = Array.isArray(parsed) ? parsed : (parsed?.data || parsed?.value || []);
+            } catch (e) { console.warn('[DattoEDR] Non-critical error parsing global agents page:', e.message); break; }
+            allAgents.push(...page);
+            if (page.length < PAGE_SIZE) break;
+          }
         }
-        if (hosts.length === 0) {
-          hosts = allAgents.filter(a => (a.location_id || a.organizationId) === targetId);
+
+        // If we used the global endpoint, filter to this customer's target
+        let hosts = allAgents;
+        if (hosts.length > 0 && hosts[0].locationId !== undefined) {
+          const firstMatch = hosts.find(a =>
+            a.locationId === targetId || a.targetId === targetId ||
+            a.location_id === targetId || a.organizationId === targetId
+          );
+          if (!firstMatch && hosts.length > 5) {
+            hosts = allAgents.filter(a =>
+              a.locationId === targetId || a.targetId === targetId ||
+              (a.location_id || a.organizationId) === targetId
+            );
+          }
         }
 
         const targetStats = targetData ? {
@@ -492,7 +521,7 @@ export async function syncDattoEDR(body, user) {
         const responseData = {
           hostCount,
           activeHostCount: activeCount,
-          hosts: hosts.slice(0, 100).map(h => {
+          hosts: hosts.map(h => {
             const heartbeatDate = h.heartbeat ? new Date(h.heartbeat) : null;
             const isOnline = heartbeatDate ? heartbeatDate > twentyFourHoursAgo : h.active === true;
             return {
