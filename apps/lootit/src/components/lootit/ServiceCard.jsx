@@ -166,7 +166,7 @@ function QtyBlock({ psaQty, vendorQty, cardState, styles }) {
    Bottom action zone
    ───────────────────────────────────────────── */
 
-function CardActionZone({ cardState, ruleId, ruleLabel, onForceMatch, onReset, onMapLineItem, overrideCount, isSaving }) {
+function CardActionZone({ cardState, ruleId, ruleLabel, onForceMatch, onReset, onMapLineItem, onRemoveMapping, overrideCount, hasOverride, isSaving }) {
   const btnBase = 'block w-full py-[7px] rounded-lg text-[12px] font-semibold text-center transition-all';
 
   switch (cardState) {
@@ -196,15 +196,24 @@ function CardActionZone({ cardState, ruleId, ruleLabel, onForceMatch, onReset, o
             <Check className="w-3 h-3" strokeWidth={2.5} />
             {overrideCount > 0 ? `Mapped to ${overrideCount} item${overrideCount > 1 ? 's' : ''}` : 'Approved'}
           </div>
-          {overrideCount > 0 && (
+          <div className="flex items-center justify-center gap-3">
+            {overrideCount > 0 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onMapLineItem?.(ruleId, ruleLabel); }}
+                disabled={isSaving}
+                className="text-[10px] text-blue-400 cursor-pointer hover:text-blue-600 transition-colors"
+              >
+                Edit mapping
+              </button>
+            )}
             <button
-              onClick={(e) => { e.stopPropagation(); onMapLineItem?.(ruleId, ruleLabel); }}
+              onClick={(e) => { e.stopPropagation(); hasOverride ? onRemoveMapping?.(ruleId) : onReset?.(ruleId); }}
               disabled={isSaving}
-              className="text-center text-[10px] text-blue-400 cursor-pointer hover:text-blue-600 transition-colors w-full"
+              className="text-[10px] text-red-400 cursor-pointer hover:text-red-600 transition-colors"
             >
-              Edit mapping
+              Reset
             </button>
-          )}
+          </div>
         </div>
       );
 
@@ -376,7 +385,9 @@ export default function ServiceCard({
           onForceMatch={handleForceMatchAction}
           onReset={onReset}
           onMapLineItem={onMapLineItem}
+          onRemoveMapping={onRemoveMapping}
           overrideCount={overrideCount || 0}
+          hasOverride={hasOverride}
           isSaving={isSaving}
         />
       </div>
