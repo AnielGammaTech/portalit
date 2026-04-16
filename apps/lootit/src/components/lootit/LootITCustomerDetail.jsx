@@ -249,22 +249,29 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   };
 
   const handleSaveGroupMapping = async (lineItemId, ruleIds) => {
-    const groupId = crypto.randomUUID();
-    for (const ruleId of ruleIds) {
-      const existing = existingOverrides.filter(o => o.rule_id === ruleId);
-      for (const ov of existing) {
-        await client.entities.Pax8LineItemOverride.delete(ov.id);
+    try {
+      const groupId = crypto.randomUUID();
+      for (const ruleId of ruleIds) {
+        const existing = existingOverrides.filter(o => o.rule_id === ruleId);
+        for (const ov of existing) {
+          await client.entities.Pax8LineItemOverride.delete(ov.id);
+        }
+        const sub = pax8Recons.find(r => r.ruleId === ruleId);
+        await client.entities.Pax8LineItemOverride.create({
+          customer_id: customer.id,
+          rule_id: ruleId,
+          line_item_id: lineItemId,
+          pax8_product_name: sub?.productName || ruleId,
+          group_id: groupId,
+        });
       }
-      await client.entities.Pax8LineItemOverride.create({
-        customer_id: customer.id,
-        rule_id: ruleId,
-        line_item_id: lineItemId,
-        group_id: groupId,
-      });
+      await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides', customer.id] });
+      await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides_all'] });
+      setShowGroupMapper(false);
+      toast.success(`Grouped ${ruleIds.length} subscriptions`);
+    } catch (err) {
+      toast.error(err.message || 'Failed to save group mapping');
     }
-    await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides', customer.id] });
-    await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides_all'] });
-    setShowGroupMapper(false);
   };
 
   const handleSaveRule = async (ruleId, updates) => {
