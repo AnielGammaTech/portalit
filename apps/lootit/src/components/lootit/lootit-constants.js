@@ -21,7 +21,8 @@ export const ACTION_LABELS = {
   dismissed: { label: 'Skipped',       color: 'text-slate-500',   bg: 'bg-slate-50' },
   reset:     { label: 'Reset',         color: 'text-amber-600',   bg: 'bg-amber-50' },
   note:      { label: 'Note added',    color: 'text-blue-600',    bg: 'bg-blue-50' },
-  exclusion: { label: 'Exclusion set', color: 'text-amber-600',   bg: 'bg-amber-50' },
+  exclusion:      { label: 'Exclusion set', color: 'text-amber-600',   bg: 'bg-amber-50' },
+  force_matched:  { label: 'Force Matched', color: 'text-blue-600',    bg: 'bg-blue-50' },
 };
 
 export const BILLING_STATUS_CONFIG = {
