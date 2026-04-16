@@ -487,11 +487,11 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   const summary = customerData ? getDiscrepancySummary(allRecons) : null;
 
   const filteredRecons = useMemo(() => {
-    const visible = recons.filter((r) => r.status !== 'no_data');
+    const visible = recons.filter((r) => r.status !== 'no_data' || r.review?.status === 'force_matched' || r.review?.status === 'reviewed' || r.review?.status === 'dismissed');
     if (statusFilter === 'all') return visible;
-    if (statusFilter === 'issues') return visible.filter((r) => r.status === 'over' || r.status === 'under');
-    if (statusFilter === 'matched') return visible.filter((r) => r.status === 'match');
-    if (statusFilter === 'reviewed') return visible.filter((r) => r.review?.status === 'reviewed' || r.review?.status === 'dismissed');
+    if (statusFilter === 'issues') return visible.filter((r) => (r.status === 'over' || r.status === 'under') && r.review?.status !== 'force_matched');
+    if (statusFilter === 'matched') return visible.filter((r) => r.status === 'match' || r.review?.status === 'force_matched');
+    if (statusFilter === 'reviewed') return visible.filter((r) => r.review?.status === 'reviewed' || r.review?.status === 'dismissed' || r.review?.status === 'force_matched');
     return visible;
   }, [recons, statusFilter]);
 
