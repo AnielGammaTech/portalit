@@ -1194,7 +1194,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           </p>
         </div>
       ) : filteredRecons.length === 0 ? null : (
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-4 gap-3 auto-rows-fr">
           {filteredRecons.map((recon) => (
             <ServiceCard
               key={recon.rule.id}
