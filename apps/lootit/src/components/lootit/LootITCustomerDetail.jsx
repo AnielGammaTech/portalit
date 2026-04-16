@@ -36,6 +36,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   const [statusFilter, setStatusFilter] = useState('all');
   const [detailItem, setDetailItem] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState('');
 
   const [mappingRecon, setMappingRecon] = useState(null); // { ruleId, productName } being mapped
   const [showGroupMapper, setShowGroupMapper] = useState(false);
@@ -430,7 +431,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
         toast.error(`Recurring bill sync failed: ${err.message}`);
       }
 
-      // Step 3: Sync all vendor integrations in parallel
+      // Step 3: Sync vendor integrations sequentially with live status
       const vendorSyncs = [
         { fn: 'syncDattoRMMDevices', action: 'sync_devices', label: 'Datto RMM' },
         { fn: 'syncDattoEDR', action: 'sync_alerts', label: 'Datto EDR' },
@@ -441,12 +442,16 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
         { fn: 'syncUniFiDevices', action: 'sync_devices', label: 'UniFi' },
         { fn: 'syncPax8Subscriptions', action: 'sync_subscriptions', label: 'Pax8' },
       ];
-      const syncResults = await Promise.allSettled(
-        vendorSyncs.map((v) =>
-          client.functions.invoke(v.fn, { action: v.action, customer_id: customer.id }).catch(() => null)
-        )
-      );
-      const failed = syncResults.filter((r, i) => r.status === 'rejected').length;
+      let failed = 0;
+      for (let i = 0; i < vendorSyncs.length; i++) {
+        const v = vendorSyncs[i];
+        setSyncStatus(`Syncing ${v.label}… (${i + 1}/${vendorSyncs.length})`);
+        try {
+          await client.functions.invoke(v.fn, { action: v.action, customer_id: customer.id });
+        } catch {
+          failed++;
+        }
+      }
       if (failed > 0) toast.error(`${failed} vendor sync(s) had issues`);
 
       // Step 4: Invalidate ALL caches to pull fresh data
@@ -463,9 +468,11 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
         predicate: (q) => String(q.queryKey[0]).startsWith('lootit_entity_'),
       });
 
+      setSyncStatus('');
       toast.success(`All data synced for ${customer.name}`);
     } finally {
       setIsSyncing(false);
+      setSyncStatus('');
     }
   };
 
@@ -652,6 +659,11 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
               {isSyncing ? 'Syncing…' : 'Sync'}
             </button>
           </div>
+          {syncStatus && (
+            <div className="text-xs text-pink-600 font-medium animate-pulse mb-2">
+              {syncStatus}
+            </div>
+          )}
 
           {/* Row 2: Integration widgets — data from actual integrations */}
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-4">
