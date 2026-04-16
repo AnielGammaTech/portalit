@@ -10,11 +10,6 @@ const NAV_ITEMS = [
   { name: 'Settings', path: '/settings', icon: Settings },
 ]
 
-function getUserInitials(email) {
-  if (email && email.length > 0) return email[0].toUpperCase()
-  return 'U'
-}
-
 export default function Layout({ children }) {
   const { user } = useAuth()
   const location = useLocation()
@@ -30,18 +25,15 @@ export default function Layout({ children }) {
 
   return (
     <div className="flex flex-col h-screen bg-slate-50">
-      <header className="flex items-center h-14 px-4 shrink-0" style={{ backgroundColor: '#13082E' }}>
-        <div className="flex items-center gap-6 flex-1 min-w-0">
-          <div className="flex items-center gap-2 shrink-0">
+      <header className="shrink-0" style={{ backgroundColor: '#13082E' }}>
+        <div className="flex items-center h-14 px-6">
+          <div className="flex items-center gap-2 shrink-0 w-48">
             <span className="text-pink-400 font-bold text-lg tracking-tight" style={{ textShadow: '0 0 12px rgba(236,72,153,0.4)' }}>
               LootIT
             </span>
-            <span className="text-white/30 text-xs font-medium uppercase tracking-wider hidden sm:inline">
-              Billing Reconciliation
-            </span>
           </div>
 
-          <nav className="flex items-center h-14">
+          <nav className="flex-1 flex items-center justify-center h-14 gap-1">
             {NAV_ITEMS.map((item) => {
               const isActive = location.pathname === item.path
               const Icon = item.icon
@@ -66,28 +58,29 @@ export default function Layout({ children }) {
               className="relative flex items-center gap-2 px-4 h-14 text-sm font-medium text-white/40 hover:text-white/70 transition-colors"
             >
               <ExternalLink className="w-4 h-4" />
-              <span className="hidden md:inline">PortalIT</span>
+              <span>PortalIT</span>
             </a>
           </nav>
-        </div>
 
-        <div className="flex items-center gap-3 shrink-0">
-          <span className="text-white/50 text-xs hidden sm:inline truncate max-w-[160px]">
-            {user?.email}
-          </span>
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-md text-white/60 hover:text-white hover:bg-white/10 transition-colors text-sm"
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="hidden sm:inline">Sign out</span>
-          </button>
+          <div className="flex items-center gap-3 shrink-0 w-48 justify-end">
+            <span className="text-white/50 text-xs truncate max-w-[140px]">
+              {user?.email}
+            </span>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="flex items-center gap-1.5 text-white/60 hover:text-white transition-colors text-sm"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="flex-1 overflow-auto">
-        {children}
+        <div className="max-w-[1400px] mx-auto px-6 py-6">
+          {children}
+        </div>
       </main>
     </div>
   )
