@@ -1,63 +1,58 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { STATUS_COLORS, BILLING_STATUS_CONFIG } from './lootit-constants';
-import { ArrowLeft, RefreshCw, Users, Monitor, Server, Hash, FileText, DollarSign, Check, AlertTriangle, MapPin, Mail } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Users, Monitor, Server, Hash, FileText, DollarSign, Check, AlertTriangle, ExternalLink } from 'lucide-react';
+
+const PORTALIT_URL = import.meta.env.VITE_PORTALIT_URL || 'https://portalit.gtools.io';
 
 export default function CustomerDetailHeader({ customer, onBack, onSync, isSyncing, healthPct, activeIntegrations, summary, contacts, devices, contracts, dollarImpact, issueCount, financialSummary }) {
-  const primaryContact = contacts.length > 0 ? contacts[0] : null;
+  const workstationCount = devices.filter(d => d.device_type !== 'Server' && d.device_type !== 'server').length;
+  const serverCount = devices.filter(d => d.device_type === 'Server' || d.device_type === 'server').length;
+
+  const statsItems = [
+    { icon: Users, value: contacts.length, label: 'Users' },
+    { icon: Monitor, value: workstationCount, label: 'Workstations' },
+    { icon: Server, value: serverCount, label: 'Servers' },
+    { icon: Hash, value: summary?.total || 0, label: 'Services' },
+    { icon: FileText, value: contracts.length, label: 'Contracts' },
+    { icon: DollarSign, value: dollarImpact?.totalMonthlyBilled ? `$${Math.round(dollarImpact.totalMonthlyBilled).toLocaleString()}` : '$0', label: 'Monthly' },
+  ];
+
+  const healthColor = healthPct >= 80
+    ? 'bg-emerald-500 text-white'
+    : healthPct >= 50
+      ? 'bg-amber-500 text-white'
+      : 'bg-red-500 text-white';
 
   return (
-    <div className="rounded-2xl border border-pink-200/60 shadow-sm overflow-hidden bg-white">
-      {/* Health bar */}
-      <div className="h-1 bg-pink-100">
-        <div
-          className={cn(
-            'h-full transition-all duration-700 rounded-r-full',
-            healthPct >= 80 ? 'bg-emerald-500' : healthPct >= 50 ? 'bg-amber-500' : 'bg-red-500'
-          )}
-          style={{ width: `${healthPct}%` }}
-        />
-      </div>
-
-      <div className="px-5 py-4">
-        {/* Row 1: Name + Contact + Actions */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3 min-w-0 flex-1">
+    <div className="rounded-2xl overflow-hidden shadow-sm">
+      {/* Dark rose header band */}
+      <div
+        className="px-5 py-4"
+        style={{ background: 'linear-gradient(135deg, #2E0820 0%, #3D1230 100%)' }}
+      >
+        {/* Row 1: Back + Name + Health + Sync */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             <button
               onClick={onBack}
-              className="w-8 h-8 mt-0.5 rounded-lg bg-pink-50 hover:bg-pink-100 flex items-center justify-center transition-colors flex-shrink-0"
+              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors flex-shrink-0"
             >
-              <ArrowLeft className="w-4 h-4 text-pink-600" />
+              <ArrowLeft className="w-4 h-4 text-pink-300" />
             </button>
-            <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-bold text-slate-900 truncate leading-tight">
+            <h2 className="text-lg font-bold text-white truncate leading-tight">
+              <a
+                href={`${PORTALIT_URL}/CustomerDetail/${customer.id}`}
+                className="hover:underline inline-flex items-center gap-1.5"
+              >
                 {customer.name}
-              </h2>
-              <div className="flex items-center gap-2 mt-1 text-xs text-slate-400">
-                {primaryContact ? (
-                  <>
-                    <Mail className="w-3 h-3 text-pink-400 shrink-0" />
-                    <span className="truncate">{primaryContact.full_name}{primaryContact.email ? ` · ${primaryContact.email}` : ''}</span>
-                  </>
-                ) : (
-                  <span className="text-slate-300">No contact on file</span>
-                )}
-                {customer.address && (
-                  <>
-                    <span className="text-slate-200">|</span>
-                    <MapPin className="w-3 h-3 text-pink-400 shrink-0" />
-                    <span className="truncate">{customer.address}</span>
-                  </>
-                )}
-              </div>
-            </div>
+                <ExternalLink className="w-3.5 h-3.5 text-pink-300 shrink-0" />
+              </a>
+            </h2>
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            <div className={cn(
-              'px-2.5 py-1 rounded-full text-xs font-bold tabular-nums border',
-              healthPct >= 80 ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : healthPct >= 50 ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-red-50 text-red-600 border-red-200'
-            )}>
+            <div className={cn('px-2.5 py-1 rounded-full text-xs font-bold tabular-nums', healthColor)}>
               {healthPct}%
             </div>
             <button
@@ -71,83 +66,70 @@ export default function CustomerDetailHeader({ customer, onBack, onSync, isSynci
           </div>
         </div>
 
-        {/* Divider */}
-        <div className="border-t border-pink-100/60 my-3" />
-
-        {/* Row 2: Stats strip — all in one tight row */}
-        <div className="flex items-center gap-3 overflow-x-auto pb-1">
-          {[
-            { icon: Users, value: contacts.length, label: 'Users', color: 'text-blue-600' },
-            { icon: Monitor, value: devices.filter(d => d.device_type !== 'Server' && d.device_type !== 'server').length, label: 'Workstations', color: 'text-indigo-600' },
-            { icon: Server, value: devices.filter(d => d.device_type === 'Server' || d.device_type === 'server').length, label: 'Servers', color: 'text-purple-600' },
-            { icon: Hash, value: summary?.total || 0, label: 'Services', color: 'text-slate-500' },
-            { icon: FileText, value: contracts.length, label: 'Contracts', color: 'text-cyan-600' },
-            { icon: DollarSign, value: dollarImpact?.totalMonthlyBilled ? `$${Math.round(dollarImpact.totalMonthlyBilled).toLocaleString()}` : '$0', label: 'Monthly', color: 'text-emerald-600' },
-          ].map((w) => (
-            <div key={w.label} className="flex items-center gap-1.5 whitespace-nowrap">
-              <w.icon className={cn('w-3.5 h-3.5', w.color)} />
-              <span className={cn('text-sm font-bold tabular-nums', w.color)}>{w.value}</span>
-              <span className="text-[10px] text-slate-400">{w.label}</span>
+        {/* Row 2: Stats strip */}
+        <div className="flex items-center gap-2 mt-3 overflow-x-auto pb-1">
+          {statsItems.map((w) => (
+            <div
+              key={w.label}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 whitespace-nowrap"
+            >
+              <w.icon className="w-3.5 h-3.5 text-pink-300" />
+              <span className="text-sm font-bold tabular-nums text-white">{w.value}</span>
+              <span className="text-[10px] text-pink-300/80">{w.label}</span>
             </div>
           ))}
 
-          {/* Financial summary inline */}
+          {/* MRR */}
           {financialSummary && financialSummary.mrr > 0 && (
-            <>
-              <div className="w-px h-4 bg-slate-200 mx-1" />
-              <div className="flex items-center gap-1.5 whitespace-nowrap">
-                <span className="text-[10px] text-slate-400">MRR</span>
-                <span className="text-sm font-bold text-slate-700 tabular-nums">
-                  ${financialSummary.mrr.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                </span>
-              </div>
-            </>
-          )}
-          {financialSummary && (
-            <>
-              <div className="w-px h-4 bg-slate-200 mx-1" />
-              <span className={cn(
-                'inline-block px-2 py-0.5 text-[10px] font-semibold rounded-full border',
-                BILLING_STATUS_CONFIG[financialSummary.billingStatus].className
-              )}>
-                {BILLING_STATUS_CONFIG[financialSummary.billingStatus].label}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 whitespace-nowrap">
+              <span className="text-[10px] text-pink-300/80">MRR</span>
+              <span className="text-sm font-bold text-white tabular-nums">
+                ${financialSummary.mrr.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
               </span>
-            </>
+            </div>
+          )}
+
+          {/* Billing status */}
+          {financialSummary && (
+            <span className={cn(
+              'inline-block px-2.5 py-1 text-[10px] font-semibold rounded-full',
+              BILLING_STATUS_CONFIG[financialSummary.billingStatus].className
+            )}>
+              {BILLING_STATUS_CONFIG[financialSummary.billingStatus].label}
+            </span>
           )}
         </div>
 
-        {/* Divider */}
-        <div className="border-t border-pink-100/60 my-3" />
-
-        {/* Row 3: Reconciliation summary — compact pills */}
+        {/* Row 3: Reconciliation summary pills */}
         {summary && (
-          <div className="flex items-center gap-2">
-            <div className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg border', STATUS_COLORS.match.bg, STATUS_COLORS.match.border)}>
-              <Check className={cn('w-3.5 h-3.5', STATUS_COLORS.match.icon)} />
-              <span className={cn('text-sm font-bold tabular-nums', STATUS_COLORS.match.text)}>{summary.matched}</span>
-              <span className={cn('text-[10px]', STATUS_COLORS.match.labelText)}>Matched</span>
+          <div className="flex items-center gap-2 mt-2">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/20 whitespace-nowrap">
+              <Check className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-sm font-bold tabular-nums text-emerald-300">{summary.matched}</span>
+              <span className="text-[10px] text-emerald-400/70">Matched</span>
             </div>
-            <div className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg border',
-              issueCount > 0 ? cn(STATUS_COLORS.under.bg, STATUS_COLORS.under.border) : cn(STATUS_COLORS.neutral.bg, STATUS_COLORS.neutral.border)
+            <div className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap',
+              issueCount > 0 ? 'bg-red-500/20' : 'bg-white/5'
             )}>
-              <AlertTriangle className={cn('w-3.5 h-3.5', issueCount > 0 ? STATUS_COLORS.under.icon : 'text-slate-300')} />
-              <span className={cn('text-sm font-bold tabular-nums', issueCount > 0 ? STATUS_COLORS.under.text : STATUS_COLORS.neutral.text)}>{issueCount}</span>
-              <span className={cn('text-[10px]', issueCount > 0 ? STATUS_COLORS.under.labelText : STATUS_COLORS.neutral.labelText)}>Issues</span>
+              <AlertTriangle className={cn('w-3.5 h-3.5', issueCount > 0 ? 'text-red-400' : 'text-white/30')} />
+              <span className={cn('text-sm font-bold tabular-nums', issueCount > 0 ? 'text-red-300' : 'text-white/40')}>{issueCount}</span>
+              <span className={cn('text-[10px]', issueCount > 0 ? 'text-red-400/70' : 'text-white/30')}>Issues</span>
             </div>
             {dollarImpact && dollarImpact.underBilledAmount > 0 && (
-              <div className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg border', STATUS_COLORS.under.bg, STATUS_COLORS.under.border)}>
-                <span className={cn('text-sm font-bold tabular-nums', STATUS_COLORS.under.text)}>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/20 whitespace-nowrap">
+                <span className="text-sm font-bold tabular-nums text-red-300">
                   ${dollarImpact.underBilledAmount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </span>
-                <span className={cn('text-[10px]', STATUS_COLORS.under.labelText)}>Under</span>
+                <span className="text-[10px] text-red-400/70">Under</span>
               </div>
             )}
             {dollarImpact && dollarImpact.overBilledAmount > 0 && (
-              <div className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg border', STATUS_COLORS.over.bg, STATUS_COLORS.over.border)}>
-                <span className={cn('text-sm font-bold tabular-nums', STATUS_COLORS.over.text)}>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 whitespace-nowrap">
+                <span className="text-sm font-bold tabular-nums text-amber-300">
                   ${dollarImpact.overBilledAmount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </span>
-                <span className={cn('text-[10px]', STATUS_COLORS.over.labelText)}>Over</span>
+                <span className="text-[10px] text-amber-400/70">Over</span>
               </div>
             )}
           </div>
