@@ -101,6 +101,49 @@ const SESSION_STATUS_MAP = {
 
 const OS_TYPE_MAP = { 0: 'Unknown', 1: 'Workstation', 2: 'Server' };
 
+const DEVICE_PAGE_SIZE = 250;
+const MAX_DEVICE_RECORDS = 5000;
+
+// Fetch all devices for a partner with pagination
+// Cove returns at most RecordsCount per call; use StartRecordNumber to page through.
+async function fetchAllDevices(partnerId, visa) {
+  const allDevices = [];
+  let startRecord = 0;
+
+  while (true) {
+    const pageResult = await coveApiCall('EnumerateAccountStatistics', {
+      query: {
+        PartnerId: parseInt(partnerId),
+        SelectionMode: 'Merged',
+        Columns: COVE_COLUMNS,
+        RecordsCount: DEVICE_PAGE_SIZE,
+        StartRecordNumber: startRecord
+      }
+    }, visa);
+
+    const pageDevices = Array.isArray(pageResult)
+      ? pageResult
+      : (pageResult?.result || []);
+
+    const merged = allDevices.concat(pageDevices);
+
+    if (pageDevices.length < DEVICE_PAGE_SIZE) {
+      return merged;
+    }
+
+    startRecord += DEVICE_PAGE_SIZE;
+
+    if (startRecord >= MAX_DEVICE_RECORDS) {
+      console.warn(`[Cove] Hit safety cap of ${MAX_DEVICE_RECORDS} devices for partner ${partnerId}`);
+      return merged;
+    }
+
+    // allDevices is only reassigned here so the concat above stays immutable
+    allDevices.length = 0;
+    allDevices.push(...merged);
+  }
+}
+
 // Parse Cove API Settings array into a flat object
 // Settings: [{"I18":"ComputerName"}, {"I14":"12345"}] → { I18: "ComputerName", I14: "12345" }
 function parseSettings(settings) {
@@ -231,19 +274,7 @@ export async function syncCoveData(body, user) {
 
       console.log(`[Cove] Fetching devices for partner ${mapping.cove_partner_id} (customer: ${customer_id})`);
 
-      const devicesResult = await coveApiCall('EnumerateAccountStatistics', {
-        query: {
-          PartnerId: parseInt(mapping.cove_partner_id),
-          SelectionMode: 'Merged',
-          Columns: COVE_COLUMNS,
-          RecordsCount: 250
-        }
-      }, visa);
-
-      // coveApiCall returns data.result — handle both array and object formats
-      const devices = Array.isArray(devicesResult)
-        ? devicesResult
-        : (devicesResult?.result || []);
+      const devices = await fetchAllDevices(mapping.cove_partner_id, visa);
 
       console.log(`[Cove] Got ${devices.length} devices for partner ${mapping.cove_partner_id}`);
       if (devices.length > 0) {
@@ -328,7 +359,7 @@ export async function syncCoveData(body, user) {
         lastBackupSuccess,
         lastBackupFailed,
         successRate: totalDevices > 0 ? Math.round((lastBackupSuccess / totalDevices) * 100) : 0,
-        devices: deviceDetails.slice(0, 50),
+        devices: deviceDetails.slice(0, 500),
         syncedAt: new Date().toISOString()
       };
 
@@ -370,18 +401,7 @@ export async function syncCoveData(body, user) {
     try {
       const { visa } = await coveLogin(partner, username, apiToken);
 
-      const devicesResult = await coveApiCall('EnumerateAccountStatistics', {
-        query: {
-          PartnerId: parseInt(mapping.cove_partner_id),
-          SelectionMode: 'Merged',
-          Columns: COVE_COLUMNS,
-          RecordsCount: 250
-        }
-      }, visa);
-
-      const rawDevices = Array.isArray(devicesResult)
-        ? devicesResult
-        : (devicesResult?.result || []);
+      const rawDevices = await fetchAllDevices(mapping.cove_partner_id, visa);
 
       const devices = rawDevices.map(d => {
         const s = parseSettings(d.Settings);
@@ -436,18 +456,7 @@ export async function syncCoveData(body, user) {
 
     for (const mapping of allMappings) {
       try {
-        const devicesResult = await coveApiCall('EnumerateAccountStatistics', {
-          query: {
-            PartnerId: parseInt(mapping.cove_partner_id),
-            SelectionMode: 'Merged',
-            Columns: COVE_COLUMNS,
-            RecordsCount: 250
-          }
-        }, visa);
-
-        const devices = Array.isArray(devicesResult)
-          ? devicesResult
-          : (devicesResult?.result || []);
+        const devices = await fetchAllDevices(mapping.cove_partner_id, visa);
 
         let totalDevices = devices.length;
         let activeDevices = 0;
@@ -512,7 +521,7 @@ export async function syncCoveData(body, user) {
           lastBackupSuccess,
           lastBackupFailed,
           successRate: totalDevices > 0 ? Math.round((lastBackupSuccess / totalDevices) * 100) : 0,
-          devices: deviceDetails.slice(0, 50),
+          devices: deviceDetails.slice(0, 500),
           syncedAt: new Date().toISOString()
         };
 

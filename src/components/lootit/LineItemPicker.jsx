@@ -73,6 +73,28 @@ function extractVendorItems(integrationKey, mapping) {
     }));
   }
 
+  // Agent arrays (RocketCyber)
+  if (Array.isArray(raw.agents) && raw.agents.length > 0) {
+    const agentLabel = INTEGRATION_LABELS[integrationKey] || integrationKey;
+    const summary = {
+      id: `${integrationKey}:total`,
+      description: agentLabel,
+      quantity: raw.agents.length,
+      unit_price: 0,
+      total: 0,
+      _meta: `${raw.agents.length} total agents`,
+      _isSummary: true,
+    };
+    return [summary, ...raw.agents.map((a, i) => ({
+      id: `${integrationKey}:${a.id || a.hostname || i}`,
+      description: a.hostname || a.name || 'Unknown agent',
+      quantity: 1,
+      unit_price: 0,
+      total: 0,
+      _meta: [a.os, a.status].filter(Boolean).join(' · '),
+    }))];
+  }
+
   // Count-only vendors: show a single summary row
   const countKeys = [
     'total_devices', 'totalDevices', 'hostCount', 'total_agents', 'totalAgents',

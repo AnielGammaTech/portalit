@@ -52,6 +52,36 @@ async function jumpcloudV2ApiCall(endpoint, orgId = null) {
   return response.json();
 }
 
+async function fetchAllApplications(orgId) {
+  let allApps = [];
+  let skip = 0;
+  const limit = 100;
+  while (true) {
+    const batch = await jumpcloudV2ApiCall(`/applications?limit=${limit}&skip=${skip}`, orgId);
+    if (!Array.isArray(batch) || batch.length === 0) break;
+    allApps = allApps.concat(batch);
+    if (batch.length < limit) break;
+    skip += limit;
+    if (skip > 5000) break;
+  }
+  return allApps;
+}
+
+async function fetchApplicationUsers(appId, orgId) {
+  let allUsers = [];
+  let skip = 0;
+  const limit = 100;
+  while (true) {
+    const batch = await jumpcloudV2ApiCall(`/applications/${appId}/users?limit=${limit}&skip=${skip}`, orgId);
+    if (!Array.isArray(batch) || batch.length === 0) break;
+    allUsers = allUsers.concat(batch);
+    if (batch.length < limit) break;
+    skip += limit;
+    if (skip > 5000) break;
+  }
+  return allUsers;
+}
+
 function categorizeApp(appName) {
   const name = appName.toLowerCase();
   if (name.includes('slack') || name.includes('teams') || name.includes('zoom')) return 'collaboration';
@@ -202,16 +232,16 @@ export async function scheduledJumpCloudSync(body, user) {
         licensesCreated++;
       }
 
-      // Get and sync SSO applications
-      const applications = await jumpcloudV2ApiCall('/applications', orgId);
+      // Get and sync SSO applications (paginated)
+      const applications = await fetchAllApplications(orgId);
 
       for (const app of (applications || [])) {
         let userCount = 0;
         try {
-          const users = await jumpcloudV2ApiCall(`/applications/${app.id}/users`, orgId);
-          userCount = users?.length || 0;
-        } catch {
-          // Ignore errors
+          const users = await fetchApplicationUsers(app.id, orgId);
+          userCount = users.length;
+        } catch (err) {
+          console.error(`Failed to fetch users for app ${app.id} during scheduled sync:`, err.message);
         }
 
         const licenseData = {

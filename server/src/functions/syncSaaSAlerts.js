@@ -60,53 +60,83 @@ function categorizeSeverity(events) {
   return summary;
 }
 
+const PAGE_SIZE = 500;
+const MAX_EVENTS = 5000; // safety limit to prevent runaway pagination
+
+function parseEventsResponse(data) {
+  return Array.isArray(data)
+    ? data
+    : (data.events || data.data || data.hits || data.results || []);
+}
+
 // Fetch events for a customer using GET /reports/events (simple params)
-// with fallback to POST /reports/events/query (Elasticsearch DSL)
+// with fallback to POST /reports/events/query (Elasticsearch DSL).
+// Both paths paginate through all results up to MAX_EVENTS.
 async function fetchCustomerEvents(saasCustomerId, startDate, endDate) {
   // Primary: GET /reports/events with query parameters (per Swagger spec)
-  const params = new URLSearchParams({
-    customerId: saasCustomerId,
-    start: startDate.toISOString(),
-    end: endDate.toISOString(),
-    size: '500',
-    timeSort: 'desc'
-  });
-
   try {
-    const data = await saasAlertsApiCall(`/reports/events?${params}`);
-    const events = Array.isArray(data)
-      ? data
-      : (data.events || data.data || data.hits || data.results || []);
-    console.log(`[SaaSAlerts] GET /reports/events returned ${events.length} events`);
-    return events;
+    let allEvents = [];
+    let from = 0;
+
+    while (from < MAX_EVENTS) {
+      const params = new URLSearchParams({
+        customerId: saasCustomerId,
+        start: startDate.toISOString(),
+        end: endDate.toISOString(),
+        size: String(PAGE_SIZE),
+        from: String(from),
+        timeSort: 'desc'
+      });
+
+      const data = await saasAlertsApiCall(`/reports/events?${params}`);
+      const events = parseEventsResponse(data);
+
+      allEvents = [...allEvents, ...events];
+
+      if (events.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
+    }
+
+    console.log(`[SaaSAlerts] GET /reports/events returned ${allEvents.length} events (${Math.ceil(allEvents.length / PAGE_SIZE)} pages)`);
+    return allEvents;
   } catch (getErr) {
     console.error('[SaaSAlerts] GET /reports/events failed:', getErr.message);
   }
 
   // Fallback: POST /reports/events/query with Elasticsearch DSL body
   try {
-    const data = await saasAlertsApiCall('/reports/events/query', {
-      method: 'POST',
-      body: {
+    let allEvents = [];
+    let from = 0;
+
+    while (from < MAX_EVENTS) {
+      const data = await saasAlertsApiCall('/reports/events/query', {
+        method: 'POST',
         body: {
-          query: {
-            bool: {
-              must: [
-                { term: { 'customer.id': saasCustomerId } },
-                { range: { time: { gte: startDate.toISOString(), lte: endDate.toISOString() } } }
-              ]
-            }
-          },
-          sort: [{ time: 'desc' }],
-          size: 500
+          body: {
+            query: {
+              bool: {
+                must: [
+                  { term: { 'customer.id': saasCustomerId } },
+                  { range: { time: { gte: startDate.toISOString(), lte: endDate.toISOString() } } }
+                ]
+              }
+            },
+            sort: [{ time: 'desc' }],
+            size: PAGE_SIZE,
+            from
+          }
         }
-      }
-    });
-    const events = Array.isArray(data)
-      ? data
-      : (data.events || data.data || data.hits || data.results || []);
-    console.log(`[SaaSAlerts] POST /reports/events/query returned ${events.length} events`);
-    return events;
+      });
+      const events = parseEventsResponse(data);
+
+      allEvents = [...allEvents, ...events];
+
+      if (events.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
+    }
+
+    console.log(`[SaaSAlerts] POST /reports/events/query returned ${allEvents.length} events (${Math.ceil(allEvents.length / PAGE_SIZE)} pages)`);
+    return allEvents;
   } catch (postErr) {
     console.error('[SaaSAlerts] POST /reports/events/query failed:', postErr.message);
   }
@@ -265,7 +295,7 @@ export async function syncSaaSAlerts(body, _user) {
       const summary = categorizeSeverity(events);
       const recentEvents = events
         .sort((a, b) => new Date(b.time || b.timestamp || b.date || 0) - new Date(a.time || a.timestamp || a.date || 0))
-        .slice(0, 100)
+        .slice(0, 250)
         .map(formatEvent);
 
       // Detect monitored apps from events
@@ -336,7 +366,7 @@ export async function syncSaaSAlerts(body, _user) {
         const summary = categorizeSeverity(events);
         const recentEvents = events
           .sort((a, b) => new Date(b.time || b.timestamp || b.date || 0) - new Date(a.time || a.timestamp || a.date || 0))
-          .slice(0, 100)
+          .slice(0, 250)
           .map(formatEvent);
 
         const monitoredApps = [...new Set(events.map(e =>

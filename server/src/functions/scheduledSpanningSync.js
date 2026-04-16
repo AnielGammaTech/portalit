@@ -93,6 +93,43 @@ function formatUser(u) {
   };
 }
 
+function parseUsersResponse(usersResponse) {
+  let users = [];
+  if (Array.isArray(usersResponse)) {
+    if (usersResponse[0]?.users) {
+      users = usersResponse[0].users;
+    } else {
+      users = usersResponse;
+    }
+  } else if (usersResponse?.users) {
+    if (Array.isArray(usersResponse.users) && usersResponse.users[0]?.users) {
+      users = usersResponse.users[0].users;
+    } else {
+      users = usersResponse.users;
+    }
+  }
+  return users;
+}
+
+const PAGE_SIZE = 1000;
+const MAX_PAGES = 20;
+
+async function fetchAllUsers(tenantId) {
+  let allUsers = [];
+  let page = 1;
+  while (true) {
+    const resp = await unitrendsApiCall(
+      `/v2/spanning/domains/${tenantId}/users?page_size=${PAGE_SIZE}&page=${page}`
+    );
+    const users = parseUsersResponse(resp);
+    allUsers = allUsers.concat(users);
+    if (users.length < PAGE_SIZE) break;
+    page++;
+    if (page > MAX_PAGES) break;
+  }
+  return allUsers;
+}
+
 function buildCacheData(users, domainInfo) {
   const formattedUsers = users.map(formatUser);
   const domainStorage = domainInfo?.storageInformation || {};
@@ -167,23 +204,7 @@ export async function scheduledSpanningSync(body, user) {
 
   for (const mapping of allMappings) {
     try {
-      const usersResponse = await unitrendsApiCall(`/v2/spanning/domains/${mapping.spanning_tenant_id}/users?page_size=1000`);
-
-      // Handle nested response structure
-      let users = [];
-      if (Array.isArray(usersResponse)) {
-        if (usersResponse[0]?.users) {
-          users = usersResponse[0].users;
-        } else {
-          users = usersResponse;
-        }
-      } else if (usersResponse?.users) {
-        if (Array.isArray(usersResponse.users) && usersResponse.users[0]?.users) {
-          users = usersResponse.users[0].users;
-        } else {
-          users = usersResponse.users;
-        }
-      }
+      const users = await fetchAllUsers(mapping.spanning_tenant_id);
 
       const totalUsers = users.length;
       const assignedUsers = users.filter(u => u.lastBackupStatusTotal === 'success').length || totalUsers;

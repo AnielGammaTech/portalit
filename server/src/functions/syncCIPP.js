@@ -1,5 +1,43 @@
 import { getServiceSupabase } from '../lib/supabase.js';
 
+// ── Helpers ─────────────────────────────────────────────────────────────
+
+function chunks(array, size) {
+  const result = [];
+  for (let i = 0; i < array.length; i += size) {
+    result.push(array.slice(i, i + size));
+  }
+  return result;
+}
+
+async function upsertAndPrune(supabase, table, records, conflictKey, customerId) {
+  const upsertedIds = new Set();
+
+  for (const batch of chunks(records, 50)) {
+    const { data, error } = await supabase
+      .from(table)
+      .upsert(batch, { onConflict: conflictKey })
+      .select('id');
+    if (error) throw new Error(`Upsert ${table} failed: ${error.message}`);
+    for (const row of (data || [])) upsertedIds.add(row.id);
+  }
+
+  // Remove stale records that weren't in this sync batch
+  if (upsertedIds.size > 0) {
+    const idList = `(${[...upsertedIds].join(',')})`;
+    const { error: deleteError } = await supabase
+      .from(table)
+      .delete()
+      .eq('customer_id', customerId)
+      .not('id', 'in', idList);
+    if (deleteError) {
+      console.warn(`[CIPP] Stale cleanup for ${table} failed (non-critical): ${deleteError.message}`);
+    }
+  }
+
+  return upsertedIds.size;
+}
+
 // ── Token cache ─────────────────────────────────────────────────────────
 
 let cachedToken = null;
@@ -55,7 +93,6 @@ async function cippApiCall(endpoint, params = {}) {
   }
 
   console.log(`[CIPP] Calling: ${url.toString()}`);
-  console.log(`[CIPP] Token (first 20 chars): ${token?.substring(0, 20)}...`);
 
   const response = await fetch(url.toString(), {
     headers: {
@@ -211,19 +248,12 @@ async function syncUsers(customerId, tenantId) {
     };
   });
 
-  // Clear existing users for this tenant then bulk insert
-  await supabase.from('cipp_users').delete().eq('customer_id', customerId);
+  // Upsert records, then prune stale entries
+  const count = records.length > 0
+    ? await upsertAndPrune(supabase, 'cipp_users', records, 'cipp_tenant_id,external_id', customerId)
+    : 0;
 
-  if (records.length > 0) {
-    const BATCH = 50;
-    for (let i = 0; i < records.length; i += BATCH) {
-      const batch = records.slice(i, i + BATCH);
-      const { error } = await supabase.from('cipp_users').insert(batch);
-      if (error) throw new Error(`Insert users failed: ${error.message}`);
-    }
-  }
-
-  return { success: true, count: records.length };
+  return { success: true, count };
 }
 
 // Safe API call that returns empty array on failure (non-critical enrichment)
@@ -307,18 +337,12 @@ async function syncGroups(customerId, tenantId) {
     };
   });
 
-  await supabase.from('cipp_groups').delete().eq('customer_id', customerId);
+  // Upsert records, then prune stale entries
+  const count = records.length > 0
+    ? await upsertAndPrune(supabase, 'cipp_groups', records, 'cipp_tenant_id,external_id', customerId)
+    : 0;
 
-  if (records.length > 0) {
-    const BATCH = 50;
-    for (let i = 0; i < records.length; i += BATCH) {
-      const batch = records.slice(i, i + BATCH);
-      const { error } = await supabase.from('cipp_groups').insert(batch);
-      if (error) throw new Error(`Insert groups failed: ${error.message}`);
-    }
-  }
-
-  return { success: true, count: records.length };
+  return { success: true, count };
 }
 
 async function syncMailboxes(customerId, tenantId) {
@@ -336,18 +360,12 @@ async function syncMailboxes(customerId, tenantId) {
     external_id: m.externalDirectoryObjectId || m.ExternalDirectoryObjectId || m.ObjectId || '',
   }));
 
-  await supabase.from('cipp_mailboxes').delete().eq('customer_id', customerId);
+  // Upsert records, then prune stale entries
+  const count = records.length > 0
+    ? await upsertAndPrune(supabase, 'cipp_mailboxes', records, 'cipp_tenant_id,external_id', customerId)
+    : 0;
 
-  if (records.length > 0) {
-    const BATCH = 50;
-    for (let i = 0; i < records.length; i += BATCH) {
-      const batch = records.slice(i, i + BATCH);
-      const { error } = await supabase.from('cipp_mailboxes').insert(batch);
-      if (error) throw new Error(`Insert mailboxes failed: ${error.message}`);
-    }
-  }
-
-  return { success: true, count: records.length };
+  return { success: true, count };
 }
 
 async function syncCustomer(customerId, tenantId) {
