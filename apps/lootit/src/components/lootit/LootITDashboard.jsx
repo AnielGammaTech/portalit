@@ -228,7 +228,7 @@ export default function LootITDashboard({ onSelectCustomer }) {
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {customerList.map(({ customer, combinedSummary: s }) => {
-            const resolved = (s.matched || 0) + (s.reviewed || 0) + (s.dismissed || 0);
+            const resolved = (s.matched || 0) + (s.dismissed || 0);
             const applicable = s.total - (s.noData || 0);
             const pct = applicable > 0 ? Math.min(100, Math.round((resolved / applicable) * 100)) : 0;
             const active = applicable;
