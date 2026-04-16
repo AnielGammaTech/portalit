@@ -363,7 +363,14 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
       if (!li) continue;
       overridedUnmatchedIds.add(liId);
       const multiMapping = multiMappingMap[ov.rule_id];
-      const vendorQty = multiMapping ? multiMapping.totalQty : null;
+      const vendorKey = ov.pax8_product_name || null;
+      const vendorMapping = vendorKey ? mappings[vendorKey] : null;
+      const vendorRawData = vendorMapping
+        ? (typeof vendorMapping.cached_data === 'string' ? (() => { try { return JSON.parse(vendorMapping.cached_data); } catch { return {}; } })() : (vendorMapping.cached_data || {}))
+        : null;
+      const vendorQty = multiMapping
+        ? multiMapping.totalQty
+        : (vendorKey && vendorRawData ? extractVendorCount(vendorKey, vendorRawData) : null);
       const psaQty = parseFloat(li.quantity) || 0;
       const hasVendorData = vendorQty !== null;
       const difference = hasVendorData ? psaQty - vendorQty : 0;
@@ -373,12 +380,13 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
         else if (difference > 0) status = 'over';
         else status = 'under';
       }
-      const review = reviewMap[ov.rule_id] || null;
+      const review = reviewMap[ov.rule_id] || reviewMap[liId] || null;
+      const vendorLabel = vendorKey ? (INTEGRATION_LABELS[vendorKey] || vendorKey) : null;
       overridedUnmatchedResults.push({
         rule: {
           id: ov.rule_id,
           label: (li.description || 'Unknown').replace(/\s*\$recurringbillingdate\s*/gi, '').trim() || li.description,
-          integration_key: 'manually_mapped',
+          integration_key: vendorKey || 'manually_mapped',
           is_active: true,
         },
         psaQty,
@@ -387,7 +395,7 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
         status,
         matchedLineItems: [li],
         review,
-        integrationLabel: multiMapping ? `Mapped to ${multiMapping.items.length} vendor item(s)` : 'Manually Mapped',
+        integrationLabel: multiMapping ? `Mapped to ${multiMapping.items.length} vendor item(s)` : (vendorLabel ? `Mapped → ${vendorLabel}` : 'Manually Mapped'),
         isUnmatchedLineItem: false,
       });
     }
