@@ -200,11 +200,12 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
       const isVendorTotal = selectedId && selectedId.endsWith(':total');
       const vendorKey = isVendorTotal ? selectedId.replace(':total', '') : null;
 
+      const NIL_UUID = '00000000-0000-0000-0000-000000000000';
       await client.entities.Pax8LineItemOverride.create({
         customer_id: customer.id,
         rule_id: ruleId,
         pax8_product_name: isPsaLineItem ? (productName || null) : (vendorKey || selectedId),
-        line_item_id: isPsaLineItem ? selectedId : `vendor:${vendorKey || selectedId}`,
+        line_item_id: isPsaLineItem ? selectedId : NIL_UUID,
       });
       await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides', customer.id] });
       await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides_all'] });
