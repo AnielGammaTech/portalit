@@ -284,6 +284,22 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
   // Track which line items are matched by any rule or override
   const matchedLineItemIds = new Set();
 
+  // Build multi-mapping lookup: rule_id → parsed JSON items with summed qty
+  const multiMappingMap = {};
+  for (const ov of overrides) {
+    if (ov.pax8_product_name && ov.pax8_product_name.startsWith('[')) {
+      try {
+        const items = JSON.parse(ov.pax8_product_name);
+        if (Array.isArray(items)) {
+          multiMappingMap[ov.rule_id] = {
+            items,
+            totalQty: items.reduce((sum, m) => sum + (m.qty || 0), 0),
+          };
+        }
+      } catch {}
+    }
+  }
+
   const ruleResults = activeRules.map((rule) => {
     // 1. Check for manual overrides first, then fall back to pattern matching
     const overrideIds = overrideMap[rule.id] || [];
@@ -297,11 +313,14 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
     // Track matched line items
     for (const li of matched) matchedLineItemIds.add(li.id);
 
-    // 2. Extract vendor count from cached_data
+    // 2. Extract vendor count — check multi-mapping overrides first, then integration cached_data
+    const multiMapping = multiMappingMap[rule.id];
     const mapping = mappings[rule.integration_key];
-    const vendorQty = mapping
-      ? extractVendorCount(rule.integration_key, mapping.cached_data)
-      : null;
+    const vendorQty = multiMapping
+      ? multiMapping.totalQty
+      : mapping
+        ? extractVendorCount(rule.integration_key, mapping.cached_data)
+        : null;
     const hasVendorData = vendorQty !== null;
 
     // 3. Calculate difference and status
