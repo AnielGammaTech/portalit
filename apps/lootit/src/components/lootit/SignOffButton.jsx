@@ -77,11 +77,7 @@ export default function SignOffButton({ customer, reconciliations, pax8Reconcili
   const handleRemoveSignOff = async () => {
     if (!signOffData?.id) return;
     try {
-      await client.entities.ReconciliationSignOff.update(signOffData.id, {
-        status: 'revoked',
-        revoked_at: new Date().toISOString(),
-        revoked_by: user?.id || null,
-      });
+      await client.entities.ReconciliationSignOff.delete(signOffData.id);
       toast.success('Sign-off removed');
       queryClient.invalidateQueries({ queryKey: ['sign_off_status', customer.id] });
       queryClient.invalidateQueries({ queryKey: ['all_sign_offs'] });
