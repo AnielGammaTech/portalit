@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { formatLineItemDescription } from '@/lib/utils';
-import { Search } from 'lucide-react';
+import { Search, Square, CheckSquare, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { INTEGRATION_LABELS } from '@/lib/lootit-reconciliation';
 
@@ -112,10 +112,10 @@ function extractVendorItems(integrationKey, mapping) {
   ];
   for (const k of countKeys) {
     if (typeof raw[k] === 'number' && raw[k] > 0) {
-      const label = INTEGRATION_LABELS[integrationKey] || integrationKey;
+      const countLabel = INTEGRATION_LABELS[integrationKey] || integrationKey;
       return [{
         id: `${integrationKey}:count`,
-        description: `${label}`,
+        description: `${countLabel}`,
         quantity: raw[k],
         unit_price: 0,
         total: 0,
@@ -145,7 +145,7 @@ function buildTabs(lineItems, pax8Products, devices, vendorMappings) {
     tabs.push({ key: 'devices', label: 'Devices' });
   }
 
-  // Add a tab per vendor integration that has data (skip pax8 — handled above)
+  // Add a tab per vendor integration that has data (skip pax8 -- handled above)
   if (vendorMappings) {
     for (const [key, mapping] of Object.entries(vendorMappings)) {
       if (key === 'pax8') continue;
@@ -162,9 +162,25 @@ function buildTabs(lineItems, pax8Products, devices, vendorMappings) {
   return tabs;
 }
 
+/**
+ * Derive the source_tab label from the current source key.
+ */
+function sourceTabLabel(source) {
+  if (source === 'psa') return 'HaloPSA';
+  if (source === 'pax8') return 'Pax8';
+  if (source === 'devices') return 'Devices';
+  if (source.startsWith('vendor:')) {
+    const key = source.replace('vendor:', '');
+    return INTEGRATION_LABELS[key] || key;
+  }
+  return source;
+}
+
 export default function LineItemPicker({ productName, lineItems, pax8Products = [], devices = [], vendorMappings = {}, onSelect, onClose }) {
   const [search, setSearch] = useState('');
   const [source, setSource] = useState('psa');
+  // Map of id -> { id, description, quantity, source_tab }
+  const [selected, setSelected] = useState(new Map());
 
   const visibleTabs = useMemo(
     () => buildTabs(lineItems, pax8Products, devices, vendorMappings),
@@ -214,38 +230,92 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
     return [];
   }, [lineItems, pax8Products, devices, vendorMappings, search, source]);
 
+  const toggleItem = useCallback((item) => {
+    setSelected((prev) => {
+      const next = new Map(prev);
+      if (next.has(item.id)) {
+        next.delete(item.id);
+      } else {
+        next.set(item.id, {
+          id: item.id,
+          description: item.description,
+          quantity: item.quantity,
+          source_tab: sourceTabLabel(source),
+        });
+      }
+      return next;
+    });
+  }, [source]);
+
+  const clearAll = useCallback(() => {
+    setSelected(new Map());
+  }, []);
+
+  const handleSave = useCallback(() => {
+    if (selected.size === 0) return;
+    const items = Array.from(selected.values()).map(({ id, description, quantity }) => ({
+      id,
+      description,
+      quantity,
+    }));
+    onSelect(items);
+  }, [selected, onSelect]);
+
+  const totalQty = useMemo(() => {
+    let sum = 0;
+    for (const item of selected.values()) {
+      sum += item.quantity || 0;
+    }
+    return sum;
+  }, [selected]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/30" />
       <div
-        className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden mx-4"
+        className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden mx-4 flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200">
           <h3 className="font-semibold text-slate-900 text-sm">Map Line Item</h3>
           <p className="text-xs text-slate-500 mt-1">
-            Select an item for <span className="font-medium text-slate-700">{productName}</span>
+            Select items for <span className="font-medium text-slate-700">{productName}</span>
           </p>
         </div>
 
         {/* Source tabs */}
         {visibleTabs.length > 1 && (
           <div className="px-4 pt-3 pb-1 border-b border-slate-100 flex gap-1 overflow-x-auto">
-            {visibleTabs.map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => { setSource(tab.key); setSearch(''); }}
-                className={cn(
-                  'px-3 py-1.5 text-[10px] font-semibold rounded-full transition-colors whitespace-nowrap',
-                  source === tab.key
-                    ? 'bg-slate-800 text-white'
-                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
+            {visibleTabs.map(tab => {
+              // Count selections on this tab
+              const tabLabel = sourceTabLabel(tab.key);
+              const tabCount = Array.from(selected.values()).filter(s => s.source_tab === tabLabel).length;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => { setSource(tab.key); setSearch(''); }}
+                  className={cn(
+                    'px-3 py-1.5 text-[10px] font-semibold rounded-full transition-colors whitespace-nowrap flex items-center gap-1.5',
+                    source === tab.key
+                      ? 'bg-slate-800 text-white'
+                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                  )}
+                >
+                  {tab.label}
+                  {tabCount > 0 && (
+                    <span className={cn(
+                      'inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold',
+                      source === tab.key
+                        ? 'bg-pink-500 text-white'
+                        : 'bg-pink-100 text-pink-600'
+                    )}>
+                      {tabCount}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         )}
 
@@ -269,50 +339,106 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
           {currentItems.length === 0 ? (
             <p className="text-sm text-slate-400 text-center py-8">No items found</p>
           ) : (
-            currentItems.map((li) => (
-              <button
-                key={li.id}
-                onClick={() => onSelect(li.id)}
-                className={cn(
-                  "w-full text-left px-6 py-3 border-b transition-colors cursor-pointer",
-                  li._isSummary
-                    ? "bg-pink-50 hover:bg-pink-100 border-pink-100"
-                    : "hover:bg-slate-50 border-slate-50"
-                )}
-              >
-                <div className="flex items-center justify-between">
-                  <p className={cn(
-                    "text-sm truncate",
-                    li._isSummary ? "font-bold text-pink-700" : "font-medium text-slate-700"
-                  )}>
-                    {li._isSummary ? `${li.description} (Total)` : source === 'psa' ? formatLineItemDescription(li.description) : li.description}
-                  </p>
-                  {li._isSummary && (
-                    <span className="text-sm font-bold text-pink-600 tabular-nums shrink-0 ml-3">
-                      Qty: {li.quantity}
-                    </span>
+            currentItems.map((li) => {
+              const isChecked = selected.has(li.id);
+              return (
+                <button
+                  key={li.id}
+                  onClick={() => toggleItem(li)}
+                  className={cn(
+                    "w-full text-left px-6 py-3 border-b transition-colors cursor-pointer flex items-start gap-3",
+                    isChecked
+                      ? "bg-pink-50 border-pink-100"
+                      : li._isSummary
+                        ? "bg-pink-50/50 hover:bg-pink-50 border-pink-100"
+                        : "hover:bg-slate-50 border-slate-50"
                   )}
-                </div>
-                <div className="flex gap-4 mt-0.5 text-xs text-slate-400">
-                  {!li._isSummary && <span>Qty: {li.quantity}</span>}
-                  {li._isSummary && <span className="text-pink-400">{li._meta}</span>}
-                  {!li._isSummary && li.unit_price > 0 && <span>Price: ${parseFloat(li.unit_price).toFixed(2)}</span>}
-                  {!li._isSummary && li.total > 0 && <span>Total: ${parseFloat(li.total).toFixed(2)}</span>}
-                  {!li._isSummary && li._meta && <span className="text-slate-300">{li._meta}</span>}
-                </div>
-              </button>
-            ))
+                >
+                  {/* Checkbox */}
+                  <div className="pt-0.5 shrink-0">
+                    {isChecked ? (
+                      <CheckSquare className="w-4 h-4 text-pink-500" />
+                    ) : (
+                      <Square className="w-4 h-4 text-slate-300" />
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <p className={cn(
+                        "text-sm truncate",
+                        li._isSummary ? "font-bold text-pink-700" : "font-medium text-slate-700"
+                      )}>
+                        {li._isSummary ? `${li.description} (Total)` : source === 'psa' ? formatLineItemDescription(li.description) : li.description}
+                      </p>
+                      {li._isSummary && (
+                        <span className="text-sm font-bold text-pink-600 tabular-nums shrink-0 ml-3">
+                          Qty: {li.quantity}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-4 mt-0.5 text-xs text-slate-400">
+                      {!li._isSummary && <span>Qty: {li.quantity}</span>}
+                      {li._isSummary && <span className="text-pink-400">{li._meta}</span>}
+                      {!li._isSummary && li.unit_price > 0 && <span>Price: ${parseFloat(li.unit_price).toFixed(2)}</span>}
+                      {!li._isSummary && li.total > 0 && <span>Total: ${parseFloat(li.total).toFixed(2)}</span>}
+                      {!li._isSummary && li._meta && <span className="text-slate-300">{li._meta}</span>}
+                    </div>
+                  </div>
+                </button>
+              );
+            })
           )}
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-3 border-t border-slate-200 flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-xs font-medium rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
-          >
-            Cancel
-          </button>
+        {/* Running total bar (sticky footer) */}
+        <div className="border-t border-slate-200 bg-slate-50 px-6 py-3">
+          {selected.size > 0 ? (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-500">
+                  {selected.size} item{selected.size !== 1 ? 's' : ''} selected
+                </span>
+                <span className="text-slate-300">|</span>
+                <span className="text-sm font-bold text-slate-800 tabular-nums">
+                  Total Qty: {totalQty}
+                </span>
+                <button
+                  onClick={clearAll}
+                  className="text-[11px] text-slate-400 hover:text-slate-600 underline transition-colors ml-1"
+                >
+                  Clear
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={onClose}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-pink-500 text-white hover:bg-pink-600 transition-colors"
+                >
+                  Save Mapping
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-slate-400">
+                Select items to map
+              </span>
+              <button
+                onClick={onClose}
+                className="px-4 py-1.5 text-xs font-medium rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
