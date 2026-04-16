@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { formatLineItemDescription } from '@/lib/utils';
 import { Search, Square, CheckSquare, ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { INTEGRATION_LABELS } from '@/lib/lootit-reconciliation';
+import { INTEGRATION_LABELS, extractVendorCount } from '@/lib/lootit-reconciliation';
 
 /**
  * Map an integration key to its top-level vendor group name.
@@ -274,13 +274,26 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
       const activeTab = visibleTabs.find(t => t.key === source);
       const integrationKeys = activeTab?._integrationKeys || [];
 
-      // Combine items from all integration keys in this vendor group
       const allItems = [];
       for (const key of integrationKeys) {
         const mapping = vendorMappings[key];
         if (!mapping) continue;
-        const items = extractVendorItems(key, mapping);
-        allItems.push(...items);
+        const rawData = typeof mapping.cached_data === 'string'
+          ? (() => { try { return JSON.parse(mapping.cached_data); } catch { return {}; } })()
+          : (mapping.cached_data || {});
+        const correctQty = extractVendorCount(key, rawData);
+        const label = INTEGRATION_LABELS[key] || key;
+        if (correctQty !== null) {
+          allItems.push({
+            id: `${key}:total`,
+            description: label,
+            quantity: correctQty,
+            _meta: `${correctQty} total`,
+            _isSummary: true,
+          });
+        }
+        const detailItems = extractVendorItems(key, mapping).filter(i => !i._isSummary);
+        allItems.push(...detailItems);
       }
 
       return q
