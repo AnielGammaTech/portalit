@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/api/client';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -125,20 +126,30 @@ function ActionSection({
 
   const handleExecute = async () => {
     if (!pendingAction) return;
-    if ((pendingAction === 'force_match' || pendingAction === 'approve') && !actionNotes.trim()) return;
+    if ((pendingAction === 'force_match' || pendingAction === 'approve') && !actionNotes.trim()) {
+      toast.error('Note is required');
+      return;
+    }
     setSaving(true);
     try {
       if (pendingAction === 'force_match' || pendingAction === 'approve') {
         await onForceMatch?.(ruleId, actionNotes);
+        toast.success('Approved successfully');
       } else if (pendingAction === 'review') {
         await onReview?.(ruleId, { notes: actionNotes || undefined });
+        toast.success('Marked as reviewed');
       } else if (pendingAction === 'dismiss') {
         await onDismiss?.(ruleId, { notes: actionNotes || undefined });
+        toast.success('Dismissed');
       }
-    } finally {
-      setSaving(false);
       setPendingAction(null);
       setActionNotes('');
+    } catch (err) {
+      console.error('[Modal Action]', err);
+      toast.error(err.message || 'Action failed — check console');
+      setSaving(false);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -186,7 +197,7 @@ function ActionSection({
       {/* Action buttons (visible when no pending action) */}
       {!pendingAction && (
         <div className="flex flex-wrap gap-2">
-          {!isMatch && !isReviewed && (status === 'no_vendor_data' || status === 'no_data') && (
+          {!isMatch && !isReviewed && (
             <button
               onClick={() => setPendingAction('approve')}
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors"
@@ -194,7 +205,7 @@ function ActionSection({
               <ShieldCheck className="w-3.5 h-3.5" /> Approve
             </button>
           )}
-          {!isMatch && !isReviewed && status !== 'no_vendor_data' && status !== 'no_data' && (
+          {!isMatch && !isReviewed && status !== 'no_vendor_data' && status !== 'no_data' && status !== 'unmatched_line_item' && (
             <button
               onClick={() => setPendingAction('force_match')}
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-pink-500 text-white hover:bg-pink-600 transition-colors"
