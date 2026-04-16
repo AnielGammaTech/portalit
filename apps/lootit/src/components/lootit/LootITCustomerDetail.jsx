@@ -1221,7 +1221,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
               onMapLineItem={(ruleId, label) => setMappingRecon({ ruleId, productName: label })}
               onRemoveMapping={(ruleId) => handleRemoveMapping(ruleId)}
               hasOverride={existingOverrides.some((o) => o.rule_id === recon.rule.id)}
-              overrideCount={existingOverrides.filter((o) => o.rule_id === recon.rule.id).length}
+              overrideCount={existingOverrides.filter((o) => o.rule_id === recon.rule.id && o.pax8_product_name !== 'approved_as_is').length}
               isSaving={isSaving}
             />
           ))}
