@@ -1,0 +1,126 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 220 14% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 14% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 14% 10%;
+    --primary: 263 70% 26%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 5% 96%;
+    --secondary-foreground: 220 14% 10%;
+    --muted: 220 5% 96%;
+    --muted-foreground: 220 5% 45%;
+    --accent: 220 5% 96%;
+    --accent-foreground: 220 14% 10%;
+    --destructive: 339 90% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 152 55% 42%;
+    --success-foreground: 0 0% 100%;
+    --warning: 37 91% 55%;
+    --warning-foreground: 0 0% 100%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 216 90% 47%;
+    --chart-1: 216 90% 47%;
+    --chart-2: 152 55% 42%;
+    --chart-3: 270 60% 50%;
+    --chart-4: 37 91% 55%;
+    --chart-5: 339 90% 51%;
+    --radius: 0.5rem;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 216 90% 47%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 5% 96%;
+    --sidebar-accent-foreground: 220 14% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 216 90% 47%;
+  }
+
+  .dark {
+    --background: 240 6% 6%;
+    --foreground: 0 0% 93%;
+    --card: 240 5% 11%;
+    --card-foreground: 0 0% 93%;
+    --popover: 240 5% 11%;
+    --popover-foreground: 0 0% 93%;
+    --primary: 263 70% 26%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 4% 16%;
+    --secondary-foreground: 0 0% 93%;
+    --muted: 240 4% 16%;
+    --muted-foreground: 240 4% 64%;
+    --accent: 240 4% 16%;
+    --accent-foreground: 0 0% 93%;
+    --destructive: 339 80% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 152 55% 42%;
+    --success-foreground: 0 0% 100%;
+    --warning: 37 91% 55%;
+    --warning-foreground: 0 0% 100%;
+    --border: 240 4% 16%;
+    --input: 240 4% 16%;
+    --ring: 216 90% 47%;
+    --chart-1: 216 80% 55%;
+    --chart-2: 152 60% 50%;
+    --chart-3: 270 65% 60%;
+    --chart-4: 37 80% 55%;
+    --chart-5: 339 75% 55%;
+    --sidebar-background: 240 6% 8%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 216 90% 47%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 4% 16%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 4% 16%;
+    --sidebar-ring: 216 90% 47%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    overflow-y: scroll !important;
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    scrollbar-gutter: stable;
+  }
+
+  /* Prevent layout shift when Radix dialogs add overflow:hidden to body */
+  body[data-scroll-locked] {
+    overflow-y: scroll !important;
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  /* Prevent Radix UI Dialog/Sheet/Select from removing scrollbar and shifting layout */
+  body[data-scroll-locked],
+  body[style*="overflow: hidden"],
+  body[style*="overflow:hidden"] {
+    scrollbar-gutter: stable !important;
+    padding-right: 0px !important;
+    margin-right: 0px !important;
+    overflow-y: hidden !important;
+  }
+}
+
+/* Scrollbar hide utility for horizontal tab scrolling */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

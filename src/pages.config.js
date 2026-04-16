@@ -59,7 +59,6 @@ import Customers from './pages/Customers';
 import Dashboard from './pages/Dashboard';
 import Integrations from './pages/Integrations';
 import LicenseDetail from './pages/LicenseDetail';
-import LootIT from './pages/LootIT';
 import SaaSReports from './pages/SaaSReports';
 import Services from './pages/Services';
 import Settings from './pages/Settings';
@@ -80,7 +79,6 @@ export const PAGES = {
     "Dashboard": Dashboard,
     "Integrations": Integrations,
     "LicenseDetail": LicenseDetail,
-    "LootIT": LootIT,
     "SaaSReports": SaaSReports,
     "Services": Services,
     "Settings": Settings,

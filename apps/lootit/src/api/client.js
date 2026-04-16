@@ -5,10 +5,6 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing required environment variables: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be defined');
-}
-
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
@@ -571,15 +567,12 @@ const cronJobs = {
 // so files work regardless of bucket privacy settings.
 export function resolveFileUrl(url) {
   if (!url) return url;
-  // Force http:// to https:// for Railway backend URLs
-  if (url.startsWith('http://')) {
-    return url.replace('http://', 'https://');
-  }
+  // Already a proxied URL
+  if (url.includes('/api/upload/file/')) return url;
   // Old format: https://[ref].supabase.co/storage/v1/object/public/uploads/[filename]
-  const storageMatch = url.match(/\/storage\/v1\/object\/public\/uploads\/(.+)$/);
-  if (storageMatch) {
-    const base = apiBaseUrl || `https://backend-production-58b4.up.railway.app`;
-    return `${base}/api/upload/file/${encodeURIComponent(storageMatch[1])}`;
+  const match = url.match(/\/storage\/v1\/object\/public\/uploads\/(.+)$/);
+  if (match) {
+    return `${apiBaseUrl}/api/upload/file/${encodeURIComponent(match[1])}`;
   }
   return url;
 }

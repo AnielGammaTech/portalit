@@ -15,6 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 1: Component Architecture & Visual Foundation** - Split LootITCustomerDetail.jsx into focused components and establish dashboard-pro design system
 - [ ] **Phase 2: Customer Header & Compact Service Cards** - Redesign header with real customer data, financials, and health score; shrink service cards to fit 3-4 per row
 - [x] **Phase 3: Recurring Tab & Master Sync** - Add Recurring tab with color-coded line item matching and per-customer master sync across all vendors (completed 2026-03-31)
+- [ ] **Phase 4: LootIT Service Extraction** - Split LootIT into its own Railway frontend service at lootit.gtools.io with cookie-based SSO on .gtools.io
 
 ## Phase Details
 
@@ -69,13 +70,38 @@ Plans:
 - [x] 03-02-PLAN.md -- Replace cache-only sync with real HaloPSA master sync and comprehensive data refresh
 **UI hint**: yes
 
+### Phase 4: LootIT Service Extraction
+**Goal**: LootIT runs as its own Railway frontend service at lootit.gtools.io, sharing the existing backend, with cookie-based SSO on .gtools.io — fully isolated from portalit so future portalit redesign work cannot regress billing-critical LootIT
+**Depends on**: Phase 3
+**Requirements**: None (infrastructure phase — tracked via decision IDs D-01..D-35 in 04-CONTEXT.md)
+**Success Criteria** (what must be TRUE):
+  1. `apps/lootit/` is a self-contained Vite app that builds green independently of portalit's root build
+  2. A Supabase cookie+localStorage storage adapter exists in both apps (byte-identical copies per D-19) and preserves existing portalit sessions during rollout (D-18 backcompat)
+  3. A new Railway service `lootit-frontend` deploys from `apps/lootit/` and serves lootit.gtools.io with TLS
+  4. A signed-in portalit.gtools.io user navigating to lootit.gtools.io is auto-authenticated (no second login) in both Chrome and Safari
+  5. Sign-out from either subdomain propagates to the other via Supabase onAuthStateChange
+  6. Backend CORS allows lootit.gtools.io (restrictive allowlist, no wildcards)
+  7. Portalit sidebar LootIT menu item is an external link to https://lootit.gtools.io (source files src/components/lootit/* remain in git per D-35 for rollback)
+**Plans**: 7 plans
+
+Plans:
+- [x] 04-01-PLAN.md -- Scaffold apps/lootit/ Vite app shell (configs, Dockerfile, Caddyfile, placeholder App)
+- [x] 04-02-PLAN.md -- Write cookie+localStorage auth storage adapter with chunking and localhost fallback
+- [x] 04-03-PLAN.md -- Copy LootIT source (lib/hooks/ui/components) into apps/lootit and wire cookie adapter into api/client.js
+- [x] 04-04-PLAN.md -- Duplicate auth-storage adapter into portalit src/lib/ and wire createClient (backwards-compat) — includes STRIDE threat model
+- [x] 04-05-PLAN.md -- Create lootit-frontend Railway service, deploy to temporary Railway URL, update backend CORS_ORIGIN
+- [x] 04-06-PLAN.md -- Replace portalit in-app LootIT route with external link (VITE_LOOTIT_URL), merge feat/lootit-split to production
+- [ ] 04-07-PLAN.md -- Add lootit.gtools.io custom domain + DNS CNAME, finalize env vars, verify full SSO loop end-to-end
+**UI hint**: no
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Component Architecture & Visual Foundation | 0/2 | Not started | - |
 | 2. Customer Header & Compact Service Cards | 1/2 | In Progress|  |
 | 3. Recurring Tab & Master Sync | 2/2 | Complete   | 2026-03-31 |
+| 4. LootIT Service Extraction | 0/7 | Planned | - |
