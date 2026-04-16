@@ -415,7 +415,7 @@ export default function CustomerDetail() {
       queryClient.setQueryData(['all_license_assignments', softwareData.name, customerId], []);
 
       // Navigate to the software detail page
-      window.location.href = createPageUrl(`LicenseDetail?appId=${newApp.id}`);
+      navigate(createPageUrl(`LicenseDetail?appId=${newApp.id}`));
     } catch (error) {
       toast.error(error.message || 'Failed to add software');
     }
@@ -603,7 +603,7 @@ export default function CustomerDetail() {
         description="We couldn't find your account. Please contact support."
         action={{
           label: 'Back to Dashboard',
-          onClick: () => window.location.href = createPageUrl('Dashboard'),
+          onClick: () => navigate(createPageUrl('Dashboard')),
         }}
       />
     );

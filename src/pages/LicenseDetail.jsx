@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import { toast } from 'sonner';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import Breadcrumbs from '../components/ui/breadcrumbs';
 import { 
@@ -162,9 +162,10 @@ function SpendAnalysisCard({
 }
 
 export default function LicenseDetail() {
-  const params = new URLSearchParams(window.location.search);
-  const licenseId = params.get('id');
-  const appId = params.get('appId'); // For catalog-only entries
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const licenseId = searchParams.get('id');
+  const appId = searchParams.get('appId');
   const queryClient = useQueryClient();
   // UI State
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -174,6 +175,7 @@ export default function LicenseDetail() {
   const [showAddIndividualLicense, setShowAddIndividualLicense] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRenewalModal, setShowRenewalModal] = useState(false);
+  const [deletingManagedLicense, setDeletingManagedLicense] = useState(null);
   
   // Section expansion
   const [managedSectionExpanded, setManagedSectionExpanded] = useState(true);
@@ -358,14 +360,14 @@ export default function LicenseDetail() {
   // Redirect to Customer detail if no license/app id or not found
   useEffect(() => {
     if (!licenseId && !appId) {
-      window.location.href = createPageUrl('CustomerDetail');
+      navigate(createPageUrl('CustomerDetail'), { replace: true });
       return;
     }
     const isLoading = licenseId ? loadingLicense : loadingApplication;
     if (!isLoading && !software) {
-      window.location.href = createPageUrl('CustomerDetail');
+      navigate(createPageUrl('CustomerDetail'), { replace: true });
     }
-  }, [licenseId, appId, loadingLicense, loadingApplication, software]);
+  }, [licenseId, appId, loadingLicense, loadingApplication, software, navigate]);
 
   const isCatalogOnly = software?._isApplication && relatedLicenses.length === 0;
   
@@ -601,7 +603,7 @@ export default function LicenseDetail() {
       }
       
       toast.success('Application and all licenses deleted!');
-                  window.location.href = createPageUrl(`CustomerDetail?id=${software.customer_id}&tab=services`);
+      navigate(createPageUrl(`CustomerDetail?id=${software.customer_id}&tab=services`));
     } catch (error) {
       toast.error('Failed to delete application');
       setIsDeleting(false);
@@ -1075,14 +1077,8 @@ export default function LicenseDetail() {
                                 <Button size="sm" className="h-6 px-2 text-xs bg-blue-600 hover:bg-blue-700" onClick={() => { setSelectedManagedLicenseId(ml.id); setShowAssignModal(true); }} disabled={mlUnusedSeats <= 0}>
                                   <Plus className="w-3 h-3" />
                                 </Button>
-                                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={async () => {
-                                  if (confirm(`Delete this ${ml.license_type || ''} license?`)) {
-                                    for (const a of mlAssignments) await client.entities.LicenseAssignment.delete(a.id);
-                                    await client.entities.SaaSLicense.delete(ml.id);
-                                    queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
-                                    queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
-                                    toast.success('License deleted!');
-                                  }
+                                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => {
+                                  setDeletingManagedLicense(ml);
                                 }}>
                                   <Trash2 className="w-3 h-3" />
                                 </Button>
@@ -1437,6 +1433,42 @@ export default function LicenseDetail() {
       </AlertDialog>
 
 
+
+      {/* Delete Managed License Confirmation */}
+      <AlertDialog open={!!deletingManagedLicense} onOpenChange={(open) => { if (!open) setDeletingManagedLicense(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {deletingManagedLicense?.license_type || ''} License?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this license and revoke all seat assignments. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              className="bg-red-600 hover:bg-red-700"
+              onClick={async () => {
+                const ml = deletingManagedLicense;
+                if (!ml) return;
+                try {
+                  const mlAssignments = getAssignmentsForLicense(ml.id);
+                  for (const a of mlAssignments) await client.entities.LicenseAssignment.delete(a.id);
+                  await client.entities.SaaSLicense.delete(ml.id);
+                  queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
+                  queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
+                  toast.success('License deleted!');
+                } catch (err) {
+                  toast.error(err.message || 'Failed to delete license');
+                }
+                setDeletingManagedLicense(null);
+              }}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete License
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Add Managed License Modal */}
       <AddManagedLicenseModal

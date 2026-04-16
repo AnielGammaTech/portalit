@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { client } from '@/api/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import UserAssignmentPanel from '../components/admin/UserAssignmentPanel';
 import FeedbackPanel from '../components/admin/FeedbackPanel';
 import ResendEmailConfig from '../components/admin/ResendEmailConfig';
@@ -360,8 +360,12 @@ function GammaStackITPanel() {
 
   useEffect(() => {
     const loadApiKey = async () => {
-      const user = await client.auth.me();
-      if (user?.gammastack_api_key) setApiKey(user.gammastack_api_key);
+      try {
+        const user = await client.auth.me();
+        if (user?.gammastack_api_key) setApiKey(user.gammastack_api_key);
+      } catch (error) {
+        toast.error('Failed to load API key');
+      }
     };
     loadApiKey();
   }, []);
@@ -664,16 +668,18 @@ export default function Adminland() {
     else setSearchParams({ section: 'integrations', id: integrationId }, { replace: false });
   };
 
+  const navigate = useNavigate();
+
   useEffect(() => {
     const loadUser = async () => {
       try {
         const currentUser = await client.auth.me();
         setUser(currentUser);
-        if (currentUser?.role !== 'admin') window.location.href = createPageUrl('Dashboard');
+        if (currentUser?.role !== 'admin') navigate(createPageUrl('Dashboard'), { replace: true });
       } catch (error) { /* auth redirect handled by layout */ }
     };
     loadUser();
-  }, []);
+  }, [navigate]);
 
   // Legacy tab= param migration
   useEffect(() => {

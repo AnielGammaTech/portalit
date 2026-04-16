@@ -62,13 +62,15 @@ const LayoutWrapper = ({ children, currentPageName }) => Layout ?
   : <ErrorBoundary>{children}</ErrorBoundary>;
 
 const AuthenticatedApp = () => {
-  const { isAuthenticated, isLoadingAuth, authError, user } = useAuth();
+  const { isAuthenticated, isLoadingAuth, authError, authRetrying, user } = useAuth();
 
-  // Show loading spinner while checking auth
   if (isLoadingAuth) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center">
+      <div className="fixed inset-0 flex flex-col items-center justify-center gap-3">
         <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
+        {authRetrying && (
+          <p className="text-sm text-slate-500 animate-pulse">Reconnecting...</p>
+        )}
       </div>
     );
   }

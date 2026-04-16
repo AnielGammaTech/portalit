@@ -86,7 +86,12 @@ const VENDOR_EXTRACTORS = {
     if (!data) return null;
     if (typeof data.hostCount === 'number') return data.hostCount;
     if (typeof data.total_devices === 'number') return data.total_devices;
+    if (typeof data.totalHosts === 'number') return data.totalHosts;
+    if (typeof data.device_count === 'number') return data.device_count;
+    if (typeof data.agentCount === 'number') return data.agentCount;
     if (Array.isArray(data.hosts)) return data.hosts.length;
+    if (Array.isArray(data.devices)) return data.devices.length;
+    if (Array.isArray(data.agents)) return data.agents.length;
     return null;
   },
 
@@ -369,6 +374,15 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
       const isApprovedAsIs = vendorKey === 'approved_as_is';
       const storedQty = ov.group_id?.startsWith('qty:') ? parseFloat(ov.group_id.replace('qty:', '')) : null;
       let vendorQty = null;
+
+      const parseCachedData = (raw) => {
+        if (!raw) return null;
+        if (typeof raw === 'string') {
+          try { return JSON.parse(raw); } catch { return raw; }
+        }
+        return raw;
+      };
+
       if (isApprovedAsIs) {
         vendorQty = psaQty;
       } else if (storedQty !== null && !isNaN(storedQty)) {
@@ -376,18 +390,22 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
       } else if (multiMapping) {
         vendorQty = multiMapping.totalQty;
       } else if (vendorKey && vendorMapping) {
-        const cd = typeof vendorMapping.cached_data === 'string'
-          ? (() => { try { return JSON.parse(vendorMapping.cached_data); } catch { return vendorMapping.cached_data; } })()
-          : vendorMapping.cached_data;
-        vendorQty = extractVendorCount(vendorKey, cd);
+        vendorQty = extractVendorCount(vendorKey, parseCachedData(vendorMapping.cached_data));
       }
       if (vendorQty === null && vendorKey && !isApprovedAsIs) {
         for (const [mk, mv] of Object.entries(mappings)) {
-          if (mk === vendorKey || mk.startsWith(vendorKey)) {
-            const cd2 = typeof mv.cached_data === 'string'
-              ? (() => { try { return JSON.parse(mv.cached_data); } catch { return mv.cached_data; } })()
-              : mv.cached_data;
-            const q = extractVendorCount(mk, cd2);
+          if (mk === vendorKey || mk.startsWith(vendorKey) || vendorKey.startsWith(mk)) {
+            const q = extractVendorCount(mk, parseCachedData(mv.cached_data));
+            if (q !== null) { vendorQty = q; break; }
+          }
+        }
+      }
+      // Last resort: try all extractors against the vendor mapping data
+      if (vendorQty === null && vendorKey && vendorMapping && !isApprovedAsIs) {
+        const cd = parseCachedData(vendorMapping.cached_data);
+        for (const extractorKey of Object.keys(VENDOR_EXTRACTORS)) {
+          if (extractorKey.includes(vendorKey) || vendorKey.includes(extractorKey)) {
+            const q = extractVendorCount(extractorKey, cd);
             if (q !== null) { vendorQty = q; break; }
           }
         }

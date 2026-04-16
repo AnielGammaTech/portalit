@@ -74,10 +74,15 @@ function scrape3CX() {
     if (exportMatch) userCount = parseInt(exportMatch[1], 10);
   }
 
-  // Fallback: "X Extensions" on dashboard
-  if (userCount === 0) {
-    const extMatch = body.match(/(\d+)\s*(?:Total\s*)?Extensions/i);
-    if (extMatch) userCount = parseInt(extMatch[1], 10);
+  // Only use dashboard extension count if we actually found extension rows
+  // (avoids picking up "8 Simultaneous Calls" or other dashboard numbers)
+  if (userCount === 0 && extensions.length === 0) {
+    const isUsersPage = /\/(users|extensions)/i.test(window.location.pathname) ||
+      document.querySelector('[data-testid="users-list"], .users-list, .extension-list');
+    if (isUsersPage) {
+      const extMatch = body.match(/(\d+)\s*(?:Total\s*)?Extensions/i);
+      if (extMatch) userCount = parseInt(extMatch[1], 10);
+    }
   }
 
   if (userCount > 0 || extensions.length > 0) {

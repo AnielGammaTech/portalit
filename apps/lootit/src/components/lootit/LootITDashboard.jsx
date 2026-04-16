@@ -1,5 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { Search, AlertTriangle, CheckCircle2, TrendingDown, TrendingUp, Database, Bell, Check, Stamp } from 'lucide-react';
+import {
+  Search, AlertTriangle, CheckCircle2, TrendingDown, TrendingUp,
+  Database, Bell, Check, Stamp, ExternalLink, ChevronDown, ChevronUp,
+  ArrowUpDown,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
@@ -7,13 +11,36 @@ import { useReconciliationData } from '@/hooks/useReconciliationData';
 import { useAutoRetry } from '@/hooks/useAutoRetry';
 import { getDiscrepancySummary } from '@/lib/lootit-reconciliation';
 
+const PORTALIT_URL = import.meta.env.VITE_PORTALIT_URL || 'https://portalit.gtools.io';
+
+const FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'issues', label: 'Issues' },
+  { key: 'matched', label: 'Matched' },
+  { key: 'signed_off', label: 'Signed Off' },
+  { key: 'pending', label: 'Pending' },
+];
+
+const SORT_KEYS = {
+  name: (a, b) => (a.customer?.name || '').localeCompare(b.customer?.name || ''),
+  services: (a, b) => (b.combinedSummary.total - b.combinedSummary.noData) - (a.combinedSummary.total - a.combinedSummary.noData),
+  issues: (a, b) => (b.combinedSummary.over + b.combinedSummary.under) - (a.combinedSummary.over + a.combinedSummary.under),
+  progress: (a, b) => {
+    const pctA = a.applicable > 0 ? a.resolved / a.applicable : 0;
+    const pctB = b.applicable > 0 ? b.resolved / b.applicable : 0;
+    return pctB - pctA;
+  },
+};
+
 export default function LootITDashboard({ onSelectCustomer }) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
+  const [sortKey, setSortKey] = useState('name');
+  const [sortAsc, setSortAsc] = useState(true);
+  const [anomaliesExpanded, setAnomaliesExpanded] = useState(true);
   const queryClient = useQueryClient();
   const { reconciliations, globalSummary, bills, customers, isLoading, isError } = useReconciliationData();
 
-  // Fetch persistent anomalies from database
   const { data: dbAnomalies = [] } = useQuery({
     queryKey: ['billing_anomalies'],
     queryFn: () => client.entities.BillingAnomaly.filter({ status: 'open' }),
@@ -25,12 +52,6 @@ export default function LootITDashboard({ onSelectCustomer }) {
     queryClient.invalidateQueries({ queryKey: ['billing_anomalies'] });
   };
 
-  const handleReviewAnomaly = async (anomalyId) => {
-    await client.entities.BillingAnomaly.update(anomalyId, { status: 'reviewed', reviewed_at: new Date().toISOString() });
-    queryClient.invalidateQueries({ queryKey: ['billing_anomalies'] });
-  };
-
-  // Fetch signed-off customers
   const { data: signOffs = [] } = useQuery({
     queryKey: ['all_sign_offs'],
     queryFn: () => client.entities.ReconciliationSignOff.filter({ status: 'signed_off' }),
@@ -38,7 +59,6 @@ export default function LootITDashboard({ onSelectCustomer }) {
   });
   const signedOffCustomerIds = useMemo(() => new Set(signOffs.map(s => s.customer_id)), [signOffs]);
 
-  // ── Anomaly Detection (server-side, from billing_anomalies table) ──
   const anomalies = useMemo(() => {
     if (!dbAnomalies || dbAnomalies.length === 0) return [];
     const customerMap = Object.fromEntries((customers || []).map(c => [c.id, c]));
@@ -69,7 +89,9 @@ export default function LootITDashboard({ onSelectCustomer }) {
         ...(entry.pax8Reconciliations || []),
       ];
       const combined = getDiscrepancySummary(allRecons);
-      return { ...entry, combinedSummary: combined };
+      const resolved = (combined.matched || 0) + (combined.dismissed || 0);
+      const applicable = combined.total - (combined.noData || 0);
+      return { ...entry, combinedSummary: combined, resolved, applicable };
     });
 
     const searched = search.trim()
@@ -78,20 +100,21 @@ export default function LootITDashboard({ onSelectCustomer }) {
         )
       : entries;
 
-    return searched
-      .filter((entry) => {
-        const s = entry.combinedSummary;
-        if (filter === 'issues') return s.over > 0 || s.under > 0;
-        if (filter === 'matched') return s.matched > 0 && s.over === 0 && s.under === 0;
-        if (filter === 'no_data') return s.noData > 0;
-        if (filter === 'signed_off') return signedOffCustomerIds.has(entry.customer.id);
-        if (filter === 'pending') return !signedOffCustomerIds.has(entry.customer.id);
-        return true;
-      })
-      .sort((a, b) => (a.customer?.name || '').localeCompare(b.customer?.name || ''));
-  }, [reconciliations, search, filter, signedOffCustomerIds]);
+    const filtered = searched.filter((entry) => {
+      const s = entry.combinedSummary;
+      if (filter === 'issues') return s.over > 0 || s.under > 0;
+      if (filter === 'matched') return s.matched > 0 && s.over === 0 && s.under === 0;
+      if (filter === 'no_data') return s.noData > 0;
+      if (filter === 'signed_off') return signedOffCustomerIds.has(entry.customer.id);
+      if (filter === 'pending') return !signedOffCustomerIds.has(entry.customer.id);
+      return true;
+    });
 
-  // Auto-retry if LootIT loads with all empty data
+    const sortFn = SORT_KEYS[sortKey] || SORT_KEYS.name;
+    const sorted = [...filtered].sort(sortFn);
+    return sortAsc ? sorted : sorted.reverse();
+  }, [reconciliations, search, filter, signedOffCustomerIds, sortKey, sortAsc]);
+
   useAutoRetry(
     [customers, bills],
     isLoading,
@@ -106,103 +129,122 @@ export default function LootITDashboard({ onSelectCustomer }) {
     );
   }
 
-  const handleRetry = () => {
-    queryClient.invalidateQueries();
+  const handleSort = (key) => {
+    if (sortKey === key) {
+      setSortAsc(prev => !prev);
+    } else {
+      setSortKey(key);
+      setSortAsc(true);
+    }
   };
 
+  const SortHeader = ({ label, sortId, className }) => (
+    <button
+      onClick={() => handleSort(sortId)}
+      className={cn("flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-800 transition-colors", className)}
+    >
+      {label}
+      {sortKey === sortId ? (
+        sortAsc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+      ) : (
+        <ArrowUpDown className="w-2.5 h-2.5 text-slate-300" />
+      )}
+    </button>
+  );
+
   return (
-    <div className="space-y-5">
-      {/* Connection error banner */}
+    <div className="space-y-4">
       {isError && (
-        <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-lg">
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-red-50 border border-red-200 rounded-lg">
           <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
-          <p className="text-xs text-red-700 flex-1">Some data failed to load. This usually resolves automatically.</p>
-          <button onClick={handleRetry} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors">
-            Retry Now
+          <p className="text-xs text-red-700 flex-1">Some data failed to load.</p>
+          <button onClick={() => queryClient.invalidateQueries()} className="px-3 py-1 text-xs font-semibold rounded-lg bg-red-100 text-red-700 hover:bg-red-200">
+            Retry
           </button>
         </div>
       )}
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-7 gap-3">
-        <SummaryCard icon={Database} label="Customers" value={globalSummary.totalCustomers} color="slate" />
-        <SummaryCard icon={CheckCircle2} label="Matched" value={globalSummary.totalMatched} color="emerald" />
-        <SummaryCard icon={TrendingDown} label="Under-billed" value={globalSummary.totalUnder} color="red" />
-        <SummaryCard icon={TrendingUp} label="Over-billed" value={globalSummary.totalOver} color="amber" />
-        <SummaryCard icon={AlertTriangle} label="Issues" value={globalSummary.customersWithIssues} color="amber" />
-        <SummaryCard icon={Stamp} label="Signed Off" value={signedOffCustomerIds.size} color="violet" />
-        <SummaryCard icon={Bell} label="Anomalies" value={anomalies.length} color="red" />
+      {/* Summary Strip */}
+      <div className="flex items-center gap-2">
+        <SummaryPill icon={Database} label="Customers" value={globalSummary.totalCustomers} color="slate" />
+        <SummaryPill icon={CheckCircle2} label="Matched" value={globalSummary.totalMatched} color="emerald" />
+        <SummaryPill icon={TrendingDown} label="Under" value={globalSummary.totalUnder} color="red" />
+        <SummaryPill icon={TrendingUp} label="Over" value={globalSummary.totalOver} color="amber" />
+        <SummaryPill icon={AlertTriangle} label="Issues" value={globalSummary.customersWithIssues} color="amber" />
+        <SummaryPill icon={Stamp} label="Signed Off" value={signedOffCustomerIds.size} color="violet" />
+        <SummaryPill icon={Bell} label="Anomalies" value={anomalies.length} color="red" />
       </div>
 
-      {/* Billing Anomalies */}
+      {/* Anomalies (collapsible) */}
       {anomalies.length > 0 && (
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Bell className="w-4 h-4 text-red-500" />
-            <h3 className="text-sm font-bold text-slate-900">Billing Anomalies</h3>
-            <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">{anomalies.length}</span>
-          </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-2">
-            {anomalies.slice(0, 8).map((a) => (
-              <button
-                key={`${a.customerId}-${a.billName}`}
-                onClick={() => a.customer && onSelectCustomer(a.customer, 'recurring')}
-                className={cn(
-                  'text-left rounded-lg border p-3 hover:shadow-md transition-all cursor-pointer',
-                  a.direction === 'decrease' ? 'bg-red-50/60 border-red-200' : 'bg-amber-50/60 border-amber-200'
-                )}
-              >
-                <p className="text-xs font-semibold text-slate-900 truncate">{a.customerName}</p>
-                <p className="text-[9px] text-slate-400 truncate mb-1.5">{a.billName}</p>
-                <div className="flex items-baseline gap-1.5">
-                  {a.direction === 'decrease' ? (
-                    <TrendingDown className="w-3.5 h-3.5 text-red-500 shrink-0" />
-                  ) : (
-                    <TrendingUp className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+        <div className="border border-red-200 rounded-lg overflow-hidden">
+          <button
+            onClick={() => setAnomaliesExpanded(prev => !prev)}
+            className="w-full flex items-center gap-2 px-3 py-2 bg-red-50 hover:bg-red-100 transition-colors"
+          >
+            <Bell className="w-3.5 h-3.5 text-red-500" />
+            <span className="text-xs font-bold text-slate-900">Billing Anomalies</span>
+            <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-semibold">{anomalies.length}</span>
+            <div className="flex-1" />
+            <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 transition-transform", anomaliesExpanded && "rotate-180")} />
+          </button>
+          {anomaliesExpanded && (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 p-3 bg-white">
+              {anomalies.slice(0, 8).map((a) => (
+                <button
+                  key={`${a.customerId}-${a.billName}`}
+                  onClick={() => a.customer && onSelectCustomer(a.customer, 'recurring')}
+                  className={cn(
+                    'text-left rounded-md border px-3 py-2 hover:shadow transition-all',
+                    a.direction === 'decrease' ? 'bg-red-50/60 border-red-200' : 'bg-amber-50/60 border-amber-200'
                   )}
-                  <span className={cn('text-base font-bold tabular-nums', a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600')}>
-                    {a.pctChange > 0 ? '+' : ''}{a.pctChange.toFixed(0)}%
-                  </span>
-                  <span className="text-[10px] text-slate-400 tabular-nums">
-                    ${Math.round(a.avgAmount).toLocaleString()} → ${Math.round(a.latestAmount).toLocaleString()}
-                  </span>
+                >
+                  <p className="text-[11px] font-semibold text-slate-900 truncate">{a.customerName}</p>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    {a.direction === 'decrease'
+                      ? <TrendingDown className="w-3 h-3 text-red-500" />
+                      : <TrendingUp className="w-3 h-3 text-amber-500" />
+                    }
+                    <span className={cn('text-sm font-bold tabular-nums', a.direction === 'decrease' ? 'text-red-600' : 'text-amber-600')}>
+                      {a.pctChange > 0 ? '+' : ''}{a.pctChange.toFixed(0)}%
+                    </span>
+                    <span className="text-[9px] text-slate-400 tabular-nums">
+                      ${Math.round(a.avgAmount).toLocaleString()} → ${Math.round(a.latestAmount).toLocaleString()}
+                    </span>
+                  </div>
+                </button>
+              ))}
+              {anomalies.length > 8 && (
+                <div className="col-span-full text-center">
+                  <p className="text-[10px] text-slate-400">+{anomalies.length - 8} more</p>
                 </div>
-              </button>
-            ))}
-          </div>
-          {anomalies.length > 8 && (
-            <p className="text-[10px] text-slate-400 text-center">+{anomalies.length - 8} more anomalies</p>
+              )}
+            </div>
           )}
         </div>
       )}
 
       {/* Search & Filter */}
       <div className="flex items-center gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search customers..."
-            className="w-full pl-10 pr-4 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400"
+            className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
           />
         </div>
-        <div className="flex gap-1.5">
-          {[
-            { key: 'all', label: 'All' },
-            { key: 'issues', label: 'Issues' },
-            { key: 'matched', label: 'Matched' },
-            { key: 'signed_off', label: 'Signed Off' },
-            { key: 'pending', label: 'Pending' },
-          ].map((f) => (
+        <div className="flex gap-1">
+          {FILTERS.map((f) => (
             <button
               key={f.key}
               onClick={() => setFilter(f.key)}
               className={cn(
-                'px-3.5 py-2 text-xs font-medium rounded-lg transition-colors',
+                'px-2.5 py-1.5 text-[11px] font-medium rounded-md transition-colors',
                 filter === f.key
-                  ? 'bg-slate-900 text-white shadow-sm'
+                  ? 'bg-slate-900 text-white'
                   : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'
               )}
             >
@@ -210,132 +252,182 @@ export default function LootITDashboard({ onSelectCustomer }) {
             </button>
           ))}
         </div>
+        <div className="flex-1" />
+        <span className="text-[11px] text-slate-400 tabular-nums">{customerList.length} customers</span>
       </div>
 
-      {/* Customer Grid */}
+      {/* Customer Table */}
       {customerList.length === 0 ? (
-        <div className="text-center py-16">
-          <Database className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-          <p className="text-slate-500 font-medium text-sm">
+        <div className="text-center py-12">
+          <Database className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+          <p className="text-slate-500 text-sm font-medium">
             {search ? 'No customers match your search' : 'No reconciliation data yet'}
           </p>
-          {!search && (
-            <p className="text-xs text-slate-400 mt-1">
-              Set up reconciliation rules in Settings to get started.
-            </p>
-          )}
         </div>
       ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {customerList.map(({ customer, combinedSummary: s }) => {
-            const resolved = (s.matched || 0) + (s.dismissed || 0);
-            const applicable = s.total - (s.noData || 0);
-            const pct = applicable > 0 ? Math.min(100, Math.round((resolved / applicable) * 100)) : 0;
-            const active = applicable;
-            const issues = s.over + s.under;
-            const noPsa = s.noPsa || 0;
-            const isFullyReconciled = applicable > 0 && resolved === applicable;
-            const isSignedOff = signedOffCustomerIds.has(customer.id);
+        <div className="border border-slate-200 rounded-lg overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="text-left px-3 py-2 w-8" />
+                <th className="text-left px-3 py-2">
+                  <SortHeader label="Customer" sortId="name" />
+                </th>
+                <th className="text-left px-3 py-2 w-20">
+                  <SortHeader label="Services" sortId="services" />
+                </th>
+                <th className="text-left px-3 py-2 w-28">
+                  <SortHeader label="Progress" sortId="progress" />
+                </th>
+                <th className="text-center px-3 py-2 w-16">
+                  <SortHeader label="Issues" sortId="issues" className="justify-center" />
+                </th>
+                <th className="text-center px-3 py-2 w-16">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Status</span>
+                </th>
+                <th className="text-right px-3 py-2 w-10" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {customerList.map(({ customer, combinedSummary: s, resolved, applicable }, idx) => {
+                const pct = applicable > 0 ? Math.min(100, Math.round((resolved / applicable) * 100)) : 0;
+                const issues = s.over + s.under;
+                const isSignedOff = signedOffCustomerIds.has(customer.id);
+                const isFullyReconciled = applicable > 0 && resolved === applicable;
 
-            return (
-              <button
-                key={customer.id}
-                onClick={() => onSelectCustomer(customer)}
-                className={cn(
-                  'text-left rounded-lg border p-3.5 hover:shadow-md transition-all group flex flex-col h-full',
-                  isSignedOff
-                    ? 'bg-violet-50/60 border-violet-200 hover:border-violet-300'
-                    : isFullyReconciled
-                    ? 'bg-emerald-50/60 border-emerald-200 hover:border-emerald-300'
-                    : 'bg-white border-slate-200 hover:border-slate-300'
-                )}
-              >
-                {/* Header */}
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <h3 className="font-semibold text-slate-900 text-xs leading-tight group-hover:text-slate-600 transition-colors line-clamp-1 flex-1 min-w-0">
-                    {customer.name}
-                  </h3>
-                  {isSignedOff ? (
-                    <Stamp className="w-4 h-4 text-violet-500 flex-shrink-0" />
-                  ) : isFullyReconciled ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                  ) : issues > 0 ? (
-                    <span className="flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-100 text-red-600 text-[10px] font-bold">
-                      {issues}
-                    </span>
-                  ) : noPsa > 0 ? (
-                    <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                  ) : null}
-                </div>
+                return (
+                  <tr
+                    key={customer.id}
+                    onClick={() => onSelectCustomer(customer)}
+                    className={cn(
+                      "transition-colors cursor-pointer hover:bg-slate-50",
+                      idx % 2 === 1 && "bg-slate-50/40",
+                      isSignedOff && "bg-violet-50/30",
+                      isFullyReconciled && !isSignedOff && "bg-emerald-50/30",
+                    )}
+                  >
+                    {/* Status dot */}
+                    <td className="px-3 py-2 text-center">
+                      <div className={cn(
+                        "w-2 h-2 rounded-full mx-auto",
+                        isSignedOff ? "bg-violet-500"
+                          : isFullyReconciled ? "bg-emerald-500"
+                          : issues > 0 ? "bg-red-500"
+                          : "bg-slate-300"
+                      )} />
+                    </td>
 
-                {/* Progress bar */}
-                <div className="mb-2">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] text-slate-400">{active} services</span>
-                    <span className={cn(
-                      'text-[10px] font-semibold tabular-nums',
-                      pct === 100 && noPsa === 0 ? 'text-emerald-600'
-                        : pct >= 70 ? 'text-amber-600' : 'text-red-500'
-                    )}>
-                      {pct}%
-                    </span>
-                  </div>
-                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className={cn(
-                        'h-full rounded-full transition-all',
-                        pct === 100 && noPsa === 0 ? 'bg-emerald-400'
-                          : pct >= 70 ? 'bg-amber-400' : 'bg-red-400'
+                    {/* Customer name (clickable to PortalIT) */}
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-slate-900 truncate">{customer.name}</span>
+                        <a
+                          href={`${PORTALIT_URL}/CustomerDetail/${customer.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-slate-300 hover:text-blue-500 transition-colors shrink-0"
+                          title="Open in PortalIT"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    </td>
+
+                    {/* Services count */}
+                    <td className="px-3 py-2">
+                      <span className="text-xs text-slate-600 tabular-nums">{applicable}</span>
+                    </td>
+
+                    {/* Progress bar */}
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className={cn(
+                              "h-full rounded-full transition-all",
+                              pct === 100 ? "bg-emerald-400"
+                                : pct >= 70 ? "bg-amber-400"
+                                : "bg-red-400"
+                            )}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className={cn(
+                          "text-[10px] font-semibold tabular-nums w-8 text-right",
+                          pct === 100 ? "text-emerald-600"
+                            : pct >= 70 ? "text-amber-600"
+                            : "text-red-500"
+                        )}>
+                          {pct}%
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Issues */}
+                    <td className="px-3 py-2 text-center">
+                      {issues > 0 ? (
+                        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-100 text-red-600 text-[10px] font-bold">
+                          {issues}
+                        </span>
+                      ) : (
+                        <span className="text-slate-300">—</span>
                       )}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
+                    </td>
 
-                {/* Stats */}
-                <div className="flex items-center gap-2 text-[10px] text-slate-400 flex-wrap mt-auto">
-                  <span className="inline-flex items-center gap-0.5 text-emerald-500 font-medium">
-                    <Check className="w-3 h-3" />{s.matched}
-                  </span>
-                  {issues > 0 && (
-                    <span className="inline-flex items-center gap-0.5 text-red-500 font-medium">
-                      <AlertTriangle className="w-3 h-3" />{issues}
-                    </span>
-                  )}
-                  {s.reviewed > 0 && (
-                    <span className="inline-flex items-center gap-0.5 text-blue-500 font-medium">
-                      <CheckCircle2 className="w-3 h-3" />{s.reviewed}
-                    </span>
-                  )}
-                </div>
-              </button>
-            );
-          })}
+                    {/* Status badges */}
+                    <td className="px-3 py-2 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        {s.matched > 0 && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-600 font-medium">
+                            <Check className="w-3 h-3" />{s.matched}
+                          </span>
+                        )}
+                        {s.reviewed > 0 && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] text-blue-500 font-medium">
+                            <CheckCircle2 className="w-3 h-3" />{s.reviewed}
+                          </span>
+                        )}
+                        {isSignedOff && <Stamp className="w-3.5 h-3.5 text-violet-500" />}
+                      </div>
+                    </td>
+
+                    {/* Arrow */}
+                    <td className="px-3 py-2 text-right">
+                      <ChevronDown className="w-3 h-3 text-slate-300 -rotate-90" />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
   );
 }
 
-function SummaryCard({ icon: Icon, label, value, color }) {
-  const styles = {
-    slate: { icon: 'bg-slate-100 text-slate-600', border: 'border-slate-200' },
-    emerald: { icon: 'bg-emerald-100 text-emerald-600', border: 'border-emerald-200' },
-    red: { icon: 'bg-red-100 text-red-600', border: 'border-red-200' },
-    amber: { icon: 'bg-amber-100 text-amber-600', border: 'border-amber-200' },
-    violet: { icon: 'bg-violet-100 text-violet-600', border: 'border-violet-200' },
+function SummaryPill({ icon: Icon, label, value, color }) {
+  const colors = {
+    slate: 'bg-slate-100 text-slate-700 border-slate-200',
+    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    red: 'bg-red-50 text-red-700 border-red-200',
+    amber: 'bg-amber-50 text-amber-700 border-amber-200',
+    violet: 'bg-violet-50 text-violet-700 border-violet-200',
   };
-  const s = styles[color] || styles.slate;
+  const iconColors = {
+    slate: 'text-slate-500',
+    emerald: 'text-emerald-500',
+    red: 'text-red-500',
+    amber: 'text-amber-500',
+    violet: 'text-violet-500',
+  };
 
   return (
-    <div className={cn('bg-white rounded-lg border p-3', s.border)}>
-      <div className="flex items-center gap-2 mb-1">
-        <div className={cn('w-6 h-6 rounded-md flex items-center justify-center', s.icon)}>
-          <Icon className="w-3.5 h-3.5" />
-        </div>
-        <span className="text-[10px] uppercase tracking-wide font-medium text-slate-400">{label}</span>
-      </div>
-      <p className="text-xl font-bold tabular-nums text-slate-900">{value}</p>
+    <div className={cn('flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-medium flex-1', colors[color] || colors.slate)}>
+      <Icon className={cn('w-3.5 h-3.5', iconColors[color] || iconColors.slate)} />
+      <span className="text-[10px] text-slate-500 hidden lg:inline">{label}</span>
+      <span className="font-bold tabular-nums ml-auto">{value}</span>
     </div>
   );
 }

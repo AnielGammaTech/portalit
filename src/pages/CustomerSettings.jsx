@@ -58,14 +58,7 @@ export default function CustomerSettings() {
 
   const { data: portalUsers = [], isLoading: loadingUsers } = useQuery({
     queryKey: ['portal_users', customerId],
-    queryFn: async () => {
-      const allUsers = await client.entities.User.list();
-      // customer_id can be at top level OR inside data object
-      return allUsers.filter(u => 
-        u.customer_id === customerId || 
-        u.data?.customer_id === customerId
-      );
-    },
+    queryFn: () => client.entities.User.filter({ customer_id: customerId }),
     enabled: !!customerId
   });
 
