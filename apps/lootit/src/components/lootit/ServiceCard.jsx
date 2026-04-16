@@ -42,14 +42,12 @@ function getCardState(reconciliation) {
   const reviewStatus = review?.status;
   const effectiveStatus = getEffectiveStatus(reconciliation);
 
-  if (effectiveStatus === 'match' && reviewStatus !== 'force_matched') {
-    return 'auto_matched';
-  }
   if (reviewStatus === 'force_matched') return 'force_matched';
   if (reviewStatus === 'dismissed') return 'dismissed';
-  if (status === 'no_vendor_data' || status === 'no_data') return 'no_vendor';
+  if (effectiveStatus === 'match') return 'auto_matched';
+  if (status === 'no_vendor_data' || status === 'no_data' || status === 'unmatched_line_item' || status === 'no_psa_data' || status === 'missing_from_psa') return 'no_vendor';
   if (effectiveStatus === 'over' || effectiveStatus === 'under') return 'mismatch';
-  return 'auto_matched';
+  return 'no_vendor';
 }
 
 function CardActionZone({ cardState, ruleId, onForceMatch, onDismiss, onReset, isSaving }) {
