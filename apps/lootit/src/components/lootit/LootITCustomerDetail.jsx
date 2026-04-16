@@ -194,23 +194,44 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
     staleTime: 1000 * 60 * 2,
   });
 
-  const handleSaveMapping = async (ruleId, productName, selectedId) => {
+  const handleSaveMapping = async (ruleId, productName, selectedItems) => {
     try {
-      const isPsaLineItem = selectedId && !selectedId.includes(':');
-      const isVendorTotal = selectedId && selectedId.endsWith(':total');
-      const vendorKey = isVendorTotal ? selectedId.replace(':total', '') : null;
-
+      // selectedItems is an array of { id, description, quantity }
+      const items = Array.isArray(selectedItems) ? selectedItems : [{ id: selectedItems, description: productName, quantity: 0 }];
       const NIL_UUID = '00000000-0000-0000-0000-000000000000';
-      await client.entities.Pax8LineItemOverride.create({
-        customer_id: customer.id,
-        rule_id: ruleId,
-        pax8_product_name: isPsaLineItem ? (productName || null) : (vendorKey || selectedId),
-        line_item_id: isPsaLineItem ? selectedId : NIL_UUID,
-      });
+
+      // Delete existing overrides for this rule_id (clean replace)
+      const toRemove = existingOverrides.filter((o) => o.rule_id === ruleId);
+      for (const ov of toRemove) {
+        await client.entities.Pax8LineItemOverride.delete(ov.id);
+      }
+
+      // Create a shared group_id when mapping multiple items
+      const groupId = items.length > 1 ? crypto.randomUUID() : null;
+
+      for (const item of items) {
+        const isPsaLineItem = item.id && !item.id.includes(':');
+        const isVendorTotal = item.id && item.id.endsWith(':total');
+        const isVendorCount = item.id && item.id.endsWith(':count');
+        const vendorKey = (isVendorTotal || isVendorCount)
+          ? item.id.replace(/:total$|:count$/, '')
+          : null;
+
+        await client.entities.Pax8LineItemOverride.create({
+          customer_id: customer.id,
+          rule_id: ruleId,
+          pax8_product_name: isPsaLineItem ? (productName || null) : (vendorKey || item.description || item.id),
+          line_item_id: isPsaLineItem ? item.id : NIL_UUID,
+          ...(groupId ? { group_id: groupId } : {}),
+        });
+      }
+
       await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides', customer.id] });
       await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides_all'] });
       setMappingRecon(null);
-      toast.success(vendorKey ? `Mapped to ${vendorKey} vendor total` : 'Mapping saved');
+
+      const count = items.length;
+      toast.success(count > 1 ? `Mapped ${count} items` : 'Mapping saved');
     } catch (err) {
       toast.error(err.message || 'Failed to save mapping');
     }
@@ -1267,7 +1288,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           pax8Products={pax8Recons.map(r => ({ name: r.productName, quantity: r.vendorQty, price: r.price }))}
           devices={devices}
           vendorMappings={customerData?.vendorMappings || {}}
-          onSelect={(lineItemId) => handleSaveMapping(mappingRecon.ruleId, mappingRecon.productName, lineItemId)}
+          onSelect={(selectedItems) => handleSaveMapping(mappingRecon.ruleId, mappingRecon.productName, selectedItems)}
           onClose={() => setMappingRecon(null)}
         />
       )}
