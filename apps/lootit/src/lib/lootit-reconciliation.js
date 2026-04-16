@@ -365,12 +365,20 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
       const multiMapping = multiMappingMap[ov.rule_id];
       const vendorKey = ov.pax8_product_name || null;
       const vendorMapping = vendorKey ? mappings[vendorKey] : null;
-      const vendorRawData = vendorMapping
-        ? (typeof vendorMapping.cached_data === 'string' ? (() => { try { return JSON.parse(vendorMapping.cached_data); } catch { return {}; } })() : (vendorMapping.cached_data || {}))
-        : null;
-      const vendorQty = multiMapping
-        ? multiMapping.totalQty
-        : (vendorKey && vendorRawData ? extractVendorCount(vendorKey, vendorRawData) : null);
+      let vendorQty = null;
+      if (multiMapping) {
+        vendorQty = multiMapping.totalQty;
+      } else if (vendorKey && vendorMapping) {
+        vendorQty = extractVendorCount(vendorKey, vendorMapping.cached_data);
+      }
+      if (vendorQty === null && vendorKey) {
+        for (const [mk, mv] of Object.entries(mappings)) {
+          if (mk === vendorKey || mk.startsWith(vendorKey)) {
+            const q = extractVendorCount(mk, mv.cached_data);
+            if (q !== null) { vendorQty = q; break; }
+          }
+        }
+      }
       const psaQty = parseFloat(li.quantity) || 0;
       const hasVendorData = vendorQty !== null;
       const difference = hasVendorData ? psaQty - vendorQty : 0;
