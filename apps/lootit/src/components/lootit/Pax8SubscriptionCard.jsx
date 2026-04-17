@@ -1,6 +1,8 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { Check, X } from 'lucide-react';
+import StaleBadge from './StaleBadge';
+import AuditFooter from './AuditFooter';
 
 /* ─────────────────────────────────────────────
    Card-state resolution (maps recon -> visual state)
@@ -280,6 +282,7 @@ export default function Pax8SubscriptionCard({
   onSaveNotes,
   hasOverride,
   isSaving,
+  staleness,
 }) {
   const {
     ruleId, productName, vendorQty, psaQty,
@@ -315,9 +318,13 @@ export default function Pax8SubscriptionCard({
     <div
       className="relative rounded-[14px] overflow-hidden flex flex-col cursor-pointer"
       style={{
-        height: '190px',
+        height: '210px',
         background: styles.bg,
-        border: styles.border,
+        border: staleness?.changeDetected
+          ? '1.5px solid rgba(239, 68, 68, 0.4)'
+          : staleness?.isStale
+          ? '1.5px solid rgba(234, 179, 8, 0.4)'
+          : styles.border,
         opacity: isDismissed ? 0.7 : 1,
         transition: 'all 0.2s ease',
       }}
@@ -336,6 +343,12 @@ export default function Pax8SubscriptionCard({
 
       {/* Diff badge -- absolute top-right for mismatches */}
       {showDiff && <DiffBadge diff={diff} />}
+      {staleness && (
+        <StaleBadge
+          stalenessDays={staleness.stalenessDays}
+          changeDetected={staleness.changeDetected}
+        />
+      )}
 
       {/* Card header */}
       <div className="px-3 pt-[10px]">
@@ -375,6 +388,15 @@ export default function Pax8SubscriptionCard({
           isSaving={isSaving}
         />
       </div>
+      <AuditFooter
+        reviewStatus={recon.review?.status}
+        reviewedByName={recon.review?.reviewed_by_name}
+        reviewedAt={recon.review?.reviewed_at}
+        isStale={staleness?.isStale}
+        changeDetected={staleness?.changeDetected}
+        previousPsaQty={staleness?.previousPsaQty}
+        previousVendorQty={staleness?.previousVendorQty}
+      />
     </div>
   );
 }
