@@ -165,6 +165,7 @@ const ENTITY_TABLE_MAP = {
   LootITContract: 'lootit_contracts',
   BillingAnomaly: 'billing_anomalies',
   ReconciliationSignOff: 'reconciliation_sign_offs',
+  ReconciliationSnapshot: 'reconciliation_snapshots',
   LicenseAssignment: 'license_assignments',
   Pax8LineItemOverride: 'pax8_line_item_overrides',
   Pax8Mapping: 'pax8_mappings',
