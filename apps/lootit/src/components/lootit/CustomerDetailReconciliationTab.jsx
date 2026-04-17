@@ -1,6 +1,6 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { Filter, Link2 } from 'lucide-react';
+import { Filter, Link2, ClipboardCheck } from 'lucide-react';
 import ServiceCard from './ServiceCard';
 import Pax8SubscriptionCard from './Pax8SubscriptionCard';
 
@@ -24,6 +24,9 @@ export default function CustomerDetailReconciliationTab({
   onMapLineItem,
   onRemoveMapping,
   onShowGroupMapper,
+  stalenessMap,
+  staleCount,
+  onSignOff,
 }) {
   return (
     <>
@@ -32,6 +35,7 @@ export default function CustomerDetailReconciliationTab({
           {[
             { key: 'all', label: 'All', count: allRecons.filter(r => r.status !== 'no_data').length },
             { key: 'issues', label: 'Issues', count: issueCount },
+            { key: 'stale', label: 'Stale', count: staleCount || 0 },
             { key: 'matched', label: 'Matched', count: summary?.matched || 0 },
             { key: 'reviewed', label: 'Reviewed', count: summary?.reviewed || 0 },
           ].map((f) => (
@@ -55,6 +59,15 @@ export default function CustomerDetailReconciliationTab({
             </button>
           ))}
         </div>
+        {onSignOff && (
+          <button
+            onClick={onSignOff}
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors"
+          >
+            <ClipboardCheck className="w-3.5 h-3.5" />
+            Sign Off Reconciliation
+          </button>
+        )}
       </div>
 
       {filteredRecons.length === 0 && filteredPax8.length === 0 ? (
@@ -84,6 +97,7 @@ export default function CustomerDetailReconciliationTab({
               hasOverride={existingOverrides.some((o) => o.rule_id === recon.rule.id)}
               overrideCount={existingOverrides.filter((o) => o.rule_id === recon.rule.id && o.pax8_product_name !== 'approved_as_is').length}
               isSaving={isSaving}
+              staleness={stalenessMap?.[recon.rule.id]}
             />
           ))}
         </div>
@@ -118,6 +132,7 @@ export default function CustomerDetailReconciliationTab({
                 onSaveNotes={onSaveNotes}
                 hasOverride={existingOverrides.some((o) => o.rule_id === recon.ruleId)}
                 isSaving={isSaving}
+                staleness={stalenessMap?.[recon.ruleId]}
               />
             ))}
           </div>
