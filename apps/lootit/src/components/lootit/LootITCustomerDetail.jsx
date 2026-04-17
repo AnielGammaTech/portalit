@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { RotateCcw, Repeat2, DollarSign, FileText } from 'lucide-react';
+import { RotateCcw, Repeat2, DollarSign, FileText, LayoutDashboard } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
@@ -21,8 +21,13 @@ import BillingAnomaliesSection from './BillingAnomaliesSection';
 import InvoicesTab from './InvoicesTab';
 import CustomerDetailContractTab from './CustomerDetailContractTab';
 import CustomerDetailReconciliationTab from './CustomerDetailReconciliationTab';
+import { useReconciliationSnapshot } from '@/hooks/useReconciliationSnapshot';
+import { useStalenessData } from '@/hooks/useStalenessData';
+import { useSignOff } from '@/hooks/useSignOff';
+import DashboardTab from './DashboardTab';
+import SignOffDialog from './SignOffDialog';
 
-export default function LootITCustomerDetail({ customer, onBack, activeTab: activeTabProp = 'reconciliation', onTabChange }) {
+export default function LootITCustomerDetail({ customer, onBack, activeTab: activeTabProp = 'dashboard', onTabChange }) {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState('all');
   const [detailItem, setDetailItem] = useState(null);
@@ -31,7 +36,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   const [editingRule, setEditingRule] = useState(null);
 
   const { reconciliations, isLoading, rules: allRules } = useReconciliationData(customer.id);
-  const { reviews, markReviewed, dismiss, resetReview, saveNotes, saveExclusion, forceMatch, isSaving } = useReconciliationReviews(customer.id);
+  const { reviews, markReviewed, dismiss, resetReview, saveNotes, saveExclusion, forceMatch, reVerify, isSaving } = useReconciliationReviews(customer.id);
   const { data: contacts = [] } = useCustomerContacts(customer.id);
   const { data: devices = [] } = useCustomerDevices(customer.id);
 
@@ -48,6 +53,10 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   } = useContractActions(customer.id);
 
   const { isSyncing, syncStatus, handleSync } = useSyncCustomer(customer);
+
+  const { latestSignOff, snapshotsByRuleId } = useReconciliationSnapshot(customer.id);
+  const { signOff, isSigningOff } = useSignOff(customer.id);
+  const [showSignOffDialog, setShowSignOffDialog] = useState(false);
 
   const { data: allLineItems = [] } = useQuery({
     queryKey: ['recurring_bill_line_items_customer', customer.id],
@@ -82,22 +91,32 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   const allRecons = useMemo(() => [...recons, ...pax8Recons], [recons, pax8Recons]);
   const summary = customerData ? getDiscrepancySummary(allRecons) : null;
 
+  const { stalenessMap, staleCount } = useStalenessData({
+    reviews,
+    snapshotsByRuleId,
+    latestSignOff,
+    allRecons,
+    pax8Recons,
+  });
+
   const filteredRecons = useMemo(() => {
     const visible = recons.filter((r) => r.status !== 'no_data' || r.review?.status === 'force_matched' || r.review?.status === 'reviewed' || r.review?.status === 'dismissed');
     if (statusFilter === 'all') return visible;
     if (statusFilter === 'issues') return visible.filter((r) => (r.status === 'over' || r.status === 'under') && r.review?.status !== 'force_matched');
+    if (statusFilter === 'stale') return visible.filter((r) => stalenessMap[r.rule.id]);
     if (statusFilter === 'matched') return visible.filter((r) => r.status === 'match' || r.review?.status === 'force_matched');
     if (statusFilter === 'reviewed') return visible.filter((r) => r.review?.status === 'reviewed' || r.review?.status === 'dismissed' || r.review?.status === 'force_matched');
     return visible;
-  }, [recons, statusFilter]);
+  }, [recons, statusFilter, stalenessMap]);
 
   const filteredPax8 = useMemo(() => {
     if (statusFilter === 'all') return pax8Recons;
     if (statusFilter === 'issues') return pax8Recons.filter((r) => r.status === 'over' || r.status === 'under' || r.status === 'missing_from_psa');
+    if (statusFilter === 'stale') return pax8Recons.filter((r) => stalenessMap[r.ruleId]);
     if (statusFilter === 'matched') return pax8Recons.filter((r) => r.status === 'match');
     if (statusFilter === 'reviewed') return pax8Recons.filter((r) => r.review?.status === 'reviewed' || r.review?.status === 'dismissed');
     return pax8Recons;
-  }, [pax8Recons, statusFilter]);
+  }, [pax8Recons, statusFilter, stalenessMap]);
 
   // ── Computed values ──
   const dollarImpact = useMemo(() => {
@@ -250,6 +269,29 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
     await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides_all'] });
   };
 
+  const unresolvedItems = useMemo(() => {
+    const allTiles = [
+      ...(allRecons || []).map((r) => ({ ruleId: r.rule?.id || r.ruleId, label: r.rule?.label || r.productName, status: r.status, review: reviews.find((rv) => rv.rule_id === (r.rule?.id || r.ruleId)) })),
+    ];
+    return allTiles.filter((t) =>
+      ['over', 'under'].includes(t.status) &&
+      !['reviewed', 'force_matched', 'dismissed'].includes(t.review?.status)
+    );
+  }, [allRecons, reviews]);
+
+  const handleSignOff = async (notes) => {
+    await signOff({
+      allRecons: recons,
+      pax8Recons,
+      reviews,
+      overrides: existingOverrides,
+      notes,
+    });
+    setShowSignOffDialog(false);
+    toast.success('Reconciliation signed off successfully');
+    setActiveTab('dashboard');
+  };
+
   const activeTab = activeTabProp;
   const setActiveTab = (tab) => onTabChange ? onTabChange(tab) : null;
 
@@ -305,6 +347,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
       <div className="sticky top-0 z-10 bg-white shadow-sm">
         <div className="flex w-full">
           {[
+            { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
             { key: 'reconciliation', label: 'Reconciliation', icon: RotateCcw },
             { key: 'recurring', label: 'Recurring', icon: Repeat2, badge: allLineItems.length || null },
             { key: 'invoices', label: 'Invoices', icon: DollarSign, badge: customerInvoices.length || null },
@@ -333,6 +376,32 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
         </div>
       </div>
 
+      {activeTab === 'dashboard' && (
+        <DashboardTab
+          customerId={customer.id}
+          onTabChange={setActiveTab}
+          onShowSnapshotDetail={(snapshot) => {
+            setDetailItem({
+              rule: { id: snapshot.rule_id, label: snapshot.label, integration_key: snapshot.integration_key },
+              psaQty: snapshot.psa_qty,
+              vendorQty: snapshot.vendor_qty,
+              status: snapshot.status,
+              review: {
+                status: snapshot.review_status,
+                notes: snapshot.review_notes,
+                reviewed_by: snapshot.reviewed_by,
+                reviewed_at: snapshot.reviewed_at,
+                exclusion_count: snapshot.exclusion_count,
+                exclusion_reason: snapshot.exclusion_reason,
+              },
+              integrationLabel: snapshot.integration_key,
+              _readOnly: true,
+              _snapshotDate: latestSignOff?.signed_at,
+            });
+          }}
+        />
+      )}
+
       {activeTab === 'reconciliation' && (
         <CustomerDetailReconciliationTab
           filteredRecons={filteredRecons}
@@ -354,6 +423,9 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           onMapLineItem={(ruleId, label) => setMappingRecon({ ruleId, productName: label })}
           onRemoveMapping={(ruleId) => handleRemoveMapping(ruleId)}
           onShowGroupMapper={() => setShowGroupMapper(true)}
+          stalenessMap={stalenessMap}
+          staleCount={staleCount}
+          onSignOff={() => setShowSignOffDialog(true)}
         />
       )}
 
@@ -388,6 +460,12 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           customerId={customer.id}
           overrides={existingOverrides}
           onClose={() => setDetailItem(null)}
+          readOnly={detailItem._readOnly || false}
+          snapshotDate={detailItem._snapshotDate}
+          onReVerify={async (ruleId) => {
+            await reVerify(ruleId);
+            toast.success('Re-verified');
+          }}
           onForceMatch={async (ruleId, notes) => {
             const rawId = ruleId.startsWith('unmatched_') ? ruleId : null;
             const liId = rawId ? rawId.replace('unmatched_', '') : null;
@@ -423,6 +501,19 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           onMapLineItem={(ruleId, label) => setMappingRecon({ ruleId, productName: label })}
         />
       )}
+
+      <SignOffDialog
+        open={showSignOffDialog}
+        onClose={() => setShowSignOffDialog(false)}
+        summary={{
+          matched: summary?.matched || 0,
+          forceMatched: allRecons.filter((r) => reviews.find((rv) => rv.rule_id === (r.rule?.id || r.ruleId))?.status === 'force_matched').length,
+          dismissed: allRecons.filter((r) => reviews.find((rv) => rv.rule_id === (r.rule?.id || r.ruleId))?.status === 'dismissed').length,
+        }}
+        unresolvedItems={unresolvedItems}
+        onConfirm={handleSignOff}
+        isSigningOff={isSigningOff}
+      />
 
       {editingRule && (
         <RuleEditorDialog
