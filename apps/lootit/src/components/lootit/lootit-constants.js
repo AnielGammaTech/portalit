@@ -23,6 +23,8 @@ export const ACTION_LABELS = {
   note:      { label: 'Note added',    color: 'text-blue-600',    bg: 'bg-blue-50' },
   exclusion:      { label: 'Exclusion set', color: 'text-amber-600',   bg: 'bg-amber-50' },
   force_matched:  { label: 'Force Matched', color: 'text-blue-600',    bg: 'bg-blue-50' },
+  re_verified:    { label: 'Re-verified',   color: 'text-emerald-600', bg: 'bg-emerald-50' },
+  signed_off:     { label: 'Signed Off',    color: 'text-purple-600',  bg: 'bg-purple-50' },
 };
 
 export const BILLING_STATUS_CONFIG = {
