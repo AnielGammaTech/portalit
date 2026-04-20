@@ -10,6 +10,7 @@ import { useReconciliationReviews } from '@/hooks/useReconciliationReviews';
 import { useExcludedItems } from '@/hooks/useExcludedItems';
 import { useCustomerContacts, useCustomerDevices } from '@/hooks/useCustomerData';
 import { getDiscrepancySummary } from '@/lib/lootit-reconciliation';
+import { extractVendorItems } from '@/lib/vendor-item-extractors';
 import { useAnomalyData } from '@/hooks/useAnomalyData';
 import { useContractActions } from '@/hooks/useContractActions';
 import { useSyncCustomer } from '@/hooks/useSyncCustomer';
@@ -102,6 +103,26 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
     allRecons,
     pax8Recons,
   });
+
+  // Detect excluded items that no longer exist in vendor data
+  React.useEffect(() => {
+    if (!customerData?.vendorMappings || excludedItems.length === 0) return;
+    const mappings = customerData.vendorMappings;
+    const processedRules = new Set();
+    for (const recon of recons) {
+      const ruleId = recon.rule?.id;
+      const integrationKey = recon.rule?.integration_key;
+      if (!ruleId || !integrationKey || processedRules.has(ruleId)) continue;
+      const hasExclusions = excludedItems.some(e => e.rule_id === ruleId);
+      if (!hasExclusions) continue;
+      const mapping = mappings[integrationKey];
+      if (!mapping) continue;
+      const vendorItems = extractVendorItems(integrationKey, mapping.cached_data);
+      if (!vendorItems) continue;
+      processedRules.add(ruleId);
+      detectDroppedItems(ruleId, vendorItems);
+    }
+  }, [customerData?.vendorMappings, excludedItems.length]);
 
   const filteredRecons = useMemo(() => {
     const visible = recons.filter((r) => r.status !== 'no_data' || r.review?.status === 'force_matched' || r.review?.status === 'reviewed' || r.review?.status === 'dismissed');
