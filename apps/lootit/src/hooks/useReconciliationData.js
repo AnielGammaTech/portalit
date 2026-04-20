@@ -330,7 +330,7 @@ export function useReconciliationData(customerId) {
         (c) => c.summary.over > 0 || c.summary.under > 0 || (c.pax8Reconciliations || []).some(r => r.status !== 'match')
       ).length,
       pax8MissingFromPsa: all.reduce((s, c) => s + (c.pax8Reconciliations || []).filter(r => r.status === 'missing_from_psa').length, 0),
-      totalMatched: all.reduce((s, c) => s + c.summary.matched, 0),
+      totalMatched: all.reduce((s, c) => s + c.summary.matched + c.summary.forceMatched, 0),
       totalOver: all.reduce((s, c) => s + c.summary.over, 0),
       totalUnder: all.reduce((s, c) => s + c.summary.under, 0),
       totalNoData: all.reduce((s, c) => s + c.summary.noData, 0),

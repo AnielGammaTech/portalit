@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import { supabase } from '@/api/client';
 import { useAuth } from '@/lib/AuthContext';
+import { toast } from 'sonner';
 
 export function useReconciliationReviews(customerId) {
   const queryClient = useQueryClient();
@@ -23,7 +24,7 @@ export function useReconciliationReviews(customerId) {
 
   // Log every action to the history table
   const logHistory = async ({ reviewId, ruleId, action, status, notes, psaQty, vendorQty }) => {
-    await supabase.from('reconciliation_review_history').insert({
+    const { error } = await supabase.from('reconciliation_review_history').insert({
       review_id: reviewId || null,
       customer_id: customerId,
       rule_id: ruleId,
@@ -33,7 +34,9 @@ export function useReconciliationReviews(customerId) {
       psa_qty: psaQty ?? null,
       vendor_qty: vendorQty ?? null,
       created_by: user?.id || null,
+      created_by_name: user?.full_name || user?.email || null,
     });
+    if (error) console.warn('[logHistory]', error.message);
   };
 
   const upsertMutation = useMutation({
@@ -78,6 +81,9 @@ export function useReconciliationReviews(customerId) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: reviewsKey });
       queryClient.invalidateQueries({ queryKey: historyKey });
+    },
+    onError: (err) => {
+      toast.error(`Save failed: ${err.message || 'Unknown error'}`);
     },
   });
 

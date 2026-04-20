@@ -677,10 +677,8 @@ export function getDiscrepancySummary(reconciliations) {
   for (const r of reconciliations) {
     summary.total++;
 
-    // Force-matched items count as matched regardless of actual status
     if (r.review?.status === 'force_matched') {
       summary.forceMatched++;
-      summary.matched++;
       continue;
     }
 

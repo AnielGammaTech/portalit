@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/api/client';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -299,6 +300,9 @@ function ExclusionSection({ reconciliation, onSaveExclusion }) {
     try {
       await onSaveExclusion(ruleId, exclusionCount, exclusionReason);
       setShowForm(false);
+      toast.success('Exclusion saved');
+    } catch (err) {
+      toast.error(`Failed to save exclusion: ${err.message || 'Unknown error'}`);
     } finally {
       setSaving(false);
     }
@@ -312,6 +316,9 @@ function ExclusionSection({ reconciliation, onSaveExclusion }) {
       setExclusionCount(0);
       setExclusionReason('');
       setShowForm(false);
+      toast.success('Exclusion removed');
+    } catch (err) {
+      toast.error(`Failed to remove exclusion: ${err.message || 'Unknown error'}`);
     } finally {
       setSaving(false);
     }
@@ -437,14 +444,14 @@ function HistoryTimeline({ customerId, ruleId }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('reconciliation_review_history')
-        .select('*, created_by_user:users!reconciliation_review_history_created_by_fkey(full_name, email)')
+        .select('*')
         .eq('customer_id', customerId)
         .eq('rule_id', ruleId)
-        .order('created_at', { ascending: false });
+        .order('created_date', { ascending: false });
       if (error) throw error;
       return data || [];
     },
-    enabled: !!customerId && !!ruleId && !ruleId.startsWith('unmatched_'),
+    enabled: !!customerId && !!ruleId,
   });
 
   return (
@@ -462,8 +469,8 @@ function HistoryTimeline({ customerId, ruleId }) {
           {history.map((entry) => {
             const config = ACTION_LABELS[entry.action] || ACTION_LABELS.note;
             const Icon = ACTION_ICONS[entry.action] || StickyNote;
-            const userName = entry.created_by_user?.full_name || entry.created_by_user?.email || 'System';
-            const timestamp = new Date(entry.created_at);
+            const userName = entry.created_by_name || 'System';
+            const timestamp = new Date(entry.created_date);
             return (
               <div key={entry.id} className="relative">
                 <div className={cn('absolute -left-[23px] top-0.5 w-5 h-5 rounded-full flex items-center justify-center border-2 border-white', config.bg)}>
@@ -511,6 +518,9 @@ function AddNoteForm({ ruleId, onSaveNotes }) {
     try {
       await onSaveNotes(ruleId, noteText);
       setNoteText('');
+      toast.success('Note saved');
+    } catch (err) {
+      toast.error(`Failed to save note: ${err.message || 'Unknown error'}`);
     } finally {
       setSaving(false);
     }

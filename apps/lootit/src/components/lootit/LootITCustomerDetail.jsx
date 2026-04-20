@@ -3,7 +3,8 @@ import { RotateCcw, Repeat2, DollarSign, FileText, LayoutDashboard } from 'lucid
 import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
-import { client } from '@/api/client';
+import { client, supabase } from '@/api/client';
+import { useAuth } from '@/lib/AuthContext';
 import { useReconciliationData } from '@/hooks/useReconciliationData';
 import { useReconciliationReviews } from '@/hooks/useReconciliationReviews';
 import { useCustomerContacts, useCustomerDevices } from '@/hooks/useCustomerData';
@@ -29,6 +30,7 @@ import SignOffDialog from './SignOffDialog';
 
 export default function LootITCustomerDetail({ customer, onBack, activeTab: activeTabProp = 'dashboard', onTabChange }) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [statusFilter, setStatusFilter] = useState('all');
   const [detailItem, setDetailItem] = useState(null);
   const [mappingRecon, setMappingRecon] = useState(null);
@@ -274,7 +276,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
       ...(allRecons || []).map((r) => ({ ruleId: r.rule?.id || r.ruleId, label: r.rule?.label || r.productName, status: r.status, review: reviews.find((rv) => rv.rule_id === (r.rule?.id || r.ruleId)) })),
     ];
     return allTiles.filter((t) =>
-      ['over', 'under'].includes(t.status) &&
+      ['over', 'under', 'missing_from_psa', 'no_psa_match', 'unmatched_line_item'].includes(t.status) &&
       !['reviewed', 'force_matched', 'dismissed'].includes(t.review?.status)
     );
   }, [allRecons, reviews]);
@@ -481,8 +483,18 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
                 line_item_id: liId,
                 group_id: `approved:${(notes || '').slice(0, 200)}`,
               });
+              supabase.from('reconciliation_review_history').insert({
+                customer_id: customer.id,
+                rule_id: rawId,
+                action: 'approved_as_is',
+                status: 'force_matched',
+                notes: `[APPROVED AS-IS by ${user?.full_name || user?.email || 'Unknown'} — ${new Date().toLocaleString()}] ${(notes || '').trim()}`,
+                created_by: user?.id || null,
+                created_by_name: user?.full_name || user?.email || null,
+              });
               await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides', customer.id] });
               await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides_all'] });
+              await queryClient.invalidateQueries({ queryKey: ['reconciliation_review_history', customer.id] });
               toast.success('Approved as-is');
             } else {
               await forceMatch(ruleId, notes);

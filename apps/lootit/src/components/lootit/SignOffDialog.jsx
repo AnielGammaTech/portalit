@@ -76,10 +76,10 @@ export default function SignOffDialog({ open, onClose, summary, unresolvedItems,
           </button>
           <button
             onClick={handleConfirm}
-            disabled={isSigningOff}
+            disabled={isSigningOff || unresolvedItems.length > 0}
             className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50"
           >
-            {isSigningOff ? 'Signing off...' : 'Sign Off'}
+            {isSigningOff ? 'Signing off...' : unresolvedItems.length > 0 ? `${unresolvedItems.length} Unresolved — Cannot Sign Off` : 'Sign Off'}
           </button>
         </DialogFooter>
       </DialogContent>

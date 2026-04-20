@@ -36,7 +36,7 @@ export default function CustomerDetailReconciliationTab({
             { key: 'all', label: 'All', count: allRecons.filter(r => r.status !== 'no_data').length },
             { key: 'issues', label: 'Issues', count: issueCount },
             { key: 'stale', label: 'Stale', count: staleCount || 0 },
-            { key: 'matched', label: 'Matched', count: summary?.matched || 0 },
+            { key: 'matched', label: 'Matched', count: (summary?.matched || 0) + (summary?.forceMatched || 0) },
             { key: 'reviewed', label: 'Reviewed', count: summary?.reviewed || 0 },
           ].map((f) => (
             <button

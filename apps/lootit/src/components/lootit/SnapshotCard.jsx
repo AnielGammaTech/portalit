@@ -15,18 +15,20 @@ function getSnapshotStyle(snapshot) {
   return STATUS_STYLES[snapshot.status] || STATUS_STYLES.no_vendor_data;
 }
 
-function getReviewLabel(reviewStatus) {
+function getReviewLabel(reviewStatus, status) {
   switch (reviewStatus) {
     case 'reviewed': return 'Reviewed';
     case 'force_matched': return 'Force Matched';
     case 'dismissed': return 'Dismissed';
-    default: return 'Pending';
+    default: return status === 'match' ? 'Auto-matched' : 'Pending';
   }
 }
 
 export default function SnapshotCard({ snapshot, onDetails }) {
   const style = getSnapshotStyle(snapshot);
-  const diff = snapshot.difference || 0;
+  const exclusionCount = snapshot.exclusion_count || 0;
+  const effectiveVendorQty = snapshot.vendor_qty != null ? snapshot.vendor_qty - exclusionCount : null;
+  const diff = (snapshot.psa_qty || 0) - (effectiveVendorQty || 0);
   const showDiff = diff !== 0 && !['force_matched', 'dismissed'].includes(snapshot.review_status);
 
   const reviewDate = snapshot.reviewed_at
@@ -79,11 +81,17 @@ export default function SnapshotCard({ snapshot, onDetails }) {
         </span>
         <div className="text-center w-16">
           <div className="text-[28px] font-bold leading-none tabular-nums h-[32px] flex items-end justify-center" style={{ color: style.num }}>
-            {snapshot.vendor_qty ?? '—'}
+            {effectiveVendorQty ?? '—'}
           </div>
           <div className="text-[9px] font-semibold uppercase tracking-wider mt-1" style={{ color: style.num, opacity: 0.5 }}>Vendor</div>
         </div>
       </div>
+
+      {exclusionCount > 0 && (
+        <div className="text-center -mt-1 mb-0.5">
+          <span className="text-[10px] font-medium text-amber-600">-{exclusionCount} excluded</span>
+        </div>
+      )}
 
       <div className="px-2 pb-[10px]">
         <div
@@ -96,7 +104,10 @@ export default function SnapshotCard({ snapshot, onDetails }) {
 
       <div className="px-3 pb-1.5">
         <p className="text-[9px] text-slate-400 truncate leading-tight">
-          {getReviewLabel(snapshot.review_status)} by {snapshot.reviewed_by_name || 'Unknown'} · {reviewDate || '—'}
+          {getReviewLabel(snapshot.review_status, snapshot.status)}
+          {snapshot.review_status && snapshot.review_status !== 'pending'
+            ? ` · ${reviewDate || '—'}`
+            : ''}
         </p>
       </div>
     </div>
