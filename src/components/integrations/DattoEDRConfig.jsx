@@ -92,7 +92,7 @@ export default function DattoEDRConfig() {
       return {
         tenantId,
         tenantName: tenant.name,
-        hostCount: tenant.host_count || 0,
+        hostCount: tenant.deviceCount || tenant.host_count || 0,
         mapping,
         isMapped: Boolean(mapping),
         isStale: mapping ? isStale(mapping.last_synced) : false,
@@ -105,7 +105,7 @@ export default function DattoEDRConfig() {
         rows.push({
           tenantId: normalizeId(mapping.edr_tenant_id),
           tenantName: mapping.edr_tenant_name || mapping.edr_tenant_id,
-          hostCount: 0,
+          hostCount: mapping.cached_data?.hostCount || 0,
           mapping,
           isMapped: true,
           isStale: isStale(mapping.last_synced),
@@ -429,15 +429,29 @@ function TenantRow({ row, customers, getCustomerName, onMap, onDelete, isOdd }) 
   const syncTime = row.mapping ? getRelativeTime(row.mapping.last_synced) : null;
   const statusDot = getRowStatusDot(row.mapping);
 
+  const [resyncing, setResyncing] = useState(false);
+  const queryClient = useQueryClient();
+
   const handleResync = useCallback(async () => {
     if (!row.mapping) return;
+    setResyncing(true);
     try {
-      await client.functions.invoke('syncDattoEDR', { action: 'sync_all' });
-      toast.success(`Re-synced ${row.tenantName}`);
+      const response = await client.functions.invoke('syncDattoEDR', {
+        action: 'sync_customer',
+        customer_id: row.mapping.customer_id,
+      });
+      if (response.success) {
+        toast.success(`Synced ${row.tenantName} — ${response.data?.hostCount || 0} hosts`);
+        queryClient.invalidateQueries({ queryKey: ['datto-edr-mappings'] });
+      } else {
+        toast.error(response.error || `Sync failed for ${row.tenantName}`);
+      }
     } catch (err) {
       toast.error(`Sync failed: ${err.message}`);
+    } finally {
+      setResyncing(false);
     }
-  }, [row.mapping, row.tenantName]);
+  }, [row.mapping, row.tenantName, queryClient]);
 
   return (
     <MappingRow
