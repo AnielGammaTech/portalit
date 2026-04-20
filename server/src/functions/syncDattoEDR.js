@@ -450,7 +450,7 @@ export async function syncDattoEDR(body, user) {
 
         // Primary: target-scoped endpoint (returns only this customer's agents)
         for (let skip = 0; ; skip += PAGE_SIZE) {
-          const url = addAuth(`${DATTO_EDR_BASE_URL}/targets/${targetId}/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`);
+          const url = `${DATTO_EDR_BASE_URL}/targets/${targetId}/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`;
           const res = await fetch(url, { headers }).catch(() => null);
           if (!res?.ok) break;
           const raw = await res.text();
@@ -467,7 +467,7 @@ export async function syncDattoEDR(body, user) {
         if (allAgents.length === 0) {
           console.log(`[DattoEDR] sync_all: Target-scoped endpoint returned 0 agents for ${targetId}, falling back to global`);
           for (let skip = 0; ; skip += PAGE_SIZE) {
-            const url = addAuth(`${DATTO_EDR_BASE_URL}/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`);
+            const url = `${DATTO_EDR_BASE_URL}/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`;
             const res = await fetch(url, { headers }).catch(() => null);
             if (!res?.ok) break;
             const raw = await res.text();
