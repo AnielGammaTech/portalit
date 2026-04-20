@@ -32,7 +32,7 @@ export function useSyncCustomer(customer) {
 
       const vendorSyncs = [
         { fn: 'syncDattoRMMDevices', action: 'sync_devices', label: 'Datto RMM' },
-        { fn: 'syncDattoEDR', action: 'sync_alerts', label: 'Datto EDR' },
+        { fn: 'syncDattoEDR', action: 'sync_customer', label: 'Datto EDR' },
         { fn: 'syncJumpCloudLicenses', action: 'sync_licenses', label: 'JumpCloud' },
         { fn: 'syncSpanningBackup', action: 'sync_licenses', label: 'Spanning' },
         { fn: 'syncCoveData', action: 'sync_devices', label: 'Cove' },

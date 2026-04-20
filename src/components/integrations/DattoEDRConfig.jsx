@@ -25,7 +25,7 @@ import {
 
 export default function DattoEDRConfig() {
   const [testing, setTesting] = useState(false);
-  // configStatus is now derived from data, not manual state
+  const [connectionSuccess, setConnectionSuccess] = useState(null);
   const [loadingTenants, setLoadingTenants] = useState(false);
   const [edrTenants, setEdrTenants] = useState([]);
   const [syncing, setSyncing] = useState(false);
@@ -174,14 +174,15 @@ export default function DattoEDRConfig() {
       const response = await client.functions.invoke('syncDattoEDR', { action: 'test_connection' });
       if (response.success) {
         setConnectionError(null);
-        toast.success('Connected to Datto EDR');
+        setConnectionSuccess(response.message || 'Connected to Datto EDR');
+        setTimeout(() => setConnectionSuccess(null), 8000);
       } else {
+        setConnectionSuccess(null);
         setConnectionError(response.error || 'Connection failed');
-        toast.error(response.error || 'Connection failed');
       }
     } catch (error) {
+      setConnectionSuccess(null);
       setConnectionError(error.message || 'Connection test failed');
-      toast.error(error.message || 'Connection test failed');
     } finally {
       setTesting(false);
     }
@@ -351,6 +352,21 @@ export default function DattoEDRConfig() {
           {syncing ? 'Syncing...' : 'Sync All'}
         </Button>
       </IntegrationHeader>
+
+      {/* Connection Success Banner */}
+      {connectionSuccess && (
+        <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700">
+          <span className="text-sm font-medium flex-shrink-0">Connected:</span>
+          <span className="text-sm">{connectionSuccess}</span>
+          <button
+            type="button"
+            onClick={() => setConnectionSuccess(null)}
+            className="ml-auto text-emerald-400 hover:text-emerald-600 text-xs flex-shrink-0"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Connection Error Banner */}
       {connectionError && (
