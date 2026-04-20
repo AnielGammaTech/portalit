@@ -127,7 +127,7 @@ export function useReconciliationReviews(customerId) {
 
   const saveExclusion = async (ruleId, exclusionCount, exclusionReason) => {
     const existing = reviews.find((r) => r.rule_id === ruleId);
-    return upsertMutation.mutateAsync({
+    const result = await upsertMutation.mutateAsync({
       ruleId,
       status: existing?.status || 'reviewed',
       action: 'exclusion',
@@ -137,6 +137,13 @@ export function useReconciliationReviews(customerId) {
       exclusionCount: exclusionCount || 0,
       exclusionReason: exclusionReason || null,
     });
+    if (result?.id && exclusionCount > 0) {
+      await supabase
+        .from('reconciliation_reviews')
+        .update({ exclusion_verified_at: new Date().toISOString() })
+        .eq('id', result.id);
+    }
+    return result;
   };
 
   const forceMatch = (ruleId, notes) => {
@@ -162,6 +169,27 @@ export function useReconciliationReviews(customerId) {
     });
   };
 
+  const reVerifyExclusion = async (ruleId) => {
+    const existing = reviews.find((r) => r.rule_id === ruleId);
+    if (!existing) return;
+    const { error } = await supabase
+      .from('reconciliation_reviews')
+      .update({ exclusion_verified_at: new Date().toISOString() })
+      .eq('id', existing.id);
+    if (error) throw error;
+    logHistory({
+      reviewId: existing.id,
+      ruleId,
+      action: 'exclusion_reverified',
+      status: existing.status,
+      notes: `Exclusions re-verified (${existing.exclusion_count} excluded)`,
+      psaQty: existing.psa_qty,
+      vendorQty: existing.vendor_qty,
+    });
+    queryClient.invalidateQueries({ queryKey: reviewsKey });
+    queryClient.invalidateQueries({ queryKey: historyKey });
+  };
+
   return {
     reviews,
     isLoading,
@@ -173,6 +201,7 @@ export function useReconciliationReviews(customerId) {
     saveExclusion,
     forceMatch,
     reVerify,
+    reVerifyExclusion,
     isSaving: upsertMutation.isPending,
   };
 }
