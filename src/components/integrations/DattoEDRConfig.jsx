@@ -30,6 +30,7 @@ export default function DattoEDRConfig() {
   const [edrTenants, setEdrTenants] = useState([]);
   const [syncing, setSyncing] = useState(false);
   const [automapping, setAutomapping] = useState(false);
+  const [connectionError, setConnectionError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTab, setFilterTab] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -168,15 +169,19 @@ export default function DattoEDRConfig() {
 
   const testConnection = useCallback(async () => {
     setTesting(true);
+    setConnectionError(null);
     try {
       const response = await client.functions.invoke('syncDattoEDR', { action: 'test_connection' });
       if (response.success) {
-                toast.success('Connected to Datto EDR');
+        setConnectionError(null);
+        toast.success('Connected to Datto EDR');
       } else {
-                toast.error(response.error || 'Connection failed');
+        setConnectionError(response.error || 'Connection failed');
+        toast.error(response.error || 'Connection failed');
       }
     } catch (error) {
-            toast.error(error.message || 'Connection test failed');
+      setConnectionError(error.message || 'Connection test failed');
+      toast.error(error.message || 'Connection test failed');
     } finally {
       setTesting(false);
     }
@@ -189,11 +194,14 @@ export default function DattoEDRConfig() {
       if (response.success) {
         setEdrTenants(response.tenants || []);
         setCurrentPage(1);
-                toast.success(`Found ${response.tenants?.length || 0} EDR tenants`);
+        setConnectionError(null);
+        toast.success(`Found ${response.tenants?.length || 0} EDR tenants`);
       } else {
+        setConnectionError(response.error || 'Failed to fetch tenants');
         toast.error(response.error || 'Failed to fetch tenants');
       }
     } catch (error) {
+      setConnectionError(error.message || 'Failed to connect to Datto EDR');
       toast.error(error.message || 'Failed to connect to Datto EDR');
     } finally {
       setLoadingTenants(false);
@@ -343,6 +351,21 @@ export default function DattoEDRConfig() {
           {syncing ? 'Syncing...' : 'Sync All'}
         </Button>
       </IntegrationHeader>
+
+      {/* Connection Error Banner */}
+      {connectionError && (
+        <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700">
+          <span className="text-sm font-medium flex-shrink-0">Connection Error:</span>
+          <span className="text-sm">{connectionError}</span>
+          <button
+            type="button"
+            onClick={() => setConnectionError(null)}
+            className="ml-auto text-red-400 hover:text-red-600 text-xs flex-shrink-0"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Filter Tabs + Search */}
       <FilterBar
