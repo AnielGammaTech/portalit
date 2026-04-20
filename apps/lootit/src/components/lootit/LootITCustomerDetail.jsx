@@ -7,6 +7,7 @@ import { client, supabase } from '@/api/client';
 import { useAuth } from '@/lib/AuthContext';
 import { useReconciliationData } from '@/hooks/useReconciliationData';
 import { useReconciliationReviews } from '@/hooks/useReconciliationReviews';
+import { useExcludedItems } from '@/hooks/useExcludedItems';
 import { useCustomerContacts, useCustomerDevices } from '@/hooks/useCustomerData';
 import { getDiscrepancySummary } from '@/lib/lootit-reconciliation';
 import { useAnomalyData } from '@/hooks/useAnomalyData';
@@ -39,6 +40,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
 
   const { reconciliations, isLoading, rules: allRules } = useReconciliationData(customer.id);
   const { reviews, markReviewed, dismiss, resetReview, saveNotes, saveExclusion, forceMatch, reVerify, isSaving } = useReconciliationReviews(customer.id);
+  const { excludedItems, getExcludedForRule, getExclusionCount, saveExcludedItems, removeAllForRule, detectDroppedItems, isSaving: isExclusionSaving } = useExcludedItems(customer.id);
   const { data: contacts = [] } = useCustomerContacts(customer.id);
   const { data: devices = [] } = useCustomerDevices(customer.id);
 
@@ -513,6 +515,19 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
             }
           }}
           onMapLineItem={(ruleId, label) => setMappingRecon({ ruleId, productName: label })}
+          onSaveExcludedItems={saveExcludedItems}
+          onRemoveAllExcludedItems={removeAllForRule}
+          excludedItemsForRule={detailItem ? getExcludedForRule(
+            detailItem.ruleId || detailItem.rule?.id
+          ) : []}
+          vendorMapping={
+            detailItem
+              ? (customerData?.vendorMappings || {})[
+                  detailItem.ruleId ? 'pax8' : detailItem.rule?.integration_key
+                ]
+              : null
+          }
+          isExclusionSaving={isExclusionSaving}
         />
       )}
 
