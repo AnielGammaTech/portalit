@@ -39,14 +39,14 @@ export default function AuditFooter({ reviewStatus, reviewedByName, reviewedAt, 
 
   const label = getActionLabel(reviewStatus);
   const dateStr = formatRelativeDate(reviewedAt);
-  const nameDisplay = reviewedByName || 'Unknown';
+  const nameDisplay = reviewedByName || null;
   const color = isStale ? 'text-amber-500' : 'text-slate-400';
   const prefix = isStale ? '⚠ ' : '';
 
   return (
     <div className="px-3 pb-1.5">
       <p className={`text-[9px] ${color} truncate leading-tight`}>
-        {prefix}{label} by {nameDisplay} · {dateStr}
+        {prefix}{label}{nameDisplay ? ` by ${nameDisplay}` : ''} · {dateStr}
       </p>
     </div>
   );

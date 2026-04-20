@@ -18,7 +18,7 @@ export default function StaleBadge({ stalenessDays, changeDetected }) {
         className="absolute top-[-6px] right-3 text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded z-20"
         style={{ background: '#EAB308', color: '#000000', letterSpacing: '0.5px' }}
       >
-        Stale · {stalenessDays}d
+        Stale · {stalenessDays}D
       </span>
     );
   }

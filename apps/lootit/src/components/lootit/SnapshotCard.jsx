@@ -96,7 +96,7 @@ export default function SnapshotCard({ snapshot, onDetails }) {
 
       <div className="px-3 pb-1.5">
         <p className="text-[9px] text-slate-400 truncate leading-tight">
-          {getReviewLabel(snapshot.review_status)} by {snapshot.reviewed_by_name || 'Unknown'} · {reviewDate || '—'}
+          {getReviewLabel(snapshot.review_status)}{snapshot.reviewed_by_name ? ` by ${snapshot.reviewed_by_name}` : ''} · {reviewDate || '—'}
         </p>
       </div>
     </div>

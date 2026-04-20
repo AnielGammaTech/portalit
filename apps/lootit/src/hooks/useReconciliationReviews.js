@@ -44,6 +44,7 @@ export function useReconciliationReviews(customerId) {
         rule_id: ruleId,
         status,
         reviewed_by: user?.id || null,
+        reviewed_by_name: user?.full_name || user?.email || null,
         reviewed_at: new Date().toISOString(),
         notes: notes || null,
         psa_qty: psaQty ?? null,

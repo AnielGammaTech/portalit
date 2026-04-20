@@ -23,13 +23,15 @@ export default function DashboardTab({ customerId, onTabChange, onShowSnapshotDe
 
       {snapshots.length > 0 && (
         <div className="grid grid-cols-4 gap-3 auto-rows-fr">
-          {snapshots.map((snapshot) => (
-            <SnapshotCard
-              key={snapshot.id}
-              snapshot={snapshot}
-              onDetails={onShowSnapshotDetail}
-            />
-          ))}
+          {snapshots
+            .filter((s) => s.psa_qty != null || s.vendor_qty != null)
+            .map((snapshot) => (
+              <SnapshotCard
+                key={snapshot.id}
+                snapshot={snapshot}
+                onDetails={onShowSnapshotDetail}
+              />
+            ))}
         </div>
       )}
 
