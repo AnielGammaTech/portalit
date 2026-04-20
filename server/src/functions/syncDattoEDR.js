@@ -149,8 +149,11 @@ export async function syncDattoEDR(body, user) {
     }
 
     // Fallback: global agents endpoint filtered client-side
-    if (allAgents.length === 0) {
-      console.log('[DattoEDR] Target-scoped endpoint returned 0 agents, falling back to global');
+    // Also use when target-scoped returns fewer than expected (may exclude inactive)
+    const expectedCount = targetData?.agentCount || 0;
+    if (allAgents.length === 0 || (expectedCount > 0 && allAgents.length < expectedCount)) {
+      console.log(`[DattoEDR] Target-scoped returned ${allAgents.length} agents (expected ${expectedCount}), trying global`);
+      const globalAgents = [];
       for (let skip = 0; ; skip += PAGE_SIZE) {
         const url = `${DATTO_EDR_BASE_URL}/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`;
         const res = await fetch(url, { headers }).catch(() => null);
@@ -161,8 +164,11 @@ export async function syncDattoEDR(body, user) {
           const parsed = JSON.parse(raw);
           page = Array.isArray(parsed) ? parsed : (parsed?.data || parsed?.value || []);
         } catch (e) { console.warn('[DattoEDR] Non-critical error parsing global agents page:', e.message); break; }
-        allAgents.push(...page);
+        globalAgents.push(...page);
         if (page.length < PAGE_SIZE) break;
+      }
+      if (globalAgents.length > allAgents.length) {
+        allAgents = globalAgents;
       }
     }
 
@@ -464,8 +470,11 @@ export async function syncDattoEDR(body, user) {
         }
 
         // Fallback: global agents endpoint filtered client-side
-        if (allAgents.length === 0) {
-          console.log(`[DattoEDR] sync_all: Target-scoped endpoint returned 0 agents for ${targetId}, falling back to global`);
+        // Also use when target-scoped returns fewer than expected (may exclude inactive)
+        const expectedCount = targetData?.agentCount || 0;
+        if (allAgents.length === 0 || (expectedCount > 0 && allAgents.length < expectedCount)) {
+          console.log(`[DattoEDR] sync_all: Target-scoped returned ${allAgents.length} (expected ${expectedCount}) for ${targetId}, trying global`);
+          const globalAgents = [];
           for (let skip = 0; ; skip += PAGE_SIZE) {
             const url = `${DATTO_EDR_BASE_URL}/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`;
             const res = await fetch(url, { headers }).catch(() => null);
@@ -476,8 +485,11 @@ export async function syncDattoEDR(body, user) {
               const parsed = JSON.parse(raw);
               page = Array.isArray(parsed) ? parsed : (parsed?.data || parsed?.value || []);
             } catch (e) { console.warn('[DattoEDR] Non-critical error parsing global agents page:', e.message); break; }
-            allAgents.push(...page);
+            globalAgents.push(...page);
             if (page.length < PAGE_SIZE) break;
+          }
+          if (globalAgents.length > allAgents.length) {
+            allAgents = globalAgents;
           }
         }
 
