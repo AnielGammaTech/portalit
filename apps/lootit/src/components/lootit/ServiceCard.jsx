@@ -348,6 +348,9 @@ export default function ServiceCard({
         <StaleBadge
           stalenessDays={staleness.stalenessDays}
           changeDetected={staleness.changeDetected}
+          forceMatchStale={staleness.forceMatchStale}
+          exclusionStale={staleness.exclusionStale}
+          exclusionDaysSinceVerified={staleness.exclusionDaysSinceVerified}
         />
       )}
 

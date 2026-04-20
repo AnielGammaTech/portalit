@@ -91,7 +91,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   const allRecons = useMemo(() => [...recons, ...pax8Recons], [recons, pax8Recons]);
   const summary = customerData ? getDiscrepancySummary(allRecons) : null;
 
-  const { stalenessMap, staleCount } = useStalenessData({
+  const { stalenessMap, staleCount, signOffExpired, daysSinceSignOff } = useStalenessData({
     reviews,
     snapshotsByRuleId,
     latestSignOff,
@@ -150,7 +150,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
 
   const issueCount = summary ? summary.over + summary.under : 0;
   const totalRules = summary ? summary.total - (summary.noData || 0) : 0;
-  const resolvedCount = summary ? (summary.matched || 0) + (summary.dismissed || 0) : 0;
+  const resolvedCount = summary ? (summary.matched || 0) + (summary.forceMatched || 0) + (summary.dismissed || 0) : 0;
   const healthPct = totalRules > 0 ? Math.min(100, Math.round((resolvedCount / totalRules) * 100)) : 0;
   const hasUnresolvedItems = totalRules > resolvedCount;
 
@@ -326,6 +326,8 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
         allRecons={allRecons}
         hasUnresolvedItems={hasUnresolvedItems}
         unresolvedCount={totalRules - resolvedCount}
+        signOffExpired={signOffExpired}
+        daysSinceSignOff={daysSinceSignOff}
       />
 
       <BillingAnomaliesSection
@@ -507,8 +509,8 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
         onClose={() => setShowSignOffDialog(false)}
         summary={{
           matched: summary?.matched || 0,
-          forceMatched: allRecons.filter((r) => reviews.find((rv) => rv.rule_id === (r.rule?.id || r.ruleId))?.status === 'force_matched').length,
-          dismissed: allRecons.filter((r) => reviews.find((rv) => rv.rule_id === (r.rule?.id || r.ruleId))?.status === 'dismissed').length,
+          forceMatched: summary?.forceMatched || 0,
+          dismissed: summary?.dismissed || 0,
         }}
         unresolvedItems={unresolvedItems}
         onConfirm={handleSignOff}

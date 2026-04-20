@@ -22,6 +22,8 @@ export default function CustomerDetailHeaderCard({
   allRecons,
   hasUnresolvedItems,
   unresolvedCount,
+  signOffExpired,
+  daysSinceSignOff,
 }) {
   return (
     <div className="relative bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -79,6 +81,21 @@ export default function CustomerDetailHeaderCard({
             {syncStatus}
           </div>
         )}
+        {signOffExpired && (
+          <div className={cn(
+            'flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium mb-3',
+            daysSinceSignOff !== null && daysSinceSignOff >= 45
+              ? 'bg-red-50 border border-red-200 text-red-700'
+              : 'bg-amber-50 border border-amber-200 text-amber-700'
+          )}>
+            <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+            <span>
+              {daysSinceSignOff === null
+                ? 'Reconciliation due — never signed off'
+                : `Reconciliation due — last signed off ${daysSinceSignOff} days ago`}
+            </span>
+          </div>
+        )}
 
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-4">
           {[
@@ -103,7 +120,7 @@ export default function CustomerDetailHeaderCard({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div className="bg-emerald-50 rounded-xl border border-emerald-200 px-3 py-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-2xl font-bold text-emerald-600">{summary.matched}</span>
+                <span className="text-2xl font-bold text-emerald-600">{summary.matched + summary.forceMatched}</span>
                 <Check className="w-4 h-4 text-emerald-400" />
               </div>
               <p className="text-[10px] text-emerald-500 font-medium uppercase tracking-wide mt-0.5">Matched</p>
