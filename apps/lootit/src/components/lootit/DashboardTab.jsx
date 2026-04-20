@@ -24,7 +24,7 @@ export default function DashboardTab({ customerId, onTabChange, onShowSnapshotDe
       {snapshots.length > 0 && (
         <div className="grid grid-cols-4 gap-3 auto-rows-fr">
           {snapshots
-            .filter((s) => !(s.status === 'no_vendor_data' && s.psa_qty == null && (s.vendor_qty == null || s.vendor_qty === 0)))
+            .filter((s) => !['no_vendor_data', 'no_data'].includes(s.status))
             .map((snapshot) => (
               <SnapshotCard
                 key={snapshot.id}

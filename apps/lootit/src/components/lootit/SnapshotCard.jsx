@@ -20,7 +20,8 @@ function getReviewLabel(reviewStatus, status) {
     case 'reviewed': return 'Reviewed';
     case 'force_matched': return 'Force Matched';
     case 'dismissed': return 'Dismissed';
-    default: return status === 'match' ? 'Auto-matched' : 'Pending';
+    case 'auto_matched': return 'Auto-matched';
+    default: return status === 'match' ? 'Auto-matched' : 'Reviewed';
   }
 }
 
@@ -105,9 +106,8 @@ export default function SnapshotCard({ snapshot, onDetails }) {
       <div className="px-3 pb-1.5">
         <p className="text-[9px] text-slate-400 truncate leading-tight">
           {getReviewLabel(snapshot.review_status, snapshot.status)}
-          {snapshot.review_status && snapshot.review_status !== 'pending'
-            ? ` · ${reviewDate || '—'}`
-            : ''}
+          {snapshot.reviewed_by_name ? ` by ${snapshot.reviewed_by_name}` : ''}
+          {reviewDate ? ` · ${reviewDate}` : ''}
         </p>
       </div>
     </div>

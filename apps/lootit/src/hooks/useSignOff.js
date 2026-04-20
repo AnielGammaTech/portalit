@@ -55,8 +55,21 @@ export function useSignOff(customerId) {
 
       if (signOffError) throw signOffError;
 
-      const snapshotRows = allTiles.map((tile) => {
+      const signOffTimestamp = signOff.signed_at;
+
+      const signableTiles = allTiles.filter((t) =>
+        !['no_vendor_data', 'no_data'].includes(t.status)
+      );
+
+      const snapshotRows = signableTiles.map((tile) => {
         const tileOverrides = (overrides || []).filter((o) => o.rule_id === tile.ruleId);
+        const hasExplicitReview = tile.review?.status && tile.review.status !== 'pending';
+        const effectiveReviewStatus = hasExplicitReview
+          ? tile.review.status
+          : tile.status === 'match'
+            ? 'auto_matched'
+            : 'reviewed';
+
         return {
           customer_id: customerId,
           sign_off_id: signOff.id,
@@ -69,11 +82,11 @@ export function useSignOff(customerId) {
           difference: (tile.psaQty || 0) - (tile.vendorQty || 0),
           exclusion_count: tile.review?.exclusion_count || 0,
           exclusion_reason: tile.review?.exclusion_reason || null,
-          review_status: tile.review?.status || 'pending',
+          review_status: effectiveReviewStatus,
           review_notes: tile.review?.notes || null,
-          reviewed_by: tile.review?.reviewed_by || null,
+          reviewed_by: user?.id || null,
           reviewed_by_name: user?.full_name || user?.email || null,
-          reviewed_at: tile.review?.reviewed_at || null,
+          reviewed_at: signOffTimestamp,
           override_data: tileOverrides.length > 0 ? tileOverrides : null,
         };
       });
@@ -85,7 +98,7 @@ export function useSignOff(customerId) {
         if (snapError) throw snapError;
       }
 
-      const historyRows = allTiles.map((tile) => ({
+      const historyRows = signableTiles.map((tile) => ({
         customer_id: customerId,
         rule_id: tile.ruleId,
         action: 'signed_off',
