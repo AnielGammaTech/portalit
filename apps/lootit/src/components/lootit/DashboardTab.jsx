@@ -2,9 +2,10 @@ import React from 'react';
 import { useReconciliationSnapshot } from '@/hooks/useReconciliationSnapshot';
 import SignOffBanner from './SignOffBanner';
 import SnapshotCard from './SnapshotCard';
+import SignOffHistory from './SignOffHistory';
 
 export default function DashboardTab({ customerId, onTabChange, onShowSnapshotDetail }) {
-  const { latestSignOff, snapshots, isLoading } = useReconciliationSnapshot(customerId);
+  const { latestSignOff, allSignOffs, snapshots, isLoading } = useReconciliationSnapshot(customerId);
 
   if (isLoading) {
     return (
@@ -42,6 +43,11 @@ export default function DashboardTab({ customerId, onTabChange, onShowSnapshotDe
           </p>
         </div>
       )}
+
+      <SignOffHistory
+        allSignOffs={allSignOffs}
+        onShowSnapshotDetail={onShowSnapshotDetail}
+      />
     </div>
   );
 }
