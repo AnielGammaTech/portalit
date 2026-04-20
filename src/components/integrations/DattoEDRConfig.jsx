@@ -55,7 +55,7 @@ export default function DattoEDRConfig() {
       const { data } = await supabase
         .from('sync_logs')
         .select('completed_at')
-        .eq('integration_type', 'datto_edr')
+        .eq('sync_type', 'datto_edr')
         .eq('status', 'success')
         .order('completed_at', { ascending: false })
         .limit(1);

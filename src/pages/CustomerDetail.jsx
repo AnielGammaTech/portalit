@@ -510,7 +510,7 @@ export default function CustomerDetail() {
         { entity: 'JumpCloudMapping',   fn: 'syncJumpCloudLicenses',  action: 'sync_licenses',  label: 'JumpCloud' },
         { entity: 'SpanningMapping',    fn: 'syncSpanningBackup',     action: 'sync_licenses',  label: 'Spanning' },
         { entity: 'DattoSiteMapping',   fn: 'syncDattoRMMDevices',    action: 'sync_devices',   label: 'Datto RMM' },
-        { entity: 'DattoEDRMapping',    fn: 'syncDattoEDR',           action: 'sync_alerts',    label: 'Datto EDR' },
+        { entity: 'DattoEDRMapping',    fn: 'syncDattoEDR',           action: 'sync_customer',  label: 'Datto EDR' },
         { entity: 'CoveDataMapping',    fn: 'syncCoveData',           action: 'sync_devices',   label: 'Cove' },
         { entity: 'RocketCyberMapping', fn: 'syncRocketCyber',        action: 'sync_agents',    label: 'RocketCyber' },
         { entity: 'SaaSAlertsMapping',  fn: 'syncSaaSAlerts',         action: 'sync_alerts',    label: 'SaaS Alerts' },

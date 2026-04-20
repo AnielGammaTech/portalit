@@ -34,6 +34,10 @@ export const AuthProvider = ({ children }) => {
       async (event, session) => {
         if (event === 'SIGNED_IN' && session?.user && initialCheckDone.current) {
           await loadUserProfile(session.user);
+        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+          setIsAuthenticated(true);
+          setAuthError(null);
+          retryCount.current = 0;
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setIsAuthenticated(false);
@@ -41,7 +45,18 @@ export const AuthProvider = ({ children }) => {
       }
     );
 
-    return () => subscription.unsubscribe();
+    const handleFocus = () => {
+      if (!isAuthenticated && initialCheckDone.current) {
+        retryCount.current = 0;
+        checkUserAuth();
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener('focus', handleFocus);
+    };
   }, []);
 
   const loadUserProfile = async (authUser) => {
@@ -107,13 +122,12 @@ export const AuthProvider = ({ children }) => {
       }
 
       if (error.message === 'Auth check timed out') {
-        console.warn('Auth retries exhausted — clearing session');
-        await supabase.auth.signOut().catch(() => {});
-        setAuthError(null);
+        console.warn('Auth retries exhausted — will retry on next focus');
+        setAuthError('Connection slow — retrying...');
       } else {
         setAuthError(error.message || 'Authentication failed');
+        setIsAuthenticated(false);
       }
-      setIsAuthenticated(false);
     } finally {
       initialCheckDone.current = true;
       setIsLoadingAuth(false);

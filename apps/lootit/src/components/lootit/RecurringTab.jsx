@@ -30,7 +30,12 @@ export default function RecurringTab({ lineItems, rules, overrides = [], pax8Mat
 
   // Match computation: classify each line item and identify unused rules
   const { matchedItems, unmatchedItems, unusedRules, counts } = useMemo(() => {
-    const items = lineItems || [];
+    const items = (lineItems || []).filter((li) => {
+      const desc = (li.description || '').toLowerCase();
+      if (desc.startsWith('discount')) return false;
+      if ((parseFloat(li.quantity) || 0) === 0) return false;
+      return true;
+    });
     const allRules = rules || [];
     const activeRules = allRules.filter((r) => r.is_active);
     const matchedRuleIds = new Set();
@@ -75,7 +80,7 @@ export default function RecurringTab({ lineItems, rules, overrides = [], pax8Mat
         unused: unused.length,
       },
     };
-  }, [lineItems, rules]);
+  }, [lineItems, rules, overrideLineItemIds, pax8MatchedIds]);
 
   // Filtered display list based on active filter
   const displayItems = useMemo(() => {

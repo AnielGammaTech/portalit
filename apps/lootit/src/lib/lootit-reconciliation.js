@@ -440,6 +440,20 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
     }
   }
 
+  // 5b. Suppress rule cards with no PSA data when that vendor is already covered by an override
+  const overrideCoveredKeys = new Set();
+  for (const ov of overrides) {
+    if (ov.rule_id?.startsWith('unmatched_') && ov.pax8_product_name && ov.pax8_product_name !== 'approved_as_is') {
+      overrideCoveredKeys.add(ov.pax8_product_name);
+    }
+  }
+  const filteredRuleResults = ruleResults.filter((r) => {
+    if (r.status === 'no_psa_data' && overrideCoveredKeys.has(r.rule.integration_key)) {
+      return false;
+    }
+    return true;
+  });
+
   // 6. Add remaining unmatched line items
   for (const id of pax8MatchedIds) {
     matchedLineItemIds.add(id);
@@ -469,7 +483,7 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
     isUnmatchedLineItem: true,
   }));
 
-  return [...ruleResults, ...overridedUnmatchedResults, ...unmatchedResults];
+  return [...filteredRuleResults, ...overridedUnmatchedResults, ...unmatchedResults];
 }
 
 // ── Pax8 per-subscription auto-reconciliation ────────────────────────
