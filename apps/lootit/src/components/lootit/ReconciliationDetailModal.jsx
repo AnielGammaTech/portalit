@@ -22,18 +22,12 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { ACTION_LABELS } from './lootit-constants';
+import ExclusionSection from './ExclusionSection';
 
 // -------------------------------------------------------------------
 // Constants
 // -------------------------------------------------------------------
 
-const EXCLUSION_PRESETS = [
-  { label: 'Service Account', value: 'service account' },
-  { label: 'Free Account', value: 'free account' },
-  { label: 'Admin Account', value: 'admin account' },
-  { label: 'Shared Mailbox', value: 'shared mailbox' },
-  { label: 'Test Account', value: 'test account' },
-];
 
 const ACTION_ICONS = {
   reviewed: Check,
@@ -280,159 +274,6 @@ function ActionSection({
   );
 }
 
-// -------------------------------------------------------------------
-// Exclusion Section
-// -------------------------------------------------------------------
-
-function ExclusionSection({ reconciliation, onSaveExclusion }) {
-  const { review, rule } = reconciliation;
-  const isPax8 = !!reconciliation.ruleId;
-  const ruleId = isPax8 ? reconciliation.ruleId : rule?.id;
-
-  const [exclusionCount, setExclusionCount] = useState(review?.exclusion_count || 0);
-  const [exclusionReason, setExclusionReason] = useState(review?.exclusion_reason || '');
-  const [showForm, setShowForm] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    if (!onSaveExclusion) return;
-    setSaving(true);
-    try {
-      await onSaveExclusion(ruleId, exclusionCount, exclusionReason);
-      setShowForm(false);
-      toast.success('Exclusion saved');
-    } catch (err) {
-      toast.error(`Failed to save exclusion: ${err.message || 'Unknown error'}`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleRemove = async () => {
-    if (!onSaveExclusion) return;
-    setSaving(true);
-    try {
-      await onSaveExclusion(ruleId, 0, '');
-      setExclusionCount(0);
-      setExclusionReason('');
-      setShowForm(false);
-      toast.success('Exclusion removed');
-    } catch (err) {
-      toast.error(`Failed to remove exclusion: ${err.message || 'Unknown error'}`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleCancel = () => {
-    setShowForm(false);
-    setExclusionCount(review?.exclusion_count || 0);
-    setExclusionReason(review?.exclusion_reason || '');
-  };
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Excluded Accounts</h4>
-        {!showForm && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="text-xs font-semibold text-amber-600 hover:text-amber-700 transition-colors"
-          >
-            {review?.exclusion_count > 0 ? 'Edit' : '+ Add'}
-          </button>
-        )}
-      </div>
-
-      {review?.exclusion_count > 0 && !showForm && (
-        <div
-          className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-amber-200"
-          style={{ backgroundImage: 'linear-gradient(135deg, #fffbeb 0%, #fef9c3 100%)' }}
-        >
-          <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-amber-800">
-              {review.exclusion_count} {review.exclusion_reason || 'excluded'}
-            </p>
-            <p className="text-[11px] text-amber-600">These don't count against the vendor total</p>
-          </div>
-        </div>
-      )}
-
-      {showForm && (
-        <div className="space-y-3 bg-amber-50/50 rounded-lg px-4 py-3 border border-amber-200">
-          <p className="text-xs text-amber-700">
-            Add accounts that shouldn't count against the licence total (e.g. service accounts, free accounts).
-          </p>
-          <div>
-            <label className="text-xs font-medium text-slate-600 mb-1 block">How many?</label>
-            <input
-              type="number"
-              min="0"
-              value={exclusionCount}
-              onChange={(e) => setExclusionCount(parseInt(e.target.value) || 0)}
-              className="w-24 text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-slate-600 mb-1 block">Reason</label>
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {EXCLUSION_PRESETS.map((preset) => (
-                <button
-                  key={preset.value}
-                  onClick={() => setExclusionReason(preset.value)}
-                  className={cn(
-                    'px-2.5 py-1 text-[11px] font-medium rounded-full border transition-colors',
-                    exclusionReason === preset.value
-                      ? 'bg-amber-200 border-amber-300 text-amber-800'
-                      : 'bg-white border-slate-200 text-slate-500 hover:border-amber-200 hover:text-amber-700'
-                  )}
-                >
-                  {preset.label}
-                </button>
-              ))}
-            </div>
-            <input
-              type="text"
-              value={exclusionReason}
-              onChange={(e) => setExclusionReason(e.target.value)}
-              placeholder="Or type a custom reason..."
-              className="w-full text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white"
-            />
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={handleSave}
-              disabled={saving || exclusionCount <= 0}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 transition-colors"
-            >
-              {saving ? 'Saving...' : 'Save Exclusion'}
-            </button>
-            {review?.exclusion_count > 0 && (
-              <button
-                onClick={handleRemove}
-                disabled={saving}
-                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors disabled:opacity-50"
-              >
-                Remove
-              </button>
-            )}
-            <button
-              onClick={handleCancel}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {!review?.exclusion_count && !showForm && (
-        <p className="text-sm text-slate-400 italic">No excluded accounts</p>
-      )}
-    </div>
-  );
-}
 
 // -------------------------------------------------------------------
 // History Timeline
@@ -561,6 +402,11 @@ export default function ReconciliationDetailModal({
   onReset,
   onSaveNotes,
   onSaveExclusion,
+  onSaveExcludedItems,
+  onRemoveAllExcludedItems,
+  excludedItemsForRule,
+  vendorMapping,
+  isExclusionSaving,
   onMapLineItem,
   overrides = [],
   readOnly = false,
@@ -715,7 +561,12 @@ export default function ReconciliationDetailModal({
           {!readOnly && (
             <ExclusionSection
               reconciliation={reconciliation}
+              vendorMapping={vendorMapping}
+              excludedItemsForRule={excludedItemsForRule || []}
+              onSaveExcludedItems={onSaveExcludedItems}
+              onRemoveAllExcludedItems={onRemoveAllExcludedItems}
               onSaveExclusion={onSaveExclusion}
+              isSaving={isExclusionSaving}
             />
           )}
 
