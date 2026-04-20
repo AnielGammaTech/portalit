@@ -432,6 +432,8 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           stalenessMap={stalenessMap}
           staleCount={staleCount}
           onSignOff={() => setShowSignOffDialog(true)}
+          customerId={customer.id}
+          vendorMappings={customerData?.vendorMappings || {}}
         />
       )}
 

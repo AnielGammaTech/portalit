@@ -8,9 +8,9 @@ import AuditFooter from './AuditFooter';
    Card-state resolution (unchanged logic)
    ───────────────────────────────────────────── */
 
-function getEffectiveStatus(reconciliation) {
+function getEffectiveStatus(reconciliation, itemExclusionCount) {
   const { psaQty, vendorQty, status, review } = reconciliation;
-  const exclusionCount = review?.exclusion_count || 0;
+  const exclusionCount = itemExclusionCount ?? review?.exclusion_count ?? 0;
   if (exclusionCount <= 0) return status;
   const effectiveVendorQty = vendorQty !== null ? vendorQty - exclusionCount : null;
   if (psaQty === null || effectiveVendorQty === null) return status;
@@ -19,10 +19,10 @@ function getEffectiveStatus(reconciliation) {
   return diff > 0 ? 'over' : 'under';
 }
 
-function getCardState(reconciliation) {
+function getCardState(reconciliation, itemExclusionCount) {
   const { status, review } = reconciliation;
   const reviewStatus = review?.status;
-  const effectiveStatus = getEffectiveStatus(reconciliation);
+  const effectiveStatus = getEffectiveStatus(reconciliation, itemExclusionCount);
 
   if (reviewStatus === 'force_matched') return 'force_matched';
   if (reviewStatus === 'dismissed') return 'dismissed';
@@ -291,12 +291,13 @@ export default function ServiceCard({
   overrideCount = 0,
   isSaving,
   staleness,
+  itemExclusionCount,
 }) {
   const { rule, psaQty, vendorQty, review } = reconciliation;
 
-  const exclusionCount = review?.exclusion_count || 0;
+  const exclusionCount = itemExclusionCount ?? review?.exclusion_count ?? 0;
   const effectiveVendorQty = vendorQty !== null ? vendorQty - exclusionCount : null;
-  const cardState = getCardState(reconciliation);
+  const cardState = getCardState(reconciliation, itemExclusionCount);
   const styles = CARD_STYLES[cardState] || CARD_STYLES.no_vendor;
 
   const isDismissed = cardState === 'dismissed';
