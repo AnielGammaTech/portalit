@@ -11,10 +11,11 @@ export function useStalenessData({ reviews, snapshotsByRuleId, latestSignOff, al
     const signOffDate = latestSignOff?.signed_at ? new Date(latestSignOff.signed_at) : null;
     const now = new Date();
 
-    const allTiles = [
-      ...(allRecons || []).map((r) => ({ ruleId: r.rule.id, psaQty: r.psaQty, vendorQty: r.vendorQty })),
-      ...(pax8Recons || []).map((r) => ({ ruleId: r.ruleId, psaQty: r.psaQty, vendorQty: r.vendorQty })),
-    ];
+    const allTiles = (allRecons || []).map((r) => ({
+      ruleId: r.rule?.id || r.ruleId,
+      psaQty: r.psaQty,
+      vendorQty: r.vendorQty,
+    }));
 
     for (const tile of allTiles) {
       const review = (reviews || []).find((r) => r.rule_id === tile.ruleId);
