@@ -1,6 +1,8 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { Check, X, RotateCcw } from 'lucide-react';
+import StaleBadge from './StaleBadge';
+import AuditFooter from './AuditFooter';
 
 /* ─────────────────────────────────────────────
    Card-state resolution (unchanged logic)
@@ -288,6 +290,7 @@ export default function ServiceCard({
   hasOverride,
   overrideCount = 0,
   isSaving,
+  staleness,
 }) {
   const { rule, psaQty, vendorQty, review } = reconciliation;
 
@@ -316,9 +319,13 @@ export default function ServiceCard({
     <div
       className="relative rounded-[14px] overflow-hidden flex flex-col cursor-pointer"
       style={{
-        height: '190px',
+        height: '210px',
         background: styles.bg,
-        border: styles.border,
+        border: staleness?.changeDetected
+          ? '1.5px solid rgba(239, 68, 68, 0.4)'
+          : staleness?.isStale
+          ? '1.5px solid rgba(234, 179, 8, 0.4)'
+          : styles.border,
         opacity: isDismissed ? 0.7 : 1,
         transition: 'all 0.2s ease',
       }}
@@ -337,6 +344,12 @@ export default function ServiceCard({
 
       {/* Diff badge — absolute top-right for mismatches */}
       {showDiff && <DiffBadge diff={diff} />}
+      {staleness && (
+        <StaleBadge
+          stalenessDays={staleness.stalenessDays}
+          changeDetected={staleness.changeDetected}
+        />
+      )}
 
       {/* Card header */}
       <div className="px-3 pt-[10px]">
@@ -391,6 +404,15 @@ export default function ServiceCard({
           isSaving={isSaving}
         />
       </div>
+      <AuditFooter
+        reviewStatus={review?.status}
+        reviewedByName={review?.reviewed_by_name}
+        reviewedAt={review?.reviewed_at}
+        isStale={staleness?.isStale}
+        changeDetected={staleness?.changeDetected}
+        previousPsaQty={staleness?.previousPsaQty}
+        previousVendorQty={staleness?.previousVendorQty}
+      />
     </div>
   );
 }

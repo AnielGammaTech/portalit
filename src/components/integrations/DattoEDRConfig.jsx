@@ -79,15 +79,16 @@ export default function DattoEDRConfig() {
     return customer?.name || 'Unknown';
   }, [customers]);
 
-  const mappedTenantIds = useMemo(
-    () => new Set(mappings.map(m => m.edr_tenant_id)),
-    [mappings],
-  );
-
   const allRows = useMemo(() => {
+    const normalizeId = (val) => String(val ?? '').trim();
+
+    const mappingsByNormalizedId = new Map(
+      mappings.map(m => [normalizeId(m.edr_tenant_id), m]),
+    );
+
     const rows = edrTenants.map(tenant => {
-      const tenantId = String(tenant.id);
-      const mapping = mappings.find(m => m.edr_tenant_id === tenantId);
+      const tenantId = normalizeId(tenant.id);
+      const mapping = mappingsByNormalizedId.get(tenantId);
       return {
         tenantId,
         tenantName: tenant.name,
@@ -98,12 +99,11 @@ export default function DattoEDRConfig() {
       };
     });
 
-    // Include mappings for tenants not currently in the API response
-    const apiTenantIds = new Set(edrTenants.map(t => String(t.id)));
+    const apiTenantIds = new Set(edrTenants.map(t => normalizeId(t.id)));
     for (const mapping of mappings) {
-      if (!apiTenantIds.has(mapping.edr_tenant_id)) {
+      if (!apiTenantIds.has(normalizeId(mapping.edr_tenant_id))) {
         rows.push({
-          tenantId: mapping.edr_tenant_id,
+          tenantId: normalizeId(mapping.edr_tenant_id),
           tenantName: mapping.edr_tenant_name || mapping.edr_tenant_id,
           hostCount: 0,
           mapping,

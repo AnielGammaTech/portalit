@@ -1,14 +1,8 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Upload, Trash2, FileText, Building2, Calendar, Loader2, Plus, Search, ChevronDown,
+  Upload, Trash2, ChevronDown,
   Mail, AlertTriangle, MousePointerClick, Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -18,6 +12,7 @@ import {
   IntegrationHeader, FilterBar, TablePagination, ITEMS_PER_PAGE,
   CONNECTION_STATES, getConnectionStatusDisplay,
 } from './shared/IntegrationTableParts';
+import InkyUploadModal from './InkyUploadModal';
 
 const REPORT_TYPES = [
   { key: 'threat_level_overview', label: 'Threat Overview', icon: AlertTriangle, color: 'text-red-600' },
@@ -33,12 +28,7 @@ export default function InkyConfig() {
   const [expandedId, setExpandedId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editValue, setEditValue] = useState('');
-  const [uploadingType, setUploadingType] = useState(null);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [isExtracting, setIsExtracting] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [extractedData, setExtractedData] = useState(null);
-  const [reportDate, setReportDate] = useState('');
+  const [uploadTarget, setUploadTarget] = useState(null);
   const queryClient = useQueryClient();
 
   const { data: reports = [] } = useQuery({
@@ -51,7 +41,6 @@ export default function InkyConfig() {
     queryFn: () => client.entities.Customer.list('name', 500),
   });
 
-  // Build per-customer data
   const allRows = useMemo(() => {
     const reportMap = {};
     for (const r of reports) {
@@ -66,7 +55,6 @@ export default function InkyConfig() {
         reportMap[r.customer_id].latest = r;
       }
     }
-
     return customers.map(c => {
       const data = reportMap[c.id];
       return {
@@ -103,7 +91,6 @@ export default function InkyConfig() {
 
   const statusDisplay = getConnectionStatusDisplay(mappedCount > 0 ? CONNECTION_STATES.CONNECTED : CONNECTION_STATES.NOT_CONFIGURED);
 
-  // Save inline mailbox count
   const handleSaveCount = useCallback(async (customerId, customerName) => {
     const count = parseInt(editValue, 10);
     if (isNaN(count) || count < 0) { toast.error('Enter a valid number'); return; }
@@ -119,49 +106,6 @@ export default function InkyConfig() {
       setEditingId(null);
     } catch (err) { toast.error(err.message); }
   }, [editValue, reports, queryClient]);
-
-  // PDF upload + AI extraction
-  const handleFileSelect = async (e) => {
-    const file = e.target.files[0];
-    if (!file || file.type !== 'application/pdf') { toast.error('Select a PDF'); return; }
-    setSelectedFile(file);
-    setExtractedData(null);
-    if (!reportDate) setReportDate(new Date().toISOString().split('T')[0]);
-    setIsExtracting(true);
-    try {
-      const { file_url } = await client.integrations.Core.UploadFile({ file });
-      const result = await client.integrations.Core.InvokeLLM({
-        prompt: 'Extract from this INKY report: total_users, total_emails_processed, total_threats_blocked, total_phishing_blocked, total_spam_blocked, total_malware_blocked, threat_rate. Use 0 for missing numbers.',
-        file_urls: [file_url],
-        response_json_schema: { type: "object", properties: { total_users: { type: "number" }, total_emails_processed: { type: "number" }, total_threats_blocked: { type: "number" }, total_phishing_blocked: { type: "number" }, total_spam_blocked: { type: "number" }, total_malware_blocked: { type: "number" }, threat_rate: { type: "number" }, report_date: { type: "string" } } },
-      });
-      setExtractedData({ ...result, pdf_url: file_url });
-      if (result?.report_date) setReportDate(result.report_date);
-      toast.success('Data extracted');
-    } catch (err) { toast.error(err.message); }
-    finally { setIsExtracting(false); }
-  };
-
-  const handleSaveReport = async () => {
-    if (!uploadingType || !reportDate) { toast.error('Select a date'); return; }
-    setIsUploading(true);
-    try {
-      await client.entities.InkyReport.create({
-        customer_id: uploadingType.customerId, customer_name: uploadingType.customerName,
-        report_type: uploadingType.reportType, report_date: reportDate, pdf_url: extractedData?.pdf_url,
-        total_users: extractedData?.total_users || 0, total_emails_processed: extractedData?.total_emails_processed || 0,
-        total_threats_blocked: extractedData?.total_threats_blocked || 0, total_phishing_blocked: extractedData?.total_phishing_blocked || 0,
-        total_spam_blocked: extractedData?.total_spam_blocked || 0, total_malware_blocked: extractedData?.total_malware_blocked || 0,
-        threat_rate: extractedData?.threat_rate || 0,
-      });
-      toast.success('Report saved');
-      queryClient.invalidateQueries({ queryKey: ['inky-reports'] });
-      resetUpload();
-    } catch (err) { toast.error(err.message); }
-    finally { setIsUploading(false); }
-  };
-
-  const resetUpload = () => { setUploadingType(null); setSelectedFile(null); setExtractedData(null); setReportDate(''); };
 
   const handleDelete = async (id) => {
     if (!confirm('Delete this report?')) return;
@@ -226,7 +170,7 @@ export default function InkyConfig() {
                     <td className="px-3 py-2 text-xs text-slate-500">{row.reportCount || '—'}</td>
                     <td className="px-3 py-2 text-[11px] text-slate-500">{row.lastReport ? format(new Date(row.lastReport), 'MMM d, yyyy') : '—'}</td>
                     <td className="px-3 py-2 text-right" onClick={e => e.stopPropagation()}>
-                      <button onClick={() => setUploadingType({ customerId: row.customerId, customerName: row.customerName, reportType: 'threat_level_overview' })}
+                      <button onClick={() => setUploadTarget({ customerId: row.customerId, customerName: row.customerName, reportType: 'threat_level_overview' })}
                         className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Upload report">
                         <Upload className="w-3.5 h-3.5" />
                       </button>
@@ -251,12 +195,12 @@ export default function InkyConfig() {
                                     {report.total_threats_blocked > 0 && <p className="text-[10px] text-blue-600 font-medium">{report.total_threats_blocked} threats blocked</p>}
                                     <div className="flex gap-1">
                                       {report.pdf_url && <button onClick={() => window.open(report.pdf_url, '_blank')} className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 hover:bg-slate-200">View</button>}
-                                      <button onClick={() => setUploadingType({ customerId: row.customerId, customerName: row.customerName, reportType: type.key })} className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 hover:bg-blue-100">Update</button>
+                                      <button onClick={() => setUploadTarget({ customerId: row.customerId, customerName: row.customerName, reportType: type.key })} className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 hover:bg-blue-100">Update</button>
                                       <button onClick={() => handleDelete(report.id)} className="text-[9px] px-1.5 py-0.5 rounded bg-red-50 text-red-500 hover:bg-red-100">Delete</button>
                                     </div>
                                   </div>
                                 ) : (
-                                  <button onClick={() => setUploadingType({ customerId: row.customerId, customerName: row.customerName, reportType: type.key })}
+                                  <button onClick={() => setUploadTarget({ customerId: row.customerId, customerName: row.customerName, reportType: type.key })}
                                     className="w-full flex items-center justify-center gap-1 py-1.5 rounded border border-dashed border-slate-300 text-[10px] text-slate-400 hover:text-blue-600 hover:border-blue-300">
                                     <Upload className="w-2.5 h-2.5" /> Upload
                                   </button>
@@ -278,52 +222,13 @@ export default function InkyConfig() {
         )}
       </div>
 
-      {/* Upload Modal */}
-      <Dialog open={!!uploadingType} onOpenChange={(open) => { if (!open) resetUpload(); }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-sm">
-              <Upload className="w-4 h-4 text-blue-600" />
-              Upload {REPORT_TYPES.find(t => t.key === uploadingType?.reportType)?.label || 'Report'} — {uploadingType?.customerName}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 pt-2">
-            <div>
-              <Label className="text-xs">Report Date</Label>
-              <Input type="date" value={reportDate} onChange={e => setReportDate(e.target.value)} className="mt-1 h-8 text-xs" />
-            </div>
-            <div className="border-2 border-dashed border-slate-200 rounded-lg p-4 text-center">
-              {selectedFile ? (
-                <div className="flex items-center justify-center gap-2">
-                  <FileText className="w-4 h-4 text-blue-600" />
-                  <span className="text-xs font-medium">{selectedFile.name}</span>
-                  <button onClick={() => { setSelectedFile(null); setExtractedData(null); }} className="text-xs text-slate-400 hover:text-red-500">Remove</button>
-                </div>
-              ) : (
-                <label className="cursor-pointer">
-                  <input type="file" accept=".pdf" onChange={handleFileSelect} className="hidden" />
-                  <Upload className="w-6 h-6 mx-auto mb-1 text-slate-400" />
-                  <p className="text-xs text-slate-500">Click to select PDF</p>
-                </label>
-              )}
-            </div>
-            {isExtracting && <div className="flex items-center justify-center gap-2 py-2"><Loader2 className="w-4 h-4 animate-spin text-slate-500" /><span className="text-xs text-slate-500">Extracting...</span></div>}
-            {extractedData && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-2.5 grid grid-cols-3 gap-1 text-[10px]">
-                <div>Users: <strong>{extractedData.total_users || 0}</strong></div>
-                <div>Emails: <strong>{(extractedData.total_emails_processed || 0).toLocaleString()}</strong></div>
-                <div>Threats: <strong className="text-blue-600">{(extractedData.total_threats_blocked || 0).toLocaleString()}</strong></div>
-              </div>
-            )}
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" size="sm" onClick={resetUpload}>Cancel</Button>
-              <Button size="sm" onClick={handleSaveReport} disabled={isUploading || !reportDate}>
-                {isUploading ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Saving...</> : <><Plus className="w-3 h-3 mr-1" />Save</>}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <InkyUploadModal
+        open={!!uploadTarget}
+        onClose={() => setUploadTarget(null)}
+        customerId={uploadTarget?.customerId}
+        customerName={uploadTarget?.customerName}
+        reportType={uploadTarget?.reportType}
+      />
     </div>
   );
 }

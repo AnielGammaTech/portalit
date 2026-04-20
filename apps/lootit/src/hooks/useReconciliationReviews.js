@@ -149,6 +149,19 @@ export function useReconciliationReviews(customerId) {
     });
   };
 
+  const reVerify = (ruleId) => {
+    const existing = reviews.find((r) => r.rule_id === ruleId);
+    if (!existing) return Promise.resolve();
+    return upsertMutation.mutateAsync({
+      ruleId,
+      status: existing.status,
+      action: 're_verified',
+      notes: existing.notes,
+      psaQty: existing.psa_qty,
+      vendorQty: existing.vendor_qty,
+    });
+  };
+
   return {
     reviews,
     isLoading,
@@ -159,6 +172,7 @@ export function useReconciliationReviews(customerId) {
     saveNotes,
     saveExclusion,
     forceMatch,
+    reVerify,
     isSaving: upsertMutation.isPending,
   };
 }

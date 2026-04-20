@@ -13,6 +13,7 @@ import {
   Check,
   X,
   RotateCcw,
+  RefreshCw,
   ShieldCheck,
   ShieldOff,
   Link2,
@@ -40,6 +41,8 @@ const ACTION_ICONS = {
   note: StickyNote,
   exclusion: ShieldCheck,
   force_matched: ShieldCheck,
+  re_verified: RefreshCw,
+  signed_off: ShieldCheck,
 };
 
 // -------------------------------------------------------------------
@@ -446,9 +449,12 @@ function HistoryTimeline({ customerId, ruleId }) {
 
   return (
     <div>
-      <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
-        Activity History ({history.length})
-      </h4>
+      <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+        Audit Log
+        <span className="text-[10px] font-normal text-slate-400">
+          {history.length} {history.length === 1 ? 'entry' : 'entries'}
+        </span>
+      </h3>
       {history.length === 0 ? (
         <p className="text-sm text-slate-400 italic">No activity yet</p>
       ) : (
@@ -547,6 +553,9 @@ export default function ReconciliationDetailModal({
   onSaveExclusion,
   onMapLineItem,
   overrides = [],
+  readOnly = false,
+  snapshotDate,
+  onReVerify,
 }) {
   if (!reconciliation) return null;
 
@@ -582,6 +591,11 @@ export default function ReconciliationDetailModal({
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-400 mt-0.5">
                 {integrationLabel}
+                {readOnly && snapshotDate && (
+                  <span className="ml-2 text-purple-500 font-medium">
+                    Snapshot from {new Date(snapshotDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                )}
               </DialogDescription>
             </div>
             <StatusBadge reconciliation={reconciliation} />
@@ -664,25 +678,41 @@ export default function ReconciliationDetailModal({
             </div>
           )}
 
+          {/* Re-verify button (for stale items in active mode) */}
+          {!readOnly && onReVerify && (
+            <button
+              onClick={() => onReVerify(ruleId)}
+              className="w-full py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
+            >
+              Re-verify
+            </button>
+          )}
+
           {/* Actions */}
-          <ActionSection
-            reconciliation={reconciliation}
-            onForceMatch={async (ruleId, notes) => { await onForceMatch?.(ruleId, notes); onClose?.(); }}
-            onReview={async (ruleId, opts) => { await onReview?.(ruleId, opts); onClose?.(); }}
-            onDismiss={async (ruleId, opts) => { await onDismiss?.(ruleId, opts); onClose?.(); }}
-            onReset={async (ruleId) => { await onReset?.(ruleId); onClose?.(); }}
-            onMapLineItem={(ruleId, label) => { onClose?.(); setTimeout(() => onMapLineItem?.(ruleId, label), 100); }}
-            isSaving={false}
-          />
+          {!readOnly && (
+            <ActionSection
+              reconciliation={reconciliation}
+              onForceMatch={async (ruleId, notes) => { await onForceMatch?.(ruleId, notes); onClose?.(); }}
+              onReview={async (ruleId, opts) => { await onReview?.(ruleId, opts); onClose?.(); }}
+              onDismiss={async (ruleId, opts) => { await onDismiss?.(ruleId, opts); onClose?.(); }}
+              onReset={async (ruleId) => { await onReset?.(ruleId); onClose?.(); }}
+              onMapLineItem={(ruleId, label) => { onClose?.(); setTimeout(() => onMapLineItem?.(ruleId, label), 100); }}
+              isSaving={false}
+            />
+          )}
 
           {/* Exclusions */}
-          <ExclusionSection
-            reconciliation={reconciliation}
-            onSaveExclusion={onSaveExclusion}
-          />
+          {!readOnly && (
+            <ExclusionSection
+              reconciliation={reconciliation}
+              onSaveExclusion={onSaveExclusion}
+            />
+          )}
 
           {/* Add note form */}
-          <AddNoteForm ruleId={ruleId} onSaveNotes={onSaveNotes} />
+          {!readOnly && (
+            <AddNoteForm ruleId={ruleId} onSaveNotes={onSaveNotes} />
+          )}
 
           {/* History timeline */}
           <HistoryTimeline customerId={customerId} ruleId={ruleId} />

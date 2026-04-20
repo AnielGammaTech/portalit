@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import { Button } from "@/components/ui/button";
@@ -51,22 +51,21 @@ export default function DattoRMMConfig() {
     return customer?.name || 'Unknown';
   }, [customers]);
 
-  const mappedSiteIds = useMemo(
-    () => new Set(mappings.map(m => m.datto_site_id)),
-    [mappings],
-  );
-
-
   const staleCount = useMemo(
     () => mappings.filter(m => m.last_synced && isStale(m.last_synced)).length,
     [mappings],
   );
 
-  // Build a unified list: sites from API + any mappings not in the API list
   const allRows = useMemo(() => {
+    const normalizeId = (val) => String(val ?? '').trim();
+
+    const mappingsByNormalizedId = new Map(
+      mappings.map(m => [normalizeId(m.datto_site_id), m]),
+    );
+
     const rows = dattoSites.map(site => {
-      const siteId = String(site.id || site.uid);
-      const mapping = mappings.find(m => m.datto_site_id === siteId);
+      const siteId = normalizeId(site.id || site.uid);
+      const mapping = mappingsByNormalizedId.get(siteId);
       return {
         siteId,
         siteName: site.name,
@@ -76,12 +75,12 @@ export default function DattoRMMConfig() {
         isStale: mapping ? isStale(mapping.last_synced) : false,
       };
     });
-    // Include mappings for sites not currently in the API response
-    const apiSiteIds = new Set(dattoSites.map(s => String(s.id || s.uid)));
+
+    const apiSiteIds = new Set(dattoSites.map(s => normalizeId(s.id || s.uid)));
     for (const mapping of mappings) {
-      if (!apiSiteIds.has(mapping.datto_site_id)) {
+      if (!apiSiteIds.has(normalizeId(mapping.datto_site_id))) {
         rows.push({
-          siteId: mapping.datto_site_id,
+          siteId: normalizeId(mapping.datto_site_id),
           siteName: mapping.datto_site_name || mapping.datto_site_id,
           deviceCount: 0,
           mapping,
