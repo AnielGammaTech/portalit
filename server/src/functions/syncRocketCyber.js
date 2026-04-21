@@ -597,9 +597,9 @@ export async function syncRocketCyber(body, user) {
 
   // Action: Fast agents-only sync (for LootIT billing — skip incidents entirely)
   if (action === 'sync_agents' || action === 'sync_agents_only') {
-    const { data: allMappings } = await supabase
-      .from('rocket_cyber_mappings')
-      .select('*');
+    let query = supabase.from('rocket_cyber_mappings').select('*');
+    if (customer_id) query = query.eq('customer_id', customer_id);
+    const { data: allMappings } = await query;
 
     if (!allMappings || allMappings.length === 0) {
       return { success: true, message: 'No mappings found' };
