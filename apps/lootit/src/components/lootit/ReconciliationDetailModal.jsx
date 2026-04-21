@@ -651,15 +651,28 @@ export default function ReconciliationDetailModal({
               haloDevices={haloDevices}
             />
           )}
-          {readOnly && reconciliation.review?.exclusion_count > 0 && (
+          {readOnly && (excludedItemsForRule?.length > 0 || reconciliation.review?.exclusion_count > 0) && (
             <div>
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Excluded Accounts</h4>
-              <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
-                <p className="text-sm font-medium text-amber-700">
-                  {reconciliation.review.exclusion_count} excluded
-                  {reconciliation.review.exclusion_reason && ` — "${reconciliation.review.exclusion_reason}"`}
-                </p>
-              </div>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                Excluded Accounts ({excludedItemsForRule?.length || reconciliation.review?.exclusion_count || 0})
+              </h4>
+              {excludedItemsForRule?.length > 0 ? (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg divide-y divide-amber-100 overflow-hidden">
+                  {excludedItemsForRule.map((item) => (
+                    <div key={item.id} className="px-4 py-2.5 flex items-center justify-between">
+                      <span className="text-sm font-medium text-amber-800">{item.vendor_item_label || item.vendor_item_id}</span>
+                      {item.reason && <span className="text-xs text-amber-600">{item.reason}</span>}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+                  <p className="text-sm font-medium text-amber-700">
+                    {reconciliation.review.exclusion_count} excluded
+                    {reconciliation.review.exclusion_reason && ` — "${reconciliation.review.exclusion_reason}"`}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
