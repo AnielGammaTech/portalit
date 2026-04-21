@@ -622,6 +622,43 @@ export async function syncJumpCloudLicenses(body, user) {
         const orgId = mapping.jumpcloud_org_id !== 'default' ? mapping.jumpcloud_org_id : null;
         const applications = await fetchAllApplications(orgId);
 
+        // Fetch system users for caching (exclusion picker)
+        let jcUsers = [];
+        try {
+          let skip = 0;
+          const pageLimit = 100;
+          while (true) {
+            const page = await jumpcloudApiCall(`/systemusers?limit=${pageLimit}&skip=${skip}`, orgId);
+            const results = page.results || [];
+            jcUsers = jcUsers.concat(results);
+            skip += results.length;
+            if (results.length < pageLimit || skip >= (page.totalCount || 0)) break;
+          }
+        } catch (err) {
+          console.error(`[JumpCloud] sync_all: Failed to fetch users for ${mapping.jumpcloud_org_name}:`, err.message);
+        }
+
+        // Cache user list for exclusion picker
+        await supabase
+          .from('jump_cloud_mappings')
+          .update({
+            last_synced: new Date().toISOString(),
+            cached_data: {
+              ...(mapping.cached_data || {}),
+              totalUsers: jcUsers.length,
+              ssoApps: applications?.length || 0,
+              users: jcUsers.map(u => ({
+                id: u._id || u.id,
+                email: u.email,
+                username: u.username,
+                firstname: u.firstname,
+                lastname: u.lastname,
+                state: u.state || (u.activated ? 'ACTIVATED' : 'STAGED'),
+              })),
+            },
+          })
+          .eq('id', mapping.id);
+
         const { data: existingLicenses } = await supabase
           .from('saas_licenses')
           .select('*')
