@@ -107,6 +107,15 @@ const ITEM_EXTRACTORS = {
       .filter(item => item.id);
   },
 
+  rocket_cyber: (data) => {
+    if (!Array.isArray(data.agents)) return null;
+    return data.agents.map(a => ({
+      id: a.id || a.hostname || '',
+      label: a.hostname || a.name || 'Unknown Agent',
+      meta: { os: a.os, status: a.status },
+    })).filter(item => item.id);
+  },
+
   datto_edr: (data) => {
     const items = data.hosts || data.devices || data.agents;
     if (!Array.isArray(items)) return null;
