@@ -351,9 +351,15 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
 
     // 4. Apply vendor_divisor (e.g. Datto RMM "2 Per User" mode)
     const divisor = review?.vendor_divisor || 1;
-    const adjustedVendorQty = hasVendorData && divisor > 1
+    let adjustedVendorQty = hasVendorData && divisor > 1
       ? Math.ceil(vendorQty / divisor)
       : vendorQty;
+
+    // 4b. Subtract exclusions from vendor count
+    const exclusionCount = review?.exclusion_count || 0;
+    if (hasVendorData && exclusionCount > 0) {
+      adjustedVendorQty = Math.max(0, adjustedVendorQty - exclusionCount);
+    }
 
     // 5. Calculate difference and status
     const difference = hasPsaData && hasVendorData ? psaQty - adjustedVendorQty : 0;

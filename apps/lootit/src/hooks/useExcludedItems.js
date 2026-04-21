@@ -87,11 +87,20 @@ export function useExcludedItems(customerId) {
         });
       }
 
+      // Sync exclusion_count on the review so reconciliation engine can subtract it
+      const finalCount = selectedItems.length;
+      await supabase
+        .from('reconciliation_reviews')
+        .update({ exclusion_count: finalCount })
+        .eq('customer_id', customerId)
+        .eq('rule_id', ruleId);
+
       return { added: toAdd.length, removed: toRemove.length };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
       queryClient.invalidateQueries({ queryKey: ['reconciliation_review_history', customerId] });
+      queryClient.invalidateQueries({ queryKey: ['reconciliation_reviews', customerId] });
     },
     onError: (err) => {
       toast.error(`Failed to save exclusions: ${err.message}`);
@@ -107,6 +116,11 @@ export function useExcludedItems(customerId) {
         .eq('customer_id', customerId)
         .eq('rule_id', ruleId);
       if (error) throw error;
+      await supabase
+        .from('reconciliation_reviews')
+        .update({ exclusion_count: 0 })
+        .eq('customer_id', customerId)
+        .eq('rule_id', ruleId);
       if (removed.length > 0) {
         await supabase.from('reconciliation_review_history').insert({
           customer_id: customerId,
