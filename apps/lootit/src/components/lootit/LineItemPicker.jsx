@@ -109,7 +109,7 @@ function extractVendorItems(integrationKey, mapping) {
     const licensedUsers = raw.users.filter(u => u.licenses);
     const licenseGroups = {};
     for (const u of licensedUsers) {
-      const lics = (u.licenses || '').split(',').map(l => l.trim()).filter(Boolean);
+      const lics = Array.isArray(u.licenses) ? u.licenses : String(u.licenses || '').split(',').map(l => l.trim()).filter(Boolean);
       for (const lic of lics) {
         if (!licenseGroups[lic]) licenseGroups[lic] = [];
         licenseGroups[lic].push(u);

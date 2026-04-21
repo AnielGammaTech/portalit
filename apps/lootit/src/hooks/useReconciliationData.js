@@ -242,7 +242,7 @@ export function useReconciliationData(customerId) {
               displayName: u.display_name,
               email: u.user_principal_name,
               userType: u.user_type,
-              licenses: u.assigned_licenses || u.cached_data?.licenses || '',
+              licenses: (typeof u.cached_data?.licenses === 'string' && u.cached_data.licenses) || '',
               accountEnabled: u.account_enabled,
               department: u.department,
               jobTitle: u.job_title,
