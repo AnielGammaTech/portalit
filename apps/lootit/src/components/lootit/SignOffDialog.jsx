@@ -28,12 +28,12 @@ function formatDate(date) {
 
 export default function SignOffDialog({ open, onClose, summary, unresolvedItems, onConfirm, isSigningOff }) {
   const [notes, setNotes] = useState('');
-  const [selectedMonths, setSelectedMonths] = useState(1);
+  const [selectedMonths, setSelectedMonths] = useState(null);
 
-  const nextDate = addMonths(new Date(), selectedMonths);
+  const nextDate = selectedMonths ? addMonths(new Date(), selectedMonths) : null;
 
   const handleConfirm = () => {
-    onConfirm(notes, nextDate.toISOString());
+    onConfirm(notes, nextDate?.toISOString());
     setNotes('');
     setSelectedMonths(1);
   };
@@ -101,9 +101,16 @@ export default function SignOffDialog({ open, onClose, summary, unresolvedItems,
                 </button>
               ))}
             </div>
-            <p className="text-[11px] text-slate-400">
-              Due: {formatDate(nextDate)}
-            </p>
+            {nextDate && (
+              <p className="text-[11px] text-slate-400">
+                Due: {formatDate(nextDate)}
+              </p>
+            )}
+            {!selectedMonths && (
+              <p className="text-[11px] text-pink-500 font-medium">
+                Required — select when to reconcile next
+              </p>
+            )}
           </div>
 
           <textarea
@@ -124,10 +131,10 @@ export default function SignOffDialog({ open, onClose, summary, unresolvedItems,
           </button>
           <button
             onClick={handleConfirm}
-            disabled={isSigningOff || unresolvedItems.length > 0}
+            disabled={isSigningOff || unresolvedItems.length > 0 || !selectedMonths}
             className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50"
           >
-            {isSigningOff ? 'Signing off...' : unresolvedItems.length > 0 ? `${unresolvedItems.length} Unresolved — Cannot Sign Off` : 'Sign Off'}
+            {isSigningOff ? 'Signing off...' : unresolvedItems.length > 0 ? `${unresolvedItems.length} Unresolved — Cannot Sign Off` : !selectedMonths ? 'Select Next Reconciliation' : 'Sign Off'}
           </button>
         </DialogFooter>
       </DialogContent>
