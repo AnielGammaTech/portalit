@@ -147,19 +147,7 @@ app.use('/api/security', securityRouter);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, async () => {
+app.listen(PORT, () => {
   console.log(`PortalIT API running on port ${PORT}`);
   setupScheduledJobs();
-
-  // One-time JumpCloud user backfill — populates cached_data.users for exclusion picker
-  // Safe to remove after 2026-04-22
-  try {
-    const { syncJumpCloudLicenses } = await import('./functions/syncJumpCloudLicenses.js');
-    console.log('[startup] Backfilling JumpCloud user cache...');
-    syncJumpCloudLicenses({ action: 'sync_all' }, null)
-      .then(r => console.log('[startup] JumpCloud backfill result:', JSON.stringify(r)))
-      .catch(e => console.error('[startup] JumpCloud backfill failed:', e.message));
-  } catch (e) {
-    console.error('[startup] JumpCloud backfill error:', e.message);
-  }
 });
