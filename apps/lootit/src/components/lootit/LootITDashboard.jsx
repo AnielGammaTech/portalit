@@ -63,7 +63,10 @@ export default function LootITDashboard({ onSelectCustomer }) {
   const signOffDateMap = useMemo(() => {
     const map = {};
     for (const so of (signOffs || [])) {
-      if (!map[so.customer_id]) map[so.customer_id] = so.signed_at;
+      const existing = map[so.customer_id];
+      if (!existing || new Date(so.signed_at) > new Date(existing.signed_at)) {
+        map[so.customer_id] = { signed_at: so.signed_at, next_reconciliation_date: so.next_reconciliation_date };
+      }
     }
     return map;
   }, [signOffs]);
@@ -117,9 +120,10 @@ export default function LootITDashboard({ onSelectCustomer }) {
       if (filter === 'signed_off') return signedOffCustomerIds.has(entry.customer.id);
       if (filter === 'pending') return !signedOffCustomerIds.has(entry.customer.id);
       if (filter === 'due') {
-        const signedAt = signOffDateMap[entry.customer.id];
-        if (!signedAt) return true;
-        const days = Math.floor((Date.now() - new Date(signedAt).getTime()) / (1000 * 60 * 60 * 24));
+        const so = signOffDateMap[entry.customer.id];
+        if (!so) return true;
+        if (so.next_reconciliation_date) return new Date() >= new Date(so.next_reconciliation_date);
+        const days = Math.floor((Date.now() - new Date(so.signed_at).getTime()) / (1000 * 60 * 60 * 24));
         return days >= 30;
       }
       return true;
@@ -396,26 +400,44 @@ export default function LootITDashboard({ onSelectCustomer }) {
                     {/* Due */}
                     <td className="px-3 py-2 text-center">
                       {(() => {
-                        const signedAt = signOffDateMap[customer.id];
-                        if (!signedAt) {
+                        const so = signOffDateMap[customer.id];
+                        if (!so) {
                           return (
                             <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
                               Never
                             </span>
                           );
                         }
-                        const days = Math.floor((Date.now() - new Date(signedAt).getTime()) / (1000 * 60 * 60 * 24));
-                        if (days >= 45) {
+                        const nextDate = so.next_reconciliation_date ? new Date(so.next_reconciliation_date) : null;
+                        if (nextDate) {
+                          const now = new Date();
+                          const daysUntil = Math.ceil((nextDate - now) / (1000 * 60 * 60 * 24));
+                          const label = nextDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                          if (daysUntil < 0) {
+                            return (
+                              <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
+                                {label} ({Math.abs(daysUntil)}d overdue)
+                              </span>
+                            );
+                          }
+                          if (daysUntil <= 14) {
+                            return (
+                              <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                                {label} ({daysUntil}d)
+                              </span>
+                            );
+                          }
                           return (
-                            <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
-                              {days}d
+                            <span className="text-[10px] font-medium text-slate-500">
+                              {label}
                             </span>
                           );
                         }
+                        const days = Math.floor((Date.now() - new Date(so.signed_at).getTime()) / (1000 * 60 * 60 * 24));
                         if (days >= 30) {
                           return (
-                            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
-                              {days}d
+                            <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
+                              {days}d ago
                             </span>
                           );
                         }
