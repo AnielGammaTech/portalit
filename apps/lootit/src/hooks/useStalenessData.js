@@ -13,7 +13,10 @@ export function useStalenessData({ reviews, snapshotsByRuleId, latestSignOff, al
 
     // Sign-off expiry: customer-level, shared across all tiles
     const daysSinceSignOff = signOffDate ? daysBetween(signOffDate, now) : null;
-    const signOffExpired = daysSinceSignOff === null || daysSinceSignOff >= 30;
+    const nextReconDate = latestSignOff?.next_reconciliation_date ? new Date(latestSignOff.next_reconciliation_date) : null;
+    const signOffExpired = nextReconDate
+      ? now >= nextReconDate
+      : (daysSinceSignOff === null || daysSinceSignOff >= 30);
 
     const allTiles = [
       ...(allRecons || []).map((r) => ({ ruleId: r.rule?.id || r.ruleId, psaQty: r.psaQty, vendorQty: r.rawVendorQty ?? r.vendorQty })),

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { CalendarClock } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -8,12 +9,33 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 
+const SCHEDULE_OPTIONS = [
+  { label: '1 Month', months: 1 },
+  { label: '3 Months', months: 3 },
+  { label: '6 Months', months: 6 },
+  { label: '12 Months', months: 12 },
+];
+
+function addMonths(date, months) {
+  const result = new Date(date);
+  result.setMonth(result.getMonth() + months);
+  return result;
+}
+
+function formatDate(date) {
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 export default function SignOffDialog({ open, onClose, summary, unresolvedItems, onConfirm, isSigningOff }) {
   const [notes, setNotes] = useState('');
+  const [selectedMonths, setSelectedMonths] = useState(1);
+
+  const nextDate = addMonths(new Date(), selectedMonths);
 
   const handleConfirm = () => {
-    onConfirm(notes);
+    onConfirm(notes, nextDate.toISOString());
     setNotes('');
+    setSelectedMonths(1);
   };
 
   return (
@@ -57,6 +79,32 @@ export default function SignOffDialog({ open, onClose, summary, unresolvedItems,
               </ul>
             </div>
           )}
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-slate-600 flex items-center gap-1.5">
+              <CalendarClock className="w-3.5 h-3.5" />
+              Next Reconciliation
+            </label>
+            <div className="grid grid-cols-4 gap-1.5">
+              {SCHEDULE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.months}
+                  type="button"
+                  onClick={() => setSelectedMonths(opt.months)}
+                  className={`px-2 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                    selectedMonths === opt.months
+                      ? 'bg-pink-50 border-pink-300 text-pink-700'
+                      : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-slate-400">
+              Due: {formatDate(nextDate)}
+            </p>
+          </div>
 
           <textarea
             value={notes}

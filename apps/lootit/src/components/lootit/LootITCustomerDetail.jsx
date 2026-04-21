@@ -304,13 +304,14 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
     );
   }, [allRecons, reviews]);
 
-  const handleSignOff = async (notes) => {
+  const handleSignOff = async (notes, nextReconciliationDate) => {
     await signOff({
       allRecons: recons,
       pax8Recons,
       reviews,
       overrides: existingOverrides,
       notes,
+      nextReconciliationDate,
     });
     setShowSignOffDialog(false);
     toast.success('Reconciliation signed off successfully');

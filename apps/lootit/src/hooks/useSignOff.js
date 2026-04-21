@@ -7,7 +7,7 @@ export function useSignOff(customerId) {
   const { user } = useAuth();
 
   const signOffMutation = useMutation({
-    mutationFn: async ({ allRecons, pax8Recons, reviews, overrides, notes }) => {
+    mutationFn: async ({ allRecons, pax8Recons, reviews, overrides, notes, nextReconciliationDate }) => {
       const allTiles = [
         ...(allRecons || []).map((r) => ({
           ruleId: r.rule.id,
@@ -49,6 +49,7 @@ export function useSignOff(customerId) {
           force_matched_count: forcedMatched,
           dismissed_count: dismissed,
           excluded_count: excluded,
+          next_reconciliation_date: nextReconciliationDate || null,
         })
         .select()
         .single();
