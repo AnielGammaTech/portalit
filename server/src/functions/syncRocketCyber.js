@@ -585,6 +585,47 @@ export async function syncRocketCyber(body, user) {
     return { success: true, summary };
   }
 
+  // Action: Fast agents-only sync (for LootIT billing — skip incidents entirely)
+  if (action === 'sync_agents' || action === 'sync_agents_only') {
+    const { data: allMappings } = await supabase
+      .from('rocket_cyber_mappings')
+      .select('*');
+
+    if (!allMappings || allMappings.length === 0) {
+      return { success: true, message: 'No mappings found' };
+    }
+
+    const batchSize = 5;
+    let totalUpdated = 0;
+    const errors = [];
+
+    for (let i = 0; i < allMappings.length; i += batchSize) {
+      const batch = allMappings.slice(i, i + batchSize);
+      const results = await Promise.allSettled(
+        batch.map(async (mapping) => {
+          const agentResult = await fetchAgents(mapping.rc_account_id);
+          const existingCached = mapping.cached_data || {};
+          const cachedData = {
+            ...existingCached,
+            total_agents: agentResult.count,
+            agents: agentResult.agents,
+          };
+          await supabase
+            .from('rocket_cyber_mappings')
+            .update({ last_synced: new Date().toISOString(), cached_data: cachedData })
+            .eq('id', mapping.id);
+          return mapping.rc_account_name || mapping.rc_account_id;
+        })
+      );
+      for (const r of results) {
+        if (r.status === 'fulfilled') totalUpdated++;
+        else errors.push(r.reason?.message || 'Unknown error');
+      }
+    }
+
+    return { success: true, totalUpdated, errors: errors.length > 0 ? errors : undefined };
+  }
+
   const err = new Error('Invalid action');
   err.statusCode = 400;
   throw err;

@@ -36,6 +36,7 @@ export const CRON_JOBS = [
   { name: 'scheduledDattoSync', label: 'Datto RMM Sync', description: 'RMM devices', schedule: '0 3 * * *', category: 'datto', fn: scheduledDattoSync, action: 'sync_now' },
   { name: 'syncDattoEDR', label: 'Datto EDR Sync', description: 'EDR agent data', schedule: '15 3 * * *', category: 'datto', fn: syncDattoEDR, action: 'sync_all' },
   { name: 'syncRocketCyber', label: 'RocketCyber Sync', description: 'Security incidents', schedule: '30 3 * * *', category: 'rocketcyber', fn: syncRocketCyber, action: 'sync_all' },
+  { name: 'syncRocketCyberAgents', label: 'RocketCyber Agents', description: 'Agent counts (fast)', schedule: '0 */4 * * *', category: 'rocketcyber', fn: syncRocketCyber, action: 'sync_agents' },
   { name: 'scheduledJumpCloudSync', label: 'JumpCloud Sync', description: 'SSO users', schedule: '0 4 * * *', category: 'jumpcloud', fn: scheduledJumpCloudSync, action: 'sync_now' },
   { name: 'syncCoveData', label: 'Cove Data Sync', description: 'Backup devices', schedule: '30 4 * * *', category: 'cove', fn: syncCoveData, action: 'sync_all' },
   { name: 'scheduledSpanningSync', label: 'Spanning Sync', description: 'Backup users', schedule: '0 5 * * *', category: 'spanning', fn: scheduledSpanningSync, action: 'sync_now' },
