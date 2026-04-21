@@ -224,7 +224,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           customer_id: customer.id,
           rule_id: ruleId,
           pax8_product_name: isPsaLineItem ? (productName || null) : (vendorKey || item.description || item.id),
-          line_item_id: isPsaLineItem ? item.id : (psaLineItemId || item.id),
+          line_item_id: isPsaLineItem ? item.id : (psaLineItemId || null),
           group_id: `qty:${item.quantity || 0}`,
         });
       } else {
@@ -238,7 +238,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           customer_id: customer.id,
           rule_id: ruleId,
           pax8_product_name: JSON.stringify(mappingData),
-          line_item_id: psaLineItemId || items[0].id,
+          line_item_id: psaLineItemId || null,
           group_id: `multi:${totalQty}`,
         });
       }
