@@ -16,7 +16,7 @@ export function useStalenessData({ reviews, snapshotsByRuleId, latestSignOff, al
     const signOffExpired = daysSinceSignOff === null || daysSinceSignOff >= 30;
 
     const allTiles = [
-      ...(allRecons || []).map((r) => ({ ruleId: r.rule?.id || r.ruleId, psaQty: r.psaQty, vendorQty: r.vendorQty })),
+      ...(allRecons || []).map((r) => ({ ruleId: r.rule?.id || r.ruleId, psaQty: r.psaQty, vendorQty: r.rawVendorQty ?? r.vendorQty })),
       ...(pax8Recons || []).map((r) => ({ ruleId: r.ruleId, psaQty: r.psaQty, vendorQty: r.vendorQty })),
     ];
 
