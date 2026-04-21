@@ -15,7 +15,19 @@ function extractVendorItems(integrationKey, mapping) {
 
   // Device arrays (UniFi, Datto RMM, Cove)
   if (Array.isArray(raw.devices) && raw.devices.length > 0) {
-    return raw.devices.map((d, i) => ({
+    let deviceList = raw.devices;
+
+    if (integrationKey === 'unifi_firewall') {
+      deviceList = raw.devices.filter(d =>
+        d.type === 'firewall' || d.device_type === 'firewall' ||
+        d.model?.toLowerCase().includes('udm') ||
+        d.model?.toLowerCase().includes('usg') ||
+        d.model?.toLowerCase().includes('gateway')
+      );
+      if (deviceList.length === 0) return [];
+    }
+
+    return deviceList.map((d, i) => ({
       id: `${integrationKey}:${d.id || d.mac || i}`,
       description: d.name || d.hostname || d.model || 'Unknown device',
       quantity: 1,
