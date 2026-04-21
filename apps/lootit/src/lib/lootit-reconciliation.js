@@ -707,6 +707,10 @@ export function getDiscrepancySummary(reconciliations) {
       summary.forceMatched++;
       continue;
     }
+    if (r.review?.status === 'dismissed') {
+      summary.dismissed++;
+      continue;
+    }
 
     if (r.status === 'match') summary.matched++;
     else if (r.status === 'over') summary.over++;
@@ -717,7 +721,6 @@ export function getDiscrepancySummary(reconciliations) {
     else summary.noData++;
 
     if (r.review?.status === 'reviewed') summary.reviewed++;
-    else if (r.review?.status === 'dismissed') summary.dismissed++;
   }
 
   return summary;
