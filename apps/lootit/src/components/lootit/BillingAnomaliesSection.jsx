@@ -251,20 +251,38 @@ export default function BillingAnomaliesSection({
 }) {
   if (openAnomalies.length === 0 && resolvedAnomalies.length === 0) return null;
 
+  if (openAnomalies.length === 0) {
+    return (
+      <div className="bg-white rounded-xl border border-slate-200 px-4 py-2.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Bell className="w-3.5 h-3.5 text-slate-400" />
+            <span className="text-xs font-medium text-slate-500">Billing Anomalies</span>
+          </div>
+          <button
+            onClick={onToggleHistory}
+            className="text-[10px] font-medium text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+          >
+            {showHistory ? 'Hide' : 'Show'} History ({resolvedAnomalies.length})
+          </button>
+        </div>
+        {showHistory && <AnomalyHistoryLog anomalies={resolvedAnomalies} />}
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-xl border border-red-200/60 p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Bell className="w-4 h-4 text-red-500" />
-          <h3 className="text-sm font-bold text-slate-900">Billing Anomalies</h3>
-          {openAnomalies.length > 0 && (
-            <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">{openAnomalies.length}</span>
-          )}
+          <h3 className="text-xs font-semibold text-slate-700">Billing Anomalies</h3>
+          <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">{openAnomalies.length}</span>
         </div>
         {resolvedAnomalies.length > 0 && (
           <button
             onClick={onToggleHistory}
-            className="text-[10px] font-medium text-slate-400 hover:text-slate-600 transition-colors flex items-center gap-1"
+            className="text-[10px] font-medium text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
           >
             {showHistory ? 'Hide' : 'Show'} History ({resolvedAnomalies.length})
           </button>

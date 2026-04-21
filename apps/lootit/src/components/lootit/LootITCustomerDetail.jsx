@@ -363,8 +363,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   }
 
   return (
-    <div className="space-y-5 relative">
-      <div className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-pink-400/10 rounded-full blur-[100px]" />
+    <div className="space-y-4">
 
       <CustomerDetailHeaderCard
         customer={customer}
@@ -401,8 +400,8 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
       />
 
       {/* Tab bar */}
-      <div className="sticky top-0 z-10 bg-white shadow-sm">
-        <div className="flex w-full">
+      <div className="sticky top-0 z-10 bg-white border-b border-slate-200">
+        <div className="flex">
           {[
             { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
             { key: 'reconciliation', label: 'Reconciliation', icon: RotateCcw },
@@ -414,19 +413,22 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={cn(
-                'flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-all rounded-lg mx-1 my-1.5',
+                'flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-3 text-xs font-medium transition-colors cursor-pointer relative',
                 activeTab === tab.key
-                  ? 'bg-pink-500 text-white shadow-sm'
-                  : 'text-slate-500 hover:bg-pink-50'
+                  ? 'text-pink-600'
+                  : 'text-slate-400 hover:text-slate-600'
               )}
             >
-              <tab.icon className="w-5 h-5" />
+              <tab.icon className="w-4 h-4" />
               {tab.label}
               {tab.badge != null && (
                 <span className={cn(
-                  'text-[10px] px-1.5 py-0.5 rounded-full font-bold',
-                  activeTab === tab.key ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                  'text-[10px] px-1.5 py-0.5 rounded-full font-semibold tabular-nums',
+                  activeTab === tab.key ? 'bg-pink-50 text-pink-600' : 'bg-slate-100 text-slate-400'
                 )}>{tab.badge}</span>
+              )}
+              {activeTab === tab.key && (
+                <span className="absolute bottom-0 left-3 right-3 h-0.5 bg-pink-500 rounded-full" />
               )}
             </button>
           ))}

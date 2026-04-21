@@ -30,7 +30,7 @@ export default function CustomerDetailReconciliationTab({
   return (
     <>
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex gap-1.5 flex-wrap">
+        <div className="flex gap-1 flex-wrap">
           {[
             { key: 'unverified', label: 'To Review', count: unverifiedCount },
             { key: 'all', label: 'All', count: allRecons.filter(r => r.status !== 'no_data').length },
@@ -40,16 +40,16 @@ export default function CustomerDetailReconciliationTab({
               key={f.key}
               onClick={() => onFilterChange(f.key)}
               className={cn(
-                'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors',
+                'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer',
                 statusFilter === f.key
-                  ? 'bg-pink-500 text-white shadow-sm shadow-pink-200'
-                  : 'bg-white text-slate-500 border border-slate-200 hover:bg-pink-50'
+                  ? 'bg-slate-900 text-white'
+                  : 'text-slate-500 hover:bg-slate-100'
               )}
             >
               {f.label}
               <span className={cn(
-                'text-[10px] px-1.5 py-0.5 rounded-full',
-                statusFilter === f.key ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400'
+                'text-[10px] tabular-nums font-semibold',
+                statusFilter === f.key ? 'text-slate-300' : 'text-slate-400'
               )}>
                 {f.count}
               </span>
@@ -59,15 +59,14 @@ export default function CustomerDetailReconciliationTab({
         {onSignOff ? (
           <button
             onClick={onSignOff}
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors cursor-pointer"
           >
             <ClipboardCheck className="w-3.5 h-3.5" />
-            Sign Off Reconciliation
+            Sign Off
           </button>
         ) : verificationState && !verificationState.allVerified ? (
-          <span className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium text-pink-500 bg-pink-50 border border-pink-200 rounded-lg">
-            <ClipboardCheck className="w-3.5 h-3.5" />
-            {verificationState.verified}/{verificationState.total} verified to sign off
+          <span className="text-[11px] font-medium text-slate-400 tabular-nums">
+            {verificationState.verified}/{verificationState.total} verified
           </span>
         ) : null}
       </div>
