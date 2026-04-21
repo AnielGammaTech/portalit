@@ -4,9 +4,13 @@
  *
  * @param {string} integrationKey
  * @param {object} cachedData
+ * @param {Array} [haloDevices] - HaloPSA devices for this customer (used by datto_rmm)
  * @returns {Array<{id: string, label: string, meta?: object}>|null}
  */
-export function extractVendorItems(integrationKey, cachedData) {
+export function extractVendorItems(integrationKey, cachedData, haloDevices) {
+  if (DEVICE_BACKED_KEYS[integrationKey] && Array.isArray(haloDevices) && haloDevices.length > 0) {
+    return DEVICE_BACKED_KEYS[integrationKey](haloDevices);
+  }
   const extractor = ITEM_EXTRACTORS[integrationKey];
   if (!extractor) return null;
   const data = typeof cachedData === 'string'
@@ -15,6 +19,31 @@ export function extractVendorItems(integrationKey, cachedData) {
   if (!data) return null;
   return extractor(data);
 }
+
+const DEVICE_BACKED_KEYS = {
+  datto_rmm: (devices) =>
+    devices.map(d => ({
+      id: d.name || d.id || '',
+      label: d.name || 'Unknown Device',
+      meta: { deviceType: d.device_type },
+    })).filter(i => i.id),
+  datto_rmm_workstation: (devices) =>
+    devices
+      .filter(d => d.device_type === 'desktop' || d.device_type === 'laptop' || d.device_type === 'workstation')
+      .map(d => ({
+        id: d.name || d.id || '',
+        label: d.name || 'Unknown Device',
+        meta: { deviceType: d.device_type },
+      })).filter(i => i.id),
+  datto_rmm_server: (devices) =>
+    devices
+      .filter(d => d.device_type === 'server')
+      .map(d => ({
+        id: d.name || d.id || '',
+        label: d.name || 'Unknown Device',
+        meta: { deviceType: d.device_type },
+      })).filter(i => i.id),
+};
 
 const ITEM_EXTRACTORS = {
   spanning: (data) => {

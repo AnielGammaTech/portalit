@@ -20,6 +20,7 @@ export default function ExclusionSection({
   onRemoveAllExcludedItems,
   onSaveExclusion,
   isSaving,
+  haloDevices,
 }) {
   const { review, rule } = reconciliation;
   const isPax8 = !!reconciliation.ruleId;
@@ -28,8 +29,8 @@ export default function ExclusionSection({
 
   const cachedData = vendorMapping?.cached_data;
   const vendorItems = useMemo(
-    () => extractVendorItems(integrationKey, cachedData),
-    [integrationKey, cachedData]
+    () => extractVendorItems(integrationKey, cachedData, haloDevices),
+    [integrationKey, cachedData, haloDevices]
   );
 
   const hasItemLevelData = vendorItems !== null && vendorItems.length > 0;

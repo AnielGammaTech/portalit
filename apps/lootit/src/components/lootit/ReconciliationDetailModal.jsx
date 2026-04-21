@@ -407,6 +407,7 @@ export default function ReconciliationDetailModal({
   excludedItemsForRule,
   vendorMapping,
   isExclusionSaving,
+  haloDevices,
   onMapLineItem,
   overrides = [],
   readOnly = false,
@@ -567,6 +568,7 @@ export default function ReconciliationDetailModal({
               onRemoveAllExcludedItems={onRemoveAllExcludedItems}
               onSaveExclusion={onSaveExclusion}
               isSaving={isExclusionSaving}
+              haloDevices={haloDevices}
             />
           )}
 

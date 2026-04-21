@@ -551,6 +551,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
               : null
           }
           isExclusionSaving={isExclusionSaving}
+          haloDevices={devices}
         />
       )}
 
