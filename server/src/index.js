@@ -155,18 +155,10 @@ app.listen(PORT, async () => {
   // Safe to remove after 2026-04-22
   try {
     const { syncJumpCloudLicenses } = await import('./functions/syncJumpCloudLicenses.js');
-    const supabase = getServiceSupabase();
-    const { data: needsBackfill } = await supabase
-      .from('jump_cloud_mappings')
-      .select('id')
-      .or('cached_data.is.null,cached_data->>users.is.null')
-      .limit(1);
-    if (needsBackfill?.length > 0) {
-      console.log('[startup] Backfilling JumpCloud user cache...');
-      syncJumpCloudLicenses({ action: 'sync_all' }, null)
-        .then(r => console.log('[startup] JumpCloud backfill done:', r?.synced || 0, 'orgs'))
-        .catch(e => console.error('[startup] JumpCloud backfill failed:', e.message));
-    }
+    console.log('[startup] Backfilling JumpCloud user cache...');
+    syncJumpCloudLicenses({ action: 'sync_all' }, null)
+      .then(r => console.log('[startup] JumpCloud backfill done:', r?.synced || 0, 'orgs'))
+      .catch(e => console.error('[startup] JumpCloud backfill failed:', e.message));
   } catch (e) {
     console.error('[startup] JumpCloud backfill error:', e.message);
   }
