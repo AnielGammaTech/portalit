@@ -20,6 +20,8 @@ import {
   Link2,
   StickyNote,
   AlertTriangle,
+  Minus,
+  Settings,
 } from 'lucide-react';
 import { ACTION_LABELS } from './lootit-constants';
 import ExclusionSection from './ExclusionSection';
@@ -35,9 +37,15 @@ const ACTION_ICONS = {
   reset: RotateCcw,
   note: StickyNote,
   exclusion: ShieldCheck,
+  exclusion_added: ShieldCheck,
+  exclusion_removed: ShieldOff,
+  exclusion_dropped: AlertTriangle,
   force_matched: ShieldCheck,
+  approved_as_is: Check,
   re_verified: RefreshCw,
   signed_off: ShieldCheck,
+  billing_model: Settings,
+  mapping_changed: Link2,
 };
 
 // -------------------------------------------------------------------

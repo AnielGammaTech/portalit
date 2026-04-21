@@ -196,8 +196,16 @@ export function useReconciliationReviews(customerId) {
         });
       if (error) throw error;
     }
+    await logHistory({
+      reviewId: existing?.id,
+      ruleId,
+      action: 'billing_model',
+      status: existing?.status || 'pending',
+      notes: divisor > 1 ? `Changed to ${divisor} devices per user` : 'Changed to Per Device',
+    });
     queryClient.invalidateQueries({ queryKey: reviewsKey });
     queryClient.invalidateQueries({ queryKey: ['reconciliation_reviews'] });
+    queryClient.invalidateQueries({ queryKey: historyKey });
     toast.success(divisor > 1 ? `Billing model: ${divisor} devices per user` : 'Billing model: Per Device');
   };
 

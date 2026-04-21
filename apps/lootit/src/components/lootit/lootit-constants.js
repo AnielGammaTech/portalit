@@ -21,10 +21,16 @@ export const ACTION_LABELS = {
   dismissed: { label: 'Skipped',       color: 'text-slate-500',   bg: 'bg-slate-50' },
   reset:     { label: 'Reset',         color: 'text-amber-600',   bg: 'bg-amber-50' },
   note:      { label: 'Note added',    color: 'text-blue-600',    bg: 'bg-blue-50' },
-  exclusion:      { label: 'Exclusion set', color: 'text-amber-600',   bg: 'bg-amber-50' },
-  force_matched:  { label: 'Force Matched', color: 'text-blue-600',    bg: 'bg-blue-50' },
-  re_verified:    { label: 'Re-verified',   color: 'text-emerald-600', bg: 'bg-emerald-50' },
-  signed_off:     { label: 'Signed Off',    color: 'text-purple-600',  bg: 'bg-purple-50' },
+  exclusion:         { label: 'Exclusion set',     color: 'text-amber-600',   bg: 'bg-amber-50' },
+  exclusion_added:   { label: 'Exclusion added',   color: 'text-amber-600',   bg: 'bg-amber-50' },
+  exclusion_removed: { label: 'Exclusion removed', color: 'text-orange-600',  bg: 'bg-orange-50' },
+  exclusion_dropped: { label: 'Exclusion dropped', color: 'text-red-500',     bg: 'bg-red-50' },
+  force_matched:     { label: 'Force Matched',     color: 'text-blue-600',    bg: 'bg-blue-50' },
+  approved_as_is:    { label: 'Approved As-Is',    color: 'text-blue-600',    bg: 'bg-blue-50' },
+  re_verified:       { label: 'Re-verified',       color: 'text-emerald-600', bg: 'bg-emerald-50' },
+  signed_off:        { label: 'Signed Off',        color: 'text-purple-600',  bg: 'bg-purple-50' },
+  billing_model:     { label: 'Billing Model',     color: 'text-indigo-600',  bg: 'bg-indigo-50' },
+  mapping_changed:   { label: 'Mapping Changed',   color: 'text-pink-600',    bg: 'bg-pink-50' },
 };
 
 export const BILLING_STATUS_CONFIG = {

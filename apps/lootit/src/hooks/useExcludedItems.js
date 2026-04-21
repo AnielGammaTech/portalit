@@ -63,10 +63,35 @@ export function useExcludedItems(customerId) {
         if (error) throw error;
       }
 
+      // Log exclusion changes to history
+      if (toAdd.length > 0) {
+        await supabase.from('reconciliation_review_history').insert({
+          customer_id: customerId,
+          rule_id: ruleId,
+          action: 'exclusion_added',
+          status: 'exclusion',
+          notes: toAdd.map(i => i.label || i.id).join(', '),
+          created_by: user?.id || null,
+          created_by_name: user?.full_name || user?.email || null,
+        });
+      }
+      if (toRemove.length > 0) {
+        await supabase.from('reconciliation_review_history').insert({
+          customer_id: customerId,
+          rule_id: ruleId,
+          action: 'exclusion_removed',
+          status: 'exclusion',
+          notes: toRemove.map(i => i.vendor_item_label || i.vendor_item_id).join(', '),
+          created_by: user?.id || null,
+          created_by_name: user?.full_name || user?.email || null,
+        });
+      }
+
       return { added: toAdd.length, removed: toRemove.length };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ['reconciliation_review_history', customerId] });
     },
     onError: (err) => {
       toast.error(`Failed to save exclusions: ${err.message}`);
