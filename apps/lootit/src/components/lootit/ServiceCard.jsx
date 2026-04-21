@@ -355,8 +355,8 @@ export default function ServiceCard({
         />
       )}
 
-      {/* Card header */}
-      <div className="px-3 pt-[10px]">
+      {/* Card header — fixed height so numbers always align */}
+      <div className="px-3 pt-[10px] h-[42px]">
         <h4 className="text-[13px] font-bold text-slate-800 leading-tight truncate">
           {rule.label}
         </h4>
@@ -371,27 +371,28 @@ export default function ServiceCard({
         )}
       </div>
 
-      {/* Center zone: big quantity numbers */}
-      <QtyBlock
-        psaQty={psaQty}
-        vendorQty={effectiveVendorQty}
-        cardState={cardState}
-        styles={styles}
-      />
+      {/* Center zone: fixed height so numbers are always at the same position */}
+      <div className="h-[72px] flex items-center">
+        <QtyBlock
+          psaQty={psaQty}
+          vendorQty={effectiveVendorQty}
+          cardState={cardState}
+          styles={styles}
+        />
+      </div>
 
-      {/* Multi-mapping indicator (below integration label for non-approved states) */}
-      {multiMapLabel && cardState !== 'force_matched' && (
-        <p className="text-[10px] font-medium text-pink-500 text-center -mt-1 mb-0.5">
-          {multiMapLabel}
-        </p>
-      )}
-
-      {/* Exclusion indicator */}
-      {exclusionCount > 0 && (
-        <p className="text-[8px] text-amber-500 font-medium text-center -mt-1" title={`${exclusionCount} excluded`}>
-          -{exclusionCount} excluded
-        </p>
-      )}
+      {/* Optional indicators — fixed height slot */}
+      <div className="h-[14px] flex items-center justify-center">
+        {multiMapLabel && cardState !== 'force_matched' ? (
+          <p className="text-[10px] font-medium text-pink-500 text-center truncate">
+            {multiMapLabel}
+          </p>
+        ) : exclusionCount > 0 ? (
+          <p className="text-[8px] text-amber-500 font-medium text-center" title={`${exclusionCount} excluded`}>
+            -{exclusionCount} excluded
+          </p>
+        ) : null}
+      </div>
 
       {/* Bottom action zone */}
       <div className="mt-auto">
@@ -408,15 +409,17 @@ export default function ServiceCard({
           isSaving={isSaving}
         />
       </div>
-      <AuditFooter
-        reviewStatus={review?.status}
-        reviewedByName={review?.reviewed_by_name}
-        reviewedAt={review?.reviewed_at}
-        isStale={staleness?.isStale}
-        changeDetected={staleness?.changeDetected}
-        previousPsaQty={staleness?.previousPsaQty}
-        previousVendorQty={staleness?.previousVendorQty}
-      />
+      <div className="h-[18px]">
+        <AuditFooter
+          reviewStatus={review?.status}
+          reviewedByName={review?.reviewed_by_name}
+          reviewedAt={review?.reviewed_at}
+          isStale={staleness?.isStale}
+          changeDetected={staleness?.changeDetected}
+          previousPsaQty={staleness?.previousPsaQty}
+          previousVendorQty={staleness?.previousVendorQty}
+        />
+      </div>
     </div>
   );
 }
