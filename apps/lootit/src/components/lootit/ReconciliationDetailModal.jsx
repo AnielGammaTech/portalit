@@ -433,7 +433,7 @@ function ActionFooter({
             onClick={() => setPendingAction('approve')}
             className="w-full py-2.5 text-sm font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors cursor-pointer"
           >
-            Approve \u2014 accept this difference
+            Approve — accept this difference
           </button>
 
           {/* Secondary row */}
@@ -601,11 +601,11 @@ export default function ReconciliationDetailModal({
             <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
               <Clock className="w-3 h-3" />
               <span>Reviewed by <span className="font-medium text-slate-500">{review.reviewed_by_name || 'Unknown'}</span></span>
-              <span>\u00B7</span>
+              <span>·</span>
               <span>{timeAgo(review.reviewed_at)}</span>
               {signOffDate && (
                 <>
-                  <span>\u00B7</span>
+                  <span>·</span>
                   <span>Signed off {new Date(signOffDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                 </>
               )}
