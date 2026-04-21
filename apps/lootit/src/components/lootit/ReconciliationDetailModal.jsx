@@ -22,6 +22,9 @@ import {
   AlertTriangle,
   Minus,
   Settings,
+  ClipboardCheck,
+  Eye,
+  Clock,
 } from 'lucide-react';
 import { ACTION_LABELS } from './lootit-constants';
 import ExclusionSection from './ExclusionSection';
@@ -102,6 +105,106 @@ function StatusBadge({ reconciliation }) {
     <span className={cn('inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold', badge.className)}>
       {badge.label}
     </span>
+  );
+}
+
+// -------------------------------------------------------------------
+// Audit Context (historical data for review)
+// -------------------------------------------------------------------
+
+function timeAgo(dateStr) {
+  if (!dateStr) return '';
+  const ms = Date.now() - new Date(dateStr).getTime();
+  const min = Math.floor(ms / 60000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min}m ago`;
+  const hrs = Math.floor(min / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function AuditContext({ snapshot, staleness, excludedItemsForRule, review, psaQty, vendorQty, signOffDate }) {
+  const hasSnapshot = !!snapshot;
+  const hasExclusions = excludedItemsForRule?.length > 0;
+  const hasDataChange = staleness?.changeDetected;
+  const hasReview = !!review?.reviewed_at;
+
+  if (!hasSnapshot && !hasExclusions && !hasDataChange && !hasReview) return null;
+
+  const psaChanged = hasSnapshot && Number(psaQty ?? 0) !== Number(snapshot.psa_qty ?? 0);
+  const vendorChanged = hasSnapshot && Number(vendorQty ?? 0) !== Number(snapshot.vendor_qty ?? 0);
+
+  return (
+    <div className="bg-indigo-50/50 rounded-xl border border-indigo-200 p-4 space-y-3">
+      <div className="flex items-center gap-1.5">
+        <Eye className="w-3.5 h-3.5 text-indigo-400" />
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-indigo-400">Audit Review</h4>
+      </div>
+
+      {hasSnapshot && (
+        <div className="space-y-1">
+          <p className="text-[11px] font-medium text-slate-500">
+            At last sign-off
+            {signOffDate && (
+              <span className="text-slate-400"> ({new Date(signOffDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})</span>
+            )}
+          </p>
+          <div className="flex gap-4">
+            <span className={cn('text-sm font-mono', psaChanged ? 'text-red-600 font-bold' : 'text-slate-600')}>
+              PSA: {snapshot.psa_qty ?? '—'}{psaChanged ? ` → ${psaQty}` : ''}
+            </span>
+            <span className={cn('text-sm font-mono', vendorChanged ? 'text-red-600 font-bold' : 'text-slate-600')}>
+              Vendor: {snapshot.vendor_qty ?? '—'}{vendorChanged ? ` → ${vendorQty}` : ''}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {hasDataChange && (
+        <div className="bg-red-50 rounded-lg border border-red-200 px-3 py-2">
+          <p className="text-xs font-medium text-red-700 flex items-center gap-1.5">
+            <AlertTriangle className="w-3 h-3" />
+            Quantities changed since last review — please re-verify
+          </p>
+        </div>
+      )}
+
+      {hasExclusions && (
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-amber-700 flex items-center gap-1.5">
+            <ShieldOff className="w-3 h-3" />
+            {excludedItemsForRule.length} Excluded Account{excludedItemsForRule.length > 1 ? 's' : ''}
+          </p>
+          <div className="bg-white rounded-lg border border-amber-200 divide-y divide-amber-100 overflow-hidden">
+            {excludedItemsForRule.slice(0, 5).map((item) => (
+              <div key={item.id} className="px-3 py-1.5 flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-700">{item.vendor_item_label || item.vendor_item_id}</span>
+                {item.reason && <span className="text-[10px] text-amber-500">{item.reason}</span>}
+              </div>
+            ))}
+            {excludedItemsForRule.length > 5 && (
+              <div className="px-3 py-1.5 text-[10px] text-slate-400">
+                +{excludedItemsForRule.length - 5} more
+              </div>
+            )}
+          </div>
+          <p className="text-[11px] text-indigo-500 font-medium italic">
+            Are these exclusions still accurate?
+          </p>
+        </div>
+      )}
+
+      {hasReview && (
+        <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+          <Clock className="w-3 h-3" />
+          <span>Last reviewed by <span className="font-medium text-slate-600">{review.reviewed_by_name || 'Unknown'}</span></span>
+          <span>·</span>
+          <span>{timeAgo(review.reviewed_at)}</span>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -191,10 +294,38 @@ function ActionSection({
         )}
       </div>
 
-      {/* Action buttons (visible when no pending action) */}
-      {!pendingAction && (
+      {/* Confirm Match for auto-matched tiles */}
+      {isMatch && !isReviewed && !pendingAction && (
+        <button
+          onClick={() => setPendingAction('review')}
+          className="w-full py-2.5 text-sm font-semibold rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2"
+        >
+          <ClipboardCheck className="w-4 h-4" />
+          Confirm Match
+        </button>
+      )}
+
+      {/* Verified badge for already-reviewed matched tiles */}
+      {isMatch && isReviewed && !pendingAction && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-emerald-600">
+            <Check className="w-4 h-4" />
+            <span className="text-xs font-semibold">Verified</span>
+          </div>
+          <button
+            onClick={() => onReset?.(ruleId)}
+            disabled={isSaving}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200 transition-colors disabled:opacity-50"
+          >
+            <RotateCcw className="w-3.5 h-3.5" /> Reset
+          </button>
+        </div>
+      )}
+
+      {/* Action buttons for non-matched tiles (visible when no pending action) */}
+      {!isMatch && !pendingAction && (
         <div className="flex flex-wrap gap-2">
-          {!isMatch && !isReviewed && (
+          {!isReviewed && (
             <button
               onClick={() => setPendingAction('approve')}
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors"
@@ -202,7 +333,7 @@ function ActionSection({
               <ShieldCheck className="w-3.5 h-3.5" /> Approve
             </button>
           )}
-          {!isMatch && !isReviewed && status !== 'no_vendor_data' && status !== 'no_data' && status !== 'unmatched_line_item' && (
+          {!isReviewed && status !== 'no_vendor_data' && status !== 'no_data' && status !== 'unmatched_line_item' && (
             <button
               onClick={() => setPendingAction('force_match')}
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-pink-500 text-white hover:bg-pink-600 transition-colors"
@@ -210,7 +341,7 @@ function ActionSection({
               <ShieldCheck className="w-3.5 h-3.5" /> Force Match
             </button>
           )}
-          {!isReviewed && !isMatch && (
+          {!isReviewed && (
             <button
               onClick={() => setPendingAction('dismiss')}
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors"
@@ -219,15 +350,21 @@ function ActionSection({
             </button>
           )}
           {isReviewed && (
-            <button
-              onClick={() => onReset?.(ruleId)}
-              disabled={isSaving}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200 transition-colors disabled:opacity-50"
-            >
-              <RotateCcw className="w-3.5 h-3.5" /> Reset
-            </button>
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-1.5 text-emerald-600">
+                <Check className="w-4 h-4" />
+                <span className="text-xs font-semibold">Verified</span>
+              </div>
+              <button
+                onClick={() => onReset?.(ruleId)}
+                disabled={isSaving}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200 transition-colors disabled:opacity-50"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Reset
+              </button>
+            </div>
           )}
-          {onMapLineItem && (
+          {onMapLineItem && !isReviewed && (
             <button
               onClick={() => onMapLineItem?.(ruleId, isPax8 ? reconciliation.productName : rule?.label)}
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
@@ -483,6 +620,10 @@ export default function ReconciliationDetailModal({
   snapshotDate,
   onReVerify,
   onSaveVendorDivisor,
+  snapshot,
+  staleness,
+  signOffDate,
+  isSaving: isSavingProp,
 }) {
   if (!reconciliation) return null;
 
@@ -531,6 +672,19 @@ export default function ReconciliationDetailModal({
 
         {/* Scrollable body */}
         <div className="px-6 py-5 space-y-6 max-h-[70vh] overflow-y-auto">
+          {/* Audit context — historical data for reviewer */}
+          {!readOnly && (
+            <AuditContext
+              snapshot={snapshot}
+              staleness={staleness}
+              excludedItemsForRule={excludedItemsForRule}
+              review={reconciliation.review}
+              psaQty={psaQty}
+              vendorQty={vendorQty}
+              signOffDate={signOffDate}
+            />
+          )}
+
           {/* Info section */}
           <div>
             <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Details</h4>
@@ -634,7 +788,7 @@ export default function ReconciliationDetailModal({
               onDismiss={async (ruleId, opts) => { await onDismiss?.(ruleId, opts); onClose?.(); }}
               onReset={async (ruleId) => { await onReset?.(ruleId); onClose?.(); }}
               onMapLineItem={(ruleId, label) => { onClose?.(); setTimeout(() => onMapLineItem?.(ruleId, label), 100); }}
-              isSaving={false}
+              isSaving={isSavingProp || false}
             />
           )}
 

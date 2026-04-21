@@ -292,6 +292,7 @@ export default function ServiceCard({
   isSaving,
   staleness,
   itemExclusionCount,
+  isVerified,
 }) {
   const { rule, psaQty, vendorQty, review } = reconciliation;
 
@@ -418,6 +419,7 @@ export default function ServiceCard({
           changeDetected={staleness?.changeDetected}
           previousPsaQty={staleness?.previousPsaQty}
           previousVendorQty={staleness?.previousVendorQty}
+          isVerified={isVerified}
         />
       </div>
     </div>

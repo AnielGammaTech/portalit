@@ -130,18 +130,20 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
     if (statusFilter === 'issues') return visible.filter((r) => (r.status === 'over' || r.status === 'under') && !['force_matched', 'dismissed', 'reviewed'].includes(r.review?.status));
     if (statusFilter === 'stale') return visible.filter((r) => stalenessMap[r.rule.id]);
     if (statusFilter === 'matched') return visible.filter((r) => r.status === 'match' || r.review?.status === 'force_matched');
-    if (statusFilter === 'reviewed') return visible.filter((r) => r.review?.status === 'reviewed' || r.review?.status === 'dismissed' || r.review?.status === 'force_matched');
+    if (statusFilter === 'verified') return visible.filter((r) => verificationState.verifiedMap[r.rule?.id]);
+    if (statusFilter === 'unverified') return visible.filter((r) => !verificationState.verifiedMap[r.rule?.id]);
     return visible;
-  }, [recons, statusFilter, stalenessMap]);
+  }, [recons, statusFilter, stalenessMap, verificationState]);
 
   const filteredPax8 = useMemo(() => {
     if (statusFilter === 'all') return pax8Recons;
     if (statusFilter === 'issues') return pax8Recons.filter((r) => (r.status === 'over' || r.status === 'under' || r.status === 'missing_from_psa') && !['force_matched', 'dismissed', 'reviewed'].includes(r.review?.status));
     if (statusFilter === 'stale') return pax8Recons.filter((r) => stalenessMap[r.ruleId]);
     if (statusFilter === 'matched') return pax8Recons.filter((r) => r.status === 'match');
-    if (statusFilter === 'reviewed') return pax8Recons.filter((r) => r.review?.status === 'reviewed' || r.review?.status === 'dismissed');
+    if (statusFilter === 'verified') return pax8Recons.filter((r) => verificationState.verifiedMap[r.ruleId]);
+    if (statusFilter === 'unverified') return pax8Recons.filter((r) => !verificationState.verifiedMap[r.ruleId]);
     return pax8Recons;
-  }, [pax8Recons, statusFilter, stalenessMap]);
+  }, [pax8Recons, statusFilter, stalenessMap, verificationState]);
 
   // ── Computed values ──
   const dollarImpact = useMemo(() => {
@@ -180,6 +182,41 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   const resolvedCount = summary ? (summary.matched || 0) + (summary.forceMatched || 0) + (summary.dismissed || 0) + (summary.reviewed || 0) : 0;
   const healthPct = totalRules > 0 ? Math.min(100, Math.round((resolvedCount / totalRules) * 100)) : 0;
   const hasUnresolvedItems = totalRules > resolvedCount;
+
+  const verificationState = useMemo(() => {
+    const tiles = [
+      ...(recons || []).filter(r => r.status !== 'no_data' || ['force_matched', 'reviewed', 'dismissed'].includes(r.review?.status))
+        .map(r => ({ ruleId: r.rule?.id, label: r.rule?.label })),
+      ...(pax8Recons || []).map(r => ({ ruleId: r.ruleId, label: r.productName })),
+    ];
+    const total = tiles.length;
+    let verified = 0;
+    const unverified = [];
+    const verifiedMap = {};
+
+    for (const tile of tiles) {
+      const review = reviews.find(r => r.rule_id === tile.ruleId);
+      const isReviewed = ['reviewed', 'force_matched', 'dismissed'].includes(review?.status);
+      const hasDataChanged = stalenessMap[tile.ruleId]?.changeDetected;
+
+      if (isReviewed && !hasDataChanged) {
+        verified++;
+        verifiedMap[tile.ruleId] = true;
+      } else {
+        unverified.push(tile);
+        verifiedMap[tile.ruleId] = false;
+      }
+    }
+
+    return {
+      total,
+      verified,
+      unverified,
+      verifiedMap,
+      allVerified: total > 0 && verified === total,
+      pct: total > 0 ? Math.round((verified / total) * 100) : 0,
+    };
+  }, [recons, pax8Recons, reviews, stalenessMap]);
 
   // ── Handlers ──
   const handleReview = async (ruleId, { notes } = {}) => {
@@ -356,6 +393,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
         unresolvedCount={totalRules - resolvedCount}
         signOffExpired={signOffExpired}
         daysSinceSignOff={daysSinceSignOff}
+        verificationState={verificationState}
       />
 
       <BillingAnomaliesSection
@@ -460,9 +498,10 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           onShowGroupMapper={() => setShowGroupMapper(true)}
           stalenessMap={stalenessMap}
           staleCount={staleCount}
-          onSignOff={() => setShowSignOffDialog(true)}
+          onSignOff={verificationState.allVerified ? () => setShowSignOffDialog(true) : null}
           customerId={customer.id}
           vendorMappings={customerData?.vendorMappings || {}}
+          verificationState={verificationState}
         />
       )}
 
@@ -499,6 +538,10 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           onClose={() => setDetailItem(null)}
           readOnly={detailItem._readOnly || false}
           snapshotDate={detailItem._snapshotDate}
+          snapshot={snapshotsByRuleId[detailItem.ruleId || detailItem.rule?.id]}
+          staleness={stalenessMap[detailItem.ruleId || detailItem.rule?.id]}
+          signOffDate={latestSignOff?.signed_at}
+          isSaving={isSaving}
           onReVerify={async (ruleId) => {
             await reVerify(ruleId);
             toast.success('Re-verified');
@@ -585,10 +628,12 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           matched: summary?.matched || 0,
           forceMatched: summary?.forceMatched || 0,
           dismissed: summary?.dismissed || 0,
+          reviewed: summary?.reviewed || 0,
         }}
         unresolvedItems={unresolvedItems}
         onConfirm={handleSignOff}
         isSigningOff={isSigningOff}
+        verificationState={verificationState}
       />
 
       {editingRule && (

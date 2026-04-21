@@ -1,6 +1,6 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, RefreshCw, Check, AlertTriangle, DollarSign, Users, Hash, FileText, Monitor, Server, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Check, AlertTriangle, DollarSign, Users, Hash, FileText, Monitor, Server, ClipboardCheck } from 'lucide-react';
 import SignOffButton from './SignOffButton';
 
 export default function CustomerDetailHeaderCard({
@@ -24,6 +24,7 @@ export default function CustomerDetailHeaderCard({
   unresolvedCount,
   signOffExpired,
   daysSinceSignOff,
+  verificationState,
 }) {
   return (
     <div className="relative bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -116,6 +117,42 @@ export default function CustomerDetailHeaderCard({
           ))}
         </div>
 
+        {verificationState && (
+          <div className="bg-slate-50 rounded-xl border border-slate-200 px-4 py-3 mb-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <ClipboardCheck className={cn('w-4 h-4', verificationState.allVerified ? 'text-emerald-500' : 'text-pink-500')} />
+                <span className="text-xs font-semibold text-slate-700">
+                  Audit Progress
+                </span>
+              </div>
+              <span className={cn(
+                'text-sm font-bold tabular-nums',
+                verificationState.allVerified ? 'text-emerald-600' : verificationState.pct >= 50 ? 'text-amber-600' : 'text-pink-600'
+              )}>
+                {verificationState.verified}/{verificationState.total} verified
+              </span>
+            </div>
+            <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+              <div
+                className={cn(
+                  'h-full transition-all duration-700 rounded-full',
+                  verificationState.allVerified ? 'bg-emerald-500' : verificationState.pct >= 50 ? 'bg-amber-500' : 'bg-pink-500'
+                )}
+                style={{ width: `${verificationState.pct}%` }}
+              />
+            </div>
+            {verificationState.allVerified && (
+              <p className="text-[11px] text-emerald-600 font-medium mt-1.5">All tiles verified — ready to sign off</p>
+            )}
+            {!verificationState.allVerified && verificationState.unverified.length > 0 && (
+              <p className="text-[11px] text-slate-400 mt-1.5">
+                {verificationState.unverified.length} tile{verificationState.unverified.length > 1 ? 's' : ''} need{verificationState.unverified.length === 1 ? 's' : ''} review before sign-off
+              </p>
+            )}
+          </div>
+        )}
+
         {summary && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div className="bg-emerald-50 rounded-xl border border-emerald-200 px-3 py-2.5">
@@ -131,13 +168,6 @@ export default function CustomerDetailHeaderCard({
                 <AlertTriangle className={cn('w-4 h-4', issueCount > 0 ? 'text-red-400' : 'text-slate-300')} />
               </div>
               <p className={cn('text-[10px] font-medium uppercase tracking-wide mt-0.5', issueCount > 0 ? 'text-red-500' : 'text-slate-400')}>Issues</p>
-            </div>
-            <div className="bg-white rounded-xl border border-slate-200 px-3 py-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-2xl font-bold text-slate-600">{summary.reviewed}</span>
-                <CheckCircle2 className="w-4 h-4 text-slate-300" />
-              </div>
-              <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide mt-0.5">Reviewed</p>
             </div>
             {dollarImpact && dollarImpact.underBilledAmount > 0 && (
               <div className="bg-red-50 rounded-xl border border-red-200 px-3 py-2.5">

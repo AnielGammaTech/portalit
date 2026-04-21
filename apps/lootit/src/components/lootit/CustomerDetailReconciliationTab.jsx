@@ -31,19 +31,22 @@ export default function CustomerDetailReconciliationTab({
   onSignOff,
   customerId,
   vendorMappings,
+  verificationState,
 }) {
   const { getExclusionCount } = useExcludedItems(customerId);
+  const unverifiedCount = verificationState ? verificationState.total - verificationState.verified : 0;
 
   return (
     <>
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex gap-1.5">
+        <div className="flex gap-1.5 flex-wrap">
           {[
             { key: 'all', label: 'All', count: allRecons.filter(r => r.status !== 'no_data').length },
+            { key: 'unverified', label: 'Unverified', count: unverifiedCount },
             { key: 'issues', label: 'Issues', count: issueCount },
             { key: 'stale', label: 'Stale', count: staleCount || 0 },
             { key: 'matched', label: 'Matched', count: (summary?.matched || 0) + (summary?.forceMatched || 0) },
-            { key: 'reviewed', label: 'Reviewed', count: summary?.reviewed || 0 },
+            { key: 'verified', label: 'Verified', count: verificationState?.verified || 0 },
           ].map((f) => (
             <button
               key={f.key}
@@ -65,7 +68,7 @@ export default function CustomerDetailReconciliationTab({
             </button>
           ))}
         </div>
-        {onSignOff && (
+        {onSignOff ? (
           <button
             onClick={onSignOff}
             className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors"
@@ -73,7 +76,12 @@ export default function CustomerDetailReconciliationTab({
             <ClipboardCheck className="w-3.5 h-3.5" />
             Sign Off Reconciliation
           </button>
-        )}
+        ) : verificationState && !verificationState.allVerified ? (
+          <span className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium text-pink-500 bg-pink-50 border border-pink-200 rounded-lg">
+            <ClipboardCheck className="w-3.5 h-3.5" />
+            {verificationState.verified}/{verificationState.total} verified to sign off
+          </span>
+        ) : null}
       </div>
 
       {filteredRecons.length === 0 && filteredPax8.length === 0 ? (
@@ -104,6 +112,7 @@ export default function CustomerDetailReconciliationTab({
               overrideCount={existingOverrides.filter((o) => o.rule_id === recon.rule.id && o.pax8_product_name !== 'approved_as_is').length}
               isSaving={isSaving}
               staleness={stalenessMap?.[recon.rule.id]}
+              isVerified={verificationState?.verifiedMap?.[recon.rule.id] || false}
               itemExclusionCount={(() => {
                 const integrationKey = recon.rule?.integration_key;
                 if (!integrationKey) return undefined;
@@ -148,6 +157,7 @@ export default function CustomerDetailReconciliationTab({
                 hasOverride={existingOverrides.some((o) => o.rule_id === recon.ruleId)}
                 isSaving={isSaving}
                 staleness={stalenessMap?.[recon.ruleId]}
+                isVerified={verificationState?.verifiedMap?.[recon.ruleId] || false}
               />
             ))}
           </div>

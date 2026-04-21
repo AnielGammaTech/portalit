@@ -26,7 +26,7 @@ function formatDate(date) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-export default function SignOffDialog({ open, onClose, summary, unresolvedItems, onConfirm, isSigningOff }) {
+export default function SignOffDialog({ open, onClose, summary, unresolvedItems, onConfirm, isSigningOff, verificationState }) {
   const [notes, setNotes] = useState('');
   const [selectedMonths, setSelectedMonths] = useState(null);
 
@@ -49,14 +49,27 @@ export default function SignOffDialog({ open, onClose, summary, unresolvedItems,
         </DialogHeader>
 
         <div className="space-y-3 py-2">
-          <div className="grid grid-cols-3 gap-2 text-center">
+          {verificationState && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 flex items-center gap-3">
+              <div className="text-2xl font-bold text-emerald-700">{verificationState.verified}/{verificationState.total}</div>
+              <div>
+                <p className="text-xs font-semibold text-emerald-700">All tiles verified</p>
+                <p className="text-[10px] text-emerald-600">Every service has been reviewed by your team</p>
+              </div>
+            </div>
+          )}
+          <div className="grid grid-cols-4 gap-2 text-center">
             <div className="bg-emerald-50 rounded-lg p-2">
               <div className="text-lg font-bold text-emerald-700">{summary?.matched || 0}</div>
               <div className="text-[10px] text-emerald-600">Matched</div>
             </div>
             <div className="bg-blue-50 rounded-lg p-2">
               <div className="text-lg font-bold text-blue-700">{summary?.forceMatched || 0}</div>
-              <div className="text-[10px] text-blue-600">Force Matched</div>
+              <div className="text-[10px] text-blue-600">Approved</div>
+            </div>
+            <div className="bg-indigo-50 rounded-lg p-2">
+              <div className="text-lg font-bold text-indigo-700">{summary?.reviewed || 0}</div>
+              <div className="text-[10px] text-indigo-600">Verified</div>
             </div>
             <div className="bg-slate-50 rounded-lg p-2">
               <div className="text-lg font-bold text-slate-600">{summary?.dismissed || 0}</div>

@@ -17,36 +17,44 @@ function formatRelativeDate(dateStr) {
 
 function getActionLabel(reviewStatus) {
   switch (reviewStatus) {
-    case 'reviewed': return 'Reviewed';
-    case 'force_matched': return 'Force Matched';
+    case 'reviewed': return 'Verified';
+    case 'force_matched': return 'Approved';
     case 'dismissed': return 'Dismissed';
-    default: return 'Reviewed';
+    default: return 'Verified';
   }
 }
 
-export default function AuditFooter({ reviewStatus, reviewedByName, reviewedAt, isStale, changeDetected, previousPsaQty, previousVendorQty }) {
-  if (!reviewedAt && !changeDetected) return null;
-
+export default function AuditFooter({ reviewStatus, reviewedByName, reviewedAt, isStale, changeDetected, previousPsaQty, previousVendorQty, isVerified }) {
   if (changeDetected) {
     return (
       <div className="px-3 pb-1.5">
         <p className="text-[9px] text-red-500 truncate leading-tight">
-          Changed since sign-off (was {previousPsaQty ?? '—'}/{previousVendorQty ?? '—'})
+          Changed — needs re-verification (was {previousPsaQty ?? '—'}/{previousVendorQty ?? '—'})
         </p>
       </div>
     );
   }
 
-  const label = getActionLabel(reviewStatus);
-  const dateStr = formatRelativeDate(reviewedAt);
-  const nameDisplay = reviewedByName || 'Unknown';
-  const color = isStale ? 'text-amber-500' : 'text-slate-400';
-  const prefix = isStale ? '⚠ ' : '';
+  if (reviewedAt && ['reviewed', 'force_matched', 'dismissed'].includes(reviewStatus)) {
+    const label = getActionLabel(reviewStatus);
+    const dateStr = formatRelativeDate(reviewedAt);
+    const nameDisplay = reviewedByName || 'Unknown';
+    const color = isStale ? 'text-amber-500' : 'text-emerald-500';
+    const prefix = isStale ? '' : '';
+
+    return (
+      <div className="px-3 pb-1.5">
+        <p className={`text-[9px] ${color} truncate leading-tight`}>
+          {prefix}{label} by {nameDisplay} · {dateStr}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="px-3 pb-1.5">
-      <p className={`text-[9px] ${color} truncate leading-tight`}>
-        {prefix}{label} by {nameDisplay} · {dateStr}
+      <p className="text-[9px] text-pink-400 truncate leading-tight font-medium">
+        Needs verification
       </p>
     </div>
   );

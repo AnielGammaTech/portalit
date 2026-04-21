@@ -283,6 +283,7 @@ export default function Pax8SubscriptionCard({
   hasOverride,
   isSaving,
   staleness,
+  isVerified,
 }) {
   const {
     ruleId, productName, vendorQty, psaQty,
@@ -399,6 +400,7 @@ export default function Pax8SubscriptionCard({
         changeDetected={staleness?.changeDetected}
         previousPsaQty={staleness?.previousPsaQty}
         previousVendorQty={staleness?.previousVendorQty}
+        isVerified={isVerified}
       />
     </div>
   );
