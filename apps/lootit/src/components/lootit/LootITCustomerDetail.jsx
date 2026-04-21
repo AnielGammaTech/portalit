@@ -124,6 +124,35 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
     }
   }, [customerData?.vendorMappings, excludedItems.length]);
 
+  const verificationState = useMemo(() => {
+    const tiles = [
+      ...(recons || []).filter(r => r.status !== 'no_data' || ['force_matched', 'reviewed', 'dismissed'].includes(r.review?.status))
+        .map(r => ({ ruleId: r.rule?.id, label: r.rule?.label })),
+      ...(pax8Recons || []).map(r => ({ ruleId: r.ruleId, label: r.productName })),
+    ];
+    const total = tiles.length;
+    let verified = 0;
+    const unverified = [];
+    const verifiedMap = {};
+    for (const tile of tiles) {
+      const review = reviews.find(r => r.rule_id === tile.ruleId);
+      const isReviewed = ['reviewed', 'force_matched', 'dismissed'].includes(review?.status);
+      const hasDataChanged = stalenessMap[tile.ruleId]?.changeDetected;
+      if (isReviewed && !hasDataChanged) {
+        verified++;
+        verifiedMap[tile.ruleId] = true;
+      } else {
+        unverified.push(tile);
+        verifiedMap[tile.ruleId] = false;
+      }
+    }
+    return {
+      total, verified, unverified, verifiedMap,
+      allVerified: total > 0 && verified === total,
+      pct: total > 0 ? Math.round((verified / total) * 100) : 0,
+    };
+  }, [recons, pax8Recons, reviews, stalenessMap]);
+
   const filteredRecons = useMemo(() => {
     const visible = recons.filter((r) => r.status !== 'no_data' || r.review?.status === 'force_matched' || r.review?.status === 'reviewed' || r.review?.status === 'dismissed');
     if (statusFilter === 'all') return visible;
@@ -182,41 +211,6 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   const resolvedCount = summary ? (summary.matched || 0) + (summary.forceMatched || 0) + (summary.dismissed || 0) + (summary.reviewed || 0) : 0;
   const healthPct = totalRules > 0 ? Math.min(100, Math.round((resolvedCount / totalRules) * 100)) : 0;
   const hasUnresolvedItems = totalRules > resolvedCount;
-
-  const verificationState = useMemo(() => {
-    const tiles = [
-      ...(recons || []).filter(r => r.status !== 'no_data' || ['force_matched', 'reviewed', 'dismissed'].includes(r.review?.status))
-        .map(r => ({ ruleId: r.rule?.id, label: r.rule?.label })),
-      ...(pax8Recons || []).map(r => ({ ruleId: r.ruleId, label: r.productName })),
-    ];
-    const total = tiles.length;
-    let verified = 0;
-    const unverified = [];
-    const verifiedMap = {};
-
-    for (const tile of tiles) {
-      const review = reviews.find(r => r.rule_id === tile.ruleId);
-      const isReviewed = ['reviewed', 'force_matched', 'dismissed'].includes(review?.status);
-      const hasDataChanged = stalenessMap[tile.ruleId]?.changeDetected;
-
-      if (isReviewed && !hasDataChanged) {
-        verified++;
-        verifiedMap[tile.ruleId] = true;
-      } else {
-        unverified.push(tile);
-        verifiedMap[tile.ruleId] = false;
-      }
-    }
-
-    return {
-      total,
-      verified,
-      unverified,
-      verifiedMap,
-      allVerified: total > 0 && verified === total,
-      pct: total > 0 ? Math.round((verified / total) * 100) : 0,
-    };
-  }, [recons, pax8Recons, reviews, stalenessMap]);
 
   // ── Handlers ──
   const handleReview = async (ruleId, { notes } = {}) => {
