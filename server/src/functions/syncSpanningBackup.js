@@ -85,23 +85,11 @@ function parseUsersResponse(usersResponse) {
   return users;
 }
 
-const PAGE_SIZE = 1000;
-const MAX_PAGES = 20;
-
 async function fetchAllUsers(tenantId) {
-  let allUsers = [];
-  let page = 1;
-  while (true) {
-    const resp = await unitrendsApiCall(
-      `/v2/spanning/domains/${tenantId}/users?page_size=${PAGE_SIZE}&page=${page}`
-    );
-    const users = parseUsersResponse(resp);
-    allUsers = allUsers.concat(users);
-    if (users.length < PAGE_SIZE) break;
-    page++;
-    if (page > MAX_PAGES) break;
-  }
-  return allUsers;
+  const resp = await unitrendsApiCall(
+    `/v2/spanning/domains/${tenantId}/users?page_size=1000`
+  );
+  return parseUsersResponse(resp);
 }
 
 function formatUser(u) {
