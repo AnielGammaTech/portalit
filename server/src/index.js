@@ -157,7 +157,7 @@ app.listen(PORT, async () => {
     const { syncJumpCloudLicenses } = await import('./functions/syncJumpCloudLicenses.js');
     console.log('[startup] Backfilling JumpCloud user cache...');
     syncJumpCloudLicenses({ action: 'sync_all' }, null)
-      .then(r => console.log('[startup] JumpCloud backfill done:', r?.synced || 0, 'orgs'))
+      .then(r => console.log('[startup] JumpCloud backfill result:', JSON.stringify(r)))
       .catch(e => console.error('[startup] JumpCloud backfill failed:', e.message));
   } catch (e) {
     console.error('[startup] JumpCloud backfill error:', e.message);
