@@ -127,7 +127,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   const filteredRecons = useMemo(() => {
     const visible = recons.filter((r) => r.status !== 'no_data' || r.review?.status === 'force_matched' || r.review?.status === 'reviewed' || r.review?.status === 'dismissed');
     if (statusFilter === 'all') return visible;
-    if (statusFilter === 'issues') return visible.filter((r) => (r.status === 'over' || r.status === 'under') && !['force_matched', 'dismissed'].includes(r.review?.status));
+    if (statusFilter === 'issues') return visible.filter((r) => (r.status === 'over' || r.status === 'under') && !['force_matched', 'dismissed', 'reviewed'].includes(r.review?.status));
     if (statusFilter === 'stale') return visible.filter((r) => stalenessMap[r.rule.id]);
     if (statusFilter === 'matched') return visible.filter((r) => r.status === 'match' || r.review?.status === 'force_matched');
     if (statusFilter === 'reviewed') return visible.filter((r) => r.review?.status === 'reviewed' || r.review?.status === 'dismissed' || r.review?.status === 'force_matched');
@@ -136,7 +136,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
 
   const filteredPax8 = useMemo(() => {
     if (statusFilter === 'all') return pax8Recons;
-    if (statusFilter === 'issues') return pax8Recons.filter((r) => (r.status === 'over' || r.status === 'under' || r.status === 'missing_from_psa') && !['force_matched', 'dismissed'].includes(r.review?.status));
+    if (statusFilter === 'issues') return pax8Recons.filter((r) => (r.status === 'over' || r.status === 'under' || r.status === 'missing_from_psa') && !['force_matched', 'dismissed', 'reviewed'].includes(r.review?.status));
     if (statusFilter === 'stale') return pax8Recons.filter((r) => stalenessMap[r.ruleId]);
     if (statusFilter === 'matched') return pax8Recons.filter((r) => r.status === 'match');
     if (statusFilter === 'reviewed') return pax8Recons.filter((r) => r.review?.status === 'reviewed' || r.review?.status === 'dismissed');
@@ -151,7 +151,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
     let totalMonthlyBilled = 0;
     for (const r of allRecons) {
       const reviewStatus = r.review?.status;
-      if (reviewStatus === 'force_matched' || reviewStatus === 'dismissed') continue;
+      if (reviewStatus === 'force_matched' || reviewStatus === 'dismissed' || reviewStatus === 'reviewed') continue;
       const price = r.price || 0;
       const diff = r.difference || 0;
       if (r.status === 'under' || r.status === 'missing_from_psa') {
@@ -177,7 +177,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
 
   const issueCount = summary ? summary.over + summary.under : 0;
   const totalRules = summary ? summary.total - (summary.noData || 0) : 0;
-  const resolvedCount = summary ? (summary.matched || 0) + (summary.forceMatched || 0) + (summary.dismissed || 0) : 0;
+  const resolvedCount = summary ? (summary.matched || 0) + (summary.forceMatched || 0) + (summary.dismissed || 0) + (summary.reviewed || 0) : 0;
   const healthPct = totalRules > 0 ? Math.min(100, Math.round((resolvedCount / totalRules) * 100)) : 0;
   const hasUnresolvedItems = totalRules > resolvedCount;
 

@@ -98,7 +98,7 @@ export default function LootITDashboard({ onSelectCustomer }) {
         ...(entry.pax8Reconciliations || []),
       ];
       const combined = getDiscrepancySummary(allRecons);
-      const resolved = (combined.matched || 0) + (combined.forceMatched || 0) + (combined.dismissed || 0);
+      const resolved = (combined.matched || 0) + (combined.forceMatched || 0) + (combined.dismissed || 0) + (combined.reviewed || 0);
       const applicable = combined.total - (combined.noData || 0);
       return { ...entry, combinedSummary: combined, resolved, applicable };
     });

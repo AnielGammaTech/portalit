@@ -120,7 +120,7 @@ export default function CustomerDetailHeaderCard({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div className="bg-emerald-50 rounded-xl border border-emerald-200 px-3 py-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-2xl font-bold text-emerald-600">{summary.matched + summary.forceMatched}</span>
+                <span className="text-2xl font-bold text-emerald-600">{summary.matched + summary.forceMatched + summary.dismissed + summary.reviewed}</span>
                 <Check className="w-4 h-4 text-emerald-400" />
               </div>
               <p className="text-[10px] text-emerald-500 font-medium uppercase tracking-wide mt-0.5">Matched</p>

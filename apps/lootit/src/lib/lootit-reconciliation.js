@@ -703,14 +703,10 @@ export function getDiscrepancySummary(reconciliations) {
   for (const r of reconciliations) {
     summary.total++;
 
-    if (r.review?.status === 'force_matched') {
-      summary.forceMatched++;
-      continue;
-    }
-    if (r.review?.status === 'dismissed') {
-      summary.dismissed++;
-      continue;
-    }
+    const reviewStatus = r.review?.status;
+    if (reviewStatus === 'force_matched') { summary.forceMatched++; continue; }
+    if (reviewStatus === 'dismissed') { summary.dismissed++; continue; }
+    if (reviewStatus === 'reviewed') { summary.reviewed++; continue; }
 
     if (r.status === 'match') summary.matched++;
     else if (r.status === 'over') summary.over++;
@@ -719,8 +715,6 @@ export function getDiscrepancySummary(reconciliations) {
     else if (r.status === 'no_data') summary.noData++;
     else if (r.status === 'unmatched_line_item' || r.status === 'no_vendor_data') summary.unmatched++;
     else summary.noData++;
-
-    if (r.review?.status === 'reviewed') summary.reviewed++;
   }
 
   return summary;

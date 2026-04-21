@@ -105,7 +105,7 @@ export default function CustomerDetailHeader({ customer, onBack, onSync, isSynci
           <div className="flex items-center gap-2 mt-2">
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/20 whitespace-nowrap">
               <Check className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-sm font-bold tabular-nums text-emerald-300">{summary.matched + summary.forceMatched}</span>
+              <span className="text-sm font-bold tabular-nums text-emerald-300">{summary.matched + summary.forceMatched + summary.dismissed + summary.reviewed}</span>
               <span className="text-[10px] text-emerald-400/70">Matched</span>
             </div>
             <div className={cn(
