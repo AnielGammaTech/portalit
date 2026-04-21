@@ -680,7 +680,17 @@ export default function ReconciliationDetailModal({
           )}
 
           {matchedLineItems.length === 0 && (
-            <p className="text-xs text-slate-400 italic">No matching HaloPSA line items</p>
+            <div className="bg-amber-50 border border-amber-200/60 rounded-xl p-4 text-center space-y-2">
+              <p className="text-xs font-medium text-amber-700">No matching HaloPSA line items</p>
+              {!readOnly && onMapLineItem && (
+                <button
+                  onClick={() => { onClose?.(); setTimeout(() => onMapLineItem?.(ruleId, label), 100); }}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors cursor-pointer"
+                >
+                  <Link2 className="w-3.5 h-3.5" /> Map to a line item
+                </button>
+              )}
+            </div>
           )}
 
           {/* Mapped vendor items */}
