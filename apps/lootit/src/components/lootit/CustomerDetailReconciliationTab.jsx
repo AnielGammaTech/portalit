@@ -15,16 +15,7 @@ export default function CustomerDetailReconciliationTab({
   summary,
   issueCount,
   existingOverrides,
-  isSaving,
-  onReview,
-  onDismiss,
-  onReset,
   onDetails,
-  onEditRule,
-  onSaveNotes,
-  onForceMatch,
-  onMapLineItem,
-  onRemoveMapping,
   onShowGroupMapper,
   stalenessMap,
   staleCount,
@@ -41,12 +32,9 @@ export default function CustomerDetailReconciliationTab({
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex gap-1.5 flex-wrap">
           {[
+            { key: 'unverified', label: 'To Review', count: unverifiedCount },
             { key: 'all', label: 'All', count: allRecons.filter(r => r.status !== 'no_data').length },
-            { key: 'unverified', label: 'Unverified', count: unverifiedCount },
             { key: 'issues', label: 'Issues', count: issueCount },
-            { key: 'stale', label: 'Stale', count: staleCount || 0 },
-            { key: 'matched', label: 'Matched', count: (summary?.matched || 0) + (summary?.forceMatched || 0) },
-            { key: 'verified', label: 'Verified', count: verificationState?.verified || 0 },
           ].map((f) => (
             <button
               key={f.key}
@@ -99,20 +87,11 @@ export default function CustomerDetailReconciliationTab({
             <ServiceCard
               key={recon.rule.id}
               reconciliation={recon}
-              onReview={onReview}
-              onDismiss={onDismiss}
-              onReset={onReset}
               onDetails={onDetails}
-              onEditRule={onEditRule}
-              onSaveNotes={onSaveNotes}
-              onForceMatch={onForceMatch}
-              onMapLineItem={onMapLineItem}
-              onRemoveMapping={onRemoveMapping}
-              hasOverride={existingOverrides.some((o) => o.rule_id === recon.rule.id)}
-              overrideCount={existingOverrides.filter((o) => o.rule_id === recon.rule.id && o.pax8_product_name !== 'approved_as_is').length}
-              isSaving={isSaving}
               staleness={stalenessMap?.[recon.rule.id]}
               isVerified={verificationState?.verifiedMap?.[recon.rule.id] || false}
+              hasOverride={existingOverrides.some((o) => o.rule_id === recon.rule.id)}
+              overrideCount={existingOverrides.filter((o) => o.rule_id === recon.rule.id && o.pax8_product_name !== 'approved_as_is').length}
               itemExclusionCount={(() => {
                 const integrationKey = recon.rule?.integration_key;
                 if (!integrationKey) return undefined;
@@ -146,18 +125,10 @@ export default function CustomerDetailReconciliationTab({
               <Pax8SubscriptionCard
                 key={recon.ruleId}
                 recon={recon}
-                onReview={onReview}
-                onDismiss={onDismiss}
-                onReset={onReset}
-                onForceMatch={onForceMatch}
                 onDetails={onDetails}
-                onMapLineItem={() => onMapLineItem(recon)}
-                onRemoveMapping={() => onRemoveMapping(recon.ruleId)}
-                onSaveNotes={onSaveNotes}
-                hasOverride={existingOverrides.some((o) => o.rule_id === recon.ruleId)}
-                isSaving={isSaving}
                 staleness={stalenessMap?.[recon.ruleId]}
                 isVerified={verificationState?.verifiedMap?.[recon.ruleId] || false}
+                hasOverride={existingOverrides.some((o) => o.rule_id === recon.ruleId)}
               />
             ))}
           </div>

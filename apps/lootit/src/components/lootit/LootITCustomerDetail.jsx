@@ -33,7 +33,7 @@ import SignOffDialog from './SignOffDialog';
 export default function LootITCustomerDetail({ customer, onBack, activeTab: activeTabProp = 'dashboard', onTabChange }) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('unverified');
   const [detailItem, setDetailItem] = useState(null);
   const [mappingRecon, setMappingRecon] = useState(null);
   const [showGroupMapper, setShowGroupMapper] = useState(false);
@@ -375,11 +375,6 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
         healthPct={healthPct}
         activeIntegrations={activeIntegrations}
         summary={summary}
-        issueCount={issueCount}
-        dollarImpact={dollarImpact}
-        contacts={contacts}
-        devices={devices}
-        contracts={contracts}
         recons={recons}
         pax8Recons={pax8Recons}
         allRecons={allRecons}
@@ -479,16 +474,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           summary={summary}
           issueCount={issueCount}
           existingOverrides={existingOverrides}
-          isSaving={isSaving}
-          onReview={handleReview}
-          onDismiss={handleDismiss}
-          onReset={resetReview}
           onDetails={setDetailItem}
-          onEditRule={setEditingRule}
-          onSaveNotes={(ruleId, notes) => saveNotes(ruleId, notes)}
-          onForceMatch={(ruleId, notes) => forceMatch(ruleId, notes)}
-          onMapLineItem={(ruleId, label) => setMappingRecon({ ruleId, productName: label })}
-          onRemoveMapping={(ruleId) => handleRemoveMapping(ruleId)}
           onShowGroupMapper={() => setShowGroupMapper(true)}
           stalenessMap={stalenessMap}
           staleCount={staleCount}
