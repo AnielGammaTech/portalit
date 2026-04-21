@@ -107,6 +107,20 @@ const ITEM_EXTRACTORS = {
       .filter(item => item.id);
   },
 
+  jumpcloud: (data) => {
+    if (!Array.isArray(data.users)) return null;
+    return data.users
+      .filter(u => u.state !== 'SUSPENDED')
+      .map(u => ({
+        id: u.email || u.id || '',
+        label: [u.firstname, u.lastname].filter(Boolean).join(' ')
+          ? `${[u.firstname, u.lastname].filter(Boolean).join(' ')} (${u.email || ''})`
+          : u.email || u.username || u.id || 'Unknown',
+        meta: { state: u.state, username: u.username },
+      }))
+      .filter(item => item.id);
+  },
+
   rocket_cyber: (data) => {
     if (!Array.isArray(data.agents)) return null;
     return data.agents.map(a => ({

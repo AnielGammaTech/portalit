@@ -509,9 +509,7 @@ export async function syncSpanningBackup(body, user) {
   // Sync licenses (contacts only, no SaaS license auto-creation)
   if (action === 'sync_licenses') {
     if (!customer_id) {
-      const err = new Error('customer_id is required');
-      err.statusCode = 400;
-      throw err;
+      return { success: false, error: 'customer_id is required' };
     }
 
     const { data: mappings } = await supabase
@@ -520,9 +518,7 @@ export async function syncSpanningBackup(body, user) {
       .eq('customer_id', customer_id);
 
     if (!mappings || mappings.length === 0) {
-      const err = new Error('No Spanning mapping found for this customer');
-      err.statusCode = 400;
-      throw err;
+      return { success: true, skipped: true, message: 'No Spanning mapping found for this customer' };
     }
 
     const mapping = mappings[0];

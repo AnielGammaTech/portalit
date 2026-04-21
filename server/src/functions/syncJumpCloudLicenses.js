@@ -379,9 +379,7 @@ export async function syncJumpCloudLicenses(body, user) {
   // Action: Sync licenses for a specific customer
   if (action === 'sync_licenses') {
     if (!customer_id) {
-      const err = new Error('customer_id is required');
-      err.statusCode = 400;
-      throw err;
+      return { success: false, error: 'customer_id is required' };
     }
 
     // Get the JumpCloud mapping for this customer
@@ -391,9 +389,7 @@ export async function syncJumpCloudLicenses(body, user) {
       .eq('customer_id', customer_id);
 
     if (!mappings || mappings.length === 0) {
-      const err = new Error('No JumpCloud organization mapped to this customer');
-      err.statusCode = 400;
-      throw err;
+      return { success: true, skipped: true, message: 'No JumpCloud organization mapped to this customer' };
     }
 
     const mapping = mappings[0];
@@ -580,7 +576,7 @@ export async function syncJumpCloudLicenses(body, user) {
       ssoApps: applications?.length || 0
     };
 
-    // Cache the data for future quick loads
+    // Cache the data for future quick loads (include user list for exclusion picker)
     await supabase
       .from('jump_cloud_mappings')
       .update({
@@ -591,7 +587,15 @@ export async function syncJumpCloudLicenses(body, user) {
           usersCreated,
           usersUpdated,
           licensesCreated: created,
-          licensesUpdated: updated
+          licensesUpdated: updated,
+          users: jcUsers.map(u => ({
+            id: u._id || u.id,
+            email: u.email,
+            username: u.username,
+            firstname: u.firstname,
+            lastname: u.lastname,
+            state: u.state || (u.activated ? 'ACTIVATED' : 'STAGED'),
+          })),
         }
       })
       .eq('id', mapping.id);

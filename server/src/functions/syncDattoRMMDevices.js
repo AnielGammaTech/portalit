@@ -271,9 +271,7 @@ export async function syncDattoRMMDevices(body, user) {
     const mappings = mappingsData || [];
 
     if (mappings.length === 0) {
-      const err = new Error('No Datto site mapped to this customer');
-      err.statusCode = 400;
-      throw err;
+      return { success: true, skipped: true, message: 'No Datto site mapped to this customer' };
     }
 
     let totalSynced = 0;

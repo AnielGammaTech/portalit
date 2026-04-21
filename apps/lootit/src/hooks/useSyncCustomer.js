@@ -35,22 +35,24 @@ export function useSyncCustomer(customer) {
         { fn: 'syncDattoEDR', action: 'sync_customer', label: 'Datto EDR' },
         { fn: 'syncJumpCloudLicenses', action: 'sync_licenses', label: 'JumpCloud' },
         { fn: 'syncSpanningBackup', action: 'sync_licenses', label: 'Spanning' },
-        { fn: 'syncCoveData', action: 'sync_devices', label: 'Cove' },
+        { fn: 'syncCoveData', action: 'sync_customer', label: 'Cove' },
         { fn: 'syncRocketCyber', action: 'sync_agents', label: 'RocketCyber' },
         { fn: 'syncUniFiDevices', action: 'sync_devices', label: 'UniFi' },
-        { fn: 'syncPax8Subscriptions', action: 'sync_subscriptions', label: 'Pax8' },
+        { fn: 'syncPax8Subscriptions', action: 'sync_customer', label: 'Pax8' },
       ];
-      let failed = 0;
-      for (let i = 0; i < vendorSyncs.length; i++) {
-        const v = vendorSyncs[i];
-        setSyncStatus(`Syncing ${v.label}... (${i + 1}/${vendorSyncs.length})`);
-        try {
-          await client.functions.invoke(v.fn, { action: v.action, customer_id: customer.id });
-        } catch {
-          failed++;
-        }
+      setSyncStatus(`Syncing vendors...`);
+      const results = await Promise.allSettled(
+        vendorSyncs.map((v) =>
+          client.functions.invoke(v.fn, { action: v.action, customer_id: customer.id })
+            .then((res) => ({ ...v, result: res }))
+        )
+      );
+      const failures = results
+        .map((r, i) => (r.status === 'rejected' ? vendorSyncs[i].label : null))
+        .filter(Boolean);
+      if (failures.length > 0) {
+        toast.error(`Sync issues: ${failures.join(', ')}`);
       }
-      if (failed > 0) toast.error(`${failed} vendor sync(s) had issues`);
 
       await queryClient.invalidateQueries({ queryKey: ['reconciliation_rules'] });
       await queryClient.invalidateQueries({ queryKey: ['recurring_bills'] });
