@@ -651,6 +651,17 @@ export default function ReconciliationDetailModal({
               haloDevices={haloDevices}
             />
           )}
+          {readOnly && reconciliation.review?.exclusion_count > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Excluded Accounts</h4>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+                <p className="text-sm font-medium text-amber-700">
+                  {reconciliation.review.exclusion_count} excluded
+                  {reconciliation.review.exclusion_reason && ` — "${reconciliation.review.exclusion_reason}"`}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Add note form */}
           {!readOnly && (

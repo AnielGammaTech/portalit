@@ -430,7 +430,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
                 exclusion_reason: snapshot.exclusion_reason,
               },
               integrationLabel: snapshot.integration_key,
-              _readOnly: false,
+              _readOnly: true,
               _snapshotDate: latestSignOff?.signed_at,
             });
           }}
