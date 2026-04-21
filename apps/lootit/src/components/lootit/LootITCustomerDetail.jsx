@@ -33,7 +33,7 @@ import SignOffDialog from './SignOffDialog';
 export default function LootITCustomerDetail({ customer, onBack, activeTab: activeTabProp = 'dashboard', onTabChange }) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const [statusFilter, setStatusFilter] = useState('unverified');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [detailItem, setDetailItem] = useState(null);
   const [mappingRecon, setMappingRecon] = useState(null);
   const [showGroupMapper, setShowGroupMapper] = useState(false);
