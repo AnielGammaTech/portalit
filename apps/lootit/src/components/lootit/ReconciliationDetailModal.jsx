@@ -394,17 +394,24 @@ function AddNoteForm({ ruleId, onSaveNotes }) {
 
 function BillingModelToggle({ ruleId, currentDivisor, rawVendorQty, onSave }) {
   const [saving, setSaving] = useState(false);
+  const [localDivisor, setLocalDivisor] = useState(currentDivisor);
   const options = [
     { value: 1, label: 'Per Device' },
     { value: 2, label: '2 Per User' },
   ];
 
+  const adjustedQty = rawVendorQty != null && localDivisor > 1
+    ? Math.ceil(rawVendorQty / localDivisor)
+    : rawVendorQty;
+
   const handleSelect = async (value) => {
-    if (value === currentDivisor) return;
+    if (value === localDivisor) return;
+    setLocalDivisor(value);
     setSaving(true);
     try {
       await onSave(ruleId, value);
     } catch (err) {
+      setLocalDivisor(currentDivisor);
       toast.error(`Failed to save: ${err.message}`);
     } finally {
       setSaving(false);
@@ -415,9 +422,9 @@ function BillingModelToggle({ ruleId, currentDivisor, rawVendorQty, onSave }) {
     <div className="bg-blue-50 rounded-xl border border-blue-200 p-4 space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-wider text-blue-400">Billing Model</span>
-        {rawVendorQty != null && currentDivisor > 1 && (
+        {rawVendorQty != null && localDivisor > 1 && (
           <span className="text-[10px] text-blue-400">
-            {rawVendorQty} devices / {currentDivisor} = {Math.ceil(rawVendorQty / currentDivisor)} billable
+            {rawVendorQty} devices / {localDivisor} = {adjustedQty} billable
           </span>
         )}
       </div>
@@ -429,7 +436,7 @@ function BillingModelToggle({ ruleId, currentDivisor, rawVendorQty, onSave }) {
             disabled={saving}
             className={cn(
               'flex-1 py-2 text-xs font-semibold rounded-lg transition-all disabled:opacity-50',
-              currentDivisor === opt.value
+              localDivisor === opt.value
                 ? 'bg-blue-600 text-white shadow-sm'
                 : 'bg-white text-blue-600 border border-blue-200 hover:bg-blue-100'
             )}

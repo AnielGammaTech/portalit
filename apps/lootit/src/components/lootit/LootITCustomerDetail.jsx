@@ -552,7 +552,21 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           }
           isExclusionSaving={isExclusionSaving}
           haloDevices={devices}
-          onSaveVendorDivisor={saveVendorDivisor}
+          onSaveVendorDivisor={async (ruleId, divisor) => {
+            await saveVendorDivisor(ruleId, divisor);
+            setDetailItem((prev) => {
+              if (!prev) return prev;
+              const raw = prev.rawVendorQty ?? prev.vendorQty;
+              const adjusted = raw != null && divisor > 1 ? Math.ceil(raw / divisor) : raw;
+              return {
+                ...prev,
+                vendorDivisor: divisor,
+                rawVendorQty: raw,
+                vendorQty: adjusted,
+                difference: prev.psaQty != null && adjusted != null ? prev.psaQty - adjusted : 0,
+              };
+            });
+          }}
         />
       )}
 
