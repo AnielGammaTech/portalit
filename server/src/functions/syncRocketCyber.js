@@ -111,8 +111,7 @@ function extractAgents(data) {
   }));
 }
 
-async function fetchAgents(rcAccountId) {
-  // Try v3 first, then v2 with multiple endpoint formats
+async function fetchAgents(rcAccountId, cachedEndpoint) {
   const attempts = [
     { label: 'v3 /agents', fn: () => rocketCyberV3ApiCall('/agents', { accountId: rcAccountId }) },
     { label: 'v3 /account/agents', fn: () => rocketCyberV3ApiCall(`/account/${rcAccountId}/agents`) },
@@ -120,24 +119,35 @@ async function fetchAgents(rcAccountId) {
     { label: 'v2 /account/agents', fn: () => rocketCyberApiCall(`/account/${rcAccountId}/agents`) },
   ];
 
+  // If we have a cached working endpoint, try it first
+  if (cachedEndpoint) {
+    const cached = attempts.find(a => a.label === cachedEndpoint);
+    if (cached) {
+      try {
+        const data = await cached.fn();
+        const agents = extractAgents(data);
+        if (agents.length > 0) {
+          return { count: agents.length, agents, endpoint: cachedEndpoint };
+        }
+      } catch (_) { /* fall through to full probe */ }
+    }
+  }
+
   for (const { label, fn } of attempts) {
+    if (label === cachedEndpoint) continue;
     try {
       const data = await fn();
-      const snippet = JSON.stringify(data).slice(0, 500);
-      console.log(`[RocketCyber] ${label} for ${rcAccountId}: ${snippet}`);
-
       const agents = extractAgents(data);
       if (agents.length > 0) {
         console.log(`[RocketCyber] Found ${agents.length} agents via ${label} for ${rcAccountId}`);
-        return { count: agents.length, agents };
+        return { count: agents.length, agents, endpoint: label };
       }
     } catch (err) {
       console.log(`[RocketCyber] ${label} failed for ${rcAccountId}: ${err.message}`);
     }
   }
 
-  console.warn(`[RocketCyber] All agent endpoints returned 0 for account ${rcAccountId}`);
-  return { count: 0, agents: [] };
+  return { count: 0, agents: [], endpoint: null };
 }
 
 // Cache endpoint probe results to avoid redundant API calls per account
@@ -603,16 +613,18 @@ export async function syncRocketCyber(body, user) {
       const batch = allMappings.slice(i, i + batchSize);
       const results = await Promise.allSettled(
         batch.map(async (mapping) => {
-          const agentResult = await fetchAgents(mapping.rc_account_id);
+          const agentResult = await fetchAgents(mapping.rc_account_id, mapping.agent_endpoint);
           const existingCached = mapping.cached_data || {};
           const cachedData = {
             ...existingCached,
             total_agents: agentResult.count,
             agents: agentResult.agents,
           };
+          const updatePayload = { last_synced: new Date().toISOString(), cached_data: cachedData };
+          if (agentResult.endpoint) updatePayload.agent_endpoint = agentResult.endpoint;
           await supabase
             .from('rocket_cyber_mappings')
-            .update({ last_synced: new Date().toISOString(), cached_data: cachedData })
+            .update(updatePayload)
             .eq('id', mapping.id);
           return mapping.rc_account_name || mapping.rc_account_id;
         })
