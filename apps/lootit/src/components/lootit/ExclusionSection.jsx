@@ -63,6 +63,8 @@ function ItemLevelExclusion({ ruleId, vendorItems, excludedItems, onSave, onRemo
   const [selectedIds, setSelectedIds] = useState(
     () => new Set(excludedItems.map(i => i.vendor_item_id))
   );
+  const [localSaving, setLocalSaving] = useState(false);
+  const saving = localSaving || isSaving;
 
   const excludedCount = excludedItems.length;
   const currentReason = excludedItems[0]?.reason || '';
@@ -95,16 +97,20 @@ function ItemLevelExclusion({ ruleId, vendorItems, excludedItems, onSave, onRemo
 
   const handleSave = async () => {
     const selectedItems = vendorItems.filter(i => selectedIds.has(i.id));
+    setLocalSaving(true);
     try {
       await onSave({ ruleId, selectedItems, reason });
       setShowForm(false);
       toast.success(`${selectedItems.length} item${selectedItems.length !== 1 ? 's' : ''} excluded`);
     } catch (err) {
       toast.error(`Failed: ${err.message}`);
+    } finally {
+      setLocalSaving(false);
     }
   };
 
   const handleRemoveAll = async () => {
+    setLocalSaving(true);
     try {
       await onRemoveAll(ruleId);
       setSelectedIds(new Set());
@@ -113,6 +119,8 @@ function ItemLevelExclusion({ ruleId, vendorItems, excludedItems, onSave, onRemo
       toast.success('Exclusions removed');
     } catch (err) {
       toast.error(`Failed: ${err.message}`);
+    } finally {
+      setLocalSaving(false);
     }
   };
 
@@ -244,15 +252,15 @@ function ItemLevelExclusion({ ruleId, vendorItems, excludedItems, onSave, onRemo
           <div className="flex gap-2">
             <button
               onClick={handleSave}
-              disabled={isSaving || selectedIds.size === 0}
+              disabled={saving || selectedIds.size === 0}
               className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 transition-colors"
             >
-              {isSaving ? 'Saving...' : `Exclude ${selectedIds.size} Item${selectedIds.size !== 1 ? 's' : ''}`}
+              {saving ? 'Saving...' : `Exclude ${selectedIds.size} Item${selectedIds.size !== 1 ? 's' : ''}`}
             </button>
             {excludedCount > 0 && (
               <button
                 onClick={handleRemoveAll}
-                disabled={isSaving}
+                disabled={saving}
                 className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors disabled:opacity-50"
               >
                 Remove All

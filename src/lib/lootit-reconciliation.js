@@ -322,26 +322,34 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
       : null;
     const hasVendorData = vendorQty !== null;
 
-    // 3. Calculate difference and status
-    const difference = hasPsaData && hasVendorData ? psaQty - vendorQty : 0;
+    // 3. Look up review (needed for vendor_divisor before difference calc)
+    const review = reviewMap[rule.id] || null;
+
+    // 4. Apply vendor_divisor (e.g. Datto RMM "2 Per User" mode)
+    const divisor = review?.vendor_divisor || 1;
+    const adjustedVendorQty = hasVendorData && divisor > 1
+      ? Math.ceil(vendorQty / divisor)
+      : vendorQty;
+
+    // 5. Calculate difference and status
+    const difference = hasPsaData && hasVendorData ? psaQty - adjustedVendorQty : 0;
     let status = 'no_data';
     if (hasPsaData && hasVendorData) {
       if (difference === 0) status = 'match';
       else if (difference > 0) status = 'over';
       else status = 'under';
-    } else if (!hasPsaData && hasVendorData && vendorQty > 0) {
+    } else if (!hasPsaData && hasVendorData && adjustedVendorQty > 0) {
       status = 'no_psa_data';
     } else if (hasPsaData && !hasVendorData) {
       status = 'no_vendor_data';
     }
 
-    // 4. Attach review info
-    const review = reviewMap[rule.id] || null;
-
     return {
       rule,
       psaQty: hasPsaData ? psaQty : null,
-      vendorQty,
+      vendorQty: hasVendorData ? adjustedVendorQty : null,
+      rawVendorQty: vendorQty,
+      vendorDivisor: divisor,
       difference,
       status,
       matchedLineItems: matched,

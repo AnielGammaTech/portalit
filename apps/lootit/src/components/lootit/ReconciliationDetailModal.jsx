@@ -389,6 +389,60 @@ function AddNoteForm({ ruleId, onSaveNotes }) {
 }
 
 // -------------------------------------------------------------------
+// Billing Model Toggle (Datto RMM)
+// -------------------------------------------------------------------
+
+function BillingModelToggle({ ruleId, currentDivisor, rawVendorQty, onSave }) {
+  const [saving, setSaving] = useState(false);
+  const options = [
+    { value: 1, label: 'Per Device' },
+    { value: 2, label: '2 Per User' },
+  ];
+
+  const handleSelect = async (value) => {
+    if (value === currentDivisor) return;
+    setSaving(true);
+    try {
+      await onSave(ruleId, value);
+    } catch (err) {
+      toast.error(`Failed to save: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="bg-blue-50 rounded-xl border border-blue-200 p-4 space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wider text-blue-400">Billing Model</span>
+        {rawVendorQty != null && currentDivisor > 1 && (
+          <span className="text-[10px] text-blue-400">
+            {rawVendorQty} devices / {currentDivisor} = {Math.ceil(rawVendorQty / currentDivisor)} billable
+          </span>
+        )}
+      </div>
+      <div className="flex gap-2">
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => handleSelect(opt.value)}
+            disabled={saving}
+            className={cn(
+              'flex-1 py-2 text-xs font-semibold rounded-lg transition-all disabled:opacity-50',
+              currentDivisor === opt.value
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'bg-white text-blue-600 border border-blue-200 hover:bg-blue-100'
+            )}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// -------------------------------------------------------------------
 // Main Modal
 // -------------------------------------------------------------------
 
@@ -413,6 +467,7 @@ export default function ReconciliationDetailModal({
   readOnly = false,
   snapshotDate,
   onReVerify,
+  onSaveVendorDivisor,
 }) {
   if (!reconciliation) return null;
 
@@ -488,6 +543,16 @@ export default function ReconciliationDetailModal({
               )}
             </dl>
           </div>
+
+          {/* Billing Model Toggle (Datto RMM) */}
+          {!isPax8 && reconciliation.rule?.integration_key?.startsWith('datto_rmm') && onSaveVendorDivisor && !readOnly && (
+            <BillingModelToggle
+              ruleId={ruleId}
+              currentDivisor={reconciliation.vendorDivisor || 1}
+              rawVendorQty={reconciliation.rawVendorQty}
+              onSave={onSaveVendorDivisor}
+            />
+          )}
 
           {/* Matched line items */}
           <div>

@@ -188,6 +188,32 @@ export function useReconciliationReviews(customerId) {
     });
   };
 
+  const saveVendorDivisor = async (ruleId, divisor) => {
+    const existing = findReview(ruleId);
+    if (existing) {
+      const { error } = await supabase
+        .from('reconciliation_reviews')
+        .update({ vendor_divisor: divisor })
+        .eq('id', existing.id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from('reconciliation_reviews')
+        .insert({
+          customer_id: customerId,
+          rule_id: ruleId,
+          status: 'pending',
+          vendor_divisor: divisor,
+          reviewed_by: user?.id || null,
+          reviewed_at: new Date().toISOString(),
+        });
+      if (error) throw error;
+    }
+    queryClient.invalidateQueries({ queryKey: reviewsKey });
+    queryClient.invalidateQueries({ queryKey: ['reconciliation_reviews'] });
+    toast.success(divisor > 1 ? `Billing model: ${divisor} devices per user` : 'Billing model: Per Device');
+  };
+
   return {
     reviews,
     isLoading,
@@ -198,6 +224,7 @@ export function useReconciliationReviews(customerId) {
     saveNotes,
     saveExclusion,
     forceMatch,
+    saveVendorDivisor,
     isSaving: upsertMutation.isPending,
   };
 }

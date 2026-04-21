@@ -40,7 +40,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   const [editingRule, setEditingRule] = useState(null);
 
   const { reconciliations, isLoading, rules: allRules } = useReconciliationData(customer.id);
-  const { reviews, markReviewed, dismiss, resetReview, saveNotes, saveExclusion, forceMatch, reVerify, isSaving } = useReconciliationReviews(customer.id);
+  const { reviews, markReviewed, dismiss, resetReview, saveNotes, saveExclusion, forceMatch, reVerify, saveVendorDivisor, isSaving } = useReconciliationReviews(customer.id);
   const { excludedItems, getExcludedForRule, getExclusionCount, saveExcludedItems, removeAllForRule, detectDroppedItems, isSaving: isExclusionSaving } = useExcludedItems(customer.id);
   const { data: contacts = [] } = useCustomerContacts(customer.id);
   const { data: devices = [] } = useCustomerDevices(customer.id);
@@ -552,6 +552,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           }
           isExclusionSaving={isExclusionSaving}
           haloDevices={devices}
+          onSaveVendorDivisor={saveVendorDivisor}
         />
       )}
 
