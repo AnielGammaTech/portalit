@@ -89,11 +89,21 @@ export function useExcludedItems(customerId) {
 
       // Sync exclusion_count on the review so reconciliation engine can subtract it
       const finalCount = selectedItems.length;
-      await supabase
+      const { count } = await supabase
         .from('reconciliation_reviews')
         .update({ exclusion_count: finalCount })
         .eq('customer_id', customerId)
-        .eq('rule_id', ruleId);
+        .eq('rule_id', ruleId)
+        .select('id', { count: 'exact', head: true });
+      if (!count) {
+        await supabase.from('reconciliation_reviews').insert({
+          customer_id: customerId,
+          rule_id: ruleId,
+          status: 'pending',
+          exclusion_count: finalCount,
+          reviewed_at: new Date().toISOString(),
+        });
+      }
 
       return { added: toAdd.length, removed: toRemove.length };
     },
@@ -158,7 +168,14 @@ export function useExcludedItems(customerId) {
         .delete()
         .in('id', droppedItems.map(i => i.id));
       if (error) console.warn('[logDroppedItems] cleanup error:', error.message);
+      const remaining = excludedItems.filter(i => i.rule_id === ruleId && !droppedItems.some(d => d.id === i.id));
+      await supabase
+        .from('reconciliation_reviews')
+        .update({ exclusion_count: remaining.length })
+        .eq('customer_id', customerId)
+        .eq('rule_id', ruleId);
       queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ['reconciliation_reviews', customerId] });
     }
   };
 

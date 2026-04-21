@@ -4,14 +4,7 @@ import StaleBadge from './StaleBadge';
 import AuditFooter from './AuditFooter';
 
 function getEffectiveStatus(recon) {
-  const { psaQty, vendorQty, status, review } = recon;
-  const exclusionCount = review?.exclusion_count || 0;
-  if (exclusionCount <= 0) return status;
-  const effectiveVendorQty = vendorQty !== null ? vendorQty - exclusionCount : null;
-  if (psaQty === null || effectiveVendorQty === null) return status;
-  const diff = psaQty - effectiveVendorQty;
-  if (diff === 0) return 'match';
-  return diff > 0 ? 'over' : 'under';
+  return recon.status;
 }
 
 function getCardState(recon) {
@@ -178,13 +171,12 @@ export default function Pax8SubscriptionCard({
   } = recon;
 
   const exclusionCount = review?.exclusion_count || 0;
-  const effectiveVendorQty = vendorQty !== null ? vendorQty - exclusionCount : null;
   const cardState = getCardState(recon);
   const styles = CARD_STYLES[cardState] || CARD_STYLES.no_vendor;
 
   const isDismissed = cardState === 'dismissed';
-  const showDiff = cardState === 'mismatch' && psaQty !== null && effectiveVendorQty !== null;
-  const diff = showDiff ? psaQty - effectiveVendorQty : 0;
+  const showDiff = cardState === 'mismatch' && psaQty !== null && vendorQty !== null;
+  const diff = showDiff ? psaQty - vendorQty : 0;
 
   const billingLine = [
     billingTerm || 'Pax8',
@@ -239,7 +231,7 @@ export default function Pax8SubscriptionCard({
 
       <QtyBlock
         psaQty={psaQty}
-        vendorQty={effectiveVendorQty}
+        vendorQty={vendorQty}
         cardState={cardState}
         styles={styles}
       />

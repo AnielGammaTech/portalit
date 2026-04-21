@@ -693,6 +693,19 @@ export default function ReconciliationDetailModal({
             </div>
           )}
 
+          {/* Map to vendor — PSA exists but no vendor data */}
+          {matchedLineItems.length > 0 && vendorQty === null && !readOnly && onMapLineItem && (
+            <div className="bg-amber-50 border border-amber-200/60 rounded-xl p-4 text-center space-y-2">
+              <p className="text-xs font-medium text-amber-700">No vendor data to compare against</p>
+              <button
+                onClick={() => { onClose?.(); setTimeout(() => onMapLineItem?.(ruleId, label), 100); }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors cursor-pointer"
+              >
+                <Link2 className="w-3.5 h-3.5" /> Map to a vendor item
+              </button>
+            </div>
+          )}
+
           {/* Mapped vendor items */}
           {mappedVendorItems.length > 0 && (
             <div>

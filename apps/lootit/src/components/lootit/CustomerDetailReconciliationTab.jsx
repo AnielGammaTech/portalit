@@ -3,8 +3,6 @@ import { cn } from '@/lib/utils';
 import { Filter, Link2, ClipboardCheck } from 'lucide-react';
 import ServiceCard from './ServiceCard';
 import Pax8SubscriptionCard from './Pax8SubscriptionCard';
-import { useExcludedItems } from '@/hooks/useExcludedItems';
-import { extractVendorItems } from '@/lib/vendor-item-extractors';
 
 export default function CustomerDetailReconciliationTab({
   filteredRecons,
@@ -24,7 +22,6 @@ export default function CustomerDetailReconciliationTab({
   vendorMappings,
   verificationState,
 }) {
-  const { getExclusionCount } = useExcludedItems(customerId);
   const unverifiedCount = verificationState ? verificationState.total - verificationState.verified : 0;
 
   return (
@@ -91,15 +88,6 @@ export default function CustomerDetailReconciliationTab({
               isVerified={verificationState?.verifiedMap?.[recon.rule.id] || false}
               hasOverride={existingOverrides.some((o) => o.rule_id === recon.rule.id)}
               overrideCount={existingOverrides.filter((o) => o.rule_id === recon.rule.id && o.pax8_product_name !== 'approved_as_is').length}
-              itemExclusionCount={(() => {
-                const integrationKey = recon.rule?.integration_key;
-                if (!integrationKey) return undefined;
-                const mapping = vendorMappings?.[integrationKey];
-                if (!mapping) return undefined;
-                const vendorItems = extractVendorItems(integrationKey, mapping.cached_data);
-                if (!vendorItems) return undefined;
-                return getExclusionCount(recon.rule?.id, vendorItems);
-              })()}
             />
           ))}
         </div>

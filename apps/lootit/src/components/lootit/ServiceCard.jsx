@@ -3,21 +3,14 @@ import { cn } from '@/lib/utils';
 import StaleBadge from './StaleBadge';
 import AuditFooter from './AuditFooter';
 
-function getEffectiveStatus(reconciliation, itemExclusionCount) {
-  const { psaQty, vendorQty, status, review } = reconciliation;
-  const exclusionCount = itemExclusionCount ?? review?.exclusion_count ?? 0;
-  if (exclusionCount <= 0) return status;
-  const effectiveVendorQty = vendorQty !== null ? vendorQty - exclusionCount : null;
-  if (psaQty === null || effectiveVendorQty === null) return status;
-  const diff = psaQty - effectiveVendorQty;
-  if (diff === 0) return 'match';
-  return diff > 0 ? 'over' : 'under';
+function getEffectiveStatus(reconciliation) {
+  return reconciliation.status;
 }
 
-function getCardState(reconciliation, itemExclusionCount) {
+function getCardState(reconciliation) {
   const { status, review } = reconciliation;
   const reviewStatus = review?.status;
-  const effectiveStatus = getEffectiveStatus(reconciliation, itemExclusionCount);
+  const effectiveStatus = getEffectiveStatus(reconciliation);
 
   if (reviewStatus === 'force_matched') return 'force_matched';
   if (reviewStatus === 'dismissed') return 'dismissed';
@@ -173,21 +166,19 @@ export default function ServiceCard({
   reconciliation,
   onDetails,
   staleness,
-  itemExclusionCount,
   isVerified,
   hasOverride,
   overrideCount = 0,
 }) {
   const { rule, psaQty, vendorQty, review } = reconciliation;
 
-  const exclusionCount = itemExclusionCount ?? review?.exclusion_count ?? 0;
-  const effectiveVendorQty = vendorQty !== null ? vendorQty - exclusionCount : null;
-  const cardState = getCardState(reconciliation, itemExclusionCount);
+  const exclusionCount = review?.exclusion_count ?? 0;
+  const cardState = getCardState(reconciliation);
   const styles = CARD_STYLES[cardState] || CARD_STYLES.no_vendor;
 
   const isDismissed = cardState === 'dismissed';
-  const showDiff = cardState === 'mismatch' && psaQty !== null && effectiveVendorQty !== null;
-  const diff = showDiff ? psaQty - effectiveVendorQty : 0;
+  const showDiff = cardState === 'mismatch' && psaQty !== null && vendorQty !== null;
+  const diff = showDiff ? psaQty - vendorQty : 0;
 
   const multiMapLabel = hasOverride && overrideCount > 1
     ? `Mapped to ${overrideCount} items`
@@ -248,7 +239,7 @@ export default function ServiceCard({
       <div className="h-[62px] flex items-center">
         <QtyBlock
           psaQty={psaQty}
-          vendorQty={effectiveVendorQty}
+          vendorQty={vendorQty}
           cardState={cardState}
           styles={styles}
         />
