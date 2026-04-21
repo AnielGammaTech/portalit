@@ -363,6 +363,29 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
         if (!mapping) continue;
         const items = extractVendorItems(key, mapping);
         allItems.push(...items);
+
+        // Datto RMM count-only: inject HaloPSA devices as expandable individual items
+        if (key.startsWith('datto_rmm') && items.length === 1 && items[0]._isSummary && devices.length > 0) {
+          let filtered = devices;
+          if (key === 'datto_rmm_workstation') {
+            filtered = devices.filter(d => {
+              const t = (d.device_type || '').toLowerCase();
+              return t !== 'server';
+            });
+          } else if (key === 'datto_rmm_server') {
+            filtered = devices.filter(d => (d.device_type || '').toLowerCase() === 'server');
+          }
+          for (const d of filtered) {
+            allItems.push({
+              id: `${key}:${d.id || d.name}`,
+              description: d.name || d.hostname || 'Unknown device',
+              quantity: 1,
+              unit_price: 0,
+              total: 0,
+              _meta: [d.device_type, d.status].filter(Boolean).join(' · '),
+            });
+          }
+        }
       }
 
       return q
