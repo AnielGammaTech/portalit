@@ -329,58 +329,49 @@ function ActionFooter({
     return 'bg-slate-500 hover:bg-slate-600';
   })();
 
-  if (pendingAction) {
-    return (
-      <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-4 space-y-3 shrink-0">
-        <textarea
-          value={actionNotes}
-          onChange={(e) => setActionNotes(e.target.value)}
-          placeholder={noteRequired ? 'Required \u2014 explain why\u2026' : 'Optional note\u2026'}
-          rows={2}
-          className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-200 resize-none bg-white"
-          autoFocus
-        />
-        <div className="flex gap-2">
-          <button
-            onClick={handleExecute}
-            disabled={buttonDisabled}
-            className={cn('px-4 py-2 text-xs font-semibold rounded-lg text-white transition-colors disabled:opacity-50 cursor-pointer', actionColor)}
-          >
-            {actionLabel}
-          </button>
-          <button
-            onClick={handleCancel}
-            className="px-4 py-2 text-xs font-semibold rounded-lg bg-white text-slate-500 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    );
-  }
+  if (pendingAction || showNoteInput) {
+    const isPending = !!pendingAction;
+    const noteVal = isPending ? actionNotes : standaloneNote;
+    const setNoteVal = isPending ? setActionNotes : setStandaloneNote;
+    const placeholder = isPending
+      ? (noteRequired ? 'Required \u2014 explain why this is acceptable\u2026' : 'Optional note\u2026')
+      : 'Add an audit note\u2026';
 
-  if (showNoteInput) {
+    const handleSubmit = isPending ? handleExecute : handleSaveNote;
+    const handleCancelNote = isPending ? handleCancel : () => { setShowNoteInput(false); setStandaloneNote(''); };
+    const isDisabled = isPending ? buttonDisabled : (savingNote || !standaloneNote.trim());
+    const submitLabel = isPending ? actionLabel : (savingNote ? 'Saving\u2026' : 'Save Note');
+    const submitColor = isPending ? actionColor : 'bg-slate-800 hover:bg-slate-900';
+
     return (
       <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-4 space-y-3 shrink-0">
+        {isPending && (
+          <p className="text-xs font-medium text-slate-500">
+            {pendingAction === 'approve' && 'Approve \u2014 accept this billing difference as-is'}
+            {pendingAction === 'force_match' && 'Force Match \u2014 override to show as matched'}
+            {pendingAction === 'review' && 'Confirm \u2014 verify this match is correct'}
+            {pendingAction === 'dismiss' && 'Dismiss \u2014 skip this item for now'}
+          </p>
+        )}
         <textarea
-          value={standaloneNote}
-          onChange={(e) => setStandaloneNote(e.target.value)}
-          placeholder="Add a note\u2026"
+          value={noteVal}
+          onChange={(e) => setNoteVal(e.target.value)}
+          placeholder={placeholder}
           rows={2}
-          className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-200 resize-none bg-white"
+          className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-300 resize-none bg-white"
           autoFocus
         />
         <div className="flex gap-2">
           <button
-            onClick={handleSaveNote}
-            disabled={savingNote || !standaloneNote.trim()}
-            className="px-4 py-2 text-xs font-semibold rounded-lg bg-slate-700 text-white hover:bg-slate-800 disabled:opacity-50 transition-colors cursor-pointer"
+            onClick={handleSubmit}
+            disabled={isDisabled}
+            className={cn('flex-1 py-2 text-xs font-semibold rounded-lg text-white transition-colors disabled:opacity-40 cursor-pointer', submitColor)}
           >
-            {savingNote ? 'Saving\u2026' : 'Save Note'}
+            {submitLabel}
           </button>
           <button
-            onClick={() => { setShowNoteInput(false); setStandaloneNote(''); }}
-            className="px-4 py-2 text-xs font-semibold rounded-lg bg-white text-slate-500 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+            onClick={handleCancelNote}
+            className="px-4 py-2 text-xs font-medium rounded-lg text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             Cancel
           </button>
@@ -390,100 +381,111 @@ function ActionFooter({
   }
 
   return (
-    <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-4 shrink-0">
-      <div className="flex items-center gap-2 flex-wrap">
-        {/* Status + Reset for reviewed items */}
-        {isReviewed && (
-          <>
-            <div className="flex items-center gap-1.5 text-xs font-semibold mr-auto">
-              <Check className="w-3.5 h-3.5 text-emerald-500" />
-              <span className="text-emerald-600">
-                {reviewStatus === 'force_matched' ? 'Force Matched' : reviewStatus === 'dismissed' ? 'Dismissed' : 'Verified'}
-              </span>
+    <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-4 shrink-0 space-y-3">
+      {/* Already reviewed — status display */}
+      {isReviewed && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className={cn(
+              'w-6 h-6 rounded-full flex items-center justify-center',
+              reviewStatus === 'force_matched' ? 'bg-blue-100' : reviewStatus === 'dismissed' ? 'bg-slate-100' : 'bg-emerald-100'
+            )}>
+              <Check className={cn(
+                'w-3.5 h-3.5',
+                reviewStatus === 'force_matched' ? 'text-blue-600' : reviewStatus === 'dismissed' ? 'text-slate-500' : 'text-emerald-600'
+              )} />
             </div>
-            <button
-              onClick={() => onReset?.(ruleId)}
-              disabled={isSaving}
-              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white text-amber-700 hover:bg-amber-50 border border-amber-200 transition-colors disabled:opacity-50 cursor-pointer"
-            >
-              <RotateCcw className="w-3 h-3" /> Reset
-            </button>
-          </>
-        )}
-
-        {/* Confirm Match for auto-matched, unreviewed */}
-        {isMatch && !isReviewed && (
+            <div>
+              <p className="text-xs font-semibold text-slate-700">
+                {reviewStatus === 'force_matched' ? 'Force Matched' : reviewStatus === 'dismissed' ? 'Dismissed' : 'Verified'}
+              </p>
+              {review?.notes && (
+                <p className="text-[11px] text-slate-400 truncate max-w-[280px]">{review.notes}</p>
+              )}
+            </div>
+          </div>
           <button
-            onClick={() => setPendingAction('review')}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors cursor-pointer mr-auto"
+            onClick={() => onReset?.(ruleId)}
+            disabled={isSaving}
+            className="text-[11px] font-medium text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50 cursor-pointer"
           >
-            <ClipboardCheck className="w-3.5 h-3.5" /> Confirm Match
+            Undo
           </button>
-        )}
+        </div>
+      )}
 
-        {/* Action buttons for non-matched, unreviewed */}
-        {!isMatch && !isReviewed && (
-          <>
-            <button
-              onClick={() => setPendingAction('approve')}
-              className="inline-flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors cursor-pointer"
-            >
-              <ShieldCheck className="w-3.5 h-3.5" /> Approve
-            </button>
+      {/* Confirm Match — matched but not yet verified */}
+      {isMatch && !isReviewed && (
+        <button
+          onClick={() => setPendingAction('review')}
+          className="w-full py-2.5 text-sm font-semibold rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors cursor-pointer flex items-center justify-center gap-2"
+        >
+          <Check className="w-4 h-4" />
+          Confirm Match
+        </button>
+      )}
+
+      {/* Mismatch actions — clear hierarchy */}
+      {!isMatch && !isReviewed && (
+        <div className="space-y-2">
+          {/* Primary: Approve full-width */}
+          <button
+            onClick={() => setPendingAction('approve')}
+            className="w-full py-2.5 text-sm font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors cursor-pointer"
+          >
+            Approve \u2014 accept this difference
+          </button>
+
+          {/* Secondary row */}
+          <div className="grid grid-cols-2 gap-2">
             {status !== 'no_vendor_data' && status !== 'no_data' && status !== 'unmatched_line_item' && (
               <button
                 onClick={() => setPendingAction('force_match')}
-                className="inline-flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-lg bg-pink-500 text-white hover:bg-pink-600 transition-colors cursor-pointer"
+                className="py-2 text-xs font-semibold rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
               >
-                <ShieldCheck className="w-3.5 h-3.5" /> Force Match
+                Force Match
               </button>
             )}
             <button
               onClick={() => setPendingAction('dismiss')}
-              className="inline-flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-lg bg-white text-slate-600 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+              className="py-2 text-xs font-semibold rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
             >
-              <X className="w-3.5 h-3.5" /> Dismiss
+              Dismiss
             </button>
-            {onMapLineItem && (
-              <button
-                onClick={() => {
-                  const label = isPax8 ? reconciliation.productName : rule?.label;
-                  onMapLineItem(ruleId, label);
-                }}
-                className="inline-flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-lg bg-white text-blue-600 hover:bg-blue-50 border border-blue-200 transition-colors cursor-pointer"
-              >
-                <Link2 className="w-3.5 h-3.5" /> Map
-              </button>
-            )}
-            <div className="flex-1" />
-          </>
-        )}
+          </div>
+        </div>
+      )}
 
-        {/* Note button */}
-        <button
-          onClick={() => setShowNoteInput(true)}
-          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer"
-        >
-          <MessageSquarePlus className="w-3.5 h-3.5" /> Note
-        </button>
-
-        {/* Re-verify */}
+      {/* Utility row — always visible */}
+      <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+        <div className="flex items-center gap-3">
+          {!isMatch && !isReviewed && onMapLineItem && (
+            <button
+              onClick={() => {
+                const lbl = isPax8 ? reconciliation.productName : rule?.label;
+                onMapLineItem(ruleId, lbl);
+              }}
+              className="text-[11px] font-medium text-blue-500 hover:text-blue-700 transition-colors cursor-pointer inline-flex items-center gap-1"
+            >
+              <Link2 className="w-3 h-3" /> Re-map
+            </button>
+          )}
+          <button
+            onClick={() => setShowNoteInput(true)}
+            className="text-[11px] font-medium text-slate-400 hover:text-slate-600 transition-colors cursor-pointer inline-flex items-center gap-1"
+          >
+            <MessageSquarePlus className="w-3 h-3" /> Add Note
+          </button>
+        </div>
         {onReVerify && (
           <button
             onClick={() => onReVerify(ruleId)}
-            className="inline-flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors cursor-pointer"
+            className="text-[11px] font-medium text-emerald-600 hover:text-emerald-700 transition-colors cursor-pointer inline-flex items-center gap-1"
           >
-            <RefreshCw className="w-3.5 h-3.5" /> Re-verify
+            <RefreshCw className="w-3 h-3" /> Re-verify
           </button>
         )}
       </div>
-
-      {/* Current review notes */}
-      {review?.notes && (
-        <div className="mt-3 bg-white rounded-lg px-3 py-2 border border-slate-100">
-          <p className="text-xs text-slate-600">{review.notes}</p>
-        </div>
-      )}
     </div>
   );
 }
