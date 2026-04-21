@@ -24,6 +24,8 @@ export const ACTION_LABELS = {
   exclusion:         { label: 'Exclusion set',     color: 'text-amber-600',   bg: 'bg-amber-50' },
   exclusion_added:   { label: 'Exclusion added',   color: 'text-amber-600',   bg: 'bg-amber-50' },
   exclusion_removed: { label: 'Exclusion removed', color: 'text-orange-600',  bg: 'bg-orange-50' },
+  exclusion_removed_all: { label: 'All exclusions cleared', color: 'text-red-500', bg: 'bg-red-50' },
+  exclusion_reverified:  { label: 'Exclusion re-verified',  color: 'text-emerald-600', bg: 'bg-emerald-50' },
   exclusion_dropped: { label: 'Exclusion dropped', color: 'text-red-500',     bg: 'bg-red-50' },
   force_matched:     { label: 'Force Matched',     color: 'text-blue-600',    bg: 'bg-blue-50' },
   approved_as_is:    { label: 'Approved As-Is',    color: 'text-blue-600',    bg: 'bg-blue-50' },

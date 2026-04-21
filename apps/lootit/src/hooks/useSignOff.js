@@ -108,10 +108,11 @@ export function useSignOff(customerId) {
         psa_qty: tile.psaQty,
         vendor_qty: tile.vendorQty,
         created_by: user?.id || null,
+        created_by_name: user?.full_name || user?.email || null,
       }));
 
       if (historyRows.length > 0) {
-        supabase.from('reconciliation_review_history').insert(historyRows);
+        await supabase.from('reconciliation_review_history').insert(historyRows);
       }
 
       return signOff;

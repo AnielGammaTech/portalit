@@ -100,15 +100,28 @@ export function useExcludedItems(customerId) {
 
   const removeAllForRule = useMutation({
     mutationFn: async (ruleId) => {
+      const removed = excludedItems.filter(i => i.rule_id === ruleId);
       const { error } = await supabase
         .from('reconciliation_excluded_items')
         .delete()
         .eq('customer_id', customerId)
         .eq('rule_id', ruleId);
       if (error) throw error;
+      if (removed.length > 0) {
+        await supabase.from('reconciliation_review_history').insert({
+          customer_id: customerId,
+          rule_id: ruleId,
+          action: 'exclusion_removed_all',
+          status: 'exclusion',
+          notes: `Removed ${removed.length} exclusion(s): ${removed.map(i => i.vendor_item_label || i.vendor_item_id).join(', ')}`,
+          created_by: user?.id || null,
+          created_by_name: user?.full_name || user?.email || null,
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ['reconciliation_review_history', customerId] });
     },
   });
 

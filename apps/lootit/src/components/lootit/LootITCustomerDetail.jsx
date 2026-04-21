@@ -411,11 +411,16 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           customerId={customer.id}
           onTabChange={setActiveTab}
           onShowSnapshotDetail={(snapshot) => {
+            const liveRecon = allRecons.find((r) => (r.rule?.id || r.ruleId) === snapshot.rule_id);
             setDetailItem({
               rule: { id: snapshot.rule_id, label: snapshot.label, integration_key: snapshot.integration_key },
               psaQty: snapshot.psa_qty,
               vendorQty: snapshot.vendor_qty,
               status: snapshot.status,
+              matchedLineItems: liveRecon?.matchedLineItems || [],
+              rawVendorQty: liveRecon?.rawVendorQty,
+              vendorDivisor: liveRecon?.vendorDivisor,
+              difference: (snapshot.psa_qty || 0) - (snapshot.vendor_qty || 0),
               review: {
                 status: snapshot.review_status,
                 notes: snapshot.review_notes,
@@ -425,7 +430,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
                 exclusion_reason: snapshot.exclusion_reason,
               },
               integrationLabel: snapshot.integration_key,
-              _readOnly: true,
+              _readOnly: false,
               _snapshotDate: latestSignOff?.signed_at,
             });
           }}
