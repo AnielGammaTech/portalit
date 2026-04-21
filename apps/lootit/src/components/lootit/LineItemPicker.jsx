@@ -30,12 +30,44 @@ function getVendorName(integrationKey) {
  * Extract displayable items from a vendor mapping's cached_data.
  * Returns an array of { id, description, quantity, unit_price?, total?, _meta? }.
  */
-function extractVendorItems(integrationKey, mapping) {
+function extractVendorItems(integrationKey, mapping, haloDevices) {
   const raw = typeof mapping.cached_data === 'string'
     ? (() => { try { return JSON.parse(mapping.cached_data); } catch { return {}; } })()
     : (mapping.cached_data || {});
 
   const label = INTEGRATION_LABELS[integrationKey] || integrationKey;
+
+  // Datto RMM: cached_data is count-only, use HaloPSA devices instead
+  if (integrationKey.startsWith('datto_rmm') && (!Array.isArray(raw.devices) || raw.devices.length === 0) && Array.isArray(haloDevices) && haloDevices.length > 0) {
+    let deviceList = haloDevices;
+    if (integrationKey === 'datto_rmm_workstation') {
+      deviceList = haloDevices.filter(d => {
+        const t = (d.device_type || '').toLowerCase();
+        return t === 'desktop' || t === 'laptop' || t === 'workstation';
+      });
+    } else if (integrationKey === 'datto_rmm_server') {
+      deviceList = haloDevices.filter(d => (d.device_type || '').toLowerCase() === 'server');
+    }
+    if (deviceList.length > 0) {
+      const summary = {
+        id: `${integrationKey}:total`,
+        description: label,
+        quantity: deviceList.length,
+        unit_price: 0,
+        total: 0,
+        _meta: `${deviceList.length} total devices`,
+        _isSummary: true,
+      };
+      return [summary, ...deviceList.map((d, i) => ({
+        id: `${integrationKey}:${d.id || d.name || i}`,
+        description: d.name || d.hostname || 'Unknown device',
+        quantity: 1,
+        unit_price: 0,
+        total: 0,
+        _meta: [d.device_type, d.status].filter(Boolean).join(' · '),
+      }))];
+    }
+  }
 
   // Device arrays (UniFi, Datto RMM, Cove)
   if (Array.isArray(raw.devices) && raw.devices.length > 0) {
@@ -253,7 +285,7 @@ function buildTabs(lineItems, pax8Products, devices, vendorMappings) {
   if (vendorMappings) {
     for (const [key, mapping] of Object.entries(vendorMappings)) {
       if (key === 'pax8') continue; // already handled above
-      const items = extractVendorItems(key, mapping);
+      const items = extractVendorItems(key, mapping, devices);
       if (items.length > 0) {
         const vendorName = getVendorName(key);
         const existing = vendorGroups.get(vendorName) || [];
@@ -361,31 +393,8 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
       for (const key of integrationKeys) {
         const mapping = vendorMappings[key];
         if (!mapping) continue;
-        const items = extractVendorItems(key, mapping);
+        const items = extractVendorItems(key, mapping, devices);
         allItems.push(...items);
-
-        // Datto RMM count-only: inject HaloPSA devices as expandable individual items
-        if (key.startsWith('datto_rmm') && items.length === 1 && items[0]._isSummary && devices.length > 0) {
-          let filtered = devices;
-          if (key === 'datto_rmm_workstation') {
-            filtered = devices.filter(d => {
-              const t = (d.device_type || '').toLowerCase();
-              return t !== 'server';
-            });
-          } else if (key === 'datto_rmm_server') {
-            filtered = devices.filter(d => (d.device_type || '').toLowerCase() === 'server');
-          }
-          for (const d of filtered) {
-            allItems.push({
-              id: `${key}:${d.id || d.name}`,
-              description: d.name || d.hostname || 'Unknown device',
-              quantity: 1,
-              unit_price: 0,
-              total: 0,
-              _meta: [d.device_type, d.status].filter(Boolean).join(' · '),
-            });
-          }
-        }
       }
 
       return q
