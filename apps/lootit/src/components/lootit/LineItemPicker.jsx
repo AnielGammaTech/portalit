@@ -19,6 +19,7 @@ function getVendorName(integrationKey) {
   if (integrationKey.startsWith('bullphish')) return 'BullPhish ID';
   if (integrationKey.startsWith('threecx')) return '3CX';
   if (integrationKey.startsWith('inky')) return 'Inky';
+  if (integrationKey.startsWith('cipp')) return 'CIPP';
   if (integrationKey.startsWith('pax8')) return 'Pax8';
   // Fallback: capitalize first word
   const first = integrationKey.split('_')[0];
@@ -103,7 +104,43 @@ function extractVendorItems(integrationKey, mapping) {
     }))];
   }
 
-  // User arrays (Spanning, JumpCloud)
+  // CIPP licensed users: group by license SKU
+  if (integrationKey === 'cipp_licensed' && Array.isArray(raw.users)) {
+    const licensedUsers = raw.users.filter(u => u.licenses);
+    const licenseGroups = {};
+    for (const u of licensedUsers) {
+      const lics = (u.licenses || '').split(',').map(l => l.trim()).filter(Boolean);
+      for (const lic of lics) {
+        if (!licenseGroups[lic]) licenseGroups[lic] = [];
+        licenseGroups[lic].push(u);
+      }
+    }
+    const items = [];
+    for (const [licName, users] of Object.entries(licenseGroups).sort((a, b) => b[1].length - a[1].length)) {
+      items.push({
+        id: `${integrationKey}:lic:${licName}`,
+        description: licName,
+        quantity: users.length,
+        unit_price: 0,
+        total: 0,
+        _meta: `${users.length} licensed users`,
+        _isSummary: true,
+      });
+      for (const u of users) {
+        items.push({
+          id: `${integrationKey}:${u.id || u.email}`,
+          description: u.displayName || u.email || 'Unknown user',
+          quantity: 1,
+          unit_price: 0,
+          total: 0,
+          _meta: u.email || '',
+        });
+      }
+    }
+    return items;
+  }
+
+  // User arrays (Spanning, JumpCloud, CIPP)
   if (Array.isArray(raw.users) && raw.users.length > 0) {
     const summary = {
       id: `${integrationKey}:total`,

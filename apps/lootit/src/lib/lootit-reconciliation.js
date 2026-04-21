@@ -152,6 +152,20 @@ const VENDOR_EXTRACTORS = {
     }
     return null;
   },
+
+  cipp: (data) => {
+    if (!data) return null;
+    if (Array.isArray(data.users)) return data.users.length;
+    if (typeof data.users === 'number') return data.users;
+    return null;
+  },
+
+  cipp_licensed: (data) => {
+    if (!data) return null;
+    if (Array.isArray(data.users)) return data.users.filter(u => u.licenses).length;
+    if (typeof data.licensed_users === 'number') return data.licensed_users;
+    return null;
+  },
 };
 
 /**
@@ -185,6 +199,8 @@ export const INTEGRATION_MAPPING_ENTITIES = {
   threecx: 'ThreeCXReport',
   inky: 'InkyReport',
   pax8: 'Pax8Mapping',
+  cipp: 'CIPPMapping',
+  cipp_licensed: 'CIPPMapping',
 };
 
 export const INTEGRATION_LABELS = {
@@ -206,6 +222,8 @@ export const INTEGRATION_LABELS = {
   threecx: '3CX VoIP',
   inky: 'Inky',
   pax8: 'Pax8',
+  cipp: 'CIPP Users',
+  cipp_licensed: 'CIPP Licensed Users',
 };
 
 // ── Rule matching ──────────────────────────────────────────────────────

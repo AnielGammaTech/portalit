@@ -94,6 +94,15 @@ export function useReconciliationData(customerId) {
     staleTime: 1000 * 60 * 2,
   });
 
+  // 4b. Fetch CIPP users for enriching cipp/cipp_licensed cached_data
+  const { data: cippUsers = [] } = useQuery({
+    queryKey: ['cipp_users_lootit'],
+    queryFn: () => client.entities.CIPPUser.list(null, 5000),
+    staleTime: 1000 * 60 * 5,
+    refetchInterval,
+    enabled: !!mappingQueries.cipp || !!mappingQueries.cipp_licensed,
+  });
+
   // Only block on core data (rules + customers + bills).
   // Mapping queries load progressively — treat errors as "done".
   const isLoading =
@@ -222,6 +231,33 @@ export function useReconciliationData(customerId) {
         continue;
       }
 
+      if (integrationKey === 'cipp' || integrationKey === 'cipp_licensed') {
+        for (const row of rows) {
+          if (!row.customer_id) continue;
+          if (!result[row.customer_id]) result[row.customer_id] = {};
+          const custUsers = cippUsers
+            .filter(u => u.customer_id === row.customer_id)
+            .map(u => ({
+              id: u.id,
+              displayName: u.display_name,
+              email: u.user_principal_name,
+              userType: u.user_type,
+              licenses: u.assigned_licenses || u.cached_data?.licenses || '',
+              accountEnabled: u.account_enabled,
+              department: u.department,
+              jobTitle: u.job_title,
+            }));
+          result[row.customer_id][integrationKey] = {
+            ...row,
+            cached_data: {
+              users: custUsers,
+              licensed_users: custUsers.filter(u => u.licenses).length,
+            },
+          };
+        }
+        continue;
+      }
+
       for (const row of rows) {
         if (!row.customer_id) continue;
         if (!result[row.customer_id]) result[row.customer_id] = {};
@@ -248,6 +284,7 @@ export function useReconciliationData(customerId) {
   }, [
     // Depend on the data arrays themselves, not the query objects
     ...Object.values(mappingQueries).map((q) => q.data),
+    cippUsers,
   ]);
 
   // 9. Group reviews by customer
