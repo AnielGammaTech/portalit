@@ -84,8 +84,8 @@ export function useStalenessData({ reviews, snapshotsByRuleId, latestSignOff, al
 
       // Change detection (existing logic)
       if (snapshot) {
-        const psaChanged = tile.psaQty !== snapshot.psa_qty;
-        const vendorChanged = tile.vendorQty !== snapshot.vendor_qty;
+        const psaChanged = Number(tile.psaQty ?? 0) !== Number(snapshot.psa_qty ?? 0);
+        const vendorChanged = Number(tile.vendorQty ?? 0) !== Number(snapshot.vendor_qty ?? 0);
         if (psaChanged || vendorChanged) {
           changeDetected = true;
           previousPsaQty = snapshot.psa_qty;
