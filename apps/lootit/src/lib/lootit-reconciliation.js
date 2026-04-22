@@ -107,6 +107,12 @@ const VENDOR_EXTRACTORS = {
     if (typeof data.summary?.firewalls === 'number') return data.summary.firewalls;
     return null;
   },
+  unifi_location: (data) => {
+    if (!data) return null;
+    if (Array.isArray(data.devices)) return data.devices.filter(d => d.type === 'firewall' || d.device_type === 'firewall' || d.model?.toLowerCase().includes('udm') || d.model?.toLowerCase().includes('usg') || d.model?.toLowerCase().includes('gateway')).length;
+    if (typeof data.summary?.firewalls === 'number') return data.summary.firewalls;
+    return null;
+  },
 
   rocket_cyber: (data) => {
     if (!data) return null;
@@ -201,6 +207,7 @@ export const INTEGRATION_MAPPING_ENTITIES = {
   datto_edr: 'DattoEDRMapping',
   unifi: 'UniFiMapping',
   unifi_firewall: 'UniFiMapping',
+  unifi_location: 'UniFiMapping',
   rocket_cyber: 'RocketCyberMapping',
   darkweb: 'DarkWebIDReport',
   bullphish: 'BullPhishIDReport',
@@ -225,6 +232,7 @@ export const INTEGRATION_LABELS = {
   datto_edr: 'Datto EDR',
   unifi: 'UniFi Network',
   unifi_firewall: 'UniFi Firewall',
+  unifi_location: 'UniFi Firewall',
   rocket_cyber: 'RocketCyber',
   darkweb: 'Dark Web ID',
   bullphish: 'BullPhish ID',
