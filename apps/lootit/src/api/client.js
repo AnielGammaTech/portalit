@@ -11,6 +11,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: true,
     storage: createAuthStorage(),
+    lock: async (_name, _acquireTimeout, fn) => fn(),
   },
   global: {
     fetch: (url, options = {}) => {
