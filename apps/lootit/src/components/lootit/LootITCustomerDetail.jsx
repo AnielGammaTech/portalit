@@ -153,6 +153,19 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
     };
   }, [recons, pax8Recons, reviews, stalenessMap]);
 
+  const advanceToNext = (completedRuleId) => {
+    const unverified = verificationState.unverified.filter(t => t.ruleId !== completedRuleId);
+    if (unverified.length > 0) {
+      const nextRuleId = unverified[0].ruleId;
+      const nextRecon = allRecons.find(r => (r.rule?.id || r.ruleId) === nextRuleId);
+      if (nextRecon) {
+        setDetailItem(nextRecon);
+        return;
+      }
+    }
+    setDetailItem(null);
+  };
+
   const filteredRecons = useMemo(() => {
     const visible = recons.filter((r) => r.status !== 'no_data' || r.review?.status === 'force_matched' || r.review?.status === 'reviewed' || r.review?.status === 'dismissed');
     if (statusFilter === 'all') return visible;
@@ -519,6 +532,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           customerId={customer.id}
           overrides={existingOverrides}
           onClose={() => setDetailItem(null)}
+          onActionComplete={(ruleId) => advanceToNext(ruleId)}
           readOnly={detailItem._readOnly || false}
           snapshotDate={detailItem._snapshotDate}
           snapshot={snapshotsByRuleId[detailItem.ruleId || detailItem.rule?.id]}

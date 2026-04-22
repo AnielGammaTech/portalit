@@ -271,23 +271,34 @@ function ActionFooter({
   const [standaloneNote, setStandaloneNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
 
-  const noteRequired = pendingAction === 'force_match' || pendingAction === 'approve';
-  const buttonDisabled = saving || isSaving || (noteRequired && !actionNotes.trim());
-
-  const handleExecute = async () => {
-    if (!pendingAction) return;
-    if (noteRequired && !actionNotes.trim()) return;
+  const handleApprove = async () => {
     setSaving(true);
     try {
-      if (pendingAction === 'force_match' || pendingAction === 'approve') {
-        await onForceMatch?.(ruleId, actionNotes);
-      } else if (pendingAction === 'review') {
-        await onReview?.(ruleId, { notes: actionNotes || undefined });
-      } else if (pendingAction === 'dismiss') {
-        await onDismiss?.(ruleId, { notes: actionNotes || undefined });
-      }
+      await onForceMatch?.(ruleId, actionNotes || undefined);
       setPendingAction(null);
       setActionNotes('');
+    } catch (err) {
+      console.error('[Modal Action]', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleConfirmMatch = async () => {
+    setSaving(true);
+    try {
+      await onReview?.(ruleId);
+    } catch (err) {
+      console.error('[Modal Action]', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSkip = async () => {
+    setSaving(true);
+    try {
+      await onDismiss?.(ruleId);
     } catch (err) {
       console.error('[Modal Action]', err);
     } finally {
@@ -315,63 +326,62 @@ function ActionFooter({
     }
   };
 
-  const actionLabel = (() => {
-    if (saving) return 'Saving\u2026';
-    if (pendingAction === 'force_match') return 'Force Match';
-    if (pendingAction === 'approve') return 'Approve';
-    if (pendingAction === 'review') return 'Confirm';
-    if (pendingAction === 'dismiss') return 'Skip';
-    return 'Save';
-  })();
-
-  const actionColor = (() => {
-    if (pendingAction === 'force_match' || pendingAction === 'approve') return 'bg-pink-500 hover:bg-pink-600';
-    if (pendingAction === 'review') return 'bg-emerald-500 hover:bg-emerald-600';
-    return 'bg-slate-500 hover:bg-slate-600';
-  })();
-
-  if (pendingAction || showNoteInput) {
-    const isPending = !!pendingAction;
-    const noteVal = isPending ? actionNotes : standaloneNote;
-    const setNoteVal = isPending ? setActionNotes : setStandaloneNote;
-    const placeholder = isPending
-      ? (noteRequired ? 'Required \u2014 explain why this is acceptable\u2026' : 'Optional note\u2026')
-      : 'Add an audit note\u2026';
-
-    const handleSubmit = isPending ? handleExecute : handleSaveNote;
-    const handleCancelNote = isPending ? handleCancel : () => { setShowNoteInput(false); setStandaloneNote(''); };
-    const isDisabled = isPending ? buttonDisabled : (savingNote || !standaloneNote.trim());
-    const submitLabel = isPending ? actionLabel : (savingNote ? 'Saving\u2026' : 'Save Note');
-    const submitColor = isPending ? actionColor : 'bg-slate-800 hover:bg-slate-900';
-
+  /* Approve note panel — note is optional */
+  if (pendingAction === 'approve') {
     return (
       <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-4 space-y-3 shrink-0">
-        {isPending && (
-          <p className="text-xs font-medium text-slate-500">
-            {pendingAction === 'approve' && 'Approve \u2014 accept this billing difference as-is'}
-            {pendingAction === 'force_match' && 'Force Match \u2014 override to show as matched'}
-            {pendingAction === 'review' && 'Confirm \u2014 verify this match is correct'}
-            {pendingAction === 'dismiss' && 'Dismiss \u2014 skip this item for now'}
-          </p>
-        )}
+        <p className="text-xs font-medium text-slate-500">
+          Approve — accept this billing difference as-is
+        </p>
         <textarea
-          value={noteVal}
-          onChange={(e) => setNoteVal(e.target.value)}
-          placeholder={placeholder}
+          value={actionNotes}
+          onChange={(e) => setActionNotes(e.target.value)}
+          placeholder="Optional note..."
           rows={2}
           className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-300 resize-none bg-white"
           autoFocus
         />
         <div className="flex gap-2">
           <button
-            onClick={handleSubmit}
-            disabled={isDisabled}
-            className={cn('flex-1 py-2 text-xs font-semibold rounded-lg text-white transition-colors disabled:opacity-40 cursor-pointer', submitColor)}
+            onClick={handleApprove}
+            disabled={saving || isSaving}
+            className={cn('flex-1 py-2 text-xs font-semibold rounded-lg text-white transition-colors disabled:opacity-40 cursor-pointer', 'bg-pink-500 hover:bg-pink-600')}
           >
-            {submitLabel}
+            {saving ? 'Saving\u2026' : 'Approve'}
           </button>
           <button
-            onClick={handleCancelNote}
+            onClick={handleCancel}
+            className="px-4 py-2 text-xs font-medium rounded-lg text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  /* Standalone note panel */
+  if (showNoteInput) {
+    return (
+      <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-4 space-y-3 shrink-0">
+        <textarea
+          value={standaloneNote}
+          onChange={(e) => setStandaloneNote(e.target.value)}
+          placeholder="Add an audit note..."
+          rows={2}
+          className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-300 resize-none bg-white"
+          autoFocus
+        />
+        <div className="flex gap-2">
+          <button
+            onClick={handleSaveNote}
+            disabled={savingNote || !standaloneNote.trim()}
+            className={cn('flex-1 py-2 text-xs font-semibold rounded-lg text-white transition-colors disabled:opacity-40 cursor-pointer', 'bg-slate-800 hover:bg-slate-900')}
+          >
+            {savingNote ? 'Saving\u2026' : 'Save Note'}
+          </button>
+          <button
+            onClick={() => { setShowNoteInput(false); setStandaloneNote(''); }}
             className="px-4 py-2 text-xs font-medium rounded-lg text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             Cancel
@@ -415,45 +425,34 @@ function ActionFooter({
         </div>
       )}
 
-      {/* Confirm Match — matched but not yet verified */}
+      {/* Confirm — matched but not yet verified (fires immediately) */}
       {isMatch && !isReviewed && (
         <button
-          onClick={() => setPendingAction('review')}
-          className="w-full py-2.5 text-sm font-semibold rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors cursor-pointer flex items-center justify-center gap-2"
+          onClick={handleConfirmMatch}
+          disabled={saving || isSaving}
+          className="w-full py-2.5 text-sm font-semibold rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
         >
           <Check className="w-4 h-4" />
-          Confirm Match
+          {saving ? 'Saving\u2026' : 'Confirm'}
         </button>
       )}
 
-      {/* Mismatch actions — clear hierarchy */}
+      {/* Mismatch actions — Approve (primary) + Skip (secondary) */}
       {!isMatch && !isReviewed && (
         <div className="space-y-2">
-          {/* Primary: Approve full-width */}
           <button
             onClick={() => setPendingAction('approve')}
             className="w-full py-2.5 text-sm font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors cursor-pointer"
           >
             Approve — accept this difference
           </button>
-
-          {/* Secondary row */}
-          <div className="grid grid-cols-2 gap-2">
-            {status !== 'no_vendor_data' && status !== 'no_data' && status !== 'unmatched_line_item' && (
-              <button
-                onClick={() => setPendingAction('force_match')}
-                className="py-2 text-xs font-semibold rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
-              >
-                Force Match
-              </button>
-            )}
-            <button
-              onClick={() => setPendingAction('dismiss')}
-              className="py-2 text-xs font-semibold rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
-            >
-              Dismiss
-            </button>
-          </div>
+          <button
+            onClick={handleSkip}
+            disabled={saving || isSaving}
+            className="w-full py-2 text-xs font-semibold rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors disabled:opacity-50 cursor-pointer"
+          >
+            {saving ? 'Saving\u2026' : 'Skip'}
+          </button>
         </div>
       )}
 
@@ -478,14 +477,6 @@ function ActionFooter({
             <MessageSquarePlus className="w-3 h-3" /> Add Note
           </button>
         </div>
-        {onReVerify && (
-          <button
-            onClick={() => onReVerify(ruleId)}
-            className="text-[11px] font-medium text-emerald-600 hover:text-emerald-700 transition-colors cursor-pointer inline-flex items-center gap-1"
-          >
-            <RefreshCw className="w-3 h-3" /> Re-verify
-          </button>
-        )}
       </div>
     </div>
   );
@@ -495,6 +486,7 @@ export default function ReconciliationDetailModal({
   reconciliation,
   customerId,
   onClose,
+  onActionComplete,
   onForceMatch,
   onReview,
   onDismiss,
@@ -792,9 +784,9 @@ export default function ReconciliationDetailModal({
           <ActionFooter
             reconciliation={reconciliation}
             ruleId={ruleId}
-            onForceMatch={async (id, notes) => { await onForceMatch?.(id, notes); onClose?.(); }}
-            onReview={async (id, opts) => { await onReview?.(id, opts); onClose?.(); }}
-            onDismiss={async (id, opts) => { await onDismiss?.(id, opts); onClose?.(); }}
+            onForceMatch={async (id, notes) => { await onForceMatch?.(id, notes); onActionComplete ? onActionComplete(id) : onClose?.(); }}
+            onReview={async (id, opts) => { await onReview?.(id, opts); onActionComplete ? onActionComplete(id) : onClose?.(); }}
+            onDismiss={async (id, opts) => { await onDismiss?.(id, opts); onActionComplete ? onActionComplete(id) : onClose?.(); }}
             onReset={async (id) => { await onReset?.(id); onClose?.(); }}
             onMapLineItem={(id, lbl) => { onClose?.(); setTimeout(() => onMapLineItem?.(id, lbl), 100); }}
             onReVerify={onReVerify}
