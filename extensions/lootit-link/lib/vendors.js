@@ -39,6 +39,15 @@ export const VENDORS = {
     supportsUpload: false,
     contentScript: 'content-scripts/threecx.js',
   },
+  graphus: {
+    key: 'graphus',
+    label: 'Graphus',
+    color: '#00b4d8',
+    matchUrls: ['cloud.graph.us', 'portal.graph.us', 'graph.us'],
+    dataLabel: 'Protected Users',
+    supportsUpload: false,
+    contentScript: 'content-scripts/graphus.js',
+  },
 };
 
 export function detectVendor(url) {
