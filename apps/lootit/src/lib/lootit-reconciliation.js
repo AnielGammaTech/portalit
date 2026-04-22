@@ -550,7 +550,9 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
   for (let i = 0; i < allCards.length; i++) {
     if (cardsToRemove.has(i)) continue;
     const card = allCards[i];
-    if (card.status === 'no_psa_data' && coveredIntegrations.has(card.rule?.integration_key)) {
+    const key = card.rule?.integration_key;
+    const hasNoLineItems = (card.matchedLineItems || []).length === 0;
+    if (hasNoLineItems && key && coveredIntegrations.has(key)) {
       cardsToRemove.add(i);
     }
   }
