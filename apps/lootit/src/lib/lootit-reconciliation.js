@@ -536,6 +536,25 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
     for (let i = 1; i < sorted.length; i++) cardsToRemove.add(sorted[i]);
   }
 
+  // Suppress orphan rule cards (vendor data but no PSA match) when another
+  // card already covers the same integration's vendor data via override.
+  const coveredIntegrations = new Set();
+  for (let i = 0; i < allCards.length; i++) {
+    if (cardsToRemove.has(i)) continue;
+    const card = allCards[i];
+    const key = card.rule?.integration_key;
+    if (key && card.vendorQty !== null && (card.matchedLineItems || []).length > 0) {
+      coveredIntegrations.add(key);
+    }
+  }
+  for (let i = 0; i < allCards.length; i++) {
+    if (cardsToRemove.has(i)) continue;
+    const card = allCards[i];
+    if (card.status === 'no_psa_data' && coveredIntegrations.has(card.rule?.integration_key)) {
+      cardsToRemove.add(i);
+    }
+  }
+
   return allCards.filter((_, i) => !cardsToRemove.has(i));
 }
 
