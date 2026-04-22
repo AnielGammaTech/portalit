@@ -138,16 +138,21 @@ export function useReconciliationData(customerId) {
     return map;
   }, [bills, activeBillIds]);
 
-  // 7. Group line items by customer (only from active bills)
+  // 7. Group line items by customer (only from active bills, dedup by halopsa_id)
   const lineItemsByCustomer = useMemo(() => {
     const grouped = {};
     for (const li of lineItems) {
       const custId = billCustomerMap[li.recurring_bill_id];
       if (!custId) continue;
-      if (!grouped[custId]) grouped[custId] = [];
-      grouped[custId].push(li);
+      if (!grouped[custId]) grouped[custId] = { items: [], seen: new Set() };
+      const dedupKey = li.halopsa_id || li.id;
+      if (grouped[custId].seen.has(dedupKey)) continue;
+      grouped[custId].seen.add(dedupKey);
+      grouped[custId].items.push(li);
     }
-    return grouped;
+    const result = {};
+    for (const [custId, { items }] of Object.entries(grouped)) result[custId] = items;
+    return result;
   }, [lineItems, billCustomerMap]);
 
   // 8. Build mappings-by-customer: { customerId: { integration_key: mapping } }

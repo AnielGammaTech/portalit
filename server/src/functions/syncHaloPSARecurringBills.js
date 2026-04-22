@@ -260,7 +260,6 @@ export async function syncHaloPSARecurringBills(body, _user) {
 
       const allToCreate = [];
       const allToUpdate = [];
-      const seenCustomers = new Set(existingBills.map(b => b.customer_id));
 
       // Paginate through HaloPSA recurring invoices WITH line items included
       let pageNumber = 1;
@@ -285,11 +284,8 @@ export async function syncHaloPSARecurringBills(body, _user) {
             const existingId = billMap.get(billKey);
             if (existingId) {
               allToUpdate.push({ id: existingId, data: billPayload, lineItems });
-            } else if (!seenCustomers.has(customerId)) {
-              allToCreate.push({ ...billPayload, _lineItems: lineItems });
-              seenCustomers.add(customerId);
             } else {
-              recordsFailed++;
+              allToCreate.push({ ...billPayload, _lineItems: lineItems });
             }
           } catch (itemError) {
             recordsFailed++;
