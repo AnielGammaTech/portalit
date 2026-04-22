@@ -511,7 +511,32 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
     isUnmatchedLineItem: true,
   }));
 
-  return [...ruleResults, ...overridedUnmatchedResults, ...unmatchedResults];
+  // Dedup: when the same line item appears in multiple cards (e.g. a rule card
+  // AND a manual override card), keep whichever has vendor data. If tied, prefer
+  // the override (user's explicit mapping) over the auto-rule.
+  const allCards = [...ruleResults, ...overridedUnmatchedResults, ...unmatchedResults];
+  const lineItemCardIndex = new Map();
+  for (let i = 0; i < allCards.length; i++) {
+    for (const li of allCards[i].matchedLineItems || []) {
+      if (!lineItemCardIndex.has(li.id)) lineItemCardIndex.set(li.id, []);
+      lineItemCardIndex.get(li.id).push(i);
+    }
+  }
+
+  const cardsToRemove = new Set();
+  for (const cardIndices of lineItemCardIndex.values()) {
+    if (cardIndices.length <= 1) continue;
+    const sorted = [...cardIndices].sort((a, b) => {
+      const ca = allCards[a];
+      const cb = allCards[b];
+      const aScore = (ca.vendorQty !== null ? 2 : 0) + (ca.isUnmatchedLineItem ? 0 : 1);
+      const bScore = (cb.vendorQty !== null ? 2 : 0) + (cb.isUnmatchedLineItem ? 0 : 1);
+      return bScore - aScore;
+    });
+    for (let i = 1; i < sorted.length; i++) cardsToRemove.add(sorted[i]);
+  }
+
+  return allCards.filter((_, i) => !cardsToRemove.has(i));
 }
 
 // ── Pax8 per-subscription auto-reconciliation ────────────────────────
