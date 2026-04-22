@@ -15,12 +15,11 @@ function getCardState(reconciliation) {
   if (reviewStatus === 'force_matched') return 'force_matched';
   if (reviewStatus === 'dismissed') return 'dismissed';
   if (effectiveStatus === 'match') return 'auto_matched';
+  if (status === 'no_psa_data' || status === 'missing_from_psa') return 'no_psa';
   if (
     status === 'no_vendor_data' ||
     status === 'no_data' ||
-    status === 'unmatched_line_item' ||
-    status === 'no_psa_data' ||
-    status === 'missing_from_psa'
+    status === 'unmatched_line_item'
   ) {
     return 'no_vendor';
   }
@@ -55,6 +54,15 @@ const CARD_STYLES = {
     vendorNum: '#CBD5E1',
     psaLabel: '#9D174D',
     vendorLabel: '#CBD5E1',
+  },
+  no_psa: {
+    bg: 'linear-gradient(135deg, #FFF7ED 0%, #FFF1F5 100%)',
+    border: '1.5px solid #FED7AA',
+    bar: '#F59E0B',
+    psaNum: '#CBD5E1',
+    vendorNum: '#B45309',
+    psaLabel: '#CBD5E1',
+    vendorLabel: '#B45309',
   },
   force_matched: {
     bg: 'linear-gradient(135deg, #EFF6FF 0%, #F0F9FF 100%)',
@@ -139,6 +147,7 @@ const STATUS_CONFIG = {
   dismissed: { label: 'Skipped', bg: '#F1F5F9', color: '#94A3B8' },
   mismatch: { label: 'Mismatch', bg: '#FEF3C7', color: '#B45309' },
   no_vendor: { label: 'No Vendor', bg: '#FFF1F5', color: '#9D174D' },
+  no_psa: { label: 'No PSA', bg: '#FFF7ED', color: '#B45309' },
 };
 
 function StatusPill({ cardState, overrideCount }) {
