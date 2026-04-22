@@ -193,6 +193,7 @@ const ENTITY_TABLE_MAP = {
   VultrMapping: 'vultr_mappings',
   User: 'users',
   VendorBilling: 'vendor_billings',
+  GraphusMapping: 'graphus_mappings',
 };
 
 // ── Entity Proxy ───────────────────────────────────────────────────────

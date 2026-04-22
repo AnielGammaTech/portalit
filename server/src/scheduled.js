@@ -23,6 +23,7 @@ import { syncVPenTest } from './functions/syncVPenTest.js';
 import { syncVultr } from './functions/syncVultr.js';
 import { expireReconciliationReviews } from './functions/expireReconciliationReviews.js';
 import { reconciliationReminders } from './functions/reconciliationReminders.js';
+import { syncGraphus } from './functions/syncGraphus.js';
 
 
 const SYSTEM_USER = { role: 'admin', email: 'system@portalit.app' };
@@ -51,6 +52,7 @@ export const CRON_JOBS = [
   { name: 'syncDmarcReport', label: 'DMARC Sync', description: 'DMARC email authentication reports', schedule: '15 5 * * *', category: 'dmarc', fn: syncDmarcReport, action: 'sync_all' },
   { name: 'syncVultr', label: 'Vultr Sync', description: 'Cloud server instances', schedule: '45 5 * * *', category: 'vultr', fn: syncVultr, action: 'sync_all' },
   { name: 'syncVPenTest', label: 'vPenTest Sync', description: 'Automated penetration test results', schedule: '15 6 * * *', category: 'vpentest', fn: syncVPenTest, action: 'sync_all' },
+  { name: 'syncGraphus', label: 'Graphus Sync', description: 'Email security protected users', schedule: '45 6 * * *', category: 'graphus', fn: syncGraphus, action: 'sync_all' },
   { name: 'scanBillingAnomalies', label: 'Billing Anomaly Scan', description: 'Detect billing changes >5% per category (Monthly Recurring, VoIP)', schedule: '0 7 * * 1', category: 'lootit', fn: scanBillingAnomalies, action: 'scan' },
   { name: 'expireReconciliationReviews', label: 'Expire Reconciliation Reviews', description: 'Reset sign-offs older than 30 days back to pending for re-review', schedule: '0 1 * * *', category: 'lootit', fn: expireReconciliationReviews, action: 'expire' },
   { name: 'reconciliationReminders', label: 'Reconciliation Reminders', description: 'Telegram alerts for customers due for reconciliation', schedule: '0 12 * * *', category: 'lootit', fn: reconciliationReminders, action: 'remind' },

@@ -161,6 +161,14 @@ const VENDOR_EXTRACTORS = {
     if (typeof data.licensed_users === 'number') return data.licensed_users;
     return null;
   },
+
+  graphus: (data) => {
+    if (!data) return null;
+    if (typeof data.protected_users === 'number') return data.protected_users;
+    if (typeof data.total_users === 'number') return data.total_users;
+    if (Array.isArray(data.users)) return data.users.length;
+    return null;
+  },
 };
 
 /**
@@ -196,6 +204,7 @@ export const INTEGRATION_MAPPING_ENTITIES = {
   pax8: 'Pax8Mapping',
   cipp: 'CIPPMapping',
   cipp_licensed: 'CIPPMapping',
+  graphus: 'GraphusMapping',
 };
 
 export const INTEGRATION_LABELS = {
@@ -219,6 +228,7 @@ export const INTEGRATION_LABELS = {
   pax8: 'Pax8',
   cipp: 'CIPP Users',
   cipp_licensed: 'CIPP Licensed Users',
+  graphus: 'Graphus Email Security',
 };
 
 // ── Rule matching ──────────────────────────────────────────────────────
