@@ -434,9 +434,13 @@ export async function syncRocketCyber(body, user) {
       .eq('customer_id', customer_id);
     const allCustomerIncidents = allDbIncidents.data || [];
 
+    const previousAgentCount = (mapping.cached_data || {}).total_agents || 0;
+    const agentCount = (agentResult.count === 0 && previousAgentCount > 0) ? previousAgentCount : agentResult.count;
+    const agentList = (agentResult.count === 0 && previousAgentCount > 0) ? (mapping.cached_data?.agents || []) : agentResult.agents;
+
     const cachedData = {
-      total_agents: agentResult.count,
-      agents: agentResult.agents,
+      total_agents: agentCount,
+      agents: agentList,
       totalIncidents: allCustomerIncidents.length,
       openIncidents: allCustomerIncidents.filter(i => i.status === 'open' || i.status === 'investigating').length,
       resolvedIncidents: allCustomerIncidents.filter(i => i.status === 'resolved' || i.status === 'closed').length,
@@ -528,9 +532,13 @@ export async function syncRocketCyber(body, user) {
           .eq('customer_id', mapping.customer_id);
         const allCustomerIncidents = allDbIncidents.data || [];
 
+        const prevAgentCount = (mapping.cached_data || {}).total_agents || 0;
+        const finalAgentCount = (agentResult.count === 0 && prevAgentCount > 0) ? prevAgentCount : agentResult.count;
+        const finalAgentList = (agentResult.count === 0 && prevAgentCount > 0) ? (mapping.cached_data?.agents || []) : agentResult.agents;
+
         const cachedData = {
-          total_agents: agentResult.count,
-          agents: agentResult.agents,
+          total_agents: finalAgentCount,
+          agents: finalAgentList,
           totalIncidents: allCustomerIncidents.length,
           openIncidents: allCustomerIncidents.filter(i => i.status === 'open' || i.status === 'investigating').length,
           resolvedIncidents: allCustomerIncidents.filter(i => i.status === 'resolved' || i.status === 'closed').length,
@@ -615,6 +623,13 @@ export async function syncRocketCyber(body, user) {
         batch.map(async (mapping) => {
           const agentResult = await fetchAgents(mapping.rc_account_id, mapping.agent_endpoint);
           const existingCached = mapping.cached_data || {};
+          const previousCount = existingCached.total_agents || 0;
+
+          if (agentResult.count === 0 && previousCount > 0) {
+            console.warn(`[RocketCyber] Skipping update for ${mapping.rc_account_name || mapping.rc_account_id} — API returned 0 but previous count was ${previousCount}`);
+            return mapping.rc_account_name || mapping.rc_account_id;
+          }
+
           const cachedData = {
             ...existingCached,
             total_agents: agentResult.count,
