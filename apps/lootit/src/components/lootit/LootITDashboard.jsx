@@ -15,11 +15,11 @@ const PORTALIT_URL = import.meta.env.VITE_PORTALIT_URL || 'https://portalit.gtoo
 
 const FILTERS = [
   { key: 'all', label: 'All' },
-  { key: 'due', label: 'Due' },
+  { key: 'overdue', label: 'Overdue' },
+  { key: 'upcoming', label: 'Upcoming' },
+  { key: 'never', label: 'Never' },
   { key: 'issues', label: 'Issues' },
-  { key: 'matched', label: 'Matched' },
   { key: 'signed_off', label: 'Signed Off' },
-  { key: 'pending', label: 'Pending' },
 ];
 
 const SORT_KEYS = {
@@ -115,16 +115,22 @@ export default function LootITDashboard({ onSelectCustomer }) {
     const filtered = searched.filter((entry) => {
       const s = entry.combinedSummary;
       if (filter === 'issues') return s.over > 0 || s.under > 0;
-      if (filter === 'matched') return (s.matched + s.forceMatched) > 0 && s.over === 0 && s.under === 0;
-      if (filter === 'no_data') return s.noData > 0;
       if (filter === 'signed_off') return signedOffCustomerIds.has(entry.customer.id);
-      if (filter === 'pending') return !signedOffCustomerIds.has(entry.customer.id);
-      if (filter === 'due') {
+      if (filter === 'never') {
+        return !signOffDateMap[entry.customer.id];
+      }
+      if (filter === 'overdue') {
         const so = signOffDateMap[entry.customer.id];
-        if (!so) return true;
+        if (!so) return false;
         if (so.next_reconciliation_date) return new Date() >= new Date(so.next_reconciliation_date);
         const days = Math.floor((Date.now() - new Date(so.signed_at).getTime()) / (1000 * 60 * 60 * 24));
         return days >= 30;
+      }
+      if (filter === 'upcoming') {
+        const so = signOffDateMap[entry.customer.id];
+        if (!so || !so.next_reconciliation_date) return false;
+        const daysUntil = Math.ceil((new Date(so.next_reconciliation_date) - new Date()) / (1000 * 60 * 60 * 24));
+        return daysUntil > 0 && daysUntil <= 14;
       }
       return true;
     });
@@ -316,6 +322,13 @@ export default function LootITDashboard({ onSelectCustomer }) {
                 const issues = s.over + s.under;
                 const isSignedOff = signedOffCustomerIds.has(customer.id);
                 const isFullyReconciled = applicable > 0 && resolved === applicable;
+                const so = signOffDateMap[customer.id];
+                const isOverdue = so
+                  ? so.next_reconciliation_date
+                    ? new Date() >= new Date(so.next_reconciliation_date)
+                    : Math.floor((Date.now() - new Date(so.signed_at).getTime()) / (1000 * 60 * 60 * 24)) >= 30
+                  : false;
+                const isNeverSignedOff = !so;
 
                 return (
                   <tr
@@ -324,8 +337,10 @@ export default function LootITDashboard({ onSelectCustomer }) {
                     className={cn(
                       "transition-colors cursor-pointer hover:bg-slate-50",
                       idx % 2 === 1 && "bg-slate-50/40",
-                      isSignedOff && "bg-violet-50/30",
-                      isFullyReconciled && !isSignedOff && "bg-emerald-50/30",
+                      isSignedOff && !isOverdue && "bg-violet-50/30",
+                      isFullyReconciled && !isSignedOff && !isOverdue && "bg-emerald-50/30",
+                      isOverdue && "bg-red-50/30",
+                      isNeverSignedOff && !isFullyReconciled && "bg-amber-50/20",
                     )}
                   >
                     {/* Status dot */}

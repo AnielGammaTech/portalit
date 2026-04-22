@@ -187,20 +187,21 @@ function BillingModelToggle({ ruleId, currentDivisor, rawVendorQty, onSave }) {
   );
 }
 
-function HistoryTimeline({ customerId, ruleId }) {
+function HistoryTimeline({ customerId, ruleId, allRuleIds }) {
+  const ruleIds = allRuleIds?.length > 0 ? allRuleIds : (ruleId ? [ruleId] : []);
   const { data: history = [] } = useQuery({
-    queryKey: ['reconciliation_review_history', customerId, ruleId],
+    queryKey: ['reconciliation_review_history', customerId, ...ruleIds],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('reconciliation_review_history')
         .select('*')
         .eq('customer_id', customerId)
-        .eq('rule_id', ruleId)
+        .in('rule_id', ruleIds)
         .order('created_date', { ascending: false });
       if (error) throw error;
       return data || [];
     },
-    enabled: !!customerId && !!ruleId,
+    enabled: !!customerId && ruleIds.length > 0,
   });
 
   if (history.length === 0) {
@@ -521,6 +522,7 @@ export default function ReconciliationDetailModal({
 
   const isPax8 = !!reconciliation.ruleId;
   const ruleId = isPax8 ? reconciliation.ruleId : reconciliation.rule?.id;
+  const allRuleIds = reconciliation.allRuleIds || (ruleId ? [ruleId] : []);
   const label = isPax8 ? reconciliation.productName : reconciliation.rule?.label;
   const integrationLabel = reconciliation.integrationLabel || '';
   const { matchedLineItems = [], psaQty, vendorQty } = reconciliation;
@@ -781,7 +783,7 @@ export default function ReconciliationDetailModal({
             title="Audit Log"
             icon={Clock}
           >
-            <HistoryTimeline customerId={customerId} ruleId={ruleId} />
+            <HistoryTimeline customerId={customerId} ruleId={ruleId} allRuleIds={allRuleIds} />
           </CollapsibleSection>
         </div>
 

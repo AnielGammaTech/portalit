@@ -459,7 +459,8 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
                 exclusion_reason: snapshot.exclusion_reason,
               },
               integrationLabel: snapshot.integration_key,
-              _readOnly: true,
+              allRuleIds: liveRecon?.allRuleIds || [snapshot.rule_id],
+              _readOnly: false,
               _snapshotDate: latestSignOff?.signed_at,
             });
           }}

@@ -407,6 +407,7 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
 
     return {
       rule: primaryRule,
+      allRuleIds,
       psaQty: hasPsaData ? psaQty : null,
       vendorQty: hasVendorData ? adjustedVendorQty : null,
       rawVendorQty: vendorQty,
