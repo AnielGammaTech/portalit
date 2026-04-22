@@ -333,39 +333,60 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
     }
   }
 
-  const ruleResults = activeRules.map((rule) => {
-    // 1. Check for manual overrides first, then fall back to pattern matching
-    const overrideIds = overrideMap[rule.id] || [];
-    const overrideItems = overrideIds.map(resolveOverrideItem).filter(Boolean);
-    const matched = overrideItems.length > 0
-      ? overrideItems
-      : lineItems.filter((li) => lineItemMatchesRule(li, rule));
-    const psaQty = matched.reduce((sum, li) => sum + (parseFloat(li.quantity) || 0), 0);
-    const hasPsaData = matched.length > 0;
+  // Group rules by integration_key so multiple patterns merge into one card
+  const rulesByIntegration = new Map();
+  for (const rule of activeRules) {
+    const key = rule.integration_key || rule.id;
+    if (!rulesByIntegration.has(key)) rulesByIntegration.set(key, []);
+    rulesByIntegration.get(key).push(rule);
+  }
 
-    // Track matched line items
-    for (const li of matched) matchedLineItemIds.add(li.id);
+  const ruleResults = [...rulesByIntegration.entries()].map(([integrationKey, rules]) => {
+    const primaryRule = rules[0];
 
-    // 2. Extract vendor count — check multi-mapping overrides first, then integration cached_data
-    const multiMapping = multiMappingMap[rule.id];
-    const mapping = mappings[rule.integration_key];
+    // 1. Collect matched line items across all rules in this group
+    const allMatched = [];
+    const allRuleIds = rules.map(r => r.id);
+    for (const rule of rules) {
+      const overrideIds = overrideMap[rule.id] || [];
+      const overrideItems = overrideIds.map(resolveOverrideItem).filter(Boolean);
+      const matched = overrideItems.length > 0
+        ? overrideItems
+        : lineItems.filter((li) => lineItemMatchesRule(li, rule));
+      for (const li of matched) {
+        if (!allMatched.some(m => m.id === li.id)) allMatched.push(li);
+      }
+    }
+    const psaQty = allMatched.reduce((sum, li) => sum + (parseFloat(li.quantity) || 0), 0);
+    const hasPsaData = allMatched.length > 0;
+
+    for (const li of allMatched) matchedLineItemIds.add(li.id);
+
+    // 2. Extract vendor count — check multi-mapping overrides first
+    let multiMapping = null;
+    for (const ruleId of allRuleIds) {
+      if (multiMappingMap[ruleId]) { multiMapping = multiMappingMap[ruleId]; break; }
+    }
+    const mapping = mappings[integrationKey];
     const vendorQty = multiMapping
       ? multiMapping.totalQty
       : mapping
-        ? extractVendorCount(rule.integration_key, mapping.cached_data)
+        ? extractVendorCount(integrationKey, mapping.cached_data)
         : null;
     const hasVendorData = vendorQty !== null;
 
-    // 3. Look up review (needed for vendor_divisor before difference calc)
-    const review = reviewMap[rule.id] || null;
+    // 3. Look up review (check all rule IDs in group)
+    let review = null;
+    for (const ruleId of allRuleIds) {
+      if (reviewMap[ruleId]) { review = reviewMap[ruleId]; break; }
+    }
 
-    // 4. Apply vendor_divisor (e.g. Datto RMM "2 Per User" mode)
+    // 4. Apply vendor_divisor
     const divisor = review?.vendor_divisor || 1;
     let adjustedVendorQty = hasVendorData && divisor > 1
       ? Math.ceil(vendorQty / divisor)
       : vendorQty;
 
-    // 4b. Subtract exclusions from vendor count
     const exclusionCount = review?.exclusion_count || 0;
     if (hasVendorData && exclusionCount > 0) {
       adjustedVendorQty = Math.max(0, adjustedVendorQty - exclusionCount);
@@ -385,16 +406,16 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
     }
 
     return {
-      rule,
+      rule: primaryRule,
       psaQty: hasPsaData ? psaQty : null,
       vendorQty: hasVendorData ? adjustedVendorQty : null,
       rawVendorQty: vendorQty,
       vendorDivisor: divisor,
       difference,
       status,
-      matchedLineItems: matched,
+      matchedLineItems: allMatched,
       review,
-      integrationLabel: INTEGRATION_LABELS[rule.integration_key] || rule.integration_key,
+      integrationLabel: INTEGRATION_LABELS[integrationKey] || integrationKey,
     };
   });
 
@@ -534,27 +555,6 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
       return bScore - aScore;
     });
     for (let i = 1; i < sorted.length; i++) cardsToRemove.add(sorted[i]);
-  }
-
-  // Suppress orphan rule cards (vendor data but no PSA match) when another
-  // card already covers the same integration's vendor data via override.
-  const coveredIntegrations = new Set();
-  for (let i = 0; i < allCards.length; i++) {
-    if (cardsToRemove.has(i)) continue;
-    const card = allCards[i];
-    const key = card.rule?.integration_key;
-    if (key && card.vendorQty !== null && (card.matchedLineItems || []).length > 0) {
-      coveredIntegrations.add(key);
-    }
-  }
-  for (let i = 0; i < allCards.length; i++) {
-    if (cardsToRemove.has(i)) continue;
-    const card = allCards[i];
-    const key = card.rule?.integration_key;
-    const hasNoLineItems = (card.matchedLineItems || []).length === 0;
-    if (hasNoLineItems && key && coveredIntegrations.has(key)) {
-      cardsToRemove.add(i);
-    }
   }
 
   return allCards.filter((_, i) => !cardsToRemove.has(i));
