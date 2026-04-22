@@ -47,9 +47,9 @@ export default function ServiceCard({
   const hasNotes = !!(review?.notes);
   const hasExclusions = review?.exclusion_count > 0;
 
-  // Compute effective vendor qty after exclusions
+  // Engine already subtracts exclusion_count from vendorQty — use directly
   const exclusionCount = review?.exclusion_count || 0;
-  const effectiveVendorQty = vendorQty !== null ? vendorQty - exclusionCount : null;
+  const effectiveVendorQty = vendorQty;
   const effectiveDifference = psaQty !== null && effectiveVendorQty !== null ? psaQty - effectiveVendorQty : difference;
   const effectiveStatus = hasExclusions
     ? (effectiveDifference === 0 ? 'match' : effectiveDifference > 0 ? 'over' : 'under')
