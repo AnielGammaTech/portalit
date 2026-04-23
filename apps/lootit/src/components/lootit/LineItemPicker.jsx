@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { formatLineItemDescription } from '@/lib/utils';
 import { Search, Square, CheckSquare, ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -294,8 +294,13 @@ function buildTabs(lineItems, pax8Products, devices, vendorMappings) {
     }
   }
 
-  // Add one tab per vendor group
-  for (const [vendorName, keys] of vendorGroups) {
+  const vendorOrder = ['Cove', 'Datto', 'CIPP', 'Pax8', 'Spanning', 'JumpCloud', 'UniFi', 'RocketCyber', 'Graphus', '3CX', 'Inky', 'SaaS Alerts', 'Dark Web ID', 'BullPhish ID'];
+  const sortedVendors = [...vendorGroups.entries()].sort((a, b) => {
+    const ai = vendorOrder.indexOf(a[0]);
+    const bi = vendorOrder.indexOf(b[0]);
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+  });
+  for (const [vendorName, keys] of sortedVendors) {
     tabs.push({
       key: `vendor:${vendorName}`,
       label: vendorName,
@@ -339,6 +344,18 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
     () => buildTabs(lineItems, pax8Products, devices, vendorMappings),
     [lineItems, pax8Products, devices, vendorMappings],
   );
+
+  const tabsRef = useRef(null);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  useEffect(() => {
+    const el = tabsRef.current;
+    if (!el) return;
+    const check = () => setCanScrollRight(el.scrollWidth > el.clientWidth + el.scrollLeft + 4);
+    check();
+    el.addEventListener('scroll', check);
+    return () => el.removeEventListener('scroll', check);
+  }, [visibleTabs]);
 
   const toggleSection = useCallback((sectionKey) => {
     setExpandedSections((prev) => {
@@ -461,7 +478,8 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
 
         {/* Source tabs */}
         {visibleTabs.length > 1 && (
-          <div className="px-4 pt-3 pb-1 border-b border-slate-100 flex gap-1 overflow-x-auto">
+          <div className="relative">
+          <div ref={tabsRef} className="px-4 pt-3 pb-1 border-b border-slate-100 flex gap-1 overflow-x-auto scrollbar-hide">
             {visibleTabs.map(tab => {
               // Count selections on this tab
               const tabLabel = sourceTabLabel(tab.key);
@@ -491,6 +509,10 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
                 </button>
               );
             })}
+          </div>
+          {canScrollRight && (
+            <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent pointer-events-none" />
+          )}
           </div>
         )}
 
