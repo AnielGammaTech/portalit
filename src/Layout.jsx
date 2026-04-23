@@ -301,7 +301,7 @@ export default function Layout({ children, currentPageName }) {
     staleTime: 1000 * 60 * 5,
   });
 
-  const portalSettings = portalSettingsData[0] || {};
+  const portalSettings = (portalSettingsData ?? [])[0] || {};
   const primaryColor = portalSettings.primary_color || DEFAULT_PRIMARY;
 
   // Fetch customer for non-admin users (only their own record)
@@ -309,7 +309,7 @@ export default function Layout({ children, currentPageName }) {
     queryKey: ['layout_customer', user?.customer_id],
     queryFn: async () => {
       const results = await client.entities.Customer.filter({ id: user.customer_id });
-      return results[0] || null;
+      return (results ?? [])[0] || null;
     },
     enabled: !!user && !isStaff && !!user.customer_id,
     staleTime: 1000 * 60 * 10,

@@ -223,7 +223,7 @@ export default function LicenseDetail() {
     queryKey: ['license', licenseId],
     queryFn: async () => {
       const licenses = await client.entities.SaaSLicense.filter({ id: licenseId });
-      return licenses[0];
+      return (licenses ?? [])[0];
     },
     enabled: !!licenseId,
     staleTime: 1000 * 60 // Cache for 1 minute
@@ -248,7 +248,7 @@ export default function LicenseDetail() {
     queryKey: ['customer', software?.customer_id],
     queryFn: async () => {
       const customers = await client.entities.Customer.filter({ id: software.customer_id });
-      return customers[0];
+      return (customers ?? [])[0];
     },
     enabled: !!software?.customer_id,
     staleTime: 1000 * 60 * 5 // Cache customer for 5 minutes

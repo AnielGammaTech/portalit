@@ -14,18 +14,20 @@ const M365_SUB_TABS = [
 export default function M365Tab({ customerId, queryClient }) {
   const [activeSubTab, setActiveSubTab] = useState('microsoft');
 
-  const { data: pax8Mappings = [], isLoading: loadingPax8 } = useQuery({
+  const { data: pax8MappingsRaw = [], isLoading: loadingPax8 } = useQuery({
     queryKey: ['pax8-mapping', customerId],
     queryFn: () => client.entities.Pax8Mapping.filter({ customer_id: customerId }),
     enabled: !!customerId,
   });
+  const pax8Mappings = pax8MappingsRaw ?? [];
   const pax8Mapping = pax8Mappings[0] || null;
 
-  const { data: cippMappings = [], isLoading: loadingCIPP } = useQuery({
+  const { data: cippMappingsRaw = [], isLoading: loadingCIPP } = useQuery({
     queryKey: ['cipp-mapping', customerId],
     queryFn: () => client.entities.CIPPMapping.filter({ customer_id: customerId }),
     enabled: !!customerId,
   });
+  const cippMappings = cippMappingsRaw ?? [];
   const hasCIPP = cippMappings.length > 0;
   const hasPax8 = !!pax8Mapping;
 

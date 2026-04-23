@@ -125,7 +125,7 @@ export default function CustomerDetail() {
     queryFn: async () => {
       if (!resolvedCustomerId) return null;
       const results = await client.entities.Customer.filter({ id: resolvedCustomerId });
-      return results[0] || null;
+      return (results ?? [])[0] || null;
     },
     enabled: !!resolvedCustomerId,
   });
@@ -314,7 +314,7 @@ export default function CustomerDetail() {
     queryKey: ['jumpcloud-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.JumpCloudMapping.filter({ customer_id: customerId });
-      return mappings[0] || null;
+      return (mappings ?? [])[0] || null;
     },
     enabled: !!customerId, ...qOpts
   });
@@ -324,7 +324,7 @@ export default function CustomerDetail() {
     queryKey: ['spanning-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.SpanningMapping.filter({ customer_id: customerId });
-      return mappings[0] || null;
+      return (mappings ?? [])[0] || null;
     },
     enabled: !!customerId
   });
@@ -527,11 +527,12 @@ export default function CustomerDetail() {
       );
 
       integrationChecks.forEach(({ fn, action, label, extraParams }, idx) => {
-        if (mappingResults[idx].length > 0) {
+        const mappingResult = mappingResults[idx] ?? [];
+        if (mappingResult.length > 0) {
           const params = { action, customer_id: customerId };
           // CIPP needs customerId + tenantId from the mapping
           if (extraParams && fn === 'syncCIPP') {
-            const mapping = mappingResults[idx][0];
+            const mapping = mappingResult[0];
             params.customerId = customerId;
             params.tenantId = mapping.cipp_tenant_id;
           }

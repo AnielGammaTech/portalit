@@ -283,26 +283,29 @@ export default function CIPPMicrosoftTab({ customerId }) {
   const [selectedUser, setSelectedUser] = useState(null);
   const [expandedGroup, setExpandedGroup] = useState(null);
 
-  const { data: users = [], isLoading: loadingUsers } = useQuery({
+  const { data: usersRaw = [], isLoading: loadingUsers } = useQuery({
     queryKey: ['cipp-users', customerId],
     queryFn: () => client.entities.CIPPUser.filter({ customer_id: customerId }),
     enabled: !!customerId,
     staleTime: 1000 * 60 * 5,
   });
+  const users = usersRaw ?? [];
 
-  const { data: mailboxes = [], isLoading: loadingMailboxes } = useQuery({
+  const { data: mailboxesRaw = [], isLoading: loadingMailboxes } = useQuery({
     queryKey: ['cipp-mailboxes', customerId],
     queryFn: () => client.entities.CIPPMailbox.filter({ customer_id: customerId }),
     enabled: !!customerId,
     staleTime: 1000 * 60 * 5,
   });
+  const mailboxes = mailboxesRaw ?? [];
 
-  const { data: groups = [], isLoading: loadingGroups } = useQuery({
+  const { data: groupsRaw = [], isLoading: loadingGroups } = useQuery({
     queryKey: ['cipp-groups', customerId],
     queryFn: () => client.entities.CIPPGroup.filter({ customer_id: customerId }),
     enabled: !!customerId,
     staleTime: 1000 * 60 * 5,
   });
+  const groups = groupsRaw ?? [];
 
   const stats = useMemo(() => ({
     totalUsers: users.length,

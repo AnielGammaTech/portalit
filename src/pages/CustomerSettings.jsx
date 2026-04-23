@@ -42,7 +42,7 @@ export default function CustomerSettings() {
     queryFn: async () => {
       // Only fetch own customer record, never list all
       const results = await client.entities.Customer.filter({ id: customerId });
-      return results[0] || null;
+      return (results ?? [])[0] || null;
     },
     enabled: !!customerId
   });
@@ -51,7 +51,7 @@ export default function CustomerSettings() {
     queryKey: ['portal_settings', customerId],
     queryFn: async () => {
       const settings = await client.entities.CustomerPortalSettings.filter({ customer_id: customerId });
-      return settings[0] || null;
+      return (settings ?? [])[0] || null;
     },
     enabled: !!customerId
   });

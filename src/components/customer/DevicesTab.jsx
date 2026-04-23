@@ -75,13 +75,14 @@ export default function DevicesTab({ customerId, customerExternalId }) {
     staleTime: 1000 * 60 * 5
   });
 
-  const cachedData = mappings[0]?.cached_data
-    ? safeJsonParse(mappings[0].cached_data)
+  const safeMappings = mappings ?? [];
+  const cachedData = safeMappings[0]?.cached_data
+    ? safeJsonParse(safeMappings[0].cached_data)
     : null;
-  const lastSynced = mappings[0]?.last_synced;
+  const lastSynced = safeMappings[0]?.last_synced;
 
   const syncDevices = async () => {
-    if (mappings.length === 0) {
+    if (safeMappings.length === 0) {
       toast.error('No Datto RMM site mapped to this customer');
       return;
     }

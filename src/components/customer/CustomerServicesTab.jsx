@@ -110,7 +110,7 @@ export default function CustomerServicesTab({
     queryKey: ['jumpcloud-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.JumpCloudMapping.filter({ customer_id: customerId });
-      return mappings[0] || null;
+      return (mappings ?? [])[0] || null;
     },
     enabled: !!customerId,
     staleTime: 1000 * 60 * 5 // Cache for 5 minutes
@@ -121,7 +121,7 @@ export default function CustomerServicesTab({
     queryKey: ['spanning-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.SpanningMapping.filter({ customer_id: customerId });
-      return mappings[0] || null;
+      return (mappings ?? [])[0] || null;
     },
     enabled: !!customerId,
     staleTime: 1000 * 60 * 5 // Cache for 5 minutes
@@ -148,7 +148,7 @@ export default function CustomerServicesTab({
     queryKey: ['spanning-contacts', customerId],
     queryFn: async () => {
       const contacts = await client.entities.Contact.filter({ customer_id: customerId });
-      return contacts.filter(c => c.spanning_status);
+      return (contacts ?? []).filter(c => c.spanning_status);
     },
     enabled: !!customerId && !!spanningMapping
   });
@@ -165,7 +165,7 @@ export default function CustomerServicesTab({
     queryKey: ['datto-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.DattoSiteMapping.filter({ customer_id: customerId });
-      return mappings[0] || null;
+      return (mappings ?? [])[0] || null;
     },
     enabled: !!customerId
   });
@@ -175,7 +175,7 @@ export default function CustomerServicesTab({
     queryKey: ['darkwebid-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.DarkWebIDMapping.filter({ customer_id: customerId });
-      return mappings[0] || null;
+      return (mappings ?? [])[0] || null;
     },
     enabled: !!customerId
   });
@@ -206,7 +206,7 @@ export default function CustomerServicesTab({
     queryKey: ['edr-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.DattoEDRMapping.filter({ customer_id: customerId });
-      return mappings[0] || null;
+      return (mappings ?? [])[0] || null;
     },
     enabled: !!customerId
   });
@@ -216,7 +216,7 @@ export default function CustomerServicesTab({
     queryKey: ['rocketcyber-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.RocketCyberMapping.filter({ customer_id: customerId });
-      return mappings[0] || null;
+      return (mappings ?? [])[0] || null;
     },
     enabled: !!customerId
   });
@@ -236,7 +236,7 @@ export default function CustomerServicesTab({
     queryKey: ['saas-alerts-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.SaaSAlertsMapping.filter({ customer_id: customerId });
-      return mappings[0] || null;
+      return (mappings ?? [])[0] || null;
     },
     enabled: !!customerId
   });
@@ -246,7 +246,7 @@ export default function CustomerServicesTab({
     queryKey: ['cove-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.CoveDataMapping.filter({ customer_id: customerId });
-      return mappings[0] || null;
+      return (mappings ?? [])[0] || null;
     },
     enabled: !!customerId
   });
@@ -256,7 +256,7 @@ export default function CustomerServicesTab({
     queryKey: ['threecx-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.ThreeCXMapping.filter({ customer_id: customerId });
-      return mappings[0] || null;
+      return (mappings ?? [])[0] || null;
     },
     enabled: !!customerId,
     staleTime: 1000 * 60 * 5
@@ -275,7 +275,7 @@ export default function CustomerServicesTab({
     queryKey: ['pax8-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.Pax8Mapping.filter({ customer_id: customerId });
-      return mappings[0] || null;
+      return (mappings ?? [])[0] || null;
     },
     enabled: !!customerId,
     staleTime: 1000 * 60 * 5
@@ -286,7 +286,7 @@ export default function CustomerServicesTab({
     queryKey: ['dmarc-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.DmarcReportMapping.filter({ customer_id: customerId });
-      return mappings[0] || null;
+      return (mappings ?? [])[0] || null;
     },
     enabled: !!customerId,
     staleTime: 1000 * 60 * 5
@@ -297,7 +297,7 @@ export default function CustomerServicesTab({
     queryKey: ['vultr-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.VultrMapping.filter({ customer_id: customerId });
-      return mappings[0] || null;
+      return (mappings ?? [])[0] || null;
     },
     enabled: !!customerId,
     staleTime: 1000 * 60 * 5
