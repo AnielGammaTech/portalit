@@ -329,7 +329,7 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
   // Track which line items are matched by any rule or override
   const matchedLineItemIds = new Set();
 
-  // Build multi-mapping lookup: rule_id → parsed JSON items with summed qty
+  // Build vendor-mapping lookup: rule_id → { items, totalQty }
   const multiMappingMap = {};
   for (const ov of overrides) {
     if (ov.pax8_product_name && ov.pax8_product_name.startsWith('[')) {
@@ -342,6 +342,12 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
           };
         }
       } catch {}
+    } else if (ov.group_id?.startsWith('qty:') && !ov.rule_id.startsWith('unmatched_')) {
+      const qty = parseFloat(ov.group_id.replace('qty:', '')) || 0;
+      multiMappingMap[ov.rule_id] = {
+        items: [{ id: ov.pax8_product_name, name: ov.pax8_product_name, qty }],
+        totalQty: qty,
+      };
     }
   }
 
