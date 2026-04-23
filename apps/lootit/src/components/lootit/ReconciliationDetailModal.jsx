@@ -540,7 +540,9 @@ export default function ReconciliationDetailModal({
       }
     }
     if (mappedVendorItems.length === 0 && ruleOverrides.length > 0 && ruleOverrides[0].pax8_product_name && !ruleOverrides[0].pax8_product_name.startsWith('[')) {
-      mappedVendorItems = [{ name: ruleOverrides[0].pax8_product_name, qty: vendorQty || 0 }];
+      const ov = ruleOverrides[0];
+      const storedQty = ov.group_id?.startsWith('qty:') ? parseFloat(ov.group_id.replace('qty:', '')) : null;
+      mappedVendorItems = [{ name: ov.pax8_product_name, qty: storedQty ?? vendorQty ?? 0 }];
     }
   }
 
