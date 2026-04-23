@@ -223,7 +223,7 @@ export default function OverviewTab({
           // Get license details
           const licenseDetails = await Promise.all(assignments.map(async (a) => {
             const licenses = await client.entities.SaaSLicense.filter({ id: a.license_id });
-            return licenses[0]?.application_name || 'Unknown License';
+            return (licenses ?? [])[0]?.application_name || 'Unknown License';
           }));
           return { ...alert, metadata, licenseNames: licenseDetails };
         }

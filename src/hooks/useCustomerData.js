@@ -11,7 +11,7 @@ export function useCustomer(customerId) {
     queryKey: ['customer', customerId],
     queryFn: async () => {
       const customers = await client.entities.Customer.filter({ id: customerId });
-      return customers[0] || null;
+      return (customers ?? [])[0] || null;
     },
     enabled: !!customerId,
   });
@@ -94,7 +94,7 @@ export function useCustomerMappings(customerId) {
     queryKey: ['jumpcloud-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.JumpCloudMapping.filter({ customer_id: customerId });
-      return mappings[0] || null;
+      return (mappings ?? [])[0] || null;
     },
     enabled: !!customerId,
   });
@@ -103,7 +103,7 @@ export function useCustomerMappings(customerId) {
     queryKey: ['spanning-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.SpanningMapping.filter({ customer_id: customerId });
-      return mappings[0] || null;
+      return (mappings ?? [])[0] || null;
     },
     enabled: !!customerId,
   });
@@ -112,7 +112,7 @@ export function useCustomerMappings(customerId) {
     queryKey: ['datto-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.DattoSiteMapping.filter({ customer_id: customerId });
-      return mappings[0] || null;
+      return (mappings ?? [])[0] || null;
     },
     enabled: !!customerId,
   });

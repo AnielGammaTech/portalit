@@ -255,11 +255,14 @@ export function useReconciliationData(customerId) {
           const originalCached = typeof row.cached_data === 'string'
             ? (() => { try { return JSON.parse(row.cached_data); } catch { return {}; } })()
             : (row.cached_data || {});
+          const fallbackUserCount = typeof originalCached.users === 'number'
+            ? originalCached.users
+            : Array.isArray(originalCached.users) ? originalCached.users.length : 0;
           result[row.customer_id][integrationKey] = {
             ...row,
             cached_data: custUsers.length > 0
               ? { users: custUsers, licensed_users: custUsers.filter(u => u.licenses).length }
-              : { ...originalCached, totalUsers: originalCached.users || 0 },
+              : { ...originalCached, users: fallbackUserCount, licensed_users: originalCached.licensed_users || 0 },
           };
         }
         continue;

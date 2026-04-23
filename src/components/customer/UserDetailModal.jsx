@@ -58,7 +58,7 @@ export default function UserDetailModal({ contact, open, onClose, customerId }) 
     queryKey: ['jumpcloud-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.JumpCloudMapping.filter({ customer_id: customerId });
-      return mappings[0] || null;
+      return (mappings ?? [])[0] || null;
     },
     enabled: !!customerId
   });
@@ -67,7 +67,7 @@ export default function UserDetailModal({ contact, open, onClose, customerId }) 
     queryKey: ['spanning-mapping', customerId],
     queryFn: async () => {
       const mappings = await client.entities.SpanningMapping.filter({ customer_id: customerId });
-      return mappings[0] || null;
+      return (mappings ?? [])[0] || null;
     },
     enabled: !!customerId
   });

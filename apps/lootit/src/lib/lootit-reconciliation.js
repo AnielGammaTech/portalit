@@ -342,8 +342,9 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
           };
         }
       } catch {}
-    } else if (ov.group_id?.startsWith('qty:') && !ov.rule_id.startsWith('unmatched_')) {
-      const qty = parseFloat(ov.group_id.replace('qty:', '')) || 0;
+    } else if (ov.group_id?.startsWith('qty:') && ov.rule_id && !ov.rule_id.startsWith('unmatched_')) {
+      const parsedQty = parseFloat(ov.group_id.replace('qty:', ''));
+      const qty = Number.isFinite(parsedQty) ? parsedQty : 0;
       multiMappingMap[ov.rule_id] = {
         items: [{ id: ov.pax8_product_name, name: ov.pax8_product_name, qty }],
         totalQty: qty,
