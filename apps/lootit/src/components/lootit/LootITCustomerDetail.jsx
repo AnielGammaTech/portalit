@@ -556,17 +556,28 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
                 line_item_id: liId,
                 group_id: `approved:${(notes || '').slice(0, 200)}`,
               });
+              const reviewNotes = `[APPROVED AS-IS by ${user?.full_name || user?.email || 'Unknown'} — ${new Date().toLocaleString()}] ${(notes || '').trim()}`;
+              await supabase.from('reconciliation_reviews').upsert({
+                customer_id: customer.id,
+                rule_id: rawId,
+                status: 'force_matched',
+                reviewed_by: user?.id || null,
+                reviewed_by_name: user?.full_name || user?.email || null,
+                reviewed_at: new Date().toISOString(),
+                notes: reviewNotes,
+              }, { onConflict: 'customer_id,rule_id' });
               supabase.from('reconciliation_review_history').insert({
                 customer_id: customer.id,
                 rule_id: rawId,
                 action: 'approved_as_is',
                 status: 'force_matched',
-                notes: `[APPROVED AS-IS by ${user?.full_name || user?.email || 'Unknown'} — ${new Date().toLocaleString()}] ${(notes || '').trim()}`,
+                notes: reviewNotes,
                 created_by: user?.id || null,
                 created_by_name: user?.full_name || user?.email || null,
               });
               await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides', customer.id] });
               await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides_all'] });
+              await queryClient.invalidateQueries({ queryKey: ['reconciliation_reviews', customer.id] });
               await queryClient.invalidateQueries({ queryKey: ['reconciliation_review_history', customer.id] });
               toast.success('Approved as-is');
             } else {
