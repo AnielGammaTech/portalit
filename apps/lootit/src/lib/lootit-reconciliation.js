@@ -192,6 +192,10 @@ export function extractVendorCount(integrationKey, cachedData) {
   return extractor(cachedData);
 }
 
+const VENDOR_DATA_ALIAS = {
+  unifi_location: 'unifi_firewall',
+};
+
 // ── Mapping table keys ─────────────────────────────────────────────────
 
 export const INTEGRATION_MAPPING_ENTITIES = {
@@ -375,7 +379,7 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
     for (const ruleId of allRuleIds) {
       if (multiMappingMap[ruleId]) { multiMapping = multiMappingMap[ruleId]; break; }
     }
-    const mapping = mappings[integrationKey];
+    const mapping = mappings[integrationKey] || mappings[VENDOR_DATA_ALIAS[integrationKey]];
     const vendorQty = multiMapping
       ? multiMapping.totalQty
       : mapping
