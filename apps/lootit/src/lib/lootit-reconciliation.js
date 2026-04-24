@@ -504,6 +504,14 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
       const review = reviewMap[ov.rule_id] || reviewMap[liId] || null;
       const approvalNote = isApprovedAsIs && ov.group_id ? ov.group_id.replace('approved:', '') : null;
       const vendorLabel = vendorKey && !isApprovedAsIs ? (INTEGRATION_LABELS[vendorKey] || vendorKey) : null;
+      const syntheticReview = isApprovedAsIs
+        ? (review || {
+            status: 'force_matched',
+            notes: approvalNote,
+            reviewed_at: ov.updated_date || ov.created_date || new Date().toISOString(),
+            reviewed_by_name: ov.created_by_name || 'System',
+          })
+        : review;
       overridedUnmatchedResults.push({
         rule: {
           id: ov.rule_id,
@@ -516,7 +524,7 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
         difference,
         status,
         matchedLineItems: [li],
-        review: isApprovedAsIs ? { status: 'force_matched', notes: approvalNote } : review,
+        review: syntheticReview,
         integrationLabel: isApprovedAsIs ? 'Approved as-is' : multiMapping ? `Mapped to ${multiMapping.items.length} vendor item(s)` : (vendorLabel ? `Mapped → ${vendorLabel}` : 'Manually Mapped'),
         isUnmatchedLineItem: false,
       });
