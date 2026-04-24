@@ -254,9 +254,11 @@ function ActionFooter({
   onDismiss,
   onReset,
   onMapLineItem,
+  onUnmap,
   onReVerify,
   onSaveNotes,
   isSaving,
+  hasMapping,
 }) {
   const { status, review, rule } = reconciliation;
   const isPax8 = !!reconciliation.ruleId;
@@ -323,6 +325,20 @@ function ActionFooter({
       toast.error(`Failed to save note: ${err.message || 'Unknown error'}`);
     } finally {
       setSavingNote(false);
+    }
+  };
+
+  const handleUnmap = async () => {
+    if (!onUnmap) return;
+    if (!window.confirm('Remove this vendor mapping? The item will go back to its original unmatched state.')) return;
+    setSaving(true);
+    try {
+      await onUnmap(ruleId);
+      toast.success('Mapping removed');
+    } catch (err) {
+      toast.error(`Failed to unmap: ${err.message || 'Unknown error'}`);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -458,7 +474,7 @@ function ActionFooter({
 
       {/* Utility row — always visible */}
       <div className="flex items-center justify-between pt-1 border-t border-slate-100">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           {!isMatch && !isReviewed && onMapLineItem && (
             <button
               onClick={() => {
@@ -468,6 +484,15 @@ function ActionFooter({
               className="text-[11px] font-medium text-blue-500 hover:text-blue-700 transition-colors cursor-pointer inline-flex items-center gap-1"
             >
               <Link2 className="w-3 h-3" /> Re-map
+            </button>
+          )}
+          {hasMapping && onUnmap && (
+            <button
+              onClick={handleUnmap}
+              disabled={saving || isSaving}
+              className="text-[11px] font-medium text-rose-500 hover:text-rose-700 transition-colors cursor-pointer inline-flex items-center gap-1 disabled:opacity-50"
+            >
+              <X className="w-3 h-3" /> Unmatch
             </button>
           )}
           <button
@@ -500,6 +525,7 @@ export default function ReconciliationDetailModal({
   isExclusionSaving,
   haloDevices,
   onMapLineItem,
+  onUnmap,
   overrides = [],
   readOnly = false,
   snapshotDate,
@@ -791,6 +817,8 @@ export default function ReconciliationDetailModal({
             onDismiss={async (id, opts) => { await onDismiss?.(id, opts); onActionComplete ? onActionComplete(id) : onClose?.(); }}
             onReset={async (id) => { await onReset?.(id); onClose?.(); }}
             onMapLineItem={(id, lbl) => { onClose?.(); setTimeout(() => onMapLineItem?.(id, lbl), 100); }}
+            onUnmap={async (id) => { await onUnmap?.(id); onActionComplete ? onActionComplete(id) : onClose?.(); }}
+            hasMapping={mappedVendorItems.length > 0}
             onReVerify={onReVerify}
             onSaveNotes={onSaveNotes}
             isSaving={isSavingProp || false}

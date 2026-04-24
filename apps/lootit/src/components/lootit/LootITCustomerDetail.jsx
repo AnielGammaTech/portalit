@@ -608,6 +608,34 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
             }
           }}
           onMapLineItem={(ruleId, label) => setMappingRecon({ ruleId, productName: label })}
+          onUnmap={async (ruleId) => {
+            try {
+              const toRemove = existingOverrides.filter(o => o.rule_id === ruleId);
+              for (const ov of toRemove) {
+                await client.entities.Pax8LineItemOverride.delete(ov.id);
+              }
+              const { error: reviewError } = await supabase
+                .from('reconciliation_reviews')
+                .delete()
+                .eq('customer_id', customer.id)
+                .eq('rule_id', ruleId);
+              if (reviewError) console.warn('Review delete failed:', reviewError);
+              await supabase.from('reconciliation_review_history').insert({
+                customer_id: customer.id,
+                rule_id: ruleId,
+                action: 'unmapped',
+                status: 'pending',
+                notes: `[UNMAPPED by ${user?.full_name || user?.email || 'Unknown'} — ${new Date().toLocaleString()}] Mapping removed.`,
+                created_by: user?.id || null,
+                created_by_name: user?.full_name || user?.email || null,
+              });
+            } finally {
+              await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides', customer.id] });
+              await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides_all'] });
+              await queryClient.invalidateQueries({ queryKey: ['reconciliation_reviews', customer.id] });
+              await queryClient.invalidateQueries({ queryKey: ['reconciliation_review_history', customer.id] });
+            }
+          }}
           onSaveExcludedItems={saveExcludedItems}
           onRemoveAllExcludedItems={removeAllForRule}
           excludedItemsForRule={detailItem ? getExcludedForRule(
