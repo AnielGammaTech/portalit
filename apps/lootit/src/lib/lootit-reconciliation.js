@@ -535,22 +535,25 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
     !(li.description || '').toLowerCase().startsWith('discount')
   );
 
-  const unmatchedResults = unmatchedItems.map((li) => ({
-    rule: {
-      id: `unmatched_${li.id}`,
-      label: (li.description || 'Unknown').replace(/\s*\$recurringbillingdate\s*/gi, '').trim() || li.description,
-      integration_key: 'unmatched',
-      is_active: true,
-    },
-    psaQty: parseFloat(li.quantity) || 0,
-    vendorQty: null,
-    difference: 0,
-    status: 'unmatched_line_item',
-    matchedLineItems: [li],
-    review: null,
-    integrationLabel: 'Unmatched Billing Item',
-    isUnmatchedLineItem: true,
-  }));
+  const unmatchedResults = unmatchedItems.map((li) => {
+    const unmatchedRuleId = `unmatched_${li.id}`;
+    return {
+      rule: {
+        id: unmatchedRuleId,
+        label: (li.description || 'Unknown').replace(/\s*\$recurringbillingdate\s*/gi, '').trim() || li.description,
+        integration_key: 'unmatched',
+        is_active: true,
+      },
+      psaQty: parseFloat(li.quantity) || 0,
+      vendorQty: null,
+      difference: 0,
+      status: 'unmatched_line_item',
+      matchedLineItems: [li],
+      review: reviewMap[unmatchedRuleId] || reviewMap[li.id] || null,
+      integrationLabel: 'Unmatched Billing Item',
+      isUnmatchedLineItem: true,
+    };
+  });
 
   // Dedup: when the same line item appears in multiple cards (e.g. a rule card
   // AND a manual override card), keep whichever has vendor data. If tied, prefer
