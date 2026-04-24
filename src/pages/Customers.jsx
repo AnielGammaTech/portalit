@@ -102,23 +102,33 @@ export default function Customers() {
     queryFn: () => client.entities.Customer.list('-created_date', 500),
   });
 
-  // Auto-retry if customers page loads empty
-  useAutoRetry([customers], isLoading, [['customers']]);
-
   const { data: contracts = [], isLoading: loadingContracts } = useQuery({
     queryKey: ['all_contracts'],
     queryFn: () => client.entities.Contract.list('-created_date', 1000),
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
 
   const { data: recurringBills = [], isLoading: loadingBills } = useQuery({
     queryKey: ['all_recurring_bills'],
     queryFn: () => client.entities.RecurringBill.list('-created_date', 1000),
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
 
   const { data: tickets = [], isLoading: loadingTickets } = useQuery({
     queryKey: ['all_tickets'],
     queryFn: () => client.entities.Ticket.list('-created_date', 1000),
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
+
+  // Auto-retry if any of the main queries loads empty
+  useAutoRetry(
+    [customers, contracts, recurringBills, tickets],
+    isLoading || loadingContracts || loadingBills || loadingTickets,
+    [['customers'], ['all_contracts'], ['all_recurring_bills'], ['all_tickets']]
+  );
 
   const statsReady = !loadingContracts && !loadingBills && !loadingTickets;
 
