@@ -259,6 +259,7 @@ function ActionFooter({
   onSaveNotes,
   isSaving,
   hasMapping,
+  changeDetected,
 }) {
   const { status, review, rule } = reconciliation;
   const isPax8 = !!reconciliation.ruleId;
@@ -337,6 +338,18 @@ function ActionFooter({
       toast.success('Mapping removed');
     } catch (err) {
       toast.error(`Failed to unmap: ${err.message || 'Unknown error'}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReVerify = async () => {
+    if (!onReVerify) return;
+    setSaving(true);
+    try {
+      await onReVerify(ruleId);
+    } catch (err) {
+      console.error('[Modal Action]', err);
     } finally {
       setSaving(false);
     }
@@ -450,6 +463,18 @@ function ActionFooter({
         >
           <Check className="w-4 h-4" />
           {saving ? 'Saving\u2026' : 'Confirm'}
+        </button>
+      )}
+
+      {/* Re-verify — already reviewed but quantities have changed */}
+      {isReviewed && changeDetected && onReVerify && (
+        <button
+          onClick={handleReVerify}
+          disabled={saving || isSaving}
+          className="w-full py-2.5 text-sm font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+        >
+          <RefreshCw className="w-4 h-4" />
+          {saving ? 'Saving\u2026' : 'Re-verify — accept new quantities'}
         </button>
       )}
 
@@ -819,7 +844,8 @@ export default function ReconciliationDetailModal({
             onMapLineItem={(id, lbl) => { onClose?.(); setTimeout(() => onMapLineItem?.(id, lbl), 100); }}
             onUnmap={async (id) => { await onUnmap?.(id); onActionComplete ? onActionComplete(id) : onClose?.(); }}
             hasMapping={mappedVendorItems.length > 0}
-            onReVerify={onReVerify}
+            changeDetected={!!staleness?.changeDetected}
+            onReVerify={async (id) => { await onReVerify?.(id); onActionComplete ? onActionComplete(id) : onClose?.(); }}
             onSaveNotes={onSaveNotes}
             isSaving={isSavingProp || false}
           />
