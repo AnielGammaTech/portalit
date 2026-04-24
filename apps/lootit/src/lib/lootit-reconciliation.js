@@ -236,7 +236,7 @@ export const INTEGRATION_LABELS = {
   datto_edr: 'Datto EDR',
   unifi: 'UniFi Network',
   unifi_firewall: 'UniFi Firewall',
-  unifi_location: 'UniFi Firewall',
+  unifi_location: 'UniFi Location',
   rocket_cyber: 'RocketCyber',
   darkweb: 'Dark Web ID',
   bullphish: 'BullPhish ID',

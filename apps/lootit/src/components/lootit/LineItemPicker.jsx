@@ -73,7 +73,7 @@ function extractVendorItems(integrationKey, mapping, haloDevices) {
   if (Array.isArray(raw.devices) && raw.devices.length > 0) {
     let deviceList = raw.devices;
 
-    if (integrationKey === 'unifi_firewall') {
+    if (integrationKey === 'unifi_firewall' || integrationKey === 'unifi_location') {
       deviceList = raw.devices.filter(d =>
         d.type === 'firewall' || d.device_type === 'firewall' ||
         d.model?.toLowerCase().includes('udm') ||
@@ -88,7 +88,7 @@ function extractVendorItems(integrationKey, mapping, haloDevices) {
             quantity: raw.summary.firewalls,
             unit_price: 0,
             total: 0,
-            _meta: `${raw.summary.firewalls} total devices`,
+            _meta: `${raw.summary.firewalls} total locations`,
             _isSummary: true,
           }];
         }
