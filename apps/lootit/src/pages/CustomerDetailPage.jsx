@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { client } from '@/api/client'
@@ -6,10 +6,9 @@ import LootITCustomerDetail from '@/components/lootit/LootITCustomerDetail'
 import { Skeleton } from '@/components/ui/skeleton'
 import { RefreshCw, AlertTriangle } from 'lucide-react'
 
-// Customer-scoped queries that live on this route. Any of these going stale
-// on tab resume should be re-fetched to prevent a forever-skeleton state.
+// Customer-scoped queries that live on this route. On tab resume / manual
+// retry, these are the only keys we touch.
 const CUSTOMER_SCOPED_KEYS = [
-  'customer_by_id',
   'recurring_bill_line_items_customer',
   'pax8_line_item_overrides',
   'reconciliation_reviews',
@@ -22,12 +21,16 @@ const CUSTOMER_SCOPED_KEYS = [
   'lootit_contracts',
 ]
 
+const LOAD_TIMEOUT_MS = 12000
+
 export default function CustomerDetailPage() {
   const { customerId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [loadTooLong, setLoadTooLong] = useState(false)
+  const [loadTimedOut, setLoadTimedOut] = useState(false)
+  const [retryNonce, setRetryNonce] = useState(0)
+  const lastForcedAtRef = useRef(0)
 
   const activeTab = searchParams.get('tab') || 'reconciliation'
 
@@ -37,9 +40,8 @@ export default function CustomerDetailPage() {
     isFetching,
     isError,
     error,
-    refetch,
   } = useQuery({
-    queryKey: ['customer_by_id', customerId],
+    queryKey: ['customer_by_id', customerId, retryNonce],
     queryFn: async () => {
       const results = await client.entities.Customer.filter({ id: customerId })
       return results?.[0] || null
@@ -49,35 +51,56 @@ export default function CustomerDetailPage() {
     retry: 2,
   })
 
-  // Surface a retry UI if the loading state drags past 8 seconds.
-  useEffect(() => {
-    if (!isLoading) {
-      setLoadTooLong(false)
-      return
-    }
-    const t = setTimeout(() => setLoadTooLong(true), 8000)
-    return () => clearTimeout(t)
-  }, [isLoading, customerId])
-
-  // When the tab regains focus/visibility, invalidate only the queries scoped
-  // to THIS customerId so a stale tab recovers without a manual refresh.
-  useEffect(() => {
+  // Force a fresh customer_by_id fetch by cancelling the in-flight request,
+  // removing the cached entry, and bumping retryNonce to mint a new query key.
+  const forceRefreshCustomer = useCallback(() => {
     if (!customerId) return
-    const invalidateAll = () => {
-      for (const key of CUSTOMER_SCOPED_KEYS) {
-        queryClient.invalidateQueries({ queryKey: [key, customerId] })
-      }
-    }
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') invalidateAll()
-    }
-    window.addEventListener('focus', invalidateAll)
-    document.addEventListener('visibilitychange', onVisibility)
-    return () => {
-      window.removeEventListener('focus', invalidateAll)
-      document.removeEventListener('visibilitychange', onVisibility)
+    lastForcedAtRef.current = Date.now()
+    queryClient.cancelQueries({ queryKey: ['customer_by_id', customerId] })
+    queryClient.removeQueries({ queryKey: ['customer_by_id', customerId] })
+    setLoadTimedOut(false)
+    setRetryNonce((n) => n + 1)
+  }, [customerId, queryClient])
+
+  // Invalidate the rest of the route's customer-scoped queries so they
+  // refetch alongside the forced root query.
+  const invalidateRouteScopedQueries = useCallback(() => {
+    if (!customerId) return
+    for (const key of CUSTOMER_SCOPED_KEYS) {
+      queryClient.invalidateQueries({ queryKey: [key, customerId] })
     }
   }, [customerId, queryClient])
+
+  // Surface the retry panel after the loading state drags past the timeout.
+  useEffect(() => {
+    if (!isLoading) {
+      setLoadTimedOut(false)
+      return undefined
+    }
+    const t = setTimeout(() => setLoadTimedOut(true), LOAD_TIMEOUT_MS)
+    return () => clearTimeout(t)
+  }, [isLoading, customerId, retryNonce])
+
+  // On tab resume, force-refresh the root query and invalidate the rest.
+  // Throttle to once every 2s in case the browser fires both events.
+  useEffect(() => {
+    if (!customerId) return undefined
+    const onResume = () => {
+      const now = Date.now()
+      if (now - lastForcedAtRef.current < 2000) return
+      forceRefreshCustomer()
+      invalidateRouteScopedQueries()
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') onResume()
+    }
+    window.addEventListener('focus', onResume)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('focus', onResume)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [customerId, forceRefreshCustomer, invalidateRouteScopedQueries])
 
   const handleBack = () => {
     navigate('/')
@@ -89,14 +112,9 @@ export default function CustomerDetailPage() {
     setSearchParams(next, { replace: true })
   }
 
-  const handleManualRefetch = () => {
-    setLoadTooLong(false)
-    refetch()
-    if (customerId) {
-      for (const key of CUSTOMER_SCOPED_KEYS) {
-        queryClient.invalidateQueries({ queryKey: [key, customerId] })
-      }
-    }
+  const handleRetry = () => {
+    forceRefreshCustomer()
+    invalidateRouteScopedQueries()
   }
 
   if (!customerId) {
@@ -114,19 +132,26 @@ export default function CustomerDetailPage() {
     )
   }
 
-  if (isError) {
+  // Render the retry panel BEFORE the skeleton branch so a stuck-loading
+  // page can never sit on a skeleton forever.
+  if (loadTimedOut || isError) {
+    const message = isError
+      ? (error?.message || 'Request failed.')
+      : 'Loading is taking longer than expected.'
     return (
       <div className="text-center py-20 max-w-md mx-auto">
         <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
-        <p className="text-slate-700 font-medium">Couldn't load customer</p>
-        <p className="text-slate-500 text-sm mt-1">{error?.message || 'Request failed.'}</p>
+        <p className="text-slate-700 font-medium">
+          {isError ? "Couldn't load customer" : 'Still loading\u2026'}
+        </p>
+        <p className="text-slate-500 text-sm mt-1">{message}</p>
         <div className="mt-4 flex items-center justify-center gap-3">
           <button
             type="button"
-            onClick={handleManualRefetch}
+            onClick={handleRetry}
             className="inline-flex items-center gap-1.5 rounded-md bg-slate-900 text-white text-sm px-3 py-1.5 hover:bg-slate-800"
           >
-            <RefreshCw className="w-3.5 h-3.5" /> Retry
+            <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? 'animate-spin' : ''}`} /> Retry
           </button>
           <button
             type="button"
@@ -143,20 +168,6 @@ export default function CustomerDetailPage() {
   if (isLoading) {
     return (
       <div className="animate-in space-y-6">
-        {loadTooLong && (
-          <div className="flex items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
-            <p className="text-xs text-amber-800">
-              Still loading{isFetching ? '\u2026' : ''}. Taking longer than expected.
-            </p>
-            <button
-              type="button"
-              onClick={handleManualRefetch}
-              className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 text-white text-xs px-2.5 py-1 hover:bg-amber-700"
-            >
-              <RefreshCw className="w-3 h-3" /> Retry
-            </button>
-          </div>
-        )}
         {/* Header skeleton */}
         <div className="flex items-center gap-4">
           <Skeleton className="h-8 w-8 rounded-lg" />
@@ -191,39 +202,39 @@ export default function CustomerDetailPage() {
     )
   }
 
-  if (!customer) {
+  if (customer) {
     return (
-      <div className="text-center py-20 max-w-md mx-auto">
-        <p className="text-slate-700 font-medium">Customer not found</p>
-        <p className="text-slate-500 text-sm mt-1">
-          The record for this customer could not be loaded.
-        </p>
-        <div className="mt-4 flex items-center justify-center gap-3">
-          <button
-            type="button"
-            onClick={handleManualRefetch}
-            className="inline-flex items-center gap-1.5 rounded-md bg-slate-900 text-white text-sm px-3 py-1.5 hover:bg-slate-800"
-          >
-            <RefreshCw className="w-3.5 h-3.5" /> Retry
-          </button>
-          <button
-            type="button"
-            onClick={handleBack}
-            className="text-sm text-slate-600 underline hover:text-slate-800"
-          >
-            Back to dashboard
-          </button>
-        </div>
-      </div>
+      <LootITCustomerDetail
+        customer={customer}
+        onBack={handleBack}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+      />
     )
   }
 
   return (
-    <LootITCustomerDetail
-      customer={customer}
-      onBack={handleBack}
-      activeTab={activeTab}
-      onTabChange={handleTabChange}
-    />
+    <div className="text-center py-20 max-w-md mx-auto">
+      <p className="text-slate-700 font-medium">Customer not found</p>
+      <p className="text-slate-500 text-sm mt-1">
+        The record for this customer could not be loaded.
+      </p>
+      <div className="mt-4 flex items-center justify-center gap-3">
+        <button
+          type="button"
+          onClick={handleRetry}
+          className="inline-flex items-center gap-1.5 rounded-md bg-slate-900 text-white text-sm px-3 py-1.5 hover:bg-slate-800"
+        >
+          <RefreshCw className="w-3.5 h-3.5" /> Retry
+        </button>
+        <button
+          type="button"
+          onClick={handleBack}
+          className="text-sm text-slate-600 underline hover:text-slate-800"
+        >
+          Back to dashboard
+        </button>
+      </div>
+    </div>
   )
 }
