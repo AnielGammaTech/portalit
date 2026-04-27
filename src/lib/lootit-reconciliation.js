@@ -244,7 +244,15 @@ export function lineItemMatchesRule(lineItem, rule) {
   if (!pattern) return false;
   // Support pipe-separated patterns (OR logic): "JumpCloud|Jump Cloud"
   const patterns = pattern.split('|').map(p => p.trim()).filter(Boolean);
-  return patterns.some(p => value.includes(p));
+  return patterns.some(p => {
+    // Whole-word match so short tokens like "EDR" don't match "OneDrive".
+    const escaped = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    try {
+      return new RegExp(`\\b${escaped}\\b`, 'i').test(value);
+    } catch {
+      return value.includes(p);
+    }
+  });
 }
 
 /**
