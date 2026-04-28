@@ -66,11 +66,13 @@ export default function Login() {
 
       const role = profile?.role || 'user';
 
-      // Customer users → redirect to customer portal with session token (no second login)
+      // Customer users → redirect to customer portal. The session is
+      // already in the .gtools.io cookie (auth-storage.js D-21), so the
+      // customer portal reads it automatically. No fragment handoff = no
+      // refresh-token leak via bookmarks/history sync/referrer.
       if (role === 'user' && CUSTOMER_PORTAL_URL && authData.session) {
         toast.success('Redirecting to your portal...');
-        const { access_token, refresh_token } = authData.session;
-        window.location.href = `${CUSTOMER_PORTAL_URL}/auth-redirect#access_token=${access_token}&refresh_token=${refresh_token}`;
+        window.location.href = `${CUSTOMER_PORTAL_URL}/`;
         return;
       }
 

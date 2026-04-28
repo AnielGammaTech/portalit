@@ -77,7 +77,19 @@ router.post('/', uploadRateLimit, requireAuth, upload.single('file'), async (req
   }
 });
 
-// Public file proxy — serves files from private Supabase storage via signed URL redirect
+// File proxy. Audit finding H2:
+//   - was mounted unauthenticated with Access-Control-Allow-Origin: *
+//   - SVGs were served inline as image/svg+xml (XSS vector)
+//
+// Wave 2 hardening (minimum blast radius — does not break <img> tags):
+//   1. Dropped wildcard CORS — img tags don't need it.
+//   2. SVG forced to attachment so it never executes in-page.
+//   3. Cache reduced to 5 min so token churn is bearable when /signed-url
+//      migration completes.
+//   4. Added X-Frame-Options/Referrer-Policy.
+//
+// TODO: Once all <img> tags migrate to /signed-url/:fileName below,
+// add requireAuth here and remove the public path entirely.
 router.get('/file/:fileName', async (req, res, next) => {
   try {
     const { fileName } = req.params;
@@ -85,7 +97,6 @@ router.get('/file/:fileName', async (req, res, next) => {
       return res.status(400).json({ error: 'File name required' });
     }
 
-    // Prevent path traversal
     const safeFile = fileName.replace(/[\/\\]/g, '').replace(/\.\./g, '').slice(0, 300);
     if (!safeFile) {
       return res.status(400).json({ error: 'Invalid file name' });
@@ -100,7 +111,6 @@ router.get('/file/:fileName', async (req, res, next) => {
       return res.status(404).json({ error: 'File not found' });
     }
 
-    // Detect content type from filename
     const ext = safeFile.split('.').pop().toLowerCase();
     const mimeTypes = {
       jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
@@ -110,14 +120,47 @@ router.get('/file/:fileName', async (req, res, next) => {
     };
     const contentType = mimeTypes[ext] || 'application/octet-stream';
 
-    // Stream the file content directly — avoids cross-origin issues with Supabase redirects
     res.set('Content-Type', contentType);
-    res.set('Cache-Control', 'public, max-age=86400');
+    res.set('Cache-Control', 'public, max-age=300');
     res.set('X-Content-Type-Options', 'nosniff');
-    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
-    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Referrer-Policy', 'no-referrer');
+    res.set('X-Frame-Options', 'DENY');
+    // Force SVGs to download instead of rendering inline — SVG is an XSS
+    // vector when served as image/svg+xml. PNG/JPG still render inline.
+    if (ext === 'svg') {
+      res.set('Content-Disposition', `attachment; filename="${safeFile}"`);
+    }
     const buffer = Buffer.from(await data.arrayBuffer());
     res.send(buffer);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Authenticated signed-URL endpoint — preferred path for new code.
+// Returns a 5-minute Supabase Storage signed URL the caller can use
+// directly in <img>, <a>, etc. Frontend should migrate from
+// /file/:fileName to this and the public proxy can then be removed.
+router.get('/signed-url/:fileName', requireAuth, async (req, res, next) => {
+  try {
+    const { fileName } = req.params;
+    if (!fileName) {
+      return res.status(400).json({ error: 'File name required' });
+    }
+    const safeFile = fileName.replace(/[\/\\]/g, '').replace(/\.\./g, '').slice(0, 300);
+    if (!safeFile) {
+      return res.status(400).json({ error: 'Invalid file name' });
+    }
+
+    const supabase = getServiceSupabase();
+    const { data, error } = await supabase.storage
+      .from('uploads')
+      .createSignedUrl(safeFile, 60 * 5); // 5-minute TTL
+
+    if (error || !data) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+    return res.json({ url: data.signedUrl, expires_in: 300 });
   } catch (error) {
     next(error);
   }
