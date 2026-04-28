@@ -76,8 +76,16 @@ export default function Login() {
 
       // Admin/sales → stay on main portal
       toast.success('Signed in successfully');
-      if (returnUrl) {
-        window.location.href = returnUrl;
+      // Only follow returnUrl if it's a same-origin relative path. Reject
+      // protocol-relative ("//evil.com") and absolute URLs to avoid an
+      // open-redirect phishing vector.
+      const safeReturn = returnUrl
+        && returnUrl.startsWith('/')
+        && !returnUrl.startsWith('//')
+        ? returnUrl
+        : null;
+      if (safeReturn) {
+        navigate(safeReturn);
       } else {
         navigate('/');
       }

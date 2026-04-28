@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { client } from '@/api/client';
+import { client, supabase } from '@/api/client';
 import { MapPin } from 'lucide-react';
 
 const ENV_MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
@@ -57,18 +57,19 @@ export default function CustomerMap({ addresses = [] }) {
   const [loading, setLoading] = useState(true);
   const cacheRef = useRef({});
 
-  // Fetch mapbox settings from the Settings table
+  // Fetch only the mapbox fields via the get_public_settings RPC.
+  // The full settings table is admin-only since it holds vendor secrets.
   const { data: mapboxSettings } = useQuery({
     queryKey: ['mapbox_settings'],
     queryFn: async () => {
-      const settingsList = await client.entities.Settings.list();
-      if (settingsList.length > 0) {
-        return {
-          token: settingsList[0].mapbox_token || '',
-          style: settingsList[0].mapbox_style || DEFAULT_STYLE,
-        };
+      const { data, error } = await supabase.rpc('get_public_settings');
+      if (error || !data || data.length === 0) {
+        return { token: '', style: DEFAULT_STYLE };
       }
-      return { token: '', style: DEFAULT_STYLE };
+      return {
+        token: data[0].mapbox_token || '',
+        style: data[0].mapbox_style || DEFAULT_STYLE,
+      };
     },
     staleTime: 5 * 60 * 1000, // cache for 5 minutes
   });

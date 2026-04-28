@@ -325,7 +325,13 @@ export async function syncSpanningBackup(body, user) {
 
     const mapping = mappings[0];
 
-    if (!mapping.spanning_api_key) {
+    const { data: cred } = await supabase
+      .from('spanning_credentials')
+      .select('api_key')
+      .eq('customer_id', customer_id)
+      .maybeSingle();
+
+    if (!cred?.api_key) {
       return {
         success: true,
         total: 0,
@@ -380,7 +386,13 @@ export async function syncSpanningBackup(body, user) {
 
     const mapping = mappings[0];
 
-    if (!mapping.spanning_api_key) {
+    const { data: cred } = await supabase
+      .from('spanning_credentials')
+      .select('api_key')
+      .eq('customer_id', customer_id)
+      .maybeSingle();
+
+    if (!cred?.api_key) {
       return {
         success: true,
         total: 0,
