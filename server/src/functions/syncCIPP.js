@@ -1,5 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
-import { fetchWithTimeout } from '../lib/sync-utils.js';
+import { fetchWithTimeout, runWithConcurrency } from '../lib/sync-utils.js';
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -420,17 +420,20 @@ async function syncAll() {
     return { success: true, message: 'No CIPP mappings configured' };
   }
 
-  const results = [];
-  for (const mapping of mappings) {
-    try {
-      const result = await syncCustomer(mapping.customer_id, mapping.cipp_tenant_id);
-      results.push({ customer: mapping.customer_name, ...result });
-    } catch (err) {
-      results.push({ customer: mapping.customer_name, success: false, error: err.message });
-    }
-  }
+  // Concurrency 4 — CIPP per-customer hits multiple downstream MS Graph
+  // endpoints (users, groups+members, mailboxes, SKUs, signins). 4 in flight
+  // keeps the CIPP proxy from rate-limiting / queueing.
+  const startedAt = Date.now();
+  const settled = await runWithConcurrency(mappings, 4, async (mapping) => {
+    const result = await syncCustomer(mapping.customer_id, mapping.cipp_tenant_id);
+    return { customer: mapping.customer_name, ...result };
+  });
+  const results = settled.map((r, i) => r.ok
+    ? r.value
+    : { customer: mappings[i]?.customer_name, success: false, error: r.error?.message || 'unknown' });
 
   const succeeded = results.filter((r) => r.success).length;
+  console.log(`[CIPP] sync_all done in ${Date.now() - startedAt}ms — ${succeeded}/${results.length}`);
   return {
     success: true,
     message: `Synced ${succeeded}/${results.length} customers`,
