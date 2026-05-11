@@ -11,6 +11,42 @@ const edrUrl = (path) => {
   return `${DATTO_EDR_BASE_URL}${path}${separator}access_token=${DATTO_EDR_API_TOKEN}`;
 };
 
+// fetch wrapper with hard timeout — without this, a single hung Datto call
+// freezes serial loops (this was the root cause of sync_all only completing
+// 2/78 customers — the 3rd customer's fetch never resolved).
+const FETCH_TIMEOUT_MS = 30000;
+async function fetchWithTimeout(url, opts = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...opts, signal: controller.signal });
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+// Run an async mapper across `items` with bounded concurrency. Errors per
+// item are caught so one bad mapping can't break the batch.
+async function runWithConcurrency(items, limit, worker) {
+  const results = new Array(items.length);
+  let next = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (true) {
+      const i = next++;
+      if (i >= items.length) return;
+      try {
+        results[i] = { ok: true, value: await worker(items[i], i) };
+      } catch (err) {
+        results[i] = { ok: false, error: err };
+      }
+    }
+  });
+  await Promise.all(runners);
+  return results;
+}
+
 export async function syncDattoEDR(body, user) {
   const supabase = getServiceSupabase();
 
@@ -436,134 +472,142 @@ export async function syncDattoEDR(body, user) {
   if (action === 'sync_all') {
     const { data: allMappingsData } = await supabase.from('datto_edr_mappings').select('*');
     const allMappings = allMappingsData || [];
-    let synced = 0;
-    let failed = 0;
+    const PAGE_SIZE = 100;
+    const CONCURRENCY = 8;
 
-    for (const mapping of allMappings) {
-      try {
-        const targetId = mapping.edr_tenant_id;
-        if (!targetId) { failed++; continue; }
+    async function syncOne(mapping) {
+      const targetId = mapping.edr_tenant_id;
+      if (!targetId) return { synced: false, reason: 'missing_tenant_id' };
 
-        const targetUrl = edrUrl(`/targets/${targetId}`);
-        const targetRes = await fetch(targetUrl, { headers }).catch(() => null);
+      const targetRes = await fetchWithTimeout(edrUrl(`/targets/${targetId}`), { headers });
+      let targetData = null;
+      if (targetRes?.ok) {
+        const raw = await targetRes.text();
+        try { targetData = JSON.parse(raw); } catch (e) { console.warn('[DattoEDR] parse target:', e.message); }
+      }
 
-        let targetData = null;
-        if (targetRes?.ok) {
-          const raw = await targetRes.text();
-          try { targetData = JSON.parse(raw); } catch(e) { console.warn('[DattoEDR] Non-critical error parsing target data:', e.message); }
-        }
+      const expectedCount = targetData?.agentCount || 0;
 
-        // Fetch agents scoped to this target — paginate to get all
-        let allAgents = [];
-        const PAGE_SIZE = 100;
+      // Primary: target-scoped pagination
+      let allAgents = [];
+      for (let skip = 0; ; skip += PAGE_SIZE) {
+        const res = await fetchWithTimeout(
+          edrUrl(`/targets/${targetId}/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`),
+          { headers }
+        );
+        if (!res?.ok) break;
+        const raw = await res.text();
+        let page = [];
+        try {
+          const parsed = JSON.parse(raw);
+          page = Array.isArray(parsed) ? parsed : (parsed?.data || parsed?.value || []);
+        } catch (e) { console.warn('[DattoEDR] parse target agents:', e.message); break; }
+        allAgents.push(...page);
+        if (page.length < PAGE_SIZE) break;
+      }
 
-        // Primary: target-scoped endpoint (returns only this customer's agents)
+      // Fallback: global agents endpoint — only when target reports >0 agents and
+      // target-scoped came back short. Skipping when expectedCount===0 (the old
+      // behavior paginated EVERY agent globally for tenants Datto reports as empty,
+      // which was a huge waste and the slowest single source of sync_all hangs).
+      if (expectedCount > 0 && allAgents.length < expectedCount) {
+        console.log(`[DattoEDR] sync_all fallback for ${targetId}: scoped=${allAgents.length} expected=${expectedCount}`);
+        const globalAgents = [];
         for (let skip = 0; ; skip += PAGE_SIZE) {
-          const url = edrUrl(`/targets/${targetId}/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`);
-          const res = await fetch(url, { headers }).catch(() => null);
+          const res = await fetchWithTimeout(
+            edrUrl(`/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`),
+            { headers }
+          );
           if (!res?.ok) break;
           const raw = await res.text();
           let page = [];
           try {
             const parsed = JSON.parse(raw);
             page = Array.isArray(parsed) ? parsed : (parsed?.data || parsed?.value || []);
-          } catch (e) { console.warn('[DattoEDR] Non-critical error parsing target agents page:', e.message); break; }
-          allAgents.push(...page);
-          if (page.length < PAGE_SIZE) break; // last page
+          } catch (e) { console.warn('[DattoEDR] parse global agents:', e.message); break; }
+          globalAgents.push(...page);
+          if (page.length < PAGE_SIZE) break;
         }
-
-        // Fallback: global agents endpoint filtered client-side
-        // Also use when target-scoped returns fewer than expected (may exclude inactive)
-        const expectedCount = targetData?.agentCount || 0;
-        if (allAgents.length === 0 || (expectedCount > 0 && allAgents.length < expectedCount)) {
-          console.log(`[DattoEDR] sync_all: Target-scoped returned ${allAgents.length} (expected ${expectedCount}) for ${targetId}, trying global`);
-          const globalAgents = [];
-          for (let skip = 0; ; skip += PAGE_SIZE) {
-            const url = edrUrl(`/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`);
-            const res = await fetch(url, { headers }).catch(() => null);
-            if (!res?.ok) break;
-            const raw = await res.text();
-            let page = [];
-            try {
-              const parsed = JSON.parse(raw);
-              page = Array.isArray(parsed) ? parsed : (parsed?.data || parsed?.value || []);
-            } catch (e) { console.warn('[DattoEDR] Non-critical error parsing global agents page:', e.message); break; }
-            globalAgents.push(...page);
-            if (page.length < PAGE_SIZE) break;
-          }
-          if (globalAgents.length > allAgents.length) {
-            allAgents = globalAgents;
-          }
-        }
-
-        // If we used the global endpoint, filter to this customer's target
-        let hosts = allAgents;
-        if (hosts.length > 0 && hosts[0].locationId !== undefined) {
-          const firstMatch = hosts.find(a =>
-            a.locationId === targetId || a.targetId === targetId ||
-            a.location_id === targetId || a.organizationId === targetId
-          );
-          if (!firstMatch && hosts.length > 5) {
-            hosts = allAgents.filter(a =>
-              a.locationId === targetId || a.targetId === targetId ||
-              (a.location_id || a.organizationId) === targetId
-            );
-          }
-        }
-
-        const targetStats = targetData ? {
-          agentCount: targetData.agentCount || 0,
-          activeAgentCount: targetData.activeAgentCount || 0,
-          alertCount: parseInt(targetData.alertCount) || 0,
-          totalAddressCount: targetData.totalAddressCount || 0,
-          lastScannedOn: targetData.lastScannedOn
-        } : null;
-
-        const hostCount = hosts.length || targetStats?.agentCount || 0;
-        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-        const activeHosts = hosts.filter(h => {
-          if (h.heartbeat) return new Date(h.heartbeat) > twentyFourHoursAgo;
-          return h.active === true;
-        });
-        const activeCount = activeHosts.length || targetStats?.activeAgentCount || 0;
-        const alertCount = targetStats?.alertCount || 0;
-
-        const responseData = {
-          hostCount,
-          activeHostCount: activeCount,
-          hosts: hosts.map(h => {
-            const heartbeatDate = h.heartbeat ? new Date(h.heartbeat) : null;
-            const isOnline = heartbeatDate ? heartbeatDate > twentyFourHoursAgo : h.active === true;
-            return {
-              id: h.id,
-              hostname: h.hostname || h.name,
-              ip: h.ip || h.ipstring,
-              os: h.os,
-              online: isOnline,
-              lastSeen: h.heartbeat
-            };
-          }),
-          alertCount,
-          criticalAlerts: 0,
-          mediumAlerts: 0,
-          lowAlerts: 0,
-          lastScannedOn: targetStats?.lastScannedOn,
-          targetStats
-        };
-
-        await supabase.from('datto_edr_mappings').update({
-          last_synced: new Date().toISOString(),
-          cached_data: responseData
-        }).eq('id', mapping.id);
-        synced++;
-        console.log(`EDR sync_all: synced ${mapping.customer_name} — ${hostCount} agents`);
-      } catch (e) {
-        console.error(`Failed to sync ${mapping.customer_name}:`, e);
-        failed++;
+        if (globalAgents.length > allAgents.length) allAgents = globalAgents;
       }
+
+      // Filter to this customer's target if we used the global endpoint
+      let hosts = allAgents;
+      if (hosts.length > 0 && hosts[0].locationId !== undefined) {
+        const firstMatch = hosts.find(a =>
+          a.locationId === targetId || a.targetId === targetId ||
+          a.location_id === targetId || a.organizationId === targetId
+        );
+        if (!firstMatch && hosts.length > 5) {
+          hosts = allAgents.filter(a =>
+            a.locationId === targetId || a.targetId === targetId ||
+            (a.location_id || a.organizationId) === targetId
+          );
+        }
+      }
+
+      const targetStats = targetData ? {
+        agentCount: targetData.agentCount || 0,
+        activeAgentCount: targetData.activeAgentCount || 0,
+        alertCount: parseInt(targetData.alertCount) || 0,
+        totalAddressCount: targetData.totalAddressCount || 0,
+        lastScannedOn: targetData.lastScannedOn
+      } : null;
+
+      const hostCount = hosts.length || targetStats?.agentCount || 0;
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const activeHosts = hosts.filter(h => {
+        if (h.heartbeat) return new Date(h.heartbeat) > twentyFourHoursAgo;
+        return h.active === true;
+      });
+      const activeCount = activeHosts.length || targetStats?.activeAgentCount || 0;
+      const alertCount = targetStats?.alertCount || 0;
+
+      const responseData = {
+        hostCount,
+        activeHostCount: activeCount,
+        hosts: hosts.map(h => {
+          const heartbeatDate = h.heartbeat ? new Date(h.heartbeat) : null;
+          const isOnline = heartbeatDate ? heartbeatDate > twentyFourHoursAgo : h.active === true;
+          return {
+            id: h.id,
+            hostname: h.hostname || h.name,
+            ip: h.ip || h.ipstring,
+            os: h.os,
+            online: isOnline,
+            lastSeen: h.heartbeat
+          };
+        }),
+        alertCount,
+        criticalAlerts: 0,
+        mediumAlerts: 0,
+        lowAlerts: 0,
+        lastScannedOn: targetStats?.lastScannedOn,
+        targetStats
+      };
+
+      await supabase.from('datto_edr_mappings').update({
+        last_synced: new Date().toISOString(),
+        cached_data: responseData
+      }).eq('id', mapping.id);
+
+      return { synced: true, hostCount, customer: mapping.customer_name };
     }
 
-    return { success: true, synced, failed, total: allMappings.length };
+    const startedAt = Date.now();
+    const results = await runWithConcurrency(allMappings, CONCURRENCY, syncOne);
+    const synced = results.filter(r => r.ok && r.value?.synced).length;
+    const failed = results.length - synced;
+    const durationMs = Date.now() - startedAt;
+    console.log(`[DattoEDR] sync_all done in ${durationMs}ms — ${synced}/${allMappings.length} synced, ${failed} failed`);
+
+    // Surface the first few failure messages so the caller has something to act on
+    const errors = results
+      .map((r, i) => (!r.ok || !r.value?.synced) ? { customer: allMappings[i]?.customer_name, reason: r.ok ? r.value?.reason : (r.error?.message || 'unknown') } : null)
+      .filter(Boolean)
+      .slice(0, 10);
+
+    return { success: true, synced, failed, total: allMappings.length, durationMs, errors };
   }
 
   if (action === 'get_tenant_stats') {
