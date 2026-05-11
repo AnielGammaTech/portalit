@@ -63,16 +63,9 @@ supabase.auth.onAuthStateChange((_event, session) => {
   updateTokenCache(session);
 });
 
-// Re-validate session when tab regains focus (handles background token expiry)
-if (typeof document !== 'undefined') {
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        updateTokenCache(session);
-      }).catch(() => {});
-    }
-  });
-}
+// Tab-resume session refresh now lives in @/lib/query-client.js so it can also
+// invalidate React Query after the refresh — keeping it here only updated the
+// token cache without forcing refetches, which left pages blank with stale data.
 
 async function getAuthToken() {
   if (_cachedToken && Date.now() < _tokenExpiresAt) {

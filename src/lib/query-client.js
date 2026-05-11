@@ -33,7 +33,13 @@ async function handleQueryError(error) {
 export const queryClientInstance = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: 'always',
+      // Was 'always' — caused a race with the visibility handler below:
+      // refetchOnWindowFocus fires synchronously when the tab regains focus,
+      // so queries went out with a stale/expired token and silently returned
+      // empty arrays from RLS, leaving pages blank with footer. Default `true`
+      // only refetches stale queries; the TOKEN_REFRESHED handler invalidates
+      // after refresh so refetches use the new token.
+      refetchOnWindowFocus: true,
       refetchOnReconnect: 'always',
       refetchOnMount: true,
       retry: (failureCount, error) => {
@@ -54,3 +60,34 @@ export const queryClientInstance = new QueryClient({
 
 // Global error handler — refreshes session on auth failures
 queryClientInstance.getQueryCache().config.onError = handleQueryError;
+
+// When supabase refreshes the access token (auto-refresh, or our explicit
+// tab-resume refresh below), invalidate React Query so any data fetched
+// during the refresh window — including silently-empty RLS responses —
+// is re-fetched with the new token.
+supabase.auth.onAuthStateChange((event) => {
+  if (event === 'TOKEN_REFRESHED') {
+    queryClientInstance.invalidateQueries();
+  }
+});
+
+// Force a session refresh when the tab regains visibility after being idle.
+// Without this, the access token can expire in the background and the next
+// queries fire with it before supabase's auto-refresh resolves — RLS then
+// returns empty arrays (no error), and pages render blank. Awaiting the
+// refresh fires TOKEN_REFRESHED, which invalidates queries above.
+let _visibilityRefreshing = false;
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState !== 'visible') return;
+    if (_visibilityRefreshing) return;
+    _visibilityRefreshing = true;
+    try {
+      await supabase.auth.refreshSession();
+    } catch (err) {
+      console.warn('[auth] tab-resume refresh failed:', err?.message);
+    } finally {
+      _visibilityRefreshing = false;
+    }
+  });
+}
