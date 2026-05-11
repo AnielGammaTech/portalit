@@ -1,4 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
+import { fetchWithTimeout } from '../lib/sync-utils.js';
 
 const GRAPHUS_BASE_URL = process.env.GRAPHUS_API_URL || 'https://api.graph.us';
 
@@ -11,7 +12,7 @@ function getGraphusAuth() {
 async function graphusApiCall(endpoint, mspGuid) {
   const separator = endpoint.includes('?') ? '&' : '?';
   const url = `${GRAPHUS_BASE_URL}${endpoint}${separator}msp_guid=${mspGuid}`;
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     headers: {
       'Content-Type': 'application/json',
     },

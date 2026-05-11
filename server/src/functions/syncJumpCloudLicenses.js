@@ -1,4 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
+import { fetchWithTimeout } from '../lib/sync-utils.js';
 
 const JUMPCLOUD_API_KEY = process.env.JUMPCLOUD_API_KEY;
 const JUMPCLOUD_PROVIDER_ID = process.env.JUMPCLOUD_PROVIDER_ID;
@@ -19,7 +20,7 @@ async function jumpcloudApiCall(endpoint, orgId = null) {
     headers['x-org-id'] = orgId;
   }
 
-  const response = await fetch(`${JUMPCLOUD_API_URL}${endpoint}`, { headers });
+  const response = await fetchWithTimeout(`${JUMPCLOUD_API_URL}${endpoint}`, { headers });
 
   if (!response.ok) {
     const error = await response.text();
@@ -44,7 +45,7 @@ async function jumpcloudV2ApiCall(endpoint, orgId = null) {
     headers['x-org-id'] = orgId;
   }
 
-  const response = await fetch(`https://console.jumpcloud.com/api/v2${endpoint}`, { headers });
+  const response = await fetchWithTimeout(`https://console.jumpcloud.com/api/v2${endpoint}`, { headers });
 
   if (!response.ok) {
     const error = await response.text();

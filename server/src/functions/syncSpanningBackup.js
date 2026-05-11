@@ -1,4 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
+import { fetchWithTimeout } from '../lib/sync-utils.js';
 
 const UNITRENDS_API_BASE = 'https://public-api.backup.net';
 const UNITRENDS_AUTH_URL = 'https://login.backup.net/connect/token';
@@ -22,7 +23,7 @@ async function getUnitrendsToken() {
   // Basic auth with Base64 encoded client_id:client_secret
   const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
 
-  const response = await fetch(UNITRENDS_AUTH_URL, {
+  const response = await fetchWithTimeout(UNITRENDS_AUTH_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -45,7 +46,7 @@ async function getUnitrendsToken() {
 
 async function unitrendsApiCall(endpoint) {
   const token = await getUnitrendsToken();
-  const response = await fetch(`${UNITRENDS_API_BASE}${endpoint}`, {
+  const response = await fetchWithTimeout(`${UNITRENDS_API_BASE}${endpoint}`, {
     headers: {
       'Authorization': `Bearer ${token}`,
       'Accept': 'application/json'

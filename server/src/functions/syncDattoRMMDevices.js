@@ -1,4 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
+import { fetchWithTimeout } from '../lib/sync-utils.js';
 
 const DATTO_API_KEY = process.env.DATTO_RMM_API_KEY;
 const DATTO_API_SECRET = process.env.DATTO_RMM_API_SECRET;
@@ -21,7 +22,7 @@ async function getDattoAccessToken() {
   // Basic auth with public-client:public as per Datto docs
   const basicAuth = Buffer.from('public-client:public').toString('base64');
 
-  const response = await fetch(authUrl, {
+  const response = await fetchWithTimeout(authUrl, {
     method: 'POST',
     headers: {
       'Authorization': `Basic ${basicAuth}`,
@@ -41,7 +42,7 @@ async function getDattoAccessToken() {
 
 async function dattoApiCall(accessToken, endpoint) {
   const baseUrl = DATTO_API_URL.replace(/\/$/, '');
-  const response = await fetch(`${baseUrl}/api/v2${endpoint}`, {
+  const response = await fetchWithTimeout(`${baseUrl}/api/v2${endpoint}`, {
     headers: {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json'

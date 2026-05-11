@@ -1,4 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
+import { fetchWithTimeout } from '../lib/sync-utils.js';
 
 const VULTR_API_BASE = 'https://api.vultr.com/v2';
 
@@ -7,7 +8,7 @@ function getVultrApiKey() {
 }
 
 async function vultrGet(endpoint, apiKey) {
-  const response = await fetch(`${VULTR_API_BASE}${endpoint}`, {
+  const response = await fetchWithTimeout(`${VULTR_API_BASE}${endpoint}`, {
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',

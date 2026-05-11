@@ -1,4 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
+import { fetchWithTimeout } from '../lib/sync-utils.js';
 
 // SaaS Alerts production API — Google Cloud Function (from official Swagger spec)
 const SAAS_ALERTS_BASE = 'https://us-central1-the-byway-248217.cloudfunctions.net/reportApi/api/v1';
@@ -28,7 +29,7 @@ async function saasAlertsApiCall(endpoint, { method = 'GET', body } = {}) {
   const url = `${SAAS_ALERTS_BASE}${endpoint}`;
   console.log(`[SaaSAlerts] ${method} ${url}`);
 
-  const response = await fetch(url, options);
+  const response = await fetchWithTimeout(url, options);
 
   if (!response.ok) {
     const errorText = await response.text();

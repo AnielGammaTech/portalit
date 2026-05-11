@@ -1,4 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
+import { fetchWithTimeout } from '../lib/sync-utils.js';
 
 const API_BASE_URL = 'https://api-us.rocketcyber.com/v2';
 const API_V3_BASE_URL = 'https://api-us.rocketcyber.com/v3';
@@ -12,7 +13,7 @@ async function rocketCyberApiCall(endpoint, params = {}) {
     }
   });
 
-  const response = await fetch(url.toString(), {
+  const response = await fetchWithTimeout(url.toString(), {
     headers: {
       'Authorization': `Bearer ${ROCKETCYBER_API_TOKEN}`,
       'Content-Type': 'application/json'
@@ -73,7 +74,7 @@ async function rocketCyberV3ApiCall(endpoint, params = {}) {
     }
   });
 
-  const response = await fetch(url.toString(), {
+  const response = await fetchWithTimeout(url.toString(), {
     headers: {
       'Authorization': `Bearer ${ROCKETCYBER_API_TOKEN}`,
       'Content-Type': 'application/json',

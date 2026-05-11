@@ -1,4 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
+import { fetchWithTimeout } from '../lib/sync-utils.js';
 
 /**
  * 3CX VoIP Integration
@@ -41,7 +42,7 @@ async function get3CXToken(instanceUrl, apiKey, apiSecret) {
 
   let response;
   try {
-    response = await fetch(loginUrl, {
+    response = await fetchWithTimeout(loginUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -70,7 +71,7 @@ async function threecxApiCall(instanceUrl, token, endpoint) {
 
   let response;
   try {
-    response = await fetch(`${baseUrl}/webclient/api${endpoint}`, {
+    response = await fetchWithTimeout(`${baseUrl}/webclient/api${endpoint}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Accept': 'application/json'

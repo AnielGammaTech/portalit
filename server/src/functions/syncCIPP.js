@@ -1,4 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
+import { fetchWithTimeout } from '../lib/sync-utils.js';
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -56,7 +57,7 @@ async function getCIPPToken() {
     throw new Error('CIPP credentials not configured. Set CIPP_API_URL, CIPP_AUTH_TOKEN_URL, CIPP_AUTH_CLIENT_ID, CIPP_AUTH_CLIENT_SECRET, and CIPP_AUTH_SCOPE.');
   }
 
-  const response = await fetch(tokenUrl, {
+  const response = await fetchWithTimeout(tokenUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -94,7 +95,7 @@ async function cippApiCall(endpoint, params = {}) {
 
   console.log(`[CIPP] Calling: ${url.toString()}`);
 
-  const response = await fetch(url.toString(), {
+  const response = await fetchWithTimeout(url.toString(), {
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: 'application/json',

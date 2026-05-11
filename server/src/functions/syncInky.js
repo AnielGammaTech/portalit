@@ -1,9 +1,10 @@
 import { getServiceSupabase } from '../lib/supabase.js';
+import { fetchWithTimeout } from '../lib/sync-utils.js';
 
 const INKY_API = 'https://app.inkyphishfence.com/api';
 
 async function inkyFetch(endpoint, { method = 'GET', body, token } = {}) {
-  const response = await fetch(`${INKY_API}${endpoint}`, {
+  const response = await fetchWithTimeout(`${INKY_API}${endpoint}`, {
     method,
     headers: {
       'Accept': 'application/json',

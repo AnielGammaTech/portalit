@@ -1,4 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
+import { fetchWithTimeout } from '../lib/sync-utils.js';
 
 const DMARC_API_BASE = 'https://api.dmarcreport.com/v2';
 
@@ -35,7 +36,7 @@ async function fetchDomainsForAccount(accountId, headers) {
 
   for (const endpoint of endpoints) {
     try {
-      const res = await fetch(`${DMARC_API_BASE}${endpoint}`, { headers });
+      const res = await fetchWithTimeout(`${DMARC_API_BASE}${endpoint}`, { headers });
       if (res.ok) {
         const data = await res.json();
         const domains = extractDomains(data);
@@ -63,7 +64,7 @@ export async function syncDmarcReport(body, user) {
   // ── Test connection ──────────────────────────────────────────────────
   if (action === 'test_connection') {
     try {
-      const res = await fetch(`${DMARC_API_BASE}/accounts`, { headers });
+      const res = await fetchWithTimeout(`${DMARC_API_BASE}/accounts`, { headers });
       if (!res.ok) {
         return { success: false, error: `API returned ${res.status}: ${res.statusText}` };
       }
@@ -82,7 +83,7 @@ export async function syncDmarcReport(body, user) {
   // ── List accounts with domains (for admin mapping UI) ────────────────
   if (action === 'list_accounts') {
     try {
-      const res = await fetch(`${DMARC_API_BASE}/accounts`, { headers });
+      const res = await fetchWithTimeout(`${DMARC_API_BASE}/accounts`, { headers });
       if (!res.ok) {
         const errText = await res.text();
         return { success: false, error: `Failed to fetch accounts: ${res.status} — ${errText}` };
@@ -187,14 +188,14 @@ export async function syncDmarcReport(body, user) {
         // Fetch aggregate stats
         let stats = null;
         try {
-          const statsRes = await fetch(`${base}/agg_reports/agg_report_stats?q[start_date]=${startDate}&q[end_date]=${endDate}`, { headers });
+          const statsRes = await fetchWithTimeout(`${base}/agg_reports/agg_report_stats?q[start_date]=${startDate}&q[end_date]=${endDate}`, { headers });
           if (statsRes.ok) stats = await statsRes.json();
         } catch { /* ignore */ }
 
         // Fetch top senders / source breakdown
         let topSources = [];
         try {
-          const srcRes = await fetch(`${base}/agg_reports/agg_report_sources?q[start_date]=${startDate}&q[end_date]=${endDate}`, { headers });
+          const srcRes = await fetchWithTimeout(`${base}/agg_reports/agg_report_sources?q[start_date]=${startDate}&q[end_date]=${endDate}`, { headers });
           if (srcRes.ok) {
             const srcData = await srcRes.json();
             const sources = Array.isArray(srcData) ? srcData : (srcData?.sources || srcData?.data || []);
@@ -214,7 +215,7 @@ export async function syncDmarcReport(body, user) {
         // Fetch domain detail (SPF, DKIM, DMARC records)
         let dnsRecords = {};
         try {
-          const detailRes = await fetch(`${base}`, { headers });
+          const detailRes = await fetchWithTimeout(`${base}`, { headers });
           if (detailRes.ok) {
             const detail = await detailRes.json();
             const d = detail?.domain || detail || {};

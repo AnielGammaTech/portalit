@@ -1,4 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
+import { fetchWithTimeout, runWithConcurrency } from '../lib/sync-utils.js';
 
 const DATTO_EDR_API_TOKEN = process.env.DATTO_EDR_API_TOKEN;
 const DATTO_EDR_BASE_URL = process.env.DATTO_EDR_BASE_URL;
@@ -10,42 +11,6 @@ const edrUrl = (path) => {
   const separator = path.includes('?') ? '&' : '?';
   return `${DATTO_EDR_BASE_URL}${path}${separator}access_token=${DATTO_EDR_API_TOKEN}`;
 };
-
-// fetch wrapper with hard timeout — without this, a single hung Datto call
-// freezes serial loops (this was the root cause of sync_all only completing
-// 2/78 customers — the 3rd customer's fetch never resolved).
-const FETCH_TIMEOUT_MS = 30000;
-async function fetchWithTimeout(url, opts = {}, timeoutMs = FETCH_TIMEOUT_MS) {
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...opts, signal: controller.signal });
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(t);
-  }
-}
-
-// Run an async mapper across `items` with bounded concurrency. Errors per
-// item are caught so one bad mapping can't break the batch.
-async function runWithConcurrency(items, limit, worker) {
-  const results = new Array(items.length);
-  let next = 0;
-  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (true) {
-      const i = next++;
-      if (i >= items.length) return;
-      try {
-        results[i] = { ok: true, value: await worker(items[i], i) };
-      } catch (err) {
-        results[i] = { ok: false, error: err };
-      }
-    }
-  });
-  await Promise.all(runners);
-  return results;
-}
 
 export async function syncDattoEDR(body, user) {
   const supabase = getServiceSupabase();

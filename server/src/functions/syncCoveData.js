@@ -1,4 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
+import { fetchWithTimeout } from '../lib/sync-utils.js';
 
 const COVE_API_URL = 'https://api.backup.management/jsonapi';
 
@@ -15,7 +16,7 @@ async function coveApiCall(method, params = {}, visa = null) {
     body.visa = visa;
   }
 
-  const response = await fetch(COVE_API_URL, {
+  const response = await fetchWithTimeout(COVE_API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -44,7 +45,7 @@ async function coveLogin(partner, username, apiToken) {
     id: Date.now().toString(),
   };
 
-  const response = await fetch(COVE_API_URL, {
+  const response = await fetchWithTimeout(COVE_API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
