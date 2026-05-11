@@ -1,5 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
-import { fetchWithTimeout } from '../lib/sync-utils.js';
+import { fetchWithTimeout, runWithConcurrency } from '../lib/sync-utils.js';
 
 const DARKWEB_BASE_URL = 'https://secure.darkwebid.com';
 
@@ -340,61 +340,57 @@ export async function syncDarkWebID(body, user) {
       return { success: true, synced: 0, message: 'No Dark Web ID mappings found' };
     }
 
-    let totalSynced = 0;
-    const errors = [];
+    const startedAt = Date.now();
+    const results = await runWithConcurrency(allMappings, 8, async (mapping) => {
+      const compromises = await fetchCompromises(mapping.darkweb_organization_uuid, authHeader);
 
-    for (const mapping of allMappings) {
-      try {
-        const compromises = await fetchCompromises(mapping.darkweb_organization_uuid, authHeader);
+      const { data: existingCompromises } = await supabase
+        .from('dark_web_compromises')
+        .select('*')
+        .eq('customer_id', mapping.customer_id);
+      const existingIds = new Set((existingCompromises || []).map(c => c.darkweb_id));
 
-        const { data: existingCompromises } = await supabase
+      const compromiseList = Array.isArray(compromises) ? compromises : (compromises.compromises || []);
+      let inserted = 0;
+
+      for (const compromise of compromiseList) {
+        const compromiseId = compromise.id || compromise.uuid || `${compromise.email}-${compromise.source}`;
+        if (existingIds.has(compromiseId)) continue;
+
+        const { error } = await supabase
           .from('dark_web_compromises')
-          .select('*')
-          .eq('customer_id', mapping.customer_id);
-
-        const existingIds = new Set((existingCompromises || []).map(c => c.darkweb_id));
-
-        const compromiseList = Array.isArray(compromises) ? compromises : (compromises.compromises || []);
-
-        for (const compromise of compromiseList) {
-          const compromiseId = compromise.id || compromise.uuid || `${compromise.email}-${compromise.source}`;
-
-          if (existingIds.has(compromiseId)) {
-            continue;
-          }
-
-          const { error } = await supabase
-            .from('dark_web_compromises')
-            .insert({
-              customer_id: mapping.customer_id,
-              darkweb_id: compromiseId,
-              email: compromise.email || compromise.username,
-              domain: compromise.domain,
-              password: compromise.password,
-              source: compromise.source || compromise.breach_name,
-              breach_date: compromise.breach_date || compromise.published_date,
-              discovered_date: compromise.discovered_date || new Date().toISOString().split('T')[0],
-              status: 'new',
-              severity: compromise.severity || 'medium'
-            });
-
-          if (error) {
-            console.error(`[DarkWebID] Failed to insert compromise ${compromiseId}:`, error.message);
-          }
-          totalSynced++;
+          .insert({
+            customer_id: mapping.customer_id,
+            darkweb_id: compromiseId,
+            email: compromise.email || compromise.username,
+            domain: compromise.domain,
+            password: compromise.password,
+            source: compromise.source || compromise.breach_name,
+            breach_date: compromise.breach_date || compromise.published_date,
+            discovered_date: compromise.discovered_date || new Date().toISOString().split('T')[0],
+            status: 'new',
+            severity: compromise.severity || 'medium'
+          });
+        if (error) {
+          console.error(`[DarkWebID] Failed to insert compromise ${compromiseId}:`, error.message);
+        } else {
+          inserted++;
         }
-
-        // Update last sync time for this mapping
-        await supabase
-          .from('dark_web_id_mappings')
-          .update({ last_sync: new Date().toISOString() })
-          .eq('id', mapping.id);
-
-      } catch (err) {
-        console.error(`[DarkWebID] Error syncing customer ${mapping.customer_id}:`, err.message);
-        errors.push({ customer_id: mapping.customer_id, error: err.message });
       }
-    }
+
+      await supabase
+        .from('dark_web_id_mappings')
+        .update({ last_sync: new Date().toISOString() })
+        .eq('id', mapping.id);
+
+      return { synced: true, inserted };
+    });
+
+    const totalSynced = results.reduce((s, r) => s + (r.ok ? (r.value?.inserted || 0) : 0), 0);
+    const errors = results
+      .map((r, i) => !r.ok ? { customer_id: allMappings[i]?.customer_id, error: r.error?.message || 'unknown' } : null)
+      .filter(Boolean);
+    console.log(`[DarkWebID] sync_all done in ${Date.now() - startedAt}ms — ${totalSynced} compromises inserted, ${errors.length} failed`);
 
     return {
       success: true,

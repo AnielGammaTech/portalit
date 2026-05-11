@@ -1,5 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
-import { fetchWithTimeout } from '../lib/sync-utils.js';
+import { fetchWithTimeout, runWithConcurrency } from '../lib/sync-utils.js';
 
 const DMARC_API_BASE = 'https://api.dmarcreport.com/v2';
 
@@ -285,24 +285,19 @@ export async function syncDmarcReport(body, user) {
   if (action === 'sync_all') {
     const { data: allMappings } = await supabase.from('dmarc_report_mappings').select('*');
     const mappings = allMappings || [];
-    let synced = 0;
-    let failed = 0;
 
-    for (const mapping of mappings) {
-      try {
-        const result = await syncDmarcReport({ action: 'sync_customer', customer_id: mapping.customer_id }, user);
-        if (result.success) {
-          synced++;
-        } else {
-          failed++;
-          console.error(`DMARC sync failed for ${mapping.customer_name}:`, result.error);
-        }
-      } catch (e) {
-        failed++;
-        console.error(`DMARC sync error for ${mapping.customer_name}:`, e.message);
+    const startedAt = Date.now();
+    const results = await runWithConcurrency(mappings, 8, async (mapping) => {
+      const result = await syncDmarcReport({ action: 'sync_customer', customer_id: mapping.customer_id }, user);
+      if (!result?.success) {
+        console.error(`DMARC sync failed for ${mapping.customer_name}:`, result?.error);
+        return { synced: false, reason: result?.error || 'unknown' };
       }
-    }
-
+      return { synced: true };
+    });
+    const synced = results.filter(r => r.ok && r.value?.synced).length;
+    const failed = results.length - synced;
+    console.log(`[DMARC] sync_all done in ${Date.now() - startedAt}ms — ${synced}/${mappings.length}`);
     return { success: true, synced, failed, total: mappings.length };
   }
 
