@@ -15,11 +15,11 @@ import Login from '@/pages/Login';
 import AcceptInvite from '@/pages/AcceptInvite';
 import {
   isCustomerPortal,
-  isFullPortal,
   CUSTOMER_ALLOWED_PAGES,
   CUSTOMER_PORTAL_MAIN_PAGE,
   CUSTOMER_PORTAL_URL,
 } from '@/lib/portal-mode';
+import { canAccessPage } from '@/lib/permissions';
 
 const { Pages: AllPages, Layout, mainPage } = pagesConfig;
 
@@ -28,16 +28,16 @@ const CUSTOMER_ONLY_PAGES = CUSTOMER_ALLOWED_PAGES;
 
 /**
  * H-1: Route-level role enforcement.
- * Wraps admin/internal routes to ensure only admin or sales users can access them.
- * Customer portal users (role !== 'admin' && role !== 'sales') are redirected to
- * the customer portal URL or the AwaitingAccess page.
+ * Wraps internal routes with the role matrix from permissions.js.
+ * Customer portal users are redirected to the customer portal URL or AwaitingAccess.
  */
-const RequireAdmin = ({ children }) => {
+const RequirePageAccess = ({ pageName, children }) => {
   const { user } = useAuth();
-  const isStaff = user?.role === 'admin' || user?.role === 'sales';
+  const role = user?.role || 'user';
+  const isStaff = role === 'admin' || role === 'sales';
 
-  if (!isStaff) {
-    const redirectTarget = CUSTOMER_PORTAL_URL || '/AwaitingAccess';
+  if (!canAccessPage(role, pageName)) {
+    const redirectTarget = isStaff ? '/Dashboard' : (CUSTOMER_PORTAL_URL || '/AwaitingAccess');
     return <Navigate to={redirectTarget} replace />;
   }
 
@@ -96,10 +96,10 @@ const AuthenticatedApp = () => {
   return (
     <Routes>
       <Route path="/" element={
-        // H-1: Wrap the main page with admin enforcement if it is an admin-only page
+        // H-1: Wrap the main page with role enforcement if it is an internal page
         CUSTOMER_ONLY_PAGES.has(mainPageKey)
           ? <LayoutWrapper currentPageName={mainPageKey}><MainPage /></LayoutWrapper>
-          : <RequireAdmin><LayoutWrapper currentPageName={mainPageKey}><MainPage /></LayoutWrapper></RequireAdmin>
+          : <RequirePageAccess pageName={mainPageKey}><LayoutWrapper currentPageName={mainPageKey}><MainPage /></LayoutWrapper></RequirePageAccess>
       } />
       {Object.entries(Pages).map(([path, Page]) => {
         // H-1: Wrap admin/internal pages with role enforcement.
@@ -112,7 +112,7 @@ const AuthenticatedApp = () => {
         );
         const wrappedElement = CUSTOMER_ONLY_PAGES.has(path)
           ? pageElement
-          : <RequireAdmin>{pageElement}</RequireAdmin>;
+          : <RequirePageAccess pageName={path}>{pageElement}</RequirePageAccess>;
 
         return (
           <Route

@@ -424,22 +424,20 @@ export default function LicenseDetail() {
       }
     }
 
+    const newAssignment = {
+      id: `temp-${Date.now()}-${contactId}`,
+      license_id: licenseToAssign,
+      contact_id: contactId,
+      customer_id: software.customer_id,
+      assigned_date: new Date().toISOString().split('T')[0],
+      status: 'active'
+    };
+
     try {
       // Optimistic update - add to cache immediately
-      const newAssignment = {
-        id: `temp-${Date.now()}-${contactId}`,
-        license_id: licenseToAssign,
-        contact_id: contactId,
-        customer_id: software.customer_id,
-        assigned_date: new Date().toISOString().split('T')[0],
-        status: 'active'
-      };
-
       queryClient.setQueryData(['all_license_assignments', software?.application_name, software?.customer_id], (old) =>
         old ? [...old, newAssignment] : [newAssignment]
       );
-
-      toast.success('License assigned!');
 
       // Then persist to database
       await client.entities.LicenseAssignment.create({
@@ -452,7 +450,11 @@ export default function LicenseDetail() {
 
       // Refresh to get real IDs
       queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
+      toast.success('License assigned!');
     } catch (err) {
+      queryClient.setQueryData(['all_license_assignments', software?.application_name, software?.customer_id], (old) =>
+        old ? old.filter(a => a.id !== newAssignment.id) : []
+      );
       toast.error(err.message || 'Operation failed');
     }
   };
@@ -533,21 +535,26 @@ export default function LicenseDetail() {
   };
 
   const handleRevoke = async (contactId) => {
+    let assignment = null;
     try {
-      const assignment = allAssignments.find(a => a.contact_id === contactId && a.status === 'active');
+      assignment = allAssignments.find(a => a.contact_id === contactId && a.status === 'active');
       if (assignment) {
         // Optimistic update - remove from cache immediately
         queryClient.setQueryData(['all_license_assignments', software?.application_name, software?.customer_id], (old) =>
           old ? old.filter(a => a.id !== assignment.id) : []
         );
 
-        toast.success('License revoked!');
-
         // Then persist to database
         await client.entities.LicenseAssignment.update(assignment.id, { status: 'revoked' });
         queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
+        toast.success('License revoked!');
       }
     } catch (err) {
+      if (assignment) {
+        queryClient.setQueryData(['all_license_assignments', software?.application_name, software?.customer_id], (old) =>
+          old ? [...old, assignment] : [assignment]
+        );
+      }
       toast.error(err.message || 'Operation failed');
     }
   };

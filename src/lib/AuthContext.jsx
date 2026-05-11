@@ -26,6 +26,11 @@ export const AuthProvider = ({ children }) => {
   const [authRetrying, setAuthRetrying] = useState(false);
   const initialCheckDone = useRef(false);
   const retryCount = useRef(0);
+  const isAuthenticatedRef = useRef(false);
+
+  useEffect(() => {
+    isAuthenticatedRef.current = isAuthenticated;
+  }, [isAuthenticated]);
 
   useEffect(() => {
     checkUserAuth();
@@ -46,7 +51,7 @@ export const AuthProvider = ({ children }) => {
     );
 
     const handleFocus = () => {
-      if (!isAuthenticated && initialCheckDone.current) {
+      if (!isAuthenticatedRef.current && initialCheckDone.current) {
         retryCount.current = 0;
         checkUserAuth();
       }

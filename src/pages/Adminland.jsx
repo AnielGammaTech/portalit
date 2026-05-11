@@ -363,8 +363,8 @@ function GammaStackITPanel() {
       try {
         const user = await client.auth.me();
         if (user?.gammastack_api_key) setApiKey(user.gammastack_api_key);
-      } catch (error) {
-        toast.error('Failed to load API key');
+      } catch (_error) {
+        // Non-critical: API key display is best-effort.
       }
     };
     loadApiKey();
@@ -676,7 +676,7 @@ export default function Adminland() {
         const currentUser = await client.auth.me();
         setUser(currentUser);
         if (currentUser?.role !== 'admin') navigate(createPageUrl('Dashboard'), { replace: true });
-      } catch (error) { /* auth redirect handled by layout */ }
+      } catch (_error) { /* auth redirect handled by layout */ }
     };
     loadUser();
   }, [navigate]);

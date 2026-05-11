@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { createPageUrl } from './utils';
 import { client } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
@@ -141,7 +141,7 @@ function MobileBottomTab({ item, isActive, primaryColor }) {
   );
 }
 
-function MobileDrawerNav({ navigation, currentPageName, primaryColor, user, isAdmin, isStaff, features, customer, onClose }) {
+function MobileDrawerNav({ navigation, currentPageName, primaryColor, user, isAdmin, isStaff }) {
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: '#13082E' }}>
       {/* User info at top */}
@@ -373,8 +373,7 @@ export default function Layout({ children, currentPageName }) {
 
   // For customer users, redirect Dashboard to CustomerDetail
   if (!isStaff && user?.customer_id && currentPageName === 'Dashboard') {
-    window.location.href = createPageUrl(`CustomerDetail?id=${user.customer_id}`);
-    return null;
+    return <Navigate to={createPageUrl(`CustomerDetail?id=${user.customer_id}`)} replace />;
   }
 
   const userInitials = getUserInitials(user?.full_name, user?.email);
@@ -414,9 +413,6 @@ export default function Layout({ children, currentPageName }) {
                   user={user}
                   isAdmin={isAdmin}
                   isStaff={isStaff}
-                  features={features}
-                  customer={customer}
-                  onClose={() => setMobileDrawerOpen(false)}
                 />
               </SheetContent>
             </Sheet>

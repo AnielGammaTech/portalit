@@ -48,6 +48,7 @@ export default function FeedbackPanel() {
       queryClient.invalidateQueries({ queryKey: ['feedbacks'] });
       toast.success('Feedback updated');
     },
+    onError: (error) => toast.error(error.message || 'Operation failed'),
   });
 
   const deleteMutation = useMutation({
@@ -57,6 +58,7 @@ export default function FeedbackPanel() {
       setSelectedFeedback(null);
       toast.success('Feedback deleted');
     },
+    onError: (error) => toast.error(error.message || 'Operation failed'),
   });
 
   const handleStatusChange = (feedback, newStatus) => {

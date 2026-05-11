@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client, resolveFileUrl } from '@/api/client';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { 
   ArrowLeft,
@@ -37,6 +37,7 @@ import { toast } from 'sonner';
 export default function CustomerPortalPreview() {
   const params = new URLSearchParams(window.location.search);
   const customerId = params.get('id');
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isSyncing, setIsSyncing] = useState(false);
   const [expandedBills, setExpandedBills] = useState({ _section: true });
@@ -183,11 +184,11 @@ export default function CustomerPortalPreview() {
 
   const handleAddSoftware = async (softwareData) => {
     try {
-      setShowAddSoftware(false);
-      toast.success('Software added!');
       const newApp = await client.entities.Application.create(softwareData);
+      toast.success('Software added!');
+      setShowAddSoftware(false);
       queryClient.invalidateQueries({ queryKey: ['applications', customerId] });
-      window.location.href = createPageUrl(`LicenseDetail?appId=${newApp.id}`);
+      navigate(createPageUrl(`LicenseDetail?appId=${newApp.id}`));
     } catch (err) {
       toast.error(err.message || 'Operation failed');
     }

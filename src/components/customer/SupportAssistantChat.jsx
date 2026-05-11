@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from 'react-markdown';
+import { toast } from 'sonner';
 
 const QUICK_SUGGESTIONS = [
   "My computer is slow",
@@ -40,14 +41,33 @@ export default function SupportAssistantChat({
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    initConversation();
-  }, []);
+    let unsubscribe = null;
+    let cancelled = false;
+
+    const init = async () => {
+      setIsInitializing(true);
+      setConversation(null);
+      setMessages([]);
+      const unsub = await initConversation(() => cancelled);
+      if (cancelled) {
+        unsub?.();
+      } else {
+        unsubscribe = unsub;
+      }
+    };
+    init();
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, [customerId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const initConversation = async () => {
+  const initConversation = async (isCancelled = () => false) => {
     try {
       // Fetch customer-specific AI instructions and recent tickets
       let customerInstructions = '';
@@ -88,10 +108,13 @@ export default function SupportAssistantChat({
           recent_tickets: JSON.stringify(recentTickets)
         }
       });
+      if (isCancelled()) return null;
+
       setConversation(conv);
       
       // Subscribe to updates
-      client.agents.subscribeToConversation(conv.id, (data) => {
+      const unsub = client.agents.subscribeToConversation(conv.id, (data) => {
+        if (isCancelled()) return;
         setMessages(data.messages || []);
       });
 
@@ -102,9 +125,12 @@ export default function SupportAssistantChat({
       }]);
       
       setIsInitializing(false);
+      return unsub;
     } catch (error) {
       console.error('Failed to init conversation:', error);
-      setIsInitializing(false);
+      if (!isCancelled()) toast.error('Failed to start support chat');
+      if (!isCancelled()) setIsInitializing(false);
+      return null;
     }
   };
 
@@ -130,6 +156,7 @@ export default function SupportAssistantChat({
       await client.agents.addMessage(conversation, messagePayload);
     } catch (error) {
       console.error('Failed to send message:', error);
+      toast.error(error.message || 'Failed to send message');
     } finally {
       setIsLoading(false);
     }
@@ -148,6 +175,7 @@ export default function SupportAssistantChat({
       }
     } catch (error) {
       console.error('Failed to upload file:', error);
+      toast.error(error.message || 'Failed to upload file');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -170,6 +198,7 @@ export default function SupportAssistantChat({
           setAttachedImages(prev => [...prev, file_url]);
         } catch (error) {
           console.error('Failed to upload pasted image:', error);
+          toast.error(error.message || 'Failed to upload pasted image');
         } finally {
           setIsUploading(false);
         }

@@ -101,18 +101,21 @@ export default function RocketCyberTab({ customer }) {
 
   // Fetch mapping
   const { data: mappings = [], isLoading: loadingMapping } = useQuery({
-    queryKey: ['rocketcyber_mapping', customer.id],
-    queryFn: () => client.entities.RocketCyberMapping.filter({ customer_id: customer.id })
+    queryKey: ['rocketcyber_mapping', customer?.id],
+    queryFn: () => client.entities.RocketCyberMapping.filter({ customer_id: customer.id }),
+    enabled: !!customer?.id,
   });
 
   // Fetch incidents
   const { data: incidents = [], isLoading: loadingIncidents, refetch: refetchIncidents } = useQuery({
-    queryKey: ['rocketcyber_incidents', customer.id],
+    queryKey: ['rocketcyber_incidents', customer?.id],
     queryFn: () => client.entities.RocketCyberIncident.filter({ customer_id: customer.id }),
-    enabled: mappings.length > 0
+    enabled: !!customer?.id && mappings.length > 0
   });
 
   const mapping = mappings[0];
+
+  if (!customer) return null;
 
   const syncIncidents = async () => {
     setIsSyncing(true);
