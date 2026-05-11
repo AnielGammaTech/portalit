@@ -55,12 +55,13 @@ app.use(cors({
     if (origin && allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    // Requests with no Origin header must not be allowed through CORS for
-    // browser-facing APIs. Reject them so that the browser blocks the response.
-    // (Server-to-server callers that legitimately omit Origin must authenticate
-    // via a service-role token and are verified independently at the route level.)
+    // No-Origin requests: let the request through without ACAO. Browsers
+    // omit Origin on simple GET requests (e.g., <img src=...>) by default,
+    // so rejecting outright broke the customer-logo proxy. Auth-gated routes
+    // still require their own tokens (requireAuth middleware) — this branch
+    // does not weaken authentication, only CORS preflight behavior.
     if (!origin) {
-      return callback(new Error('CORS: requests without an Origin header are not permitted'), false);
+      return callback(null, false);
     }
     return callback(null, false);
   },
