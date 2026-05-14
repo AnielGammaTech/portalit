@@ -315,6 +315,49 @@ export default function CustomerDashboardTab({
             </div>
           </Panel>
 
+          <Panel
+            title="Quote activity"
+            description="Recently synced proposals and approvals."
+            action={<Link to={tabUrl(customerId, 'quotes')} className="text-sm font-medium text-slate-600 hover:text-slate-950">Quotes</Link>}
+          >
+            {quoteStats.sorted.length === 0 ? (
+              <EmptyMessage
+                icon={FileText}
+                title="No quotes published"
+                description="Approved and sent quotes will appear here when they are available."
+              />
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {quoteStats.sorted.slice(0, 5).map(quote => (
+                  <QuoteRow key={quote.id || quote.quote_number || quote.title} quote={quote} items={quoteItems} />
+                ))}
+              </div>
+            )}
+          </Panel>
+        </div>
+
+        <div className="space-y-4">
+          <Panel title="Account totals" description="Quick customer account reference.">
+            <div className="grid grid-cols-2 gap-1.5 p-3">
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Team</p>
+                <p className="mt-0.5 text-base font-bold leading-5 text-slate-950">{contacts.length}</p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Accepted quotes</p>
+                <p className="mt-0.5 text-base font-bold leading-5 text-slate-950">{quoteStats.accepted.length}</p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Applications</p>
+                <p className="mt-0.5 text-base font-bold leading-5 text-slate-950">{licenses.length}</p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Services</p>
+                <p className="mt-0.5 text-base font-bold leading-5 text-slate-950">{serviceTags.length}</p>
+              </div>
+            </div>
+          </Panel>
+
           <Panel title="Services and inventory" description="What is currently represented in the portal.">
             <div className="divide-y divide-slate-100">
               <div className="flex items-center justify-between px-4 py-3">
@@ -339,49 +382,6 @@ export default function CustomerDashboardTab({
                 <StatusPill tone="slate">{activeContracts.length} active</StatusPill>
               </div>
             </div>
-          </Panel>
-        </div>
-
-        <div className="space-y-4">
-          <Panel title="Account totals" description="Quick customer account reference.">
-            <div className="grid grid-cols-2 gap-2 p-4">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Team</p>
-                <p className="mt-1 text-lg font-bold text-slate-950">{contacts.length}</p>
-              </div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Accepted quotes</p>
-                <p className="mt-1 text-lg font-bold text-slate-950">{quoteStats.accepted.length}</p>
-              </div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Applications</p>
-                <p className="mt-1 text-lg font-bold text-slate-950">{licenses.length}</p>
-              </div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Services</p>
-                <p className="mt-1 text-lg font-bold text-slate-950">{serviceTags.length}</p>
-              </div>
-            </div>
-          </Panel>
-
-          <Panel
-            title="Quote activity"
-            description="Recently synced proposals and approvals."
-            action={<Link to={tabUrl(customerId, 'quotes')} className="text-sm font-medium text-slate-600 hover:text-slate-950">Quotes</Link>}
-          >
-            {quoteStats.sorted.length === 0 ? (
-              <EmptyMessage
-                icon={FileText}
-                title="No quotes published"
-                description="Approved and sent quotes will appear here when they are available."
-              />
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {quoteStats.sorted.slice(0, 5).map(quote => (
-                  <QuoteRow key={quote.id || quote.quote_number || quote.title} quote={quote} items={quoteItems} />
-                ))}
-              </div>
-            )}
           </Panel>
         </div>
       </div>
