@@ -617,9 +617,9 @@ export default function CustomerServicesTab({
       <div className="space-y-6">
         {/* Tab bar skeleton */}
         <div className="flex justify-center">
-          <div className="bg-zinc-100 dark:bg-zinc-800/80 p-1.5 rounded-hero-lg w-full max-w-4xl mx-auto flex flex-wrap gap-1">
+          <div className="flex h-auto w-full max-w-5xl flex-wrap justify-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
             {Array.from({ length: 6 }).map((_, i) => (
-              <Shimmer key={i} className="h-9 rounded-hero-sm" style={{ width: `${60 + Math.random() * 40}px` }} />
+              <Shimmer key={i} className="h-9 rounded-lg" style={{ width: `${60 + Math.random() * 40}px` }} />
             ))}
           </div>
         </div>
@@ -637,7 +637,7 @@ export default function CustomerServicesTab({
       <Tabs defaultValue="recurring" className="space-y-4">
         {/* Service Tabs — only show tabs for services the customer has */}
         <div className="flex justify-center">
-          <TabsList className="bg-zinc-100 dark:bg-zinc-800/80 border-0 p-1.5 h-auto flex flex-wrap justify-center gap-1 rounded-hero-lg w-full max-w-4xl mx-auto">
+          <TabsList className="flex h-auto w-full max-w-5xl justify-start gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm scrollbar-hide md:justify-center">
             {[
               { value: 'recurring', label: 'Recurring', icon: DollarSign, show: true },
               { value: 'users', label: 'Users', icon: Users, show: contacts.length > 0 },
@@ -658,8 +658,8 @@ export default function CustomerServicesTab({
             ].filter(tab => tab.show).map(tab => {
               const TabIcon = tab.icon;
               return (
-                <TabsTrigger key={tab.value} value={tab.value} className="gap-2 py-2 px-4 text-xs font-medium rounded-hero-sm data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm transition-all duration-[250ms]">
-                  <TabIcon className={cn("w-3.5 h-3.5", tab.iconClass)} />
+                <TabsTrigger key={tab.value} value={tab.value} className="group gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-medium text-slate-500 transition-all hover:text-slate-900 data-[state=active]:bg-slate-950 data-[state=active]:text-white data-[state=active]:shadow-none">
+                  <TabIcon className={cn("w-3.5 h-3.5 group-data-[state=active]:text-white", tab.iconClass)} />
                   {tab.label}
                 </TabsTrigger>
               );
@@ -677,9 +677,9 @@ export default function CustomerServicesTab({
                 { icon: HardDrive, label: 'Active Services', value: lineItems.length, color: 'text-primary', bg: 'bg-primary/10' },
                 { icon: DollarSign, label: 'Billable Items', value: lineItems.filter(i => i.net_amount > 0).length, color: 'text-violet-600', bg: 'bg-violet-500/10' },
               ].map((stat) => (
-                <motion.div key={stat.label} variants={staggerItem} className="bg-card rounded-[14px] border shadow-hero-sm p-4 hover:shadow-hero-md transition-all duration-[250ms]">
+                <motion.div key={stat.label} variants={staggerItem} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:bg-slate-50">
                   <div className="flex items-center gap-3">
-                    <div className={cn('w-10 h-10 rounded-hero-md flex items-center justify-center', stat.bg)}>
+                    <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg', stat.bg)}>
                       <stat.icon className={cn('w-5 h-5', stat.color)} />
                     </div>
                     <div>
@@ -802,9 +802,9 @@ export default function CustomerServicesTab({
                 { icon: Shield, label: 'With Email', value: contacts.filter(c => c.email).length, color: 'text-violet-600', bg: 'bg-violet-500/10' },
                 { icon: Laptop, label: 'With Devices', value: contacts.filter(c => devicesByContact[c.id]?.length > 0).length, color: 'text-blue-600', bg: 'bg-blue-500/10' },
               ].map((stat) => (
-                <motion.div key={stat.label} variants={staggerItem} className="bg-card rounded-[14px] border shadow-hero-sm p-4 hover:shadow-hero-md transition-all duration-[250ms]">
+                <motion.div key={stat.label} variants={staggerItem} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:bg-slate-50">
                   <div className="flex items-center gap-3">
-                    <div className={cn('w-10 h-10 rounded-hero-md flex items-center justify-center', stat.bg)}>
+                    <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg', stat.bg)}>
                       <stat.icon className={cn('w-5 h-5', stat.color)} />
                     </div>
                     <div>
@@ -937,9 +937,9 @@ export default function CustomerServicesTab({
                   { icon: Cloud, label: 'SSO Applications', value: jumpcloudCachedStats?.ssoApps || jumpcloudLicenses.length, color: 'text-primary', bg: 'bg-primary/10' },
                   { icon: CheckCircle2, label: 'App Assignments', value: jumpcloudLicenses.reduce((sum, l) => sum + (l.assigned_users || 0), 0), color: 'text-success', bg: 'bg-success/10' },
                 ].map((stat) => (
-                  <motion.div key={stat.label} variants={staggerItem} className="bg-card rounded-[14px] border shadow-hero-sm p-4 hover:shadow-hero-md transition-all duration-[250ms]">
+                  <motion.div key={stat.label} variants={staggerItem} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:bg-slate-50">
                     <div className="flex items-center gap-3">
-                      <div className={cn('w-10 h-10 rounded-hero-md flex items-center justify-center', stat.bg)}>
+                      <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg', stat.bg)}>
                         <stat.icon className={cn('w-5 h-5', stat.color)} />
                       </div>
                       <div>
@@ -990,7 +990,7 @@ export default function CustomerServicesTab({
                         <motion.div
                           key={contact.id}
                           variants={staggerItem}
-                          className="flex items-center gap-3 p-3 rounded-hero-md hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors duration-[250ms]"
+                          className="flex items-center gap-3 p-3 rounded-hero-md hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors duration-200"
                           onClick={() => setSelectedContact(contact)}
                         >
                           <div className="w-9 h-9 rounded-full bg-[#7828C8]/15 flex items-center justify-center text-[#7828C8] font-medium text-sm">
@@ -1020,7 +1020,7 @@ export default function CustomerServicesTab({
               </div>
             </motion.div>
           ) : (
-            <EmptyState icon={Shield} title="JumpCloud not configured" description="This customer doesn't have a JumpCloud organization linked. Go to Adminland > Integrations to map one." />
+            <EmptyState icon={Shield} title="JumpCloud not connected" description="Directory data has not been connected for this account yet." />
           )}
         </TabsContent>
 
@@ -1033,7 +1033,7 @@ export default function CustomerServicesTab({
               queryClient={queryClient}
             />
           ) : (
-            <EmptyState icon={Cloud} title="Spanning not configured" description="Go to Adminland > Integrations to map this customer's Spanning organization." />
+            <EmptyState icon={Cloud} title="Spanning not connected" description="Backup data has not been connected for this account yet." />
           )}
         </TabsContent>
 
@@ -1042,7 +1042,7 @@ export default function CustomerServicesTab({
           {hasDarkWeb ? (
             <DarkWebTab customerId={customerId} />
           ) : (
-            <EmptyState icon={AlertTriangle} title="Dark Web ID not configured" description="No Dark Web monitoring data found for this customer." />
+            <EmptyState icon={AlertTriangle} title="Dark Web monitoring is not connected yet" description="Exposure monitoring results will appear here once they are available for this account." />
           )}
         </TabsContent>
 
@@ -1051,7 +1051,7 @@ export default function CustomerServicesTab({
           {hasBullPhish ? (
             <BullPhishTab customerId={customerId} />
           ) : (
-            <EmptyState icon={Fish} title="BullPhish not configured" description="No BullPhish training data found for this customer." />
+            <EmptyState icon={Fish} title="Security training data is not connected yet" description="Training campaign results will appear here once they are available for this account." />
           )}
         </TabsContent>
 
@@ -1060,7 +1060,7 @@ export default function CustomerServicesTab({
           {hasInky ? (
             <InkyTab customerId={customerId} />
           ) : (
-            <EmptyState icon={ShieldCheck} title="Inky not configured" description="No Inky email protection reports found for this customer." />
+            <EmptyState icon={ShieldCheck} title="Email protection data is not connected yet" description="Email security results will appear here once they are available for this account." />
           )}
         </TabsContent>
 
@@ -1069,7 +1069,7 @@ export default function CustomerServicesTab({
           {hasEDR ? (
             <DattoEDRTab customerId={customerId} edrMapping={edrMapping} customerName={customer?.name} />
           ) : (
-            <EmptyState icon={Shield} title="Datto EDR not configured" description="Go to Adminland > Integrations to map this customer's Datto EDR site." />
+            <EmptyState icon={Shield} title="Datto EDR not connected" description="Endpoint protection data has not been connected for this account yet." />
           )}
         </TabsContent>
 
@@ -1078,7 +1078,7 @@ export default function CustomerServicesTab({
           {hasRocketCyber ? (
             <RocketCyberTab customer={customer} rocketcyberMapping={rocketcyberMapping} />
           ) : (
-            <EmptyState icon={Shield} title="RocketCyber not configured" description="Go to Adminland > Integrations to map this customer's RocketCyber account." />
+            <EmptyState icon={Shield} title="RocketCyber not connected" description="SOC data has not been connected for this account yet." />
           )}
         </TabsContent>
 
@@ -1128,7 +1128,7 @@ export default function CustomerServicesTab({
               queryClient={queryClient}
             />
           ) : (
-            <EmptyState icon={Package} title="Pax8 not configured" description="Go to Adminland > Integrations to map this customer's Pax8 company." />
+            <EmptyState icon={Package} title="Pax8 not connected" description="Subscription data has not been connected for this account yet." />
           )}
         </TabsContent>
 
@@ -1141,7 +1141,7 @@ export default function CustomerServicesTab({
               queryClient={queryClient}
             />
           ) : (
-            <EmptyState icon={Database} title="Cove not configured" description="Go to Adminland > Integrations to map this customer's Cove partner." />
+            <EmptyState icon={Database} title="Cove not connected" description="Backup appliance data has not been connected for this account yet." />
           )}
         </TabsContent>
         {/* 3CX VoIP Tab */}

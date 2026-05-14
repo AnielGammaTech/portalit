@@ -751,9 +751,9 @@ export default function ThreeCXTab({ customerId, threecxMapping, threecxReports 
   return (
     <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-2xl p-8 text-center">
       <Phone className="w-12 h-12 text-emerald-400 mx-auto mb-4" />
-      <h3 className="font-semibold text-foreground mb-2">3CX Not Configured</h3>
+      <h3 className="font-semibold text-foreground mb-2">3CX data is not connected yet</h3>
       <p className="text-sm text-muted-foreground">
-        Go to Adminland &rarr; Integrations to add this customer's 3CX instance or upload a report
+        Phone system details will appear here once they are available for this account.
       </p>
     </div>
   );

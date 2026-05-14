@@ -18,13 +18,10 @@ import {
   Monitor,
   FileText,
   Cloud,
-  Calendar,
   DollarSign,
   RefreshCw,
   Plus,
   ChevronDown,
-  ChevronRight,
-  CheckCircle2,
   HelpCircle,
   AlertCircle,
   BarChart3,
@@ -38,15 +35,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonStats, SkeletonTable } from "@/components/ui/shimmer-skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
-import { cn, safeFormatDate } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 // date-fns calls replaced by safe wrappers from @/lib/utils
 import LicenseAssignmentModal from '../components/saas/LicenseAssignmentModal';
 import AddLicenseModal from '../components/saas/AddLicenseModal';
 import AddSoftwareModal from '../components/saas/AddSoftwareModal';
 import SoftwareCard from '../components/saas/SoftwareCard';
 import AddContactModal from '../components/saas/AddContactModal';
+import CustomerBillingTab from '../components/customer/CustomerBillingTab';
 import CustomerServicesTab from '../components/customer/CustomerServicesTab';
 import CustomerDashboardTab from '../components/customer/CustomerDashboardTab';
+import CustomerQuotesTab from '../components/customer/CustomerQuotesTab';
+import CustomerTicketsTab from '../components/customer/CustomerTicketsTab';
 import CustomerMap from '../components/customer/CustomerMap';
 import M365Tab from '../components/customer/M365Tab';
 import { Eye } from 'lucide-react';
@@ -344,7 +344,7 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
                   const [saasView, setSaasView] = useState('licenses'); // 'licenses', 'users', 'spend'
                   const [saasCategoryFilter, setSaasCategoryFilter] = useState(''); // filter by category
                   const [jumpcloudSsoExpanded, setJumpcloudSsoExpanded] = useState(false); // collapsible JumpCloud SSO section
-  
+
 
   // Only block the full page on user auth + customer record.
   // Everything else loads progressively — tabs show their own loading states.
@@ -636,7 +636,7 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
           { label: customer?.name || 'Customer' }
         ]} />
       )}
-      
+
       {/* Header with Sync - Admin only */}
       {canUseAdminActions && (
         <motion.div {...fadeInUp} className="flex items-center justify-end gap-2">
@@ -848,295 +848,19 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
         </TabsContent>
 
         <TabsContent value="billing">
-                        <div className="space-y-6">
-
-                          {/* Billing Dashboard Widgets */}
-                          {(() => {
-                            const activeBills = recurringBills.filter(b => activeBillIdSet.has(b.id));
-                            const yearlyBills = activeBills.filter(b => ['yearly', 'annual', 'annually'].includes((b.frequency || '').toLowerCase()));
-                            const monthlyBills = activeBills.filter(b => !['yearly', 'annual', 'annually'].includes((b.frequency || '').toLowerCase()));
-                            const monthlyCost = monthlyBills.reduce((sum, b) => sum + (b.amount || 0), 0);
-                            const yearlyCost = yearlyBills.reduce((sum, b) => sum + (b.amount || 0), 0);
-                            const overdueInvoices = invoices.filter(i => i.status === 'overdue');
-                            const pendingInvoices = invoices.filter(i => i.status === 'sent');
-                            const totalOverdue = overdueInvoices.reduce((sum, inv) => sum + (parseFloat(inv.amount_due) || 0), 0);
-                            const totalPending = pendingInvoices.reduce((sum, inv) => sum + (parseFloat(inv.amount_due) || inv.total || 0), 0);
-                            const activeContract = contracts.find(c => c.status === 'active') || contracts[0];
-                            const contractValue = contractItems.reduce((sum, ci) => sum + (ci.net_amount || ci.price || 0), 0);
-                            const totalLineItems = activeLineItems.length;
-                            const workstations = devices.filter(d => d.device_type === 'workstation' || d.device_type === 'laptop' || d.device_type === 'desktop').length;
-                            const servers = devices.filter(d => d.device_type === 'server').length;
-
-                            return (
-                              <>
-                                {/* Top Stats Row */}
-                                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-                                  {/* Monthly Cost */}
-                                  <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
-                                        <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
-                                      </div>
-                                      <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Monthly</span>
-                                    </div>
-                                    <p className="text-xl font-bold text-gray-900">
-                                      ${monthlyCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                    </p>
-                                    <p className="text-[10px] text-gray-400 mt-1">{monthlyBills.length} bill{monthlyBills.length !== 1 ? 's' : ''}</p>
-                                  </div>
-
-                                  {/* Yearly Cost */}
-                                  <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
-                                        <Calendar className="w-3.5 h-3.5 text-blue-600" />
-                                      </div>
-                                      <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Yearly</span>
-                                    </div>
-                                    <p className="text-xl font-bold text-gray-900">
-                                      {yearlyCost > 0 ? `$${yearlyCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}
-                                    </p>
-                                    <p className="text-[10px] text-gray-400 mt-1">{yearlyBills.length > 0 ? `${yearlyBills.length} bill${yearlyBills.length !== 1 ? 's' : ''}` : 'None'}</p>
-                                  </div>
-
-                                  {/* Contract */}
-                                  <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center">
-                                        <FileText className="w-3.5 h-3.5 text-indigo-600" />
-                                      </div>
-                                      <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Contract</span>
-                                    </div>
-                                    {activeContract ? (
-                                      <>
-                                        <p className="text-lg font-bold text-gray-900 truncate">{activeContract.name}</p>
-                                        <p className="text-[10px] text-gray-400 mt-1">{contractItems.length} item{contractItems.length !== 1 ? 's' : ''}</p>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <p className="text-xl font-bold text-gray-300">—</p>
-                                        <p className="text-[10px] text-gray-400 mt-1">No contract</p>
-                                      </>
-                                    )}
-                                  </div>
-
-                                  {/* Devices */}
-                                  <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center">
-                                        <Monitor className="w-3.5 h-3.5 text-violet-600" />
-                                      </div>
-                                      <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Devices</span>
-                                    </div>
-                                    <p className="text-xl font-bold text-gray-900">{devices.length}</p>
-                                    <p className="text-[10px] text-gray-400 mt-1">
-                                      {workstations > 0 && `${workstations} workstation${workstations !== 1 ? 's' : ''}`}
-                                      {workstations > 0 && servers > 0 && ' · '}
-                                      {servers > 0 && `${servers} server${servers !== 1 ? 's' : ''}`}
-                                      {workstations === 0 && servers === 0 && 'No devices'}
-                                    </p>
-                                  </div>
-
-                                  {/* Users / Contacts */}
-                                  <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center">
-                                        <Users className="w-3.5 h-3.5 text-amber-600" />
-                                      </div>
-                                      <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Users</span>
-                                    </div>
-                                    <p className="text-xl font-bold text-gray-900">{contacts.length}</p>
-                                    <p className="text-[10px] text-gray-400 mt-1">
-                                      {totalLineItems} line item{totalLineItems !== 1 ? 's' : ''} billed
-                                    </p>
-                                  </div>
-                                </div>
-
-                                {/* Invoice Summary Bar */}
-                                <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                                  <div className="flex items-center justify-between mb-3">
-                                    <h3 className="text-sm font-semibold text-gray-900">Invoice Summary</h3>
-                                    <span className="text-xs text-gray-400">{invoices.length} total invoice{invoices.length !== 1 ? 's' : ''}</span>
-                                  </div>
-                                  <div className="grid grid-cols-2 gap-4">
-                                    <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-50/60">
-                                      <div className="w-2 h-10 rounded-full bg-amber-500" />
-                                      <div>
-                                        <p className="text-xs text-amber-600 font-medium">Pending</p>
-                                        <p className="text-lg font-bold text-amber-700">
-                                          ${totalPending.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                        </p>
-                                        <p className="text-xs text-amber-500">{pendingInvoices.length} invoice{pendingInvoices.length !== 1 ? 's' : ''}</p>
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center gap-3 p-3 rounded-lg bg-red-50/60">
-                                      <div className="w-2 h-10 rounded-full bg-red-500" />
-                                      <div>
-                                        <p className="text-xs text-red-600 font-medium">Overdue</p>
-                                        <p className="text-lg font-bold text-red-700">
-                                          ${totalOverdue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                        </p>
-                                        <p className="text-xs text-red-500">{overdueInvoices.length} invoice{overdueInvoices.length !== 1 ? 's' : ''}</p>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </>
-                            );
-                          })()}
-
-                          {/* Invoices Section */}
-                          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-                            {/* Header */}
-                            <div className="px-6 py-4 flex flex-wrap items-center justify-between gap-3">
-                              <div className="flex items-center gap-4">
-                                <h3 className="text-lg font-semibold text-gray-900">Invoices</h3>
-                                {invoices.filter(i => i.status === 'overdue').length > 0 && (
-                                  <span className="text-sm text-red-600 font-medium">
-                                    ${invoices.filter(i => i.status === 'overdue').reduce((sum, inv) => sum + (parseFloat(inv.amount_due) || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} overdue ({invoices.filter(i => i.status === 'overdue').length})
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <select
-                                  value={invoiceFilter}
-                                  onChange={(e) => setInvoiceFilter(e.target.value)}
-                                  className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white"
-                                >
-                                  <option value="all">All</option>
-                                  <option value="paid">Paid</option>
-                                  <option value="overdue">Overdue</option>
-                                  <option value="sent">Pending</option>
-                                </select>
-                              </div>
-                            </div>
-
-                            {/* Invoice Table */}
-                            {invoices.length === 0 ? (
-                              <div className="py-16 text-center border-t">
-                                <FileText className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                                <p className="text-gray-500">No invoices found</p>
-                                {customer?.source === 'halopsa' && (
-                                  <p className="text-sm text-gray-400 mt-1">Click Sync to pull from HaloPSA</p>
-                                )}
-                              </div>
-                            ) : (
-                              <div>
-                                {/* Table Header */}
-                                <div className="grid grid-cols-[auto_1fr_100px_120px_120px_110px_110px_40px] gap-2 px-6 py-2.5 bg-gray-50 border-y text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                  <div className="w-6" />
-                                  <div>Invoice</div>
-                                  <div>Status</div>
-                                  <div>Issued</div>
-                                  <div>Due</div>
-                                  <div className="text-right">Amount</div>
-                                  <div className="text-right">Balance</div>
-                                  <div />
-                                </div>
-
-                                {/* Invoice Rows */}
-                                <div className="divide-y divide-gray-100">
-                                  {invoices
-                                    .filter(inv => invoiceFilter === 'all' || inv.status === invoiceFilter)
-                                    .sort((a, b) => new Date(b.due_date || 0) - new Date(a.due_date || 0))
-                                    .map(invoice => {
-                                      const invoiceItems = invoiceLineItems.filter(item => item.invoice_id === invoice.id);
-                                      const isExpanded = expandedInvoices[invoice.id];
-                                      const isPaid = invoice.status === 'paid';
-                                      const isOverdue = invoice.status === 'overdue';
-                                      const balance = isPaid ? 0 : (invoice.amount_due || invoice.total || 0);
-
-                                      // Smart invoice label based on line item content
-                                      const invoiceLabel = (() => {
-                                        if (invoiceItems.length === 0) return invoice.invoice_number;
-                                        const descs = invoiceItems.map(i => (i.description || '').toLowerCase());
-                                        const hasTicket = descs.some(d => d.includes('ticket id:') || d.includes('ticket opened'));
-                                        if (hasTicket) return 'Ticket Charge';
-                                        const hasRecurring = descs.some(d => d.includes('business location') || d.includes('managed it - remote only') || d.includes('managed it –'));
-                                        if (hasRecurring) return 'Monthly Recurring';
-                                        return invoice.invoice_number;
-                                      })();
-
-                                      return (
-                                        <div key={invoice.id}>
-                                          {/* Invoice Row */}
-                                          <button
-                                            onClick={() => setExpandedInvoices(prev => ({ ...prev, [invoice.id]: !prev[invoice.id] }))}
-                                            className={cn(
-                                              "w-full grid grid-cols-[auto_1fr_100px_120px_120px_110px_110px_40px] gap-2 px-6 py-3.5 items-center hover:bg-gray-50 transition-colors text-left",
-                                              isOverdue && "bg-red-50/40"
-                                            )}
-                                          >
-                                            <ChevronRight className={cn(
-                                              "w-4 h-4 text-gray-400 transition-transform",
-                                              isExpanded && "rotate-90"
-                                            )} />
-                                            <div className="font-medium text-gray-900 truncate">
-                                              {invoiceLabel}
-                                              {invoiceLabel !== invoice.invoice_number && (
-                                                <span className="ml-2 text-xs text-gray-400 font-normal">#{invoice.invoice_number}</span>
-                                              )}
-                                            </div>
-                                            <div>
-                                              <span className={cn(
-                                                "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
-                                                isPaid && "bg-emerald-100 text-emerald-700",
-                                                isOverdue && "bg-red-100 text-red-700",
-                                                invoice.status === 'sent' && "bg-amber-100 text-amber-700",
-                                                invoice.status === 'draft' && "bg-gray-100 text-gray-600"
-                                              )}>
-                                                {isPaid && <CheckCircle2 className="w-3 h-3" />}
-                                                {isOverdue && <AlertCircle className="w-3 h-3" />}
-                                                {isPaid ? 'Paid' : isOverdue ? 'Overdue' : invoice.status === 'sent' ? 'Pending' : 'Draft'}
-                                              </span>
-                                            </div>
-                                            <div className="text-sm text-gray-600">
-                                              {invoice.invoice_date ? safeFormatDate(invoice.invoice_date, 'MMM d, yyyy') : '—'}
-                                            </div>
-                                            <div className={cn("text-sm", isOverdue ? "text-red-600 font-medium" : "text-gray-600")}>
-                                              {invoice.due_date ? safeFormatDate(invoice.due_date, 'MMM d, yyyy') : '—'}
-                                            </div>
-                                            <div className="text-sm font-semibold text-gray-900 text-right">
-                                              ${(invoice.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                            </div>
-                                            <div className={cn(
-                                              "text-sm font-semibold text-right",
-                                              isOverdue ? "text-red-600" : isPaid ? "text-gray-400" : "text-gray-900"
-                                            )}>
-                                              {isPaid ? '—' : `$${balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
-                                            </div>
-                                            <div />
-                                          </button>
-
-                                          {/* Expanded Line Items */}
-                                          {isExpanded && (
-                                            <div className="bg-gray-50/80 border-t border-gray-100">
-                                              {invoiceItems.length > 0 ? (
-                                                <div className="divide-y divide-gray-100/80">
-                                                  {invoiceItems.map(item => (
-                                                    <div key={item.id} className="grid grid-cols-[auto_1fr_auto] gap-4 pl-16 pr-6 py-2 text-sm">
-                                                      <div />
-                                                      <p className="text-gray-700 truncate">{item.description}</p>
-                                                      <p className="text-gray-600 text-right whitespace-nowrap">
-                                                        {item.quantity}× ${(item.unit_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} = ${(item.total || (item.quantity * (item.unit_price || 0)) || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                                      </p>
-                                                    </div>
-                                                  ))}
-                                                </div>
-                                              ) : (
-                                                <p className="text-sm text-gray-400 text-center py-4">No line items available</p>
-                                              )}
-                                            </div>
-                                          )}
-                                        </div>
-                                      );
-                                    })}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </TabsContent>
+          <CustomerBillingTab
+            customer={customer}
+            invoices={invoices}
+            invoiceLineItems={invoiceLineItems}
+            recurringBills={recurringBills}
+            lineItems={activeLineItems}
+            activeBillIdSet={activeBillIdSet}
+            invoiceFilter={invoiceFilter}
+            setInvoiceFilter={setInvoiceFilter}
+            expandedInvoices={expandedInvoices}
+            setExpandedInvoices={setExpandedInvoices}
+          />
+        </TabsContent>
 
         <TabsContent value="services">
           <CustomerServicesTab
@@ -1174,61 +898,73 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
               return (
                 <>
                   {/* Stat Cards Row */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {/* Spend Analysis */}
-                    <Link
-                      to={createPageUrl(`SpendAnalysis?customerId=${customerId}`)}
-                      className="bg-gradient-to-br from-slate-700 to-slate-900 rounded-xl border-2 border-slate-600 p-4 text-left transition-all hover:shadow-lg hover:from-slate-600 hover:to-slate-800 group block"
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <button
+                      type="button"
+                      onClick={() => setSaasView('spend')}
+                      className={cn(
+                        "block rounded-xl border p-4 text-left shadow-sm transition-colors",
+                        saasView === 'spend'
+                          ? "border-emerald-300 bg-emerald-50"
+                          : "border-slate-200 bg-white hover:bg-slate-50"
+                      )}
                     >
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/20">
-                          <DollarSign className="w-4 h-4 text-white" />
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">SaaS spend</p>
+                          <p className="mt-2 text-2xl font-bold tabular-nums text-slate-950">${totalSpend.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                          <p className="mt-1 text-xs text-slate-500">View monthly and yearly detail</p>
                         </div>
-                        <span className="text-xs text-slate-300 font-medium">Spend Analysis</span>
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-white text-emerald-700">
+                          <DollarSign className="h-4 w-4" />
+                        </div>
                       </div>
-                      <p className="text-sm font-semibold text-white mt-1">View Monthly & Yearly</p>
-                      <p className="text-[10px] text-slate-300 mt-0.5">Click to see breakdown →</p>
-                    </Link>
-                    
-                    {/* Utilization */}
+                    </button>
+
                     <button
                       onClick={() => { setSaasFilter('all'); setSaasView('licenses'); }}
                       className={cn(
-                        "bg-white rounded-xl border-2 p-4 text-left transition-all hover:shadow-md group",
-                        saasFilter === 'all' && saasView === 'licenses' ? "border-slate-400 shadow-md" : "border-slate-200 hover:border-slate-300"
+                        "rounded-xl border p-4 text-left shadow-sm transition-colors",
+                        saasFilter === 'all' && saasView === 'licenses'
+                          ? "border-blue-200 bg-blue-50/70"
+                          : "border-slate-200 bg-white hover:bg-slate-50"
                       )}
                     >
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center", saasFilter === 'all' && saasView === 'licenses' ? "bg-blue-100" : "bg-slate-100 group-hover:bg-blue-50")}>
-                          <Monitor className={cn("w-4 h-4", saasFilter === 'all' && saasView === 'licenses' ? "text-blue-600" : "text-slate-500 group-hover:text-blue-500")} />
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Seat utilization</p>
+                          <p className="mt-2 text-2xl font-bold tabular-nums text-slate-950">{utilizationRate.toFixed(0)}%</p>
+                          <p className="mt-1 text-xs text-slate-500">{assignedSeats}/{totalSeats} assigned seats</p>
                         </div>
-                        <span className="text-xs text-slate-500">Utilization</span>
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-blue-200 bg-white text-blue-700">
+                          <Monitor className="h-4 w-4" />
+                        </div>
                       </div>
-                      <p className="text-xl font-bold text-slate-900">{utilizationRate.toFixed(0)}%</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">{assignedSeats}/{totalSeats} seats</p>
                     </button>
 
-                    {/* By User */}
                     <button
                       onClick={() => setSaasView('users')}
                       className={cn(
-                        "bg-white rounded-xl border-2 p-4 text-left transition-all hover:shadow-md group",
-                        saasView === 'users' ? "border-slate-400 shadow-md" : "border-slate-200 hover:border-slate-300"
+                        "rounded-xl border p-4 text-left shadow-sm transition-colors",
+                        saasView === 'users'
+                          ? "border-violet-200 bg-violet-50/70"
+                          : "border-slate-200 bg-white hover:bg-slate-50"
                       )}
                     >
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center", saasView === 'users' ? "bg-emerald-100" : "bg-slate-100 group-hover:bg-emerald-50")}>
-                          <Users className={cn("w-4 h-4", saasView === 'users' ? "text-emerald-600" : "text-slate-500 group-hover:text-emerald-500")} />
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Team access</p>
+                          <p className="mt-2 text-2xl font-bold tabular-nums text-slate-950">{contacts.length}</p>
+                          <p className="mt-1 text-xs text-slate-500">team members</p>
                         </div>
-                        <span className="text-xs text-slate-500">By User</span>
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-violet-200 bg-white text-violet-700">
+                          <Users className="h-4 w-4" />
+                        </div>
                       </div>
-                      <p className="text-xl font-bold text-slate-900">{contacts.length}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">team members</p>
                     </button>
                   </div>
 
-                  {/* Filters & Add Button Row */}
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
                     {saasView === 'users' && (
                       <select
                         value={saasUserFilter}
@@ -1242,14 +978,16 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
                       </select>
                     )}
                     <div className="flex-1" />
-                    <Button 
-                      size="sm" 
-                      className="gap-2"
-                      onClick={() => setShowAddSoftware(true)}
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add Software
-                    </Button>
+                    {canUseAdminActions && (
+                      <Button
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => setShowAddSoftware(true)}
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Software
+                      </Button>
+                    )}
                   </div>
                 </>
               );
@@ -1263,31 +1001,33 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
                   <div className="px-6 py-4 border-b border-slate-100">
                     <h3 className="font-semibold text-slate-900">Software & Licenses</h3>
                     <p className="text-sm text-slate-500">
-                      {Object.entries(groupedSoftware).filter(([_, data]) => 
+                      {Object.entries(groupedSoftware).filter(([_, data]) =>
                         !jumpcloudMapping || (data.software.source !== 'jumpcloud' && data.software.vendor?.toLowerCase() !== 'jumpcloud')
                       ).length} applications
                     </p>
                   </div>
                   {(() => {
-                    const nonJumpcloudApps = Object.entries(groupedSoftware).filter(([_, data]) => 
+                    const nonJumpcloudApps = Object.entries(groupedSoftware).filter(([_, data]) =>
                       !jumpcloudMapping || (data.software.source !== 'jumpcloud' && data.software.vendor?.toLowerCase() !== 'jumpcloud')
                     );
-                    
+
                     if (nonJumpcloudApps.length === 0) {
                       return (
                         <div className="p-12 text-center">
                           <Cloud className="w-12 h-12 text-slate-300 mx-auto mb-4" />
                           <p className="text-slate-500 mb-3">No software added yet</p>
-                          <Button 
-                            onClick={() => setShowAddSoftware(true)}
-                          >
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add Software
-                          </Button>
+                          {canUseAdminActions && (
+                            <Button
+                              onClick={() => setShowAddSoftware(true)}
+                            >
+                              <Plus className="w-4 h-4 mr-2" />
+                              Add Software
+                            </Button>
+                          )}
                         </div>
                       );
                     }
-                    
+
                     return (
                       <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                         {nonJumpcloudApps
@@ -1297,15 +1037,15 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
                             return true;
                           })
                           .map(([appName, data]) => {
-                            const managedAssignments = data.managedLicense 
+                            const managedAssignments = data.managedLicense
                               ? licenseAssignments.filter(a => a.license_id === data.managedLicense.id && a.status === 'active')
                               : [];
-                            const individualAssignments = data.individualLicenses.flatMap(l => 
+                            const individualAssignments = data.individualLicenses.flatMap(l =>
                               licenseAssignments.filter(a => a.license_id === l.id && a.status === 'active')
                             );
-                            
+
                             return (
-                              <SoftwareCard 
+                              <SoftwareCard
                                 key={appName}
                                 software={data.software}
                                 managedLicense={data.managedLicense}
@@ -1323,23 +1063,23 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
 
                 {/* JumpCloud SSO Applications - Collapsible */}
                 {jumpcloudMapping && (() => {
-                  const jumpcloudApps = Object.entries(groupedSoftware).filter(([_, data]) => 
+                  const jumpcloudApps = Object.entries(groupedSoftware).filter(([_, data]) =>
                     data.software.source === 'jumpcloud' || data.software.vendor?.toLowerCase() === 'jumpcloud'
                   );
                   if (jumpcloudApps.length === 0) return null;
-                  
+
                   const totalUsers = jumpcloudApps.reduce((sum, [_, data]) => {
-                    const managedAssignments = data.managedLicense 
+                    const managedAssignments = data.managedLicense
                       ? licenseAssignments.filter(a => a.license_id === data.managedLicense.id && a.status === 'active').length
                       : 0;
-                    const individualAssignments = data.individualLicenses.reduce((s, l) => 
+                    const individualAssignments = data.individualLicenses.reduce((s, l) =>
                       s + licenseAssignments.filter(a => a.license_id === l.id && a.status === 'active').length, 0);
                     return sum + managedAssignments + individualAssignments;
                   }, 0);
-                  
+
                   return (
                     <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-200 overflow-hidden">
-                      <button 
+                      <button
                         onClick={() => setJumpcloudSsoExpanded(!jumpcloudSsoExpanded)}
                         className="w-full px-4 py-3 flex items-center justify-between hover:bg-emerald-100/50 transition-colors"
                       >
@@ -1360,16 +1100,16 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
                       {jumpcloudSsoExpanded && (
                         <div className="p-4 pt-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                           {jumpcloudApps.map(([appName, data]) => {
-                            const managedAssignments = data.managedLicense 
+                            const managedAssignments = data.managedLicense
                               ? licenseAssignments.filter(a => a.license_id === data.managedLicense.id && a.status === 'active')
                               : [];
-                            const individualAssignments = data.individualLicenses.flatMap(l => 
+                            const individualAssignments = data.individualLicenses.flatMap(l =>
                               licenseAssignments.filter(a => a.license_id === l.id && a.status === 'active')
                             );
                             const appTotalUsers = managedAssignments.length + individualAssignments.length;
-                            
+
                             return (
-                              <Link 
+                              <Link
                                 key={appName}
                                 to={createPageUrl(`LicenseDetail?id=${data.software.id}`)}
                                 className="flex items-center gap-3 p-3 bg-white rounded-xl border border-emerald-100 hover:border-emerald-300 hover:shadow-md transition-all group"
@@ -1419,14 +1159,14 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
                         }
                         return null;
                       }).filter(Boolean);
-                      
+
                       // Check for duplicate apps (both managed and individual license for same software)
                       const appCounts = {};
                       userLicenses.forEach(l => {
                         appCounts[l.application_name] = (appCounts[l.application_name] || 0) + 1;
                       });
                       const duplicateApps = Object.keys(appCounts).filter(app => appCounts[app] > 1);
-                      
+
                       // Calculate total cost per user
                       const totalCost = userLicenses.reduce((sum, l) => {
                         // For per_user licenses, use the assignment's cost_per_license or license cost
@@ -1437,7 +1177,7 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
                         const perSeatCost = l.quantity > 0 ? (l.total_cost || 0) / l.quantity : (l.cost_per_license || 0);
                         return sum + perSeatCost;
                       }, 0);
-                      
+
                       return (
                         <div key={contact.id} className="p-5">
                           <div className="flex items-center justify-between mb-4">
@@ -1455,7 +1195,7 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
                               <p className="text-sm text-slate-500">${totalCost.toFixed(2)}/mo</p>
                             </div>
                           </div>
-                          
+
                           {/* Duplicate License Warning */}
                           {duplicateApps.length > 0 && (
                             <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
@@ -1468,23 +1208,23 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
                               </div>
                             </div>
                           )}
-                          
+
                           {userLicenses.length > 0 ? (
                             <div className="space-y-2">
                               {userLicenses.map(license => {
                                 const isDuplicate = duplicateApps.includes(license.application_name);
-                                const userCost = license.management_type === 'per_user' 
+                                const userCost = license.management_type === 'per_user'
                                   ? (license.assignment?.cost_per_license || license.cost_per_license || 0)
                                   : (license.quantity > 0 ? (license.total_cost || 0) / license.quantity : (license.cost_per_license || 0));
-                                
+
                                 return (
                                   <Link
                                     key={`${license.id}-${license.assignment?.id}`}
                                     to={createPageUrl(`LicenseDetail?id=${license.id}`)}
                                     className={cn(
                                       "flex items-center gap-3 p-3 rounded-lg transition-colors",
-                                      isDuplicate 
-                                        ? "bg-amber-50 border border-amber-200 hover:bg-amber-100" 
+                                      isDuplicate
+                                        ? "bg-amber-50 border border-amber-200 hover:bg-amber-100"
                                         : "bg-slate-50 hover:bg-slate-100"
                                     )}
                                   >
@@ -1507,8 +1247,8 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
                                         <span>•</span>
                                         <Badge variant="outline" className={cn(
                                           "text-[10px] py-0",
-                                          license.management_type === 'managed' 
-                                            ? "border-blue-200 text-blue-700 bg-blue-50" 
+                                          license.management_type === 'managed'
+                                            ? "border-blue-200 text-blue-700 bg-blue-50"
                                             : "border-purple-200 text-purple-700 bg-purple-50"
                                         )}>
                                           {license.management_type === 'managed' ? 'Managed' : 'Individual'}
@@ -1547,7 +1287,7 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
                         const assignedCount = licenseAssignments.filter(a => a.license_id === license.id && a.status === 'active').length;
                         const unusedSeats = (license.quantity || 0) - assignedCount;
                         const wastedCost = license.quantity > 0 ? (unusedSeats / license.quantity) * (license.total_cost || 0) : 0;
-                        
+
                         return (
                           <button
                             key={license.id}
@@ -1567,7 +1307,7 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
                                 <p className="font-semibold text-slate-900">${(license.total_cost || 0).toLocaleString()}/mo</p>
                               </div>
                               <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                                <div 
+                                <div
                                   className="h-full bg-purple-500 rounded-full"
                                   style={{ width: `${percentage}%` }}
                                 />
@@ -1584,7 +1324,7 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
                       })}
                   </div>
                 </div>
-                
+
                 {/* Cost Optimization Tips */}
                 <div className="bg-gradient-to-r from-slate-50 to-blue-50 rounded-2xl border border-slate-200 p-6">
                   <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
@@ -1602,7 +1342,7 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
                         const assigned = licenseAssignments.filter(a => a.license_id === l.id && a.status === 'active').length;
                         return l.quantity > 0 && (assigned / l.quantity) < 0.5;
                       });
-                      
+
                       return (
                         <>
                           {totalUnused > 0 && (
@@ -1652,220 +1392,27 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
         </TabsContent>
 
         <TabsContent value="quotes">
-          <div className="space-y-6">
-            <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="font-semibold text-slate-900">Quotes</h3>
-                {canUseAdminActions && (
-                  <Button size="sm" className="gap-2">
-                    <Plus className="w-4 h-4" />
-                    New Quote
-                  </Button>
-                )}
-              </div>
-              {quotes.length === 0 ? (
-                <div className="p-12 text-center">
-                  <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                  <p className="text-slate-500">No quotes found</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {quotes.map((quote) => {
-                    const quoteLineItems = quoteItems.filter(item => item.quote_id === quote.id);
-                    const isExpanded = expandedQuotes[quote.id];
-                    return (
-                      <div key={quote.id} className="border border-slate-100 rounded-lg overflow-hidden">
-                        <button
-                          onClick={() => setExpandedQuotes(prev => ({ ...prev, [quote.id]: !prev[quote.id] }))}
-                          className="w-full px-4 py-4 flex items-start justify-between hover:bg-slate-50 transition-colors"
-                        >
-                          <div className="flex-1 text-left">
-                            <div className="flex items-center gap-3 mb-2">
-                              <span className="font-semibold text-slate-900">{quote.title || quote.quote_number}</span>
-                              <Badge className={cn(
-                                "capitalize text-xs",
-                                quote.status === 'accepted' && "bg-emerald-100 text-emerald-700",
-                                quote.status === 'sent' && "bg-blue-100 text-blue-700",
-                                quote.status === 'draft' && "bg-slate-100 text-slate-700",
-                                quote.status === 'rejected' && "bg-red-100 text-red-700",
-                                quote.status === 'expired' && "bg-yellow-100 text-yellow-700"
-                              )}>
-                                {quote.status}
-                              </Badge>
-                            </div>
-                            <div className="flex items-center gap-4 text-sm text-slate-600">
-                              <span>Quote #{quote.quote_number}</span>
-                              {quote.quote_date && (
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="w-3 h-3" />
-                                  {safeFormatDate(quote.quote_date, 'MM/dd/yyyy')}
-                                </span>
-                              )}
-                              {quote.expiry_date && (
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="w-3 h-3" />
-                                  Expires: {safeFormatDate(quote.expiry_date, 'MM/dd/yyyy')}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <p className="font-semibold text-slate-900">
-                              ${(quote.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                            </p>
-                            <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", isExpanded && "rotate-180")} />
-                          </div>
-                        </button>
-                        {isExpanded && quoteLineItems.length > 0 && (
-                          <div className="bg-slate-50 border-t border-slate-100 px-4 py-3">
-                            <div className="space-y-3">
-                              {quoteLineItems.map(item => (
-                                <div key={item.id} className="flex justify-between items-start text-sm">
-                                  <div className="flex-1">
-                                    <p className="text-slate-900 font-medium">{item.description}</p>
-                                    <p className="text-xs text-slate-500 mt-1">
-                                      {item.quantity} × ${(item.unit_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                    </p>
-                                  </div>
-                                  <p className="font-semibold text-slate-900">
-                                    ${(item.total_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                  </p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
+          <CustomerQuotesTab
+            quotes={quotes}
+            quoteItems={quoteItems}
+            expandedQuotes={expandedQuotes}
+            setExpandedQuotes={setExpandedQuotes}
+            canUseAdminActions={canUseAdminActions}
+          />
         </TabsContent>
 
-                      <TabsContent value="tickets">
-                                      <div className="space-y-6">
-                                      <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
-                          <div className="flex items-center justify-between mb-6">
-                            <div>
-                              <h3 className="text-lg font-semibold text-slate-900">Support Tickets</h3>
-                              <p className="text-sm text-slate-500">
-                                {tickets.filter(t => ['open', 'in_progress', 'new'].includes(t.status)).length} open • {tickets.filter(t => ['closed', 'resolved'].includes(t.status)).length} resolved
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <select
-                                value={ticketFilter}
-                                onChange={(e) => { setTicketFilter(e.target.value); setTicketPage(1); }}
-                                className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-400"
-                              >
-                                <option value="all">All Tickets</option>
-                                <option value="open">Open</option>
-                                <option value="in_progress">In Progress</option>
-                                <option value="waiting">Waiting</option>
-                                <option value="resolved">Resolved</option>
-                                <option value="closed">Closed</option>
-                              </select>
-                            </div>
-                          </div>
+        <TabsContent value="tickets">
+          <CustomerTicketsTab
+            tickets={tickets}
+            ticketFilter={ticketFilter}
+            setTicketFilter={setTicketFilter}
+            ticketPage={ticketPage}
+            setTicketPage={setTicketPage}
+            customer={customer}
+          />
+        </TabsContent>
 
-                          {tickets.length === 0 ? (
-                            <div className="py-12 text-center">
-                              <Monitor className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                              <p className="text-slate-500">No tickets found</p>
-                              {customer?.source === 'halopsa' && (
-                                <p className="text-sm text-slate-400 mt-1">Click "Sync" to pull from HaloPSA</p>
-                              )}
-                            </div>
-                          ) : (
-                            <>
-                              <div className="space-y-2">
-                                {tickets
-                                  .filter(t => ticketFilter === 'all' || t.status === ticketFilter)
-                                  .sort((a, b) => new Date(b.created_date || 0) - new Date(a.created_date || 0))
-                                  .slice((ticketPage - 1) * 10, ticketPage * 10)
-                                  .map(ticket => (
-                                    <div key={ticket.id} className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
-                                      <div className={cn(
-                                        "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
-                                        ticket.priority === 'critical' && "bg-red-100",
-                                        ticket.priority === 'high' && "bg-orange-100",
-                                        ticket.priority === 'medium' && "bg-yellow-100",
-                                        ticket.priority === 'low' && "bg-blue-100",
-                                        !ticket.priority && "bg-slate-100"
-                                      )}>
-                                        <Monitor className={cn(
-                                          "w-5 h-5",
-                                          ticket.priority === 'critical' && "text-red-600",
-                                          ticket.priority === 'high' && "text-orange-600",
-                                          ticket.priority === 'medium' && "text-yellow-600",
-                                          ticket.priority === 'low' && "text-blue-600",
-                                          !ticket.priority && "text-slate-500"
-                                        )} />
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <p className="font-semibold text-slate-900 truncate">
-                                          #{ticket.external_id} - {ticket.subject}
-                                        </p>
-                                        <div className="flex items-center gap-2 mt-1 text-sm text-slate-500">
-                                          {ticket.contact_name && (
-                                            <span>By: {ticket.contact_name}</span>
-                                          )}
-                                          {ticket.contact_name && ticket.assigned_to && <span>•</span>}
-                                          {ticket.assigned_to && (
-                                            <span className="text-purple-600 font-medium">
-                                              Tech: {ticket.assigned_to}
-                                            </span>
-                                          )}
-                                          {(ticket.contact_name || ticket.assigned_to) && ticket.created_date && <span>•</span>}
-                                          {ticket.created_date && (
-                                            <span>{safeFormatDate(ticket.created_date, 'MMM d, yyyy')}</span>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <Badge className={cn(
-                                        'text-xs capitalize flex-shrink-0',
-                                        ticket.status === 'new' && 'bg-purple-100 text-purple-700',
-                                        ticket.status === 'open' && 'bg-yellow-100 text-yellow-700',
-                                        ticket.status === 'in_progress' && 'bg-blue-100 text-blue-700',
-                                        ticket.status === 'waiting' && 'bg-orange-100 text-orange-700',
-                                        ticket.status === 'resolved' && 'bg-emerald-100 text-emerald-700',
-                                        ticket.status === 'closed' && 'bg-slate-100 text-slate-700'
-                                      )}>
-                                        {ticket.status?.replace('_', ' ')}
-                                      </Badge>
-                                    </div>
-                                  ))}
-                              </div>
-                              {tickets.filter(t => ticketFilter === 'all' || t.status === ticketFilter).length > 10 && (
-                                <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t border-slate-100">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setTicketPage(p => Math.max(1, p - 1))}
-                                    disabled={ticketPage === 1}
-                                  >
-                                    Previous
-                                  </Button>
-                                  <span className="text-sm text-slate-600 px-3">
-                                    Page {ticketPage} of {Math.ceil(tickets.filter(t => ticketFilter === 'all' || t.status === ticketFilter).length / 10)}
-                                  </span>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setTicketPage(p => Math.min(Math.ceil(tickets.filter(t => ticketFilter === 'all' || t.status === ticketFilter).length / 10), p + 1))}
-                                    disabled={ticketPage >= Math.ceil(tickets.filter(t => ticketFilter === 'all' || t.status === ticketFilter).length / 10)}
-                                  >
-                                    Next
-                                  </Button>
-                                  </div>
-                                  )}
-                                  </>
-                                  )}
-                                  </div>
-                                  </div>
-                                  </TabsContent>
+
 
 
 

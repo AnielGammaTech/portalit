@@ -314,7 +314,7 @@ export default function Login() {
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full h-12 rounded-hero-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-[15px] shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all duration-[250ms] gap-2 group"
+                  className="w-full h-12 rounded-hero-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-[15px] shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all duration-200 gap-2 group"
                 >
                   {isLoading ? (
                     <Loader2 className="w-5 h-5 animate-spin" />

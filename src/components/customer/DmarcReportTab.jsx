@@ -339,8 +339,8 @@ export default function DmarcReportTab({ customerId, dmarcMapping, queryClient }
         <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
           <Shield className="w-8 h-8 text-slate-300" />
         </div>
-        <p className="text-sm font-semibold text-slate-700">DMARC Not Configured</p>
-        <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">Go to Adminland → Integrations → DMARC Report to map a domain for this customer.</p>
+        <p className="text-sm font-semibold text-slate-700">DMARC data is not connected yet</p>
+        <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">Email domain authentication results will appear here once they are available for this account.</p>
       </div>
     );
   }

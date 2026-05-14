@@ -151,8 +151,8 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
     return (
       <EmptyState
         icon={ShieldAlert}
-        title="SaaS Alerts not configured"
-        description="Go to Adminland > Integrations to map this customer's SaaS Alerts account."
+        title="SaaS security data is not connected yet"
+        description="Application security events will appear here once they are available for this account."
       />
     );
   }

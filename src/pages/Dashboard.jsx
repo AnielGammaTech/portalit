@@ -25,13 +25,12 @@ import {
   ChevronDown,
   Activity,
   BarChart3,
-  ArrowUpRight,
-  ArrowDownRight,
   Eye
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PortalMetricCard, PortalPageHeader, PortalSection, PortalStatusPill } from "@/components/ui/portal-primitives";
 import { cn, formatLineItemDescription, safeFormatDate, safeDifferenceInDays } from "@/lib/utils";
 // date-fns calls replaced by safe wrappers from @/lib/utils
 import { Link, useNavigate } from 'react-router-dom';
@@ -206,93 +205,81 @@ function AdminDashboard() {
     : 0;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Dashboard</h1>
-          <p className="text-slate-500 text-sm">Overview of your managed services</p>
-        </div>
-        {syncLogs.length > 0 && syncLogs[0] && (
-          <div className="text-right text-xs text-slate-400">
-            Last sync: {syncLogs[0]?.created_date
-              ? safeFormatDate(syncLogs[0].created_date, 'MMM d, h:mm a', 'Unknown')
-              : 'Unknown'}
-          </div>
+    <div className="space-y-5">
+      <PortalPageHeader
+        title="Dashboard"
+        description="Operational view across customers, billing, and reconciliation."
+        meta={syncLogs[0]?.created_date ? `Last sync ${safeFormatDate(syncLogs[0].created_date, 'MMM d, h:mm a', 'Unknown')}` : undefined}
+        actions={(
+          <Link to={createPageUrl('Customers')}>
+            <Button size="sm" className="gap-2">
+              <Building2 className="h-4 w-4" />
+              Customers
+            </Button>
+          </Link>
         )}
+      />
+
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <PortalMetricCard
+          icon={Building2}
+          label="Active customers"
+          value={activeCustomers}
+          detail={`${customers.length} total accounts`}
+          tone="violet"
+          onClick={() => navigate(createPageUrl('Customers'))}
+        />
+        <PortalMetricCard
+          icon={DollarSign}
+          label="Monthly revenue"
+          value={`$${Math.round(totalMRR).toLocaleString()}`}
+          detail="Net active monthly services"
+          tone="emerald"
+          onClick={() => setShowMrrBreakdown(!showMrrBreakdown)}
+        />
+        <PortalMetricCard
+          icon={FileText}
+          label="Active contracts"
+          value={activeContracts}
+          detail="Published customer plans"
+          tone="blue"
+        />
+        <PortalMetricCard
+          icon={BarChart3}
+          label="Reconciliation health"
+          value={`${reconHealth}%`}
+          detail={`${lootITIssueCustomers.length} customer${lootITIssueCustomers.length === 1 ? '' : 's'} need review`}
+          tone={lootITIssueCustomers.length > 0 ? 'amber' : 'emerald'}
+        />
       </div>
 
-      {/* Top Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <Link to={createPageUrl('Customers')} className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md hover:border-purple-200 transition-all group">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-              <Building2 className="w-5 h-5 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-slate-900">{activeCustomers}</p>
-              <p className="text-xs text-slate-500">Active Customers</p>
-            </div>
-          </div>
-        </Link>
-        <button onClick={() => setShowMrrBreakdown(!showMrrBreakdown)} className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md hover:border-emerald-200 transition-all group text-left">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
-              <DollarSign className="w-5 h-5 text-emerald-600" />
-            </div>
-            <div className="flex-1">
-              <p className="text-2xl font-bold text-slate-900">${Math.round(totalMRR).toLocaleString()}</p>
-              <p className="text-xs text-slate-500">Monthly Revenue (net)</p>
-            </div>
-            <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", showMrrBreakdown && "rotate-180")} />
-          </div>
-        </button>
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-              <FileText className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-slate-900">{activeContracts}</p>
-              <p className="text-xs text-slate-500">Active Contracts</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* MRR Breakdown */}
       {showMrrBreakdown && (
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-900">MRR Breakdown by Customer</h3>
-              <p className="text-[10px] text-slate-400 mt-0.5">
-                {mrrBreakdown.length} customers &middot; Net amounts (excl. tax) &middot; Active monthly bills only &middot; Excludes yearly
-              </p>
-            </div>
-            <p className="text-sm font-bold text-emerald-600">${Math.round(totalMRR).toLocaleString()}</p>
-          </div>
+        <PortalSection
+          title="MRR breakdown"
+          description={`${mrrBreakdown.length} customers, net amounts excluding tax, active monthly bills only.`}
+          badge={<PortalStatusPill tone="emerald" label={`$${Math.round(totalMRR).toLocaleString()} total`} />}
+        >
           <div className="max-h-96 overflow-y-auto">
             <table className="w-full">
               <thead>
-                <tr className="bg-slate-50 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                  <th className="text-left px-4 py-2">Customer</th>
-                  <th className="text-right px-4 py-2 w-20">Bills</th>
-                  <th className="text-right px-4 py-2 w-20">Lines</th>
-                  <th className="text-right px-4 py-2 w-28">MRR</th>
-                  <th className="text-right px-4 py-2 w-20">% Total</th>
+                <tr className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="px-5 py-2.5 text-left">Customer</th>
+                  <th className="w-20 px-4 py-2.5 text-right">Bills</th>
+                  <th className="w-20 px-4 py-2.5 text-right">Lines</th>
+                  <th className="w-28 px-4 py-2.5 text-right">MRR</th>
+                  <th className="w-20 px-4 py-2.5 text-right">%</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-slate-100">
                 {mrrBreakdown.map((row) => (
-                  <tr key={row.customerId} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-2 text-sm text-slate-800">{row.customerName}</td>
-                    <td className="px-4 py-2 text-xs text-slate-500 text-right">{row.billCount}</td>
-                    <td className="px-4 py-2 text-xs text-slate-500 text-right">{row.lineCount}</td>
-                    <td className="px-4 py-2 text-sm font-medium text-slate-900 text-right tabular-nums">
+                  <tr key={row.customerId} className="hover:bg-slate-50">
+                    <td className="px-5 py-2.5 text-sm font-medium text-slate-900">{row.customerName}</td>
+                    <td className="px-4 py-2.5 text-right text-xs text-slate-500">{row.billCount}</td>
+                    <td className="px-4 py-2.5 text-right text-xs text-slate-500">{row.lineCount}</td>
+                    <td className="px-4 py-2.5 text-right text-sm font-semibold tabular-nums text-slate-950">
                       ${Math.round(row.mrr).toLocaleString()}
                     </td>
-                    <td className="px-4 py-2 text-xs text-slate-400 text-right tabular-nums">
+                    <td className="px-4 py-2.5 text-right text-xs tabular-nums text-slate-500">
                       {totalMRR > 0 ? Math.round((row.mrr / totalMRR) * 100) : 0}%
                     </td>
                   </tr>
@@ -300,271 +287,170 @@ function AdminDashboard() {
               </tbody>
             </table>
           </div>
-        </div>
+        </PortalSection>
       )}
 
-      {/* LootIT Reconciliation Section */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-6 text-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-pink-500/10 rounded-full blur-3xl" />
-        <div className="relative">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center">
-                <BarChart3 className="w-5 h-5 text-pink-400" />
-              </div>
-              <div>
-                <h2 className="text-base font-semibold">LootIT Reconciliation</h2>
-                <p className="text-xs text-slate-400">Billing health across all customers</p>
-              </div>
-            </div>
-            <a href={LOOTIT_URL}>
-              <Button variant="ghost" size="sm" className="text-pink-300 hover:text-white hover:bg-white/10">
-                View All <ChevronRight className="w-3.5 h-3.5 ml-1" />
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
+        <PortalSection
+          title="Customer accounts"
+          description="Fast account lookup with billing reconciliation context."
+          actions={(
+            <Link to={createPageUrl('Customers')}>
+              <Button variant="outline" size="sm" className="gap-2">
+                View all
+                <ChevronRight className="h-4 w-4" />
               </Button>
-            </a>
+            </Link>
+          )}
+        >
+          <div className="hidden grid-cols-[minmax(0,1fr)_180px_160px_110px_32px] gap-3 border-b border-slate-100 bg-slate-50 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 md:grid">
+            <div>Customer</div>
+            <div>Contact</div>
+            <div>Reconciliation</div>
+            <div className="text-right">Status</div>
+            <div />
           </div>
+          <div className="divide-y divide-slate-100">
+            {customers.slice(0, 12).map(customer => {
+              const reconData = reconciliations[customer.id];
+              const summary = reconData
+                ? getDiscrepancySummary([
+                    ...(reconData.reconciliations || []),
+                    ...(reconData.pax8Reconciliations || []),
+                  ])
+                : null;
+              const issues = summary ? summary.over + summary.under : 0;
+              const active = summary ? summary.total - summary.noData : 0;
+              const resolved = summary ? summary.matched + summary.reviewed : 0;
+              const pct = active > 0 ? Math.round((resolved / active) * 100) : 0;
 
-          {loadingRecon ? (
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="bg-white/5 rounded-xl p-4 animate-pulse h-20" />
-              ))}
-            </div>
-          ) : (
-            <>
-              {/* LootIT Stats */}
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-5">
-                <div className="bg-white/10 backdrop-blur rounded-xl p-3.5">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Activity className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="text-[11px] text-slate-400">Health</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-xl font-bold">{reconHealth}%</p>
-                    <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                      <div
-                        className={cn(
-                          "h-full rounded-full",
-                          reconHealth >= 90 ? "bg-emerald-400" : reconHealth >= 70 ? "bg-orange-400" : "bg-red-400"
-                        )}
-                        style={{ width: `${reconHealth}%` }}
-                      />
+              return (
+                <button
+                  key={customer.id}
+                  onClick={() => navigate(createPageUrl(`CustomerDetail?id=${customer.id}`))}
+                  className="grid w-full grid-cols-1 gap-2 px-5 py-3 text-left transition-colors hover:bg-slate-50 md:grid-cols-[minmax(0,1fr)_180px_160px_110px_32px] md:items-center"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className={cn(
+                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border',
+                      customer.status === 'active' ? 'border-violet-200 bg-violet-50 text-violet-700' : 'border-slate-200 bg-slate-50 text-slate-400'
+                    )}>
+                      <Building2 className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-950">{customer.name}</p>
+                      <p className="truncate text-xs text-slate-500">{customer.email || customer.address || 'No primary email'}</p>
                     </div>
                   </div>
-                </div>
-                <div className="bg-white/10 backdrop-blur rounded-xl p-3.5">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="text-[11px] text-slate-400">Matched</span>
+                  <div className="truncate text-sm text-slate-600">{customer.primary_contact || customer.email || '-'}</div>
+                  <div>
+                    {summary && active > 0 ? (
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className={cn('h-full rounded-full', issues > 0 ? 'bg-amber-400' : 'bg-emerald-500')}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="w-9 text-right text-xs font-semibold tabular-nums text-slate-600">{pct}%</span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-400">No data</span>
+                    )}
                   </div>
-                  <p className="text-xl font-bold">{globalSummary.totalMatched}</p>
-                </div>
-                <div className="bg-white/10 backdrop-blur rounded-xl p-3.5">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <TrendingDown className="w-3.5 h-3.5 text-red-400" />
-                    <span className="text-[11px] text-slate-400">Under-billed</span>
+                  <div className="flex items-center justify-start gap-2 md:justify-end">
+                    {issues > 0 ? (
+                      <PortalStatusPill tone="amber" icon={AlertTriangle} label={`${issues} review`} className="py-0.5 text-[11px]" />
+                    ) : (
+                      <PortalStatusPill tone={customer.status === 'active' ? 'emerald' : 'slate'} label={customer.status || 'active'} className="py-0.5 text-[11px]" />
+                    )}
                   </div>
-                  <p className="text-xl font-bold text-red-300">{globalSummary.totalUnder}</p>
-                </div>
-                <div className="bg-white/10 backdrop-blur rounded-xl p-3.5">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <TrendingUp className="w-3.5 h-3.5 text-orange-400" />
-                    <span className="text-[11px] text-slate-400">Over-billed</span>
-                  </div>
-                  <p className="text-xl font-bold text-orange-300">{globalSummary.totalOver}</p>
-                </div>
-                <div className="bg-white/10 backdrop-blur rounded-xl p-3.5">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Eye className="w-3.5 h-3.5 text-pink-400" />
-                    <span className="text-[11px] text-slate-400">Reviewed</span>
-                  </div>
-                  <p className="text-xl font-bold">{globalSummary.totalReviewed}</p>
-                </div>
-              </div>
+                  <ChevronRight className="hidden h-4 w-4 text-slate-300 md:block" />
+                </button>
+              );
+            })}
+          </div>
+        </PortalSection>
 
-              {/* Customers with issues */}
-              {lootITIssueCustomers.length > 0 && (
-                <div>
-                  <p className="text-xs text-slate-400 font-medium mb-2">
-                    <AlertTriangle className="w-3.5 h-3.5 inline mr-1 text-amber-400" />
-                    {lootITIssueCustomers.length} customer{lootITIssueCustomers.length !== 1 ? 's' : ''} with billing discrepancies
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                    {lootITIssueCustomers.slice(0, 6).map(({ customer, combinedSummary: s }) => {
-                      const issues = s.over + s.under;
-                      return (
+        <div className="space-y-5">
+          <PortalSection
+            title="Billing reconciliation"
+            description="LootIT review queue across managed customers."
+            actions={(
+              <a href={LOOTIT_URL}>
+                <Button variant="outline" size="sm" className="gap-2">
+                  Open LootIT
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </a>
+            )}
+            bodyClassName="p-4"
+          >
+            {loadingRecon ? (
+              <div className="grid grid-cols-2 gap-3">
+                {[...Array(4)].map((_, i) => (
+                  <Skeleton key={i} className="h-20 rounded-xl" />
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <PortalMetricCard icon={Activity} label="Health" value={`${reconHealth}%`} detail="matched or reviewed" tone={reconHealth >= 90 ? 'emerald' : 'amber'} className="p-3" />
+                  <PortalMetricCard icon={Eye} label="Reviewed" value={globalSummary.totalReviewed} detail="accepted differences" tone="violet" className="p-3" />
+                  <PortalMetricCard icon={TrendingDown} label="Under-billed" value={globalSummary.totalUnder} detail="vendor count higher" tone={globalSummary.totalUnder > 0 ? 'rose' : 'slate'} className="p-3" />
+                  <PortalMetricCard icon={TrendingUp} label="Over-billed" value={globalSummary.totalOver} detail="billing count higher" tone={globalSummary.totalOver > 0 ? 'amber' : 'slate'} className="p-3" />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold uppercase tracking-wide text-slate-500">Needs review</span>
+                    <span className="text-slate-500">{lootITIssueCustomers.length} customers</span>
+                  </div>
+                  {lootITIssueCustomers.length === 0 ? (
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                      All mapped reconciliation rows are clean.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {lootITIssueCustomers.slice(0, 6).map(({ customer, combinedSummary: s }) => (
                         <a
                           key={customer.id}
                           href={`${LOOTIT_URL}?customer=${customer.id}`}
-                          className="flex items-center gap-3 bg-white/5 hover:bg-white/10 rounded-lg px-3 py-2.5 transition-colors group"
+                          className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2 transition-colors hover:bg-slate-50"
                         >
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate group-hover:text-pink-300 transition-colors">
-                              {customer.name}
-                            </p>
-                            <div className="flex items-center gap-2 text-[11px] mt-0.5">
-                              {s.under > 0 && (
-                                <span className="text-red-400 flex items-center gap-0.5">
-                                  <ArrowDownRight className="w-3 h-3" />{s.under} under
-                                </span>
-                              )}
-                              {s.over > 0 && (
-                                <span className="text-orange-400 flex items-center gap-0.5">
-                                  <ArrowUpRight className="w-3 h-3" />{s.over} over
-                                </span>
-                              )}
-                            </div>
+                          <span className="truncate text-sm font-medium text-slate-900">{customer.name}</span>
+                          <div className="flex shrink-0 items-center gap-1.5 text-[11px]">
+                            {s.under > 0 && <PortalStatusPill tone="rose" label={`${s.under} under`} className="py-0.5 text-[11px]" />}
+                            {s.over > 0 && <PortalStatusPill tone="amber" label={`${s.over} over`} className="py-0.5 text-[11px]" />}
                           </div>
-                          <span className="flex-shrink-0 w-6 h-6 rounded-full bg-red-500/20 text-red-300 text-xs font-bold flex items-center justify-center">
-                            {issues}
-                          </span>
                         </a>
-                      );
-                    })}
-                  </div>
-                  {lootITIssueCustomers.length > 6 && (
-                    <a href={LOOTIT_URL} className="block text-center mt-2">
-                      <span className="text-xs text-pink-300 hover:text-white transition-colors">
-                        +{lootITIssueCustomers.length - 6} more customers with issues
-                      </span>
-                    </a>
+                      ))}
+                    </div>
                   )}
                 </div>
-              )}
-            </>
+              </div>
+            )}
+          </PortalSection>
+
+          {syncLogs.length > 0 && (
+            <PortalSection title="Recent syncs" description="Latest integration activity." bodyClassName="divide-y divide-slate-100">
+              {syncLogs.slice(0, 5).map((log) => (
+                <div key={log.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-slate-900">{log.sync_type || 'Sync'}</p>
+                    <p className="text-xs text-slate-500">{log.created_date ? safeFormatDate(log.created_date, 'MMM d, h:mm a', '') : 'Unknown time'}</p>
+                  </div>
+                  <PortalStatusPill
+                    tone={log.status === 'success' ? 'emerald' : log.status === 'error' ? 'rose' : 'slate'}
+                    label={log.status || 'sync'}
+                    className="py-0.5 text-[11px]"
+                  />
+                </div>
+              ))}
+            </PortalSection>
           )}
         </div>
       </div>
-
-      {/* Customers */}
-      <div className="bg-white rounded-2xl border border-slate-200">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h2 className="text-base font-semibold text-slate-900">Customers</h2>
-          <Link to={createPageUrl('Customers')}>
-            <Button variant="ghost" size="sm" className="text-purple-600 text-xs">View All <ChevronRight className="w-3.5 h-3.5 ml-1" /></Button>
-          </Link>
-        </div>
-
-        {/* Table header */}
-        <div className="grid grid-cols-12 gap-4 px-6 py-2.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-50">
-          <div className="col-span-4">Customer</div>
-          <div className="col-span-3">Contact</div>
-          <div className="col-span-2 text-center">Reconciliation</div>
-          <div className="col-span-2 text-right">Status</div>
-          <div className="col-span-1" />
-        </div>
-
-        {/* Customer rows */}
-        <div className="divide-y divide-slate-50">
-          {customers.slice(0, 10).map(customer => {
-            const reconData = reconciliations[customer.id];
-            const summary = reconData
-              ? getDiscrepancySummary([
-                  ...(reconData.reconciliations || []),
-                  ...(reconData.pax8Reconciliations || []),
-                ])
-              : null;
-            const issues = summary ? summary.over + summary.under : 0;
-            const active = summary ? summary.total - summary.noData : 0;
-            const resolved = summary ? summary.matched + summary.reviewed : 0;
-            const pct = active > 0 ? Math.round((resolved / active) * 100) : 0;
-
-            return (
-              <div
-                key={customer.id}
-                onClick={() => navigate(createPageUrl(`CustomerDetail?id=${customer.id}`))}
-                className="grid grid-cols-12 gap-4 px-6 py-3 items-center hover:bg-slate-50/50 cursor-pointer transition-colors group"
-              >
-                <div className="col-span-4 flex items-center gap-3 min-w-0">
-                  <div className={cn(
-                    "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
-                    customer.status === 'active' ? "bg-purple-50" : "bg-slate-50"
-                  )}>
-                    <Building2 className={cn(
-                      "w-4 h-4",
-                      customer.status === 'active' ? "text-purple-500" : "text-slate-400"
-                    )} />
-                  </div>
-                  <p className="font-medium text-slate-900 text-sm truncate group-hover:text-purple-600 transition-colors">
-                    {customer.name}
-                  </p>
-                </div>
-                <div className="col-span-3 min-w-0">
-                  <p className="text-xs text-slate-500 truncate">
-                    {customer.primary_contact || customer.email || '—'}
-                  </p>
-                </div>
-                <div className="col-span-2">
-                  {summary && active > 0 ? (
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div
-                          className={cn(
-                            "h-full rounded-full",
-                            pct === 100 ? "bg-emerald-400" : pct >= 70 ? "bg-orange-400" : "bg-red-400"
-                          )}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <span className={cn(
-                        "text-[11px] font-semibold tabular-nums",
-                        pct === 100 ? "text-emerald-600" : pct >= 70 ? "text-orange-500" : "text-red-500"
-                      )}>{pct}%</span>
-                    </div>
-                  ) : (
-                    <span className="text-[11px] text-slate-300">—</span>
-                  )}
-                </div>
-                <div className="col-span-2 flex items-center justify-end gap-1.5">
-                  {issues > 0 && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[10px] font-semibold">
-                      <AlertTriangle className="w-3 h-3" />{issues}
-                    </span>
-                  )}
-                  {summary && issues === 0 && summary.matched > 0 && (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  )}
-                  {customer.status !== 'active' && (
-                    <Badge variant="secondary" className="text-[10px]">Inactive</Badge>
-                  )}
-                </div>
-                <div className="col-span-1 flex justify-end">
-                  <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors" />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {customers.length > 10 && (
-          <div className="px-6 py-3 border-t border-slate-100 text-center">
-            <Link to={createPageUrl('Customers')} className="text-xs text-purple-600 hover:text-purple-800 font-medium">
-              View all {customers.length} customers
-            </Link>
-          </div>
-        )}
-      </div>
-
-      {/* Sync Activity — compact footer */}
-      {syncLogs.length > 0 && (
-        <div className="flex items-center gap-4 px-1 flex-wrap">
-          <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Recent Syncs</span>
-          {syncLogs.slice(0, 4).map((log) => (
-            <div key={log.id} className="flex items-center gap-1.5">
-              <div className={cn(
-                "w-1.5 h-1.5 rounded-full",
-                log.status === 'success' ? "bg-emerald-500" : log.status === 'error' ? "bg-red-500" : "bg-slate-300"
-              )} />
-              <span className="text-[11px] text-slate-500">
-                {log.sync_type || 'Sync'}
-              </span>
-              <span className="text-[11px] text-slate-400">
-                {log.created_date ? safeFormatDate(log.created_date, 'h:mm a', '') : ''}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

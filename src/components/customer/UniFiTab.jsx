@@ -83,8 +83,8 @@ export default function UniFiTab({ customerId, unifiMapping, queryClient }) {
     return (
       <EmptyState
         icon={Wifi}
-        title="UniFi not configured"
-        description="Go to Adminland > Integrations to map this customer's UniFi site."
+        title="Firewall data is not connected yet"
+        description="Network details will appear here once they are available for this account."
       />
     );
   }

@@ -67,7 +67,7 @@ function NavItem({ item, isActive, primaryColor }) {
       ? "text-pink-400 hover:text-pink-300"
       : isActive
         ? "text-white"
-        : "text-white/60 hover:text-white hover:bg-white/5"
+        : "text-slate-400 hover:text-white hover:bg-white/5"
   );
   const style = isLootIT ? { textShadow: '0 0 12px rgba(236,72,153,0.6), 0 0 24px rgba(236,72,153,0.3)' } : undefined;
   const content = (
@@ -76,8 +76,7 @@ function NavItem({ item, isActive, primaryColor }) {
       <span>{item.name}</span>
       {isActive && (
         <span
-          className="absolute bottom-0 left-0 right-0 h-0.5"
-          style={{ backgroundColor: isLootIT ? '#ec4899' : primaryColor }}
+          className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/40"
         />
       )}
       {isLootIT && !isActive && (
@@ -153,9 +152,9 @@ function isNavigationItemActive(item, currentPageName, activeCustomerTab) {
 
 function MobileDrawerNav({ navigation, currentPageName, activeCustomerTab, primaryColor, user, isAdmin, isStaff, features }) {
   return (
-    <div className="flex flex-col h-full" style={{ backgroundColor: '#13082E' }}>
+    <div className="flex flex-col h-full bg-slate-900">
       {/* User info at top */}
-      <div className="p-4 border-b border-white/10">
+      <div className="p-4 border-b border-white/5">
         <div className="flex items-center gap-3">
           <div
             className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold text-white"
@@ -167,7 +166,7 @@ function MobileDrawerNav({ navigation, currentPageName, activeCustomerTab, prima
             <p className="text-sm font-medium text-white truncate">
               {user?.full_name || 'User'}
             </p>
-            <p className="text-xs text-white/50 truncate">
+            <p className="text-xs text-slate-400 truncate">
               {user?.email}
             </p>
           </div>
@@ -197,20 +196,18 @@ function MobileDrawerNav({ navigation, currentPageName, activeCustomerTab, prima
               ? "text-pink-400 hover:text-pink-300 hover:bg-pink-500/10"
               : isActive
                 ? "bg-white/10 text-white"
-                : "text-white/60 hover:text-white hover:bg-white/5"
+                : "text-slate-400 hover:text-white hover:bg-white/5"
           );
           const drawerStyle = isLootIT ? { textShadow: '0 0 10px rgba(236,72,153,0.5)' } : undefined;
           const drawerContent = (
             <>
               <Icon
                 className={cn("w-5 h-5", isLootIT && "text-pink-400 drop-shadow-[0_0_6px_rgba(236,72,153,0.6)]")}
-                style={!isLootIT && isActive ? { color: primaryColor } : undefined}
               />
               <span>{item.name}</span>
               {isActive && (
                 <span
-                  className="ml-auto w-1.5 h-1.5 rounded-full"
-                  style={{ backgroundColor: isLootIT ? '#ec4899' : primaryColor }}
+                  className="ml-auto w-1.5 h-1.5 rounded-full bg-white/40"
                 />
               )}
             </>
@@ -418,7 +415,7 @@ export default function Layout({ children, currentPageName }) {
       `}</style>
 
       {/* ─── Fixed Top Header ─── */}
-      <header className="fixed top-0 left-0 right-0 h-14 text-white z-40" style={{ backgroundColor: '#13082E' }}>
+      <header className="fixed top-0 left-0 right-0 h-14 bg-slate-900 text-white z-40 border-b border-white/5">
         <div className="flex items-center justify-between h-full px-4 sm:px-6 max-w-full">
 
           {/* Left: Mobile hamburger + Logo */}
@@ -426,7 +423,7 @@ export default function Layout({ children, currentPageName }) {
             {/* Mobile hamburger */}
             <Sheet open={mobileDrawerOpen} onOpenChange={setMobileDrawerOpen}>
               <SheetTrigger asChild>
-                <button className="lg:hidden p-1.5 rounded-md text-white/70 hover:text-white hover:bg-white/10 transition-colors">
+                <button className="lg:hidden p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
                   <Menu className="w-5 h-5" />
                 </button>
               </SheetTrigger>
@@ -459,16 +456,16 @@ export default function Layout({ children, currentPageName }) {
                   className="h-8 w-8"
                 />
               )}
-              <span className="text-base font-extrabold text-white hidden sm:block tracking-tight">
+              <span className="text-base font-bold text-white hidden sm:block tracking-tight">
                 {(isStaff && !isCustomerPortal)
-                  ? <>{(portalSettings.portal_name || 'Portal').replace(/IT$/i, '')}<span className="text-violet-300">IT</span></>
+                  ? <>{(portalSettings.portal_name || 'Portal').replace(/IT$/i, '')}<span className="text-violet-400">IT</span></>
                   : (customer?.name || 'Client Portal')}
               </span>
             </Link>
           </div>
 
           {/* Center: Desktop navigation */}
-          <nav className="hidden lg:flex min-w-0 flex-1 items-center justify-center h-full overflow-x-auto scrollbar-hide">
+          <nav className="hidden lg:flex min-w-0 flex-1 items-center justify-center h-full overflow-x-auto scrollbar-hide px-8">
             {navigation.map((item) => {
               const isActive = isNavigationItemActive(item, currentPageName, activeCustomerTab);
               return (

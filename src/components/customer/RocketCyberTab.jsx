@@ -265,12 +265,9 @@ export default function RocketCyberTab({ customer, rocketcyberMapping = null }) 
       <Card>
         <CardContent className="py-12 text-center">
           <Shield className="w-12 h-12 mx-auto text-slate-300 mb-4" />
-          <h3 className="text-lg font-medium text-slate-900 mb-2">RocketCyber Not Configured</h3>
+          <h3 className="text-lg font-medium text-slate-900 mb-2">RocketCyber data is not connected yet</h3>
           <p className="text-slate-500 mb-4">
-            This customer hasn't been mapped to a RocketCyber account yet.
-          </p>
-          <p className="text-sm text-slate-400">
-            Go to Integrations settings to configure RocketCyber mapping.
+            SOC agent and incident details will appear here once they are available for this account.
           </p>
         </CardContent>
       </Card>
@@ -405,7 +402,7 @@ export default function RocketCyberTab({ customer, rocketcyberMapping = null }) 
           <CardHeader className="pb-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <CardTitle className="text-base">Cached Agent Inventory</CardTitle>
+                <CardTitle className="text-base">Cached Endpoint Inventory</CardTitle>
                 <p className="text-sm text-slate-500">
                   {cachedAgents.length} cached agent{cachedAgents.length !== 1 ? 's' : ''}
                   {lastSynced && <> · Last refreshed {formatDateTime(lastSynced)}</>}
@@ -417,7 +414,7 @@ export default function RocketCyberTab({ customer, rocketcyberMapping = null }) 
           <CardContent className="pt-0">
             <div className="overflow-hidden rounded-lg border border-slate-200">
               <div className={`${agentGridClass} bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500`}>
-                <div className="px-3 py-2">Agent</div>
+                <div className="px-3 py-2">Endpoint</div>
                 <div className="px-3 py-2">Operating System</div>
                 {showAgentDetailColumn && (
                   <div className="hidden px-3 py-2 sm:block">{hasKnownAgentStatus ? 'Status' : 'Details'}</div>

@@ -165,8 +165,8 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
         <div className="flex items-center gap-3 p-4 bg-amber-50 rounded-lg border border-amber-200">
           <Shield className="w-5 h-5 text-amber-600" />
           <div>
-            <p className="font-medium text-amber-900">EDR Not Configured</p>
-            <p className="text-sm text-amber-700">Map a Datto EDR tenant in Adminland &gt; Integrations to show endpoint visibility.</p>
+            <p className="font-medium text-amber-900">EDR data is not connected yet</p>
+            <p className="text-sm text-amber-700">Endpoint protection details will appear here once they are available for this account.</p>
           </div>
         </div>
       )}

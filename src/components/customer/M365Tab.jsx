@@ -34,7 +34,8 @@ export default function M365Tab({ customerId, queryClient }) {
   return (
     <div className="space-y-4">
       {/* Sub-tab switcher */}
-      <div className="flex gap-1 bg-slate-100 rounded-lg p-1 w-fit">
+      <div className="flex w-full justify-center">
+        <div className="flex w-full max-w-xl gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
         {M365_SUB_TABS.map(tab => {
           const Icon = tab.icon;
           const isActive = activeSubTab === tab.key;
@@ -45,10 +46,10 @@ export default function M365Tab({ customerId, queryClient }) {
               key={tab.key}
               onClick={() => setActiveSubTab(tab.key)}
               className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all",
+                "flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-all",
                 isActive
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
+                  ? "bg-slate-950 text-white"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
               )}
             >
               <Icon className="w-4 h-4" />
@@ -59,6 +60,7 @@ export default function M365Tab({ customerId, queryClient }) {
             </button>
           );
         })}
+        </div>
       </div>
 
       {/* Microsoft / CIPP sub-tab */}
@@ -74,9 +76,9 @@ export default function M365Tab({ customerId, queryClient }) {
             <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
               <Monitor className="w-7 h-7 text-slate-300" />
             </div>
-            <p className="text-sm font-semibold text-slate-700">No M365 Data Connected Yet</p>
+            <p className="text-sm font-semibold text-slate-700">Microsoft 365 data is not connected yet</p>
             <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-              Set it up in Adminland → Integrations → CIPP to sync Microsoft 365 data.
+              Subscription and tenant details will appear here once they are available for this account.
             </p>
           </div>
         )
@@ -95,9 +97,9 @@ export default function M365Tab({ customerId, queryClient }) {
             <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
               <Package className="w-7 h-7 text-slate-300" />
             </div>
-            <p className="text-sm font-semibold text-slate-700">No Pax8 Data Connected Yet</p>
+            <p className="text-sm font-semibold text-slate-700">Pax8 subscription data is not connected yet</p>
             <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-              Set it up in Adminland → Integrations → Pax8 to sync subscription data.
+              License counts, billing totals, and subscription details will appear here once connected.
             </p>
           </div>
         )

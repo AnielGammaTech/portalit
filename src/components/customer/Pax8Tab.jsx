@@ -92,7 +92,7 @@ export default function Pax8Tab({ customerId, pax8Mapping, queryClient: external
           <motion.div
             key={stat.key}
             variants={staggerItem}
-            className="bg-card rounded-[14px] border shadow-hero-sm p-4 hover:shadow-hero-md transition-all duration-[250ms]"
+            className="bg-card rounded-[14px] border shadow-hero-sm p-4 hover:shadow-hero-md transition-all duration-200"
           >
             <div className="flex items-center gap-3">
               <div className={cn('w-10 h-10 rounded-hero-md flex items-center justify-center', stat.bg)}>
@@ -170,7 +170,7 @@ export default function Pax8Tab({ customerId, pax8Mapping, queryClient: external
                   <div key={product.name}>
                     <motion.div
                       variants={staggerItem}
-                      className="grid grid-cols-[1fr_80px_80px] gap-2 px-5 py-3 items-center hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors duration-[250ms] cursor-pointer"
+                      className="grid grid-cols-[1fr_80px_80px] gap-2 px-5 py-3 items-center hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors duration-200 cursor-pointer"
                       onClick={() => setExpandedProduct(isExpanded ? null : product.name)}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">

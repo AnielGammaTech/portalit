@@ -28,7 +28,7 @@ export function AnimatedTabList({ tabs, activeTab, onTabChange, layoutId = 'acti
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
             className={cn(
-              'relative z-10 flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-hero-sm transition-colors duration-[250ms] whitespace-nowrap',
+              'relative z-10 flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-hero-sm transition-colors duration-200 whitespace-nowrap',
               isActive
                 ? 'text-foreground'
                 : 'text-zinc-500 dark:text-zinc-400 hover:text-foreground'

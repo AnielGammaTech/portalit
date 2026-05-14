@@ -273,7 +273,7 @@ export default function CoveTab({ customerId, coveMapping, queryClient: external
                 <motion.div
                   key={device.id}
                   variants={staggerItem}
-                  className="grid grid-cols-[1fr_100px_100px_120px_80px_80px] gap-2 px-5 py-3 items-center hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors duration-[250ms]"
+                  className="grid grid-cols-[1fr_100px_100px_120px_80px_80px] gap-2 px-5 py-3 items-center hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors duration-200"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className={cn(

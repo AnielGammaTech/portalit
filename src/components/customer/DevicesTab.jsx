@@ -254,8 +254,8 @@ export default function DevicesTab({ customerId }) {
     return (
       <EmptyState
         icon={Monitor}
-        title="No Datto RMM site mapped"
-        description="This customer does not have a Datto RMM site linked. Go to Adminland > Integrations to map a site."
+        title="Device inventory is not connected yet"
+        description="Datto RMM inventory will appear here once it is available for this account."
       />
     );
   }

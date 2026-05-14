@@ -34,7 +34,7 @@ export function EmptyState({ icon: Icon, title, description, action, className }
       {action && (
         <button
           onClick={action.onClick}
-          className="inline-flex items-center justify-center px-4 h-10 text-sm font-medium rounded-hero-md bg-primary text-primary-foreground transition-all duration-[250ms] ease-out hover:opacity-80 active:scale-[0.97]"
+          className="inline-flex items-center justify-center px-4 h-10 text-sm font-medium rounded-hero-md bg-primary text-primary-foreground transition-all duration-200 ease-out hover:opacity-80 active:scale-[0.97]"
         >
           {action.label}
         </button>
