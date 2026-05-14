@@ -227,32 +227,57 @@ function getInitials(user) {
 
 function StatCard({ icon: Icon, label, value, detail, tone = 'cyan' }) {
   const toneClasses = {
-    cyan: 'bg-cyan-50 text-cyan-700 border-cyan-100',
-    green: 'bg-green-50 text-green-700 border-green-100',
-    violet: 'bg-violet-50 text-violet-700 border-violet-100',
-    slate: 'bg-slate-50 text-slate-700 border-slate-200'
+    cyan: 'text-cyan-700 bg-cyan-50',
+    green: 'text-green-700 bg-green-50',
+    violet: 'text-violet-700 bg-violet-50',
+    slate: 'text-slate-700 bg-slate-100'
   };
 
   return (
     <motion.div
       variants={staggerItem}
-      className="rounded-lg border bg-card p-4 shadow-sm"
+      className="min-w-0 p-4"
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-medium text-muted-foreground">{label}</p>
-          {typeof value === 'number' ? (
-            <AnimatedCounter value={value} className="text-2xl font-bold text-foreground" />
-          ) : (
-            <p className="text-2xl font-bold text-foreground truncate">{value}</p>
-          )}
-          {detail && <p className="text-xs text-muted-foreground mt-1">{detail}</p>}
+        <div className="min-w-0 space-y-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+          <div className="min-h-[32px]">
+            {typeof value === 'number' ? (
+              <AnimatedCounter value={value} className="text-2xl font-bold tabular-nums text-slate-950" />
+            ) : (
+              <p className="truncate text-2xl font-bold tabular-nums text-slate-950">{value || '-'}</p>
+            )}
+          </div>
+          {detail && <p className="truncate text-xs text-slate-500">{detail}</p>}
         </div>
-        <div className={cn('p-2 rounded-lg border', toneClasses[tone] || toneClasses.cyan)}>
-          <Icon className="w-5 h-5" />
+        <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', toneClasses[tone] || toneClasses.cyan)}>
+          <Icon className="h-4 w-4" />
         </div>
       </div>
     </motion.div>
+  );
+}
+
+function DetailTile({ icon: Icon, label, value, detail, tone = 'slate' }) {
+  const toneClasses = {
+    slate: 'bg-slate-50 text-slate-600 border-slate-200',
+    green: 'bg-green-50 text-green-700 border-green-200',
+    violet: 'bg-violet-50 text-violet-700 border-violet-200'
+  };
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-3">
+      <div className="flex items-center gap-3">
+        <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border', toneClasses[tone] || toneClasses.slate)}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+          <p className="truncate text-sm font-semibold text-slate-950">{value || '-'}</p>
+          {detail && <p className="truncate text-xs text-slate-500">{detail}</p>}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -273,30 +298,39 @@ function LicenseRow({ group, stats, fallbackProtected, fallbackTotal, onDetails 
   const totalFromStats = group.totalKey ? toNumber(stats[group.totalKey]) : protectedCount + unprotectedCount;
   const totalCount = totalFromStats || fallbackTotal || protectedCount || 0;
   const percent = getPercent(protectedCount, totalCount);
+  const isEmpty = protectedCount === 0 && totalCount === 0;
 
   return (
-    <div className={cn('rounded-lg border p-3', group.bg, group.border)}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-lg bg-white/75 flex items-center justify-center">
-            <Icon className={cn('w-4 h-4', group.color)} />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-slate-900">{group.label}</p>
-            <p className="text-xs text-slate-500">{protectedCount} protected of {totalCount} total</p>
-          </div>
+    <div className={cn(
+      'flex min-h-[58px] items-center justify-between gap-3 border-b border-slate-100 px-3 py-3 last:border-b-0 hover:bg-slate-50/80',
+      isEmpty && 'opacity-60'
+    )}>
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white">
+          <Icon className={cn('h-4 w-4', group.color)} />
         </div>
-        <div className="flex items-center gap-2">
-          <p className={cn('text-sm font-bold', group.color)}>{percent}%</p>
-          {onDetails && (
-            <Button variant="outline" size="sm" onClick={onDetails}>
-              Details
-            </Button>
-          )}
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-slate-900">{group.label}</p>
+          <p className="text-xs text-slate-500">
+            {protectedCount} protected
+            {totalCount > 0 && <span> of {totalCount}</span>}
+          </p>
         </div>
       </div>
-      <div className="mt-3 h-2 rounded-full bg-white/70 overflow-hidden">
-        <div className={cn('h-full rounded-full', group.bar)} style={{ width: `${percent}%` }} />
+      <div className="flex shrink-0 items-center gap-2">
+        <Badge variant="outline" className={cn(
+          'text-[11px] font-semibold',
+          percent === 100
+            ? 'border-green-200 bg-green-50 text-green-700'
+            : 'border-amber-200 bg-amber-50 text-amber-700'
+        )}>
+          {percent}%
+        </Badge>
+        {onDetails && (
+          <Button variant="outline" size="sm" onClick={onDetails} className="h-8 px-2">
+            Details
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -514,150 +548,160 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
     { key: 'shared', label: 'Shared', count: sharedUsers.length }
   ];
 
+  const userCoverageGroups = LICENSE_GROUPS.filter(group => ['standard', 'archived', 'shared'].includes(group.key));
+  const collaborationCoverageGroups = LICENSE_GROUPS.filter(group => ['sharepoint', 'teams'].includes(group.key));
+
+  const renderLicenseRow = (group) => {
+    const fallbackProtected = group.key === 'standard'
+      ? protectedStandardFallback
+      : group.key === 'archived'
+        ? protectedArchivedFallback
+        : group.key === 'shared'
+          ? protectedSharedFallback
+          : 0;
+    const fallbackTotal = group.key === 'standard'
+      ? standardUsers.length
+      : group.key === 'archived'
+        ? archivedUsers.length
+        : group.key === 'shared'
+          ? sharedUsers.length
+          : 0;
+    const onDetails = group.details === 'sharepoint'
+      ? handleOpenSharePointModal
+      : group.details === 'teams'
+        ? handleOpenTeamsModal
+        : null;
+
+    return (
+      <LicenseRow
+        key={group.key}
+        group={group}
+        stats={stats}
+        fallbackProtected={fallbackProtected}
+        fallbackTotal={fallbackTotal}
+        onDetails={onDetails}
+      />
+    );
+  };
+
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-lg font-semibold text-slate-900">Spanning Backup</h3>
-            {stats.fromCache && <Badge variant="outline" className="text-xs">Cached</Badge>}
+      <motion.section {...fadeInUp} className="overflow-hidden rounded-xl border border-slate-200 bg-card shadow-sm">
+        <div className="border-b border-slate-200 bg-slate-50/80 px-5 py-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex min-w-0 gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-green-200 bg-green-50">
+                <Shield className="h-5 w-5 text-green-700" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-lg font-semibold text-slate-950">Spanning Backup</h3>
+                  {stats.fromCache && <Badge variant="outline" className="bg-white text-xs">Cached</Badge>}
+                  <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
+                    {coveragePercent}% protected
+                  </Badge>
+                </div>
+                <p className="mt-1 truncate text-sm text-slate-600">
+                  {domainName}
+                  {stats.origin && <span> - {stats.origin}</span>}
+                  {domainId && <span> - Tenant {domainId}</span>}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {lastSynced ? `Synced ${formatDateTime(lastSynced)}` : 'No sync timestamp available'}
+                  {lastBackup ? ` - Last backup ${formatRelativeTime(lastBackup)}` : ''}
+                </p>
+              </div>
+            </div>
+            <Button onClick={handleSyncSpanning} disabled={syncing} variant="outline" className="gap-2 self-start bg-white">
+              {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              {syncing ? 'Syncing...' : 'Sync Spanning'}
+            </Button>
           </div>
-          <p className="text-sm text-slate-500 mt-1">
-            {domainName}
-            {stats.origin && <span> - {stats.origin}</span>}
-            {domainId && <span> - Tenant {domainId}</span>}
-          </p>
-          <p className="text-xs text-slate-400 mt-1">
-            {lastSynced ? `Last synced ${formatDateTime(lastSynced)}` : 'No sync timestamp available'}
-            {lastBackup ? ` - Last backup ${formatRelativeTime(lastBackup)}` : ''}
-          </p>
         </div>
-        <Button onClick={handleSyncSpanning} disabled={syncing} className="gap-2 self-start">
-          {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          {syncing ? 'Syncing...' : 'Sync Spanning'}
-        </Button>
-      </div>
 
-      <motion.div
-        variants={staggerContainer}
-        initial="initial"
-        animate="animate"
-        className="grid grid-cols-2 xl:grid-cols-4 gap-4"
-      >
-        <StatCard
-          icon={Shield}
-          label="Protected users"
-          value={totalProtected}
-          detail={`${coveragePercent}% of ${totalUsers} users`}
-          tone="green"
-        />
-        <StatCard
-          icon={Users}
-          label="Standard licenses"
-          value={toNumber(stats.numberOfProtectedStandardUsers) || protectedStandardFallback}
-          detail={`${toNumber(stats.numberOfStandardLicensesTotal) || standardUsers.length} total`}
-          tone="cyan"
-        />
-        <StatCard
-          icon={Globe}
-          label="SharePoint sites"
-          value={toNumber(stats.numberOfProtectedSharePointSites)}
-          detail={`${toNumber(stats.numberOfUnprotectedSharePointSites)} unprotected`}
-          tone="violet"
-        />
-        <StatCard
-          icon={Database}
-          label="Protected data"
-          value={stats.totalProtectedStorage || '0 B'}
-          detail={`${stats.totalUsedStorage || '0 B'} used`}
-          tone="slate"
-        />
-      </motion.div>
+        <motion.div
+          variants={staggerContainer}
+          initial="initial"
+          animate="animate"
+          className="grid grid-cols-2 divide-x divide-y divide-slate-100 lg:grid-cols-4 lg:divide-y-0"
+        >
+          <StatCard
+            icon={Shield}
+            label="Protected users"
+            value={totalProtected}
+            detail={`${totalUsers} total users`}
+            tone="green"
+          />
+          <StatCard
+            icon={Users}
+            label="Standard licenses"
+            value={toNumber(stats.numberOfProtectedStandardUsers) || protectedStandardFallback}
+            detail={`${toNumber(stats.numberOfStandardLicensesTotal) || standardUsers.length} total`}
+            tone="cyan"
+          />
+          <StatCard
+            icon={Globe}
+            label="SharePoint sites"
+            value={toNumber(stats.numberOfProtectedSharePointSites)}
+            detail={`${toNumber(stats.numberOfUnprotectedSharePointSites)} unprotected`}
+            tone="violet"
+          />
+          <StatCard
+            icon={Database}
+            label="Protected data"
+            value={stats.totalProtectedStorage || '0 B'}
+            detail={`${stats.totalUsedStorage || '0 B'} used`}
+            tone="slate"
+          />
+        </motion.div>
 
-      <motion.section {...fadeInUp} className="rounded-lg border bg-card p-4 shadow-sm">
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <div>
-            <h4 className="font-semibold text-slate-900">License coverage</h4>
-            <p className="text-sm text-slate-500">Protected users, mailboxes, SharePoint sites, and Teams channels from Spanning.</p>
+        <div className="border-t border-slate-200 px-5 py-5">
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h4 className="font-semibold text-slate-950">Protection coverage</h4>
+              <p className="text-sm text-slate-500">Microsoft 365 users, mailboxes, sites, and collaboration data reported by Spanning.</p>
+            </div>
           </div>
-          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-            {coveragePercent}% protected
-          </Badge>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {LICENSE_GROUPS.map(group => {
-            const fallbackProtected = group.key === 'standard'
-              ? protectedStandardFallback
-              : group.key === 'archived'
-                ? protectedArchivedFallback
-                : group.key === 'shared'
-                  ? protectedSharedFallback
-                  : 0;
-            const fallbackTotal = group.key === 'standard'
-              ? standardUsers.length
-              : group.key === 'archived'
-                ? archivedUsers.length
-                : group.key === 'shared'
-                  ? sharedUsers.length
-                  : 0;
-            const onDetails = group.details === 'sharepoint'
-              ? handleOpenSharePointModal
-              : group.details === 'teams'
-                ? handleOpenTeamsModal
-                : null;
 
-            return (
-              <LicenseRow
-                key={group.key}
-                group={group}
-                stats={stats}
-                fallbackProtected={fallbackProtected}
-                fallbackTotal={fallbackTotal}
-                onDetails={onDetails}
-              />
-            );
-          })}
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+              <div className="border-b border-slate-100 bg-slate-50 px-3 py-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Users and mailboxes</p>
+              </div>
+              {userCoverageGroups.map(renderLicenseRow)}
+            </div>
+            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+              <div className="border-b border-slate-100 bg-slate-50 px-3 py-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Sites and collaboration</p>
+              </div>
+              {collaborationCoverageGroups.map(renderLicenseRow)}
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
+            <DetailTile
+              icon={Database}
+              label="Storage protected"
+              value={stats.totalProtectedStorage || '0 B'}
+              detail={`${stats.totalUsedStorage || '0 B'} total used data`}
+            />
+            <DetailTile
+              icon={CheckCircle2}
+              label="Last backup"
+              value={formatShortDate(lastBackup)}
+              detail={lastBackup ? formatDateTime(lastBackup) : 'No timestamp from Spanning'}
+              tone="green"
+            />
+            <DetailTile
+              icon={Calendar}
+              label="Subscription"
+              value={formatShortDate(stats.expirationDate)}
+              detail="Expiration date from Spanning"
+              tone="violet"
+            />
+          </div>
         </div>
       </motion.section>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="rounded-lg border bg-card p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-slate-50 flex items-center justify-center">
-              <Database className="w-5 h-5 text-slate-600" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-900">Storage protected</p>
-              <p className="text-2xl font-bold text-slate-900">{stats.totalProtectedStorage || '0 B'}</p>
-              <p className="text-xs text-slate-500">{stats.totalUsedStorage || '0 B'} total used data</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-lg border bg-card p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center">
-              <CheckCircle2 className="w-5 h-5 text-green-700" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-900">Last backup</p>
-              <p className="text-lg font-bold text-slate-900">{formatShortDate(lastBackup)}</p>
-              <p className="text-xs text-slate-500">{lastBackup ? formatDateTime(lastBackup) : 'No timestamp from Spanning'}</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-lg border bg-card p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center">
-              <Calendar className="w-5 h-5 text-violet-700" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-900">Subscription</p>
-              <p className="text-lg font-bold text-slate-900">{formatShortDate(stats.expirationDate)}</p>
-              <p className="text-xs text-slate-500">Expiration date from Spanning</p>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <motion.div {...fadeInUp} className="rounded-lg border bg-card p-4 shadow-sm space-y-3">
         <div className="flex flex-wrap items-center gap-3">
