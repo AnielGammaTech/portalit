@@ -140,7 +140,11 @@ function getAgentStatus(agent) {
 
   if (isOnline) return { label: rawStatus || 'Online', className: 'bg-green-50 text-green-700 border-green-200', icon: Wifi };
   if (isOffline) return { label: rawStatus || 'Offline', className: 'bg-slate-100 text-slate-600 border-slate-200', icon: WifiOff };
-  return { label: rawStatus || 'Unknown', className: 'bg-slate-100 text-slate-600 border-slate-200', icon: Activity };
+  return null;
+}
+
+function getAgentIp(agent) {
+  return agent?.ip || agent?.ipAddress || agent?.privateIp || agent?.localIp || '';
 }
 
 export default function RocketCyberTab({ customer, rocketcyberMapping = null }) {
@@ -296,6 +300,13 @@ export default function RocketCyberTab({ customer, rocketcyberMapping = null }) 
       ? incidents.filter(i => i.severity === 'high').length
       : toNumber(bySeverity.high),
   };
+  const visibleAgents = cachedAgents.slice(0, 16);
+  const hasKnownAgentStatus = cachedAgents.some(agent => getAgentStatus(agent));
+  const hasNetworkDetails = cachedAgents.some(agent => getAgentIp(agent) || agent?.lastSeen);
+  const showAgentDetailColumn = hasKnownAgentStatus || hasNetworkDetails;
+  const agentGridClass = showAgentDetailColumn
+    ? 'grid grid-cols-[minmax(180px,1.2fr)_minmax(220px,1fr)] sm:grid-cols-[minmax(200px,1.1fr)_minmax(240px,1fr)_minmax(160px,0.8fr)]'
+    : 'grid grid-cols-[minmax(180px,1.1fr)_minmax(220px,1fr)]';
 
   return (
     <div className="space-y-6">
@@ -392,9 +403,9 @@ export default function RocketCyberTab({ customer, rocketcyberMapping = null }) 
       {cachedAgents.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <CardTitle className="text-base">Agent Cache</CardTitle>
+                <CardTitle className="text-base">Cached Agent Inventory</CardTitle>
                 <p className="text-sm text-slate-500">
                   {cachedAgents.length} cached agent{cachedAgents.length !== 1 ? 's' : ''}
                   {lastSynced && <> · Last refreshed {formatDateTime(lastSynced)}</>}
@@ -403,29 +414,52 @@ export default function RocketCyberTab({ customer, rocketcyberMapping = null }) 
               <Badge variant="outline">{stats.agents} total</Badge>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="grid gap-2 md:grid-cols-2">
-              {cachedAgents.slice(0, 8).map((agent, index) => {
-                const agentStatus = getAgentStatus(agent);
-                const AgentStatusIcon = agentStatus.icon;
-                return (
-                  <div key={agent.id || agent.hostname || index} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-slate-900">{agent.hostname || agent.name || 'Unknown agent'}</p>
-                      <p className="truncate text-xs text-slate-500">
-                        {[agent.os, agent.ip, agent.lastSeen ? `Seen ${timeAgo(agent.lastSeen)}` : null].filter(Boolean).join(' · ') || 'No additional details cached'}
-                      </p>
+          <CardContent className="pt-0">
+            <div className="overflow-hidden rounded-lg border border-slate-200">
+              <div className={`${agentGridClass} bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500`}>
+                <div className="px-3 py-2">Agent</div>
+                <div className="px-3 py-2">Operating System</div>
+                {showAgentDetailColumn && (
+                  <div className="hidden px-3 py-2 sm:block">{hasKnownAgentStatus ? 'Status' : 'Details'}</div>
+                )}
+              </div>
+              <div className="divide-y divide-slate-100">
+                {visibleAgents.map((agent, index) => {
+                  const agentStatus = getAgentStatus(agent);
+                  const AgentStatusIcon = agentStatus?.icon;
+                  const ip = getAgentIp(agent);
+                  return (
+                    <div
+                      key={agent.id || agent.hostname || index}
+                      className={`${agentGridClass} items-center bg-white text-sm`}
+                    >
+                      <div className="min-w-0 px-3 py-2.5">
+                        <p className="truncate font-medium text-slate-900">{agent.hostname || agent.name || 'Unnamed agent'}</p>
+                      </div>
+                      <div className="min-w-0 px-3 py-2.5">
+                        <p className="truncate text-slate-600">{agent.os || 'OS not reported'}</p>
+                      </div>
+                      {showAgentDetailColumn && (
+                        <div className="hidden min-w-0 px-3 py-2.5 sm:block">
+                          {agentStatus ? (
+                            <Badge variant="outline" className={agentStatus.className}>
+                              <AgentStatusIcon className="w-3 h-3 mr-1" />
+                              {agentStatus.label}
+                            </Badge>
+                          ) : (
+                            <p className="truncate text-xs text-slate-500">
+                              {[ip, agent.lastSeen ? `Seen ${timeAgo(agent.lastSeen)}` : null].filter(Boolean).join(' · ')}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <Badge variant="outline" className={agentStatus.className}>
-                      <AgentStatusIcon className="w-3 h-3 mr-1" />
-                      {agentStatus.label}
-                    </Badge>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-            {cachedAgents.length > 8 && (
-              <p className="mt-3 text-xs text-slate-500">Showing 8 of {cachedAgents.length} cached agents.</p>
+            {cachedAgents.length > visibleAgents.length && (
+              <p className="mt-3 text-xs text-slate-500">Showing {visibleAgents.length} of {cachedAgents.length} cached agents.</p>
             )}
           </CardContent>
         </Card>
