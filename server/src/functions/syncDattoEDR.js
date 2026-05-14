@@ -23,7 +23,7 @@ function toNumber(value, fallback = 0) {
   return Number.isFinite(number) ? number : fallback;
 }
 
-function parseCollection(payload, keys = ['data', 'value', 'agents', 'hosts', 'alerts', 'targets']) {
+function parseCollection(payload, keys = ['data', 'value', 'agents', 'hosts', 'targets']) {
   if (Array.isArray(payload)) return payload;
   if (!payload || typeof payload !== 'object') return [];
   for (const key of keys) {
@@ -94,20 +94,6 @@ function normalizeHost(host, cutoffDate) {
     username: firstValue(host.lastUser, host.lastLoggedInUser, host.username, host.user, host.owner),
     group: firstValue(host.group, host.groupName, host.policyName, host.siteName),
     isolationStatus: firstValue(host.isolationStatus, host.networkIsolation, host.containmentStatus),
-    threatStatus: firstValue(host.threatStatus, host.securityStatus, host.healthStatus),
-  };
-}
-
-function normalizeAlert(alert) {
-  const severity = String(firstValue(alert.severity, alert.priority, alert.level, alert.threatLevel, 'unknown')).toLowerCase();
-  return {
-    id: firstValue(alert.id, alert.alertId, alert.threatId, alert.incidentId),
-    title: firstValue(alert.title, alert.name, alert.threatName, alert.description, 'Security alert'),
-    severity,
-    status: firstValue(alert.status, alert.state, alert.disposition, 'active'),
-    endpoint: firstValue(alert.hostname, alert.hostName, alert.deviceName, alert.agentName, alert.endpoint),
-    createdAt: normalizeDate(firstValue(alert.createdAt, alert.createdOn, alert.detectedAt, alert.firstSeen, alert.timestamp)),
-    description: firstValue(alert.summary, alert.details, alert.message, alert.description),
   };
 }
 
@@ -123,14 +109,12 @@ function summarizeOs(hosts) {
     .map(([name, count]) => ({ name, count }));
 }
 
-function buildEdrResponseData({ hosts, targetData, alerts, targetName }) {
+function buildEdrResponseData({ hosts, targetData, targetName }) {
   const cutoffDate = new Date(Date.now() - ONLINE_WINDOW_MS);
   const normalizedHosts = hosts.map(host => normalizeHost(host, cutoffDate));
-  const normalizedAlerts = alerts.map(normalizeAlert);
   const targetStats = targetData ? {
     agentCount: toNumber(firstValue(targetData.agentCount, targetData.hostCount, targetData.endpointCount)),
     activeAgentCount: toNumber(firstValue(targetData.activeAgentCount, targetData.activeHostCount, targetData.onlineAgentCount)),
-    alertCount: toNumber(firstValue(targetData.alertCount, targetData.activeAlertCount, targetData.alertsCount)),
     totalAddressCount: toNumber(targetData.totalAddressCount),
     lastScannedOn: normalizeDate(targetData.lastScannedOn),
     status: firstValue(targetData.status, targetData.state),
@@ -140,10 +124,6 @@ function buildEdrResponseData({ hosts, targetData, alerts, targetName }) {
   const activeHostCount = normalizedHosts.length
     ? normalizedHosts.filter(host => host.online).length
     : targetStats?.activeAgentCount || 0;
-  const alertCount = normalizedAlerts.length || targetStats?.alertCount || 0;
-  const criticalAlerts = normalizedAlerts.filter(alert => ['critical', 'high'].includes(alert.severity)).length;
-  const mediumAlerts = normalizedAlerts.filter(alert => alert.severity === 'medium').length;
-  const lowAlerts = normalizedAlerts.filter(alert => ['low', 'info', 'informational'].includes(alert.severity)).length;
 
   return {
     hostCount,
@@ -151,11 +131,6 @@ function buildEdrResponseData({ hosts, targetData, alerts, targetName }) {
     offlineHostCount: Math.max(hostCount - activeHostCount, 0),
     coveragePercent: hostCount > 0 ? Math.round((activeHostCount / hostCount) * 100) : 0,
     hosts: normalizedHosts,
-    alertCount,
-    criticalAlerts,
-    mediumAlerts,
-    lowAlerts,
-    alerts: normalizedAlerts.slice(0, 25),
     lastScannedOn: targetStats?.lastScannedOn,
     targetStats,
     osBreakdown: summarizeOs(normalizedHosts),
@@ -233,11 +208,8 @@ export async function syncDattoEDR(body, user) {
       if (filteredAgents.length > hosts.length) hosts = filteredAgents;
     }
 
-    const alertsPayload = await fetchJsonPath(`/targets/${targetId}/alerts`);
-    const alerts = parseCollection(alertsPayload, ['data', 'value', 'alerts', 'incidents', 'threats']);
-
-    console.log(`[DattoEDR] Found ${hosts.length} agents and ${alerts.length} alerts for targetId=${targetId}`);
-    return buildEdrResponseData({ hosts, targetData, alerts, targetName });
+    console.log(`[DattoEDR] Found ${hosts.length} agents for targetId=${targetId}`);
+    return buildEdrResponseData({ hosts, targetData, targetName });
   }
 
   // Action: Test connection
@@ -274,7 +246,6 @@ export async function syncDattoEDR(body, user) {
       name: t.name || t.organizationName || t.targetName,
       deviceCount: t.agentCount || t.hostCount || t.endpointCount || 0,
       activeCount: t.activeAgentCount || 0,
-      alertCount: parseInt(t.alertCount) || 0
     }));
 
     return { success: true, tenants };
@@ -577,27 +548,19 @@ export async function syncDattoEDR(body, user) {
 
     const mapping = mappings[0];
 
-    const [hostsRes, alertsRes] = await Promise.all([
-      fetch(edrUrl(`/targets/${mapping.edr_tenant_id}/hosts`), { headers }),
-      fetch(edrUrl(`/targets/${mapping.edr_tenant_id}/alerts`), { headers }).catch(() => null)
-    ]);
+    const hostsRes = await fetch(edrUrl(`/targets/${mapping.edr_tenant_id}/hosts`), { headers });
 
     const hostsData = hostsRes.ok ? await hostsRes.json() : { data: [] };
-    const alertsData = alertsRes?.ok ? await alertsRes.json() : { data: [] };
 
     const endpoints = hostsData.data || hostsData.hosts || [];
-    const alerts = alertsData.data || alertsData.alerts || [];
 
     return {
       success: true,
       stats: {
         totalEndpoints: endpoints.length,
         protectedEndpoints: endpoints.filter(e => e.status === 'online' || e.agentStatus === 'active').length,
-        alerts: alerts.length,
-        criticalAlerts: alerts.filter(a => a.severity === 'critical' || a.severity === 'high' || a.threatScore >= 7).length
       },
       endpoints: endpoints.slice(0, 20),
-      alerts: alerts.slice(0, 10)
     };
   }
 
