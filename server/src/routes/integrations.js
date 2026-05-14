@@ -164,6 +164,70 @@ function publicThreecxMapping(row) {
   };
 }
 
+const THREECX_PRIVATE_COLUMNS = [
+  'id',
+  'customer_id',
+  'customer_name',
+  'instance_url',
+  'instance_name',
+  'api_key',
+  'api_secret',
+  'cached_data',
+  'last_synced',
+  'created_date',
+  'updated_date',
+].join(', ');
+
+const THREECX_PUBLIC_COLUMNS = [
+  'id',
+  'customer_id',
+  'customer_name',
+  'instance_url',
+  'instance_name',
+  'cached_data',
+  'last_synced',
+  'created_date',
+  'updated_date',
+].join(', ');
+
+function isThreecxSchemaDrift(error) {
+  const message = String(error?.message || '');
+  return [
+    'Could not find the table',
+    'does not exist',
+    'column',
+    'schema cache',
+    'PGRST',
+  ].some(fragment => message.toLowerCase().includes(fragment.toLowerCase()));
+}
+
+async function listThreecxMappings(supabase, customerId, includeSecrets) {
+  let query = supabase
+    .from('threecx_mappings')
+    .select(includeSecrets ? THREECX_PRIVATE_COLUMNS : THREECX_PUBLIC_COLUMNS);
+
+  if (customerId) query = query.eq('customer_id', customerId);
+
+  let { data, error } = await query;
+  if (error && includeSecrets && isThreecxSchemaDrift(error)) {
+    let fallback = supabase
+      .from('threecx_mappings')
+      .select(THREECX_PUBLIC_COLUMNS);
+    if (customerId) fallback = fallback.eq('customer_id', customerId);
+    ({ data, error } = await fallback);
+  }
+
+  if (error && isThreecxSchemaDrift(error)) {
+    console.warn('[Integrations] 3CX mappings unavailable; returning empty list:', error.message);
+    return [];
+  }
+  if (error) throw new Error(error.message);
+
+  return [...(data || [])].sort((a, b) =>
+    String(a.customer_name || a.instance_name || '').localeCompare(String(b.customer_name || b.instance_name || ''))
+  );
+}
+
 async function getCustomerForMapping(supabase, customerId) {
   const id = cleanText(customerId, 120);
   if (!id) {
@@ -295,17 +359,7 @@ router.get('/threecx/mappings', requireAuth, async (req, res, next) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    let query = supabase
-      .from('threecx_mappings')
-      .select('*')
-      .order('customer_name', { ascending: true });
-
-    if (requestedCustomerId) {
-      query = query.eq('customer_id', requestedCustomerId);
-    }
-
-    const { data, error } = await query;
-    if (error) throw new Error(error.message);
+    const data = await listThreecxMappings(supabase, requestedCustomerId, isStaff);
 
     res.json({ mappings: (data || []).map(publicThreecxMapping) });
   } catch (error) {

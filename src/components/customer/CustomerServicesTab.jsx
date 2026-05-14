@@ -255,8 +255,13 @@ export default function CustomerServicesTab({
   const { data: threecxMapping } = useQuery({
     queryKey: ['threecx-mapping', customerId],
     queryFn: async () => {
-      const result = await client.integrations.threecx.listMappings({ customerId });
-      return result.mappings?.[0] || null;
+      try {
+        const result = await client.integrations.threecx.listMappings({ customerId });
+        return result.mappings?.[0] || null;
+      } catch (error) {
+        console.warn('[CustomerServices] 3CX mapping unavailable:', error?.message || error);
+        return null;
+      }
     },
     enabled: !!customerId,
     staleTime: 1000 * 60 * 5
