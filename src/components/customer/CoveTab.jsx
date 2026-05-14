@@ -12,7 +12,6 @@ import {
   AlertTriangle,
   Database,
   Shield,
-  Clock,
   Loader2,
   Search
 } from 'lucide-react';
@@ -20,17 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { EmptyState } from "@/components/ui/empty-state";
-
-// ── Stat card configs ──────────────────────────────────────────────
-const STAT_CARDS = [
-  { key: 'totalDevices', label: 'Total Devices', icon: HardDrive, color: 'text-primary', bg: 'bg-primary/10' },
-  { key: 'activeDevices', label: 'Active', icon: CheckCircle2, color: 'text-success', bg: 'bg-success/10' },
-  { key: 'devicesWithErrors', label: 'Errors', icon: AlertCircle, color: 'text-destructive', bg: 'bg-destructive/10' },
-  { key: 'devicesWithWarnings', label: 'Warnings', icon: AlertTriangle, color: 'text-warning', bg: 'bg-warning/10' },
-  { key: 'healthyDevices', label: 'Healthy', icon: Shield, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-];
 
 const STATUS_COLORS = {
   Completed: 'bg-success/15 text-success',
@@ -40,14 +29,24 @@ const STATUS_COLORS = {
   inactive: 'bg-zinc-200/60 text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400',
 };
 
+function formatBackupDate(value) {
+  if (!value) return '—';
+  const raw = Number(value);
+  const date = Number.isFinite(raw) && raw > 0
+    ? new Date(raw * 1000)
+    : new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toLocaleDateString() : '—';
+}
+
 export default function CoveTab({ customerId, coveMapping, queryClient: externalQC }) {
   const internalQC = useQueryClient();
   const queryClient = externalQC || internalQC;
 
   const [syncing, setSyncing] = useState(false);
+  const [liveData, setLiveData] = useState(null);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
-  const PAGE_SIZE = 10;
+  const PAGE_SIZE = 40;
 
   // ── Cached data from mapping ──────────────────────────────────────
   const cachedData = useMemo(() => {
@@ -56,6 +55,22 @@ export default function CoveTab({ customerId, coveMapping, queryClient: external
       ? (() => { try { return JSON.parse(coveMapping.cached_data); } catch { return null; } })()
       : coveMapping.cached_data;
   }, [coveMapping?.cached_data]);
+  const { data: backendCache } = useQuery({
+    queryKey: ['cove-cached', customerId],
+    queryFn: async () => {
+      const res = await client.functions.invoke('syncCoveData', {
+        action: 'get_cached',
+        customer_id: customerId,
+      });
+      return res?.success ? res : null;
+    },
+    enabled: !!customerId && !!coveMapping && !cachedData,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+  const data = liveData || cachedData || backendCache?.data;
+  const fromCache = !liveData && !!data;
+  const lastSynced = coveMapping?.last_synced || backendCache?.last_synced || data?.syncedAt;
 
   // ── Sync handler ──────────────────────────────────────────────────
   const handleSync = async () => {
@@ -66,8 +81,10 @@ export default function CoveTab({ customerId, coveMapping, queryClient: external
         customer_id: customerId,
       });
       if (response.success) {
+        setLiveData(response.data);
         toast.success(`Synced ${response.data?.totalDevices || 0} Cove devices`);
         queryClient.invalidateQueries({ queryKey: ['cove-mapping', customerId] });
+        queryClient.invalidateQueries({ queryKey: ['cove-cached', customerId] });
       } else {
         toast.error(response.error || 'Cove sync failed');
       }
@@ -79,7 +96,7 @@ export default function CoveTab({ customerId, coveMapping, queryClient: external
   };
 
   // ── Devices filtering + pagination ────────────────────────────────
-  const devices = cachedData?.devices || [];
+  const devices = data?.devices || [];
 
   const filteredDevices = useMemo(() => {
     if (!search.trim()) return devices;
@@ -87,7 +104,8 @@ export default function CoveTab({ customerId, coveMapping, queryClient: external
     return devices.filter(d =>
       (d.name || '').toLowerCase().includes(q) ||
       (d.osType || '').toLowerCase().includes(q) ||
-      (d.lastBackupStatus || '').toLowerCase().includes(q)
+      (d.lastBackupStatus || '').toLowerCase().includes(q) ||
+      (d.state || '').toLowerCase().includes(q)
     );
   }, [devices, search]);
 
@@ -100,73 +118,104 @@ export default function CoveTab({ customerId, coveMapping, queryClient: external
     setPage(0);
   };
 
+  const quickMetrics = [
+    { key: 'totalDevices', value: data?.totalDevices || 0, label: 'Devices', icon: HardDrive, color: 'text-slate-900', bg: 'bg-slate-100' },
+    { key: 'successRate', value: `${data?.successRate || 0}%`, label: 'Success Rate', icon: CheckCircle2, color: (data?.successRate || 0) >= 90 ? 'text-emerald-600' : 'text-amber-600', bg: (data?.successRate || 0) >= 90 ? 'bg-emerald-50' : 'bg-amber-50' },
+    { key: 'failed', value: data?.lastBackupFailed || data?.devicesWithErrors || 0, label: 'Failed Backups', icon: AlertCircle, color: (data?.lastBackupFailed || data?.devicesWithErrors || 0) > 0 ? 'text-red-600' : 'text-slate-500', bg: (data?.lastBackupFailed || data?.devicesWithErrors || 0) > 0 ? 'bg-red-50' : 'bg-slate-100' },
+    { key: 'warnings', value: data?.devicesWithWarnings || 0, label: 'Warnings', icon: AlertTriangle, color: (data?.devicesWithWarnings || 0) > 0 ? 'text-amber-600' : 'text-slate-500', bg: (data?.devicesWithWarnings || 0) > 0 ? 'bg-amber-50' : 'bg-slate-100' },
+  ];
+
   // ── Render ────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
-      {/* Stat cards */}
-      <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {STAT_CARDS.map((stat) => (
-          <motion.div
-            key={stat.key}
-            variants={staggerItem}
-            className="bg-card rounded-[14px] border shadow-hero-sm p-4 hover:shadow-hero-md transition-all duration-[250ms]"
-          >
-            <div className="flex items-center gap-3">
-              <div className={cn('w-10 h-10 rounded-hero-md flex items-center justify-center', stat.bg)}>
-                <stat.icon className={cn('w-5 h-5', stat.color)} />
-              </div>
-              <div>
-                <AnimatedCounter value={cachedData?.[stat.key] || 0} className="text-2xl font-bold text-foreground" />
-                <p className="text-xs text-muted-foreground">{stat.label}</p>
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </motion.div>
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-lg font-semibold text-slate-900">Cove Backup</h3>
+            {fromCache && <Badge variant="outline" className="text-xs">Cached</Badge>}
+          </div>
+          <p className="text-sm text-slate-500">
+            {coveMapping?.cove_partner_name || 'Mapped Cove partner'}
+            {lastSynced && <> · Synced {new Date(lastSynced).toLocaleString()}</>}
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleSync}
+          disabled={syncing}
+          className="gap-2"
+        >
+          {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          Refresh Cove
+        </Button>
+      </div>
 
-      {/* Storage + success rate row */}
-      {cachedData && (
-        <motion.div {...fadeInUp} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="bg-card rounded-[14px] border shadow-hero-sm p-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {quickMetrics.map((stat) => (
+          <Card key={stat.key} className="shadow-sm">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className={cn("text-2xl font-bold", stat.color)}>{stat.value}</p>
+                  <p className="text-xs text-slate-500">{stat.label}</p>
+                </div>
+                <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center', stat.bg)}>
+                  <stat.icon className={cn('w-4 h-4', stat.color)} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {data && (
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <div className="bg-card rounded-[14px] border shadow-sm p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-hero-md bg-blue-500/10 flex items-center justify-center">
-                <Database className="w-5 h-5 text-blue-500" />
+              <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
+                <Database className="w-4 h-4 text-blue-600" />
               </div>
               <div>
-                <p className="text-lg font-bold text-foreground">{cachedData.totalStorageUsed || '0 B'}</p>
+                <p className="text-lg font-bold text-foreground">{data.totalStorageUsed || '0 B'}</p>
                 <p className="text-xs text-muted-foreground">Storage Used</p>
               </div>
             </div>
           </div>
-          <div className="bg-card rounded-[14px] border shadow-hero-sm p-4">
+          <div className="bg-card rounded-[14px] border shadow-sm p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-hero-md bg-indigo-500/10 flex items-center justify-center">
-                <Shield className="w-5 h-5 text-indigo-500" />
+              <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center">
+                <Shield className="w-4 h-4 text-indigo-600" />
               </div>
               <div>
-                <p className="text-lg font-bold text-foreground">{cachedData.totalProtectedSize || '0 B'}</p>
+                <p className="text-lg font-bold text-foreground">{data.totalProtectedSize || '0 B'}</p>
                 <p className="text-xs text-muted-foreground">Protected Data</p>
               </div>
             </div>
           </div>
-          <div className="bg-card rounded-[14px] border shadow-hero-sm p-4">
+          <div className="bg-card rounded-[14px] border shadow-sm p-4">
             <div className="flex items-center gap-3">
-              <div className={cn(
-                'w-10 h-10 rounded-hero-md flex items-center justify-center',
-                (cachedData.successRate || 0) >= 90 ? 'bg-success/10' : (cachedData.successRate || 0) >= 70 ? 'bg-warning/10' : 'bg-destructive/10'
-              )}>
-                <CheckCircle2 className={cn(
-                  'w-5 h-5',
-                  (cachedData.successRate || 0) >= 90 ? 'text-success' : (cachedData.successRate || 0) >= 70 ? 'text-warning' : 'text-destructive'
-                )} />
+              <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center">
+                <HardDrive className="w-4 h-4 text-slate-600" />
               </div>
               <div>
-                <p className="text-lg font-bold text-foreground">{cachedData.successRate || 0}%</p>
-                <p className="text-xs text-muted-foreground">Backup Success Rate</p>
+                <p className="text-lg font-bold text-foreground">{data.workstation_count || 0}</p>
+                <p className="text-xs text-muted-foreground">Workstations</p>
               </div>
             </div>
           </div>
-        </motion.div>
+          <div className="bg-card rounded-[14px] border shadow-sm p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center">
+                <HardDrive className="w-4 h-4 text-slate-600" />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-foreground">{data.server_count || 0}</p>
+                <p className="text-xs text-muted-foreground">Servers</p>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Devices table card */}
@@ -176,40 +225,30 @@ export default function CoveTab({ customerId, coveMapping, queryClient: external
             <h3 className="font-semibold text-foreground text-sm">Backup Devices</h3>
             <p className="text-xs text-muted-foreground">
               {filteredDevices.length} device{filteredDevices.length !== 1 ? 's' : ''}
-              {coveMapping?.last_synced && (
-                <> · Synced {new Date(coveMapping.last_synced).toLocaleDateString()}</>
+              {lastSynced && (
+                <> · Synced {new Date(lastSynced).toLocaleDateString()}</>
               )}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <div className="relative w-48">
+            <div className="relative w-64 max-w-full">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/50" />
               <Input
-                placeholder="Search devices..."
+                placeholder="Search device, OS, status..."
                 value={search}
                 onChange={(e) => handleSearch(e.target.value)}
                 className="pl-8 h-8 text-xs"
               />
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSync}
-              disabled={syncing}
-              className="gap-2"
-            >
-              {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-              Sync
-            </Button>
           </div>
         </div>
 
-        {devices.length === 0 && !cachedData ? (
+        {devices.length === 0 && !data ? (
           <EmptyState
             icon={HardDrive}
             title="No Cove data yet"
-            description="Click Sync to pull backup device data from N-able Cove"
-            action={{ label: 'Sync Now', onClick: handleSync }}
+            description="Click Refresh to pull backup device data from N-able Cove"
+            action={{ label: 'Refresh Now', onClick: handleSync }}
           />
         ) : pagedDevices.length === 0 ? (
           <div className="p-8 text-center">
@@ -249,7 +288,7 @@ export default function CoveTab({ customerId, coveMapping, queryClient: external
                     {device.lastBackupStatus || device.state || '—'}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
-                    {device.lastBackup ? new Date(device.lastBackup * 1000).toLocaleDateString() : '—'}
+                    {formatBackupDate(device.lastBackup)}
                   </span>
                   <span className="text-xs text-muted-foreground text-right">{device.usedStorage || '—'}</span>
                   <span className={cn('text-xs text-right font-medium', device.errors > 0 ? 'text-destructive' : 'text-muted-foreground')}>

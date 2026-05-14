@@ -522,6 +522,7 @@ export default function CustomerDetail() {
         { entity: 'SaaSAlertsMapping',  fn: 'syncSaaSAlerts',         action: 'sync_alerts',    label: 'SaaS Alerts' },
         { entity: 'UniFiMapping',       fn: 'syncUniFiDevices',       action: 'sync_devices',   label: 'UniFi' },
         { entity: 'Pax8Mapping',        fn: 'syncPax8Subscriptions',  action: 'sync_subscriptions', label: 'Pax8' },
+        { entity: 'DmarcReportMapping', fn: 'syncDmarcReport',        action: 'sync_customer',  label: 'DMARC' },
         { entity: 'CIPPMapping',        fn: 'syncCIPP',               action: 'sync_customer',      label: 'CIPP',  extraParams: true },
       ];
 
@@ -567,12 +568,16 @@ export default function CustomerDetail() {
         'contracts', 'recurring_bills', 'invoices', 'invoice_line_items',
         'tickets', 'contacts', 'devices', 'license_assignments',
         'line_items', 'spanning-mapping', 'rocketcyber-mapping',
-        'rocketcyber_incidents', 'customer-contacts',
+        'rocketcyber_incidents', 'dmarc-mapping', 'dmarc-cached',
+        'cove-mapping', 'cove-cached', 'saas-alerts-mapping',
+        'saas-alerts-cached',
+        'customer-contacts',
       ];
       for (const key of keys) {
         queryClient.invalidateQueries({ queryKey: [key, customerId] });
       }
       queryClient.invalidateQueries({ queryKey: ['rocketcyber_mappings'] });
+      queryClient.invalidateQueries({ queryKey: ['dmarc_report_mappings'] });
     } catch (error) {
       toast.error(error.message || 'An error occurred during sync');
     } finally {
