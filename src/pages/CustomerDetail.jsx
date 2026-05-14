@@ -566,11 +566,13 @@ export default function CustomerDetail() {
       const keys = [
         'contracts', 'recurring_bills', 'invoices', 'invoice_line_items',
         'tickets', 'contacts', 'devices', 'license_assignments',
-        'line_items', 'spanning-mapping', 'customer-contacts',
+        'line_items', 'spanning-mapping', 'rocketcyber-mapping',
+        'rocketcyber_incidents', 'customer-contacts',
       ];
       for (const key of keys) {
         queryClient.invalidateQueries({ queryKey: [key, customerId] });
       }
+      queryClient.invalidateQueries({ queryKey: ['rocketcyber_mappings'] });
     } catch (error) {
       toast.error(error.message || 'An error occurred during sync');
     } finally {

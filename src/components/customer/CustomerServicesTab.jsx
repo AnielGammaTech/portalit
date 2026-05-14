@@ -1078,7 +1078,7 @@ export default function CustomerServicesTab({
         {/* RocketCyber Tab */}
         <TabsContent value="rocketcyber">
           {hasRocketCyber ? (
-            <RocketCyberTab customer={customer} />
+            <RocketCyberTab customer={customer} rocketcyberMapping={rocketcyberMapping} />
           ) : (
             <EmptyState icon={Shield} title="RocketCyber not configured" description="Go to Adminland > Integrations to map this customer's RocketCyber account." />
           )}

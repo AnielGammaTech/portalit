@@ -65,6 +65,41 @@ function buildIncidentData(incident, customerId) {
   };
 }
 
+function buildIncidentSummaryCache(incidents = []) {
+  const incidentList = Array.isArray(incidents) ? incidents : [];
+  const recentIncidents = [...incidentList]
+    .sort((a, b) => new Date(b.detected_at || 0) - new Date(a.detected_at || 0))
+    .slice(0, 25)
+    .map(incident => ({
+      id: incident.id,
+      incident_id: incident.incident_id,
+      title: incident.title || 'Security Incident',
+      description: incident.description || '',
+      severity: incident.severity || 'medium',
+      status: incident.status || 'open',
+      category: incident.category || '',
+      app_name: incident.app_name || '',
+      hostname: incident.hostname || '',
+      detected_at: incident.detected_at || null,
+      resolved_at: incident.resolved_at || null,
+      manually_closed: Boolean(incident.manually_closed),
+    }));
+
+  return {
+    totalIncidents: incidentList.length,
+    openIncidents: incidentList.filter(i => i.status === 'open' || i.status === 'investigating').length,
+    resolvedIncidents: incidentList.filter(i => i.status === 'resolved' || i.status === 'closed').length,
+    bySeverity: {
+      critical: incidentList.filter(i => i.severity === 'critical').length,
+      high: incidentList.filter(i => i.severity === 'high').length,
+      medium: incidentList.filter(i => i.severity === 'medium').length,
+      low: incidentList.filter(i => i.severity === 'low').length,
+      informational: incidentList.filter(i => i.severity === 'informational').length,
+    },
+    recentIncidents,
+  };
+}
+
 async function rocketCyberV3ApiCall(endpoint, params = {}) {
   const ROCKETCYBER_API_TOKEN = process.env.ROCKETCYBER_API_TOKEN;
   const url = new URL(`${API_V3_BASE_URL}${endpoint}`);
@@ -442,16 +477,7 @@ export async function syncRocketCyber(body, user) {
     const cachedData = {
       total_agents: agentCount,
       agents: agentList,
-      totalIncidents: allCustomerIncidents.length,
-      openIncidents: allCustomerIncidents.filter(i => i.status === 'open' || i.status === 'investigating').length,
-      resolvedIncidents: allCustomerIncidents.filter(i => i.status === 'resolved' || i.status === 'closed').length,
-      bySeverity: {
-        critical: allCustomerIncidents.filter(i => i.severity === 'critical').length,
-        high: allCustomerIncidents.filter(i => i.severity === 'high').length,
-        medium: allCustomerIncidents.filter(i => i.severity === 'medium').length,
-        low: allCustomerIncidents.filter(i => i.severity === 'low').length,
-        informational: allCustomerIncidents.filter(i => i.severity === 'informational').length,
-      }
+      ...buildIncidentSummaryCache(allCustomerIncidents),
     };
 
     // Update mapping last_synced + cached_data
@@ -464,7 +490,8 @@ export async function syncRocketCyber(body, user) {
       success: true,
       recordsSynced: syncedCount,
       totalIncidents: allIncidents.length,
-      totalAgents: agentResult.count
+      totalAgents: agentCount,
+      cachedData
     };
   }
 
@@ -540,16 +567,7 @@ export async function syncRocketCyber(body, user) {
         const cachedData = {
           total_agents: finalAgentCount,
           agents: finalAgentList,
-          totalIncidents: allCustomerIncidents.length,
-          openIncidents: allCustomerIncidents.filter(i => i.status === 'open' || i.status === 'investigating').length,
-          resolvedIncidents: allCustomerIncidents.filter(i => i.status === 'resolved' || i.status === 'closed').length,
-          bySeverity: {
-            critical: allCustomerIncidents.filter(i => i.severity === 'critical').length,
-            high: allCustomerIncidents.filter(i => i.severity === 'high').length,
-            medium: allCustomerIncidents.filter(i => i.severity === 'medium').length,
-            low: allCustomerIncidents.filter(i => i.severity === 'low').length,
-            informational: allCustomerIncidents.filter(i => i.severity === 'informational').length,
-          }
+          ...buildIncidentSummaryCache(allCustomerIncidents),
         };
 
         await supabase

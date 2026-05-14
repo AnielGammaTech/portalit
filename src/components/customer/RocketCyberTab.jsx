@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,12 +12,13 @@ import {
   CheckCircle2,
   Clock,
   RefreshCw,
-  ChevronDown,
-  ChevronRight,
   Monitor,
   Calendar,
   Activity,
-  X
+  X,
+  Database,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -27,7 +28,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ExternalLink, Mail, MapPin, Globe, User } from 'lucide-react';
+import { ExternalLink, Mail, MapPin, User } from 'lucide-react';
 
 // Helper to parse structured alert details from description
 const parseAlertDetails = (description) => {
@@ -92,41 +93,124 @@ const statusConfig = {
   closed: { color: 'bg-slate-100 text-slate-700', label: 'Closed' }
 };
 
-export default function RocketCyberTab({ customer }) {
+function parseCachedData(value) {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  return value;
+}
+
+function toNumber(value, fallback = 0) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+}
+
+function parseDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date : null;
+}
+
+function formatDateTime(value) {
+  const date = parseDate(value);
+  return date ? date.toLocaleString() : 'Never';
+}
+
+function timeAgo(value) {
+  const date = parseDate(value);
+  if (!date) return 'Never synced';
+  const diffMs = Math.max(0, Date.now() - date.getTime());
+  const minutes = Math.round(diffMs / 60000);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
+function getAgentStatus(agent) {
+  const rawStatus = String(agent?.status || agent?.state || '').trim();
+  const normalized = rawStatus.toLowerCase();
+  const isOnline = normalized.includes('online') || normalized.includes('active') || normalized.includes('connected');
+  const isOffline = normalized.includes('offline') || normalized.includes('inactive') || normalized.includes('disconnected');
+
+  if (isOnline) return { label: rawStatus || 'Online', className: 'bg-green-50 text-green-700 border-green-200', icon: Wifi };
+  if (isOffline) return { label: rawStatus || 'Offline', className: 'bg-slate-100 text-slate-600 border-slate-200', icon: WifiOff };
+  return { label: rawStatus || 'Unknown', className: 'bg-slate-100 text-slate-600 border-slate-200', icon: Activity };
+}
+
+export default function RocketCyberTab({ customer, rocketcyberMapping = null }) {
+  const queryClient = useQueryClient();
   const [isSyncing, setIsSyncing] = useState(false);
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const [severityFilter, setSeverityFilter] = useState('all');
   const [closingId, setClosingId] = useState(null);
+  const customerId = customer?.id;
 
   // Fetch mapping
-  const { data: mappings = [], isLoading: loadingMapping } = useQuery({
-    queryKey: ['rocketcyber_mapping', customer?.id],
-    queryFn: () => client.entities.RocketCyberMapping.filter({ customer_id: customer.id }),
-    enabled: !!customer?.id
+  const { data: queriedMapping = null, isLoading: loadingMapping } = useQuery({
+    queryKey: ['rocketcyber-mapping', customerId],
+    queryFn: async () => {
+      const mappings = await client.entities.RocketCyberMapping.filter({ customer_id: customerId });
+      return (mappings ?? [])[0] || null;
+    },
+    enabled: !!customerId && !rocketcyberMapping,
+    staleTime: 5 * 60 * 1000,
   });
 
-  if (!customer) return null;
+  const mapping = rocketcyberMapping || queriedMapping;
+
+  const cachedData = useMemo(
+    () => parseCachedData(mapping?.cached_data),
+    [mapping?.cached_data],
+  );
+  const cachedAgents = useMemo(
+    () => Array.isArray(cachedData?.agents) ? cachedData.agents : [],
+    [cachedData?.agents],
+  );
+  const cachedRecentIncidents = useMemo(() => {
+    if (Array.isArray(cachedData?.recentIncidents)) return cachedData.recentIncidents;
+    if (Array.isArray(cachedData?.recent_incidents)) return cachedData.recent_incidents;
+    if (Array.isArray(cachedData?.incidents)) return cachedData.incidents;
+    return [];
+  }, [cachedData]);
 
   // Fetch incidents
-  const { data: incidents = [], isLoading: loadingIncidents, refetch: refetchIncidents } = useQuery({
-    queryKey: ['rocketcyber_incidents', customer.id],
-    queryFn: () => client.entities.RocketCyberIncident.filter({ customer_id: customer.id }),
-    enabled: mappings.length > 0
+  const { data: dbIncidents = [], isLoading: loadingIncidents, refetch: refetchIncidents } = useQuery({
+    queryKey: ['rocketcyber_incidents', customerId],
+    queryFn: () => client.entities.RocketCyberIncident.filter({ customer_id: customerId }),
+    enabled: !!customerId && !!mapping,
+    staleTime: 5 * 60 * 1000,
   });
+  const incidents = dbIncidents.length > 0 ? dbIncidents : cachedRecentIncidents;
+  const incidentsFromCache = dbIncidents.length === 0 && cachedRecentIncidents.length > 0;
+  const fromCache = !!cachedData;
+  const lastSynced = mapping?.last_synced || cachedData?.synced_at;
+  const lastSyncedDate = parseDate(lastSynced);
+  const syncStale = lastSyncedDate ? Date.now() - lastSyncedDate.getTime() > 8 * 60 * 60 * 1000 : !cachedData;
 
-  const mapping = mappings[0];
+  if (!customerId) return null;
 
   const syncIncidents = async () => {
     setIsSyncing(true);
     try {
       const result = await client.functions.invoke('syncRocketCyber', {
         action: 'sync_incidents',
-        customer_id: customer.id
+        customer_id: customerId
       });
       if (result.success) {
-        toast.success(`Synced ${result.recordsSynced} incidents`);
-        refetchIncidents();
+        toast.success(`Refreshed ${result.recordsSynced ?? 0} incidents`);
+        await Promise.allSettled([
+          refetchIncidents(),
+          queryClient.invalidateQueries({ queryKey: ['rocketcyber-mapping', customerId] }),
+          queryClient.invalidateQueries({ queryKey: ['rocketcyber_mapping', customerId] }),
+          queryClient.invalidateQueries({ queryKey: ['rocketcyber_mappings'] }),
+        ]);
       }
     } catch (error) {
       toast.error('Sync failed: ' + error.message);
@@ -155,7 +239,7 @@ export default function RocketCyberTab({ customer }) {
     }
   };
 
-  if (loadingMapping || loadingIncidents) {
+  if (loadingMapping && !mapping) {
     return (
       <div className="space-y-6">
         {/* Header skeleton */}
@@ -168,13 +252,6 @@ export default function RocketCyberTab({ customer }) {
         </div>
         {/* Stats skeleton */}
         <SkeletonStats count={4} />
-        {/* Filters skeleton */}
-        <div className="flex gap-4">
-          <Shimmer className="h-9 w-36 rounded-md" />
-          <Shimmer className="h-9 w-36 rounded-md" />
-        </div>
-        {/* Incidents list skeleton */}
-        <SkeletonTable rows={5} cols={4} />
       </div>
     );
   }
@@ -204,70 +281,155 @@ export default function RocketCyberTab({ customer }) {
   });
 
   // Stats
+  const hasIncidentRows = incidents.length > 0;
+  const bySeverity = cachedData?.bySeverity || cachedData?.by_severity || {};
   const stats = {
-    total: incidents.length,
-    open: incidents.filter(i => i.status === 'open' || i.status === 'investigating').length,
-    critical: incidents.filter(i => i.severity === 'critical').length,
-    high: incidents.filter(i => i.severity === 'high').length
+    agents: toNumber(cachedData?.total_agents ?? cachedData?.totalAgents, cachedAgents.length),
+    total: hasIncidentRows ? incidents.length : toNumber(cachedData?.totalIncidents ?? cachedData?.total_incidents),
+    open: hasIncidentRows
+      ? incidents.filter(i => i.status === 'open' || i.status === 'investigating').length
+      : toNumber(cachedData?.openIncidents ?? cachedData?.open_incidents),
+    critical: hasIncidentRows
+      ? incidents.filter(i => i.severity === 'critical').length
+      : toNumber(bySeverity.critical),
+    high: hasIncidentRows
+      ? incidents.filter(i => i.severity === 'high').length
+      : toNumber(bySeverity.high),
   };
 
   return (
     <div className="space-y-6">
       {/* Header with Sync */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <Shield className="w-5 h-5 text-orange-500" />
-            RocketCyber SOC
-          </h3>
-          <p className="text-sm text-slate-500">
-            Account: {mapping.rc_account_name}
-            {mapping.last_synced && (
-              <span className="ml-2">
-                • Last sync: {new Date(mapping.last_synced).toLocaleString()}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-lg font-semibold flex items-center gap-2 text-slate-900">
+              <Shield className="w-5 h-5 text-orange-500" />
+              RocketCyber SOC
+            </h3>
+            {fromCache && (
+              <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                <Database className="w-3 h-3 mr-1" />
+                Cached
+              </Badge>
+            )}
+            {syncStale && (
+              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                Sync stale
+              </Badge>
+            )}
+          </div>
+          <p className="text-sm text-slate-500 mt-1">
+            Account: {mapping.rc_account_name || mapping.rc_account_id}
+            {lastSynced && (
+              <span className="ml-2 inline-flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5" />
+                Synced {timeAgo(lastSynced)}
               </span>
             )}
           </p>
         </div>
         <Button onClick={syncIncidents} disabled={isSyncing} variant="outline" size="sm">
           <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-          Sync Incidents
+          Refresh from RocketCyber
         </Button>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
+        <Card className="border-slate-200">
           <CardContent className="pt-4">
-            <div className="text-2xl font-bold">{stats.total}</div>
-            <p className="text-sm text-slate-500">Total Incidents</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-slate-900">{stats.agents}</div>
+                <p className="text-sm text-slate-500">Security Agents</p>
+              </div>
+              <Monitor className="w-5 h-5 text-orange-500" />
+            </div>
           </CardContent>
         </Card>
         <Card className={stats.open > 0 ? 'border-red-200 bg-red-50' : ''}>
           <CardContent className="pt-4">
-            <div className={`text-2xl font-bold ${stats.open > 0 ? 'text-red-600' : ''}`}>
-              {stats.open}
+            <div className="flex items-center justify-between">
+              <div>
+                <div className={`text-2xl font-bold ${stats.open > 0 ? 'text-red-600' : 'text-slate-900'}`}>
+                  {stats.open}
+                </div>
+                <p className="text-sm text-slate-500">Open/Active</p>
+              </div>
+              <AlertCircle className={`w-5 h-5 ${stats.open > 0 ? 'text-red-500' : 'text-slate-300'}`} />
             </div>
-            <p className="text-sm text-slate-500">Open/Active</p>
           </CardContent>
         </Card>
         <Card className={stats.critical > 0 ? 'border-red-200 bg-red-50' : ''}>
           <CardContent className="pt-4">
-            <div className={`text-2xl font-bold ${stats.critical > 0 ? 'text-red-600' : ''}`}>
-              {stats.critical}
+            <div className="flex items-center justify-between">
+              <div>
+                <div className={`text-2xl font-bold ${stats.critical > 0 ? 'text-red-600' : 'text-slate-900'}`}>
+                  {stats.critical}
+                </div>
+                <p className="text-sm text-slate-500">Critical</p>
+              </div>
+              <AlertTriangle className={`w-5 h-5 ${stats.critical > 0 ? 'text-red-500' : 'text-slate-300'}`} />
             </div>
-            <p className="text-sm text-slate-500">Critical</p>
           </CardContent>
         </Card>
         <Card className={stats.high > 0 ? 'border-orange-200 bg-orange-50' : ''}>
           <CardContent className="pt-4">
-            <div className={`text-2xl font-bold ${stats.high > 0 ? 'text-orange-600' : ''}`}>
-              {stats.high}
+            <div className="flex items-center justify-between">
+              <div>
+                <div className={`text-2xl font-bold ${stats.high > 0 ? 'text-orange-600' : 'text-slate-900'}`}>
+                  {stats.high}
+                </div>
+                <p className="text-sm text-slate-500">High Severity</p>
+              </div>
+              <Activity className={`w-5 h-5 ${stats.high > 0 ? 'text-orange-500' : 'text-slate-300'}`} />
             </div>
-            <p className="text-sm text-slate-500">High Severity</p>
           </CardContent>
         </Card>
       </div>
+
+      {cachedAgents.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <CardTitle className="text-base">Agent Cache</CardTitle>
+                <p className="text-sm text-slate-500">
+                  {cachedAgents.length} cached agent{cachedAgents.length !== 1 ? 's' : ''}
+                  {lastSynced && <> · Last refreshed {formatDateTime(lastSynced)}</>}
+                </p>
+              </div>
+              <Badge variant="outline">{stats.agents} total</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-2 md:grid-cols-2">
+              {cachedAgents.slice(0, 8).map((agent, index) => {
+                const agentStatus = getAgentStatus(agent);
+                const AgentStatusIcon = agentStatus.icon;
+                return (
+                  <div key={agent.id || agent.hostname || index} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-slate-900">{agent.hostname || agent.name || 'Unknown agent'}</p>
+                      <p className="truncate text-xs text-slate-500">
+                        {[agent.os, agent.ip, agent.lastSeen ? `Seen ${timeAgo(agent.lastSeen)}` : null].filter(Boolean).join(' · ') || 'No additional details cached'}
+                      </p>
+                    </div>
+                    <Badge variant="outline" className={agentStatus.className}>
+                      <AgentStatusIcon className="w-3 h-3 mr-1" />
+                      {agentStatus.label}
+                    </Badge>
+                  </div>
+                );
+              })}
+            </div>
+            {cachedAgents.length > 8 && (
+              <p className="mt-3 text-xs text-slate-500">Showing 8 of {cachedAgents.length} cached agents.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filters */}
       <div className="flex gap-4">
@@ -297,22 +459,39 @@ export default function RocketCyberTab({ customer }) {
 
       {/* Incidents List */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            Security Incidents ({filteredIncidents.length})
-          </CardTitle>
+        <CardHeader className="pb-3">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle className="text-base">
+                Security Incidents ({filteredIncidents.length})
+              </CardTitle>
+              <p className="text-sm text-slate-500">
+                {stats.total} total incident{stats.total !== 1 ? 's' : ''} tracked
+                {incidentsFromCache && <> · Showing cached recent incidents</>}
+              </p>
+            </div>
+            {loadingIncidents && (
+              <Badge variant="outline" className="bg-slate-50 text-slate-600">
+                Updating from cache
+              </Badge>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
-          {filteredIncidents.length === 0 ? (
+          {loadingIncidents && !fromCache && filteredIncidents.length === 0 ? (
+            <SkeletonTable rows={4} cols={4} />
+          ) : filteredIncidents.length === 0 ? (
             <div className="text-center py-8 text-slate-500">
               <CheckCircle2 className="w-12 h-12 mx-auto text-green-300 mb-3" />
               <p>No incidents found</p>
-              <p className="text-sm">Your environment is looking secure!</p>
+              <p className="text-sm">
+                {fromCache ? 'The cached RocketCyber data has no recent incidents.' : 'Click refresh to pull RocketCyber data when needed.'}
+              </p>
             </div>
           ) : (
             <div className="space-y-2">
-              {filteredIncidents
-                .sort((a, b) => new Date(b.detected_at) - new Date(a.detected_at))
+              {[...filteredIncidents]
+                .sort((a, b) => new Date(b.detected_at || 0) - new Date(a.detected_at || 0))
                 .map(incident => {
                   const sevConfig = severityConfig[incident.severity] || severityConfig.medium;
                   const statConfig = statusConfig[incident.status] || statusConfig.open;
@@ -320,7 +499,7 @@ export default function RocketCyberTab({ customer }) {
 
                   return (
                     <div
-                      key={incident.id}
+                      key={incident.id || incident.incident_id}
                       className="p-4 border rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
                       onClick={() => setSelectedIncident(incident)}
                     >
@@ -347,7 +526,7 @@ export default function RocketCyberTab({ customer }) {
                         <div className="flex flex-col items-end gap-2">
                           <div className="flex items-center gap-2">
                             <Badge className={statConfig.color}>{statConfig.label}</Badge>
-                            {(incident.status === 'open' || incident.status === 'investigating') && (
+                            {incident.id && (incident.status === 'open' || incident.status === 'investigating') && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -514,7 +693,7 @@ export default function RocketCyberTab({ customer }) {
                   )}
 
                   {/* Close Incident Button */}
-                  {(selectedIncident.status === 'open' || selectedIncident.status === 'investigating') && (
+                  {selectedIncident.id && (selectedIncident.status === 'open' || selectedIncident.status === 'investigating') && (
                     <Button
                       variant="outline"
                       className="w-full mt-4"
