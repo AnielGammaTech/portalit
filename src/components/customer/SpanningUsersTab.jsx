@@ -311,6 +311,25 @@ function SummaryCount({ label, value }) {
   );
 }
 
+function StorageLine({ icon: Icon, label, value, percent, className }) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0', className)}>
+            <Icon className="w-4 h-4" />
+          </div>
+          <span className="text-sm font-medium text-slate-700 truncate">{label}</span>
+        </div>
+        <span className="text-sm font-semibold text-slate-900">{value}</span>
+      </div>
+      <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+        <div className={cn('h-full rounded-full', className)} style={{ width: `${percent}%` }} />
+      </div>
+    </div>
+  );
+}
+
 export default function SpanningUsersTab({ customerId, spanningMapping, queryClient }) {
   const [syncingSpanning, setSyncingSpanning] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -829,33 +848,22 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
       </div>
 
       <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>Spanning user details</DialogTitle>
+            <DialogTitle>Spanning backup user</DialogTitle>
           </DialogHeader>
           {selectedUser && (
             <div className="space-y-4">
-              <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg">
-                <div className="w-12 h-12 rounded-full bg-cyan-50 flex items-center justify-center text-cyan-700 font-bold text-lg">
-                  {getInitials(selectedUser)}
-                </div>
-                <div className="min-w-0">
-                  <p className="font-semibold text-slate-900 truncate">{selectedUser.displayName || 'Unknown user'}</p>
-                  <p className="text-sm text-slate-500 truncate">{selectedUser.email || 'No email returned'}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <SummaryCount label="Mail" value={selectedUser.mailStorage || '0 B'} />
-                <SummaryCount label="Drive" value={selectedUser.driveStorage || '0 B'} />
-                <SummaryCount label="Total" value={selectedUser.totalStorage || '0 B'} />
-              </div>
-
-              <div className="rounded-lg border border-slate-200 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Backup status</p>
-                    <p className="text-xs text-slate-500">Last backup {formatDateTime(selectedUser.lastBackupDate)}</p>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-12 h-12 rounded-full bg-cyan-100 flex items-center justify-center text-cyan-800 font-bold text-lg flex-shrink-0">
+                      {getInitials(selectedUser)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-900 truncate">{selectedUser.displayName || 'Unknown user'}</p>
+                      <p className="text-sm text-slate-500 truncate">{selectedUser.email || 'No email returned'}</p>
+                    </div>
                   </div>
                   <StatusPill
                     status={selectedUser.backupStatus}
@@ -863,23 +871,70 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
                     unprotected={!selectedUser.isProtected}
                   />
                 </div>
+                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg bg-white border border-slate-200 p-3">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Last backup</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">{formatDateTime(selectedUser.lastBackupDate)}</p>
+                  </div>
+                  <div className="rounded-lg bg-white border border-slate-200 p-3">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">User type</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900 capitalize">{getUserKind(selectedUser)}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Protected storage</p>
+                    <p className="text-xs text-slate-500">Mailbox and OneDrive data reported by Spanning.</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-slate-900">{selectedUser.totalStorage || '0 B'}</p>
+                    <p className="text-xs text-slate-500">Total</p>
+                  </div>
+                </div>
+                <div className="mt-4 space-y-4">
+                  <StorageLine
+                    icon={Mail}
+                    label="Mail"
+                    value={selectedUser.mailStorage || '0 B'}
+                    percent={getPercent(selectedUser.mailStorageBytes, selectedUser.totalStorageBytes)}
+                    className="bg-cyan-500 text-white"
+                  />
+                  <StorageLine
+                    icon={Database}
+                    label="Drive"
+                    value={selectedUser.driveStorage || '0 B'}
+                    percent={getPercent(selectedUser.driveStorageBytes, selectedUser.totalStorageBytes)}
+                    className="bg-violet-500 text-white"
+                  />
+                </div>
               </div>
 
               {selectedUser.contact ? (
-                <div className="p-4 border border-cyan-200 bg-cyan-50 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle2 className="w-4 h-4 text-cyan-700" />
-                    <span className="font-medium text-slate-900">Matched to HaloPSA contact</span>
-                  </div>
-                  <div className="text-sm text-slate-600 space-y-1">
-                    <p><strong className="text-slate-900">Name:</strong> {selectedUser.contact.full_name}</p>
-                    {selectedUser.contact.title && <p><strong className="text-slate-900">Title:</strong> {selectedUser.contact.title}</p>}
-                    {selectedUser.contact.phone && <p><strong className="text-slate-900">Phone:</strong> {selectedUser.contact.phone}</p>}
+                <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-green-700 mt-0.5 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-900">Matched to HaloPSA contact</p>
+                      <div className="mt-2 text-sm text-slate-600 space-y-1">
+                        <p><strong className="text-slate-900">Name:</strong> {selectedUser.contact.full_name}</p>
+                        {selectedUser.contact.title && <p><strong className="text-slate-900">Title:</strong> {selectedUser.contact.title}</p>}
+                        {selectedUser.contact.phone && <p><strong className="text-slate-900">Phone:</strong> {selectedUser.contact.phone}</p>}
+                      </div>
+                    </div>
                   </div>
                 </div>
               ) : (
-                <div className="p-4 border border-slate-200 bg-slate-50 rounded-lg">
-                  <p className="text-sm text-slate-500">No matching HaloPSA contact found for this email.</p>
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="flex items-start gap-3">
+                    <Users className="w-5 h-5 text-slate-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-semibold text-slate-900">No HaloPSA contact match</p>
+                      <p className="mt-1 text-sm text-slate-500">This Spanning user exists, but no contact with this email was found in HaloPSA.</p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
