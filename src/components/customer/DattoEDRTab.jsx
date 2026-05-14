@@ -5,9 +5,7 @@ import {
   Shield,
   RefreshCw,
   Monitor,
-  AlertTriangle,
   Activity,
-  CheckCircle2,
   ExternalLink,
   FileText,
   Search,
@@ -56,14 +54,6 @@ function timeAgo(value) {
   return `${Math.round(hours / 24)}d ago`;
 }
 
-function severityClasses(severity) {
-  const normalized = String(severity || '').toLowerCase();
-  if (['critical', 'high'].includes(normalized)) return 'bg-red-50 text-red-700 border-red-200';
-  if (normalized === 'medium') return 'bg-amber-50 text-amber-700 border-amber-200';
-  if (['low', 'info', 'informational'].includes(normalized)) return 'bg-blue-50 text-blue-700 border-blue-200';
-  return 'bg-slate-50 text-slate-600 border-slate-200';
-}
-
 function getHostKey(host, index) {
   return host.id || `${host.hostname || 'host'}-${host.ip || index}`;
 }
@@ -94,7 +84,6 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
     });
   }, [edrData?.hosts]);
 
-  const alerts = useMemo(() => Array.isArray(edrData?.alerts) ? edrData.alerts : [], [edrData?.alerts]);
   const offlineHosts = useMemo(() => hosts.filter(host => !host.online), [hosts]);
   const onlineHosts = useMemo(() => hosts.filter(host => host.online), [hosts]);
   const osBreakdown = Array.isArray(edrData?.osBreakdown) ? edrData.osBreakdown : [];
@@ -102,7 +91,6 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
   const activeHostCount = edrData?.activeHostCount ?? onlineHosts.length;
   const offlineHostCount = edrData?.offlineHostCount ?? Math.max(hostCount - activeHostCount, 0);
   const coveragePercent = hostCount > 0 ? Math.round((activeHostCount / hostCount) * 100) : 0;
-  const alertCount = edrData?.alertCount || alerts.length || 0;
   const lastScan = edrData?.lastScannedOn || edrData?.targetStats?.lastScannedOn;
   const generatedAt = edrData?.generatedAt || edrMapping?.last_synced;
   const lastSyncDate = parseDate(edrMapping?.last_synced);
@@ -183,7 +171,7 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
           <Shield className="w-5 h-5 text-amber-600" />
           <div>
             <p className="font-medium text-amber-900">EDR Not Configured</p>
-            <p className="text-sm text-amber-700">Map a Datto EDR tenant in Adminland &gt; Integrations to enable monitoring.</p>
+            <p className="text-sm text-amber-700">Map a Datto EDR tenant in Adminland &gt; Integrations to show endpoint visibility.</p>
           </div>
         </div>
       )}
@@ -193,7 +181,7 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
           <CardContent className="py-10 text-center">
             <Shield className="w-10 h-10 text-slate-300 mx-auto mb-3" />
             <p className="font-medium text-slate-900">No EDR data cached yet</p>
-            <p className="text-sm text-slate-500 mt-1">Run a sync to load agents, alerts, scan metadata, and endpoint details.</p>
+            <p className="text-sm text-slate-500 mt-1">Run a sync to load agents, scan metadata, and endpoint details.</p>
             <Button onClick={handleSync} disabled={syncing} className="mt-4 gap-2">
               <RefreshCw className={cn("w-4 h-4", syncing && "animate-spin")} />
               Sync EDR
@@ -242,7 +230,7 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
                   <div>
                     <p className="text-xs font-medium text-slate-500">Offline Agents</p>
                     <p className="text-2xl font-bold text-slate-700">{offlineHostCount}</p>
-                    <p className="text-xs text-slate-500">Need follow-up</p>
+                    <p className="text-xs text-slate-500">Not currently connected</p>
                   </div>
                   <div className="p-2 rounded-lg bg-slate-100">
                     <WifiOff className="w-5 h-5 text-slate-500" />
@@ -251,18 +239,16 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
               </CardContent>
             </Card>
 
-            <Card className={alertCount > 0 ? 'border-red-200' : ''}>
+            <Card>
               <CardContent className="pt-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs font-medium text-slate-500">Active Alerts</p>
-                    <p className={cn("text-2xl font-bold", alertCount > 0 ? "text-red-600" : "text-green-600")}>{alertCount}</p>
-                    <p className="text-xs text-slate-500">
-                      {alertCount > 0 ? `${edrData.criticalAlerts || 0} high/critical` : 'No open alerts'}
-                    </p>
+                    <p className="text-xs font-medium text-slate-500">Last Scan</p>
+                    <p className="text-lg font-bold text-slate-900">{formatDate(lastScan)}</p>
+                    <p className="text-xs text-slate-500">{lastScan ? timeAgo(lastScan) : 'No scan date'}</p>
                   </div>
-                  <div className={cn("p-2 rounded-lg", alertCount > 0 ? "bg-red-50" : "bg-green-50")}>
-                    {alertCount > 0 ? <AlertTriangle className="w-5 h-5 text-red-600" /> : <CheckCircle2 className="w-5 h-5 text-green-600" />}
+                  <div className="p-2 rounded-lg bg-slate-100">
+                    <Clock className="w-5 h-5 text-slate-500" />
                   </div>
                 </div>
               </CardContent>
@@ -279,10 +265,8 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
                       {hostCount} deployed agents, {offlineHostCount} offline, last data build {timeAgo(generatedAt)}
                     </CardDescription>
                   </div>
-                  <Badge variant="outline" className={cn(
-                    alertCount > 0 ? 'bg-red-50 text-red-700 border-red-200' : 'bg-green-50 text-green-700 border-green-200'
-                  )}>
-                    {alertCount > 0 ? 'Needs review' : 'Healthy'}
+                  <Badge variant="outline" className="bg-cyan-50 text-cyan-700 border-cyan-200">
+                    {coveragePercent}% covered
                   </Badge>
                 </div>
               </CardHeader>
@@ -311,28 +295,6 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
                   </div>
                 </div>
 
-                {alertCount > 0 ? (
-                  <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5" />
-                      <div>
-                        <p className="font-medium text-red-900">{alertCount} active alert{alertCount === 1 ? '' : 's'} in Datto EDR</p>
-                        <p className="text-sm text-red-700 mt-1">Review the affected endpoints below and open Datto EDR for remediation details.</p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-                    <div className="flex items-start gap-3">
-                      <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5" />
-                      <div>
-                        <p className="font-medium text-green-900">No active alerts cached</p>
-                        <p className="text-sm text-green-700 mt-1">The latest EDR sync did not return open alerts for this tenant.</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {osBreakdown.length > 0 && (
                   <div>
                     <p className="text-sm font-medium text-slate-700 mb-2">Operating systems</p>
@@ -360,8 +322,8 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
 
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle>Needs Attention</CardTitle>
-                <CardDescription>Offline agents and recent alerts</CardDescription>
+                <CardTitle>Offline Agents</CardTitle>
+                <CardDescription>Devices not currently connected</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
@@ -387,36 +349,6 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
                   ) : (
                     <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
                       All cached agents are online.
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-medium text-slate-700">Alert details</p>
-                    <Badge variant="outline">{alertCount}</Badge>
-                  </div>
-                  {alerts.length > 0 ? (
-                    <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
-                      {alerts.slice(0, 6).map((alert, index) => (
-                        <div key={alert.id || index} className="rounded-lg border border-red-100 p-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="font-medium text-slate-900 text-sm leading-5">{alert.title}</p>
-                            <Badge variant="outline" className={severityClasses(alert.severity)}>{alert.severity || 'unknown'}</Badge>
-                          </div>
-                          <p className="text-xs text-slate-500 mt-1">
-                            {[alert.endpoint, formatDateTime(alert.createdAt)].filter(Boolean).join(' - ')}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : alertCount > 0 ? (
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
-                      Datto reported alerts, but the alert detail endpoint did not return rows. Open Datto EDR for full alert records.
-                    </div>
-                  ) : (
-                    <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
-                      No alert rows returned by the latest sync.
                     </div>
                   )}
                 </div>
@@ -508,7 +440,6 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
                             <td className="px-4 py-3 text-slate-600">
                               <div className="space-y-1">
                                 <div>{host.agentVersion || 'Unknown'}</div>
-                                {host.threatStatus && <div className="text-xs text-slate-400">{host.threatStatus}</div>}
                               </div>
                             </td>
                           </tr>
@@ -521,7 +452,7 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
                 <div className="text-center py-10 bg-slate-50 rounded-lg">
                   <Monitor className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                   <p className="text-sm text-slate-600 font-medium">{hostCount} endpoints reported</p>
-                  <p className="text-xs text-slate-500 mt-1">The API returned counts but no endpoint rows. Run Refresh or open Datto EDR for the endpoint list.</p>
+                  <p className="text-xs text-slate-500 mt-1">The API returned counts but no endpoint rows. Run Refresh to reload the endpoint list.</p>
                 </div>
               )}
             </CardContent>
