@@ -133,18 +133,18 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
 
   // Service tag integration mappings
   const SERVICE_TAG_MAPPINGS = [
-    { key: 'spanning', label: 'Spanning', entity: 'SpanningMapping', dot: 'bg-purple-500', text: 'text-purple-700 dark:text-purple-300' },
-    { key: 'jumpcloud', label: 'JumpCloud', entity: 'JumpCloudMapping', dot: 'bg-green-500', text: 'text-green-700 dark:text-green-300' },
-    { key: 'datto', label: 'RMM', entity: 'DattoSiteMapping', dot: 'bg-blue-500', text: 'text-blue-700 dark:text-blue-300' },
-    { key: 'edr', label: 'EDR', entity: 'DattoEDRMapping', dot: 'bg-cyan-500', text: 'text-cyan-700 dark:text-cyan-300' },
-    { key: 'rocketcyber', label: 'SOC', entity: 'RocketCyberMapping', dot: 'bg-orange-500', text: 'text-orange-700 dark:text-orange-300' },
-    { key: 'unifi', label: 'Firewall', entity: 'UniFiMapping', dot: 'bg-sky-500', text: 'text-sky-700 dark:text-sky-300' },
-    { key: 'threecx', label: 'VoIP', entity: 'ThreeCXReport', dot: 'bg-emerald-500', text: 'text-emerald-700 dark:text-emerald-300' },
-    { key: 'dmarc', label: 'DMARC', entity: 'DmarcReportMapping', dot: 'bg-teal-500', text: 'text-teal-700 dark:text-teal-300' },
-    { key: 'saas_alerts', label: 'SaaS Alerts', entity: 'SaaSAlertsMapping', dot: 'bg-violet-500', text: 'text-violet-700 dark:text-violet-300' },
-    { key: 'pax8', label: 'M365', entity: 'Pax8Mapping', dot: 'bg-pink-500', text: 'text-pink-700 dark:text-pink-300' },
-    { key: 'cove', label: 'Backup', entity: 'CoveDataMapping', dot: 'bg-amber-500', text: 'text-amber-700 dark:text-amber-300' },
-    { key: 'cipp', label: 'CIPP', entity: 'CIPPMapping', dot: 'bg-sky-600', text: 'text-sky-700 dark:text-sky-300' },
+    { key: 'spanning', label: 'Spanning', entity: 'SpanningMapping', dot: 'bg-purple-500', text: 'text-purple-700 dark:text-purple-300', mark: 'SP', badge: 'bg-purple-600' },
+    { key: 'jumpcloud', label: 'JumpCloud', entity: 'JumpCloudMapping', dot: 'bg-green-500', text: 'text-green-700 dark:text-green-300', mark: 'JC', badge: 'bg-green-600' },
+    { key: 'datto', label: 'RMM', entity: 'DattoSiteMapping', dot: 'bg-blue-500', text: 'text-blue-700 dark:text-blue-300', mark: 'D', badge: 'bg-blue-600' },
+    { key: 'edr', label: 'EDR', entity: 'DattoEDRMapping', dot: 'bg-cyan-500', text: 'text-cyan-700 dark:text-cyan-300', mark: 'E', badge: 'bg-cyan-600' },
+    { key: 'rocketcyber', label: 'SOC', entity: 'RocketCyberMapping', dot: 'bg-orange-500', text: 'text-orange-700 dark:text-orange-300', mark: 'RC', badge: 'bg-orange-600' },
+    { key: 'unifi', label: 'Firewall', entity: 'UniFiMapping', dot: 'bg-sky-500', text: 'text-sky-700 dark:text-sky-300', mark: 'UF', badge: 'bg-sky-600' },
+    { key: 'threecx', label: 'VoIP', entity: 'ThreeCXReport', dot: 'bg-emerald-500', text: 'text-emerald-700 dark:text-emerald-300', mark: '3C', badge: 'bg-emerald-600' },
+    { key: 'dmarc', label: 'DMARC', entity: 'DmarcReportMapping', dot: 'bg-teal-500', text: 'text-teal-700 dark:text-teal-300', mark: 'DM', badge: 'bg-teal-600' },
+    { key: 'saas_alerts', label: 'SaaS Alerts', entity: 'SaaSAlertsMapping', dot: 'bg-violet-500', text: 'text-violet-700 dark:text-violet-300', mark: 'SA', badge: 'bg-violet-600' },
+    { key: 'pax8', label: 'M365', entity: 'Pax8Mapping', dot: 'bg-pink-500', text: 'text-pink-700 dark:text-pink-300', mark: 'M', badge: 'bg-pink-600' },
+    { key: 'cove', label: 'Backup', entity: 'CoveDataMapping', dot: 'bg-amber-500', text: 'text-amber-700 dark:text-amber-300', mark: 'CV', badge: 'bg-amber-600' },
+    { key: 'cipp', label: 'CIPP', entity: 'CIPPMapping', dot: 'bg-sky-600', text: 'text-sky-700 dark:text-sky-300', mark: 'CP', badge: 'bg-sky-700' },
   ];
 
   const { data: serviceMappingsData } = useQuery({
@@ -173,7 +173,7 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
     for (const svc of SERVICE_TAG_MAPPINGS) {
       const mappings = serviceMappingsData[svc.key] || [];
       if (mappings.length > 0) {
-        tags.push({ key: svc.key, label: svc.label, dot: svc.dot, text: svc.text });
+        tags.push({ key: svc.key, label: svc.label, dot: svc.dot, text: svc.text, mark: svc.mark, badge: svc.badge });
       }
     }
     return tags;
@@ -622,8 +622,10 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
     .reduce((sum, l) => sum + (l.total_cost || 0), 0);
   const customerLogoUrl = customer.logo_url ? resolveFileUrl(customer.logo_url) : null;
   const showCustomerLogo = customerLogoUrl && failedCustomerLogoUrl !== customerLogoUrl;
-  const openTicketCount = tickets.filter(t => ['open', 'new', 'in_progress', 'pending', 'active'].includes((t.status || '').toLowerCase())).length;
-  const managedDeviceCount = devices.length;
+  const invoiceBalance = invoices
+    .filter(i => ['overdue', 'pending', 'sent', 'open', 'unpaid'].includes((i.status || '').toLowerCase()))
+    .reduce((sum, inv) => sum + (Number(inv.amount_due ?? inv.total ?? inv.amount) || 0), 0);
+  const activeQuoteCount = quotes.filter(q => !['rejected', 'expired', 'void', 'cancelled', 'canceled'].includes((q.status || '').toLowerCase())).length;
   const activeServiceCount = serviceTags.length;
 
   return (
@@ -739,12 +741,12 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
             </div>
             <div className="grid grid-cols-3 gap-2 xl:min-w-[360px]">
               {[
-                { label: 'Open work', value: openTicketCount, tone: openTicketCount > 0 ? 'text-amber-700 bg-amber-50 border-amber-200' : 'text-emerald-700 bg-emerald-50 border-emerald-200' },
-                { label: 'Devices', value: managedDeviceCount, tone: 'text-blue-700 bg-blue-50 border-blue-200' },
+                { label: 'Billing', value: invoiceBalance > 0 ? `$${invoiceBalance.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '$0', tone: 'text-blue-700 bg-blue-50 border-blue-200' },
+                { label: 'Quotes', value: activeQuoteCount, tone: 'text-amber-700 bg-amber-50 border-amber-200' },
                 { label: 'Services', value: activeServiceCount, tone: 'text-violet-700 bg-violet-50 border-violet-200' },
               ].map(item => (
-                <div key={item.label} className={cn('rounded-lg border px-3 py-2 text-center', item.tone)}>
-                  <p className="text-xl font-bold tabular-nums">{item.value}</p>
+                <div key={item.label} className={cn('flex min-h-[60px] flex-col items-center justify-center rounded-lg border px-3 py-2 text-center', item.tone)}>
+                  <p className="max-w-full truncate text-xl font-bold tabular-nums">{item.value}</p>
                   <p className="text-[10px] font-semibold uppercase tracking-wide">{item.label}</p>
                 </div>
               ))}
@@ -758,12 +760,11 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
             {serviceTags.map((tag) => (
               <span
                 key={tag.key}
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium',
-                  tag.text
-                )}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 py-1 pl-1 pr-2.5 text-[11px] font-medium text-slate-700"
               >
-                <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', tag.dot)} />
+                <span className={cn('flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[9px] font-bold leading-none text-white', tag.badge)}>
+                  {tag.mark || tag.label?.slice(0, 2)}
+                </span>
                 {tag.label}
               </span>
             ))}
@@ -787,7 +788,7 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
           { icon: DollarSign, value: `$${totalLicenseCost.toLocaleString('en-US', { minimumFractionDigits: 0 })}`, label: 'SaaS spend', color: 'text-emerald-700', bg: 'bg-emerald-50' },
           { icon: Users, value: contacts.length, label: 'Team', color: 'text-blue-700', bg: 'bg-blue-50' },
           { icon: FileText, value: contracts.filter(c => c.status === 'active').length, label: 'Contracts', color: 'text-amber-700', bg: 'bg-amber-50' },
-          { icon: HelpCircle, value: customer?.total_tickets || tickets.length, label: 'Tickets', color: 'text-rose-700', bg: 'bg-rose-50' },
+          { icon: HelpCircle, value: customer?.total_tickets || tickets.length, label: 'Tickets all time', color: 'text-slate-700', bg: 'bg-slate-50' },
           { icon: Monitor, value: devices.length, label: 'Devices', color: 'text-violet-700', bg: 'bg-violet-50' },
         ].map(stat => (
           <motion.div
@@ -795,13 +796,13 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
             variants={staggerItem}
             className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
           >
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xl font-bold tabular-nums text-slate-950">{stat.value}</p>
-                <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{stat.label}</p>
-              </div>
+            <div className="flex min-h-[82px] flex-col items-center justify-center gap-2 text-center">
               <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg', stat.bg)}>
                 <stat.icon className={cn('h-4 w-4', stat.color)} />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-xl font-bold tabular-nums text-slate-950">{stat.value}</p>
+                <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{stat.label}</p>
               </div>
             </div>
           </motion.div>
@@ -809,7 +810,7 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
       </motion.div>
 
       <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6" id="customer-tabs">
-        <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm scrollbar-hide">
+        <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm scrollbar-hide md:justify-center">
           {[
             { value: 'dashboard', icon: BarChart3, label: 'Dashboard' },
             { value: 'billing', icon: DollarSign, label: 'Billing' },
@@ -836,11 +837,12 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
             contacts={contacts}
             devices={devices}
             contracts={contracts}
-            tickets={tickets}
             invoices={invoices}
             lineItems={activeLineItems}
             recurringBills={recurringBills}
             licenses={licenses}
+            quotes={quotes}
+            quoteItems={quoteItems}
             serviceTags={serviceTags}
           />
         </TabsContent>
@@ -986,8 +988,10 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
                                     <h3 className="text-sm font-semibold text-gray-900 mb-3">Active Integrations</h3>
                                     <div className="flex flex-wrap gap-2">
                                       {serviceTags.map(tag => (
-                                        <span key={tag.key} className={cn("inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-50 border border-gray-200", tag.text)}>
-                                          <span className={cn("w-2 h-2 rounded-full", tag.dot)} />
+                                        <span key={tag.key} className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 py-1 pl-1 pr-3 text-xs font-medium text-gray-700">
+                                          <span className={cn("flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[9px] font-bold leading-none text-white", tag.badge)}>
+                                            {tag.mark || tag.label?.slice(0, 2)}
+                                          </span>
                                           {tag.label}
                                         </span>
                                       ))}

@@ -1,17 +1,13 @@
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  AlertCircle,
-  CheckCircle2,
   Cloud,
   CreditCard,
   FileText,
-  HelpCircle,
   Monitor,
-  ShieldCheck,
-  Users,
+  Package,
+  ReceiptText,
 } from 'lucide-react';
-import { differenceInDays } from 'date-fns';
 
 import { cn, safeFormatDate } from '@/lib/utils';
 import { createPageUrl } from '../../utils';
@@ -102,31 +98,34 @@ function EmptyMessage({ icon: Icon, title, description }) {
   );
 }
 
-function TicketRow({ ticket }) {
-  const status = normalized(ticket.status);
-  const tone = status.includes('open') || status.includes('new')
-    ? 'amber'
-    : status.includes('progress')
+function QuoteRow({ quote, items = [] }) {
+  const lineItems = items.filter(item => item.quote_id === quote.id);
+  const total = Number(quote.total ?? quote.amount ?? lineItems.reduce((sum, item) => sum + (Number(item.total ?? item.amount ?? item.price) || 0), 0)) || 0;
+  const status = normalized(quote.status) || 'quote';
+  const tone = ['accepted', 'approved'].includes(status)
+    ? 'emerald'
+    : ['sent', 'presented'].includes(status)
       ? 'blue'
-      : status.includes('closed') || status.includes('resolved')
-        ? 'emerald'
-        : 'slate';
+      : 'slate';
 
   return (
     <div className="flex items-center gap-3 px-4 py-3">
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
-        <HelpCircle className="h-4 w-4" />
+        <FileText className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold text-slate-950">
-          {ticket.external_id ? `#${ticket.external_id} - ` : ''}{ticket.subject || ticket.summary || 'Support ticket'}
+          {quote.title || quote.quote_number || 'Quote'}
         </p>
         <p className="mt-0.5 truncate text-xs text-slate-500">
-          {ticket.assigned_to ? `Tech: ${ticket.assigned_to}` : ticket.contact_name ? `By: ${ticket.contact_name}` : 'No owner shown'}
-          {ticket.created_date && ` - ${safeFormatDate(ticket.created_date, 'MMM d, yyyy')}`}
+          {quote.quote_number ? `Quote #${quote.quote_number}` : `${lineItems.length} line item${lineItems.length !== 1 ? 's' : ''}`}
+          {quote.quote_date && ` - ${safeFormatDate(quote.quote_date, 'MMM d, yyyy')}`}
         </p>
       </div>
-      <StatusPill tone={tone}>{ticket.status?.replace('_', ' ') || 'Open'}</StatusPill>
+      <div className="text-right">
+        <p className="text-sm font-semibold tabular-nums text-slate-950">{money(total)}</p>
+        <StatusPill tone={tone}>{quote.status?.replace('_', ' ') || 'Quote'}</StatusPill>
+      </div>
     </div>
   );
 }
@@ -136,11 +135,12 @@ export default function CustomerDashboardTab({
   contacts = [],
   devices = [],
   contracts = [],
-  tickets = [],
   invoices = [],
   lineItems = [],
   recurringBills = [],
   licenses = [],
+  quotes = [],
+  quoteItems = [],
   serviceTags = [],
 }) {
   const customerId = customer?.id;
@@ -180,23 +180,24 @@ export default function CustomerDashboardTab({
   );
 
   const invoiceStats = useMemo(() => {
-    const overdue = invoices.filter(i => normalized(i.status) === 'overdue');
-    const pending = invoices.filter(i => ['pending', 'sent', 'open', 'unpaid'].includes(normalized(i.status)));
+    const due = invoices.filter(i => ['overdue', 'pending', 'sent', 'open', 'unpaid'].includes(normalized(i.status)));
     const paid = invoices.filter(i => normalized(i.status) === 'paid');
-    const overdueAmount = overdue.reduce((sum, inv) => sum + (Number(inv.amount_due ?? inv.total ?? inv.amount) || 0), 0);
-    const pendingAmount = pending.reduce((sum, inv) => sum + (Number(inv.amount_due ?? inv.total ?? inv.amount) || 0), 0);
-    return { overdue, pending, paid, overdueAmount, pendingAmount };
+    const dueAmount = due.reduce((sum, inv) => sum + (Number(inv.amount_due ?? inv.total ?? inv.amount) || 0), 0);
+    return { due, paid, dueAmount };
   }, [invoices]);
 
-  const ticketStats = useMemo(() => {
-    const open = tickets.filter(t => ['open', 'new', 'in_progress', 'pending', 'active'].includes(normalized(t.status)));
-    const closed = tickets.filter(t => ['closed', 'resolved', 'completed'].includes(normalized(t.status)));
-    const recent = tickets.filter(t => t.created_date && differenceInDays(new Date(), new Date(t.created_date)) <= 30);
-    const sorted = [...tickets].sort((a, b) =>
-      new Date(b.updated_date || b.created_date || 0) - new Date(a.updated_date || a.created_date || 0)
+  const quoteStats = useMemo(() => {
+    const active = quotes.filter(q => !['rejected', 'expired', 'void', 'cancelled', 'canceled'].includes(normalized(q.status)));
+    const accepted = quotes.filter(q => ['accepted', 'approved'].includes(normalized(q.status)));
+    const total = quotes.reduce((sum, quote) => {
+      const lineItems = quoteItems.filter(item => item.quote_id === quote.id);
+      return sum + (Number(quote.total ?? quote.amount ?? lineItems.reduce((itemSum, item) => itemSum + (Number(item.total ?? item.amount ?? item.price) || 0), 0)) || 0);
+    }, 0);
+    const sorted = [...quotes].sort((a, b) =>
+      new Date(b.quote_date || b.updated_date || b.created_date || 0) - new Date(a.quote_date || a.updated_date || a.created_date || 0)
     );
-    return { open, closed, recent, sorted };
-  }, [tickets]);
+    return { active, accepted, total, sorted };
+  }, [quotes, quoteItems]);
 
   const deviceStats = useMemo(() => {
     const online = devices.filter(d => normalized(d.status) === 'online');
@@ -207,99 +208,62 @@ export default function CustomerDashboardTab({
   }, [devices]);
 
   const activeContracts = useMemo(() => contracts.filter(c => normalized(c.status) === 'active'), [contracts]);
-  const expiringContracts = useMemo(() => activeContracts.filter(c => {
-    if (!c.end_date) return false;
-    const daysLeft = differenceInDays(new Date(c.end_date), new Date());
-    return daysLeft >= 0 && daysLeft <= 60;
-  }), [activeContracts]);
-
-  const activeLicenseSpend = useMemo(
-    () => licenses.filter(l => normalized(l.status) === 'active').reduce((sum, l) => sum + (Number(l.total_cost) || 0), 0),
-    [licenses]
-  );
-
-  const healthTone = invoiceStats.overdue.length > 0
-    ? 'rose'
-    : ticketStats.open.length > 0 || deviceStats.offline.length > 0 || expiringContracts.length > 0
-      ? 'amber'
-      : 'emerald';
-  const healthLabel = healthTone === 'rose'
-    ? 'Action needed'
-    : healthTone === 'amber'
-      ? 'Open items'
-      : 'Operational';
-
-  const primaryContact = contacts.find(c => c.is_primary) || contacts[0];
 
   return (
     <div className="space-y-4">
-      <section className={cn(
-        'rounded-xl border p-4 shadow-sm',
-        healthTone === 'rose' && 'border-rose-200 bg-rose-50',
-        healthTone === 'amber' && 'border-amber-200 bg-amber-50',
-        healthTone === 'emerald' && 'border-emerald-200 bg-emerald-50'
-      )}>
+      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-3">
-            <div className={cn(
-              'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border bg-white',
-              healthTone === 'rose' && 'border-rose-200 text-rose-700',
-              healthTone === 'amber' && 'border-amber-200 text-amber-700',
-              healthTone === 'emerald' && 'border-emerald-200 text-emerald-700'
-            )}>
-              {healthTone === 'emerald' ? <ShieldCheck className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700">
+              <ReceiptText className="h-5 w-5" />
             </div>
             <div>
-              <p className="font-semibold text-slate-950">{healthLabel}</p>
+              <p className="font-semibold text-slate-950">Account overview</p>
               <p className="mt-0.5 text-sm text-slate-600">
-                {invoiceStats.overdue.length > 0
-                  ? `${invoiceStats.overdue.length} overdue invoice${invoiceStats.overdue.length !== 1 ? 's' : ''} need review.`
-                  : ticketStats.open.length > 0
-                    ? `${ticketStats.open.length} support item${ticketStats.open.length !== 1 ? 's' : ''} currently open.`
-                    : 'No urgent customer-facing items are showing on this account.'}
+                Billing, quotes, services, and inventory for this customer account.
               </p>
             </div>
           </div>
           <Link
-            to={tabUrl(customerId, ticketStats.open.length > 0 ? 'tickets' : 'services')}
+            to={tabUrl(customerId, 'billing')}
             className="inline-flex h-9 items-center justify-center rounded-lg bg-slate-950 px-4 text-sm font-medium text-white hover:bg-slate-800"
           >
-            {ticketStats.open.length > 0 ? 'View tickets' : 'View services'}
+            View billing
           </Link>
         </div>
       </section>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
         <PulseMetric
-          icon={HelpCircle}
-          label="Support tickets"
-          value={`${ticketStats.open.length} open`}
-          detail={`${ticketStats.recent.length} ticket${ticketStats.recent.length !== 1 ? 's' : ''} in the last 30 days`}
-          tone={ticketStats.open.length > 0 ? 'amber' : 'emerald'}
-          to={tabUrl(customerId, 'tickets')}
-        />
-        <PulseMetric
           icon={CreditCard}
-          label="Invoice summary"
-          value={invoiceStats.overdueAmount > 0 ? money(invoiceStats.overdueAmount) : money(invoiceStats.pendingAmount)}
-          detail={invoiceStats.overdueAmount > 0 ? 'overdue balance' : `${invoiceStats.pending.length} pending invoice${invoiceStats.pending.length !== 1 ? 's' : ''}`}
-          tone={invoiceStats.overdueAmount > 0 ? 'rose' : 'blue'}
+          label="Invoice balance"
+          value={money(invoiceStats.dueAmount)}
+          detail={`${invoiceStats.due.length} invoice${invoiceStats.due.length !== 1 ? 's' : ''} with a balance`}
+          tone="blue"
           to={tabUrl(customerId, 'billing')}
         />
         <PulseMetric
+          icon={FileText}
+          label="Quotes"
+          value={`${quoteStats.active.length} active`}
+          detail={`${money(quoteStats.total, 0)} total quoted`}
+          tone="amber"
+          to={tabUrl(customerId, 'quotes')}
+        />
+        <PulseMetric
           icon={Monitor}
-          label="Device status"
-          value={`${deviceStats.online.length}/${deviceStats.total} online`}
-          detail={`${deviceStats.online.length} online - ${deviceStats.offline.length} offline`}
-          tone={deviceStats.offline.length > 0 ? 'amber' : 'violet'}
+          label="Inventory"
+          value={`${deviceStats.total} devices`}
+          detail={`${deviceStats.servers.length} servers - ${deviceStats.workstations.length} workstations`}
+          tone="violet"
           to={tabUrl(customerId, 'services')}
         />
         <PulseMetric
-          icon={FileText}
+          icon={Package}
           label="Service plan"
           value={`${activeContracts.length} active`}
-          detail={expiringContracts.length > 0 ? `${expiringContracts.length} renewing soon` : `${activeLineItems.length} active line item${activeLineItems.length !== 1 ? 's' : ''}`}
-          tone={expiringContracts.length > 0 ? 'amber' : 'slate'}
+          detail={`${activeLineItems.length} recurring line item${activeLineItems.length !== 1 ? 's' : ''}`}
+          tone="slate"
           to={tabUrl(customerId, 'billing')}
         />
       </div>
@@ -307,28 +271,8 @@ export default function CustomerDashboardTab({
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.8fr)]">
         <div className="space-y-4">
           <Panel
-            title="Current work"
-            description="Recent support activity and open items."
-            action={<Link to={tabUrl(customerId, 'tickets')} className="text-sm font-medium text-slate-600 hover:text-slate-950">All tickets</Link>}
-          >
-            {ticketStats.sorted.length === 0 ? (
-              <EmptyMessage
-                icon={CheckCircle2}
-                title="Zero active issues"
-                description="Your infrastructure is performing optimally based on the customer-facing data currently available."
-              />
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {ticketStats.sorted.slice(0, 5).map(ticket => (
-                  <TicketRow key={ticket.id || ticket.external_id || ticket.subject} ticket={ticket} />
-                ))}
-              </div>
-            )}
-          </Panel>
-
-          <Panel
-            title="Billing health"
-            description="Recurring service cost and invoice status."
+            title="Billing summary"
+            description="Recurring service cost and invoice balance."
             action={<Link to={tabUrl(customerId, 'billing')} className="text-sm font-medium text-slate-600 hover:text-slate-950">Billing</Link>}
           >
             <div className="grid grid-cols-1 divide-y divide-slate-100 md:grid-cols-3 md:divide-x md:divide-y-0">
@@ -338,32 +282,48 @@ export default function CustomerDashboardTab({
                 <p className="mt-1 text-xs text-slate-500">{activeLineItems.length} active line item{activeLineItems.length !== 1 ? 's' : ''}</p>
               </div>
               <div className="p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Pending</p>
-                <p className="mt-2 text-2xl font-bold tabular-nums text-slate-950">{money(invoiceStats.pendingAmount)}</p>
-                <p className="mt-1 text-xs text-slate-500">{invoiceStats.pending.length} invoice{invoiceStats.pending.length !== 1 ? 's' : ''}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Invoice balance</p>
+                <p className="mt-2 text-2xl font-bold tabular-nums text-slate-950">{money(invoiceStats.dueAmount)}</p>
+                <p className="mt-1 text-xs text-slate-500">{invoiceStats.due.length} invoice{invoiceStats.due.length !== 1 ? 's' : ''}</p>
               </div>
               <div className="p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Overdue</p>
-                <p className={cn('mt-2 text-2xl font-bold tabular-nums', invoiceStats.overdueAmount > 0 ? 'text-rose-700' : 'text-slate-950')}>
-                  {money(invoiceStats.overdueAmount)}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">{invoiceStats.overdue.length} invoice{invoiceStats.overdue.length !== 1 ? 's' : ''}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Paid invoices</p>
+                <p className="mt-2 text-2xl font-bold tabular-nums text-slate-950">{invoiceStats.paid.length}</p>
+                <p className="mt-1 text-xs text-slate-500">Synced from billing</p>
               </div>
             </div>
+          </Panel>
+
+          <Panel
+            title="Quote activity"
+            description="Recently synced proposals and approvals."
+            action={<Link to={tabUrl(customerId, 'quotes')} className="text-sm font-medium text-slate-600 hover:text-slate-950">Quotes</Link>}
+          >
+            {quoteStats.sorted.length === 0 ? (
+              <EmptyMessage
+                icon={FileText}
+                title="No quotes published"
+                description="Approved and sent quotes will appear here when they are available."
+              />
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {quoteStats.sorted.slice(0, 5).map(quote => (
+                  <QuoteRow key={quote.id || quote.quote_number || quote.title} quote={quote} items={quoteItems} />
+                ))}
+              </div>
+            )}
           </Panel>
         </div>
 
         <div className="space-y-4">
-          <Panel title="Service health" description="Snapshot of core managed services.">
+          <Panel title="Services and inventory" description="What is currently represented in the portal.">
             <div className="divide-y divide-slate-100">
               <div className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-2">
                   <Monitor className="h-4 w-4 text-blue-600" />
                   <span className="text-sm font-medium text-slate-800">Devices</span>
                 </div>
-                <StatusPill tone={deviceStats.offline.length > 0 ? 'amber' : 'emerald'}>
-                  {deviceStats.online.length}/{deviceStats.total} online
-                </StatusPill>
+                <StatusPill tone="blue">{deviceStats.total} total</StatusPill>
               </div>
               <div className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-2">
@@ -377,43 +337,30 @@ export default function CustomerDashboardTab({
                   <FileText className="h-4 w-4 text-amber-600" />
                   <span className="text-sm font-medium text-slate-800">Contracts</span>
                 </div>
-                <StatusPill tone={expiringContracts.length > 0 ? 'amber' : 'emerald'}>
-                  {activeContracts.length} active
-                </StatusPill>
+                <StatusPill tone="slate">{activeContracts.length} active</StatusPill>
               </div>
             </div>
           </Panel>
 
-          <Panel title="Your support team" description="Primary contact details from your account.">
-            {primaryContact ? (
-              <div className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-700">
-                    {(primaryContact.full_name || primaryContact.email || '?').charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-slate-950">{primaryContact.full_name || 'Primary contact'}</p>
-                    <p className="truncate text-sm text-slate-500">{primaryContact.email || primaryContact.title || 'No email listed'}</p>
-                  </div>
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Team</p>
-                    <p className="mt-1 text-lg font-bold text-slate-950">{contacts.length}</p>
-                  </div>
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">SaaS spend</p>
-                    <p className="mt-1 text-lg font-bold text-slate-950">{money(activeLicenseSpend, 0)}</p>
-                  </div>
-                </div>
+          <Panel title="Account totals" description="Quick customer account reference.">
+            <div className="grid grid-cols-2 gap-2 p-4">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Team</p>
+                <p className="mt-1 text-lg font-bold text-slate-950">{contacts.length}</p>
               </div>
-            ) : (
-              <EmptyMessage
-                icon={Users}
-                title="No contact listed"
-                description="Your provider has not published a primary contact for this account yet."
-              />
-            )}
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Accepted quotes</p>
+                <p className="mt-1 text-lg font-bold text-slate-950">{quoteStats.accepted.length}</p>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Applications</p>
+                <p className="mt-1 text-lg font-bold text-slate-950">{licenses.length}</p>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Services</p>
+                <p className="mt-1 text-lg font-bold text-slate-950">{serviceTags.length}</p>
+              </div>
+            </div>
           </Panel>
 
           {serviceTags.length > 0 && (
@@ -422,9 +369,11 @@ export default function CustomerDashboardTab({
                 {serviceTags.map(tag => (
                   <span
                     key={tag.key}
-                    className={cn('inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium', tag.text)}
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 py-1 pl-1 pr-2.5 text-[11px] font-medium text-slate-700"
                   >
-                    <span className={cn('h-1.5 w-1.5 rounded-full', tag.dot)} />
+                    <span className={cn('flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[9px] font-bold leading-none text-white', tag.badge)}>
+                      {tag.mark || tag.label?.slice(0, 2)}
+                    </span>
                     {tag.label}
                   </span>
                 ))}
