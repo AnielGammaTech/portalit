@@ -37,7 +37,6 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonStats, SkeletonTable } from "@/components/ui/shimmer-skeleton";
-import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn, safeFormatDate } from "@/lib/utils";
 // date-fns calls replaced by safe wrappers from @/lib/utils
@@ -618,18 +617,17 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
     );
   }
 
-  const totalContractValue = contracts
-    .filter(c => c.status === 'active')
-    .reduce((sum, c) => sum + (c.value || 0), 0);
-
   const totalLicenseCost = licenses
     .filter(l => l.status === 'active')
     .reduce((sum, l) => sum + (l.total_cost || 0), 0);
   const customerLogoUrl = customer.logo_url ? resolveFileUrl(customer.logo_url) : null;
   const showCustomerLogo = customerLogoUrl && failedCustomerLogoUrl !== customerLogoUrl;
+  const openTicketCount = tickets.filter(t => ['open', 'new', 'in_progress', 'pending', 'active'].includes((t.status || '').toLowerCase())).length;
+  const managedDeviceCount = devices.length;
+  const activeServiceCount = serviceTags.length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {canUseAdminActions && (
         <Breadcrumbs items={[
           { label: 'Customers', href: createPageUrl('Customers') },
@@ -663,21 +661,17 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
         </motion.div>
       )}
 
-      {/* Account Header — HeroUI-inspired */}
+      {/* Customer Home Header */}
       <motion.div
         {...fadeInUp}
-        className="relative bg-card rounded-[14px] border shadow-hero-md overflow-hidden"
+        className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
       >
-        {/* Gradient accent line */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-primary/60 to-primary/20" />
-
-        <div className="p-6">
-          <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
-            {/* Logo & Name */}
-            <div className="flex items-center gap-4">
+        <div className="border-b border-slate-100 bg-slate-50/70 px-5 py-4">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex min-w-0 items-start gap-4">
               <div
                 className={cn(
-                  "relative w-14 h-14 rounded-hero-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group",
+                  "relative flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white group",
                   canUseAdminActions && "cursor-pointer"
                 )}
                 onClick={() => canUseAdminActions && logoInputRef.current?.click()}
@@ -686,7 +680,7 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
                   <img
                     src={customerLogoUrl}
                     alt={customer.name}
-                    className="w-14 h-14 rounded-hero-lg object-cover"
+                    className="h-14 w-14 rounded-xl object-cover"
                     onError={() => setFailedCustomerLogoUrl(customerLogoUrl)}
                   />
                 ) : (
@@ -695,7 +689,7 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
                   </span>
                 )}
                 {canUseAdminActions && (
-                  <div className="absolute inset-0 bg-black/50 rounded-hero-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/50 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                     {uploadingLogo ? (
                       <Loader2 className="w-5 h-5 text-white animate-spin" />
                     ) : (
@@ -711,9 +705,9 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
                   onChange={handleLogoUpload}
                 />
               </div>
-              <div>
-                <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-bold text-foreground">{customer.name}</h1>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="truncate text-2xl font-semibold text-slate-950">{customer.name}</h1>
                   <Badge
                     variant={customer.status === 'active' ? 'flat-success' : customer.status === 'suspended' ? 'flat-destructive' : 'secondary'}
                     className="capitalize"
@@ -721,33 +715,15 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
                     {customer.status || 'Active'}
                   </Badge>
                 </div>
-                {serviceTags.length > 0 && (
-                  <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                    {serviceTags.map((tag) => (
-                      <span
-                        key={tag.key}
-                        className={cn(
-                          'inline-flex items-center gap-1.5 pl-1.5 pr-2.5 py-0.5 rounded-full text-[11px] font-medium',
-                          'bg-muted/60 border border-border/50',
-                          'transition-colors hover:bg-muted',
-                          tag.text
-                        )}
-                      >
-                        <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', tag.dot)} />
-                        {tag.label}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <div className="flex flex-wrap items-center gap-4 mt-1.5 text-sm text-muted-foreground">
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-slate-500">
                   {customer.email && (
-                    <a href={`mailto:${customer.email}`} className="flex items-center gap-1.5 hover:text-foreground transition-colors duration-[250ms]">
+                    <a href={`mailto:${customer.email}`} className="flex items-center gap-1.5 hover:text-slate-900">
                       <Mail className="w-3.5 h-3.5" />
                       {customer.email}
                     </a>
                   )}
                   {customer.phone && (
-                    <a href={`tel:${customer.phone}`} className="flex items-center gap-1.5 hover:text-foreground transition-colors duration-[250ms]">
+                    <a href={`tel:${customer.phone}`} className="flex items-center gap-1.5 hover:text-slate-900">
                       <Phone className="w-3.5 h-3.5" />
                       {customer.phone}
                     </a>
@@ -761,50 +737,79 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
                 </div>
               </div>
             </div>
+            <div className="grid grid-cols-3 gap-2 xl:min-w-[360px]">
+              {[
+                { label: 'Open work', value: openTicketCount, tone: openTicketCount > 0 ? 'text-amber-700 bg-amber-50 border-amber-200' : 'text-emerald-700 bg-emerald-50 border-emerald-200' },
+                { label: 'Devices', value: managedDeviceCount, tone: 'text-blue-700 bg-blue-50 border-blue-200' },
+                { label: 'Services', value: activeServiceCount, tone: 'text-violet-700 bg-violet-50 border-violet-200' },
+              ].map(item => (
+                <div key={item.label} className={cn('rounded-lg border px-3 py-2 text-center', item.tone)}>
+                  <p className="text-xl font-bold tabular-nums">{item.value}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide">{item.label}</p>
+                </div>
+              ))}
+            </div>
           </div>
-
-          {/* Map */}
-          {customer.address && (
-            <CustomerMap addresses={[customer.address]} />
-          )}
-
-          {/* Quick Stats — Animated counters */}
-          <motion.div
-            variants={staggerContainer}
-            initial="initial"
-            animate="animate"
-            className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-6"
-          >
-            {[
-              { icon: Users, value: contacts.length, label: 'Team', color: 'text-primary', bg: 'bg-primary/10' },
-              { icon: FileText, value: contracts.filter(c => c.status === 'active').length, label: 'Contracts', color: 'text-warning', bg: 'bg-warning/10' },
-              { icon: HelpCircle, value: customer?.total_tickets || tickets.length, label: 'Tickets', color: 'text-destructive', bg: 'bg-destructive/10' },
-              { icon: Cloud, value: licenses.length, label: 'Apps', color: 'text-[#7828C8]', bg: 'bg-[#7828C8]/10' },
-              { icon: Monitor, value: devices.length, label: 'Devices', color: 'text-success', bg: 'bg-success/10' },
-            ].map(stat => (
-              <motion.div
-                key={stat.label}
-                variants={staggerItem}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-hero-md border border-border/50 bg-card hover:shadow-hero-sm transition-all duration-[250ms] cursor-default"
-              >
-                <div className={cn('w-8 h-8 rounded-hero-sm flex items-center justify-center', stat.bg)}>
-                  <stat.icon className={cn('w-4 h-4', stat.color)} />
-                </div>
-                <div>
-                  <AnimatedCounter value={stat.value} className="text-lg font-bold text-foreground" />
-                  <p className="text-[11px] text-muted-foreground leading-none mt-0.5">{stat.label}</p>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
         </div>
+
+        {serviceTags.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-5 py-3">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Connected services</span>
+            {serviceTags.map((tag) => (
+              <span
+                key={tag.key}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium',
+                  tag.text
+                )}
+              >
+                <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', tag.dot)} />
+                {tag.label}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {customer.address && (
+          <div className="px-5 py-4">
+            <CustomerMap addresses={[customer.address]} />
+          </div>
+        )}
       </motion.div>
 
+      <motion.div
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+        className="grid grid-cols-2 gap-3 lg:grid-cols-5"
+      >
+        {[
+          { icon: DollarSign, value: `$${totalLicenseCost.toLocaleString('en-US', { minimumFractionDigits: 0 })}`, label: 'SaaS spend', color: 'text-emerald-700', bg: 'bg-emerald-50' },
+          { icon: Users, value: contacts.length, label: 'Team', color: 'text-blue-700', bg: 'bg-blue-50' },
+          { icon: FileText, value: contracts.filter(c => c.status === 'active').length, label: 'Contracts', color: 'text-amber-700', bg: 'bg-amber-50' },
+          { icon: HelpCircle, value: customer?.total_tickets || tickets.length, label: 'Tickets', color: 'text-rose-700', bg: 'bg-rose-50' },
+          { icon: Monitor, value: devices.length, label: 'Devices', color: 'text-violet-700', bg: 'bg-violet-50' },
+        ].map(stat => (
+          <motion.div
+            key={stat.label}
+            variants={staggerItem}
+            className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xl font-bold tabular-nums text-slate-950">{stat.value}</p>
+                <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{stat.label}</p>
+              </div>
+              <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg', stat.bg)}>
+                <stat.icon className={cn('h-4 w-4', stat.color)} />
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </motion.div>
 
-
-      {/* Tabs — HeroUI-inspired with animated styling */}
       <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6" id="customer-tabs">
-        <TabsList className="bg-zinc-100 dark:bg-zinc-800/80 border-0 rounded-hero-lg p-1 flex gap-1 h-auto overflow-x-auto scrollbar-hide">
+        <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm scrollbar-hide">
           {[
             { value: 'dashboard', icon: BarChart3, label: 'Dashboard' },
             { value: 'billing', icon: DollarSign, label: 'Billing' },
@@ -817,7 +822,7 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
             <TabsTrigger
               key={tab.value}
               value={tab.value}
-              className="gap-2 py-2 px-4 rounded-hero-sm text-zinc-500 dark:text-zinc-400 font-medium transition-all duration-[250ms] data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:text-foreground data-[state=active]:shadow-sm hover:text-foreground whitespace-nowrap"
+              className="gap-2 rounded-lg px-4 py-2 text-slate-500 transition-all data-[state=active]:bg-slate-950 data-[state=active]:text-white data-[state=active]:shadow-none hover:text-slate-900 whitespace-nowrap"
             >
               <tab.icon className="w-4 h-4" />
               <span className="text-sm">{tab.label}</span>

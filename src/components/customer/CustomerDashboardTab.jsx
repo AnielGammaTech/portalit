@@ -1,84 +1,158 @@
 import React, { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import {
-  Users,
-  Monitor,
-  DollarSign,
+  AlertCircle,
+  CheckCircle2,
+  Cloud,
+  CreditCard,
   FileText,
   HelpCircle,
-  Cloud,
-  CheckCircle2,
-  AlertCircle,
-  Clock,
-  ArrowUpRight,
-  ArrowDownRight,
+  Monitor,
+  ShieldCheck,
+  Users,
 } from 'lucide-react';
-import { cn } from "@/lib/utils";
 import { differenceInDays } from 'date-fns';
 
-// ── Stat Card ──────────────────────────────────────────────────────
-function StatCard({ icon: Icon, label, value, subtitle, color, bg, trend, className }) {
+import { cn, safeFormatDate } from '@/lib/utils';
+import { createPageUrl } from '../../utils';
+
+function money(value, digits = 2) {
+  return `$${(Number(value) || 0).toLocaleString('en-US', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })}`;
+}
+
+function normalized(value) {
+  return String(value || '').toLowerCase();
+}
+
+function tabUrl(customerId, tab) {
+  return createPageUrl(`CustomerDetail?id=${customerId || ''}&tab=${tab}`);
+}
+
+function Panel({ title, description, action, children, className }) {
   return (
-    <div className={cn("bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow", className)}>
-      <div className="flex items-center gap-2 mb-2">
-        <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center", bg)}>
-          <Icon className={cn("w-4.5 h-4.5", color)} />
+    <section className={cn('overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm', className)}>
+      <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
+        <div className="min-w-0">
+          <h3 className="font-semibold text-slate-950">{title}</h3>
+          {description && <p className="mt-0.5 text-sm text-slate-500">{description}</p>}
         </div>
-        {trend && (
-          <div className={cn(
-            "ml-auto flex items-center gap-0.5 text-[11px] font-medium rounded-full px-2 py-0.5",
-            trend > 0 ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"
-          )}>
-            {trend > 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-            {Math.abs(trend)}%
-          </div>
-        )}
+        {action}
       </div>
-      <p className="text-2xl font-bold text-gray-900">{value}</p>
-      <p className="text-xs text-gray-500 mt-0.5">{label}</p>
-      {subtitle && <p className="text-[10px] text-gray-400 mt-1">{subtitle}</p>}
+      {children}
+    </section>
+  );
+}
+
+function PulseMetric({ icon: Icon, label, value, detail, to, tone = 'slate' }) {
+  const toneClass = {
+    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    amber: 'bg-amber-50 text-amber-700 border-amber-200',
+    rose: 'bg-rose-50 text-rose-700 border-rose-200',
+    blue: 'bg-blue-50 text-blue-700 border-blue-200',
+    violet: 'bg-violet-50 text-violet-700 border-violet-200',
+    slate: 'bg-slate-50 text-slate-700 border-slate-200',
+  }[tone];
+
+  const content = (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:bg-slate-50">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+          <p className="mt-2 truncate text-2xl font-bold tabular-nums text-slate-950">{value}</p>
+          {detail && <p className="mt-1 truncate text-xs text-slate-500">{detail}</p>}
+        </div>
+        <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border', toneClass)}>
+          <Icon className="h-5 w-5" />
+        </div>
+      </div>
+    </div>
+  );
+
+  return to ? <Link to={to}>{content}</Link> : content;
+}
+
+function StatusPill({ tone, children }) {
+  const toneClass = {
+    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    amber: 'bg-amber-50 text-amber-700 border-amber-200',
+    rose: 'bg-rose-50 text-rose-700 border-rose-200',
+    blue: 'bg-blue-50 text-blue-700 border-blue-200',
+    slate: 'bg-slate-50 text-slate-600 border-slate-200',
+  }[tone] || 'bg-slate-50 text-slate-600 border-slate-200';
+
+  return (
+    <span className={cn('inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold', toneClass)}>
+      {children}
+    </span>
+  );
+}
+
+function EmptyMessage({ icon: Icon, title, description }) {
+  return (
+    <div className="px-4 py-8 text-center">
+      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-slate-50 text-slate-400">
+        <Icon className="h-5 w-5" />
+      </div>
+      <p className="font-medium text-slate-900">{title}</p>
+      {description && <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">{description}</p>}
     </div>
   );
 }
 
-// ── Progress Ring (tiny) ───────────────────────────────────────────
-function MiniProgress({ value, max, color = 'stroke-emerald-500', size = 28 }) {
-  const pct = max > 0 ? Math.min(value / max, 1) : 0;
-  const r = (size - 4) / 2;
-  const circ = 2 * Math.PI * r;
+function TicketRow({ ticket }) {
+  const status = normalized(ticket.status);
+  const tone = status.includes('open') || status.includes('new')
+    ? 'amber'
+    : status.includes('progress')
+      ? 'blue'
+      : status.includes('closed') || status.includes('resolved')
+        ? 'emerald'
+        : 'slate';
+
   return (
-    <svg width={size} height={size} className="flex-shrink-0 -rotate-90">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e5e7eb" strokeWidth={3} />
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" className={color} strokeWidth={3}
-        strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)} strokeLinecap="round" />
-    </svg>
+    <div className="flex items-center gap-3 px-4 py-3">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
+        <HelpCircle className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-slate-950">
+          {ticket.external_id ? `#${ticket.external_id} - ` : ''}{ticket.subject || ticket.summary || 'Support ticket'}
+        </p>
+        <p className="mt-0.5 truncate text-xs text-slate-500">
+          {ticket.assigned_to ? `Tech: ${ticket.assigned_to}` : ticket.contact_name ? `By: ${ticket.contact_name}` : 'No owner shown'}
+          {ticket.created_date && ` - ${safeFormatDate(ticket.created_date, 'MMM d, yyyy')}`}
+        </p>
+      </div>
+      <StatusPill tone={tone}>{ticket.status?.replace('_', ' ') || 'Open'}</StatusPill>
+    </div>
   );
 }
 
-// ── Main Component ─────────────────────────────────────────────────
 export default function CustomerDashboardTab({
   customer,
-  contacts,
-  devices,
-  contracts,
-  tickets,
-  invoices,
-  lineItems,
-  recurringBills,
-  licenses,
-  serviceTags,
+  contacts = [],
+  devices = [],
+  contracts = [],
+  tickets = [],
+  invoices = [],
+  lineItems = [],
+  recurringBills = [],
+  licenses = [],
+  serviceTags = [],
 }) {
-  // ── Financial stats ────────────────────────────────────────────
+  const customerId = customer?.id;
 
-  // Only sum line items from active recurring bills (exclude expired/inactive)
   const activeBillIds = useMemo(() => {
     const now = new Date();
     return new Set(
-      (recurringBills || [])
+      recurringBills
         .filter(b => {
-          if ((b.status || '').toLowerCase() === 'inactive') return false;
+          if (normalized(b.status) === 'inactive') return false;
           if (b.end_date) {
             const end = new Date(b.end_date);
-            // Ignore far-future placeholder dates (e.g. 2099)
             if (end.getFullYear() < 2090 && end < now) return false;
           }
           return true;
@@ -88,360 +162,277 @@ export default function CustomerDashboardTab({
   }, [recurringBills]);
 
   const activeLineItems = useMemo(
-    () => lineItems.filter(li => activeBillIds.has(li.recurring_bill_id)),
+    () => lineItems.filter(item => activeBillIds.has(item.recurring_bill_id)),
     [lineItems, activeBillIds]
   );
 
-  const monthlyBillIds = useMemo(() => {
-    return new Set(
-      (recurringBills || [])
-        .filter(b => activeBillIds.has(b.id) && !['yearly', 'annual', 'annually'].includes((b.frequency || '').toLowerCase()))
-        .map(b => b.id)
-    );
-  }, [recurringBills, activeBillIds]);
+  const monthlyBillIds = useMemo(() => new Set(
+    recurringBills
+      .filter(b => activeBillIds.has(b.id) && !['yearly', 'annual', 'annually'].includes(normalized(b.frequency)))
+      .map(b => b.id)
+  ), [recurringBills, activeBillIds]);
 
   const monthlyCost = useMemo(
-    () => activeLineItems.filter(li => monthlyBillIds.has(li.recurring_bill_id)).reduce((sum, item) => sum + (item.net_amount || 0), 0),
+    () => activeLineItems
+      .filter(item => monthlyBillIds.has(item.recurring_bill_id))
+      .reduce((sum, item) => sum + (Number(item.net_amount ?? item.total ?? item.amount) || 0), 0),
     [activeLineItems, monthlyBillIds]
   );
 
-  const activeContracts = useMemo(
-    () => contracts.filter(c => c.status === 'active'),
-    [contracts]
-  );
-
-  const contractValue = useMemo(
-    () => activeContracts.reduce((sum, c) => sum + (c.value || 0), 0),
-    [activeContracts]
-  );
-
-  // ── Invoice stats ──────────────────────────────────────────────
   const invoiceStats = useMemo(() => {
-    const paid = invoices.filter(i => (i.status || '').toLowerCase() === 'paid');
-    const pending = invoices.filter(i => ['pending', 'sent', 'open', 'unpaid'].includes((i.status || '').toLowerCase()));
-    const overdue = invoices.filter(i => (i.status || '').toLowerCase() === 'overdue');
-    const paidAmount = paid.reduce((s, i) => s + (i.total || i.amount || 0), 0);
-    const pendingAmount = pending.reduce((s, i) => s + (parseFloat(i.amount_due) || i.total || i.amount || 0), 0);
-    const overdueAmount = overdue.reduce((s, i) => s + (parseFloat(i.amount_due) || i.total || i.amount || 0), 0);
-    return { paid: paid.length, pending: pending.length, overdue: overdue.length, paidAmount, pendingAmount, overdueAmount };
+    const overdue = invoices.filter(i => normalized(i.status) === 'overdue');
+    const pending = invoices.filter(i => ['pending', 'sent', 'open', 'unpaid'].includes(normalized(i.status)));
+    const paid = invoices.filter(i => normalized(i.status) === 'paid');
+    const overdueAmount = overdue.reduce((sum, inv) => sum + (Number(inv.amount_due ?? inv.total ?? inv.amount) || 0), 0);
+    const pendingAmount = pending.reduce((sum, inv) => sum + (Number(inv.amount_due ?? inv.total ?? inv.amount) || 0), 0);
+    return { overdue, pending, paid, overdueAmount, pendingAmount };
   }, [invoices]);
 
-  // ── Ticket stats ───────────────────────────────────────────────
   const ticketStats = useMemo(() => {
-    const open = tickets.filter(t => ['open', 'new', 'in_progress', 'pending', 'active'].includes((t.status || '').toLowerCase()));
-    const closed = tickets.filter(t => ['closed', 'resolved', 'completed'].includes((t.status || '').toLowerCase()));
-    const recent = tickets.filter(t => {
-      if (!t.created_date) return false;
-      return differenceInDays(new Date(), new Date(t.created_date)) <= 30;
-    });
-    return { open: open.length, closed: closed.length, total: tickets.length, recent: recent.length };
+    const open = tickets.filter(t => ['open', 'new', 'in_progress', 'pending', 'active'].includes(normalized(t.status)));
+    const closed = tickets.filter(t => ['closed', 'resolved', 'completed'].includes(normalized(t.status)));
+    const recent = tickets.filter(t => t.created_date && differenceInDays(new Date(), new Date(t.created_date)) <= 30);
+    const sorted = [...tickets].sort((a, b) =>
+      new Date(b.updated_date || b.created_date || 0) - new Date(a.updated_date || a.created_date || 0)
+    );
+    return { open, closed, recent, sorted };
   }, [tickets]);
 
-  // ── Device stats ───────────────────────────────────────────────
   const deviceStats = useMemo(() => {
-    const online = devices.filter(d => (d.status || '').toLowerCase() === 'online');
-    const offline = devices.filter(d => (d.status || '').toLowerCase() === 'offline');
-    const servers = devices.filter(d => (d.device_type || '').toLowerCase().includes('server'));
-    const workstations = devices.filter(d => !((d.device_type || '').toLowerCase().includes('server')));
-    return { total: devices.length, online: online.length, offline: offline.length, servers: servers.length, workstations: workstations.length };
+    const online = devices.filter(d => normalized(d.status) === 'online');
+    const offline = devices.filter(d => normalized(d.status) === 'offline');
+    const servers = devices.filter(d => normalized(d.device_type).includes('server'));
+    const workstations = devices.filter(d => !normalized(d.device_type).includes('server'));
+    return { online, offline, servers, workstations, total: devices.length };
   }, [devices]);
 
-  // ── Contact stats ──────────────────────────────────────────────
-  const contactStats = useMemo(() => {
-    const primary = contacts.filter(c => c.is_primary);
-    const withEmail = contacts.filter(c => c.email);
-    return { total: contacts.length, primary: primary.length, withEmail: withEmail.length };
-  }, [contacts]);
+  const activeContracts = useMemo(() => contracts.filter(c => normalized(c.status) === 'active'), [contracts]);
+  const expiringContracts = useMemo(() => activeContracts.filter(c => {
+    if (!c.end_date) return false;
+    const daysLeft = differenceInDays(new Date(c.end_date), new Date());
+    return daysLeft >= 0 && daysLeft <= 60;
+  }), [activeContracts]);
 
-  // ── Contract health ────────────────────────────────────────────
-  const contractHealth = useMemo(() => {
-    const expiringSoon = activeContracts.filter(c => {
-      if (!c.end_date) return false;
-      const daysLeft = differenceInDays(new Date(c.end_date), new Date());
-      return daysLeft >= 0 && daysLeft <= 60;
-    });
-    return { expiringSoon: expiringSoon.length, active: activeContracts.length };
-  }, [activeContracts]);
+  const activeLicenseSpend = useMemo(
+    () => licenses.filter(l => normalized(l.status) === 'active').reduce((sum, l) => sum + (Number(l.total_cost) || 0), 0),
+    [licenses]
+  );
 
-  // ── Customer age ───────────────────────────────────────────────
-  const customerAge = useMemo(() => {
-    if (!customer?.created_date) return null;
-    const days = differenceInDays(new Date(), new Date(customer.created_date));
-    if (days < 30) return `${days}d`;
-    if (days < 365) return `${Math.floor(days / 30)}mo`;
-    const years = Math.floor(days / 365);
-    const months = Math.floor((days % 365) / 30);
-    return months > 0 ? `${years}y ${months}mo` : `${years}y`;
-  }, [customer?.created_date]);
+  const healthTone = invoiceStats.overdue.length > 0
+    ? 'rose'
+    : ticketStats.open.length > 0 || deviceStats.offline.length > 0 || expiringContracts.length > 0
+      ? 'amber'
+      : 'emerald';
+  const healthLabel = healthTone === 'rose'
+    ? 'Action needed'
+    : healthTone === 'amber'
+      ? 'Open items'
+      : 'Operational';
+
+  const primaryContact = contacts.find(c => c.is_primary) || contacts[0];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
+      <section className={cn(
+        'rounded-xl border p-4 shadow-sm',
+        healthTone === 'rose' && 'border-rose-200 bg-rose-50',
+        healthTone === 'amber' && 'border-amber-200 bg-amber-50',
+        healthTone === 'emerald' && 'border-emerald-200 bg-emerald-50'
+      )}>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-3">
+            <div className={cn(
+              'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border bg-white',
+              healthTone === 'rose' && 'border-rose-200 text-rose-700',
+              healthTone === 'amber' && 'border-amber-200 text-amber-700',
+              healthTone === 'emerald' && 'border-emerald-200 text-emerald-700'
+            )}>
+              {healthTone === 'emerald' ? <ShieldCheck className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
+            </div>
+            <div>
+              <p className="font-semibold text-slate-950">{healthLabel}</p>
+              <p className="mt-0.5 text-sm text-slate-600">
+                {invoiceStats.overdue.length > 0
+                  ? `${invoiceStats.overdue.length} overdue invoice${invoiceStats.overdue.length !== 1 ? 's' : ''} need review.`
+                  : ticketStats.open.length > 0
+                    ? `${ticketStats.open.length} support item${ticketStats.open.length !== 1 ? 's' : ''} currently open.`
+                    : 'No urgent customer-facing items are showing on this account.'}
+              </p>
+            </div>
+          </div>
+          <Link
+            to={tabUrl(customerId, ticketStats.open.length > 0 ? 'tickets' : 'services')}
+            className="inline-flex h-9 items-center justify-center rounded-lg bg-slate-950 px-4 text-sm font-medium text-white hover:bg-slate-800"
+          >
+            {ticketStats.open.length > 0 ? 'View tickets' : 'View services'}
+          </Link>
+        </div>
+      </section>
 
-      {/* Row 1 — Key Metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard
-          icon={DollarSign}
-          label="Monthly Recurring"
-          value={`$${monthlyCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
-          subtitle={`${activeLineItems.length} line item${activeLineItems.length !== 1 ? 's' : ''} (active)`}
-          color="text-emerald-600"
-          bg="bg-emerald-50"
-        />
-        <StatCard
-          icon={Users}
-          label="Team Members"
-          value={contactStats.total}
-          subtitle={contactStats.primary > 0 ? `${contactStats.primary} primary contact${contactStats.primary !== 1 ? 's' : ''}` : null}
-          color="text-blue-600"
-          bg="bg-blue-50"
-        />
-        <StatCard
-          icon={Monitor}
-          label="Devices"
-          value={deviceStats.total}
-          subtitle={deviceStats.total > 0
-            ? `${deviceStats.servers} server${deviceStats.servers !== 1 ? 's' : ''} · ${deviceStats.workstations} workstation${deviceStats.workstations !== 1 ? 's' : ''}`
-            : null}
-          color="text-violet-600"
-          bg="bg-violet-50"
-        />
-        <StatCard
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <PulseMetric
           icon={HelpCircle}
-          label="Open Tickets"
-          value={ticketStats.open}
-          subtitle={ticketStats.recent > 0 ? `${ticketStats.recent} in last 30 days` : `${ticketStats.total} total`}
-          color="text-orange-600"
-          bg="bg-orange-50"
+          label="Support tickets"
+          value={`${ticketStats.open.length} open`}
+          detail={`${ticketStats.recent.length} ticket${ticketStats.recent.length !== 1 ? 's' : ''} in the last 30 days`}
+          tone={ticketStats.open.length > 0 ? 'amber' : 'emerald'}
+          to={tabUrl(customerId, 'tickets')}
+        />
+        <PulseMetric
+          icon={CreditCard}
+          label="Invoice summary"
+          value={invoiceStats.overdueAmount > 0 ? money(invoiceStats.overdueAmount) : money(invoiceStats.pendingAmount)}
+          detail={invoiceStats.overdueAmount > 0 ? 'overdue balance' : `${invoiceStats.pending.length} pending invoice${invoiceStats.pending.length !== 1 ? 's' : ''}`}
+          tone={invoiceStats.overdueAmount > 0 ? 'rose' : 'blue'}
+          to={tabUrl(customerId, 'billing')}
+        />
+        <PulseMetric
+          icon={Monitor}
+          label="Device status"
+          value={`${deviceStats.online.length}/${deviceStats.total} online`}
+          detail={`${deviceStats.online.length} online - ${deviceStats.offline.length} offline`}
+          tone={deviceStats.offline.length > 0 ? 'amber' : 'violet'}
+          to={tabUrl(customerId, 'services')}
+        />
+        <PulseMetric
+          icon={FileText}
+          label="Service plan"
+          value={`${activeContracts.length} active`}
+          detail={expiringContracts.length > 0 ? `${expiringContracts.length} renewing soon` : `${activeLineItems.length} active line item${activeLineItems.length !== 1 ? 's' : ''}`}
+          tone={expiringContracts.length > 0 ? 'amber' : 'slate'}
+          to={tabUrl(customerId, 'billing')}
         />
       </div>
 
-      {/* Row 2 — Financial + Contract Health side by side */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-
-        {/* Invoice Summary */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Invoice Summary</h4>
-            <span className="text-xs text-gray-400">{invoices.length} total invoices</span>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-2 h-2 rounded-full bg-amber-500" />
-                <span className="text-xs text-gray-500">Pending</span>
-              </div>
-              <p className={cn("text-lg font-bold", invoiceStats.pending > 0 ? "text-amber-600" : "text-gray-900")}>{invoiceStats.pending}</p>
-              <p className="text-[10px] text-gray-400">${invoiceStats.pendingAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-            </div>
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-2 h-2 rounded-full bg-red-500" />
-                <span className="text-xs text-gray-500">Overdue</span>
-              </div>
-              <p className={cn("text-lg font-bold", invoiceStats.overdue > 0 ? "text-red-600" : "text-gray-900")}>{invoiceStats.overdue}</p>
-              <p className="text-[10px] text-gray-400">${invoiceStats.overdueAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-            </div>
-          </div>
-          {/* Bar */}
-          {invoices.length > 0 && (
-            <div className="flex h-2 rounded-full overflow-hidden mt-4 bg-gray-100">
-              {invoiceStats.paid > 0 && (
-                <div className="bg-emerald-500 transition-all" style={{ width: `${(invoiceStats.paid / invoices.length) * 100}%` }} />
-              )}
-              {invoiceStats.pending > 0 && (
-                <div className="bg-amber-400 transition-all" style={{ width: `${(invoiceStats.pending / invoices.length) * 100}%` }} />
-              )}
-              {invoiceStats.overdue > 0 && (
-                <div className="bg-red-500 transition-all" style={{ width: `${(invoiceStats.overdue / invoices.length) * 100}%` }} />
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Contracts & Services */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-4">Contracts & Services</h4>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-lg font-bold text-gray-900">{contractHealth.active}</p>
-              <p className="text-xs text-gray-500">Active Contracts</p>
-              {contractValue > 0 && (
-                <p className="text-[10px] text-gray-400 mt-0.5">${contractValue.toLocaleString('en-US', { minimumFractionDigits: 2 })} total value</p>
-              )}
-            </div>
-            <div>
-              <p className={cn("text-lg font-bold", contractHealth.expiringSoon > 0 ? "text-amber-600" : "text-gray-900")}>
-                {contractHealth.expiringSoon}
-              </p>
-              <p className="text-xs text-gray-500">Expiring in 60 days</p>
-            </div>
-          </div>
-
-          {/* Active Contract Types */}
-          {activeContracts.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">Active Contracts</p>
-              <div className="space-y-1.5">
-                {activeContracts.map(c => (
-                  <div key={c.id} className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
-                      <span className="text-gray-700 truncate">{c.name}</span>
-                    </div>
-                    {c.contract_type_raw && (
-                      <span className="text-[10px] text-indigo-600 font-medium flex-shrink-0 ml-2">{c.contract_type_raw}</span>
-                    )}
-                  </div>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.8fr)]">
+        <div className="space-y-4">
+          <Panel
+            title="Current work"
+            description="Recent support activity and open items."
+            action={<Link to={tabUrl(customerId, 'tickets')} className="text-sm font-medium text-slate-600 hover:text-slate-950">All tickets</Link>}
+          >
+            {ticketStats.sorted.length === 0 ? (
+              <EmptyMessage
+                icon={CheckCircle2}
+                title="Zero active issues"
+                description="Your infrastructure is performing optimally based on the customer-facing data currently available."
+              />
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {ticketStats.sorted.slice(0, 5).map(ticket => (
+                  <TicketRow key={ticket.id || ticket.external_id || ticket.subject} ticket={ticket} />
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </Panel>
 
-          {/* Active Integrations */}
+          <Panel
+            title="Billing health"
+            description="Recurring service cost and invoice status."
+            action={<Link to={tabUrl(customerId, 'billing')} className="text-sm font-medium text-slate-600 hover:text-slate-950">Billing</Link>}
+          >
+            <div className="grid grid-cols-1 divide-y divide-slate-100 md:grid-cols-3 md:divide-x md:divide-y-0">
+              <div className="p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Monthly services</p>
+                <p className="mt-2 text-2xl font-bold tabular-nums text-slate-950">{money(monthlyCost)}</p>
+                <p className="mt-1 text-xs text-slate-500">{activeLineItems.length} active line item{activeLineItems.length !== 1 ? 's' : ''}</p>
+              </div>
+              <div className="p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Pending</p>
+                <p className="mt-2 text-2xl font-bold tabular-nums text-slate-950">{money(invoiceStats.pendingAmount)}</p>
+                <p className="mt-1 text-xs text-slate-500">{invoiceStats.pending.length} invoice{invoiceStats.pending.length !== 1 ? 's' : ''}</p>
+              </div>
+              <div className="p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Overdue</p>
+                <p className={cn('mt-2 text-2xl font-bold tabular-nums', invoiceStats.overdueAmount > 0 ? 'text-rose-700' : 'text-slate-950')}>
+                  {money(invoiceStats.overdueAmount)}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">{invoiceStats.overdue.length} invoice{invoiceStats.overdue.length !== 1 ? 's' : ''}</p>
+              </div>
+            </div>
+          </Panel>
+        </div>
+
+        <div className="space-y-4">
+          <Panel title="Service health" description="Snapshot of core managed services.">
+            <div className="divide-y divide-slate-100">
+              <div className="flex items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <Monitor className="h-4 w-4 text-blue-600" />
+                  <span className="text-sm font-medium text-slate-800">Devices</span>
+                </div>
+                <StatusPill tone={deviceStats.offline.length > 0 ? 'amber' : 'emerald'}>
+                  {deviceStats.online.length}/{deviceStats.total} online
+                </StatusPill>
+              </div>
+              <div className="flex items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <Cloud className="h-4 w-4 text-violet-600" />
+                  <span className="text-sm font-medium text-slate-800">SaaS</span>
+                </div>
+                <StatusPill tone="blue">{licenses.length} license{licenses.length !== 1 ? 's' : ''}</StatusPill>
+              </div>
+              <div className="flex items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-amber-600" />
+                  <span className="text-sm font-medium text-slate-800">Contracts</span>
+                </div>
+                <StatusPill tone={expiringContracts.length > 0 ? 'amber' : 'emerald'}>
+                  {activeContracts.length} active
+                </StatusPill>
+              </div>
+            </div>
+          </Panel>
+
+          <Panel title="Your support team" description="Primary contact details from your account.">
+            {primaryContact ? (
+              <div className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-700">
+                    {(primaryContact.full_name || primaryContact.email || '?').charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-slate-950">{primaryContact.full_name || 'Primary contact'}</p>
+                    <p className="truncate text-sm text-slate-500">{primaryContact.email || primaryContact.title || 'No email listed'}</p>
+                  </div>
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Team</p>
+                    <p className="mt-1 text-lg font-bold text-slate-950">{contacts.length}</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">SaaS spend</p>
+                    <p className="mt-1 text-lg font-bold text-slate-950">{money(activeLicenseSpend, 0)}</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <EmptyMessage
+                icon={Users}
+                title="No contact listed"
+                description="Your provider has not published a primary contact for this account yet."
+              />
+            )}
+          </Panel>
+
           {serviceTags.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">Active Integrations</p>
-              <div className="flex flex-wrap gap-1.5">
+            <Panel title="Connected services">
+              <div className="flex flex-wrap gap-2 p-4">
                 {serviceTags.map(tag => (
                   <span
                     key={tag.key}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium",
-                      "bg-gray-50 border border-gray-200",
-                      tag.text
-                    )}
+                    className={cn('inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium', tag.text)}
                   >
-                    <span className={cn("w-1.5 h-1.5 rounded-full", tag.dot)} />
+                    <span className={cn('h-1.5 w-1.5 rounded-full', tag.dot)} />
                     {tag.label}
                   </span>
                 ))}
               </div>
-            </div>
+            </Panel>
           )}
         </div>
       </div>
-
-      {/* Row 3 — Device Health + Ticket Breakdown */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-
-        {/* Device Health */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">Device Health</h4>
-          {deviceStats.total === 0 ? (
-            <p className="text-sm text-gray-400">No devices synced</p>
-          ) : (
-            <div className="flex items-center gap-4">
-              <MiniProgress
-                value={deviceStats.online}
-                max={deviceStats.total}
-                color="stroke-emerald-500"
-                size={52}
-              />
-              <div className="flex-1 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" /> Online
-                  </span>
-                  <span className="text-xs font-bold text-gray-900">{deviceStats.online}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-red-400" /> Offline
-                  </span>
-                  <span className="text-xs font-bold text-gray-900">{deviceStats.offline}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-gray-300" /> Unknown
-                  </span>
-                  <span className="text-xs font-bold text-gray-900">{deviceStats.total - deviceStats.online - deviceStats.offline}</span>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Ticket Breakdown */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">Tickets</h4>
-          {ticketStats.total === 0 ? (
-            <p className="text-sm text-gray-400">No tickets found</p>
-          ) : (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-600 flex items-center gap-1.5">
-                  <AlertCircle className="w-3.5 h-3.5 text-orange-500" /> Open
-                </span>
-                <span className="text-sm font-bold text-gray-900">{ticketStats.open}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-600 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Resolved
-                </span>
-                <span className="text-sm font-bold text-gray-900">{ticketStats.closed}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-600 flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-blue-500" /> Last 30 days
-                </span>
-                <span className="text-sm font-bold text-gray-900">{ticketStats.recent}</span>
-              </div>
-              {/* Resolution rate */}
-              {ticketStats.total > 0 && (
-                <div className="pt-2 border-t border-gray-100">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] text-gray-400">Resolution Rate</span>
-                    <span className="text-[10px] font-medium text-gray-600">
-                      {Math.round((ticketStats.closed / ticketStats.total) * 100)}%
-                    </span>
-                  </div>
-                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-emerald-500 rounded-full transition-all"
-                      style={{ width: `${(ticketStats.closed / ticketStats.total) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* SaaS / Apps overview */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">SaaS & Apps</h4>
-          {licenses.length === 0 ? (
-            <p className="text-sm text-gray-400">No applications tracked</p>
-          ) : (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-600 flex items-center gap-1.5">
-                  <Cloud className="w-3.5 h-3.5 text-violet-500" /> Applications
-                </span>
-                <span className="text-sm font-bold text-gray-900">
-                  {[...new Set(licenses.map(l => l.application_name))].length}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-600 flex items-center gap-1.5">
-                  <FileText className="w-3.5 h-3.5 text-blue-500" /> Licenses
-                </span>
-                <span className="text-sm font-bold text-gray-900">{licenses.length}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-600 flex items-center gap-1.5">
-                  <DollarSign className="w-3.5 h-3.5 text-emerald-500" /> Monthly Cost
-                </span>
-                <span className="text-sm font-bold text-gray-900">
-                  ${licenses.filter(l => l.status === 'active').reduce((s, l) => s + (l.total_cost || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Company Info card removed — contained internal notes not suitable for customer view */}
     </div>
   );
 }
