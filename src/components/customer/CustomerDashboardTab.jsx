@@ -44,23 +44,41 @@ function Panel({ title, description, action, children, className }) {
 
 function PulseMetric({ icon: Icon, label, value, detail, to, tone = 'slate' }) {
   const toneClass = {
-    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    amber: 'bg-amber-50 text-amber-700 border-amber-200',
-    rose: 'bg-rose-50 text-rose-700 border-rose-200',
-    blue: 'bg-blue-50 text-blue-700 border-blue-200',
-    violet: 'bg-violet-50 text-violet-700 border-violet-200',
-    slate: 'bg-slate-50 text-slate-700 border-slate-200',
+    emerald: {
+      card: 'border-emerald-200 bg-emerald-50/70 hover:bg-emerald-50',
+      icon: 'bg-white text-emerald-700 border-emerald-200',
+    },
+    amber: {
+      card: 'border-amber-200 bg-amber-50/75 hover:bg-amber-50',
+      icon: 'bg-white text-amber-700 border-amber-200',
+    },
+    rose: {
+      card: 'border-rose-200 bg-rose-50/80 hover:bg-rose-50',
+      icon: 'bg-white text-rose-700 border-rose-200',
+    },
+    blue: {
+      card: 'border-blue-200 bg-blue-50/70 hover:bg-blue-50',
+      icon: 'bg-white text-blue-700 border-blue-200',
+    },
+    violet: {
+      card: 'border-violet-200 bg-violet-50/70 hover:bg-violet-50',
+      icon: 'bg-white text-violet-700 border-violet-200',
+    },
+    slate: {
+      card: 'border-slate-200 bg-white hover:bg-slate-50',
+      icon: 'bg-slate-50 text-slate-700 border-slate-200',
+    },
   }[tone];
 
   const content = (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:bg-slate-50">
+    <div className={cn('rounded-xl border p-4 shadow-sm transition-colors', toneClass.card)}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
           <p className="mt-2 truncate text-2xl font-bold tabular-nums text-slate-950">{value}</p>
           {detail && <p className="mt-1 truncate text-xs text-slate-500">{detail}</p>}
         </div>
-        <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border', toneClass)}>
+        <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border', toneClass.icon)}>
           <Icon className="h-5 w-5" />
         </div>
       </div>
@@ -181,9 +199,10 @@ export default function CustomerDashboardTab({
 
   const invoiceStats = useMemo(() => {
     const due = invoices.filter(i => ['overdue', 'pending', 'sent', 'open', 'unpaid'].includes(normalized(i.status)));
+    const overdue = invoices.filter(i => normalized(i.status) === 'overdue');
     const paid = invoices.filter(i => normalized(i.status) === 'paid');
     const dueAmount = due.reduce((sum, inv) => sum + (Number(inv.amount_due ?? inv.total ?? inv.amount) || 0), 0);
-    return { due, paid, dueAmount };
+    return { due, overdue, paid, dueAmount };
   }, [invoices]);
 
   const quoteStats = useMemo(() => {
@@ -238,8 +257,10 @@ export default function CustomerDashboardTab({
           icon={CreditCard}
           label="Invoice balance"
           value={money(invoiceStats.dueAmount)}
-          detail={`${invoiceStats.due.length} invoice${invoiceStats.due.length !== 1 ? 's' : ''} with a balance`}
-          tone="blue"
+          detail={invoiceStats.overdue.length > 0
+            ? `${invoiceStats.overdue.length} overdue invoice${invoiceStats.overdue.length !== 1 ? 's' : ''}`
+            : `${invoiceStats.due.length} invoice${invoiceStats.due.length !== 1 ? 's' : ''} with a balance`}
+          tone={invoiceStats.overdue.length > 0 ? 'rose' : invoiceStats.due.length > 0 ? 'amber' : 'blue'}
           to={tabUrl(customerId, 'billing')}
         />
         <PulseMetric
@@ -247,7 +268,7 @@ export default function CustomerDashboardTab({
           label="Quotes"
           value={`${quoteStats.active.length} active`}
           detail={`${money(quoteStats.total, 0)} total quoted`}
-          tone="amber"
+          tone={quoteStats.active.length > 0 ? 'amber' : 'slate'}
           to={tabUrl(customerId, 'quotes')}
         />
         <PulseMetric
@@ -263,7 +284,7 @@ export default function CustomerDashboardTab({
           label="Service plan"
           value={`${activeContracts.length} active`}
           detail={`${activeLineItems.length} recurring line item${activeLineItems.length !== 1 ? 's' : ''}`}
-          tone="slate"
+          tone={activeContracts.length > 0 ? 'amber' : 'slate'}
           to={tabUrl(customerId, 'billing')}
         />
       </div>
@@ -294,28 +315,6 @@ export default function CustomerDashboardTab({
             </div>
           </Panel>
 
-          <Panel
-            title="Quote activity"
-            description="Recently synced proposals and approvals."
-            action={<Link to={tabUrl(customerId, 'quotes')} className="text-sm font-medium text-slate-600 hover:text-slate-950">Quotes</Link>}
-          >
-            {quoteStats.sorted.length === 0 ? (
-              <EmptyMessage
-                icon={FileText}
-                title="No quotes published"
-                description="Approved and sent quotes will appear here when they are available."
-              />
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {quoteStats.sorted.slice(0, 5).map(quote => (
-                  <QuoteRow key={quote.id || quote.quote_number || quote.title} quote={quote} items={quoteItems} />
-                ))}
-              </div>
-            )}
-          </Panel>
-        </div>
-
-        <div className="space-y-4">
           <Panel title="Services and inventory" description="What is currently represented in the portal.">
             <div className="divide-y divide-slate-100">
               <div className="flex items-center justify-between px-4 py-3">
@@ -341,7 +340,9 @@ export default function CustomerDashboardTab({
               </div>
             </div>
           </Panel>
+        </div>
 
+        <div className="space-y-4">
           <Panel title="Account totals" description="Quick customer account reference.">
             <div className="grid grid-cols-2 gap-2 p-4">
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -363,23 +364,25 @@ export default function CustomerDashboardTab({
             </div>
           </Panel>
 
-          {serviceTags.length > 0 && (
-            <Panel title="Connected services">
-              <div className="flex flex-wrap gap-2 p-4">
-                {serviceTags.map(tag => (
-                  <span
-                    key={tag.key}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 py-1 pl-1 pr-2.5 text-[11px] font-medium text-slate-700"
-                  >
-                    <span className={cn('flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[9px] font-bold leading-none text-white', tag.badge)}>
-                      {tag.mark || tag.label?.slice(0, 2)}
-                    </span>
-                    {tag.label}
-                  </span>
+          <Panel
+            title="Quote activity"
+            description="Recently synced proposals and approvals."
+            action={<Link to={tabUrl(customerId, 'quotes')} className="text-sm font-medium text-slate-600 hover:text-slate-950">Quotes</Link>}
+          >
+            {quoteStats.sorted.length === 0 ? (
+              <EmptyMessage
+                icon={FileText}
+                title="No quotes published"
+                description="Approved and sent quotes will appear here when they are available."
+              />
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {quoteStats.sorted.slice(0, 5).map(quote => (
+                  <QuoteRow key={quote.id || quote.quote_number || quote.title} quote={quote} items={quoteItems} />
                 ))}
               </div>
-            </Panel>
-          )}
+            )}
+          </Panel>
         </div>
       </div>
     </div>
