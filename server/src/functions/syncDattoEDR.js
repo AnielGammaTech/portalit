@@ -6,6 +6,163 @@ const DATTO_EDR_BASE_URL = process.env.DATTO_EDR_BASE_URL;
 
 // Mask access tokens in URLs before logging
 const maskUrl = (url) => url.replace(/access_token=[^&]+/, 'access_token=***');
+const PAGE_SIZE = 100;
+const ONLINE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function firstValue(...values) {
+  for (const value of values) {
+    if (value === null || value === undefined) continue;
+    if (typeof value === 'string' && value.trim() === '') continue;
+    return value;
+  }
+  return null;
+}
+
+function toNumber(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function parseCollection(payload, keys = ['data', 'value', 'agents', 'hosts', 'alerts', 'targets']) {
+  if (Array.isArray(payload)) return payload;
+  if (!payload || typeof payload !== 'object') return [];
+  for (const key of keys) {
+    if (Array.isArray(payload[key])) return payload[key];
+  }
+  return [];
+}
+
+function normalizeDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return null;
+  return date.toISOString();
+}
+
+function isActiveStatus(value) {
+  if (value === true) return true;
+  if (value === false) return false;
+  const text = String(value || '').toLowerCase();
+  return ['active', 'online', 'connected', 'healthy', 'running', 'protected'].some(status => text.includes(status));
+}
+
+function targetMatchesAgent(agent, targetId) {
+  const target = String(targetId);
+  const candidates = [
+    agent.locationId,
+    agent.location_id,
+    agent.targetId,
+    agent.target_id,
+    agent.organizationId,
+    agent.organization_id,
+    agent.tenantId,
+    agent.tenant_id,
+    agent.customerId,
+    agent.customer_id,
+    agent.target?.id,
+    agent.location?.id,
+    agent.organization?.id,
+  ];
+  return candidates.some(value => value !== undefined && value !== null && String(value) === target);
+}
+
+function normalizeHost(host, cutoffDate) {
+  const lastSeenRaw = firstValue(
+    host.heartbeat,
+    host.lastSeen,
+    host.last_seen,
+    host.lastCheckIn,
+    host.lastCheckin,
+    host.lastContact,
+    host.lastConnected,
+    host.lastScannedOn,
+    host.updatedAt
+  );
+  const lastSeen = normalizeDate(lastSeenRaw);
+  const lastSeenTime = lastSeen ? new Date(lastSeen).getTime() : null;
+  const online = lastSeenTime ? lastSeenTime > cutoffDate.getTime() : isActiveStatus(firstValue(host.active, host.online, host.status, host.agentStatus, host.state));
+
+  return {
+    id: firstValue(host.id, host.agentId, host.hostId, host.deviceId, host.uid),
+    hostname: firstValue(host.hostname, host.hostName, host.computerName, host.deviceName, host.name, 'Unknown endpoint'),
+    ip: firstValue(host.ip, host.ipstring, host.ipAddress, host.localIp, host.externalIp, host.address),
+    os: firstValue(host.os, host.operatingSystem, host.osName, host.platform, 'Unknown OS'),
+    online,
+    lastSeen,
+    status: firstValue(host.status, host.agentStatus, host.state, online ? 'Online' : 'Offline'),
+    agentVersion: firstValue(host.agentVersion, host.version, host.sensorVersion, host.clientVersion),
+    username: firstValue(host.lastUser, host.lastLoggedInUser, host.username, host.user, host.owner),
+    group: firstValue(host.group, host.groupName, host.policyName, host.siteName),
+    isolationStatus: firstValue(host.isolationStatus, host.networkIsolation, host.containmentStatus),
+    threatStatus: firstValue(host.threatStatus, host.securityStatus, host.healthStatus),
+  };
+}
+
+function normalizeAlert(alert) {
+  const severity = String(firstValue(alert.severity, alert.priority, alert.level, alert.threatLevel, 'unknown')).toLowerCase();
+  return {
+    id: firstValue(alert.id, alert.alertId, alert.threatId, alert.incidentId),
+    title: firstValue(alert.title, alert.name, alert.threatName, alert.description, 'Security alert'),
+    severity,
+    status: firstValue(alert.status, alert.state, alert.disposition, 'active'),
+    endpoint: firstValue(alert.hostname, alert.hostName, alert.deviceName, alert.agentName, alert.endpoint),
+    createdAt: normalizeDate(firstValue(alert.createdAt, alert.createdOn, alert.detectedAt, alert.firstSeen, alert.timestamp)),
+    description: firstValue(alert.summary, alert.details, alert.message, alert.description),
+  };
+}
+
+function summarizeOs(hosts) {
+  const counts = new Map();
+  for (const host of hosts) {
+    const label = host.os || 'Unknown OS';
+    counts.set(label, (counts.get(label) || 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, count]) => ({ name, count }));
+}
+
+function buildEdrResponseData({ hosts, targetData, alerts, targetName }) {
+  const cutoffDate = new Date(Date.now() - ONLINE_WINDOW_MS);
+  const normalizedHosts = hosts.map(host => normalizeHost(host, cutoffDate));
+  const normalizedAlerts = alerts.map(normalizeAlert);
+  const targetStats = targetData ? {
+    agentCount: toNumber(firstValue(targetData.agentCount, targetData.hostCount, targetData.endpointCount)),
+    activeAgentCount: toNumber(firstValue(targetData.activeAgentCount, targetData.activeHostCount, targetData.onlineAgentCount)),
+    alertCount: toNumber(firstValue(targetData.alertCount, targetData.activeAlertCount, targetData.alertsCount)),
+    totalAddressCount: toNumber(targetData.totalAddressCount),
+    lastScannedOn: normalizeDate(targetData.lastScannedOn),
+    status: firstValue(targetData.status, targetData.state),
+  } : null;
+
+  const hostCount = normalizedHosts.length || targetStats?.agentCount || 0;
+  const activeHostCount = normalizedHosts.length
+    ? normalizedHosts.filter(host => host.online).length
+    : targetStats?.activeAgentCount || 0;
+  const alertCount = normalizedAlerts.length || targetStats?.alertCount || 0;
+  const criticalAlerts = normalizedAlerts.filter(alert => ['critical', 'high'].includes(alert.severity)).length;
+  const mediumAlerts = normalizedAlerts.filter(alert => alert.severity === 'medium').length;
+  const lowAlerts = normalizedAlerts.filter(alert => ['low', 'info', 'informational'].includes(alert.severity)).length;
+
+  return {
+    hostCount,
+    activeHostCount,
+    offlineHostCount: Math.max(hostCount - activeHostCount, 0),
+    coveragePercent: hostCount > 0 ? Math.round((activeHostCount / hostCount) * 100) : 0,
+    hosts: normalizedHosts,
+    alertCount,
+    criticalAlerts,
+    mediumAlerts,
+    lowAlerts,
+    alerts: normalizedAlerts.slice(0, 25),
+    lastScannedOn: targetStats?.lastScannedOn,
+    targetStats,
+    osBreakdown: summarizeOs(normalizedHosts),
+    generatedAt: new Date().toISOString(),
+    targetName,
+  };
+}
 
 const edrUrl = (path) => {
   const separator = path.includes('?') ? '&' : '?';
@@ -29,6 +186,60 @@ export async function syncDattoEDR(body, user) {
     'Content-Type': 'application/json'
   };
 
+  async function fetchJsonPath(path) {
+    const response = await fetchWithTimeout(edrUrl(path), { headers }).catch(() => null);
+    if (!response?.ok) return null;
+    const raw = await response.text();
+    try {
+      return JSON.parse(raw);
+    } catch (error) {
+      console.warn('[DattoEDR] Non-critical error parsing API response:', error.message);
+      return null;
+    }
+  }
+
+  async function fetchPagedCollection(pathBuilder, label) {
+    const rows = [];
+    for (let skip = 0; ; skip += PAGE_SIZE) {
+      const payload = await fetchJsonPath(pathBuilder(skip));
+      if (!payload) break;
+      const page = parseCollection(payload, ['data', 'value', 'agents', 'hosts']);
+      rows.push(...page);
+      if (page.length < PAGE_SIZE) break;
+    }
+    if (rows.length === 0 && label) {
+      console.log(`[DattoEDR] ${label} returned 0 rows`);
+    }
+    return rows;
+  }
+
+  async function fetchTargetBundle(targetId, targetName, { allowGlobalWhenEmpty = false } = {}) {
+    const targetData = await fetchJsonPath(`/targets/${targetId}`);
+    const expectedCount = toNumber(firstValue(targetData?.agentCount, targetData?.hostCount, targetData?.endpointCount));
+
+    let hosts = await fetchPagedCollection(
+      (skip) => `/targets/${targetId}/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`,
+      `target-scoped agents for ${targetId}`
+    );
+
+    const shouldTryGlobal = (expectedCount > 0 && hosts.length < expectedCount) || (allowGlobalWhenEmpty && hosts.length === 0);
+    if (shouldTryGlobal) {
+      console.log(`[DattoEDR] global fallback for ${targetId}: scoped=${hosts.length} expected=${expectedCount}`);
+      const allAgents = await fetchPagedCollection(
+        (skip) => `/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`,
+        'global agents fallback'
+      );
+      const filteredAgents = allAgents.filter(agent => targetMatchesAgent(agent, targetId));
+      if (filteredAgents.length > hosts.length) hosts = filteredAgents;
+    }
+
+    const alertsPayload = await fetchJsonPath(`/targets/${targetId}/alerts`);
+    const alerts = parseCollection(alertsPayload, ['data', 'value', 'alerts', 'incidents', 'threats']);
+
+    console.log(`[DattoEDR] Found ${hosts.length} agents and ${alerts.length} alerts for targetId=${targetId}`);
+    return buildEdrResponseData({ hosts, targetData, alerts, targetName });
+  }
+
   // Action: Test connection
   if (action === 'test_connection') {
     try {
@@ -37,7 +248,7 @@ export async function syncDattoEDR(body, user) {
         return { success: false, error: `EDR API returned ${testRes.status}: ${testRes.statusText}` };
       }
       const data = await testRes.json();
-      const targetsArray = data.data || data.targets || data || [];
+      const targetsArray = parseCollection(data, ['data', 'targets', 'value']);
       return {
         success: true,
         message: `Connected to Datto EDR — ${targetsArray.length} tenants found`
@@ -57,7 +268,7 @@ export async function syncDattoEDR(body, user) {
     }
 
     const data = await targetsRes.json();
-    const targetsArray = data.data || data.targets || data || [];
+    const targetsArray = parseCollection(data, ['data', 'targets', 'value']);
     const tenants = targetsArray.map(t => ({
       id: t.id || t.targetId,
       name: t.name || t.organizationName || t.targetName,
@@ -122,124 +333,7 @@ export async function syncDattoEDR(body, user) {
     const mapping = mappings[0];
     const targetId = mapping.edr_tenant_id;
 
-    console.log('Target ID:', targetId);
-
-    const targetUrl = edrUrl(`/targets/${targetId}`);
-    const targetRes = await fetch(targetUrl, { headers }).catch(e => null);
-
-    let targetData = null;
-    if (targetRes?.ok) {
-      const raw = await targetRes.text();
-      try { targetData = JSON.parse(raw); } catch(e) { console.log('Target parse err:', e); }
-    }
-
-    // Fetch agents scoped to this target — paginate to get all
-    let allAgents = [];
-    const PAGE_SIZE = 100;
-
-    // Primary: target-scoped endpoint (returns only this customer's agents)
-    for (let skip = 0; ; skip += PAGE_SIZE) {
-      const url = edrUrl(`/targets/${targetId}/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`);
-      const res = await fetch(url, { headers }).catch(() => null);
-      if (!res?.ok) break;
-      const raw = await res.text();
-      let page = [];
-      try {
-        const parsed = JSON.parse(raw);
-        page = Array.isArray(parsed) ? parsed : (parsed?.data || parsed?.value || []);
-      } catch (e) { console.warn('[DattoEDR] Non-critical error parsing target agents page:', e.message); break; }
-      allAgents.push(...page);
-      if (page.length < PAGE_SIZE) break; // last page
-    }
-
-    // Fallback: global agents endpoint filtered client-side
-    // Also use when target-scoped returns fewer than expected (may exclude inactive)
-    const expectedCount = targetData?.agentCount || 0;
-    if (allAgents.length === 0 || (expectedCount > 0 && allAgents.length < expectedCount)) {
-      console.log(`[DattoEDR] Target-scoped returned ${allAgents.length} agents (expected ${expectedCount}), trying global`);
-      const globalAgents = [];
-      for (let skip = 0; ; skip += PAGE_SIZE) {
-        const url = edrUrl(`/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`);
-        const res = await fetch(url, { headers }).catch(() => null);
-        if (!res?.ok) break;
-        const raw = await res.text();
-        let page = [];
-        try {
-          const parsed = JSON.parse(raw);
-          page = Array.isArray(parsed) ? parsed : (parsed?.data || parsed?.value || []);
-        } catch (e) { console.warn('[DattoEDR] Non-critical error parsing global agents page:', e.message); break; }
-        globalAgents.push(...page);
-        if (page.length < PAGE_SIZE) break;
-      }
-      if (globalAgents.length > allAgents.length) {
-        allAgents = globalAgents;
-      }
-    }
-
-    // If we used the global endpoint, filter to this customer's target
-    let hosts = allAgents;
-    if (hosts.length > 0 && hosts[0].locationId !== undefined) {
-      // Check if agents are already scoped (from target endpoint) or need filtering
-      const firstMatch = hosts.find(a =>
-        a.locationId === targetId || a.targetId === targetId ||
-        a.location_id === targetId || a.organizationId === targetId
-      );
-      if (!firstMatch && hosts.length > 5) {
-        // Agents are unscoped — filter them
-        hosts = allAgents.filter(a =>
-          a.locationId === targetId || a.targetId === targetId ||
-          (a.location_id || a.organizationId) === targetId
-        );
-      }
-    }
-    console.log(`[DattoEDR] Found ${hosts.length} agents for targetId=${targetId} (fetched ${allAgents.length} total)`);
-
-    const targetStats = targetData ? {
-      agentCount: targetData.agentCount || 0,
-      activeAgentCount: targetData.activeAgentCount || 0,
-      alertCount: parseInt(targetData.alertCount) || 0,
-      totalAddressCount: targetData.totalAddressCount || 0,
-      lastScannedOn: targetData.lastScannedOn
-    } : null;
-
-    const hostCount = hosts.length || targetStats?.agentCount || 0;
-
-    // Determine online status based on heartbeat within last 24 hours
-    // EDR console shows "Active" status for devices that checked in today
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const activeHosts = hosts.filter(h => {
-      if (h.heartbeat) {
-        const heartbeatDate = new Date(h.heartbeat);
-        return heartbeatDate > twentyFourHoursAgo;
-      }
-      return h.active === true;
-    });
-    console.log(`Active filter: ${activeHosts.length} active out of ${hosts.length} total (cutoff: ${twentyFourHoursAgo.toISOString()})`);
-    const activeCount = activeHosts.length || targetStats?.activeAgentCount || 0;
-    const alertCount = targetStats?.alertCount || 0;
-
-    const responseData = {
-      hostCount: hostCount,
-      activeHostCount: activeCount,
-      hosts: hosts.map(h => {
-        const heartbeatDate = h.heartbeat ? new Date(h.heartbeat) : null;
-        const isOnline = heartbeatDate ? heartbeatDate > twentyFourHoursAgo : h.active === true;
-        return {
-          id: h.id,
-          hostname: h.hostname || h.name,
-          ip: h.ip || h.ipstring,
-          os: h.os,
-          online: isOnline,
-          lastSeen: h.heartbeat
-        };
-      }),
-      alertCount: alertCount,
-      criticalAlerts: 0,
-      mediumAlerts: 0,
-      lowAlerts: 0,
-      lastScannedOn: targetStats?.lastScannedOn,
-      targetStats
-    };
+    const responseData = await fetchTargetBundle(targetId, mapping.edr_tenant_name, { allowGlobalWhenEmpty: true });
 
     // Cache the data for future quick loads
     await supabase.from('datto_edr_mappings').update({
@@ -437,126 +531,20 @@ export async function syncDattoEDR(body, user) {
   if (action === 'sync_all') {
     const { data: allMappingsData } = await supabase.from('datto_edr_mappings').select('*');
     const allMappings = allMappingsData || [];
-    const PAGE_SIZE = 100;
     const CONCURRENCY = 8;
 
     async function syncOne(mapping) {
       const targetId = mapping.edr_tenant_id;
       if (!targetId) return { synced: false, reason: 'missing_tenant_id' };
 
-      const targetRes = await fetchWithTimeout(edrUrl(`/targets/${targetId}`), { headers });
-      let targetData = null;
-      if (targetRes?.ok) {
-        const raw = await targetRes.text();
-        try { targetData = JSON.parse(raw); } catch (e) { console.warn('[DattoEDR] parse target:', e.message); }
-      }
-
-      const expectedCount = targetData?.agentCount || 0;
-
-      // Primary: target-scoped pagination
-      let allAgents = [];
-      for (let skip = 0; ; skip += PAGE_SIZE) {
-        const res = await fetchWithTimeout(
-          edrUrl(`/targets/${targetId}/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`),
-          { headers }
-        );
-        if (!res?.ok) break;
-        const raw = await res.text();
-        let page = [];
-        try {
-          const parsed = JSON.parse(raw);
-          page = Array.isArray(parsed) ? parsed : (parsed?.data || parsed?.value || []);
-        } catch (e) { console.warn('[DattoEDR] parse target agents:', e.message); break; }
-        allAgents.push(...page);
-        if (page.length < PAGE_SIZE) break;
-      }
-
-      // Fallback: global agents endpoint — only when target reports >0 agents and
-      // target-scoped came back short. Skipping when expectedCount===0 (the old
-      // behavior paginated EVERY agent globally for tenants Datto reports as empty,
-      // which was a huge waste and the slowest single source of sync_all hangs).
-      if (expectedCount > 0 && allAgents.length < expectedCount) {
-        console.log(`[DattoEDR] sync_all fallback for ${targetId}: scoped=${allAgents.length} expected=${expectedCount}`);
-        const globalAgents = [];
-        for (let skip = 0; ; skip += PAGE_SIZE) {
-          const res = await fetchWithTimeout(
-            edrUrl(`/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`),
-            { headers }
-          );
-          if (!res?.ok) break;
-          const raw = await res.text();
-          let page = [];
-          try {
-            const parsed = JSON.parse(raw);
-            page = Array.isArray(parsed) ? parsed : (parsed?.data || parsed?.value || []);
-          } catch (e) { console.warn('[DattoEDR] parse global agents:', e.message); break; }
-          globalAgents.push(...page);
-          if (page.length < PAGE_SIZE) break;
-        }
-        if (globalAgents.length > allAgents.length) allAgents = globalAgents;
-      }
-
-      // Filter to this customer's target if we used the global endpoint
-      let hosts = allAgents;
-      if (hosts.length > 0 && hosts[0].locationId !== undefined) {
-        const firstMatch = hosts.find(a =>
-          a.locationId === targetId || a.targetId === targetId ||
-          a.location_id === targetId || a.organizationId === targetId
-        );
-        if (!firstMatch && hosts.length > 5) {
-          hosts = allAgents.filter(a =>
-            a.locationId === targetId || a.targetId === targetId ||
-            (a.location_id || a.organizationId) === targetId
-          );
-        }
-      }
-
-      const targetStats = targetData ? {
-        agentCount: targetData.agentCount || 0,
-        activeAgentCount: targetData.activeAgentCount || 0,
-        alertCount: parseInt(targetData.alertCount) || 0,
-        totalAddressCount: targetData.totalAddressCount || 0,
-        lastScannedOn: targetData.lastScannedOn
-      } : null;
-
-      const hostCount = hosts.length || targetStats?.agentCount || 0;
-      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const activeHosts = hosts.filter(h => {
-        if (h.heartbeat) return new Date(h.heartbeat) > twentyFourHoursAgo;
-        return h.active === true;
-      });
-      const activeCount = activeHosts.length || targetStats?.activeAgentCount || 0;
-      const alertCount = targetStats?.alertCount || 0;
-
-      const responseData = {
-        hostCount,
-        activeHostCount: activeCount,
-        hosts: hosts.map(h => {
-          const heartbeatDate = h.heartbeat ? new Date(h.heartbeat) : null;
-          const isOnline = heartbeatDate ? heartbeatDate > twentyFourHoursAgo : h.active === true;
-          return {
-            id: h.id,
-            hostname: h.hostname || h.name,
-            ip: h.ip || h.ipstring,
-            os: h.os,
-            online: isOnline,
-            lastSeen: h.heartbeat
-          };
-        }),
-        alertCount,
-        criticalAlerts: 0,
-        mediumAlerts: 0,
-        lowAlerts: 0,
-        lastScannedOn: targetStats?.lastScannedOn,
-        targetStats
-      };
+      const responseData = await fetchTargetBundle(targetId, mapping.edr_tenant_name);
 
       await supabase.from('datto_edr_mappings').update({
         last_synced: new Date().toISOString(),
         cached_data: responseData
       }).eq('id', mapping.id);
 
-      return { synced: true, hostCount, customer: mapping.customer_name };
+      return { synced: true, hostCount: responseData.hostCount, customer: mapping.customer_name };
     }
 
     const startedAt = Date.now();
