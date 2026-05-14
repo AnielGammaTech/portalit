@@ -76,8 +76,7 @@ const LICENSE_GROUPS = [
     color: 'text-emerald-700',
     bar: 'bg-emerald-500',
     bg: 'bg-emerald-50',
-    border: 'border-emerald-100',
-    details: 'sharepoint'
+    border: 'border-emerald-100'
   },
   {
     key: 'teams',
@@ -88,8 +87,7 @@ const LICENSE_GROUPS = [
     color: 'text-indigo-700',
     bar: 'bg-indigo-500',
     bg: 'bg-indigo-50',
-    border: 'border-indigo-100',
-    details: 'teams'
+    border: 'border-indigo-100'
   }
 ];
 
@@ -291,7 +289,7 @@ function StatusPill({ status, assigned, unprotected }) {
   );
 }
 
-function LicenseRow({ group, stats, fallbackProtected, fallbackTotal, onDetails }) {
+function LicenseRow({ group, stats, fallbackProtected, fallbackTotal }) {
   const Icon = group.icon;
   const protectedCount = toNumber(stats[group.protectedKey]) || fallbackProtected || 0;
   const unprotectedCount = group.unprotectedKey ? toNumber(stats[group.unprotectedKey]) : 0;
@@ -326,21 +324,7 @@ function LicenseRow({ group, stats, fallbackProtected, fallbackTotal, onDetails 
         )}>
           {percent}%
         </Badge>
-        {onDetails && (
-          <Button variant="outline" size="sm" onClick={onDetails} className="h-8 px-2">
-            Details
-          </Button>
-        )}
       </div>
-    </div>
-  );
-}
-
-function SummaryCount({ label, value }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-center">
-      <p className="text-2xl font-bold text-slate-900">{value}</p>
-      <p className="text-xs text-slate-500">{label}</p>
     </div>
   );
 }
@@ -370,14 +354,6 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
   const [userTypeFilter, setUserTypeFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [sharePointModalOpen, setSharePointModalOpen] = useState(false);
-  const [teamsModalOpen, setTeamsModalOpen] = useState(false);
-  const [sharePointSites, setSharePointSites] = useState([]);
-  const [teamsChannels, setTeamsChannels] = useState([]);
-  const [sharePointInfo, setSharePointInfo] = useState(null);
-  const [teamsInfo, setTeamsInfo] = useState(null);
-  const [loadingSharePoint, setLoadingSharePoint] = useState(false);
-  const [loadingTeams, setLoadingTeams] = useState(false);
 
   const cachedStats = useMemo(() => {
     if (!spanningMapping?.cached_data) return null;
@@ -430,60 +406,6 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
       toast.error(error.message || 'Failed to sync Spanning data');
     } finally {
       setSyncingSpanning(false);
-    }
-  };
-
-  const handleOpenSharePointModal = async () => {
-    setSharePointModalOpen(true);
-    setLoadingSharePoint(true);
-    setSharePointSites([]);
-    setSharePointInfo(null);
-    try {
-      const response = await client.functions.invoke('syncSpanningBackup', {
-        action: 'list_sharepoint_sites',
-        customer_id: customerId
-      });
-      if (response.success) {
-        setSharePointSites(response.sites || []);
-        setSharePointInfo({
-          message: response.message,
-          summary: response.sharePointSummary,
-          tenantName: response.tenantName
-        });
-      } else {
-        toast.error(response.error || 'Failed to fetch SharePoint sites');
-      }
-    } catch (error) {
-      toast.error(error.message || 'Failed to fetch SharePoint sites');
-    } finally {
-      setLoadingSharePoint(false);
-    }
-  };
-
-  const handleOpenTeamsModal = async () => {
-    setTeamsModalOpen(true);
-    setLoadingTeams(true);
-    setTeamsChannels([]);
-    setTeamsInfo(null);
-    try {
-      const response = await client.functions.invoke('syncSpanningBackup', {
-        action: 'list_teams_channels',
-        customer_id: customerId
-      });
-      if (response.success) {
-        setTeamsChannels(response.teams || []);
-        setTeamsInfo({
-          message: response.message,
-          summary: response.teamsSummary,
-          tenantName: response.tenantName
-        });
-      } else {
-        toast.error(response.error || 'Failed to fetch Teams channels');
-      }
-    } catch (error) {
-      toast.error(error.message || 'Failed to fetch Teams channels');
-    } finally {
-      setLoadingTeams(false);
     }
   };
 
@@ -566,11 +488,6 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
         : group.key === 'shared'
           ? sharedUsers.length
           : 0;
-    const onDetails = group.details === 'sharepoint'
-      ? handleOpenSharePointModal
-      : group.details === 'teams'
-        ? handleOpenTeamsModal
-        : null;
 
     return (
       <LicenseRow
@@ -579,7 +496,6 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
         stats={stats}
         fallbackProtected={fallbackProtected}
         fallbackTotal={fallbackTotal}
-        onDetails={onDetails}
       />
     );
   };
@@ -685,13 +601,15 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
               value={stats.totalProtectedStorage || '0 B'}
               detail={`${stats.totalUsedStorage || '0 B'} total used data`}
             />
-            <DetailTile
-              icon={CheckCircle2}
-              label="Last backup"
-              value={formatShortDate(lastBackup)}
-              detail={lastBackup ? formatDateTime(lastBackup) : 'No timestamp from Spanning'}
-              tone="green"
-            />
+            {lastBackup && (
+              <DetailTile
+                icon={CheckCircle2}
+                label="Last backup"
+                value={formatShortDate(lastBackup)}
+                detail={formatDateTime(lastBackup)}
+                tone="green"
+              />
+            )}
             <DetailTile
               icon={Calendar}
               label="Subscription"
@@ -782,7 +700,6 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
                     <TableHead>User</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Backup</TableHead>
-                    <TableHead className="hidden md:table-cell">Last backup</TableHead>
                     <TableHead className="text-right hidden lg:table-cell">Mail</TableHead>
                     <TableHead className="text-right hidden lg:table-cell">Drive</TableHead>
                     <TableHead className="text-right">Total</TableHead>
@@ -838,10 +755,6 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
                             assigned={user.isProtected}
                             unprotected={!user.isProtected}
                           />
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell text-slate-600">
-                          <div>{formatRelativeTime(user.lastBackupDate)}</div>
-                          <div className="text-xs text-slate-400">{formatDateTime(user.lastBackupDate)}</div>
                         </TableCell>
                         <TableCell className="text-right hidden lg:table-cell">
                           <span className="font-mono text-sm text-slate-500">{user.mailStorage || '0 B'}</span>
@@ -915,15 +828,9 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
                     unprotected={!selectedUser.isProtected}
                   />
                 </div>
-                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="rounded-lg bg-white border border-slate-200 p-3">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Last backup</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">{formatDateTime(selectedUser.lastBackupDate)}</p>
-                  </div>
-                  <div className="rounded-lg bg-white border border-slate-200 p-3">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">User type</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900 capitalize">{getUserKind(selectedUser)}</p>
-                  </div>
+                <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">User type</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900 capitalize">{getUserKind(selectedUser)}</p>
                 </div>
               </div>
 
@@ -986,127 +893,6 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
         </DialogContent>
       </Dialog>
 
-      <Dialog open={sharePointModalOpen} onOpenChange={setSharePointModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Globe className="w-5 h-5 text-cyan-700" />
-              SharePoint backup details
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-auto">
-            {loadingSharePoint ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-6 h-6 animate-spin text-slate-500" />
-              </div>
-            ) : sharePointSites.length === 0 ? (
-              <div className="space-y-4">
-                {sharePointInfo?.summary && (
-                  <div className="grid grid-cols-3 gap-3">
-                    <SummaryCount label="Protected" value={sharePointInfo.summary.protectedSites || 0} />
-                    <SummaryCount label="Unprotected" value={sharePointInfo.summary.unprotectedSites || 0} />
-                    <SummaryCount label="Total" value={sharePointInfo.summary.totalSites || 0} />
-                  </div>
-                )}
-                <EmptyState
-                  icon={Globe}
-                  title="No site rows returned"
-                  description={sharePointInfo?.message || 'Spanning returned summary counts but no SharePoint site rows.'}
-                />
-              </div>
-            ) : (
-              <div className="border rounded-lg overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-slate-50">
-                      <TableHead>Site</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Storage</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {sharePointSites.map((site, index) => (
-                      <TableRow key={site.id || site.url || index}>
-                        <TableCell>
-                          <p className="font-medium text-slate-900">{site.name}</p>
-                          {site.url && <p className="text-xs text-slate-500 truncate max-w-[300px]">{site.url}</p>}
-                        </TableCell>
-                        <TableCell>
-                          <StatusPill status={site.isProtected ? 'protected' : 'not_protected'} unprotected={!site.isProtected} />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <span className="font-mono text-sm">{site.storage || '0 B'}</span>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={teamsModalOpen} onOpenChange={setTeamsModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 text-violet-700" />
-              Teams backup details
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-auto">
-            {loadingTeams ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-6 h-6 animate-spin text-slate-500" />
-              </div>
-            ) : teamsChannels.length === 0 ? (
-              <div className="space-y-4">
-                {teamsInfo?.summary && (
-                  <div className="grid grid-cols-3 gap-3">
-                    <SummaryCount label="Protected" value={teamsInfo.summary.protectedChannels || 0} />
-                    <SummaryCount label="Unprotected" value={teamsInfo.summary.unprotectedChannels || 0} />
-                    <SummaryCount label="Total" value={teamsInfo.summary.totalChannels || 0} />
-                  </div>
-                )}
-                <EmptyState
-                  icon={MessageSquare}
-                  title="No team rows returned"
-                  description={teamsInfo?.message || 'Spanning returned summary counts but no Teams rows.'}
-                />
-              </div>
-            ) : (
-              <div className="border rounded-lg overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-slate-50">
-                      <TableHead>Team</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Storage</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {teamsChannels.map((team, index) => (
-                      <TableRow key={team.id || team.name || index}>
-                        <TableCell>
-                          <p className="font-medium text-slate-900">{team.name}</p>
-                          {team.description && <p className="text-xs text-slate-500 truncate max-w-[300px]">{team.description}</p>}
-                        </TableCell>
-                        <TableCell>
-                          <StatusPill status={team.isProtected ? 'protected' : 'not_protected'} unprotected={!team.isProtected} />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <span className="font-mono text-sm">{team.storage || '0 B'}</span>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
