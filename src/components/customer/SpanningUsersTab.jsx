@@ -24,7 +24,6 @@ import {
   Database,
   Cloud,
   Shield,
-  HardDrive,
   Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -67,16 +66,31 @@ const LICENSE_GROUPS = [
     bar: 'bg-sky-500',
     bg: 'bg-sky-50',
     border: 'border-sky-100'
+  },
+  {
+    key: 'sharepoint',
+    label: 'SharePoint sites',
+    icon: Globe,
+    protectedKey: 'numberOfProtectedSharePointSites',
+    unprotectedKey: 'numberOfUnprotectedSharePointSites',
+    color: 'text-emerald-700',
+    bar: 'bg-emerald-500',
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-100',
+    details: 'sharepoint'
+  },
+  {
+    key: 'teams',
+    label: 'Teams channels',
+    icon: MessageSquare,
+    protectedKey: 'numberOfProtectedTeamChannels',
+    unprotectedKey: 'numberOfUnprotectedTeamChannels',
+    color: 'text-indigo-700',
+    bar: 'bg-indigo-500',
+    bg: 'bg-indigo-50',
+    border: 'border-indigo-100',
+    details: 'teams'
   }
-];
-
-const WORKLOADS = [
-  { key: 'mail', label: 'Mail', icon: Mail },
-  { key: 'drive', label: 'OneDrive', icon: HardDrive },
-  { key: 'calendar', label: 'Calendar', icon: Calendar },
-  { key: 'contacts', label: 'Contacts', icon: Users },
-  { key: 'sharePoint', label: 'SharePoint', icon: Globe, details: 'sharepoint' },
-  { key: 'teams', label: 'Teams', icon: MessageSquare, details: 'teams' }
 ];
 
 function toNumber(value) {
@@ -252,10 +266,12 @@ function StatusPill({ status, assigned, unprotected }) {
   );
 }
 
-function LicenseRow({ group, stats, fallbackProtected, fallbackTotal }) {
+function LicenseRow({ group, stats, fallbackProtected, fallbackTotal, onDetails }) {
   const Icon = group.icon;
   const protectedCount = toNumber(stats[group.protectedKey]) || fallbackProtected || 0;
-  const totalCount = toNumber(stats[group.totalKey]) || fallbackTotal || 0;
+  const unprotectedCount = group.unprotectedKey ? toNumber(stats[group.unprotectedKey]) : 0;
+  const totalFromStats = group.totalKey ? toNumber(stats[group.totalKey]) : protectedCount + unprotectedCount;
+  const totalCount = totalFromStats || fallbackTotal || protectedCount || 0;
   const percent = getPercent(protectedCount, totalCount);
 
   return (
@@ -270,36 +286,8 @@ function LicenseRow({ group, stats, fallbackProtected, fallbackTotal }) {
             <p className="text-xs text-slate-500">{protectedCount} protected of {totalCount} total</p>
           </div>
         </div>
-        <p className={cn('text-sm font-bold', group.color)}>{percent}%</p>
-      </div>
-      <div className="mt-3 h-2 rounded-full bg-white/70 overflow-hidden">
-        <div className={cn('h-full rounded-full', group.bar)} style={{ width: `${percent}%` }} />
-      </div>
-    </div>
-  );
-}
-
-function WorkloadRow({ workload, status, protectedCount, totalCount, lastBackup, onDetails }) {
-  const Icon = workload.icon;
-  const percent = getPercent(protectedCount, totalCount);
-
-  return (
-    <div className="rounded-lg border border-slate-200 p-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center">
-            <Icon className="w-4 h-4 text-slate-600" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-slate-900">{workload.label}</p>
-            <p className="text-xs text-slate-500">
-              {totalCount > 0 ? `${protectedCount} protected of ${totalCount} total` : 'Backup status from Spanning'}
-              {lastBackup ? ` - ${formatRelativeTime(lastBackup)}` : ''}
-            </p>
-          </div>
-        </div>
         <div className="flex items-center gap-2">
-          <StatusPill status={status} />
+          <p className={cn('text-sm font-bold', group.color)}>{percent}%</p>
           {onDetails && (
             <Button variant="outline" size="sm" onClick={onDetails}>
               Details
@@ -307,11 +295,9 @@ function WorkloadRow({ workload, status, protectedCount, totalCount, lastBackup,
           )}
         </div>
       </div>
-      {totalCount > 0 && (
-        <div className="mt-3 h-2 rounded-full bg-slate-100 overflow-hidden">
-          <div className="h-full rounded-full bg-cyan-500" style={{ width: `${percent}%` }} />
-        </div>
-      )}
+      <div className="mt-3 h-2 rounded-full bg-white/70 overflow-hidden">
+        <div className={cn('h-full rounded-full', group.bar)} style={{ width: `${percent}%` }} />
+      </div>
     </div>
   );
 }
@@ -473,11 +459,6 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
   const totalUsers = toNumber(stats.numberOfUsers) || users.length;
   const totalProtected = toNumber(stats.numberOfProtectedUsers) || protectedRows;
   const coveragePercent = getPercent(totalProtected, totalUsers);
-  const backupStatus = stats.overallBackupStatus7Days || stats.lastBackupStatus;
-  const backupStatus7Days = stats.backupStatus7Days || {};
-  const healthyWorkloads = WORKLOADS.filter(workload =>
-    getStatusMeta(backupStatus7Days[workload.key]).label === 'Healthy'
-  ).length;
 
   const domainName = stats.domainName || spanningMapping?.spanning_tenant_name || 'Mapped tenant';
   const domainId = stats.domainId || spanningMapping?.spanning_tenant_id;
@@ -521,7 +502,6 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-semibold text-slate-900">Spanning Backup</h3>
             {stats.fromCache && <Badge variant="outline" className="text-xs">Cached</Badge>}
-            <StatusPill status={backupStatus} />
           </div>
           <p className="text-sm text-slate-500 mt-1">
             {domainName}
@@ -575,81 +555,51 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
         />
       </motion.div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[0.95fr_1.05fr] gap-4">
-        <motion.section {...fadeInUp} className="rounded-lg border bg-card p-4 shadow-sm">
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <div>
-              <h4 className="font-semibold text-slate-900">License coverage</h4>
-              <p className="text-sm text-slate-500">Protected users compared to Spanning license totals.</p>
-            </div>
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-              {coveragePercent}% protected
-            </Badge>
+      <motion.section {...fadeInUp} className="rounded-lg border bg-card p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div>
+            <h4 className="font-semibold text-slate-900">License coverage</h4>
+            <p className="text-sm text-slate-500">Protected users, mailboxes, SharePoint sites, and Teams channels from Spanning.</p>
           </div>
-          <div className="space-y-3">
-            <LicenseRow
-              group={LICENSE_GROUPS[0]}
-              stats={stats}
-              fallbackProtected={protectedStandardFallback}
-              fallbackTotal={standardUsers.length}
-            />
-            <LicenseRow
-              group={LICENSE_GROUPS[1]}
-              stats={stats}
-              fallbackProtected={protectedArchivedFallback}
-              fallbackTotal={archivedUsers.length}
-            />
-            <LicenseRow
-              group={LICENSE_GROUPS[2]}
-              stats={stats}
-              fallbackProtected={protectedSharedFallback}
-              fallbackTotal={sharedUsers.length}
-            />
-          </div>
-        </motion.section>
-
-        <motion.section {...fadeInUp} className="rounded-lg border bg-card p-4 shadow-sm">
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <div>
-              <h4 className="font-semibold text-slate-900">Microsoft 365 backup health</h4>
-              <p className="text-sm text-slate-500">{healthyWorkloads} of {WORKLOADS.length} workloads healthy in the last 7 days.</p>
-            </div>
-            <StatusPill status={backupStatus} />
-          </div>
-          <div className="space-y-3">
-            {WORKLOADS.map(workload => {
-              const isSharePoint = workload.key === 'sharePoint';
-              const isTeams = workload.key === 'teams';
-              const protectedCount = isSharePoint
-                ? toNumber(stats.numberOfProtectedSharePointSites)
-                : isTeams
-                  ? toNumber(stats.numberOfProtectedTeamChannels)
+          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+            {coveragePercent}% protected
+          </Badge>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {LICENSE_GROUPS.map(group => {
+            const fallbackProtected = group.key === 'standard'
+              ? protectedStandardFallback
+              : group.key === 'archived'
+                ? protectedArchivedFallback
+                : group.key === 'shared'
+                  ? protectedSharedFallback
                   : 0;
-              const unprotectedCount = isSharePoint
-                ? toNumber(stats.numberOfUnprotectedSharePointSites)
-                : isTeams
-                  ? toNumber(stats.numberOfUnprotectedTeamChannels)
+            const fallbackTotal = group.key === 'standard'
+              ? standardUsers.length
+              : group.key === 'archived'
+                ? archivedUsers.length
+                : group.key === 'shared'
+                  ? sharedUsers.length
                   : 0;
+            const onDetails = group.details === 'sharepoint'
+              ? handleOpenSharePointModal
+              : group.details === 'teams'
+                ? handleOpenTeamsModal
+                : null;
 
-              return (
-                <WorkloadRow
-                  key={workload.key}
-                  workload={workload}
-                  status={backupStatus7Days[workload.key]}
-                  protectedCount={protectedCount}
-                  totalCount={protectedCount + unprotectedCount}
-                  lastBackup={isSharePoint ? stats.sharePointLastBackup : isTeams ? stats.teamsLastBackup : null}
-                  onDetails={workload.details === 'sharepoint'
-                    ? handleOpenSharePointModal
-                    : workload.details === 'teams'
-                      ? handleOpenTeamsModal
-                      : null}
-                />
-              );
-            })}
-          </div>
-        </motion.section>
-      </div>
+            return (
+              <LicenseRow
+                key={group.key}
+                group={group}
+                stats={stats}
+                fallbackProtected={fallbackProtected}
+                fallbackTotal={fallbackTotal}
+                onDetails={onDetails}
+              />
+            );
+          })}
+        </div>
+      </motion.section>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="rounded-lg border bg-card p-4 shadow-sm">
