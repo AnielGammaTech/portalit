@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { staggerContainer, staggerItem, fadeInUp } from '@/lib/motion';
-import { Link } from 'react-router-dom';
-import { createPageUrl } from '../../utils';
 import {
   Users,
   DollarSign,
@@ -11,17 +9,9 @@ import {
   RefreshCw,
   ChevronRight,
   UserPlus,
-  TrendingUp,
-  Zap,
   HelpCircle,
   Send,
-  Bot,
-  ArrowRight,
-  Monitor,
-  Receipt,
-  CheckCircle2,
   AlertCircle,
-  Clock,
   Loader2,
   UserCheck,
   UserMinus,

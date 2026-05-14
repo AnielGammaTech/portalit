@@ -4,7 +4,7 @@ import { client, resolveFileUrl } from '@/api/client';
 import { useAutoRetry } from '@/hooks/useAutoRetry';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '../utils';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { staggerContainer, staggerItem, fadeInUp } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import Breadcrumbs from '../components/ui/breadcrumbs';
@@ -13,7 +13,6 @@ import {
   Plus,
   Search,
   X,
-  Users,
   ChevronRight,
   MoreVertical,
   Pencil,

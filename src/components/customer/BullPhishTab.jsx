@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { client } from '@/api/client';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { 
   Fish, 
   AlertTriangle, 
-  CheckCircle2, 
   Mail, 
   MousePointer, 
   GraduationCap,
@@ -16,7 +15,6 @@ import {
   Eye,
   Calendar,
   Users,
-  X,
   ChevronRight,
   Flag
 } from 'lucide-react';

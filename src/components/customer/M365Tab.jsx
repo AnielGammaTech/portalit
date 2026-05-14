@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { client } from '@/api/client';
-import { Package, Users, Monitor } from 'lucide-react';
+import { Package, Monitor } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import Pax8Tab from './Pax8Tab';
 import CIPPMicrosoftTab from './CIPPMicrosoftTab';

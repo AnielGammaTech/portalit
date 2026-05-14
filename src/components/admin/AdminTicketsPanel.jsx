@@ -7,7 +7,6 @@ import {
   Plus, 
   RefreshCw, 
   Filter,
-  X,
   Send,
   Building2
 } from 'lucide-react';

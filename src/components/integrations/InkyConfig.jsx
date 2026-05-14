@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import {
-  Upload, Trash2, ChevronDown,
+  Upload, ChevronDown,
   Mail, AlertTriangle, MousePointerClick, Users,
 } from 'lucide-react';
 import { toast } from 'sonner';

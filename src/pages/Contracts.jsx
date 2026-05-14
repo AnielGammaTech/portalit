@@ -8,9 +8,7 @@ import {
   FileText,
   Calendar,
   DollarSign,
-  Building2,
   Search,
-  Filter,
   ChevronDown
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";

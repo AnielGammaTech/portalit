@@ -20,7 +20,6 @@ import {
   Monitor,
   CheckCircle2,
   XCircle,
-  Users,
   ChevronRight
 } from 'lucide-react';
 import { Link } from 'react-router-dom';

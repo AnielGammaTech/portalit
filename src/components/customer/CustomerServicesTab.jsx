@@ -34,7 +34,6 @@ import {
   Shield,
   HardDrive,
   RefreshCw,
-  ChevronDown,
   CheckCircle2,
   AlertCircle,
   ChevronRight,
@@ -54,14 +53,13 @@ import {
   Laptop
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatLineItemDescription } from "@/lib/utils";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
-import { SkeletonTable, SkeletonStats, SkeletonCard, Shimmer } from "@/components/ui/shimmer-skeleton";
+import { SkeletonTable, SkeletonStats, Shimmer } from "@/components/ui/shimmer-skeleton";
 import UserDetailModal from './UserDetailModal';
 import DarkWebTab from './DarkWebTab';
 import BullPhishTab from './BullPhishTab';

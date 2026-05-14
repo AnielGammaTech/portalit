@@ -11,7 +11,6 @@ import { fadeInUp, staggerContainer, staggerItem } from '@/lib/motion';
 import Breadcrumbs from '../components/ui/breadcrumbs';
 import {
   Building2,
-  ArrowLeft,
   Mail,
   Phone,
   MapPin,
@@ -21,21 +20,15 @@ import {
   Cloud,
   Calendar,
   DollarSign,
-  ExternalLink,
   RefreshCw,
-  Edit2,
-  Trash2,
   Plus,
-  Filter,
   ChevronDown,
   ChevronRight,
   CheckCircle2,
   HelpCircle,
   AlertCircle,
   BarChart3,
-  Receipt,
   Shield,
-  Clock,
   Loader2,
   Camera
 } from 'lucide-react';
@@ -51,20 +44,16 @@ import { cn, safeFormatDate } from "@/lib/utils";
 import LicenseAssignmentModal from '../components/saas/LicenseAssignmentModal';
 import AddLicenseModal from '../components/saas/AddLicenseModal';
 import AddSoftwareModal from '../components/saas/AddSoftwareModal';
-import SpendAnomalyAlert from '../components/saas/SpendAnomalyAlert';
 import SoftwareCard from '../components/saas/SoftwareCard';
 import AddContactModal from '../components/saas/AddContactModal';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import CustomerAnalytics from '../components/customer/CustomerAnalytics';
-import DevicesTab from '../components/customer/DevicesTab';
 import CustomerServicesTab from '../components/customer/CustomerServicesTab';
 import CustomerDashboardTab from '../components/customer/CustomerDashboardTab';
 import CustomerMap from '../components/customer/CustomerMap';
 import M365Tab from '../components/customer/M365Tab';
-import { UserPlus, Eye } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import { isCustomerPortal } from '@/lib/portal-mode';
 
-export default function CustomerDetail() {
+export default function CustomerDetail({ mirrorMode = false, previewCustomerId = null }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [selectedLicense, setSelectedLicense] = useState(null);
   const [showAddLicense, setShowAddLicense] = useState(false);
@@ -78,18 +67,24 @@ export default function CustomerDetail() {
   const navigate = useNavigate();
   const customerIdParam = searchParams.get('id');
   const currentTab = searchParams.get('tab') || 'dashboard';
-
-  const handleTabChange = (tab) => {
-    navigate(`/CustomerDetail?id=${customerIdParam}&tab=${tab}`, { replace: true });
-  };
   const { user, isLoadingAuth: userLoading } = useAuth();
 
   // Security: customer portal users can ONLY access their own customer; staff (admin + sales) can browse any
-  const isAdmin = user?.role === 'admin';
-  const isStaff = user?.role === 'admin' || user?.role === 'sales';
-  const resolvedCustomerId = (!isStaff || isCustomerPortal)
+  const isAdminUser = user?.role === 'admin';
+  const isStaffUser = user?.role === 'admin' || user?.role === 'sales';
+  const isCustomerView = mirrorMode || isCustomerPortal || !isStaffUser;
+  const canUseAdminActions = isAdminUser && !isCustomerView;
+  const resolvedCustomerId = mirrorMode && isStaffUser
+    ? previewCustomerId
+    : (!isStaffUser || isCustomerPortal)
     ? user?.customer_id   // customers always scoped to their own data
     : (customerIdParam || user?.customer_id || null);  // staff can browse any customer
+
+  const handleTabChange = (tab) => {
+    const page = mirrorMode ? 'CustomerPortalPreview' : 'CustomerDetail';
+    const id = resolvedCustomerId || customerIdParam || '';
+    navigate(createPageUrl(`${page}?id=${id}&tab=${tab}`), { replace: true });
+  };
 
   // Logo upload handler
   const handleLogoUpload = async (e) => {
@@ -635,7 +630,7 @@ export default function CustomerDetail() {
 
   return (
     <div className="space-y-6">
-      {isAdmin && (
+      {canUseAdminActions && (
         <Breadcrumbs items={[
           { label: 'Customers', href: createPageUrl('Customers') },
           { label: customer?.name || 'Customer' }
@@ -643,7 +638,7 @@ export default function CustomerDetail() {
       )}
       
       {/* Header with Sync - Admin only */}
-      {isAdmin && (
+      {canUseAdminActions && (
         <motion.div {...fadeInUp} className="flex items-center justify-end gap-2">
           <Link to={createPageUrl(`CustomerPortalPreview?id=${customerId}`)}>
             <Button variant="outline" size="sm" className="gap-2">
@@ -683,9 +678,9 @@ export default function CustomerDetail() {
               <div
                 className={cn(
                   "relative w-14 h-14 rounded-hero-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group",
-                  isAdmin && "cursor-pointer"
+                  canUseAdminActions && "cursor-pointer"
                 )}
-                onClick={() => isAdmin && logoInputRef.current?.click()}
+                onClick={() => canUseAdminActions && logoInputRef.current?.click()}
               >
                 {showCustomerLogo ? (
                   <img
@@ -699,7 +694,7 @@ export default function CustomerDetail() {
                     {customer.name?.charAt(0)?.toUpperCase() || 'C'}
                   </span>
                 )}
-                {isAdmin && (
+                {canUseAdminActions && (
                   <div className="absolute inset-0 bg-black/50 rounded-hero-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     {uploadingLogo ? (
                       <Loader2 className="w-5 h-5 text-white animate-spin" />
@@ -1257,7 +1252,7 @@ export default function CustomerDetail() {
                     <div className="flex-1" />
                     <Button 
                       size="sm" 
-                      className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+                      className="gap-2"
                       onClick={() => setShowAddSoftware(true)}
                     >
                       <Plus className="w-4 h-4" />
@@ -1293,7 +1288,6 @@ export default function CustomerDetail() {
                           <p className="text-slate-500 mb-3">No software added yet</p>
                           <Button 
                             onClick={() => setShowAddSoftware(true)}
-                            className="bg-emerald-600 hover:bg-emerald-700"
                           >
                             <Plus className="w-4 h-4 mr-2" />
                             Add Software
@@ -1670,10 +1664,12 @@ export default function CustomerDetail() {
             <div className="bg-white rounded-2xl border border-slate-200/50 p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="font-semibold text-slate-900">Quotes</h3>
-                <Button size="sm" className="gap-2 bg-emerald-600 hover:bg-emerald-700">
-                  <Plus className="w-4 h-4" />
-                  New Quote
-                </Button>
+                {canUseAdminActions && (
+                  <Button size="sm" className="gap-2">
+                    <Plus className="w-4 h-4" />
+                    New Quote
+                  </Button>
+                )}
               </div>
               {quotes.length === 0 ? (
                 <div className="p-12 text-center">

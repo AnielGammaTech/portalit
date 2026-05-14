@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { client } from '@/api/client';
-import { AlertTriangle, TrendingUp, Loader2, X, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
+import { AlertTriangle, Loader2, X, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 

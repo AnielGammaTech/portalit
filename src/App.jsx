@@ -20,25 +20,43 @@ import {
   CUSTOMER_PORTAL_MAIN_PAGE,
   CUSTOMER_PORTAL_URL,
 } from '@/lib/portal-mode';
+import { canAccessPage } from '@/lib/permissions';
 
 const { Pages: AllPages, Layout, mainPage } = pagesConfig;
 
 // Pages accessible to customer portal users only — no admin role required
 const CUSTOMER_ONLY_PAGES = CUSTOMER_ALLOWED_PAGES;
 
+function ExternalRedirect({ to }) {
+  React.useEffect(() => {
+    if (to) window.location.replace(to);
+  }, [to]);
+
+  return (
+    <div className="fixed inset-0 flex flex-col items-center justify-center gap-3 bg-slate-50">
+      <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
+      <p className="text-sm text-slate-500">Redirecting...</p>
+    </div>
+  );
+}
+
 /**
- * H-1: Route-level role enforcement.
- * Wraps admin/internal routes to ensure only admin or sales users can access them.
- * Customer portal users (role !== 'admin' && role !== 'sales') are redirected to
- * the customer portal URL or the AwaitingAccess page.
+ * Route-level access enforcement.
+ * Staff roles are checked against page permissions, and customer users are
+ * moved to the isolated customer portal service when that URL is configured.
  */
-const RequireAdmin = ({ children }) => {
+const RequirePageAccess = ({ pageName, children }) => {
   const { user } = useAuth();
   const isStaff = user?.role === 'admin' || user?.role === 'sales';
 
   if (!isStaff) {
-    const redirectTarget = CUSTOMER_PORTAL_URL || '/AwaitingAccess';
-    return <Navigate to={redirectTarget} replace />;
+    return CUSTOMER_PORTAL_URL
+      ? <ExternalRedirect to={CUSTOMER_PORTAL_URL} />
+      : <Navigate to="/AwaitingAccess" replace />;
+  }
+
+  if (!canAccessPage(user?.role, pageName)) {
+    return <Navigate to="/" replace />;
   }
 
   return children;
@@ -92,19 +110,19 @@ const AuthenticatedApp = () => {
     return <WrongPortalMessage user={user} />;
   }
 
+  if (isFullPortal && user?.role === 'user' && CUSTOMER_PORTAL_URL) {
+    return <ExternalRedirect to={CUSTOMER_PORTAL_URL} />;
+  }
+
   // Render the main app (full portal mode — admin/sales users)
   return (
     <Routes>
       <Route path="/" element={
-        // H-1: Wrap the main page with admin enforcement if it is an admin-only page
         CUSTOMER_ONLY_PAGES.has(mainPageKey)
           ? <LayoutWrapper currentPageName={mainPageKey}><MainPage /></LayoutWrapper>
-          : <RequireAdmin><LayoutWrapper currentPageName={mainPageKey}><MainPage /></LayoutWrapper></RequireAdmin>
+          : <RequirePageAccess pageName={mainPageKey}><LayoutWrapper currentPageName={mainPageKey}><MainPage /></LayoutWrapper></RequirePageAccess>
       } />
       {Object.entries(Pages).map(([path, Page]) => {
-        // H-1: Wrap admin/internal pages with role enforcement.
-        // Pages in CUSTOMER_ONLY_PAGES (CustomerDetail, CustomerSettings, AwaitingAccess)
-        // are accessible without admin role; all others require admin or sales.
         const pageElement = (
           <LayoutWrapper currentPageName={path}>
             <Page />
@@ -112,7 +130,7 @@ const AuthenticatedApp = () => {
         );
         const wrappedElement = CUSTOMER_ONLY_PAGES.has(path)
           ? pageElement
-          : <RequireAdmin>{pageElement}</RequireAdmin>;
+          : <RequirePageAccess pageName={path}>{pageElement}</RequirePageAccess>;
 
         return (
           <Route

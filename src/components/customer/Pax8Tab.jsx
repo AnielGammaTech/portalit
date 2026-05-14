@@ -9,7 +9,6 @@ import {
   RefreshCw,
   CheckCircle2,
   Hash,
-  DollarSign,
   Search,
   Loader2,
   ChevronDown,

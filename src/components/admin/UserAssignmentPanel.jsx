@@ -9,7 +9,6 @@ import {
   Shield,
   Trash2,
   ChevronDown,
-  ChevronRight,
   Briefcase,
   Monitor,
   Smartphone,
@@ -22,10 +21,8 @@ import {
   MoreVertical,
   Pencil,
   RefreshCw,
-  RotateCcw,
   Loader2,
   Crown,
-  Globe,
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

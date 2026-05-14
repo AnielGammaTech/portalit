@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client, resolveFileUrl } from '@/api/client';
 import { 
   Settings, 
   Upload, 
   Users, 
-  Building2, 
-  Mail,
+  Building2,
   Check,
   X,
   Loader2,
@@ -14,7 +13,6 @@ import {
   Trash2
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";

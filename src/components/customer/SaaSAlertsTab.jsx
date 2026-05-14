@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { client } from '@/api/client';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,19 +9,12 @@ import {
   RefreshCw,
   Search,
   AlertTriangle,
-  AlertCircle,
-  CheckCircle2,
   Activity,
   Clock,
   User,
-  Globe,
-  Calendar,
   Wifi,
   MapPin,
-  Server,
-  Eye,
   Shield,
-  TrendingUp,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';

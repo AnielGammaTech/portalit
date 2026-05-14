@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from './utils';
 import { client, resolveFileUrl } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
@@ -10,11 +10,14 @@ import {
   FileText,
   Settings,
   Cloud,
+  BarChart3,
   ChevronDown,
   LogOut,
   Bell,
   Menu,
   CreditCard,
+  HelpCircle,
+  Monitor,
   MoreHorizontal,
   Coins,
 } from 'lucide-react';
@@ -141,7 +144,14 @@ function MobileBottomTab({ item, isActive, primaryColor }) {
   );
 }
 
-function MobileDrawerNav({ navigation, currentPageName, primaryColor, user, isAdmin, isStaff, features, customer, onClose }) {
+function isNavigationItemActive(item, currentPageName, activeCustomerTab) {
+  if (item.page === 'CustomerDetail') {
+    return currentPageName === 'CustomerDetail' && (!item.tab || item.tab === activeCustomerTab);
+  }
+  return currentPageName === item.page;
+}
+
+function MobileDrawerNav({ navigation, currentPageName, activeCustomerTab, primaryColor, user, isAdmin, isStaff, features }) {
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: '#13082E' }}>
       {/* User info at top */}
@@ -178,8 +188,7 @@ function MobileDrawerNav({ navigation, currentPageName, primaryColor, user, isAd
       {/* Navigation items */}
       <nav className="flex-1 p-3 space-y-1">
         {navigation.map((item) => {
-          const isActive = currentPageName === item.page ||
-            (item.page === 'CustomerDetail' && currentPageName === 'CustomerDetail');
+          const isActive = isNavigationItemActive(item, currentPageName, activeCustomerTab);
           const Icon = item.icon;
           const isLootIT = item.page === 'LootIT';
           const drawerClassName = cn(
@@ -288,11 +297,13 @@ function MobileDrawerNav({ navigation, currentPageName, primaryColor, user, isAd
 
 export default function Layout({ children, currentPageName }) {
   const { user, isLoadingAuth } = useAuth();
+  const [searchParams] = useSearchParams();
   const userRole = user?.role || 'user';
   const isAdmin = userRole === 'admin';
   const isStaff = userRole === 'admin' || userRole === 'sales';
   const features = getFeatures(userRole);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const activeCustomerTab = searchParams.get('tab') || 'dashboard';
 
   // Fetch portal settings
   const { data: portalSettingsData = [] } = useQuery({
@@ -329,15 +340,29 @@ export default function Layout({ children, currentPageName }) {
     return items;
   }, [features.canAccessLootIT]);
 
-  const customerNavigation = useMemo(() => [
-    {
-      name: 'Services',
-      page: 'CustomerDetail',
-      icon: Cloud,
-      query: user?.customer_id ? `?id=${user.customer_id}` : '',
-    },
-    { name: 'Settings', page: 'CustomerSettings', icon: Settings },
-  ], [user?.customer_id]);
+  const customerNavigation = useMemo(() => {
+    const customerQuery = (tab) => user?.customer_id
+      ? `?id=${user.customer_id}&tab=${tab}`
+      : `?tab=${tab}`;
+
+    return [
+      { name: 'Home', page: 'CustomerDetail', tab: 'dashboard', icon: BarChart3, query: customerQuery('dashboard') },
+      { name: 'Billing', page: 'CustomerDetail', tab: 'billing', icon: CreditCard, query: customerQuery('billing') },
+      { name: 'Services', page: 'CustomerDetail', tab: 'services', icon: Cloud, query: customerQuery('services') },
+      { name: 'M365', page: 'CustomerDetail', tab: 'm365', icon: Monitor, query: customerQuery('m365') },
+      { name: 'SaaS', page: 'CustomerDetail', tab: 'licenses', icon: Cloud, query: customerQuery('licenses') },
+      { name: 'Quotes', page: 'CustomerDetail', tab: 'quotes', icon: FileText, query: customerQuery('quotes') },
+      { name: 'Tickets', page: 'CustomerDetail', tab: 'tickets', icon: HelpCircle, query: customerQuery('tickets') },
+      { name: 'Settings', page: 'CustomerSettings', icon: Settings },
+    ];
+  }, [user?.customer_id]);
+
+  const customerBottomTabs = useMemo(
+    () => customerNavigation.filter(item =>
+      item.page === 'CustomerSettings' || ['dashboard', 'services', 'm365', 'tickets'].includes(item.tab)
+    ),
+    [customerNavigation]
+  );
 
   // Staff mobile bottom tabs — filtered by role
   const staffBottomTabs = useMemo(() => {
@@ -409,19 +434,18 @@ export default function Layout({ children, currentPageName }) {
                 <MobileDrawerNav
                   navigation={navigation}
                   currentPageName={currentPageName}
+                  activeCustomerTab={activeCustomerTab}
                   primaryColor={primaryColor}
                   user={user}
                   isAdmin={isAdmin}
                   isStaff={isStaff}
                   features={features}
-                  customer={customer}
-                  onClose={() => setMobileDrawerOpen(false)}
                 />
               </SheetContent>
             </Sheet>
 
             {/* Logo / Portal name */}
-            <Link to={createPageUrl((isStaff && !isCustomerPortal) ? 'Dashboard' : 'CustomerDetail') + ((isStaff && !isCustomerPortal) ? '' : `?id=${user?.customer_id || ''}`)} className="flex items-center gap-2.5">
+            <Link to={createPageUrl((isStaff && !isCustomerPortal) ? 'Dashboard' : 'CustomerDetail') + ((isStaff && !isCustomerPortal) ? '' : `?id=${user?.customer_id || ''}&tab=dashboard`)} className="flex items-center gap-2.5">
               {portalSettings.logo_url ? (
                 <img
                   src={resolveFileUrl(portalSettings.logo_url)}
@@ -444,10 +468,9 @@ export default function Layout({ children, currentPageName }) {
           </div>
 
           {/* Center: Desktop navigation */}
-          <nav className="hidden lg:flex items-center h-full">
+          <nav className="hidden lg:flex min-w-0 flex-1 items-center justify-center h-full overflow-x-auto scrollbar-hide">
             {navigation.map((item) => {
-              const isActive = currentPageName === item.page ||
-                (item.page === 'CustomerDetail' && currentPageName === 'CustomerDetail');
+              const isActive = isNavigationItemActive(item, currentPageName, activeCustomerTab);
               return (
                 <NavItem
                   key={item.page + (item.query || '')}
@@ -577,9 +600,8 @@ export default function Layout({ children, currentPageName }) {
               </button>
             </>
           ) : (
-            customerNavigation.map((item) => {
-              const isActive = currentPageName === item.page ||
-                (item.page === 'CustomerDetail' && currentPageName === 'CustomerDetail');
+            customerBottomTabs.map((item) => {
+              const isActive = isNavigationItemActive(item, currentPageName, activeCustomerTab);
               return (
                 <MobileBottomTab
                   key={item.page + (item.query || '')}

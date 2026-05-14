@@ -48,7 +48,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { DollarSign, BarChart3 } from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 
 // Spend Analysis Card Component
 function SpendAnalysisCard({

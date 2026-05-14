@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { client } from '@/api/client';
 import { createPageUrl } from '../utils';
-import { Settings as SettingsIcon, Shield } from 'lucide-react';
+import { Shield } from 'lucide-react';
 
 /**
  * Settings.jsx - Route handler that redirects admins to the unified

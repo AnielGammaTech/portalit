@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { Check, X, ChevronRight, RotateCcw, Settings2, StickyNote, Link2, ShieldCheck } from 'lucide-react';
+import { Check, X, ChevronRight, RotateCcw, StickyNote, Link2, ShieldCheck } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import ReconciliationBadge from './ReconciliationBadge';
 import { getDiscrepancyMessage } from '@/lib/lootit-reconciliation';

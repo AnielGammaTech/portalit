@@ -3,12 +3,9 @@ import { client } from '@/api/client';
 import { 
   Bot, 
   Send, 
-  X, 
   Loader2,
   ArrowRight,
-  MessageSquare,
-  Paperclip,
-  Image as ImageIcon
+  Paperclip
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

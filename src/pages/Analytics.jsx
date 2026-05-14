@@ -1,22 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { client } from '@/api/client';
-import { Link } from 'react-router-dom';
-import { createPageUrl } from '../utils';
 import Breadcrumbs from '../components/ui/breadcrumbs';
 import {
   TrendingUp,
   DollarSign,
   FileText,
-  HelpCircle,
-  Calendar,
-  Filter,
-  BarChart3,
-  PieChart as PieChartIcon,
-  Users
+  HelpCircle
 } from 'lucide-react';
 
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -36,7 +28,7 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
-import { format, subMonths, subDays, parseISO, startOfMonth, endOfMonth, isWithinInterval, eachMonthOfInterval } from 'date-fns';
+import { format, subMonths, parseISO, startOfMonth, endOfMonth, isWithinInterval, eachMonthOfInterval } from 'date-fns';
 
 const COLORS = ['#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899'];
 

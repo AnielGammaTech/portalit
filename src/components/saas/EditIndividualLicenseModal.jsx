@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { User, DollarSign, Calendar, CreditCard, FileText, Tag } from 'lucide-react';
+import { DollarSign, Calendar, CreditCard, FileText, Tag } from 'lucide-react';
 
 export default function EditIndividualLicenseModal({ open, onClose, assignment, contact, onSave }) {
   const [formData, setFormData] = useState({

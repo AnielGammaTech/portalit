@@ -2,8 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../../utils';
 import { resolveFileUrl } from '@/api/client';
-import { Cloud, Building2, User, CreditCard } from 'lucide-react';
-import { Badge } from "@/components/ui/badge";
+import { Cloud, Building2, User } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 export default function SoftwareCard({ 

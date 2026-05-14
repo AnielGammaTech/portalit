@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
-import { MessageSquare, Bug, Lightbulb, HelpCircle, ExternalLink, Trash2, CheckCircle2, Eye, Clock, X, ChevronDown } from 'lucide-react';
+import { MessageSquare, Bug, Lightbulb, HelpCircle, ExternalLink, Trash2, Eye } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";

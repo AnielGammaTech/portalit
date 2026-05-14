@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { FileText, Download, Trash2, Loader2, Sparkles, Calendar, ChevronDown, Check, DollarSign, Building2, RefreshCw } from 'lucide-react';
+import { FileText, Download, Trash2, Loader2, Calendar, ChevronDown, Check, DollarSign, Building2, RefreshCw } from 'lucide-react';
 
 export default function ContractCard({ contract, extractingId, onDownload, onDelete, onRetryExtract }) {
   const isExtracting = extractingId === contract.id;

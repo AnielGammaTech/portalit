@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 import ReconciliationBadge from './ReconciliationBadge';
 import { getDiscrepancyMessage } from '@/lib/lootit-reconciliation';
 import { STATUS_COLORS } from './lootit-constants';
-import { Check, X, RotateCcw, ChevronRight, StickyNote, Link2, ShieldCheck, AlertTriangle, Trash2 } from 'lucide-react';
+import { Check, X, RotateCcw, ChevronRight, StickyNote, Link2, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 
 const PAX8_REVIEWED_STYLES = {

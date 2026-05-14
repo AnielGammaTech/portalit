@@ -4,7 +4,7 @@ import { supabase } from '@/api/client';
 import { cn } from '@/lib/utils';
 import { SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { ACTION_LABELS } from './lootit-constants';
-import { Check, X, RotateCcw, StickyNote, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Check, X, RotateCcw, StickyNote, ShieldCheck } from 'lucide-react';
 
 export default function DetailDrawer({ reconciliation, customerId, onSaveExclusion, onForceMatch, onReview, onDismiss, onReset, onSaveNotes }) {
   const isPax8 = !!reconciliation.ruleId;

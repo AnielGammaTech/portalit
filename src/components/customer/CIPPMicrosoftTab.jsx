@@ -5,7 +5,7 @@ import {
   Users, Mail, Shield, Search, ChevronDown, ChevronRight,
   Briefcase, MapPin, Phone, Globe, Building2, Clock,
   KeyRound, X, Monitor, ShieldCheck, ShieldAlert, ShieldX,
-  LogIn, Wifi, UserCheck, AlertTriangle,
+  LogIn, UserCheck, AlertTriangle,
 } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";

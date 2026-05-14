@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import {
   Phone,
   Users,
-  PhoneForwarded,
   Voicemail,
   Headphones,
   RefreshCw,
@@ -18,7 +17,6 @@ import {
   CheckCircle2,
   XCircle,
   FileText,
-  Calendar,
   UserX,
   ChevronLeft,
   ChevronRight,
@@ -30,7 +28,6 @@ import {
   Network,
   Activity,
   ArrowUpDown,
-  Shield,
   Tag,
   MapPin,
 } from 'lucide-react';
@@ -67,8 +64,6 @@ function VultrServerCard({ vultrMapping }) {
   const bandwidth = vultrMapping?.cached_data?.bandwidth;
   const syncedAt = vultrMapping?.cached_data?.synced_at || vultrMapping?.last_synced;
 
-  if (!inst) return null;
-
   // Compute bandwidth totals from the bandwidth object (daily breakdown keyed by date)
   const bwTotals = useMemo(() => {
     if (!bandwidth || typeof bandwidth !== 'object') return null;
@@ -80,6 +75,8 @@ function VultrServerCard({ vultrMapping }) {
     }
     return { inbound, outbound, total: inbound + outbound };
   }, [bandwidth]);
+
+  if (!inst) return null;
 
   return (
     <Card className="border-blue-100 dark:border-blue-800/50 bg-gradient-to-r from-blue-50/50 to-slate-50/50 dark:from-blue-950/20 dark:to-slate-950/20 overflow-hidden">

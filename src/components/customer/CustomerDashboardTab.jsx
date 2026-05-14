@@ -1,33 +1,19 @@
 import React, { useMemo } from 'react';
 import {
-  Building2,
   Users,
   Monitor,
-  Shield,
   DollarSign,
   FileText,
   HelpCircle,
   Cloud,
   CheckCircle2,
   AlertCircle,
-  AlertTriangle,
   Clock,
-  TrendingUp,
-  Calendar,
-  Mail,
-  Phone,
-  MapPin,
-  Laptop,
-  ShieldCheck,
-  Activity,
   ArrowUpRight,
   ArrowDownRight,
-  Wifi,
-  Globe,
 } from 'lucide-react';
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { format, differenceInDays, parseISO } from 'date-fns';
+import { differenceInDays } from 'date-fns';
 
 // ── Stat Card ──────────────────────────────────────────────────────
 function StatCard({ icon: Icon, label, value, subtitle, color, bg, trend, className }) {

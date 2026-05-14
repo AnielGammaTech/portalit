@@ -4,17 +4,14 @@ import { client, resolveFileUrl } from '@/api/client';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import {
-  ArrowLeft, Cloud, DollarSign, TrendingUp, PieChart, BarChart3,
-  Calendar, Filter, Download, AlertTriangle, CheckCircle2, Users
+  ArrowLeft, Cloud, DollarSign, TrendingUp, PieChart, BarChart3, Filter, Download, AlertTriangle, CheckCircle2, Users
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
-import { format, subMonths, parseISO } from 'date-fns';
 import {
   PieChart as RechartsPie, Pie, Cell, ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis, Tooltip, Legend, LineChart, Line
+  BarChart, Bar, XAxis, YAxis, Tooltip, Legend
 } from 'recharts';
 import SpendAnomalyAlert from '../components/saas/SpendAnomalyAlert';
 
