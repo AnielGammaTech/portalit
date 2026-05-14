@@ -23,6 +23,43 @@ function clearTokenCache() {
   tokenExpiresAt = 0;
 }
 
+function safeExternalError(text) {
+  return String(text || '').replace(/\s+/g, ' ').slice(0, 300);
+}
+
+function validateHaloUrl(url, label) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw Object.assign(new Error(`Invalid HaloPSA ${label} URL`), { statusCode: 400 });
+  }
+
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw Object.assign(new Error(`HaloPSA ${label} URL must use http or https`), { statusCode: 400 });
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+  const blockedHosts = [
+    /^localhost$/,
+    /^127\./,
+    /^10\./,
+    /^172\.(1[6-9]|2\d|3[01])\./,
+    /^192\.168\./,
+    /^169\.254\./,
+    /^0\./,
+    /^\[::1\]$/,
+    /^::1$/,
+    /^metadata\./,
+    /\.internal$/,
+  ];
+  if (blockedHosts.some(re => re.test(hostname))) {
+    throw Object.assign(new Error(`HaloPSA ${label} URL points to a restricted host`), { statusCode: 400 });
+  }
+
+  return parsed.toString().replace(/\/$/, '');
+}
+
 // ── Configuration helpers ────────────────────────────────────────────────
 
 /**
@@ -44,7 +81,11 @@ export async function getHaloConfig() {
   };
 
   if (envConfig.clientId && envConfig.clientSecret && envConfig.authUrl && envConfig.apiUrl) {
-    return envConfig;
+    return {
+      ...envConfig,
+      authUrl: validateHaloUrl(envConfig.authUrl, 'auth'),
+      apiUrl: validateHaloUrl(envConfig.apiUrl, 'API'),
+    };
   }
 
   // 2. Fall back to settings table
@@ -71,7 +112,11 @@ export async function getHaloConfig() {
     throw Object.assign(new Error('HaloPSA credentials are incomplete. Please update the configuration.'), { statusCode: 400 });
   }
 
-  return dbConfig;
+  return {
+    ...dbConfig,
+    authUrl: validateHaloUrl(dbConfig.authUrl, 'auth'),
+    apiUrl: validateHaloUrl(dbConfig.apiUrl, 'API'),
+  };
 }
 
 /**
@@ -130,7 +175,7 @@ export async function getHaloToken(config) {
   if (!authRes.ok) {
     const errText = await authRes.text();
     clearTokenCache();
-    throw new Error(`HaloPSA auth failed (${authRes.status}): ${errText.substring(0, 300)}`);
+    throw new Error(`HaloPSA auth failed (${authRes.status}): ${safeExternalError(errText)}`);
   }
 
   const data = await authRes.json();
@@ -208,11 +253,11 @@ export async function haloGet(path, config) {
       });
       if (!retry.ok) {
         const retryText = await retry.text();
-        throw new Error(`HaloPSA API error (${path}): ${retry.status} — ${retryText}`);
+        throw new Error(`HaloPSA API error (${path}): ${retry.status} - ${safeExternalError(retryText)}`);
       }
       return retry.json();
     }
-    throw new Error(`HaloPSA API error (${path}): ${response.status} — ${errorText}`);
+    throw new Error(`HaloPSA API error (${path}): ${response.status} - ${safeExternalError(errorText)}`);
   }
 
   return response.json();
@@ -239,7 +284,7 @@ export async function haloPost(path, body, config) {
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`HaloPSA POST error (${path}): ${response.status} — ${errorText}`);
+    throw new Error(`HaloPSA POST error (${path}): ${response.status} - ${safeExternalError(errorText)}`);
   }
 
   return response.json();

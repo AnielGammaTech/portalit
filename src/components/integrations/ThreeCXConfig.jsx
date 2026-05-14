@@ -19,7 +19,10 @@ export default function ThreeCXConfig() {
 
   const { data: mappings = [] } = useQuery({
     queryKey: ['threecx-mappings'],
-    queryFn: () => client.entities.ThreeCXMapping.list('customer_name', 100),
+    queryFn: async () => {
+      const result = await client.integrations.threecx.listMappings();
+      return result.mappings || [];
+    },
   });
 
   const statusDisplay = getConnectionStatusDisplay(

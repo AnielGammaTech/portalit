@@ -102,9 +102,10 @@ async function cippApiCall(endpoint, params = {}) {
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`[CIPP] API error: ${response.status} | Headers: ${JSON.stringify(Object.fromEntries(response.headers))} | Body: ${errorText}`);
-    throw new Error(`CIPP API error (${endpoint}): ${response.status} - ${errorText}`);
+    const errorText = await response.text().catch(() => '');
+    const safeError = errorText.replace(/\s+/g, ' ').slice(0, 300);
+    console.error(`[CIPP] API error: ${response.status} (${endpoint})${safeError ? ` | ${safeError}` : ''}`);
+    throw new Error(`CIPP API error (${endpoint}): ${response.status}`);
   }
 
   return response.json();
@@ -440,8 +441,8 @@ async function syncAll() {
 // ── Main handler ────────────────────────────────────────────────────────
 
 export async function syncCIPP(body = {}) {
-  console.log(`[CIPP] Handler called with:`, JSON.stringify(body));
   const { action, customerId, tenantId } = body;
+  console.log(`[CIPP] Handler called: action=${action || 'missing'} customerId=${customerId || 'none'} tenantId=${tenantId || 'none'}`);
 
   switch (action) {
     case 'test_connection':

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { client, supabase } from '@/api/client';
+import { client } from '@/api/client';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, CheckCircle2, RefreshCw, XCircle, Clock, AlertCircle } from 'lucide-react';
@@ -48,10 +48,8 @@ export default function HaloPSAConfig() {
 
   const fetchExcludedIds = useCallback(async () => {
     try {
-      const settingsList = await client.entities.Settings.list();
-      if (settingsList.length > 0 && settingsList[0].halopsa_excluded_ids) {
-        setExcludedIds(settingsList[0].halopsa_excluded_ids);
-      }
+      const config = await client.integrations.config.get('halopsa');
+      setExcludedIds(config.halopsa_excluded_ids || '');
     } catch (_err) {
       // Settings table may not have this field yet
     }
@@ -113,14 +111,7 @@ export default function HaloPSAConfig() {
   const handleSaveExcludedIds = async () => {
     try {
       setSavingExcluded(true);
-      const settingsList = await client.entities.Settings.list();
-      const payload = { halopsa_excluded_ids: excludedIds };
-
-      if (settingsList.length > 0) {
-        await client.entities.Settings.update(settingsList[0].id, payload);
-      } else {
-        await client.entities.Settings.create(payload);
-      }
+      await client.integrations.config.save('halopsa', { halopsa_excluded_ids: excludedIds });
       toast.success('Excluded IDs saved');
     } catch (error) {
       toast.error('Failed to save excluded IDs');

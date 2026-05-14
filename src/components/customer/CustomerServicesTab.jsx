@@ -255,8 +255,8 @@ export default function CustomerServicesTab({
   const { data: threecxMapping } = useQuery({
     queryKey: ['threecx-mapping', customerId],
     queryFn: async () => {
-      const mappings = await client.entities.ThreeCXMapping.filter({ customer_id: customerId });
-      return mappings[0] || null;
+      const result = await client.integrations.threecx.listMappings({ customerId });
+      return result.mappings?.[0] || null;
     },
     enabled: !!customerId,
     staleTime: 1000 * 60 * 5

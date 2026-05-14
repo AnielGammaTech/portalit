@@ -59,8 +59,20 @@ async function dattoApiCall(accessToken, endpoint) {
 // Helper to check if device data has changed
 function hasDeviceChanged(existing, newData) {
   if (!existing) return true;
-  const fieldsToCheck = ['hostname', 'operating_system', 'ip_address', 'status', 'last_seen', 'online_status'];
+  const fieldsToCheck = [
+    'hostname', 'operating_system', 'os_version', 'serial_number', 'manufacturer',
+    'model', 'ip_address', 'status', 'last_seen', 'online_status'
+  ];
   return fieldsToCheck.some(field => existing[field] !== newData[field]);
+}
+
+function pickFirst(...values) {
+  for (const value of values) {
+    if (value === null || value === undefined) continue;
+    const text = String(value).trim();
+    if (text) return text;
+  }
+  return '';
 }
 
 function mapDeviceType(category) {
@@ -352,11 +364,16 @@ export async function syncDattoRMMDevices(body, user) {
           source: 'datto_rmm',
           name: device.hostname || device.name || 'Unknown',
           datto_site_id: siteUid,
+          datto_site_uid: siteUid,
           hostname: device.hostname || device.name || 'Unknown',
-          notes: device.description || '',
+          notes: existing?.notes || device.description || '',
           device_type: deviceType,
-          operating_system: device.operatingSystem || '',
-          ip_address: device.intIpAddress || device.extIpAddress || '',
+          operating_system: pickFirst(device.operatingSystem, device.os, device.osName),
+          os_version: pickFirst(device.operatingSystemVersion, device.osVersion, device.osRelease),
+          serial_number: pickFirst(device.serialNumber, device.serial, device.serviceTag, device.biosSerialNumber),
+          manufacturer: pickFirst(device.manufacturer, device.make, device.deviceManufacturer, device.hardware?.manufacturer),
+          model: pickFirst(device.model, device.deviceModel, device.hardware?.model),
+          ip_address: pickFirst(device.intIpAddress, device.extIpAddress, device.ipAddress, device.ip),
           last_seen: lastSeenStr,
           last_user: device.lastLoggedInUser || '',
           status: isOnline ? 'online' : 'offline',
@@ -496,11 +513,16 @@ export async function syncDattoRMMDevices(body, user) {
             source: 'datto_rmm',
             name: device.hostname || device.name || 'Unknown',
             datto_site_id: siteUid,
+            datto_site_uid: siteUid,
             hostname: device.hostname || device.name || 'Unknown',
-            notes: device.description || '',
+            notes: existing?.notes || device.description || '',
             device_type: deviceType,
-            operating_system: device.operatingSystem || '',
-            ip_address: device.intIpAddress || device.extIpAddress || '',
+            operating_system: pickFirst(device.operatingSystem, device.os, device.osName),
+            os_version: pickFirst(device.operatingSystemVersion, device.osVersion, device.osRelease),
+            serial_number: pickFirst(device.serialNumber, device.serial, device.serviceTag, device.biosSerialNumber),
+            manufacturer: pickFirst(device.manufacturer, device.make, device.deviceManufacturer, device.hardware?.manufacturer),
+            model: pickFirst(device.model, device.deviceModel, device.hardware?.model),
+            ip_address: pickFirst(device.intIpAddress, device.extIpAddress, device.ipAddress, device.ip),
             last_seen: lastSeenStr,
             last_user: device.lastLoggedInUser || '',
             status: isOnline ? 'online' : 'offline',

@@ -71,6 +71,7 @@ export default function CustomerDetail() {
   const [showAddSoftware, setShowAddSoftware] = useState(false);
   const [showAddContact, setShowAddContact] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [failedCustomerLogoUrl, setFailedCustomerLogoUrl] = useState(null);
   const logoInputRef = useRef(null);
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
@@ -129,6 +130,10 @@ export default function CustomerDetail() {
     },
     enabled: !!resolvedCustomerId,
   });
+
+  useEffect(() => {
+    setFailedCustomerLogoUrl(null);
+  }, [customer?.logo_url]);
 
   const customerId = resolvedCustomerId;
 
@@ -616,6 +621,8 @@ export default function CustomerDetail() {
   const totalLicenseCost = licenses
     .filter(l => l.status === 'active')
     .reduce((sum, l) => sum + (l.total_cost || 0), 0);
+  const customerLogoUrl = customer.logo_url ? resolveFileUrl(customer.logo_url) : null;
+  const showCustomerLogo = customerLogoUrl && failedCustomerLogoUrl !== customerLogoUrl;
 
   return (
     <div className="space-y-6">
@@ -671,8 +678,13 @@ export default function CustomerDetail() {
                 )}
                 onClick={() => isAdmin && logoInputRef.current?.click()}
               >
-                {customer.logo_url ? (
-                  <img src={resolveFileUrl(customer.logo_url)} alt={customer.name} className="w-14 h-14 rounded-hero-lg object-cover" />
+                {showCustomerLogo ? (
+                  <img
+                    src={customerLogoUrl}
+                    alt={customer.name}
+                    className="w-14 h-14 rounded-hero-lg object-cover"
+                    onError={() => setFailedCustomerLogoUrl(customerLogoUrl)}
+                  />
                 ) : (
                   <span className="text-2xl font-bold text-primary">
                     {customer.name?.charAt(0)?.toUpperCase() || 'C'}
@@ -1369,7 +1381,7 @@ export default function CustomerDetail() {
                               >
                                 <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center overflow-hidden flex-shrink-0">
                                   {data.software.logo_url ? (
-                                    <img src={data.software.logo_url} alt={appName} className="w-8 h-8 object-contain" />
+                                    <img src={resolveFileUrl(data.software.logo_url)} alt={appName} className="w-8 h-8 object-contain" />
                                   ) : (
                                     <Cloud className="w-5 h-5 text-emerald-600" />
                                   )}
@@ -1483,7 +1495,7 @@ export default function CustomerDetail() {
                                   >
                                     <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center overflow-hidden flex-shrink-0 border border-slate-200">
                                       {license.logo_url ? (
-                                        <img src={license.logo_url} alt="" className="w-6 h-6 object-contain" />
+                                        <img src={resolveFileUrl(license.logo_url)} alt="" className="w-6 h-6 object-contain" />
                                       ) : (
                                         <Cloud className="w-4 h-4 text-slate-600" />
                                       )}
@@ -1549,7 +1561,7 @@ export default function CustomerDetail() {
                           >
                             <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
                               {license.logo_url ? (
-                                <img src={license.logo_url} alt={license.application_name} className="w-8 h-8 object-contain" />
+                                <img src={resolveFileUrl(license.logo_url)} alt={license.application_name} className="w-8 h-8 object-contain" />
                               ) : (
                                 <Cloud className="w-5 h-5 text-purple-600" />
                               )}

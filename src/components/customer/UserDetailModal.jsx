@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { client } from '@/api/client';
+import { client, resolveFileUrl } from '@/api/client';
 import {
   Dialog,
   DialogContent,
@@ -224,7 +224,7 @@ export default function UserDetailModal({ contact, open, onClose, customerId }) 
                             className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer group"
                           >
                             {license.logo_url ? (
-                              <img src={license.logo_url} alt="" className="w-8 h-8 rounded object-contain" />
+                              <img src={resolveFileUrl(license.logo_url)} alt="" className="w-8 h-8 rounded object-contain" />
                             ) : (
                               <div className="w-8 h-8 rounded bg-blue-100 flex items-center justify-center">
                                 <Cloud className="w-4 h-4 text-blue-600" />

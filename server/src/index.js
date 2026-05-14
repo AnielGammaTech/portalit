@@ -10,6 +10,7 @@ import { uploadRouter } from './routes/upload.js';
 import { haloRouter } from './routes/halo.js';
 import { cronRouter } from './routes/cron.js';
 import { securityRouter } from './routes/security.js';
+import { integrationsRouter } from './routes/integrations.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { setupScheduledJobs } from './scheduled.js';
 
@@ -35,17 +36,22 @@ for (const key of OPTIONAL_ENV) {
 
 const app = express();
 
+// Railway and similar platforms terminate TLS before forwarding to Node. Trust
+// the proxy headers so generated upload URLs use the public https origin.
+app.set('trust proxy', 1);
+
 // Security headers
 app.use(helmet({
   contentSecurityPolicy: false, // CSP managed by frontend
   crossOriginEmbedderPolicy: false, // Allow embedded content
+  crossOriginResourcePolicy: { policy: 'cross-origin' }, // Uploaded logos/icons are loaded by the frontend origin
 }));
 
 const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:5173')
   .split(',')
   .map(o => o.trim());
 
-app.use(cors({
+const corsMiddleware = cors({
   origin: (origin, callback) => {
     // Requests from allowed origins are always permitted.
     if (origin && allowedOrigins.includes(origin)) {
@@ -61,7 +67,16 @@ app.use(cors({
     return callback(null, false);
   },
   credentials: true,
-}));
+});
+
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/upload/file/')) {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    return next();
+  }
+  return corsMiddleware(req, res, next);
+});
 app.use(express.json({ limit: '10mb' }));
 
 // ── Rate limiters ────────────────────────────────────────────────────
@@ -94,6 +109,9 @@ for (const path of AUTH_RATE_LIMITED_PATHS) {
 
 // Apply general rate limiter to all remaining API routes (skip auth paths already limited above)
 app.use('/api', (req, res, next) => {
+  if (req.path.startsWith('/upload/file/')) {
+    return next();
+  }
   if (AUTH_RATE_LIMITED_PATHS.some(p => req.path.startsWith(p.replace('/api', '')))) {
     return next();
   }
@@ -113,6 +131,7 @@ app.use('/api/upload', uploadRouter);
 app.use('/api/halo', haloRouter);
 app.use('/api/cron', cronRouter);
 app.use('/api/security', securityRouter);
+app.use('/api/integrations', integrationsRouter);
 
 // Error handler
 app.use(errorHandler);

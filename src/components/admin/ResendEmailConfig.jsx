@@ -7,22 +7,13 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Mail, CheckCircle, AlertCircle, Send, Loader2 } from 'lucide-react';
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
-
 export default function ResendEmailConfig() {
   const [testEmail, setTestEmail] = useState('');
   const [isSending, setIsSending] = useState(false);
 
   const { data: emailStatus, isLoading } = useQuery({
     queryKey: ['email-status'],
-    queryFn: async () => {
-      const token = (await client.auth.me()) && (await (await import('@/api/client')).supabase.auth.getSession()).data.session?.access_token;
-      const res = await fetch(`${apiBaseUrl}/api/users/email-status`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Failed to fetch email status');
-      return res.json();
-    },
+    queryFn: () => client.users.getEmailStatus(),
   });
 
   const handleSendTest = async () => {
@@ -85,15 +76,9 @@ export default function ResendEmailConfig() {
             </div>
 
             {emailStatus && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl bg-slate-50">
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">From Address</p>
-                  <p className="font-mono text-sm text-slate-900">{emailStatus.from}</p>
-                </div>
-                <div className="p-4 rounded-xl bg-slate-50">
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Provider</p>
-                  <p className="font-mono text-sm text-slate-900">Resend API</p>
-                </div>
+              <div className="p-4 rounded-xl bg-slate-50">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Provider</p>
+                <p className="font-mono text-sm text-slate-900">Resend API</p>
               </div>
             )}
           </div>

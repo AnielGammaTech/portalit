@@ -48,19 +48,18 @@ export default function HaloPSASection() {
   const loadSettings = async () => {
     try {
       setLoading(true);
-      const settingsList = await client.entities.Settings.list();
-      if (settingsList.length > 0) {
-        const s = settingsList[0];
-        const hasCreds = !!(s.halopsa_client_id);
+      const s = await client.integrations.config.get('halopsa');
+      if (s) {
+        const hasCreds = !!(s.hasClientId);
         setHasExistingCredentials(hasCreds);
         setSettings({
-          halopsa_client_id: s.halopsa_client_id || '',
-          halopsa_client_secret: s.halopsa_client_secret || '',
+          halopsa_client_id: s.hasClientId ? MASKED_PLACEHOLDER : '',
+          halopsa_client_secret: s.hasClientSecret ? MASKED_PLACEHOLDER : '',
           halopsa_tenant: s.halopsa_tenant || '',
           halopsa_auth_url: s.halopsa_auth_url || '',
           halopsa_api_url: s.halopsa_api_url || ''
         });
-        setIsEnabled(!!s.halopsa_client_id);
+        setIsEnabled(!!s.hasClientId);
         if (hasCreds && s.halopsa_auth_url && s.halopsa_api_url) {
           setConfigStatus(CONNECTION_STATES.CONFIGURED);
         }
@@ -117,12 +116,7 @@ export default function HaloPSASection() {
         delete payload.halopsa_client_secret;
       }
 
-      const settingsList = await client.entities.Settings.list();
-      if (settingsList.length > 0) {
-        await client.entities.Settings.update(settingsList[0].id, payload);
-      } else {
-        await client.entities.Settings.create(payload);
-      }
+      await client.integrations.config.save('halopsa', payload);
       setIsEnabled(true);
       setHasExistingCredentials(true);
       setDirtyFields(new Set());

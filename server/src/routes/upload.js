@@ -7,6 +7,18 @@ import { getServiceSupabase } from '../lib/supabase.js';
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
+function getPublicBaseUrl(req) {
+  const configuredBase = process.env.PUBLIC_API_URL || process.env.API_BASE_URL || process.env.BACKEND_URL;
+  if (configuredBase) return configuredBase.replace(/\/+$/, '');
+
+  const forwardedProto = req.get('x-forwarded-proto')?.split(',')[0]?.trim();
+  const forwardedHost = req.get('x-forwarded-host')?.split(',')[0]?.trim();
+  const protocol = forwardedProto || req.protocol || 'https';
+  const host = forwardedHost || req.get('host');
+
+  return `${protocol}://${host}`;
+}
+
 // M-6: Rate limit uploads — 10 per minute per IP to prevent abuse
 const uploadRateLimit = rateLimit({
   windowMs: 60 * 1000,
@@ -25,7 +37,17 @@ router.post('/', uploadRateLimit, requireAuth, upload.single('file'), async (req
     const supabase = getServiceSupabase();
 
     // Security: sanitize filename and validate MIME type
-    const ALLOWED_MIMES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    const ALLOWED_MIMES = [
+      'application/pdf',
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/gif',
+      'image/x-icon',
+      'image/vnd.microsoft.icon',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
     if (!ALLOWED_MIMES.includes(req.file.mimetype)) {
       return res.status(400).json({ error: 'File type not allowed' });
     }
@@ -47,7 +69,7 @@ router.post('/', uploadRateLimit, requireAuth, upload.single('file'), async (req
     }
 
     // Return a proxied URL that works regardless of bucket privacy
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const baseUrl = getPublicBaseUrl(req);
     const fileUrl = `${baseUrl}/api/upload/file/${encodeURIComponent(fileName)}`;
 
     res.json({ file_url: fileUrl });

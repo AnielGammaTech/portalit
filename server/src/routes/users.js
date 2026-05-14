@@ -56,6 +56,46 @@ function sanitizeName(name) {
   return name.replace(/<[^>]*>/g, '').trim().slice(0, 200);
 }
 
+function sanitizeOptionalUrl(value, fieldName) {
+  if (value == null || value === '') return null;
+  if (typeof value !== 'string') {
+    const err = new Error(`${fieldName} must be a string`);
+    err.status = 400;
+    throw err;
+  }
+
+  const trimmed = value.trim();
+  if (trimmed.length > 2048) {
+    const err = new Error(`${fieldName} is too long`);
+    err.status = 400;
+    throw err;
+  }
+
+  if (trimmed.startsWith('/api/upload/file/')) return trimmed;
+
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') return trimmed;
+  } catch {
+    // Fall through to the uniform validation error below.
+  }
+
+  const err = new Error(`${fieldName} must be an http(s) URL or uploaded file URL`);
+  err.status = 400;
+  throw err;
+}
+
+async function ensureAnotherAdminExists(supabase, targetUserId) {
+  const { count, error } = await supabase
+    .from('users')
+    .select('*', { count: 'exact', head: true })
+    .eq('role', 'admin')
+    .neq('id', targetUserId);
+
+  if (error) throw new Error(error.message);
+  return (count || 0) > 0;
+}
+
 // ── In-memory OTP store (codes expire after 10 minutes) ──────────────
 
 const otpStore = new Map(); // email → { code, expiresAt }
@@ -556,6 +596,123 @@ router.get('/email-status', requireAdmin, async (_req, res) => {
   });
 });
 
+// ── PATCH /api/users/:id ─────────────────────────────────────────────
+// Admin-only profile and access updates with server-side validation/audit.
+
+router.patch('/:id', requireAdmin, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const supabase = getServiceSupabase();
+
+    const { data: existing, error: existingError } = await supabase
+      .from('users')
+      .select('id, auth_id, email, full_name, role, customer_id, customer_name, avatar_url')
+      .eq('id', id)
+      .single();
+
+    if (existingError || !existing) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const updates = {};
+    const allowedKeys = new Set(['full_name', 'avatar_url', 'role', 'customer_id']);
+    const rejectedKeys = Object.keys(req.body || {}).filter(key => !allowedKeys.has(key) && key !== 'customer_name');
+    if (rejectedKeys.length > 0) {
+      return res.status(400).json({ error: `Unsupported user update fields: ${rejectedKeys.join(', ')}` });
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'full_name')) {
+      updates.full_name = sanitizeName(req.body.full_name);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'avatar_url')) {
+      updates.avatar_url = sanitizeOptionalUrl(req.body.avatar_url, 'avatar_url');
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'role')) {
+      if (!VALID_ROLES.includes(req.body.role)) {
+        return res.status(400).json({ error: `Invalid role. Must be one of: ${VALID_ROLES.join(', ')}` });
+      }
+      if (req.user?.id === id && req.body.role !== 'admin') {
+        return res.status(400).json({ error: 'You cannot remove your own admin role' });
+      }
+      if (existing.role === 'admin' && req.body.role !== 'admin') {
+        const hasAnotherAdmin = await ensureAnotherAdminExists(supabase, id);
+        if (!hasAnotherAdmin) {
+          return res.status(400).json({ error: 'Cannot remove the last admin account' });
+        }
+      }
+      updates.role = req.body.role;
+    }
+
+    const finalRole = updates.role || existing.role || 'user';
+    if (finalRole !== 'user') {
+      updates.customer_id = null;
+      updates.customer_name = null;
+    } else if (Object.prototype.hasOwnProperty.call(req.body, 'customer_id')) {
+      const customerId = req.body.customer_id === 'none' || req.body.customer_id === '' ? null : req.body.customer_id;
+      if (customerId) {
+        const { data: customer, error: customerError } = await supabase
+          .from('customers')
+          .select('id, name')
+          .eq('id', customerId)
+          .single();
+        if (customerError || !customer) {
+          return res.status(400).json({ error: 'Invalid customer_id: customer not found' });
+        }
+        updates.customer_id = customer.id;
+        updates.customer_name = customer.name || null;
+      } else {
+        updates.customer_id = null;
+        updates.customer_name = null;
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No supported fields provided' });
+    }
+
+    const { data: updated, error: updateError } = await supabase
+      .from('users')
+      .update(updates)
+      .eq('id', id)
+      .select('id, auth_id, email, full_name, role, customer_id, customer_name, avatar_url')
+      .single();
+
+    if (updateError) {
+      return res.status(500).json({ error: updateError.message });
+    }
+
+    if (existing.auth_id && (updates.full_name !== undefined || updates.role !== undefined)) {
+      await supabase.auth.admin.updateUserById(existing.auth_id, {
+        user_metadata: {
+          full_name: updated.full_name || '',
+          role: updated.role || 'user',
+        },
+      }).then(() => null, (authError) => {
+        console.warn(`[Users] Auth metadata update failed for ${maskEmail(existing.email)}:`, authError.message);
+      });
+    }
+
+    await supabase.from('user_audit_log').insert({
+      actor_id: req.user?.id || null,
+      action: 'update',
+      target_user_id: id,
+      target_email: existing.email,
+      details: {
+        updated_fields: Object.keys(updates),
+        previous_role: existing.role,
+        next_role: updated.role,
+        updated_by: req.user?.email,
+      },
+    }).then(() => null, () => null);
+
+    res.json({ success: true, user: updated });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // ── GET /api/users/:id/sign-ins ──────────────────────────────────────
 
 router.get('/:id/sign-ins', requireAuth, async (req, res, next) => {
@@ -564,7 +721,7 @@ router.get('/:id/sign-ins', requireAuth, async (req, res, next) => {
 
     // Allow admins to view any user's sign-ins; non-admins may only view their own
     const isAdmin = req.user?.role === 'admin';
-    const isSelf = req.user?.id === id;
+    const isSelf = req.user?.id === id || req.user?.auth_id === id;
     if (!isAdmin && !isSelf) {
       return res.status(403).json({ error: 'Forbidden: you can only view your own sign-in history' });
     }
@@ -607,12 +764,16 @@ router.delete('/:id', requireAdmin, async (req, res, next) => {
     // Get auth_id before deleting profile
     const { data: profile } = await supabase
       .from('users')
-      .select('auth_id, email, full_name')
+      .select('auth_id, email, full_name, role')
       .eq('id', id)
       .single();
 
     if (!profile) {
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (profile.role === 'admin') {
+      return res.status(400).json({ error: 'Admin accounts cannot be deleted from Adminland' });
     }
 
     // Log the deletion for audit
@@ -663,12 +824,16 @@ router.post('/:id/suspend', requireAdmin, async (req, res, next) => {
 
     const { data: profile } = await supabase
       .from('users')
-      .select('auth_id, email, full_name')
+      .select('auth_id, email, full_name, role')
       .eq('id', id)
       .single();
 
     if (!profile || !profile.auth_id) {
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (profile.role === 'admin') {
+      return res.status(400).json({ error: 'Admin accounts cannot be suspended from Adminland' });
     }
 
     // Ban the user in Supabase Auth (prevents login)
