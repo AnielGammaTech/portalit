@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { client } from '@/api/client';
+import { client, resolveFileUrl } from '@/api/client';
 import { 
   Settings, 
   Upload, 
@@ -161,7 +161,7 @@ export default function CustomerSettings() {
               currentLogo ? "border-slate-200 bg-white" : "border-slate-300 bg-slate-50"
             )}>
               {currentLogo ? (
-                <img src={currentLogo} alt="Company logo" className="w-full h-full object-contain p-2" />
+                <img src={resolveFileUrl(currentLogo)} alt="Company logo" className="w-full h-full object-contain p-2" />
               ) : (
                 <div className="text-center">
                   <Building2 className="w-8 h-8 text-slate-400 mx-auto mb-1" />

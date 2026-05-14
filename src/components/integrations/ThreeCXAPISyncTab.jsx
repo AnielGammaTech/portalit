@@ -42,7 +42,10 @@ export default function APISyncTab() {
 
   const { data: mappings = [], isLoading: loadingMappings, refetch: refetchMappings } = useQuery({
     queryKey: ['threecx-mappings'],
-    queryFn: () => client.entities.ThreeCXMapping.list('customer_name', 100),
+    queryFn: async () => {
+      const result = await client.integrations.threecx.listMappings();
+      return result.mappings || [];
+    },
   });
 
   const { data: customers = [] } = useQuery({
@@ -55,7 +58,7 @@ export default function APISyncTab() {
   );
 
   const testConnection = async () => {
-    if (!instanceUrl || !apiKey) {
+    if (!instanceUrl || (!apiKey && !editingMapping?.hasApiKey)) {
       toast.error('Instance URL and API key are required');
       return;
     }
@@ -65,9 +68,9 @@ export default function APISyncTab() {
     try {
       const response = await client.functions.invoke('sync3CX', {
         action: 'test_connection',
-        instance_url: instanceUrl,
-        api_key: apiKey,
-        api_secret: apiSecret || undefined,
+        ...(apiKey
+          ? { instance_url: instanceUrl, api_key: apiKey, api_secret: apiSecret || undefined }
+          : { mapping_id: editingMapping.id, instance_url: instanceUrl, api_secret: apiSecret || undefined }),
       });
       if (response.success) {
         setTestResult(response);
@@ -86,7 +89,7 @@ export default function APISyncTab() {
   };
 
   const handleSave = async () => {
-    if (!selectedCustomer || !instanceUrl || !apiKey) {
+    if (!selectedCustomer || !instanceUrl || (!apiKey && !editingMapping?.hasApiKey)) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -95,17 +98,16 @@ export default function APISyncTab() {
       const customer = customers.find(c => c.id === selectedCustomer);
       const payload = {
         customer_id: selectedCustomer,
-        customer_name: customer?.name,
         instance_url: instanceUrl.replace(/\/$/, ''),
         instance_name: instanceName || customer?.name,
-        api_key: apiKey,
-        api_secret: apiSecret || null,
       };
+      if (apiKey.trim()) payload.api_key = apiKey.trim();
+      if (apiSecret.trim()) payload.api_secret = apiSecret.trim();
       if (editingMapping) {
-        await client.entities.ThreeCXMapping.update(editingMapping.id, payload);
+        await client.integrations.threecx.updateMapping(editingMapping.id, payload);
         toast.success('3CX mapping updated');
       } else {
-        await client.entities.ThreeCXMapping.create(payload);
+        await client.integrations.threecx.createMapping(payload);
         toast.success('3CX mapping created');
       }
       refetchMappings();
@@ -134,8 +136,8 @@ export default function APISyncTab() {
     setSelectedCustomer(mapping.customer_id);
     setInstanceUrl(mapping.instance_url || '');
     setInstanceName(mapping.instance_name || '');
-    setApiKey(mapping.api_key || '');
-    setApiSecret(mapping.api_secret || '');
+    setApiKey('');
+    setApiSecret('');
     setTestResult(null);
     setShowAddModal(true);
   };
@@ -143,7 +145,7 @@ export default function APISyncTab() {
   const handleDelete = async (mappingId) => {
     if (!confirm('Remove this 3CX mapping?')) return;
     try {
-      await client.entities.ThreeCXMapping.delete(mappingId);
+      await client.integrations.threecx.deleteMapping(mappingId);
       toast.success('Mapping removed');
       refetchMappings();
     } catch (error) {
@@ -365,16 +367,28 @@ export default function APISyncTab() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>API Key / Security Code</Label>
-                <Input type="password" placeholder="API Key..." value={apiKey} onChange={(e) => setApiKey(e.target.value)} className="mt-1.5" />
+                <Input
+                  type="password"
+                  placeholder={editingMapping?.hasApiKey ? 'Existing key configured - enter a new key to replace' : 'API Key...'}
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  className="mt-1.5"
+                />
               </div>
               <div>
                 <Label>API Secret (if required)</Label>
-                <Input type="password" placeholder="Optional..." value={apiSecret} onChange={(e) => setApiSecret(e.target.value)} className="mt-1.5" />
+                <Input
+                  type="password"
+                  placeholder={editingMapping?.hasApiSecret ? 'Existing secret configured - enter a new secret to replace' : 'Optional...'}
+                  value={apiSecret}
+                  onChange={(e) => setApiSecret(e.target.value)}
+                  className="mt-1.5"
+                />
               </div>
             </div>
 
             <div className="flex items-center gap-3">
-              <Button variant="outline" onClick={testConnection} disabled={testing || !instanceUrl || !apiKey}>
+              <Button variant="outline" onClick={testConnection} disabled={testing || !instanceUrl || (!apiKey && !editingMapping?.hasApiKey)}>
                 <RefreshCw className={cn("w-4 h-4 mr-2", testing && "animate-spin")} />
                 Test Connection
               </Button>
@@ -388,7 +402,7 @@ export default function APISyncTab() {
 
             <div className="flex justify-end gap-3 pt-4">
               <Button variant="outline" onClick={resetForm}>Cancel</Button>
-              <Button onClick={handleSave} disabled={isSaving || !selectedCustomer || !instanceUrl || !apiKey}>
+              <Button onClick={handleSave} disabled={isSaving || !selectedCustomer || !instanceUrl || (!apiKey && !editingMapping?.hasApiKey)}>
                 {isSaving ? (
                   <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</>
                 ) : (

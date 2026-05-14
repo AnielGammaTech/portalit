@@ -14,6 +14,8 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  AlertTriangle,
+  Wrench,
 } from 'lucide-react';
 
 function formatDuration(ms) {
@@ -46,9 +48,25 @@ function parseCronSchedule(schedule) {
   return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
 }
 
+function describeCronFrequency(schedule) {
+  const parts = schedule.split(' ');
+  if (parts.length < 5) return 'Scheduled';
+  if (parts[4] && parts[4] !== '*') return 'Weekly';
+  return 'Daily';
+}
+
+function statusIcon(job, isRunning) {
+  if (isRunning) return <Loader2 className="w-5 h-5 animate-spin text-sky-500" />;
+  if (job.isRecentFailure || job.health === 'failed') return <XCircle className="w-5 h-5 text-red-500" />;
+  if (job.isStale) return <AlertTriangle className="w-5 h-5 text-amber-500" />;
+  if (job.lastRun?.status === 'success') return <CheckCircle2 className="w-5 h-5 text-emerald-500" />;
+  return <Clock className="w-5 h-5 text-slate-300" />;
+}
+
 export default function CronJobsPanel() {
   const queryClient = useQueryClient();
   const [runningJob, setRunningJob] = useState(null);
+  const [catchingUp, setCatchingUp] = useState(false);
   const [expandedJob, setExpandedJob] = useState(null);
 
   const { data: jobsData, isLoading: jobsLoading } = useQuery({
@@ -66,13 +84,15 @@ export default function CronJobsPanel() {
 
   const jobs = jobsData?.jobs || [];
   const history = historyData?.runs || [];
+  const summary = jobsData?.summary || {};
 
   const handleRunJob = async (jobName) => {
     setRunningJob(jobName);
     try {
       const result = await client.cronJobs.runJob(jobName);
       if (result.success) {
-        toast.success(`Job completed in ${formatDuration(result.durationMs)}`);
+        const retryText = result.attempts > 1 ? ` after ${result.attempts} attempts` : '';
+        toast.success(`Job completed in ${formatDuration(result.durationMs)}${retryText}`);
       } else {
         toast.error(`Job failed: ${result.error}`);
       }
@@ -82,6 +102,24 @@ export default function CronJobsPanel() {
       toast.error(error.message || 'Failed to run job');
     } finally {
       setRunningJob(null);
+    }
+  };
+
+  const handleCatchUp = async () => {
+    setCatchingUp(true);
+    try {
+      const result = await client.cronJobs.catchUp();
+      if (result.queued?.length) {
+        toast.success(`Queued ${result.queued.length} stale job${result.queued.length === 1 ? '' : 's'} for catch-up`);
+      } else {
+        toast.success('No stale jobs need catch-up');
+      }
+      queryClient.invalidateQueries({ queryKey: ['cron_jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['cron_history'] });
+    } catch (error) {
+      toast.error(error.message || 'Failed to queue catch-up');
+    } finally {
+      setCatchingUp(false);
     }
   };
 
@@ -95,29 +133,45 @@ export default function CronJobsPanel() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-500">
-          {jobs.length} scheduled jobs &middot; All times are server time
-        </p>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            queryClient.invalidateQueries({ queryKey: ['cron_jobs'] });
-            queryClient.invalidateQueries({ queryKey: ['cron_history'] });
-          }}
-          className="gap-2"
-        >
-          <RefreshCw className="w-3.5 h-3.5" /> Refresh
-        </Button>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="space-y-1">
+          <p className="text-sm text-slate-500">
+            {jobs.length} scheduled jobs &middot; {summary.healthy || 0} healthy &middot; {summary.stale || 0} stale &middot; {summary.backoff || 0} in retry backoff
+          </p>
+          <p className="text-xs text-slate-400">
+            Stale jobs are queued automatically on startup and hourly; failed jobs wait before retrying.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCatchUp}
+            disabled={catchingUp || jobsData?.catchupDisabled}
+            className="gap-2"
+          >
+            {catchingUp ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wrench className="w-3.5 h-3.5" />}
+            Queue Catch-Up
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              queryClient.invalidateQueries({ queryKey: ['cron_jobs'] });
+              queryClient.invalidateQueries({ queryKey: ['cron_history'] });
+            }}
+            className="gap-2"
+          >
+            <RefreshCw className="w-3.5 h-3.5" /> Refresh
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-2">
         {jobs.map((job) => {
           const isExpanded = expandedJob === job.name;
-          const isRunning = runningJob === job.name;
+          const isRunning = runningJob === job.name || job.isRunning;
           const lastRun = job.lastRun;
-          const lastStatus = lastRun?.status;
 
           return (
             <div
@@ -128,13 +182,7 @@ export default function CronJobsPanel() {
               <div className="flex items-center gap-4 p-4">
                 {/* Status indicator */}
                 <div className="flex-shrink-0">
-                  {lastStatus === 'success' ? (
-                    <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                  ) : lastStatus === 'failed' ? (
-                    <XCircle className="w-5 h-5 text-red-500" />
-                  ) : (
-                    <Clock className="w-5 h-5 text-slate-300" />
-                  )}
+                  {statusIcon(job, isRunning)}
                 </div>
 
                 {/* Job info */}
@@ -151,6 +199,21 @@ export default function CronJobsPanel() {
                     >
                       {job.category}
                     </Badge>
+                    {isRunning && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-sky-200 text-sky-600">
+                        Running
+                      </Badge>
+                    )}
+                    {!isRunning && job.isRecentFailure && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-red-200 text-red-600">
+                        Backoff
+                      </Badge>
+                    )}
+                    {!isRunning && !job.isRecentFailure && job.isStale && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-200 text-amber-600">
+                        Stale
+                      </Badge>
+                    )}
                   </div>
                   <p className="text-xs text-slate-500">{job.description}</p>
                 </div>
@@ -160,18 +223,18 @@ export default function CronJobsPanel() {
                   <p className="text-xs font-medium text-slate-700">
                     {parseCronSchedule(job.schedule)}
                   </p>
-                  <p className="text-[10px] text-slate-400">Daily</p>
+                  <p className="text-[10px] text-slate-400">{describeCronFrequency(job.schedule)}</p>
                 </div>
 
                 {/* Last run info */}
-                <div className="text-right flex-shrink-0 hidden md:block min-w-[100px]">
+                <div className="text-right flex-shrink-0 hidden md:block min-w-[120px]">
                   {lastRun ? (
                     <>
                       <p className="text-xs text-slate-700">
-                        {formatTimeAgo(lastRun.completed_at)}
+                        Last run {formatTimeAgo(lastRun.completed_at)}
                       </p>
                       <p className="text-[10px] text-slate-400">
-                        {formatDuration(lastRun.duration_ms)}
+                        Last ok {formatTimeAgo(job.lastSuccess?.completed_at)}
                       </p>
                     </>
                   ) : (

@@ -108,13 +108,19 @@ export default function DevicesTab({ customerId, customerExternalId }) {
 
   const filteredDevices = devices.filter(device => {
     const matchesSearch = !search ||
+      device.name?.toLowerCase().includes(search.toLowerCase()) ||
       device.hostname?.toLowerCase().includes(search.toLowerCase()) ||
       device.ip_address?.includes(search) ||
-      device.serial_number?.toLowerCase().includes(search.toLowerCase());
+      device.serial_number?.toLowerCase().includes(search.toLowerCase()) ||
+      device.manufacturer?.toLowerCase().includes(search.toLowerCase()) ||
+      device.model?.toLowerCase().includes(search.toLowerCase()) ||
+      device.last_user?.toLowerCase().includes(search.toLowerCase());
     const matchesType = typeFilter === 'all' || device.device_type === typeFilter;
     const matchesStatus = statusFilter === 'all' || device.status === statusFilter;
     return matchesSearch && matchesType && matchesStatus;
   });
+
+  const availableTypes = Array.from(new Set(devices.map(d => d.device_type).filter(Boolean))).sort();
 
   const deviceCounts = {
     total: cachedData?.total_devices ?? devices.length,
@@ -212,6 +218,24 @@ export default function DevicesTab({ customerId, customerExternalId }) {
               </button>
             ))}
           </div>
+          {availableTypes.length > 1 && (
+            <div className="flex gap-2">
+              {['all', ...availableTypes].map(type => (
+                <button
+                  key={type}
+                  onClick={() => setTypeFilter(type)}
+                  className={cn(
+                    'px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-[250ms] active:scale-[0.97] capitalize',
+                    typeFilter === type
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'bg-zinc-100 dark:bg-zinc-800 text-muted-foreground hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                  )}
+                >
+                  {type.replace(/_/g, ' ')}
+                </button>
+              ))}
+            </div>
+          )}
           <Button onClick={syncDevices} disabled={syncing}>
             {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
             Sync Devices
@@ -265,10 +289,13 @@ export default function DevicesTab({ customerId, customerExternalId }) {
                           {status.label}
                         </Badge>
                         {device.notes && <StickyNote className="w-3.5 h-3.5 text-warning" />}
-                        {device.assigned_user_id && <User className="w-3.5 h-3.5 text-[#7828C8]" />}
+                        {device.assigned_contact_id && <User className="w-3.5 h-3.5 text-[#7828C8]" />}
                       </div>
                       <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
                         {device.operating_system && <span>{device.operating_system}</span>}
+                        {(device.manufacturer || device.model) && (
+                          <span>{[device.manufacturer, device.model].filter(Boolean).join(' ')}</span>
+                        )}
                         {device.ip_address && <span>{device.ip_address}</span>}
                         {device.last_user && (
                           <span className="flex items-center gap-1">

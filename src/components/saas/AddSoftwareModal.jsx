@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { client } from '@/api/client';
+import { client, resolveFileUrl } from '@/api/client';
 import { Cloud, Upload, Globe, Loader2, X, Image } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { toast } from 'sonner';
@@ -276,7 +276,7 @@ Return JSON with:
                 <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
               ) : form.logo_url ? (
                 <img 
-                  src={form.logo_url} 
+                  src={resolveFileUrl(form.logo_url)}
                   alt="Logo" 
                   className="w-14 h-14 object-contain rounded-lg"
                   onError={() => setForm(prev => ({ ...prev, logo_url: '' }))}

@@ -11,7 +11,7 @@
  */
 
 import { Router } from 'express';
-import { requireAuth, requireAdmin } from '../middleware/auth.js';
+import { requireAdmin } from '../middleware/auth.js';
 import { getServiceSupabase } from '../lib/supabase.js';
 import {
   getHaloConfig,
@@ -28,7 +28,7 @@ const router = Router();
 
 // ── GET /api/halo/status ─────────────────────────────────────────────────
 
-router.get('/status', requireAuth, async (_req, res, next) => {
+router.get('/status', requireAdmin, async (_req, res, next) => {
   try {
     const configured = await isHaloConfigured();
 

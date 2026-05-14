@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { client } from '@/api/client';
+import { client, resolveFileUrl } from '@/api/client';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import {
@@ -336,7 +336,7 @@ export default function SaaSReports() {
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center overflow-hidden">
                       {license.logo_url ? (
-                        <img src={license.logo_url} alt="" className="w-8 h-8 object-contain" />
+                        <img src={resolveFileUrl(license.logo_url)} alt="" className="w-8 h-8 object-contain" />
                       ) : (
                         <Cloud className="w-5 h-5 text-purple-600" />
                       )}

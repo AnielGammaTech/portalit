@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../../utils';
+import { resolveFileUrl } from '@/api/client';
 import { Cloud, Building2, User, CreditCard } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -58,7 +59,7 @@ export default function SoftwareCard({
           !software.logo_url && "bg-purple-100 border border-purple-200"
         )}>
         {software.logo_url ? (
-            <img src={software.logo_url} alt={software.application_name} className="w-6 h-6 object-contain" />
+            <img src={resolveFileUrl(software.logo_url)} alt={software.application_name} className="w-6 h-6 object-contain" />
           ) : (
             <Cloud className="w-3.5 h-3.5 text-purple-600" />
           )}

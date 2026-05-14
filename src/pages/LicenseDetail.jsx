@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { client } from '@/api/client';
+import { client, resolveFileUrl } from '@/api/client';
 import { toast } from 'sonner';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '../utils';
@@ -738,7 +738,7 @@ export default function LicenseDetail() {
             <div className="flex items-start gap-3 mb-3">
               <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                 {software.logo_url ? (
-                  <img src={software.logo_url} alt={software.application_name} className="w-10 h-10 object-contain" />
+                  <img src={resolveFileUrl(software.logo_url)} alt={software.application_name} className="w-10 h-10 object-contain" />
                 ) : (
                   <Cloud className="w-6 h-6 text-purple-600" />
                 )}

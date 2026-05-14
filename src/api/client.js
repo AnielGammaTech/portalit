@@ -439,6 +439,60 @@ const integrations = {
       return apiFetch('/api/llm/invoke', { body: params, timeout: 180000 });
     },
   },
+  config: {
+    async get(provider) {
+      return apiFetch(`/api/integrations/config/${provider}`, { method: 'GET' });
+    },
+
+    async save(provider, data) {
+      return apiFetch(`/api/integrations/config/${provider}`, { method: 'PATCH', body: data });
+    },
+  },
+  mapbox: {
+    async test({ token, style } = {}) {
+      return apiFetch('/api/integrations/mapbox/test', { body: { token, style } });
+    },
+
+    async getStaticMapUrl({ addresses, style, width = 800, height = 200 }) {
+      const token = await getAuthToken();
+      const response = await fetch(`${apiBaseUrl}/api/integrations/mapbox/static`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ addresses, style, width, height }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to load map');
+      }
+
+      const blob = await response.blob();
+      return URL.createObjectURL(blob);
+    },
+  },
+  threecx: {
+    async listMappings(params = {}) {
+      const query = new URLSearchParams();
+      if (params.customerId) query.set('customer_id', params.customerId);
+      const suffix = query.toString() ? `?${query.toString()}` : '';
+      return apiFetch(`/api/integrations/threecx/mappings${suffix}`, { method: 'GET' });
+    },
+
+    async createMapping(data) {
+      return apiFetch('/api/integrations/threecx/mappings', { body: data });
+    },
+
+    async updateMapping(mappingId, data) {
+      return apiFetch(`/api/integrations/threecx/mappings/${mappingId}`, { method: 'PATCH', body: data });
+    },
+
+    async deleteMapping(mappingId) {
+      return apiFetch(`/api/integrations/threecx/mappings/${mappingId}`, { method: 'DELETE' });
+    },
+  },
 };
 
 // ── Agents ─────────────────────────────────────────────────────────────
@@ -493,8 +547,20 @@ const users = {
     });
   },
 
+  async updateUser(userId, data) {
+    return apiFetch(`/api/users/${userId}`, { method: 'PATCH', body: data });
+  },
+
+  async deleteUser(userId) {
+    return apiFetch(`/api/users/${userId}`, { method: 'DELETE' });
+  },
+
   async getAuthDetails() {
     return apiFetch('/api/users/auth-details', { method: 'GET' });
+  },
+
+  async getEmailStatus() {
+    return apiFetch('/api/users/email-status', { method: 'GET' });
   },
 
   async getSignIns(userId) {
@@ -558,24 +624,66 @@ const cronJobs = {
   async runJob(jobName) {
     return apiFetch('/api/cron/run', { body: { job_name: jobName }, timeout: 120000 });
   },
+  async catchUp() {
+    return apiFetch('/api/cron/catch-up', { body: {}, timeout: 30000 });
+  },
 };
 
 // ── File URL resolver ──────────────────────────────────────────────────
-// Rewrites old Supabase public storage URLs to go through the backend proxy,
-// so files work regardless of bucket privacy settings.
+// Rewrites uploaded-file URLs to the current backend. This keeps logos/images
+// working after backend host changes, Railway protocol forwarding, or old
+// Supabase public-storage URLs.
+const UPLOAD_FILE_PREFIX = '/api/upload/file/';
+
+function apiBase() {
+  return (apiBaseUrl || '').replace(/\/+$/, '');
+}
+
+function decodePathSegment(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function resolveUploadedFile(fileName) {
+  const cleanFileName = decodePathSegment(String(fileName || ''))
+    .split(/[?#]/)[0]
+    .replace(/[\/\\]/g, '')
+    .replace(/\.\./g, '')
+    .slice(0, 300);
+
+  if (!cleanFileName) return '';
+  return `${apiBase()}${UPLOAD_FILE_PREFIX}${encodeURIComponent(cleanFileName)}`;
+}
+
 export function resolveFileUrl(url) {
-  if (!url) return url;
-  // Force http:// to https:// for Railway backend URLs
-  if (url.startsWith('http://')) {
-    return url.replace('http://', 'https://');
+  if (!url || typeof url !== 'string') return url;
+
+  const trimmed = url.trim();
+  if (!trimmed) return trimmed;
+
+  const uploadPathIndex = trimmed.indexOf(UPLOAD_FILE_PREFIX);
+  if (uploadPathIndex !== -1) {
+    return resolveUploadedFile(trimmed.slice(uploadPathIndex + UPLOAD_FILE_PREFIX.length));
   }
-  // Old format: https://[ref].supabase.co/storage/v1/object/public/uploads/[filename]
-  const storageMatch = url.match(/\/storage\/v1\/object\/public\/uploads\/(.+)$/);
+
+  const storageMatch = trimmed.match(/\/storage\/v1\/object\/(?:public|sign|authenticated)\/uploads\/([^?#]+)/);
   if (storageMatch) {
-    const base = apiBaseUrl || `https://backend-production-58b4.up.railway.app`;
-    return `${base}/api/upload/file/${encodeURIComponent(storageMatch[1])}`;
+    return resolveUploadedFile(storageMatch[1]);
   }
-  return url;
+
+  if (/^[\w.-]+\.(?:png|jpe?g|webp|gif|svg|ico|pdf|xlsx|docx)$/i.test(trimmed)) {
+    return resolveUploadedFile(trimmed);
+  }
+
+  // Force http:// to https:// for non-upload Railway/backend URLs.
+  if (trimmed.startsWith('http://')) {
+    return trimmed.replace('http://', 'https://');
+  }
+
+  return trimmed;
 }
 
 // ── Exported Client ────────────────────────────────────────────────────

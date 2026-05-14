@@ -9,9 +9,43 @@
 import { Router } from 'express';
 import { requireAdmin } from '../middleware/auth.js';
 import { getServiceSupabase } from '../lib/supabase.js';
-import { CRON_JOBS, runCronJobManually } from '../scheduled.js';
+import {
+  CRON_JOBS,
+  DEFAULT_FAILED_RETRY_AFTER_HOURS,
+  DEFAULT_STALE_AFTER_HOURS,
+  getRunningCronJobNames,
+  runCronJobManually,
+  runStaleJobCatchup,
+} from '../scheduled.js';
 
 const router = Router();
+
+function completedAtMs(run) {
+  if (!run?.completed_at) return null;
+  const ms = new Date(run.completed_at).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function isStale(lastSuccess, staleAfterHours) {
+  const completed = completedAtMs(lastSuccess);
+  if (!completed) return true;
+  return Date.now() - completed > staleAfterHours * 60 * 60 * 1000;
+}
+
+function isRecentFailure(lastRun, retryAfterHours) {
+  if (lastRun?.status !== 'failed') return false;
+  const completed = completedAtMs(lastRun);
+  if (!completed) return false;
+  return Date.now() - completed < retryAfterHours * 60 * 60 * 1000;
+}
+
+function summarizeJobs(jobs) {
+  return jobs.reduce((summary, job) => {
+    summary.total += 1;
+    summary[job.health] = (summary[job.health] || 0) + 1;
+    return summary;
+  }, { total: 0, healthy: 0, stale: 0, failed: 0, backoff: 0, running: 0, never: 0 });
+}
 
 // ── GET /api/cron/jobs ──────────────────────────────────────────────
 // Returns all registered cron jobs with their last run status
@@ -21,30 +55,65 @@ router.get('/jobs', requireAdmin, async (_req, res, next) => {
     const supabase = getServiceSupabase();
 
     // Get the most recent run for each job
-    const { data: recentRuns } = await supabase
+    const { data: recentRuns, error } = await supabase
       .from('cron_job_runs')
       .select('*')
       .order('completed_at', { ascending: false })
-      .limit(200);
+      .limit(500);
 
-    // Group by job_name, take the latest for each
+    if (error) throw new Error(error.message);
+
+    // Group by job_name, take the latest and latest successful run for each.
     const lastRunByJob = {};
+    const lastSuccessByJob = {};
     for (const run of (recentRuns || [])) {
       if (!lastRunByJob[run.job_name]) {
         lastRunByJob[run.job_name] = run;
       }
+      if (run.status === 'success' && !lastSuccessByJob[run.job_name]) {
+        lastSuccessByJob[run.job_name] = run;
+      }
     }
+    const runningJobs = new Set(getRunningCronJobNames());
 
-    const jobs = CRON_JOBS.map(job => ({
-      name: job.name,
-      label: job.label,
-      description: job.description,
-      schedule: job.schedule,
-      category: job.category,
-      lastRun: lastRunByJob[job.name] || null,
-    }));
+    const jobs = CRON_JOBS.map(job => {
+      const lastRun = lastRunByJob[job.name] || null;
+      const lastSuccess = lastSuccessByJob[job.name] || null;
+      const staleAfterHours = job.staleAfterHours || DEFAULT_STALE_AFTER_HOURS;
+      const failedRetryAfterHours = job.failedRetryAfterHours || DEFAULT_FAILED_RETRY_AFTER_HOURS;
+      const running = runningJobs.has(job.name);
+      const stale = isStale(lastSuccess, staleAfterHours);
+      const recentFailure = isRecentFailure(lastRun, failedRetryAfterHours);
+      const health = running
+        ? 'running'
+        : recentFailure
+          ? 'backoff'
+          : stale
+            ? 'stale'
+            : lastRun?.status === 'failed'
+              ? 'failed'
+              : lastRun?.status === 'success'
+                ? 'healthy'
+                : 'never';
 
-    res.json({ jobs });
+      return {
+        name: job.name,
+        label: job.label,
+        description: job.description,
+        schedule: job.schedule,
+        category: job.category,
+        staleAfterHours,
+        failedRetryAfterHours,
+        lastRun,
+        lastSuccess,
+        isRunning: running,
+        isStale: stale,
+        isRecentFailure: recentFailure,
+        health,
+      };
+    });
+
+    res.json({ jobs, summary: summarizeJobs(jobs), catchupDisabled: process.env.DISABLE_CRON_CATCHUP === 'true' });
   } catch (error) {
     next(error);
   }
@@ -98,6 +167,19 @@ router.post('/run', requireAdmin, async (req, res, next) => {
 
     const result = await runCronJobManually(job_name);
     res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ── POST /api/cron/catch-up ─────────────────────────────────────────
+// Queue stale jobs immediately, respecting the same overlap and failure-backoff
+// rules as the automatic stale-job monitor.
+
+router.post('/catch-up', requireAdmin, async (_req, res, next) => {
+  try {
+    const result = await runStaleJobCatchup({ immediate: true });
+    res.json({ success: true, ...result });
   } catch (error) {
     next(error);
   }

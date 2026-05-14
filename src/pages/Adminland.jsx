@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { client } from '@/api/client';
+import { client, resolveFileUrl } from '@/api/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import UserAssignmentPanel from '../components/admin/UserAssignmentPanel';
@@ -587,7 +587,7 @@ function BrandingPanel() {
           <label className="text-sm font-medium text-slate-700 mb-2 block">Logo (Light Background)</label>
           <div className="flex items-start gap-4">
             <div className="w-32 h-20 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center bg-slate-50 overflow-hidden">
-              {logoUrl ? <img src={logoUrl} alt="Logo" className="max-w-full max-h-full object-contain p-2" /> : <Image className="w-8 h-8 text-slate-300" />}
+              {logoUrl ? <img src={resolveFileUrl(logoUrl)} alt="Logo" className="max-w-full max-h-full object-contain p-2" /> : <Image className="w-8 h-8 text-slate-300" />}
             </div>
             <div className="flex-1">
               <input type="file" accept="image/*" onChange={(e) => handleLogoUpload(e, 'light')} className="hidden" id="logo-upload-light" />
@@ -601,8 +601,8 @@ function BrandingPanel() {
           <label className="text-sm font-medium text-slate-700 mb-2 block">Logo (Dark Background)</label>
           <div className="flex items-start gap-4">
             <div className="w-32 h-20 rounded-xl border-2 border-dashed border-slate-700 flex items-center justify-center bg-slate-800 overflow-hidden">
-              {logoDarkUrl ? <img src={logoDarkUrl} alt="Logo Dark" className="max-w-full max-h-full object-contain p-2" />
-                : logoUrl ? <img src={logoUrl} alt="Logo" className="max-w-full max-h-full object-contain p-2" />
+              {logoDarkUrl ? <img src={resolveFileUrl(logoDarkUrl)} alt="Logo Dark" className="max-w-full max-h-full object-contain p-2" />
+                : logoUrl ? <img src={resolveFileUrl(logoUrl)} alt="Logo" className="max-w-full max-h-full object-contain p-2" />
                   : <Image className="w-8 h-8 text-slate-500" />}
             </div>
             <div className="flex-1">

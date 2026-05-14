@@ -30,8 +30,6 @@ const MAP_STYLES = [
   { id: 'satellite-v9', label: 'Satellite' },
 ];
 
-const TEST_ADDRESS = '1600 Amphitheatre Parkway, Mountain View, CA';
-
 export default function MapboxConfig() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -40,8 +38,8 @@ export default function MapboxConfig() {
   const [showToken, setShowToken] = useState(false);
 
   const [token, setToken] = useState('');
+  const [tokenConfigured, setTokenConfigured] = useState(false);
   const [style, setStyle] = useState('dark-v11');
-  const [settingsId, setSettingsId] = useState(null);
 
   useEffect(() => {
     loadSettings();
@@ -50,13 +48,10 @@ export default function MapboxConfig() {
   const loadSettings = async () => {
     setLoading(true);
     try {
-      const settingsList = await client.entities.Settings.list();
-      if (settingsList.length > 0) {
-        const s = settingsList[0];
-        setSettingsId(s.id);
-        setToken(s.mapbox_token || '');
-        setStyle(s.mapbox_style || 'dark-v11');
-      }
+      const config = await client.integrations.config.get('mapbox');
+      setTokenConfigured(Boolean(config.tokenConfigured));
+      setToken('');
+      setStyle(config.style || 'dark-v11');
     } catch (error) {
       toast.error(error.message || 'Failed to load Mapbox settings');
     } finally {
@@ -65,7 +60,7 @@ export default function MapboxConfig() {
   };
 
   const handleSave = async () => {
-    if (!token.trim()) {
+    if (!token.trim() && !tokenConfigured) {
       toast.error('Please enter a Mapbox access token');
       return;
     }
@@ -73,26 +68,23 @@ export default function MapboxConfig() {
     setSaving(true);
     try {
       const payload = {
-        mapbox_token: token.trim(),
-        mapbox_style: style,
+        style,
       };
+      if (token.trim()) payload.token = token.trim();
 
-      if (settingsId) {
-        await client.entities.Settings.update(settingsId, payload);
-      } else {
-        const created = await client.entities.Settings.create(payload);
-        setSettingsId(created.id);
-      }
+      const config = await client.integrations.config.save('mapbox', payload);
+      setToken('');
+      setTokenConfigured(Boolean(config.tokenConfigured));
       toast.success('Mapbox settings saved');
     } catch (error) {
-      toast.error('Failed to save Mapbox settings');
+      toast.error(error.message || 'Failed to save Mapbox settings');
     } finally {
       setSaving(false);
     }
   };
 
   const handleTest = async () => {
-    if (!token.trim()) {
+    if (!token.trim() && !tokenConfigured) {
       toast.error('Enter a token first');
       return;
     }
@@ -100,34 +92,21 @@ export default function MapboxConfig() {
     setTesting(true);
     setTestResult(null);
     try {
-      const encoded = encodeURIComponent(TEST_ADDRESS);
-      const res = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?access_token=${token.trim()}&limit=1`
-      );
+      const result = await client.integrations.mapbox.test({
+        token: token.trim() || undefined,
+        style,
+      });
 
-      if (!res.ok) {
-        const errorText = await res.text();
-        setTestResult({ success: false, error: `HTTP ${res.status}: ${errorText}` });
-        toast.error('Token validation failed');
-        return;
-      }
-
-      const data = await res.json();
-      const feature = data.features?.[0];
-
-      if (feature) {
-        setTestResult({
-          success: true,
-          message: `Geocoded "${TEST_ADDRESS}" to [${feature.center[0].toFixed(4)}, ${feature.center[1].toFixed(4)}]`,
-        });
+      if (result.success) {
+        setTestResult(result);
         toast.success('Mapbox token is valid');
       } else {
-        setTestResult({ success: false, error: 'No geocoding results returned' });
-        toast.error('Token works but no results returned');
+        setTestResult(result);
+        toast.error(result.error || 'Token validation failed');
       }
     } catch (error) {
       setTestResult({ success: false, error: error.message });
-      toast.error('Connection test failed');
+      toast.error(error.message || 'Connection test failed');
     } finally {
       setTesting(false);
     }
@@ -141,7 +120,7 @@ export default function MapboxConfig() {
     );
   }
 
-  const isConfigured = Boolean(token.trim());
+  const isConfigured = tokenConfigured || Boolean(token.trim());
 
   return (
     <div className="space-y-6">
@@ -182,7 +161,7 @@ export default function MapboxConfig() {
               type={showToken ? 'text' : 'password'}
               value={token}
               onChange={(e) => setToken(e.target.value)}
-              placeholder="pk.eyJ1Ijoi..."
+              placeholder={tokenConfigured ? 'Existing token configured — enter a new token to replace' : 'pk.eyJ1Ijoi...'}
               className="pr-10 font-mono text-sm"
             />
             <button
@@ -249,14 +228,14 @@ export default function MapboxConfig() {
 
       {/* Actions */}
       <div className="flex items-center gap-3 pt-2">
-        <Button onClick={handleTest} disabled={testing || !token.trim()} variant="outline">
+        <Button onClick={handleTest} disabled={testing || (!token.trim() && !tokenConfigured)} variant="outline">
           {testing
             ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             : <MapPin className="w-4 h-4 mr-2" />
           }
           Test Token
         </Button>
-        <Button onClick={handleSave} disabled={saving || !token.trim()}>
+        <Button onClick={handleSave} disabled={saving || (!token.trim() && !tokenConfigured)}>
           {saving
             ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             : <Save className="w-4 h-4 mr-2" />

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { createPageUrl } from './utils';
-import { client } from '@/api/client';
+import { client, resolveFileUrl } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/AuthContext';
 import {
@@ -424,7 +424,7 @@ export default function Layout({ children, currentPageName }) {
             <Link to={createPageUrl((isStaff && !isCustomerPortal) ? 'Dashboard' : 'CustomerDetail') + ((isStaff && !isCustomerPortal) ? '' : `?id=${user?.customer_id || ''}`)} className="flex items-center gap-2.5">
               {portalSettings.logo_url ? (
                 <img
-                  src={portalSettings.logo_url}
+                  src={resolveFileUrl(portalSettings.logo_url)}
                   alt={portalSettings.portal_name || 'Portal'}
                   className="h-7 object-contain max-w-[120px]"
                 />

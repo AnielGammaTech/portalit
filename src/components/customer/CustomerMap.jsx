@@ -1,122 +1,46 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { client, supabase } from '@/api/client';
+import React, { useState, useEffect } from 'react';
+import { client } from '@/api/client';
 import { MapPin } from 'lucide-react';
-
-const ENV_MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
-const DEFAULT_STYLE = 'dark-v11';
-
-/**
- * Geocode an address string to [lng, lat] using Mapbox Geocoding API.
- */
-async function geocodeAddress(address, token) {
-  if (!address || !token) return null;
-  try {
-    const encoded = encodeURIComponent(address);
-    const res = await fetch(
-      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?access_token=${token}&limit=1`
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    const feature = data.features?.[0];
-    if (!feature) return null;
-    return feature.center; // [lng, lat]
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Build a Mapbox Static Images API URL with markers.
- */
-function buildStaticMapUrl(coordinates, token, mapStyle, width = 800, height = 200) {
-  if (!coordinates.length || !token) return null;
-
-  // Build pin markers
-  const pins = coordinates
-    .map(([lng, lat]) => `pin-s+f97316(${lng},${lat})`)
-    .join(',');
-
-  // Auto-fit to bounds if multiple, or center on single point
-  let viewport;
-  if (coordinates.length === 1) {
-    const [lng, lat] = coordinates[0];
-    viewport = `${lng},${lat},13`;
-  } else {
-    viewport = 'auto';
-  }
-
-  const style = mapStyle || DEFAULT_STYLE;
-  // padding only works with 'auto' viewport
-  const paddingParam = viewport === 'auto' ? '&padding=40' : '';
-  return `https://api.mapbox.com/styles/v1/mapbox/${style}/static/${pins}/${viewport}/${width}x${height}@2x?access_token=${token}${paddingParam}`;
-}
 
 export default function CustomerMap({ addresses = [] }) {
   const [mapUrl, setMapUrl] = useState(null);
   const [loading, setLoading] = useState(true);
-  const cacheRef = useRef({});
-
-  // Fetch only the mapbox fields via the get_public_settings RPC.
-  // The full settings table is admin-only since it holds vendor secrets.
-  const { data: mapboxSettings } = useQuery({
-    queryKey: ['mapbox_settings'],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_public_settings');
-      if (error || !data || data.length === 0) {
-        return { token: '', style: DEFAULT_STYLE };
-      }
-      return {
-        token: data[0].mapbox_token || '',
-        style: data[0].mapbox_style || DEFAULT_STYLE,
-      };
-    },
-    staleTime: 5 * 60 * 1000, // cache for 5 minutes
-  });
-
-  const token = mapboxSettings?.token || ENV_MAPBOX_TOKEN;
-  const mapStyle = mapboxSettings?.style || DEFAULT_STYLE;
 
   useEffect(() => {
-    if (!token || addresses.length === 0) {
+    const filteredAddresses = addresses.filter(Boolean);
+    if (filteredAddresses.length === 0) {
       setLoading(false);
       return;
     }
 
     let cancelled = false;
+    let objectUrl = null;
 
     async function loadMap() {
       setLoading(true);
-
-      // Geocode all addresses (with simple cache)
-      const coordinates = [];
-      for (const addr of addresses) {
-        if (!addr) continue;
-        if (cacheRef.current[addr]) {
-          coordinates.push(cacheRef.current[addr]);
-          continue;
-        }
-        const coords = await geocodeAddress(addr, token);
-        if (coords && !cancelled) {
-          cacheRef.current[addr] = coords;
-          coordinates.push(coords);
-        }
+      setMapUrl(null);
+      try {
+        objectUrl = await client.integrations.mapbox.getStaticMapUrl({
+          addresses: filteredAddresses,
+          width: 800,
+          height: 200,
+        });
+        if (!cancelled) setMapUrl(objectUrl);
+      } catch {
+        if (!cancelled) setMapUrl(null);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-
-      if (cancelled) return;
-
-      if (coordinates.length > 0) {
-        const url = buildStaticMapUrl(coordinates, token, mapStyle);
-        setMapUrl(url);
-      }
-      setLoading(false);
     }
 
     loadMap();
-    return () => { cancelled = true; };
-  }, [addresses.join('|'), token, mapStyle]);
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [addresses.join('|')]);
 
-  if (!token || addresses.length === 0) return null;
+  if (addresses.length === 0) return null;
 
   if (loading) {
     return (

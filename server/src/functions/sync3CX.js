@@ -31,6 +31,13 @@ function validateInstanceUrl(url) {
   return url;
 }
 
+function safeExternalError(text) {
+  return String(text || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 300);
+}
+
 async function get3CXToken(instanceUrl, apiKey, apiSecret) {
   validateInstanceUrl(instanceUrl);
   // 3CX v18+ uses /webclient/api/ endpoints with bearer token
@@ -57,7 +64,7 @@ async function get3CXToken(instanceUrl, apiKey, apiSecret) {
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`3CX auth failed: ${response.status} - ${errorText}`);
+    throw new Error(`3CX auth failed: ${response.status} - ${safeExternalError(errorText)}`);
   }
 
   const data = await response.json();
@@ -88,7 +95,7 @@ async function threecxApiCall(instanceUrl, token, endpoint) {
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`3CX API error: ${response.status} - ${errorText}`);
+    throw new Error(`3CX API error: ${response.status} - ${safeExternalError(errorText)}`);
   }
 
   return response.json();
@@ -100,7 +107,22 @@ export async function sync3CX(body, user) {
 
   // ── Test Connection ──────────────────────────────────────────────
   if (action === 'test_connection') {
-    const { instance_url, api_key, api_secret } = body;
+    const { mapping_id } = body;
+    let { instance_url, api_key, api_secret } = body;
+
+    if (mapping_id) {
+      const { data: mapping, error: mappingErr } = await supabase
+        .from('threecx_mappings')
+        .select('*')
+        .eq('id', mapping_id)
+        .single();
+      if (mappingErr || !mapping) {
+        return { success: false, error: '3CX mapping not found' };
+      }
+      instance_url = instance_url || mapping.instance_url;
+      api_key = api_key || mapping.api_key;
+      api_secret = api_secret || mapping.api_secret;
+    }
 
     if (!instance_url || !api_key) {
       return { success: false, error: 'Instance URL and API key are required' };

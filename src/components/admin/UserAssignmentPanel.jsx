@@ -367,7 +367,7 @@ export default function UserAssignmentPanel() {
 
   const updateUserMutation = useMutation({
     mutationFn: async ({ userId, data }) => {
-      await client.entities.User.update(userId, data);
+      await client.users.updateUser(userId, data);
     },
     onSuccess: () => {
       toast.success('User updated');
@@ -385,7 +385,7 @@ export default function UserAssignmentPanel() {
   });
 
   const deleteUserMutation = useMutation({
-    mutationFn: (userId) => client.entities.User.delete(userId),
+    mutationFn: (userId) => client.users.deleteUser(userId),
     onSuccess: () => {
       toast.success('User deleted');
       queryClient.invalidateQueries({ queryKey: ['all-users'] });
@@ -471,7 +471,7 @@ export default function UserAssignmentPanel() {
   const handleSaveProfile = async () => {
     if (!editingUser) return;
     try {
-      await client.entities.User.update(editingUser.id, {
+      await client.users.updateUser(editingUser.id, {
         full_name: editName,
         avatar_url: editAvatarUrl || null,
       });
