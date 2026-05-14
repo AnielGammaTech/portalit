@@ -317,9 +317,9 @@ export default function DevicesTab({ customerId }) {
         />
       </motion.div>
 
-      <motion.div {...fadeInUp} className="bg-card rounded-lg border shadow-sm p-4 space-y-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[240px]">
+      <motion.div {...fadeInUp} className="bg-card rounded-lg border shadow-sm p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="relative min-w-[260px] flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input
               placeholder="Search device, IP, serial, user, or model"
@@ -338,48 +338,48 @@ export default function DevicesTab({ customerId }) {
               </button>
             )}
           </div>
-        </div>
 
-        <div className="flex flex-wrap gap-2">
-          {statusFilters.map(filter => (
-            <button
-              key={filter.key}
-              type="button"
-              onClick={() => setStatusFilter(filter.key)}
-              className={cn(
-                'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
-                statusFilter === filter.key
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              )}
-            >
-              {filter.label}
-              <span className={cn('ml-1.5', statusFilter === filter.key ? 'text-white/70' : 'text-slate-400')}>
-                {filter.count}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {availableTypes.length > 1 && (
-          <div className="flex flex-wrap gap-2">
-            {['all', ...availableTypes].map(type => (
+          <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap">
+            {statusFilters.map(filter => (
               <button
-                key={type}
+                key={filter.key}
                 type="button"
-                onClick={() => setTypeFilter(type)}
+                onClick={() => setStatusFilter(filter.key)}
                 className={cn(
-                  'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
-                  typeFilter === type
-                    ? 'bg-cyan-600 text-white'
-                    : 'bg-cyan-50 text-cyan-700 hover:bg-cyan-100'
+                  'whitespace-nowrap px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                  statusFilter === filter.key
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 )}
               >
-                {type === 'all' ? 'All types' : getTypeLabel(type)}
+                {filter.label}
+                <span className={cn('ml-1.5', statusFilter === filter.key ? 'text-white/70' : 'text-slate-400')}>
+                  {filter.count}
+                </span>
               </button>
             ))}
+
+            {availableTypes.length > 1 && (
+              <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap">
+                {['all', ...availableTypes].map(type => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setTypeFilter(type)}
+                    className={cn(
+                      'whitespace-nowrap px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                      typeFilter === type
+                        ? 'bg-cyan-600 text-white'
+                        : 'bg-cyan-50 text-cyan-700 hover:bg-cyan-100'
+                    )}
+                  >
+                    {type === 'all' ? 'All types' : getTypeLabel(type)}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </motion.div>
 
       <div className="bg-card rounded-lg border shadow-sm overflow-hidden">
@@ -451,7 +451,7 @@ export default function DevicesTab({ customerId }) {
                             <Cpu className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                             <span className="truncate">{os || 'Unknown OS'}</span>
                           </div>
-                          <div className="text-xs text-slate-500 truncate">{hardware || 'Unknown hardware'}</div>
+                          {hardware && <div className="text-xs text-slate-500 truncate">{hardware}</div>}
                         </div>
                       </TableCell>
                       <TableCell>
