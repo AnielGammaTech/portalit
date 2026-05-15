@@ -518,7 +518,7 @@ function ReportView({ report, searchQuery, setSearchQuery, vultrMapping }) {
   );
 }
 
-function ApiSyncView({ threecxMapping, vultrMapping, customerId, queryClient }) {
+function ApiSyncView({ threecxMapping, vultrMapping, customerId, queryClient, canSync = false }) {
   const [syncing, setSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -526,6 +526,7 @@ function ApiSyncView({ threecxMapping, vultrMapping, customerId, queryClient }) 
   const extensions = cached?.extensions || [];
 
   const handleSync = async () => {
+    if (!canSync) return;
     setSyncing(true);
     try {
       const response = await client.functions.invoke('sync3CX', {
@@ -581,15 +582,17 @@ function ApiSyncView({ threecxMapping, vultrMapping, customerId, queryClient }) 
               </div>
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSync}
-            disabled={syncing}
-          >
-            <RefreshCw className={cn("w-4 h-4 mr-2", syncing && "animate-spin")} />
-            Sync
-          </Button>
+          {canSync && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSync}
+              disabled={syncing}
+            >
+              <RefreshCw className={cn("w-4 h-4 mr-2", syncing && "animate-spin")} />
+              Sync
+            </Button>
+          )}
         </div>
       </div>
 
@@ -703,15 +706,15 @@ function ApiSyncView({ threecxMapping, vultrMapping, customerId, queryClient }) 
       {!cached && (
         <div className="text-center py-8 bg-card rounded-xl border">
           <Phone className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-muted-foreground">No data synced yet</p>
-          <p className="text-sm text-muted-foreground/70 mt-1">Click "Sync" to pull extensions from 3CX</p>
+          <p className="text-muted-foreground">No data available yet</p>
+          <p className="text-sm text-muted-foreground/70 mt-1">VoIP extension data will appear here once it is available for this account.</p>
         </div>
       )}
     </div>
   );
 }
 
-export default function ThreeCXTab({ customerId, threecxMapping, threecxReports = [], vultrMapping, queryClient: qc }) {
+export default function ThreeCXTab({ customerId, threecxMapping, threecxReports = [], vultrMapping, queryClient: qc, canSync = false }) {
   const [searchQuery, setSearchQuery] = useState('');
   const internalQC = useQueryClient();
   const queryClient = qc || internalQC;
@@ -731,6 +734,7 @@ export default function ThreeCXTab({ customerId, threecxMapping, threecxReports 
         vultrMapping={vultrMapping}
         customerId={customerId}
         queryClient={queryClient}
+        canSync={canSync}
       />
     );
   }

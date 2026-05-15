@@ -83,7 +83,8 @@ export default function CustomerServicesTab({
   isSyncing,
   setIsSyncing,
   queryClient,
-  devices = []
+  devices = [],
+  canSync = false,
 }) {
   const [syncingJumpCloud, setSyncingJumpCloud] = useState(false);
   const [syncingSpanning, setSyncingSpanning] = useState(false);
@@ -687,7 +688,7 @@ export default function CustomerServicesTab({
                   <h3 className="font-semibold text-foreground text-sm">Active Services</h3>
                   <p className="text-xs text-muted-foreground">{lineItems.length} line items from HaloPSA</p>
                 </div>
-                {customer?.source === 'halopsa' && (
+                {canSync && customer?.source === 'halopsa' && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -725,7 +726,7 @@ export default function CustomerServicesTab({
                   <EmptyState
                     icon={HardDrive}
                     title="No recurring services"
-                    description={customer?.source === 'halopsa' ? 'Click "Sync" to pull from HaloPSA' : 'No recurring services found for this customer'}
+                    description="No recurring services found for this customer"
                   />
                 </div>
               ) : (
@@ -908,6 +909,7 @@ export default function CustomerServicesTab({
           <DevicesTab 
             customerId={customerId} 
             customerExternalId={customer?.external_id}
+            canSync={canSync}
           />
         </TabsContent>
 
@@ -949,16 +951,18 @@ export default function CustomerServicesTab({
                         Synced {new Date(jumpcloudMapping.last_synced).toLocaleDateString()}
                       </span>
                     )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleSyncJumpCloud}
-                      disabled={syncingJumpCloud}
-                      className="gap-2"
-                    >
-                      {syncingJumpCloud ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                      {jumpcloudMapping?.last_synced ? 'Refresh' : 'Sync'}
-                    </Button>
+                    {canSync && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSyncJumpCloud}
+                        disabled={syncingJumpCloud}
+                        className="gap-2"
+                      >
+                        {syncingJumpCloud ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                        {jumpcloudMapping?.last_synced ? 'Refresh' : 'Sync'}
+                      </Button>
+                    )}
                   </div>
                 </div>
                 <div className="p-3">
@@ -966,8 +970,8 @@ export default function CustomerServicesTab({
                     <EmptyState
                       icon={Users}
                       title="No JumpCloud users"
-                      description="Click Sync to pull users from JumpCloud directory"
-                      action={{ label: 'Sync Now', onClick: handleSyncJumpCloud }}
+                      description="Directory users will appear here once they are available for this account."
+                      action={canSync ? { label: 'Sync Now', onClick: handleSyncJumpCloud } : undefined}
                     />
                   ) : (
                     <motion.div variants={staggerContainer} initial="initial" animate="animate" className="space-y-1.5">
@@ -1016,6 +1020,7 @@ export default function CustomerServicesTab({
               customerId={customerId}
               spanningMapping={spanningMapping}
               queryClient={queryClient}
+              canSync={canSync}
             />
           ) : (
             <EmptyState icon={Cloud} title="Spanning not connected" description="Backup data has not been connected for this account yet." />
@@ -1052,7 +1057,7 @@ export default function CustomerServicesTab({
         {/* Datto EDR Tab */}
         <TabsContent value="edr">
           {hasEDR ? (
-            <DattoEDRTab customerId={customerId} edrMapping={edrMapping} customerName={customer?.name} />
+            <DattoEDRTab customerId={customerId} edrMapping={edrMapping} customerName={customer?.name} canSync={canSync} />
           ) : (
             <EmptyState icon={Shield} title="Datto EDR not connected" description="Endpoint protection data has not been connected for this account yet." />
           )}
@@ -1061,7 +1066,7 @@ export default function CustomerServicesTab({
         {/* RocketCyber Tab */}
         <TabsContent value="rocketcyber">
           {hasRocketCyber ? (
-            <RocketCyberTab customer={customer} rocketcyberMapping={rocketcyberMapping} />
+            <RocketCyberTab customer={customer} rocketcyberMapping={rocketcyberMapping} canSync={canSync} />
           ) : (
             <EmptyState icon={Shield} title="RocketCyber not connected" description="SOC data has not been connected for this account yet." />
           )}
@@ -1092,6 +1097,7 @@ export default function CustomerServicesTab({
             customerId={customerId}
             unifiMapping={unifiMapping}
             queryClient={queryClient}
+            canSync={canSync}
           />
         </TabsContent>
 
@@ -1101,6 +1107,7 @@ export default function CustomerServicesTab({
             customerId={customerId}
             saasAlertsMapping={saasAlertsMapping}
             queryClient={queryClient}
+            canSync={canSync}
           />
         </TabsContent>
 
@@ -1111,6 +1118,7 @@ export default function CustomerServicesTab({
               customerId={customerId}
               coveMapping={coveMapping}
               queryClient={queryClient}
+              canSync={canSync}
             />
           ) : (
             <EmptyState icon={Database} title="Cove not connected" description="Backup appliance data has not been connected for this account yet." />
@@ -1124,6 +1132,7 @@ export default function CustomerServicesTab({
             threecxReports={threecxReports}
             vultrMapping={vultrMapping}
             queryClient={queryClient}
+            canSync={canSync}
           />
         </TabsContent>
 
@@ -1133,6 +1142,7 @@ export default function CustomerServicesTab({
             customerId={customerId}
             dmarcMapping={dmarcMapping}
             queryClient={queryClient}
+            canSync={canSync}
           />
         </TabsContent>
       </Tabs>

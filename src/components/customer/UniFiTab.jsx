@@ -30,7 +30,7 @@ const deviceTypeConfig = {
   other: { label: 'Other', icon: Monitor, color: 'text-slate-600', bg: 'bg-slate-50' },
 };
 
-export default function UniFiTab({ customerId, unifiMapping, queryClient }) {
+export default function UniFiTab({ customerId, unifiMapping, queryClient, canSync = false }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -46,6 +46,7 @@ export default function UniFiTab({ customerId, unifiMapping, queryClient }) {
   const summary = cachedData?.summary || { total: 0, online: 0, offline: 0, firewalls: 0, switches: 0, access_points: 0 };
 
   const handleSync = async () => {
+    if (!canSync) return;
     setIsSyncing(true);
     try {
       const response = await client.functions.invoke('syncUniFiDevices', {
@@ -107,10 +108,12 @@ export default function UniFiTab({ customerId, unifiMapping, queryClient }) {
             )}
           </p>
         </div>
-        <Button onClick={handleSync} disabled={isSyncing} variant="outline" size="sm">
-          <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-          Sync Devices
-        </Button>
+        {canSync && (
+          <Button onClick={handleSync} disabled={isSyncing} variant="outline" size="sm">
+            <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+            Sync Devices
+          </Button>
+        )}
       </div>
 
       {/* Summary Cards */}
@@ -163,7 +166,7 @@ export default function UniFiTab({ customerId, unifiMapping, queryClient }) {
                 <>
                   <Wifi className="w-12 h-12 mx-auto text-zinc-300 mb-3" />
                   <p>No devices found</p>
-                  <p className="text-sm">Click "Sync Devices" to pull from UniFi</p>
+                  <p className="text-sm">Network devices will appear here once they are available for this account.</p>
                 </>
               ) : (
                 <p>No devices match your filters</p>

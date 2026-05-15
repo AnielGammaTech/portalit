@@ -877,11 +877,12 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
             setIsSyncing={setIsSyncing}
             queryClient={queryClient}
             devices={devices}
+            canSync={canUseAdminActions}
           />
         </TabsContent>
 
         <TabsContent value="m365">
-          <M365Tab customerId={customerId} queryClient={queryClient} />
+          <M365Tab customerId={customerId} queryClient={queryClient} canSync={canUseAdminActions} />
         </TabsContent>
 
         <TabsContent value="licenses">

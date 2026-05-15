@@ -39,7 +39,7 @@ function formatBackupDate(value) {
   return Number.isFinite(date.getTime()) ? date.toLocaleDateString() : '—';
 }
 
-export default function CoveTab({ customerId, coveMapping, queryClient: externalQC }) {
+export default function CoveTab({ customerId, coveMapping, queryClient: externalQC, canSync = false }) {
   const internalQC = useQueryClient();
   const queryClient = externalQC || internalQC;
 
@@ -65,7 +65,7 @@ export default function CoveTab({ customerId, coveMapping, queryClient: external
       });
       return res?.success ? res : null;
     },
-    enabled: !!customerId && !!coveMapping && !cachedData,
+    enabled: canSync && !!customerId && !!coveMapping && !cachedData,
     staleTime: 5 * 60 * 1000,
     retry: false,
   });
@@ -75,6 +75,7 @@ export default function CoveTab({ customerId, coveMapping, queryClient: external
 
   // ── Sync handler ──────────────────────────────────────────────────
   const handleSync = async () => {
+    if (!canSync) return;
     setSyncing(true);
     try {
       const response = await client.functions.invoke('syncCoveData', {
@@ -140,16 +141,18 @@ export default function CoveTab({ customerId, coveMapping, queryClient: external
             {lastSynced && <> · Synced {new Date(lastSynced).toLocaleString()}</>}
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleSync}
-          disabled={syncing}
-          className="gap-2"
-        >
-          {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          Refresh Cove
-        </Button>
+        {canSync && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSync}
+            disabled={syncing}
+            className="gap-2"
+          >
+            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            Refresh Cove
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -248,8 +251,8 @@ export default function CoveTab({ customerId, coveMapping, queryClient: external
           <EmptyState
             icon={HardDrive}
             title="No Cove data yet"
-            description="Click Refresh to pull backup device data from N-able Cove"
-            action={{ label: 'Refresh Now', onClick: handleSync }}
+            description="Backup device data will appear here once it is available for this account."
+            action={canSync ? { label: 'Refresh Now', onClick: handleSync } : undefined}
           />
         ) : pagedDevices.length === 0 ? (
           <div className="p-8 text-center">

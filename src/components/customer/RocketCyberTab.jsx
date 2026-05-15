@@ -147,7 +147,7 @@ function getAgentIp(agent) {
   return agent?.ip || agent?.ipAddress || agent?.privateIp || agent?.localIp || '';
 }
 
-export default function RocketCyberTab({ customer, rocketcyberMapping = null }) {
+export default function RocketCyberTab({ customer, rocketcyberMapping = null, canSync = false }) {
   const queryClient = useQueryClient();
   const [isSyncing, setIsSyncing] = useState(false);
   const [selectedIncident, setSelectedIncident] = useState(null);
@@ -201,6 +201,7 @@ export default function RocketCyberTab({ customer, rocketcyberMapping = null }) 
   if (!customerId) return null;
 
   const syncIncidents = async () => {
+    if (!canSync) return;
     setIsSyncing(true);
     try {
       const result = await client.functions.invoke('syncRocketCyber', {
@@ -321,7 +322,7 @@ export default function RocketCyberTab({ customer, rocketcyberMapping = null }) 
                 Cached
               </Badge>
             )}
-            {syncStale && (
+            {canSync && syncStale && (
               <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
                 Sync stale
               </Badge>
@@ -337,10 +338,12 @@ export default function RocketCyberTab({ customer, rocketcyberMapping = null }) 
             )}
           </p>
         </div>
-        <Button onClick={syncIncidents} disabled={isSyncing} variant="outline" size="sm">
-          <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-          Refresh from RocketCyber
-        </Button>
+        {canSync && (
+          <Button onClick={syncIncidents} disabled={isSyncing} variant="outline" size="sm">
+            <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+            Refresh from RocketCyber
+          </Button>
+        )}
       </div>
 
       {/* Stats Cards */}

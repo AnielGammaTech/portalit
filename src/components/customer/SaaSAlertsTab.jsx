@@ -59,7 +59,7 @@ function SeverityDot({ severity }) {
   return <span className={cn("w-2 h-2 rounded-full inline-block flex-shrink-0", conf.dot)} />;
 }
 
-export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClient }) {
+export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClient, canSync = false }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [liveData, setLiveData] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -86,7 +86,7 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
       });
       return res?.success ? res : null;
     },
-    enabled: !!customerId && !!saasAlertsMapping && !cachedData,
+    enabled: canSync && !!customerId && !!saasAlertsMapping && !cachedData,
     staleTime: 5 * 60 * 1000,
     retry: false,
   });
@@ -106,6 +106,7 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
   const countryCounts = data?.country_counts || {};
 
   const handleSync = async () => {
+    if (!canSync) return;
     setIsSyncing(true);
     try {
       const response = await client.functions.invoke('syncSaaSAlerts', {
@@ -176,10 +177,12 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
             )}
           </p>
         </div>
-        <Button onClick={handleSync} disabled={isSyncing} variant="outline" size="sm" className="gap-2">
-          <RefreshCw className={cn("w-3.5 h-3.5", isSyncing && "animate-spin")} />
-          {isSyncing ? 'Refreshing...' : 'Refresh Events'}
-        </Button>
+        {canSync && (
+          <Button onClick={handleSync} disabled={isSyncing} variant="outline" size="sm" className="gap-2">
+            <RefreshCw className={cn("w-3.5 h-3.5", isSyncing && "animate-spin")} />
+            {isSyncing ? 'Refreshing...' : 'Refresh Events'}
+          </Button>
+        )}
       </div>
 
       {/* Dashboard Stats */}
@@ -355,8 +358,8 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
             {recentEvents.length === 0 ? (
               <>
                 <Shield className="w-10 h-10 mx-auto text-gray-200 mb-3" />
-                <p className="font-medium text-gray-500">No events synced</p>
-                <p className="text-sm mt-1">Click "Refresh Events" to pull from SaaS Alerts</p>
+                <p className="font-medium text-gray-500">No events available</p>
+                <p className="text-sm mt-1">Security events will appear here once they are available for this account.</p>
               </>
             ) : (
               <>
