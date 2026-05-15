@@ -349,7 +349,7 @@ export default function Layout({ children, currentPageName }) {
       { name: 'M365', page: 'CustomerDetail', tab: 'm365', icon: Monitor, query: customerQuery('m365') },
       { name: 'SaaS', page: 'CustomerDetail', tab: 'licenses', icon: Cloud, query: customerQuery('licenses') },
       { name: 'Quotes', page: 'CustomerDetail', tab: 'quotes', icon: FileText, query: customerQuery('quotes') },
-      { name: 'Tickets', page: 'CustomerDetail', tab: 'tickets', icon: HelpCircle, query: customerQuery('tickets') },
+      { name: 'Requests', page: 'CustomerDetail', tab: 'tickets', icon: HelpCircle, query: customerQuery('tickets') },
       { name: 'Settings', page: 'CustomerSettings', icon: Settings },
     ];
   }, [user?.customer_id]);

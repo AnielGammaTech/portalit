@@ -11,6 +11,7 @@ import { haloRouter } from './routes/halo.js';
 import { cronRouter } from './routes/cron.js';
 import { securityRouter } from './routes/security.js';
 import { integrationsRouter } from './routes/integrations.js';
+import { customerRequestsRouter } from './routes/customerRequests.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { setupScheduledJobs } from './scheduled.js';
 
@@ -136,6 +137,7 @@ app.use('/api/halo', haloRouter);
 app.use('/api/cron', cronRouter);
 app.use('/api/security', securityRouter);
 app.use('/api/integrations', integrationsRouter);
+app.use('/api/customer-requests', customerRequestsRouter);
 
 // Error handler
 app.use(errorHandler);

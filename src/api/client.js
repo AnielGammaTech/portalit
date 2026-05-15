@@ -656,6 +656,14 @@ const halo = {
   },
 };
 
+// ── Customer Requests ─────────────────────────────────────────────────
+
+const customerRequests = {
+  async create(data) {
+    return apiFetch('/api/customer-requests', { body: data, timeout: 90000 });
+  },
+};
+
 // ── App Logs ───────────────────────────────────────────────────────────
 
 const appLogs = {
@@ -751,6 +759,7 @@ export const client = {
   agents,
   users,
   halo,
+  customerRequests,
   appLogs,
   cronJobs,
 };
