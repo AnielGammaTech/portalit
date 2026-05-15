@@ -167,6 +167,45 @@ function getPortalUrl() {
   return process.env.FRONTEND_URL;
 }
 
+async function findAuthUserByEmail(supabase, lowerEmail) {
+  let page = 1;
+  while (true) {
+    const { data: { users = [] } = {}, error } = await supabase.auth.admin.listUsers({ page, perPage: 100 });
+    if (error) throw new Error(error.message);
+    const match = users.find(user => user.email === lowerEmail);
+    if (match) return match;
+    if (users.length < 100) return null;
+    page += 1;
+  }
+}
+
+async function upsertUserProfile(supabase, payload) {
+  const { data, error } = await supabase
+    .from('users')
+    .upsert(payload, { onConflict: 'auth_id', ignoreDuplicates: false })
+    .select('id, auth_id, email, full_name, role, customer_id, customer_name')
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+async function sendInviteEmail({ to, firstName, invitedBy, customerName, role }) {
+  const portalUrl = getPortalUrl();
+  const inviteUrl = `${portalUrl}/accept-invite?email=${encodeURIComponent(to)}`;
+  return sendEmail({
+    to,
+    subject: `You're invited to PortalIT — Activate your account`,
+    body: welcomeEmailTemplate({
+      firstName,
+      inviteUrl,
+      invitedBy,
+      customerName,
+      role,
+    }),
+  });
+}
+
 // ── POST /api/users/invite ─────────────────────────────────────────────
 
 router.post('/invite', requireAdmin, async (req, res, next) => {
@@ -229,6 +268,7 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
     // Create user in Supabase Auth with email_confirm: true
     const tempPassword = `TempInvite_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     let authUserId;
+    let authUserWasCreated = false;
 
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email: lowerEmail,
@@ -239,8 +279,7 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
 
     if (authError) {
       if (authError.message?.includes('already been registered')) {
-        const { data: { users: authUsers } } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-        const existing = authUsers?.find(u => u.email === lowerEmail);
+        const existing = await findAuthUserByEmail(supabase, lowerEmail);
         if (!existing) {
           return res.status(409).json({ error: 'A user with this email already exists but could not be found' });
         }
@@ -250,6 +289,7 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
       }
     } else {
       authUserId = authData.user.id;
+      authUserWasCreated = true;
     }
 
     // Look up customer name if customer invite
@@ -263,53 +303,49 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
       customerName = customer?.name || null;
     }
 
-    // Create or update user profile row.
-    // onConflict covers both auth_id and email to handle TOCTOU races where
-    // a concurrent invite for the same address slips past the orphan-delete above.
-    const { error: profileError } = await supabase
-      .from('users')
-      .upsert({
+    let profile;
+    try {
+      profile = await upsertUserProfile(supabase, {
         auth_id: authUserId,
         email: lowerEmail,
         role: finalRole,
         full_name,
         customer_id: invite_type === 'customer' ? customer_id : null,
         customer_name: customerName,
-      }, { onConflict: 'auth_id,email', ignoreDuplicates: false });
-
-    if (profileError) {
-      // A unique-constraint error means another concurrent request already created
-      // the profile row — this is safe to ignore; the auth user was still created.
-      const isUniqueViolation = profileError.code === '23505';
-      if (!isUniqueViolation) {
-        console.error('Failed to create user profile:', profileError);
+      });
+    } catch (profileError) {
+      console.error('Failed to create user profile:', profileError.message);
+      if (authUserWasCreated && authUserId) {
+        await supabase.auth.admin.deleteUser(authUserId).then(() => null, () => null);
       }
+      return res.status(500).json({ error: 'Invitation could not be created. Please try again.' });
     }
 
     // Send welcome email via Resend
-    const portalUrl = getPortalUrl();
-    const inviteUrl = `${portalUrl}/accept-invite?email=${encodeURIComponent(lowerEmail)}`;
-
+    let emailSent = true;
+    let emailError = null;
     try {
-      await sendEmail({
+      await sendInviteEmail({
         to: lowerEmail,
-        subject: `You're invited to PortalIT — Activate your account`,
-        body: welcomeEmailTemplate({
-          firstName: full_name.split(' ')[0],
-          inviteUrl,
-          invitedBy: req.user?.email,
-          customerName: invite_type === 'customer' ? customerName : null,
-          role: invite_type === 'tech' ? finalRole : null,
-        }),
+        firstName: full_name.split(' ')[0],
+        invitedBy: req.user?.email,
+        customerName: invite_type === 'customer' ? customerName : null,
+        role: invite_type === 'tech' ? finalRole : null,
       });
     } catch (emailErr) {
       console.error('Failed to send welcome email:', emailErr.message);
+      emailSent = false;
+      emailError = emailErr.message;
     }
 
     res.json({
       success: true,
-      user: { id: authUserId, email: lowerEmail },
-      message: 'Invitation sent successfully',
+      email_sent: emailSent,
+      email_error: emailError,
+      user: { id: profile.id, auth_id: authUserId, email: lowerEmail },
+      message: emailSent
+        ? 'Invitation sent successfully'
+        : 'User was created, but the invitation email could not be delivered',
     });
   } catch (error) {
     next(error);
@@ -344,15 +380,26 @@ router.post('/send-otp', otpSendIpLimiter, async (req, res, next) => {
 
     const supabase = getServiceSupabase();
 
-    const { data: users } = await supabase
+    const { data: users, error: userLookupError } = await supabase
       .from('users')
-      .select('id, full_name')
+      .select('id, full_name, auth_id')
       .eq('email', lowerEmail)
       .limit(1);
 
+    if (userLookupError) {
+      return res.status(500).json({ error: 'Could not verify invitation. Please try again.' });
+    }
+
     if (!users || users.length === 0) {
-      // Return generic success to prevent email enumeration
-      return res.json({ success: true, email: lowerEmail });
+      const authUser = await findAuthUserByEmail(supabase, lowerEmail);
+      if (authUser) {
+        return res.status(409).json({
+          error: 'This account exists but is not attached to a PortalIT invitation. Ask your PortalIT admin to resend the invite.',
+        });
+      }
+      return res.status(404).json({
+        error: 'No PortalIT invitation was found for this email. Ask your PortalIT admin to send an invite.',
+      });
     }
 
     const code = generateOtp();
@@ -462,7 +509,7 @@ router.post('/resend-invite', requireAdmin, async (req, res, next) => {
 
     const { data: users } = await supabase
       .from('users')
-      .select('id, full_name')
+      .select('id, full_name, role, customer_id, customer_name')
       .eq('email', lowerEmail)
       .limit(1);
 
@@ -470,17 +517,12 @@ router.post('/resend-invite', requireAdmin, async (req, res, next) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const portalUrl = getPortalUrl();
-    const inviteUrl = `${portalUrl}/accept-invite?email=${encodeURIComponent(lowerEmail)}`;
-
-    await sendEmail({
+    await sendInviteEmail({
       to: lowerEmail,
-      subject: `You're invited to PortalIT — Activate your account`,
-      body: welcomeEmailTemplate({
-        firstName: users[0].full_name?.split(' ')[0] || 'there',
-        inviteUrl,
-        invitedBy: req.user?.email,
-      }),
+      firstName: users[0].full_name?.split(' ')[0] || 'there',
+      invitedBy: req.user?.email,
+      customerName: users[0].role === 'user' ? users[0].customer_name : null,
+      role: users[0].role !== 'user' ? users[0].role : null,
     });
 
     res.json({ success: true, email: lowerEmail });

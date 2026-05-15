@@ -377,7 +377,7 @@ export default function UserAssignmentPanel() {
 
   const resendInviteMutation = useMutation({
     mutationFn: (email) => client.users.resendInvite(email),
-    onSuccess: () => toast.success('Invitation resent'),
+    onSuccess: () => toast.success('Invitation email resent'),
     onError: (error) => toast.error('Failed to resend: ' + error.message),
   });
 
@@ -422,14 +422,18 @@ export default function UserAssignmentPanel() {
     if (!inviteEmail) return;
     setIsInviting(true);
     try {
-      await client.users.inviteUser(
-        inviteEmail,
+      const result = await client.users.inviteUser(
+        inviteEmail.trim().toLowerCase(),
         inviteType === 'customer' ? 'user' : inviteRole,
         inviteType,
         inviteType === 'customer' ? inviteCustomerId : undefined,
-        inviteName
+        inviteName.trim()
       );
-      toast.success('Invitation sent to ' + inviteEmail);
+      if (result.email_sent === false) {
+        toast.warning(`User was created, but the invitation email did not send. Try Resend Invitation for ${inviteEmail.trim().toLowerCase()}.`);
+      } else {
+        toast.success('Invitation sent to ' + inviteEmail.trim().toLowerCase());
+      }
       setInviteType(null);
       setInviteEmail('');
       setInviteName('');
