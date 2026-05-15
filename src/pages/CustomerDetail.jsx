@@ -182,13 +182,13 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
   // Shared query options: cache 5 min, retry twice, fail fast
   const qOpts = { staleTime: 1000 * 60 * 5, retry: 2 };
 
-  const { data: contracts = [] } = useQuery({
+  const { data: contracts = [], isLoading: loadingContracts } = useQuery({
     queryKey: ['contracts', customerId],
     queryFn: () => client.entities.Contract.filter({ customer_id: customerId }),
     enabled: !!customerId, ...qOpts
   });
 
-  const { data: devices = [] } = useQuery({
+  const { data: devices = [], isLoading: loadingDevices } = useQuery({
     queryKey: ['devices', customerId],
     queryFn: () => client.entities.Device.filter({ customer_id: customerId }),
     enabled: !!customerId, ...qOpts
@@ -206,7 +206,7 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
     enabled: !!customerId, ...qOpts
   });
 
-  const { data: recurringBills = [] } = useQuery({
+  const { data: recurringBills = [], isLoading: loadingRecurringBills } = useQuery({
     queryKey: ['recurring_bills', customerId],
     queryFn: () => client.entities.RecurringBill.filter({ customer_id: customerId }),
     enabled: !!customerId, ...qOpts
@@ -256,7 +256,7 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
     enabled: !!customerId, ...qOpts
   });
 
-  const { data: contacts = [] } = useQuery({
+  const { data: contacts = [], isLoading: loadingContacts } = useQuery({
     queryKey: ['contacts', customerId],
     queryFn: () => client.entities.Contact.filter({ customer_id: customerId }),
     enabled: !!customerId, ...qOpts
@@ -301,12 +301,18 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
     enabled: !!customerId, ...qOpts
   });
 
-  // Auto-retry if page loads with all empty data
-  useAutoRetry(
-    [contacts, recurringBills, contracts, devices],
-    loadingCustomer,
-    [['contacts', customerId], ['recurring_bills', customerId], ['contracts', customerId], ['devices', customerId]]
+  const autoRetryData = useMemo(
+    () => [contacts, recurringBills, contracts, devices],
+    [contacts, recurringBills, contracts, devices]
   );
+  const autoRetryKeys = useMemo(
+    () => [['contacts', customerId], ['recurring_bills', customerId], ['contracts', customerId], ['devices', customerId]],
+    [customerId]
+  );
+  const isCoreDataLoading = loadingCustomer || loadingContacts || loadingRecurringBills || loadingContracts || loadingDevices;
+
+  // Auto-retry only after the core customer datasets finish their first load.
+  useAutoRetry(autoRetryData, isCoreDataLoading, autoRetryKeys);
 
   // Fetch JumpCloud mapping for this customer
   const { data: jumpcloudMapping } = useQuery({

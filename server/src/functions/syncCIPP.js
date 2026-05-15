@@ -41,6 +41,53 @@ function firstValue(source, keys) {
   return null;
 }
 
+function firstNestedValue(source, paths) {
+  for (const path of paths) {
+    const value = String(path)
+      .split('.')
+      .reduce((current, key) => (current && current[key] !== undefined ? current[key] : undefined), source);
+    if (value !== undefined && value !== null && value !== '') return value;
+  }
+  return null;
+}
+
+function normalizeDateValue(value) {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+  const text = String(value).trim();
+  if (!text || ['never', 'none', 'unknown', 'not available', 'n/a'].includes(text.toLowerCase())) return null;
+  const date = new Date(text);
+  return Number.isNaN(date.getTime()) ? text : date.toISOString();
+}
+
+function getLastSignInDate(record) {
+  return normalizeDateValue(firstNestedValue(record, [
+    'lastSignInDateTime',
+    'LastSignInDateTime',
+    'lastSuccessfulSignInDateTime',
+    'LastSuccessfulSignInDateTime',
+    'lastNonInteractiveSignInDateTime',
+    'LastNonInteractiveSignInDateTime',
+    'lastSignIn',
+    'LastSignIn',
+    'lastLogonDateTime',
+    'LastLogonDateTime',
+    'lastLogon',
+    'LastLogon',
+    'lastLogin',
+    'LastLogin',
+    'signInActivity.lastSignInDateTime',
+    'signInActivity.lastSuccessfulSignInDateTime',
+    'signInActivity.lastNonInteractiveSignInDateTime',
+    'SignInActivity.lastSignInDateTime',
+    'SignInActivity.lastSuccessfulSignInDateTime',
+    'SignInActivity.lastNonInteractiveSignInDateTime',
+  ]));
+}
+
 function numberValue(value) {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value === 'string' && value.trim() !== '') {
@@ -311,7 +358,7 @@ async function syncUsers(customerId, tenantId) {
   for (const s of signInList) {
     const upn = (s.userPrincipalName || s.UserPrincipalName || '').toLowerCase();
     if (!upn) continue;
-    const dt = s.createdDateTime || s.CreatedDateTime || '';
+    const dt = normalizeDateValue(s.createdDateTime || s.CreatedDateTime) || '';
     if (!signInMap[upn] || dt > signInMap[upn].date) {
       const errorCode = s.status?.errorCode ?? s.errorCode ?? s.ErrorCode;
       const isSuccess = errorCode === undefined || errorCode === null || Number(errorCode) === 0;
@@ -331,7 +378,7 @@ async function syncUsers(customerId, tenantId) {
     const upn = (account.userPrincipalName || account.UserPrincipalName || account.UPN || '').toLowerCase();
     if (!upn) continue;
     inactiveMap[upn] = {
-      date: account.lastSignInDateTime || account.LastSignInDateTime || account.lastNonInteractiveSignInDateTime || null,
+      date: getLastSignInDate(account),
       refreshed: account.lastRefreshedDateTime || null,
       assignedLicenses: account.numberOfAssignedLicenses ?? null,
     };
@@ -342,12 +389,7 @@ async function syncUsers(customerId, tenantId) {
     const mfa = mfaMap[upn] || { status: 'unknown', methods: [] };
     const lastSignIn = signInMap[upn] || null;
     const inactiveAccount = inactiveMap[upn] || null;
-    const lastSignInDate = lastSignIn?.date
-      || u.lastSignInDateTime
-      || u.LastSignIn
-      || u.signInActivity?.lastSignInDateTime
-      || inactiveAccount?.date
-      || null;
+    const lastSignInDate = lastSignIn?.date || getLastSignInDate(u) || inactiveAccount?.date || null;
 
     // Resolve license SKU IDs to friendly names
     const rawLicenses = u.assignedLicenses || [];

@@ -349,7 +349,6 @@ function UserDetailDrawer({ user, onClose }) {
             <DetailItem icon={KeyRound} label="Assigned licenses" value={licenses.length ? `${licenses.length} license${licenses.length !== 1 ? 's' : ''}` : 'No license assigned'} />
             <DetailItem icon={LogIn} label="Last sign-in" value={formatRelativeDate(user.last_sign_in)} />
             <DetailItem icon={Briefcase} label="Title" value={user.job_title} />
-            <DetailItem icon={Building2} label="Department" value={user.department} />
             <DetailItem icon={Building2} label="Company" value={cd.company_name} />
             <DetailItem icon={MapPin} label="Office" value={cd.office_location} />
           </PortalSection>
@@ -478,7 +477,7 @@ export default function CIPPMicrosoftTab({ customerId }) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [licenseFilter, setLicenseFilter] = useState('all');
-  const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [titleFilter, setTitleFilter] = useState('all');
   const [groupTypeFilter, setGroupTypeFilter] = useState('all');
   const [selectedUser, setSelectedUser] = useState(null);
   const [expandedGroup, setExpandedGroup] = useState(null);
@@ -536,8 +535,8 @@ export default function CIPPMicrosoftTab({ customerId }) {
     .filter(Boolean)
     .sort((a, b) => b.getTime() - a.getTime())[0];
 
-  const departmentOptions = useMemo(() => {
-    return [...new Set(users.map(user => user.department).filter(Boolean))]
+  const titleOptions = useMemo(() => {
+    return [...new Set(users.map(user => user.job_title).filter(Boolean))]
       .sort((a, b) => a.localeCompare(b));
   }, [users]);
 
@@ -558,7 +557,6 @@ export default function CIPPMicrosoftTab({ customerId }) {
           user.display_name,
           user.mail,
           user.user_principal_name,
-          user.department,
           user.job_title,
           cd.company_name,
           cd.office_location,
@@ -577,12 +575,12 @@ export default function CIPPMicrosoftTab({ customerId }) {
           || (statusFilter === 'mfa_missing' && !mfa.enabled);
 
         const licenseMatches = licenseFilter === 'all' || licenses.includes(licenseFilter);
-        const departmentMatches = departmentFilter === 'all' || user.department === departmentFilter;
+        const titleMatches = titleFilter === 'all' || user.job_title === titleFilter;
         const searchMatches = !searchLower || searchable.includes(searchLower);
-        return statusMatches && licenseMatches && departmentMatches && searchMatches;
+        return statusMatches && licenseMatches && titleMatches && searchMatches;
       })
       .sort((a, b) => (a.display_name || a.user_principal_name || '').localeCompare(b.display_name || b.user_principal_name || ''));
-  }, [users, statusFilter, licenseFilter, departmentFilter, searchLower]);
+  }, [users, statusFilter, licenseFilter, titleFilter, searchLower]);
 
   const filteredGroups = useMemo(() => {
     return groups.filter(group => {
@@ -696,7 +694,7 @@ export default function CIPPMicrosoftTab({ customerId }) {
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search name, email, department, license, or group"
+              placeholder="Search name, email, title, license, or group"
               className="h-10 pl-9"
             />
           </div>
@@ -711,9 +709,9 @@ export default function CIPPMicrosoftTab({ customerId }) {
               <option value="all">All licenses</option>
               {licenseOptions.map(license => <option key={license} value={license}>{license}</option>)}
             </SelectFilter>
-            <SelectFilter label="Department" value={departmentFilter} onChange={setDepartmentFilter} className="xl:min-w-[190px]">
-              <option value="all">All departments</option>
-              {departmentOptions.map(department => <option key={department} value={department}>{department}</option>)}
+            <SelectFilter label="Title" value={titleFilter} onChange={setTitleFilter} className="xl:min-w-[190px]">
+              <option value="all">All titles</option>
+              {titleOptions.map(title => <option key={title} value={title}>{title}</option>)}
             </SelectFilter>
           </>
         )}
@@ -803,7 +801,7 @@ export default function CIPPMicrosoftTab({ customerId }) {
                   <th className="px-4 py-2.5 font-semibold">User</th>
                   <th className="px-3 py-2.5 font-semibold">Account / MFA</th>
                   <th className="px-3 py-2.5 font-semibold">Licenses</th>
-                  <th className="px-3 py-2.5 font-semibold">Department / Role</th>
+                  <th className="px-3 py-2.5 font-semibold">Title</th>
                   <th className="px-4 py-2.5 font-semibold">Last Sign-In</th>
                 </tr>
               </thead>
@@ -856,8 +854,7 @@ export default function CIPPMicrosoftTab({ customerId }) {
                         )}
                       </td>
                       <td className="px-3 py-2">
-                        <p className="truncate font-medium text-slate-800">{user.department || 'No department'}</p>
-                        <p className="truncate text-xs text-slate-500">{user.job_title || 'No title shown'}</p>
+                        <p className="truncate font-medium text-slate-800">{user.job_title || 'No title shown'}</p>
                       </td>
                       <td className="px-4 py-2">
                         <p className="font-medium text-slate-800">{formatCompactRelativeDate(user.last_sign_in)}</p>
