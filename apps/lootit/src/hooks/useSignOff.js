@@ -1,13 +1,14 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/api/client';
 import { useAuth } from '@/lib/AuthContext';
+import { getMonthKey } from '@/lib/reconciliation-cycle';
 
 export function useSignOff(customerId) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
   const signOffMutation = useMutation({
-    mutationFn: async ({ allRecons, pax8Recons, reviews, overrides, notes, nextReconciliationDate }) => {
+    mutationFn: async ({ allRecons, pax8Recons, reviews, overrides, notes, nextReconciliationDate, billingPeriod }) => {
       const allTiles = [
         ...(allRecons || []).map((r) => ({
           ruleId: r.rule.id,
@@ -34,6 +35,11 @@ export function useSignOff(customerId) {
       const forcedMatched = allTiles.filter((t) => t.review?.status === 'force_matched').length;
       const dismissed = allTiles.filter((t) => t.review?.status === 'dismissed').length;
       const excluded = allTiles.filter((t) => (t.review?.exclusion_count || 0) > 0).length;
+      const period = billingPeriod || getMonthKey(new Date());
+      const unresolvedTiles = allTiles.filter((t) =>
+        ['over', 'under', 'missing_from_psa', 'no_psa_data', 'unmatched_line_item', 'no_vendor_data'].includes(t.status) &&
+        !['reviewed', 'force_matched', 'dismissed'].includes(t.review?.status)
+      );
 
       const { data: signOff, error: signOffError } = await supabase
         .from('reconciliation_sign_offs')
@@ -50,6 +56,27 @@ export function useSignOff(customerId) {
           dismissed_count: dismissed,
           excluded_count: excluded,
           next_reconciliation_date: nextReconciliationDate || null,
+          billing_period: period,
+          reconciliation_snapshot: {
+            billing_period: period,
+            generated_at: new Date().toISOString(),
+            counts: {
+              total: allTiles.length,
+              matched,
+              issues,
+              forced_matched: forcedMatched,
+              dismissed,
+              excluded,
+              unresolved: unresolvedTiles.length,
+            },
+            unresolved: unresolvedTiles.map((tile) => ({
+              rule_id: tile.ruleId,
+              label: tile.label,
+              status: tile.status,
+              psa_qty: tile.psaQty,
+              vendor_qty: tile.vendorQty,
+            })),
+          },
         })
         .select()
         .single();

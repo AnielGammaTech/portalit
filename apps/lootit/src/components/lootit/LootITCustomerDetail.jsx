@@ -27,6 +27,11 @@ import CustomerDetailReconciliationTab from './CustomerDetailReconciliationTab';
 import { useReconciliationSnapshot } from '@/hooks/useReconciliationSnapshot';
 import { useStalenessData } from '@/hooks/useStalenessData';
 import { useSignOff } from '@/hooks/useSignOff';
+import {
+  getReconciliationCycleContext,
+  getReconciliationCycleStatus,
+  reviewCountsForCycle,
+} from '@/lib/reconciliation-cycle';
 import DashboardTab from './DashboardTab';
 import SignOffDialog from './SignOffDialog';
 
@@ -62,6 +67,10 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   const { latestSignOff, snapshotsByRuleId } = useReconciliationSnapshot(customer.id);
   const { signOff, isSigningOff } = useSignOff(customer.id);
   const [showSignOffDialog, setShowSignOffDialog] = useState(false);
+  const cycleContext = useMemo(
+    () => getReconciliationCycleContext(latestSignOff),
+    [latestSignOff]
+  );
 
   const { data: allLineItems = [] } = useQuery({
     queryKey: ['recurring_bill_line_items_customer', customer.id],
@@ -136,7 +145,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
     const verifiedMap = {};
     for (const tile of tiles) {
       const review = reviews.find(r => r.rule_id === tile.ruleId);
-      const isReviewed = ['reviewed', 'force_matched', 'dismissed'].includes(review?.status);
+      const isReviewed = reviewCountsForCycle(review, cycleContext);
       const hasDataChanged = stalenessMap[tile.ruleId]?.changeDetected;
       if (isReviewed && !hasDataChanged) {
         verified++;
@@ -151,7 +160,17 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
       allVerified: total > 0 && verified === total,
       pct: total > 0 ? Math.round((verified / total) * 100) : 0,
     };
-  }, [recons, pax8Recons, reviews, stalenessMap]);
+  }, [recons, pax8Recons, reviews, stalenessMap, cycleContext]);
+
+  const reconciliationCycle = useMemo(() => {
+    const status = getReconciliationCycleStatus(cycleContext, verificationState);
+    return {
+      ...cycleContext,
+      statusKey: status.key,
+      statusLabel: status.label,
+      tone: status.tone,
+    };
+  }, [cycleContext, verificationState]);
 
   const advanceToNext = (completedRuleId) => {
     const unverified = verificationState.unverified.filter(t => t.ruleId !== completedRuleId);
@@ -167,25 +186,36 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   };
 
   const filteredRecons = useMemo(() => {
+    const issueStatuses = new Set(['over', 'under', 'missing_from_psa', 'no_psa_data', 'unmatched_line_item', 'no_vendor_data']);
     const visible = recons.filter((r) => r.status !== 'no_data' || r.review?.status === 'force_matched' || r.review?.status === 'reviewed' || r.review?.status === 'dismissed');
     if (statusFilter === 'all') return visible;
-    if (statusFilter === 'issues') return visible.filter((r) => (r.status === 'over' || r.status === 'under') && !['force_matched', 'dismissed', 'reviewed'].includes(r.review?.status));
+    if (statusFilter === 'issues') return visible.filter((r) => {
+      const ruleId = r.rule?.id;
+      const review = reviews.find((rv) => rv.rule_id === ruleId);
+      const reviewedThisCycle = reviewCountsForCycle(review, cycleContext);
+      return (issueStatuses.has(r.status) && !reviewedThisCycle) || stalenessMap[ruleId]?.changeDetected || stalenessMap[ruleId]?.isStale;
+    });
     if (statusFilter === 'stale') return visible.filter((r) => stalenessMap[r.rule.id]);
     if (statusFilter === 'matched') return visible.filter((r) => r.status === 'match' || r.review?.status === 'force_matched');
     if (statusFilter === 'verified') return visible.filter((r) => verificationState.verifiedMap[r.rule?.id]);
     if (statusFilter === 'unverified') return visible.filter((r) => !verificationState.verifiedMap[r.rule?.id]);
     return visible;
-  }, [recons, statusFilter, stalenessMap, verificationState]);
+  }, [recons, statusFilter, stalenessMap, verificationState, reviews, cycleContext]);
 
   const filteredPax8 = useMemo(() => {
+    const issueStatuses = new Set(['over', 'under', 'missing_from_psa', 'no_psa_data', 'unmatched_line_item', 'no_vendor_data']);
     if (statusFilter === 'all') return pax8Recons;
-    if (statusFilter === 'issues') return pax8Recons.filter((r) => (r.status === 'over' || r.status === 'under' || r.status === 'missing_from_psa') && !['force_matched', 'dismissed', 'reviewed'].includes(r.review?.status));
+    if (statusFilter === 'issues') return pax8Recons.filter((r) => {
+      const review = reviews.find((rv) => rv.rule_id === r.ruleId);
+      const reviewedThisCycle = reviewCountsForCycle(review, cycleContext);
+      return (issueStatuses.has(r.status) && !reviewedThisCycle) || stalenessMap[r.ruleId]?.changeDetected || stalenessMap[r.ruleId]?.isStale;
+    });
     if (statusFilter === 'stale') return pax8Recons.filter((r) => stalenessMap[r.ruleId]);
     if (statusFilter === 'matched') return pax8Recons.filter((r) => r.status === 'match');
     if (statusFilter === 'verified') return pax8Recons.filter((r) => verificationState.verifiedMap[r.ruleId]);
     if (statusFilter === 'unverified') return pax8Recons.filter((r) => !verificationState.verifiedMap[r.ruleId]);
     return pax8Recons;
-  }, [pax8Recons, statusFilter, stalenessMap, verificationState]);
+  }, [pax8Recons, statusFilter, stalenessMap, verificationState, reviews, cycleContext]);
 
   // ── Computed values ──
   const dollarImpact = useMemo(() => {
@@ -219,11 +249,49 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
     return keys.size;
   }, [recons, pax8Recons]);
 
-  const issueCount = summary ? summary.over + summary.under : 0;
-  const totalRules = summary ? summary.total - (summary.noData || 0) : 0;
-  const resolvedCount = summary ? (summary.matched || 0) + (summary.forceMatched || 0) + (summary.dismissed || 0) + (summary.reviewed || 0) : 0;
-  const healthPct = totalRules > 0 ? Math.min(100, Math.round((resolvedCount / totalRules) * 100)) : 0;
-  const hasUnresolvedItems = totalRules > resolvedCount;
+  const issueItems = useMemo(() => {
+    const blockingStatuses = new Set([
+      'over',
+      'under',
+      'missing_from_psa',
+      'no_psa_data',
+      'unmatched_line_item',
+      'no_vendor_data',
+    ]);
+    const reviewedStatuses = new Set(['reviewed', 'force_matched', 'dismissed']);
+    return allRecons
+      .filter((tile) => tile.status !== 'no_data' || reviewedStatuses.has(tile.review?.status))
+      .map((tile) => {
+        const ruleId = tile.rule?.id || tile.ruleId;
+        const review = reviews.find((rv) => rv.rule_id === ruleId);
+        const stale = stalenessMap[ruleId];
+        const isReviewed = reviewedStatuses.has(review?.status) && reviewCountsForCycle(review, cycleContext);
+        const reasons = [];
+        if (blockingStatuses.has(tile.status) && !isReviewed) reasons.push(tile.status);
+        if (stale?.changeDetected) reasons.push('changed');
+        if (stale?.isStale) reasons.push('stale');
+        if (!verificationState.verifiedMap?.[ruleId]) reasons.push('unverified');
+        return {
+          tile,
+          ruleId,
+          label: tile.rule?.label || tile.productName || 'Untitled',
+          status: tile.status,
+          psaQty: tile.psaQty,
+          vendorQty: tile.vendorQty,
+          reasons: [...new Set(reasons)],
+        };
+      })
+      .filter((item) => item.reasons.length > 0)
+      .sort((a, b) => {
+        const rank = (item) => item.reasons.includes('changed') ? 0 : item.reasons.includes('over') || item.reasons.includes('under') ? 1 : item.reasons.includes('unmatched_line_item') ? 2 : 3;
+        return rank(a) - rank(b) || a.label.localeCompare(b.label);
+      });
+  }, [allRecons, reviews, stalenessMap, verificationState, cycleContext]);
+
+  const issueCount = issueItems.length;
+  const totalRules = verificationState?.total ?? (summary ? summary.total - (summary.noData || 0) : 0);
+  const resolvedCount = verificationState?.verified ?? 0;
+  const healthPct = verificationState?.pct ?? (totalRules > 0 ? Math.min(100, Math.round((resolvedCount / totalRules) * 100)) : 0);
 
   // ── Handlers ──
   const handleReview = async (ruleId, { notes } = {}) => {
@@ -248,13 +316,14 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
     });
   };
 
-  const handleSaveMapping = async (ruleId, productName, selectedItems) => {
+  const handleSaveMapping = async (ruleId, productName, selectedItems, mappingNote) => {
     try {
       const items = Array.isArray(selectedItems) ? selectedItems : [{ id: selectedItems, description: productName, quantity: 0 }];
       const isGroupedUnmatched = ruleId.startsWith('unmatched_group:');
       const recon = recons.find(r => r.rule?.id === ruleId);
       const pax8Recon = pax8Recons.find(r => r.ruleId === ruleId);
       const psaLineItemId = recon?.matchedLineItems?.[0]?.id || pax8Recon?.matchedLineItems?.[0]?.id || null;
+      const totalMappedQty = items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
 
       const toRemove = existingOverrides.filter((o) => o.rule_id === ruleId);
       for (const ov of toRemove) {
@@ -290,8 +359,24 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
         });
       }
 
+      await supabase.from('reconciliation_review_history').insert({
+        customer_id: customer.id,
+        rule_id: ruleId,
+        action: 'mapping_changed',
+        status: 'mapped',
+        notes: [
+          `Mapped ${items.length} item${items.length !== 1 ? 's' : ''}: ${items.map((item) => item.description || item.id).join(', ')}`,
+          mappingNote?.trim() ? `Reason: ${mappingNote.trim()}` : null,
+        ].filter(Boolean).join('\n'),
+        psa_qty: recon?.psaQty ?? pax8Recon?.psaQty ?? null,
+        vendor_qty: totalMappedQty,
+        created_by: user?.id || null,
+        created_by_name: user?.full_name || user?.email || null,
+      });
+
       await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides', customer.id] });
       await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides_all'] });
+      await queryClient.invalidateQueries({ queryKey: ['reconciliation_review_history', customer.id] });
       setMappingRecon(null);
       const count = items.length;
       toast.success(count > 1 ? `Mapped ${count} items` : 'Mapping saved');
@@ -317,8 +402,18 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           group_id: groupId,
         });
       }
+      await supabase.from('reconciliation_review_history').insert({
+        customer_id: customer.id,
+        rule_id: ruleIds[0] || null,
+        action: 'mapping_changed',
+        status: 'mapped',
+        notes: `Grouped ${ruleIds.length} Pax8 subscription${ruleIds.length !== 1 ? 's' : ''} to line item ${lineItemId}`,
+        created_by: user?.id || null,
+        created_by_name: user?.full_name || user?.email || null,
+      });
       await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides', customer.id] });
       await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides_all'] });
+      await queryClient.invalidateQueries({ queryKey: ['reconciliation_review_history', customer.id] });
       setShowGroupMapper(false);
       toast.success(`Grouped ${ruleIds.length} subscriptions`);
     } catch (err) {
@@ -368,6 +463,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
         overrides: existingOverrides,
         notes,
         nextReconciliationDate,
+        billingPeriod: reconciliationCycle.period,
       });
       setShowSignOffDialog(false);
       toast.success('Reconciliation signed off successfully');
@@ -401,14 +497,11 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
         healthPct={healthPct}
         activeIntegrations={activeIntegrations}
         summary={summary}
-        recons={recons}
-        pax8Recons={pax8Recons}
-        allRecons={allRecons}
-        hasUnresolvedItems={hasUnresolvedItems}
         unresolvedCount={totalRules - resolvedCount}
         signOffExpired={signOffExpired}
         daysSinceSignOff={daysSinceSignOff}
         verificationState={verificationState}
+        reconciliationCycle={reconciliationCycle}
       />
 
       <BillingAnomaliesSection
@@ -465,6 +558,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
       {activeTab === 'dashboard' && (
         <DashboardTab
           customerId={customer.id}
+          cycle={reconciliationCycle}
           onTabChange={setActiveTab}
           onShowSnapshotDetail={(snapshot) => {
             const liveRecon = allRecons.find((r) => (r.rule?.id || r.ruleId) === snapshot.rule_id);
@@ -487,7 +581,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
               },
               integrationLabel: snapshot.integration_key,
               allRuleIds: liveRecon?.allRuleIds || [snapshot.rule_id],
-              _readOnly: false,
+              _readOnly: true,
               _snapshotDate: latestSignOff?.signed_at,
             });
           }}
@@ -512,6 +606,8 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           customerId={customer.id}
           vendorMappings={customerData?.vendorMappings || {}}
           verificationState={verificationState}
+          issueItems={issueItems}
+          reconciliationCycle={reconciliationCycle}
         />
       )}
 
@@ -558,6 +654,9 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
             toast.success('Re-verified');
           }}
           onForceMatch={async (ruleId, notes) => {
+            if (!notes || !notes.trim()) {
+              throw new Error('Approval note required');
+            }
             const rawId = ruleId.startsWith('unmatched_') && !ruleId.startsWith('unmatched_group:') ? ruleId : null;
             const liId = rawId ? rawId.replace('unmatched_', '') : null;
             if (liId) {
@@ -695,6 +794,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
         onConfirm={handleSignOff}
         isSigningOff={isSigningOff}
         verificationState={verificationState}
+        cycle={reconciliationCycle}
       />
 
       {editingRule && (
@@ -712,7 +812,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           pax8Products={pax8Recons.map(r => ({ name: r.productName, quantity: r.vendorQty, price: r.price }))}
           devices={devices}
           vendorMappings={customerData?.vendorMappings || {}}
-          onSelect={(selectedItems) => handleSaveMapping(mappingRecon.ruleId, mappingRecon.productName, selectedItems)}
+          onSelect={(selectedItems, mappingNote) => handleSaveMapping(mappingRecon.ruleId, mappingRecon.productName, selectedItems, mappingNote)}
           onClose={() => setMappingRecon(null)}
         />
       )}

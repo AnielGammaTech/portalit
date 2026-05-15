@@ -133,6 +133,9 @@ export function useReconciliationReviews(customerId) {
   };
 
   const saveExclusion = async (ruleId, exclusionCount, exclusionReason) => {
+    if ((exclusionCount || 0) > 0 && !exclusionReason?.trim()) {
+      throw new Error('Reason required for exclusions');
+    }
     const existing = reviews.find((r) => r.rule_id === ruleId);
     const result = await upsertMutation.mutateAsync({
       ruleId,
@@ -142,7 +145,7 @@ export function useReconciliationReviews(customerId) {
       psaQty: existing?.psa_qty,
       vendorQty: existing?.vendor_qty,
       exclusionCount: exclusionCount || 0,
-      exclusionReason: exclusionReason || null,
+      exclusionReason: exclusionReason?.trim() || null,
     });
     if (result?.id && exclusionCount > 0) {
       await supabase

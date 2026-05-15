@@ -336,6 +336,7 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
   const [search, setSearch] = useState('');
   const [source, setSource] = useState('psa');
   const [saving, setSaving] = useState(false);
+  const [mappingNote, setMappingNote] = useState('');
   // Map of id -> { id, description, quantity, source_tab }
   const [selected, setSelected] = useState(new Map());
   // Track which integration sub-sections are expanded within a vendor tab
@@ -453,11 +454,11 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
     }));
     setSaving(true);
     try {
-      await onSelect(items);
+      await onSelect(items, mappingNote.trim());
     } finally {
       setSaving(false);
     }
-  }, [selected, onSelect, saving]);
+  }, [selected, onSelect, saving, mappingNote]);
 
   const totalQty = useMemo(() => {
     let sum = 0;
@@ -628,36 +629,45 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
         {/* Running total bar (sticky footer) */}
         <div className="border-t border-slate-200 bg-slate-50 px-6 py-3">
           {selected.size > 0 ? (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-slate-500">
-                  {selected.size} item{selected.size !== 1 ? 's' : ''} selected
-                </span>
-                <span className="text-slate-300">|</span>
-                <span className="text-sm font-bold text-slate-800 tabular-nums">
-                  Total Qty: {totalQty}
-                </span>
-                <button
-                  onClick={clearAll}
-                  className="text-[11px] text-slate-400 hover:text-slate-600 underline transition-colors ml-1"
-                >
-                  Clear
-                </button>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={onClose}
-                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-pink-500 text-white hover:bg-pink-600 transition-colors disabled:opacity-50"
-                >
-                  {saving ? 'Saving...' : 'Save Mapping'}
-                </button>
+            <div className="space-y-2">
+              <input
+                type="text"
+                value={mappingNote}
+                onChange={(e) => setMappingNote(e.target.value)}
+                placeholder="Mapping note (optional)"
+                className="w-full text-xs border border-slate-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-pink-300"
+              />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-slate-500">
+                    {selected.size} item{selected.size !== 1 ? 's' : ''} selected
+                  </span>
+                  <span className="text-slate-300">|</span>
+                  <span className="text-sm font-bold text-slate-800 tabular-nums">
+                    Total Qty: {totalQty}
+                  </span>
+                  <button
+                    onClick={clearAll}
+                    className="text-[11px] text-slate-400 hover:text-slate-600 underline transition-colors ml-1"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={onClose}
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-pink-500 text-white hover:bg-pink-600 transition-colors disabled:opacity-50"
+                  >
+                    {saving ? 'Saving...' : 'Save Mapping'}
+                  </button>
+                </div>
               </div>
             </div>
           ) : (

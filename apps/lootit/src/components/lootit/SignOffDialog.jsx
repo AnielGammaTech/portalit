@@ -17,20 +17,19 @@ const SCHEDULE_OPTIONS = [
 ];
 
 function addMonths(date, months) {
-  const result = new Date(date);
-  result.setMonth(result.getMonth() + months);
-  return result;
+  return new Date(date.getFullYear(), date.getMonth() + months, 1);
 }
 
 function formatDate(date) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-export default function SignOffDialog({ open, onClose, summary, unresolvedItems, onConfirm, isSigningOff, verificationState }) {
+export default function SignOffDialog({ open, onClose, summary, unresolvedItems, onConfirm, isSigningOff, verificationState, cycle }) {
   const [notes, setNotes] = useState('');
   const [selectedMonths, setSelectedMonths] = useState(1);
 
-  const nextDate = selectedMonths ? addMonths(new Date(), selectedMonths) : null;
+  const cycleBaseDate = cycle?.startedAt ? new Date(cycle.startedAt) : new Date();
+  const nextDate = selectedMonths ? addMonths(cycleBaseDate, selectedMonths) : null;
 
   const handleConfirm = async () => {
     try {
@@ -48,7 +47,7 @@ export default function SignOffDialog({ open, onClose, summary, unresolvedItems,
         <DialogHeader>
           <DialogTitle>Sign Off Reconciliation</DialogTitle>
           <DialogDescription>
-            This will create a snapshot of the current reconciliation state.
+            This will create a snapshot of the current reconciliation state{cycle?.label ? ` for ${cycle.label}` : ''}.
           </DialogDescription>
         </DialogHeader>
 
@@ -120,7 +119,7 @@ export default function SignOffDialog({ open, onClose, summary, unresolvedItems,
             </div>
             {nextDate && (
               <p className="text-[11px] text-slate-400">
-                Due: {formatDate(nextDate)}
+                Next cycle due: {formatDate(nextDate)}
               </p>
             )}
             {!selectedMonths && (

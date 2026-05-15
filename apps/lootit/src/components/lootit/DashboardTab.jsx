@@ -4,7 +4,7 @@ import SignOffBanner from './SignOffBanner';
 import SnapshotCard from './SnapshotCard';
 import SignOffHistory from './SignOffHistory';
 
-export default function DashboardTab({ customerId, onTabChange, onShowSnapshotDetail }) {
+export default function DashboardTab({ customerId, cycle, onTabChange, onShowSnapshotDetail }) {
   const { latestSignOff, allSignOffs, snapshots, isLoading } = useReconciliationSnapshot(customerId);
 
   if (isLoading) {
@@ -19,6 +19,7 @@ export default function DashboardTab({ customerId, onTabChange, onShowSnapshotDe
     <div className="space-y-4">
       <SignOffBanner
         signOff={latestSignOff}
+        cycle={cycle}
         onStartReconciliation={() => onTabChange('reconciliation')}
       />
 

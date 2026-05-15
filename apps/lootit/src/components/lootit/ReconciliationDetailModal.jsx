@@ -281,6 +281,10 @@ function ActionFooter({
   const [savingNote, setSavingNote] = useState(false);
 
   const handleApprove = async () => {
+    if (!actionNotes.trim()) {
+      toast.error('Approval note required');
+      return;
+    }
     setSaving(true);
     try {
       await onForceMatch?.(ruleId, actionNotes || undefined);
@@ -288,6 +292,7 @@ function ActionFooter({
       setActionNotes('');
     } catch (err) {
       console.error('[Modal Action]', err);
+      toast.error(err.message || 'Failed to approve');
     } finally {
       setSaving(false);
     }
@@ -374,7 +379,7 @@ function ActionFooter({
         <textarea
           value={actionNotes}
           onChange={(e) => setActionNotes(e.target.value)}
-          placeholder="Optional note..."
+          placeholder="Required note..."
           rows={2}
           className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-300 resize-none bg-white"
           autoFocus
@@ -382,7 +387,7 @@ function ActionFooter({
         <div className="flex gap-2">
           <button
             onClick={handleApprove}
-            disabled={saving || isSaving}
+            disabled={saving || isSaving || !actionNotes.trim()}
             className={cn('flex-1 py-2 text-xs font-semibold rounded-lg text-white transition-colors disabled:opacity-40 cursor-pointer', 'bg-pink-500 hover:bg-pink-600')}
           >
             {saving ? 'Saving\u2026' : 'Approve'}
@@ -394,6 +399,9 @@ function ActionFooter({
             Cancel
           </button>
         </div>
+        <p className="text-[11px] text-slate-400">
+          A note is required so the sign-off snapshot explains why this was accepted.
+        </p>
       </div>
     );
   }

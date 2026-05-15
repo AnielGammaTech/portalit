@@ -97,6 +97,10 @@ function ItemLevelExclusion({ ruleId, vendorItems, excludedItems, onSave, onRemo
 
   const handleSave = async () => {
     const selectedItems = vendorItems.filter(i => selectedIds.has(i.id));
+    if (selectedItems.length > 0 && !reason.trim()) {
+      toast.error('Add a reason for the exclusion');
+      return;
+    }
     setLocalSaving(true);
     try {
       await onSave({ ruleId, selectedItems, reason });
@@ -223,7 +227,7 @@ function ItemLevelExclusion({ ruleId, vendorItems, excludedItems, onSave, onRemo
           </p>
 
           <div>
-            <label className="text-xs font-medium text-slate-600 mb-1 block">Note</label>
+            <label className="text-xs font-medium text-slate-600 mb-1 block">Reason required</label>
             <div className="flex flex-wrap gap-1.5 mb-2">
               {EXCLUSION_PRESETS.map(preset => (
                 <button
@@ -252,7 +256,7 @@ function ItemLevelExclusion({ ruleId, vendorItems, excludedItems, onSave, onRemo
           <div className="flex gap-2">
             <button
               onClick={handleSave}
-              disabled={saving || selectedIds.size === 0}
+              disabled={saving || selectedIds.size === 0 || !reason.trim()}
               className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 transition-colors"
             >
               {saving ? 'Saving...' : `Exclude ${selectedIds.size} Item${selectedIds.size !== 1 ? 's' : ''}`}
@@ -299,6 +303,10 @@ function CountFallbackExclusion({ reconciliation, onSaveExclusion }) {
 
   const handleSave = async () => {
     if (!onSaveExclusion) return;
+    if (exclusionCount > 0 && !exclusionReason.trim()) {
+      toast.error('Add a reason for the exclusion');
+      return;
+    }
     setSaving(true);
     try {
       await onSaveExclusion(ruleId, exclusionCount, exclusionReason);
@@ -378,7 +386,7 @@ function CountFallbackExclusion({ reconciliation, onSaveExclusion }) {
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-slate-600 mb-1 block">Reason</label>
+            <label className="text-xs font-medium text-slate-600 mb-1 block">Reason required</label>
             <div className="flex flex-wrap gap-1.5 mb-2">
               {EXCLUSION_PRESETS.map((preset) => (
                 <button
@@ -406,7 +414,7 @@ function CountFallbackExclusion({ reconciliation, onSaveExclusion }) {
           <div className="flex gap-2">
             <button
               onClick={handleSave}
-              disabled={saving || exclusionCount <= 0}
+              disabled={saving || exclusionCount <= 0 || !exclusionReason.trim()}
               className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 transition-colors"
             >
               {saving ? 'Saving...' : 'Save Exclusion'}

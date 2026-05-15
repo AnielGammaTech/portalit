@@ -1,6 +1,7 @@
 import React from 'react';
+import { cn } from '@/lib/utils';
 
-export default function SignOffBanner({ signOff, onStartReconciliation }) {
+export default function SignOffBanner({ signOff, cycle, onStartReconciliation }) {
   if (!signOff) {
     return (
       <div className="bg-slate-50 border border-slate-200 rounded-lg px-5 py-4 flex items-center justify-between">
@@ -24,13 +25,24 @@ export default function SignOffBanner({ signOff, onStartReconciliation }) {
     year: 'numeric',
   });
   const signerName = signOff.signed_by_user?.full_name || signOff.signed_by_user?.email || 'Unknown';
+  const cycleClass = {
+    emerald: 'bg-emerald-100 text-emerald-700',
+    amber: 'bg-amber-100 text-amber-700',
+    red: 'bg-red-100 text-red-700',
+    slate: 'bg-slate-100 text-slate-600',
+  }[cycle?.tone || 'emerald'];
 
   return (
-    <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-5 py-4 flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <div className="w-2 h-2 rounded-full bg-emerald-500" />
-        <span className="text-sm font-medium text-emerald-700">Signed off {signedDate}</span>
-        <span className="text-sm text-emerald-600/70">by {signerName}</span>
+    <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-5 py-4 flex items-center justify-between gap-4">
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+        <span className="text-sm font-medium text-emerald-700 shrink-0">Dashboard snapshot</span>
+        <span className="text-sm text-emerald-700/80 truncate">signed off {signedDate} by {signerName}</span>
+        {cycle && (
+          <span className={cn('text-[10px] font-bold rounded-full px-2 py-0.5 shrink-0', cycleClass)}>
+            {cycle.label} · {cycle.statusLabel}
+          </span>
+        )}
       </div>
       <button
         onClick={onStartReconciliation}

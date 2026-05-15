@@ -1,7 +1,6 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, RefreshCw, AlertTriangle, Activity, ShieldCheck, AlertCircle } from 'lucide-react';
-import SignOffButton from './SignOffButton';
+import { ArrowLeft, RefreshCw, AlertTriangle, Activity, ShieldCheck, AlertCircle, CalendarClock } from 'lucide-react';
 
 function MiniStat({ icon: Icon, label, value, sub, color }) {
   const colors = {
@@ -44,14 +43,11 @@ export default function CustomerDetailHeaderCard({
   healthPct,
   activeIntegrations,
   summary,
-  recons,
-  pax8Recons,
-  allRecons,
-  hasUnresolvedItems,
   unresolvedCount,
   signOffExpired,
   daysSinceSignOff,
   verificationState,
+  reconciliationCycle,
 }) {
   const verified = verificationState?.verified ?? 0;
   const total = verificationState?.total ?? 0;
@@ -61,6 +57,13 @@ export default function CustomerDetailHeaderCard({
 
   const healthColor = healthPct >= 80 ? 'emerald' : healthPct >= 50 ? 'amber' : 'red';
   const verifyColor = allVerified ? 'emerald' : pct >= 50 ? 'amber' : 'red';
+  const cycleTone = reconciliationCycle?.tone || 'slate';
+  const cycleClass = {
+    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    amber: 'bg-amber-50 text-amber-700 border-amber-200',
+    red: 'bg-red-50 text-red-700 border-red-200',
+    slate: 'bg-slate-50 text-slate-600 border-slate-200',
+  }[cycleTone] || 'bg-slate-50 text-slate-600 border-slate-200';
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -98,6 +101,14 @@ export default function CustomerDetailHeaderCard({
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {reconciliationCycle && (
+              <div className={cn('inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border', cycleClass)}>
+                <CalendarClock className="w-3.5 h-3.5" />
+                <span>{reconciliationCycle.label}</span>
+                <span className="opacity-70">·</span>
+                <span>{reconciliationCycle.statusLabel}</span>
+              </div>
+            )}
             <button
               onClick={onSync}
               disabled={isSyncing}
@@ -106,14 +117,6 @@ export default function CustomerDetailHeaderCard({
               <RefreshCw className={cn('w-3.5 h-3.5', isSyncing && 'animate-spin')} />
               {isSyncing ? 'Syncing\u2026' : 'Sync'}
             </button>
-            <SignOffButton
-              customer={customer}
-              reconciliations={recons}
-              pax8Reconciliations={pax8Recons}
-              unmatchedItems={allRecons.filter(r => r.isUnmatchedLineItem)}
-              hasUnresolvedItems={hasUnresolvedItems}
-              unresolvedCount={unresolvedCount}
-            />
           </div>
         </div>
 

@@ -24,6 +24,9 @@ export function useExcludedItems(customerId) {
 
   const saveExcludedItemsMutation = useMutation({
     mutationFn: async ({ ruleId, selectedItems, reason }) => {
+      if ((selectedItems || []).length > 0 && !reason?.trim()) {
+        throw new Error('Reason required for exclusions');
+      }
       const existing = excludedItems.filter(i => i.rule_id === ruleId);
       const existingIds = new Set(existing.map(i => i.vendor_item_id));
       const selectedIds = new Set(selectedItems.map(i => i.id));
@@ -45,7 +48,7 @@ export function useExcludedItems(customerId) {
           rule_id: ruleId,
           vendor_item_id: item.id,
           vendor_item_label: item.label,
-          reason: reason || null,
+          reason: reason.trim(),
           excluded_by: user?.id || null,
         }));
         const { error } = await supabase
@@ -57,7 +60,7 @@ export function useExcludedItems(customerId) {
       if (reason !== undefined) {
         const { error } = await supabase
           .from('reconciliation_excluded_items')
-          .update({ reason })
+          .update({ reason: reason?.trim() || null })
           .eq('customer_id', customerId)
           .eq('rule_id', ruleId);
         if (error) throw error;

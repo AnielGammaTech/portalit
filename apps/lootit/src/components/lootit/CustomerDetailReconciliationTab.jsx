@@ -1,6 +1,6 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { Filter, Link2, ClipboardCheck } from 'lucide-react';
+import { AlertTriangle, CalendarClock, ChevronRight, Filter, Link2, ClipboardCheck } from 'lucide-react';
 import ServiceCard from './ServiceCard';
 import Pax8SubscriptionCard from './Pax8SubscriptionCard';
 
@@ -21,8 +21,28 @@ export default function CustomerDetailReconciliationTab({
   customerId,
   vendorMappings,
   verificationState,
+  issueItems = [],
+  reconciliationCycle,
 }) {
   const unverifiedCount = verificationState ? verificationState.total - verificationState.verified : 0;
+  const cycleToneClass = {
+    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    amber: 'bg-amber-50 text-amber-700 border-amber-200',
+    red: 'bg-red-50 text-red-700 border-red-200',
+    slate: 'bg-slate-50 text-slate-600 border-slate-200',
+  }[reconciliationCycle?.tone || 'slate'];
+
+  const reasonLabel = (reason) => ({
+    over: 'PSA over vendor',
+    under: 'Vendor over PSA',
+    missing_from_psa: 'Vendor not billed',
+    no_psa_data: 'No PSA',
+    unmatched_line_item: 'Unmapped billing item',
+    no_vendor_data: 'No vendor',
+    changed: 'Changed',
+    stale: 'Stale',
+    unverified: 'Needs verification',
+  }[reason] || reason);
 
   return (
     <>
@@ -67,6 +87,62 @@ export default function CustomerDetailReconciliationTab({
           </span>
         ) : null}
       </div>
+
+      {reconciliationCycle && (
+        <div className={cn('flex items-center justify-between gap-3 rounded-lg border px-4 py-3', cycleToneClass)}>
+          <div className="flex items-center gap-2">
+            <CalendarClock className="w-4 h-4" />
+            <div>
+              <p className="text-sm font-semibold">{reconciliationCycle.label} Reconciliation</p>
+              <p className="text-[11px] opacity-70">
+                {verificationState.verified}/{verificationState.total} verified · {reconciliationCycle.statusLabel}
+              </p>
+            </div>
+          </div>
+          {reconciliationCycle.nextDueAt && (
+            <span className="text-[11px] font-medium opacity-75">
+              Next due {new Date(reconciliationCycle.nextDueAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </span>
+          )}
+        </div>
+      )}
+
+      {statusFilter === 'issues' && issueItems.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50/40 overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-amber-100">
+            <AlertTriangle className="w-4 h-4 text-amber-600" />
+            <p className="text-sm font-semibold text-slate-800">Issue Queue</p>
+            <span className="text-[10px] font-bold text-amber-700 bg-amber-100 rounded-full px-1.5 py-0.5">
+              {issueItems.length}
+            </span>
+          </div>
+          <div className="divide-y divide-amber-100">
+            {issueItems.slice(0, 12).map((item) => (
+              <button
+                key={item.ruleId}
+                type="button"
+                onClick={() => onDetails?.(item.tile)}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-white/60 transition-colors"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-slate-800 truncate">{item.label}</p>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {item.reasons.map((reason) => (
+                      <span key={reason} className="text-[10px] font-medium text-amber-700 bg-amber-100 rounded-full px-1.5 py-0.5">
+                        {reasonLabel(reason)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <span className="text-xs font-semibold tabular-nums text-slate-600 shrink-0">
+                  {item.psaQty ?? '\u2014'} / {item.vendorQty ?? '\u2014'}
+                </span>
+                <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {filteredRecons.length === 0 && filteredPax8.length === 0 ? (
         <div className="text-center py-12">
