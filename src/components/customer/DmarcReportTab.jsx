@@ -264,7 +264,7 @@ function DomainCard({ domain }) {
                   <DnsRecordRow label="BIMI" value={dns.bimi_record} icon={Eye} />
                 </div>
               ) : (
-                <p className="text-xs text-slate-400 italic py-2">No DNS record data available. Click Sync to fetch.</p>
+                <p className="text-xs text-slate-400 italic py-2">No DNS record data available.</p>
               )}
             </div>
           </div>
@@ -274,7 +274,7 @@ function DomainCard({ domain }) {
   );
 }
 
-export default function DmarcReportTab({ customerId, dmarcMapping, queryClient }) {
+export default function DmarcReportTab({ customerId, dmarcMapping, queryClient, canSync = false }) {
   const [syncing, setSyncing] = useState(false);
   const [liveData, setLiveData] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -293,7 +293,7 @@ export default function DmarcReportTab({ customerId, dmarcMapping, queryClient }
       if (!res?.success) return null;
       return res;
     },
-    enabled: !!customerId && !!dmarcMapping && !cachedData,
+    enabled: canSync && !!customerId && !!dmarcMapping && !cachedData,
     staleTime: 5 * 60 * 1000,
     retry: false,
   });
@@ -304,6 +304,7 @@ export default function DmarcReportTab({ customerId, dmarcMapping, queryClient }
   const fromCache = !liveData && !!data;
 
   const handleSync = async () => {
+    if (!canSync) return;
     setSyncing(true);
     try {
       const res = await client.functions.invoke('syncDmarcReport', {
@@ -367,10 +368,12 @@ export default function DmarcReportTab({ customerId, dmarcMapping, queryClient }
               </div>
             </div>
           </div>
-          <Button onClick={handleSync} disabled={syncing} variant="outline" size="sm" className="gap-2">
-            <RefreshCw className={cn("w-4 h-4", syncing && "animate-spin")} />
-            Refresh
-          </Button>
+          {canSync && (
+            <Button onClick={handleSync} disabled={syncing} variant="outline" size="sm" className="gap-2">
+              <RefreshCw className={cn("w-4 h-4", syncing && "animate-spin")} />
+              Refresh
+            </Button>
+          )}
         </div>
       </div>
 
@@ -450,11 +453,13 @@ export default function DmarcReportTab({ customerId, dmarcMapping, queryClient }
         <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed">
           <Shield className="w-10 h-10 text-slate-300 mx-auto mb-3" />
           <p className="text-sm text-slate-600 font-medium">No DMARC data cached</p>
-          <p className="text-xs text-slate-400 mt-1">Click Refresh to pull the latest report data</p>
-          <Button onClick={handleSync} variant="outline" size="sm" className="mt-4 gap-2">
-            <RefreshCw className="w-4 h-4" />
-            Refresh Now
-          </Button>
+          <p className="text-xs text-slate-400 mt-1">Email authentication data will appear here once it is available for this account.</p>
+          {canSync && (
+            <Button onClick={handleSync} variant="outline" size="sm" className="mt-4 gap-2">
+              <RefreshCw className="w-4 h-4" />
+              Refresh Now
+            </Button>
+          )}
         </div>
       )}
     </div>

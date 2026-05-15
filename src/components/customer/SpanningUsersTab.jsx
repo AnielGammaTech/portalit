@@ -348,7 +348,7 @@ function StorageLine({ icon: Icon, label, value, percent, className }) {
   );
 }
 
-export default function SpanningUsersTab({ customerId, spanningMapping, queryClient }) {
+export default function SpanningUsersTab({ customerId, spanningMapping, queryClient, canSync = false }) {
   const [syncingSpanning, setSyncingSpanning] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [userTypeFilter, setUserTypeFilter] = useState('all');
@@ -391,6 +391,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
   }, [contacts]);
 
   const handleSyncSpanning = async () => {
+    if (!canSync) return;
     setSyncingSpanning(true);
     try {
       const result = await refetch();
@@ -415,7 +416,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
         icon={Cloud}
         title="No Spanning data"
         description="No cached Spanning data is available yet."
-        action={{ label: 'Sync from Spanning', onClick: handleSyncSpanning }}
+        action={canSync ? { label: 'Sync from Spanning', onClick: handleSyncSpanning } : undefined}
       />
     );
   }
@@ -528,10 +529,12 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
                 </p>
               </div>
             </div>
-            <Button onClick={handleSyncSpanning} disabled={syncing} variant="outline" className="gap-2 self-start bg-white">
-              {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-              {syncing ? 'Syncing...' : 'Sync Spanning'}
-            </Button>
+            {canSync && (
+              <Button onClick={handleSyncSpanning} disabled={syncing} variant="outline" className="gap-2 self-start bg-white">
+                {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                {syncing ? 'Syncing...' : 'Sync Spanning'}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -683,7 +686,7 @@ export default function SpanningUsersTab({ customerId, spanningMapping, queryCli
             icon={Users}
             title="No users found"
             description="The Spanning sync returned counts but no user rows."
-            action={{ label: 'Sync from Spanning', onClick: handleSyncSpanning }}
+            action={canSync ? { label: 'Sync from Spanning', onClick: handleSyncSpanning } : undefined}
           />
         ) : filteredUsers.length === 0 ? (
           <EmptyState

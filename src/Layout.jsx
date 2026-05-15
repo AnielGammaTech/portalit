@@ -375,6 +375,7 @@ export default function Layout({ children, currentPageName }) {
   }, [features.canAccessLootIT]);
 
   const navigation = (isStaff && !isCustomerPortal) ? staffNavigation : customerNavigation;
+  const showDesktopNavigation = isStaff && !isCustomerPortal;
 
   // Show loading state
   if (isLoading) {
@@ -459,25 +460,29 @@ export default function Layout({ children, currentPageName }) {
               <span className="text-base font-bold text-white hidden sm:block tracking-tight">
                 {(isStaff && !isCustomerPortal)
                   ? <>{(portalSettings.portal_name || 'Portal').replace(/IT$/i, '')}<span className="text-violet-400">IT</span></>
-                  : (customer?.name || 'Client Portal')}
+                  : <>Portal<span className="text-violet-400">IT</span></>}
               </span>
             </Link>
           </div>
 
           {/* Center: Desktop navigation */}
-          <nav className="hidden lg:flex min-w-0 flex-1 items-center justify-center h-full overflow-x-auto scrollbar-hide px-8">
-            {navigation.map((item) => {
-              const isActive = isNavigationItemActive(item, currentPageName, activeCustomerTab);
-              return (
-                <NavItem
-                  key={item.page + (item.query || '')}
-                  item={item}
-                  isActive={isActive}
-                  primaryColor={primaryColor}
-                />
-              );
-            })}
-          </nav>
+          {showDesktopNavigation ? (
+            <nav className="hidden lg:flex min-w-0 flex-1 items-center justify-center h-full overflow-x-auto scrollbar-hide px-8">
+              {navigation.map((item) => {
+                const isActive = isNavigationItemActive(item, currentPageName, activeCustomerTab);
+                return (
+                  <NavItem
+                    key={item.page + (item.query || '')}
+                    item={item}
+                    isActive={isActive}
+                    primaryColor={primaryColor}
+                  />
+                );
+              })}
+            </nav>
+          ) : (
+            <div className="hidden lg:block flex-1" />
+          )}
 
           {/* Right: Notifications + User dropdown */}
           <div className="flex items-center gap-2">

@@ -57,7 +57,7 @@ function getHostKey(host, index) {
   return host.id || `${host.hostname || 'host'}-${host.ip || index}`;
 }
 
-export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
+export default function DattoEDRTab({ customerId, edrMapping, customerName, canSync = false }) {
   const [syncing, setSyncing] = useState(false);
   const [liveEdrData, setLiveEdrData] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -106,6 +106,7 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
   }, [endpointSearch, hosts]);
 
   const handleSync = async () => {
+    if (!canSync) return;
     if (!edrMapping) return;
     setSyncing(true);
     try {
@@ -133,7 +134,7 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-semibold text-slate-900">Datto EDR</h3>
             {fromCache && <Badge variant="outline" className="text-xs">Cached</Badge>}
-            {syncStale && <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">Sync stale</Badge>}
+            {canSync && syncStale && <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">Sync stale</Badge>}
           </div>
           <p className="text-sm text-slate-500">
             {notMapped ? 'Not configured' : `Tenant: ${edrMapping.edr_tenant_name || edrData?.targetName || 'Mapped tenant'}`}
@@ -147,16 +148,20 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
                   <ExternalLink className="w-4 h-4" />
                   Details
                 </Button>
-                <Button onClick={() => setShowReportModal(true)} variant="outline" size="sm" className="gap-2">
-                  <FileText className="w-4 h-4" />
-                  Report
-                </Button>
+                {canSync && (
+                  <Button onClick={() => setShowReportModal(true)} variant="outline" size="sm" className="gap-2">
+                    <FileText className="w-4 h-4" />
+                    Report
+                  </Button>
+                )}
               </>
             )}
-            <Button onClick={handleSync} disabled={syncing} variant="outline" size="sm" className="gap-2">
-              <RefreshCw className={cn("w-4 h-4", syncing && "animate-spin")} />
-              {syncing ? 'Loading...' : (fromCache ? 'Refresh' : 'Sync')}
-            </Button>
+            {canSync && (
+              <Button onClick={handleSync} disabled={syncing} variant="outline" size="sm" className="gap-2">
+                <RefreshCw className={cn("w-4 h-4", syncing && "animate-spin")} />
+                {syncing ? 'Loading...' : (fromCache ? 'Refresh' : 'Sync')}
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -176,11 +181,13 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
           <CardContent className="py-10 text-center">
             <Shield className="w-10 h-10 text-slate-300 mx-auto mb-3" />
             <p className="font-medium text-slate-900">No EDR data cached yet</p>
-            <p className="text-sm text-slate-500 mt-1">Run a sync to load agents, scan metadata, and endpoint details.</p>
-            <Button onClick={handleSync} disabled={syncing} className="mt-4 gap-2">
-              <RefreshCw className={cn("w-4 h-4", syncing && "animate-spin")} />
-              Sync EDR
-            </Button>
+            <p className="text-sm text-slate-500 mt-1">Endpoint protection details will appear here once they are available for this account.</p>
+            {canSync && (
+              <Button onClick={handleSync} disabled={syncing} className="mt-4 gap-2">
+                <RefreshCw className={cn("w-4 h-4", syncing && "animate-spin")} />
+                Sync EDR
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
@@ -340,7 +347,7 @@ export default function DattoEDRTab({ customerId, edrMapping, customerName }) {
                 <div className="text-center py-10 bg-slate-50 rounded-lg">
                   <Monitor className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                   <p className="text-sm text-slate-600 font-medium">{hostCount} endpoints reported</p>
-                  <p className="text-xs text-slate-500 mt-1">The API returned counts but no endpoint rows. Run Refresh to reload the endpoint list.</p>
+                  <p className="text-xs text-slate-500 mt-1">The protection summary is available, but endpoint rows are not currently published for this account.</p>
                 </div>
               )}
             </CardContent>

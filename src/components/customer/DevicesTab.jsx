@@ -108,7 +108,7 @@ function StatusBadge({ status }) {
   );
 }
 
-export default function DevicesTab({ customerId }) {
+export default function DevicesTab({ customerId, canSync = false }) {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -217,6 +217,7 @@ export default function DevicesTab({ customerId }) {
   ].filter(filter => filter.key !== 'unknown' || filter.count > 0);
 
   const syncDevices = async () => {
+    if (!canSync) return;
     if (safeMappings.length === 0) {
       toast.error('No Datto RMM site mapped to this customer');
       return;
@@ -275,10 +276,12 @@ export default function DevicesTab({ customerId }) {
             </p>
           )}
         </div>
-        <Button onClick={syncDevices} disabled={syncing} className="gap-2 self-start">
-          {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          {syncing ? 'Syncing...' : 'Sync Devices'}
-        </Button>
+        {canSync && (
+          <Button onClick={syncDevices} disabled={syncing} className="gap-2 self-start">
+            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            {syncing ? 'Syncing...' : 'Sync Devices'}
+          </Button>
+        )}
       </div>
 
       <motion.div
@@ -397,8 +400,8 @@ export default function DevicesTab({ customerId }) {
           <EmptyState
             icon={Monitor}
             title="No devices found"
-            description={search || statusFilter !== 'all' || typeFilter !== 'all' ? 'Try adjusting the search or filters.' : 'Sync from Datto RMM to populate devices.'}
-            action={!search && statusFilter === 'all' && typeFilter === 'all' ? { label: 'Sync from Datto RMM', onClick: syncDevices } : undefined}
+            description={search || statusFilter !== 'all' || typeFilter !== 'all' ? 'Try adjusting the search or filters.' : 'Datto RMM devices will appear here once they are available for this account.'}
+            action={canSync && !search && statusFilter === 'all' && typeFilter === 'all' ? { label: 'Sync from Datto RMM', onClick: syncDevices } : undefined}
           />
         ) : (
           <div className="overflow-x-auto">

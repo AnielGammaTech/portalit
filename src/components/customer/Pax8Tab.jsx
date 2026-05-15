@@ -197,7 +197,7 @@ function cippUserLicenses(user) {
     .filter(Boolean);
 }
 
-export default function Pax8Tab({ customerId, pax8Mapping, queryClient: externalQC }) {
+export default function Pax8Tab({ customerId, pax8Mapping, queryClient: externalQC, canSync = false }) {
   const internalQC = useQueryClient();
   const queryClient = externalQC || internalQC;
 
@@ -260,6 +260,7 @@ export default function Pax8Tab({ customerId, pax8Mapping, queryClient: external
   const lastSynced = formatDateTime(pax8Mapping?.last_synced);
 
   const handleSync = async () => {
+    if (!canSync) return;
     setSyncing(true);
     try {
       const response = await client.functions.invoke('syncPax8Subscriptions', {
@@ -291,16 +292,18 @@ export default function Pax8Tab({ customerId, pax8Mapping, queryClient: external
             {accountName} · Last synced {lastSynced}
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleSync}
-          disabled={syncing}
-          className="w-full gap-2 sm:w-auto"
-        >
-          {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          Refresh Pax8
-        </Button>
+        {canSync && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSync}
+            disabled={syncing}
+            className="w-full gap-2 sm:w-auto"
+          >
+            {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Refresh Pax8
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-4">
@@ -359,8 +362,8 @@ export default function Pax8Tab({ customerId, pax8Mapping, queryClient: external
           <EmptyState
             icon={Package}
             title="No Pax8 data yet"
-            description="Refresh Pax8 to pull subscription data for this account."
-            action={{ label: 'Refresh Pax8', onClick: handleSync }}
+            description="Subscription data will appear here once it is available for this account."
+            action={canSync ? { label: 'Refresh Pax8', onClick: handleSync } : undefined}
           />
         ) : filteredProducts.length === 0 ? (
           <div className="px-5 py-12 text-center text-sm text-slate-500">
