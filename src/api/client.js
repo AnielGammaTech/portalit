@@ -4,6 +4,8 @@ import { createAuthStorage } from '@/lib/auth-storage';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
+const AUTH_LOOKUP_TIMEOUT_MS = 4000;
+const AUTH_REFRESH_TIMEOUT_MS = 6000;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing required environment variables: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be defined');
@@ -39,6 +41,16 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
+function withTimeout(promise, ms, message) {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = globalThis.setTimeout(() => reject(new Error(message)), ms);
+  });
+
+  return Promise.race([promise, timeout])
+    .finally(() => globalThis.clearTimeout(timeoutId));
+}
+
 function toSnakeCase(str) {
   return str
     .replace(/([A-Z])/g, (match, _p1, offset) =>
@@ -71,8 +83,18 @@ async function getAuthToken() {
   if (_cachedToken && Date.now() < _tokenExpiresAt) {
     return _cachedToken;
   }
-  const { data: { session } } = await supabase.auth.getSession();
-  updateTokenCache(session);
+
+  try {
+    const { data: { session } } = await withTimeout(
+      supabase.auth.getSession(),
+      AUTH_LOOKUP_TIMEOUT_MS,
+      'Auth session lookup timed out'
+    );
+    updateTokenCache(session);
+  } catch (error) {
+    console.warn('[auth] session lookup skipped:', error?.message || error);
+  }
+
   return _cachedToken;
 }
 
@@ -80,8 +102,28 @@ async function getAuthToken() {
 async function forceRefreshToken() {
   _cachedToken = null;
   _tokenExpiresAt = 0;
-  const { data: { session } } = await supabase.auth.refreshSession();
-  updateTokenCache(session);
+
+  try {
+    const { data: { session } } = await withTimeout(
+      supabase.auth.refreshSession(),
+      AUTH_REFRESH_TIMEOUT_MS,
+      'Auth session refresh timed out'
+    );
+    updateTokenCache(session);
+  } catch (error) {
+    console.warn('[auth] session refresh skipped:', error?.message || error);
+    try {
+      const { data: { session } } = await withTimeout(
+        supabase.auth.getSession(),
+        AUTH_LOOKUP_TIMEOUT_MS,
+        'Auth session lookup timed out'
+      );
+      updateTokenCache(session);
+    } catch {
+      updateTokenCache(null);
+    }
+  }
+
   return _cachedToken;
 }
 

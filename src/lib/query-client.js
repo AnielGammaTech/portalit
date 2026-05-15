@@ -3,6 +3,17 @@ import { supabase } from '@/api/client';
 
 // Track whether a session refresh is already in flight to avoid hammering
 let _refreshing = false;
+const SESSION_REFRESH_TIMEOUT_MS = 6000;
+
+function withTimeout(promise, ms, message) {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = globalThis.setTimeout(() => reject(new Error(message)), ms);
+  });
+
+  return Promise.race([promise, timeout])
+    .finally(() => globalThis.clearTimeout(timeoutId));
+}
 
 async function handleQueryError(error) {
   // Detect auth/JWT errors from Supabase or backend
@@ -21,8 +32,13 @@ async function handleQueryError(error) {
   if (isAuthError && !_refreshing) {
     _refreshing = true;
     try {
-      await supabase.auth.refreshSession();
-    } catch {
+      await withTimeout(
+        supabase.auth.refreshSession(),
+        SESSION_REFRESH_TIMEOUT_MS,
+        'Auth session refresh timed out'
+      );
+    } catch (error) {
+      console.warn('[auth] query refresh skipped:', error?.message || error);
       // If refresh fails, user will need to re-login — don't loop
     } finally {
       _refreshing = false;
@@ -83,7 +99,11 @@ if (typeof document !== 'undefined') {
     if (_visibilityRefreshing) return;
     _visibilityRefreshing = true;
     try {
-      await supabase.auth.refreshSession();
+      await withTimeout(
+        supabase.auth.refreshSession(),
+        SESSION_REFRESH_TIMEOUT_MS,
+        'Auth session refresh timed out'
+      );
     } catch (err) {
       console.warn('[auth] tab-resume refresh failed:', err?.message);
     } finally {
