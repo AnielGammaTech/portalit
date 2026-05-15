@@ -1,6 +1,6 @@
 import React from 'react';
 import { Toaster } from "@/components/ui/toaster"
-import { QueryClientProvider, useIsFetching } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import NavigationTracker from '@/lib/NavigationTracker'
@@ -149,38 +149,17 @@ function PageLoadingSkeleton({ pageName }) {
 
 function RouteDataLoadingBoundary({ children, currentPageName }) {
   const location = useLocation();
-  const fetchingCount = useIsFetching();
   const routeKey = `${location.pathname}${location.search}`;
-  const [activeRouteKey, setActiveRouteKey] = React.useState(routeKey);
-  const [isPriming, setIsPriming] = React.useState(true);
-  const startedAtRef = React.useRef(Date.now());
-  const routeChanged = activeRouteKey !== routeKey;
+  const [showLoader, setShowLoader] = React.useState(true);
 
   React.useEffect(() => {
-    startedAtRef.current = Date.now();
-    setActiveRouteKey(routeKey);
-    setIsPriming(true);
-
-    const maxTimer = window.setTimeout(() => {
-      setIsPriming(false);
-    }, 9000);
-
-    return () => window.clearTimeout(maxTimer);
-  }, [routeKey]);
-
-  React.useEffect(() => {
-    if (!isPriming || fetchingCount > 0) return undefined;
-
-    const elapsed = Date.now() - startedAtRef.current;
-    const delay = Math.max(120, 320 - elapsed);
+    setShowLoader(true);
     const timer = window.setTimeout(() => {
-      setIsPriming(false);
-    }, delay);
+      setShowLoader(false);
+    }, 650);
 
     return () => window.clearTimeout(timer);
-  }, [fetchingCount, isPriming, routeKey]);
-
-  const showLoader = routeChanged || isPriming;
+  }, [routeKey]);
 
   return (
     <div className="relative min-h-[60vh]">
