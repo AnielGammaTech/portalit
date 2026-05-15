@@ -251,6 +251,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   const handleSaveMapping = async (ruleId, productName, selectedItems) => {
     try {
       const items = Array.isArray(selectedItems) ? selectedItems : [{ id: selectedItems, description: productName, quantity: 0 }];
+      const isGroupedUnmatched = ruleId.startsWith('unmatched_group:');
       const recon = recons.find(r => r.rule?.id === ruleId);
       const pax8Recon = pax8Recons.find(r => r.ruleId === ruleId);
       const psaLineItemId = recon?.matchedLineItems?.[0]?.id || pax8Recon?.matchedLineItems?.[0]?.id || null;
@@ -270,7 +271,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           customer_id: customer.id,
           rule_id: ruleId,
           pax8_product_name: isPsaLineItem ? (productName || null) : (vendorKey || item.description || item.id),
-          line_item_id: isPsaLineItem ? item.id : (psaLineItemId || null),
+          line_item_id: isGroupedUnmatched ? null : (isPsaLineItem ? item.id : (psaLineItemId || null)),
           group_id: `qty:${item.quantity || 0}`,
         });
       } else {
@@ -284,7 +285,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           customer_id: customer.id,
           rule_id: ruleId,
           pax8_product_name: JSON.stringify(mappingData),
-          line_item_id: psaLineItemId || null,
+          line_item_id: isGroupedUnmatched ? null : (psaLineItemId || null),
           group_id: `multi:${totalQty}`,
         });
       }

@@ -470,8 +470,9 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
   const overridedUnmatchedIds = new Set();
   const overridedUnmatchedResults = [];
   for (const ov of overrides) {
-    if (ov.line_item_id) matchedLineItemIds.add(ov.line_item_id);
-    if (ov.rule_id && ov.rule_id.startsWith('unmatched_')) {
+    const isGroupedUnmatchedOverride = ov.rule_id?.startsWith('unmatched_group:');
+    if (ov.line_item_id && !isGroupedUnmatchedOverride) matchedLineItemIds.add(ov.line_item_id);
+    if (ov.rule_id && ov.rule_id.startsWith('unmatched_') && !isGroupedUnmatchedOverride) {
       const liId = ov.rule_id.replace('unmatched_', '');
       const li = lineItemById[liId];
       if (!li) continue;

@@ -335,6 +335,7 @@ function sourceTabLabel(source) {
 export default function LineItemPicker({ productName, lineItems, pax8Products = [], devices = [], vendorMappings = {}, onSelect, onClose }) {
   const [search, setSearch] = useState('');
   const [source, setSource] = useState('psa');
+  const [saving, setSaving] = useState(false);
   // Map of id -> { id, description, quantity, source_tab }
   const [selected, setSelected] = useState(new Map());
   // Track which integration sub-sections are expanded within a vendor tab
@@ -443,15 +444,20 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
     setSelected(new Map());
   }, []);
 
-  const handleSave = useCallback(() => {
-    if (selected.size === 0) return;
+  const handleSave = useCallback(async () => {
+    if (selected.size === 0 || saving) return;
     const items = Array.from(selected.values()).map(({ id, description, quantity }) => ({
       id,
       description,
       quantity,
     }));
-    onSelect(items);
-  }, [selected, onSelect]);
+    setSaving(true);
+    try {
+      await onSelect(items);
+    } finally {
+      setSaving(false);
+    }
+  }, [selected, onSelect, saving]);
 
   const totalQty = useMemo(() => {
     let sum = 0;
@@ -647,9 +653,10 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
                 </button>
                 <button
                   onClick={handleSave}
-                  className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-pink-500 text-white hover:bg-pink-600 transition-colors"
+                  disabled={saving}
+                  className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-pink-500 text-white hover:bg-pink-600 transition-colors disabled:opacity-50"
                 >
-                  Save Mapping
+                  {saving ? 'Saving...' : 'Save Mapping'}
                 </button>
               </div>
             </div>
