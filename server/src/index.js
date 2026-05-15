@@ -12,6 +12,7 @@ import { cronRouter } from './routes/cron.js';
 import { securityRouter } from './routes/security.js';
 import { integrationsRouter } from './routes/integrations.js';
 import { customerRequestsRouter } from './routes/customerRequests.js';
+import { externalRouter } from './routes/external.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { setupScheduledJobs } from './scheduled.js';
 
@@ -138,6 +139,7 @@ app.use('/api/cron', cronRouter);
 app.use('/api/security', securityRouter);
 app.use('/api/integrations', integrationsRouter);
 app.use('/api/customer-requests', customerRequestsRouter);
+app.use('/api/external', externalRouter);
 
 // Error handler
 app.use(errorHandler);
