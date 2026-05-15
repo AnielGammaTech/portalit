@@ -11,6 +11,125 @@ function chunks(array, size) {
   return result;
 }
 
+function asArray(payload, keys = []) {
+  if (Array.isArray(payload)) return payload;
+  if (!payload || typeof payload !== 'object') return [];
+  const candidates = [
+    ...keys,
+    'value',
+    'Value',
+    'results',
+    'Results',
+    'data',
+    'Data',
+    'items',
+    'Items',
+    'rows',
+    'Rows',
+  ];
+  for (const key of candidates) {
+    if (Array.isArray(payload[key])) return payload[key];
+  }
+  return [];
+}
+
+function firstValue(source, keys) {
+  for (const key of keys) {
+    const value = source?.[key];
+    if (value !== undefined && value !== null && value !== '') return value;
+  }
+  return null;
+}
+
+function numberValue(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function getSkuId(sku) {
+  return firstValue(sku, ['skuId', 'SkuId', 'id', 'Id', 'accountSkuId', 'AccountSkuId']);
+}
+
+function getSkuName(sku) {
+  return firstValue(sku, [
+    'skuName',
+    'SkuName',
+    'displayName',
+    'DisplayName',
+    'productName',
+    'ProductName',
+    'skuPartNumber',
+    'SkuPartNumber',
+    'accountSkuId',
+    'AccountSkuId',
+  ]);
+}
+
+function getSkuTotal(sku) {
+  const prepaid = sku?.prepaidUnits || sku?.PrepaidUnits || {};
+  return numberValue(firstValue(prepaid, ['enabled', 'Enabled']))
+    ?? numberValue(firstValue(sku, [
+      'totalLicenses',
+      'TotalLicenses',
+      'activeUnits',
+      'ActiveUnits',
+      'enabled',
+      'Enabled',
+      'purchased',
+      'Purchased',
+    ]));
+}
+
+function getSkuConsumed(sku) {
+  return numberValue(firstValue(sku, [
+    'consumedUnits',
+    'ConsumedUnits',
+    'assigned',
+    'Assigned',
+    'assignedUnits',
+    'AssignedUnits',
+    'used',
+    'Used',
+  ]));
+}
+
+function buildLicenseSummary(skuList, userLicenseCounts) {
+  const summary = new Map();
+
+  for (const sku of skuList) {
+    const id = getSkuId(sku);
+    const name = getSkuName(sku) || id;
+    if (!name) continue;
+    const consumed = getSkuConsumed(sku);
+    const total = getSkuTotal(sku);
+    summary.set(name, {
+      sku_id: id || null,
+      name,
+      assigned: consumed ?? userLicenseCounts.get(name) ?? 0,
+      total,
+      available: total === null ? null : Math.max(total - (consumed ?? userLicenseCounts.get(name) ?? 0), 0),
+    });
+  }
+
+  for (const [name, assigned] of userLicenseCounts.entries()) {
+    if (!summary.has(name)) {
+      summary.set(name, {
+        sku_id: null,
+        name,
+        assigned,
+        total: null,
+        available: null,
+      });
+    }
+  }
+
+  return [...summary.values()].sort((a, b) => (b.assigned || 0) - (a.assigned || 0));
+}
+
 async function upsertAndPrune(supabase, table, records, conflictKey, customerId) {
   const upsertedIds = new Set();
 
@@ -116,7 +235,7 @@ async function cippApiCall(endpoint, params = {}) {
 
 async function testConnection() {
   const tenants = await cippApiCall('ListTenants');
-  const tenantList = Array.isArray(tenants) ? tenants : [];
+  const tenantList = asArray(tenants, ['tenants', 'Tenants']);
   return {
     success: true,
     totalTenants: tenantList.length,
@@ -126,7 +245,7 @@ async function testConnection() {
 
 async function listTenants() {
   const tenants = await cippApiCall('ListTenants');
-  const tenantList = Array.isArray(tenants) ? tenants : [];
+  const tenantList = asArray(tenants, ['tenants', 'Tenants']);
   return {
     success: true,
     tenants: tenantList.map((t) => ({
@@ -142,27 +261,36 @@ async function syncUsers(customerId, tenantId) {
   const supabase = getServiceSupabase();
 
   // Fetch users + enrichment data in parallel
-  const [users, mfaData, licenseSKUs, signIns] = await Promise.all([
+  const [users, mfaData, licenseSKUs, signIns, inactiveAccounts] = await Promise.all([
     cippApiCall('ListUsers', { tenantFilter: tenantId }),
-    safeApiCall('ListPerUserMFA', { tenantFilter: tenantId }),
+    safeFirstApiCall(['ListPerUserMFA', 'ListMFAUsers'], { tenantFilter: tenantId }),
     safeApiCall('ListLicenses', { tenantFilter: tenantId }),
-    safeApiCall('ListSignIns', { tenantFilter: tenantId, filter: 'createdDateTime ge ' + new Date(Date.now() - 30 * 86400000).toISOString() }),
+    safeApiCall('ListSignIns', { tenantFilter: tenantId, Days: 30, filter: 'createdDateTime ge ' + new Date(Date.now() - 30 * 86400000).toISOString() }),
+    safeApiCall('ListInactiveAccounts', { tenantFilter: tenantId }),
   ]);
 
-  const userList = Array.isArray(users) ? users : [];
-  const mfaList = Array.isArray(mfaData) ? mfaData : [];
-  const skuList = Array.isArray(licenseSKUs) ? licenseSKUs : [];
-  const signInList = Array.isArray(signIns) ? signIns : [];
+  const userList = asArray(users, ['users', 'Users']);
+  const mfaList = asArray(mfaData, ['users', 'Users']);
+  const skuList = asArray(licenseSKUs, ['licenses', 'Licenses', 'skus', 'Skus']);
+  const signInList = asArray(signIns, ['signIns', 'SignIns']);
+  const inactiveList = asArray(inactiveAccounts, ['users', 'Users', 'accounts', 'Accounts']);
 
   // Build MFA lookup by UPN
   const mfaMap = {};
   for (const m of mfaList) {
-    const upn = m.userPrincipalName || m.UserPrincipalName || '';
+    const upn = m.userPrincipalName || m.UserPrincipalName || m.UPN || m.upn || '';
     if (upn) {
+      const accountEnabled = m.accountEnabled ?? m.AccountEnabled;
+      const accountDisabled = accountEnabled === false || String(accountEnabled).toLowerCase() === 'false';
+      const conditionalAccessCovered = m.CoveredByCA === true || String(m.CoveredByCA).toLowerCase() === 'true';
+      const securityDefaultsCovered = m.CoveredBySD === true || String(m.CoveredBySD).toLowerCase() === 'true';
       mfaMap[upn.toLowerCase()] = {
-        status: m.accountEnabled === false ? 'disabled'
-          : m.perUser || m.PerUser || m.MFAState || 'unknown',
-        methods: m.MFAMethods || m.authMethods || [],
+        status: accountDisabled ? 'disabled'
+          : m.perUser || m.PerUser || m.MFAState || m.MFARegistration
+          || (conditionalAccessCovered ? 'conditional access' : '')
+          || (securityDefaultsCovered ? 'security defaults' : '')
+          || 'unknown',
+        methods: m.MFAMethods || m.authMethods || m.methods || [],
       };
     }
   }
@@ -170,11 +298,13 @@ async function syncUsers(customerId, tenantId) {
   // Build SKU name lookup (skuId → friendly name)
   const skuMap = {};
   for (const sku of skuList) {
-    const skuId = sku.skuId || sku.SkuId || '';
+    const skuId = getSkuId(sku) || '';
     if (skuId) {
-      skuMap[skuId] = sku.skuName || sku.SkuName || sku.skuPartNumber || sku.SkuPartNumber || skuId;
+      skuMap[skuId] = getSkuName(sku) || skuId;
     }
   }
+
+  const userLicenseCounts = new Map();
 
   // Build last sign-in lookup by UPN (most recent)
   const signInMap = {};
@@ -183,21 +313,41 @@ async function syncUsers(customerId, tenantId) {
     if (!upn) continue;
     const dt = s.createdDateTime || s.CreatedDateTime || '';
     if (!signInMap[upn] || dt > signInMap[upn].date) {
+      const errorCode = s.status?.errorCode ?? s.errorCode ?? s.ErrorCode;
+      const isSuccess = errorCode === undefined || errorCode === null || Number(errorCode) === 0;
       signInMap[upn] = {
         date: dt,
         ip: s.ipAddress || s.IPAddress || null,
-        location: [s.location?.city, s.location?.state, s.location?.countryOrRegion].filter(Boolean).join(', ') || null,
-        app: s.appDisplayName || s.AppDisplayName || null,
-        status: s.status?.errorCode === 0 ? 'success' : 'failed',
-        error: s.status?.failureReason || null,
+        location: s.locationcipp || s.LocationCipp || [s.location?.city, s.location?.state, s.location?.countryOrRegion].filter(Boolean).join(', ') || null,
+        app: s.appDisplayName || s.AppDisplayName || s.clientAppUsed || s.ClientAppUsed || null,
+        status: isSuccess ? 'success' : 'failed',
+        error: s.status?.failureReason || s.additionalDetails || s.AdditionalDetails || null,
       };
     }
+  }
+
+  const inactiveMap = {};
+  for (const account of inactiveList) {
+    const upn = (account.userPrincipalName || account.UserPrincipalName || account.UPN || '').toLowerCase();
+    if (!upn) continue;
+    inactiveMap[upn] = {
+      date: account.lastSignInDateTime || account.LastSignInDateTime || account.lastNonInteractiveSignInDateTime || null,
+      refreshed: account.lastRefreshedDateTime || null,
+      assignedLicenses: account.numberOfAssignedLicenses ?? null,
+    };
   }
 
   const records = userList.map((u) => {
     const upn = (u.userPrincipalName || u.UserPrincipalName || '').toLowerCase();
     const mfa = mfaMap[upn] || { status: 'unknown', methods: [] };
     const lastSignIn = signInMap[upn] || null;
+    const inactiveAccount = inactiveMap[upn] || null;
+    const lastSignInDate = lastSignIn?.date
+      || u.lastSignInDateTime
+      || u.LastSignIn
+      || u.signInActivity?.lastSignInDateTime
+      || inactiveAccount?.date
+      || null;
 
     // Resolve license SKU IDs to friendly names
     const rawLicenses = u.assignedLicenses || [];
@@ -211,6 +361,10 @@ async function syncUsers(customerId, tenantId) {
       ? resolvedLicenses.join(', ')
       : licJoined;
 
+    for (const licenseName of licenseString.split(',').map(l => l.trim()).filter(Boolean)) {
+      userLicenseCounts.set(licenseName, (userLicenseCounts.get(licenseName) || 0) + 1);
+    }
+
     return {
       customer_id: customerId,
       cipp_tenant_id: tenantId,
@@ -223,14 +377,19 @@ async function syncUsers(customerId, tenantId) {
       user_type: u.userType || u.UserType || 'Member',
       assigned_licenses: rawLicenses,
       created_date_time: u.createdDateTime || u.CreatedDateTime || null,
-      last_sign_in: lastSignIn?.date || u.lastSignInDateTime || u.LastSignIn || null,
+      last_sign_in: lastSignInDate,
       on_premises_sync_enabled: u.onPremisesSyncEnabled ?? u.OnPremisesSyncEnabled ?? false,
       external_id: u.id || u.Id || u.ObjectId || '',
       cached_data: {
         licenses: licenseString,
         mfa_status: mfa.status,
         mfa_methods: mfa.methods,
-        last_sign_in_details: lastSignIn,
+        last_sign_in_details: lastSignIn || (inactiveAccount ? {
+          date: inactiveAccount.date,
+          status: 'inactive',
+          refreshed: inactiveAccount.refreshed,
+          assigned_licenses: inactiveAccount.assignedLicenses,
+        } : null),
         given_name: u.givenName || null,
         surname: u.surname || null,
         city: u.city || null,
@@ -255,7 +414,7 @@ async function syncUsers(customerId, tenantId) {
     ? await upsertAndPrune(supabase, 'cipp_users', records, 'cipp_tenant_id,external_id', customerId)
     : 0;
 
-  return { success: true, count };
+  return { success: true, count, licenseSummary: buildLicenseSummary(skuList, userLicenseCounts) };
 }
 
 // Safe API call that returns empty array on failure (non-critical enrichment)
@@ -268,10 +427,21 @@ async function safeApiCall(endpoint, params) {
   }
 }
 
+async function safeFirstApiCall(endpoints, params) {
+  for (const endpoint of endpoints) {
+    try {
+      return await cippApiCall(endpoint, params);
+    } catch (err) {
+      console.warn(`[CIPP] ${endpoint} failed (non-critical): ${err.message}`);
+    }
+  }
+  return [];
+}
+
 async function syncGroups(customerId, tenantId) {
   const supabase = getServiceSupabase();
   const groups = await cippApiCall('ListGroups', { tenantFilter: tenantId });
-  const groupList = Array.isArray(groups) ? groups : [];
+  const groupList = asArray(groups, ['groups', 'Groups']);
 
   // Fetch members for each group (batch 5 at a time to avoid rate limits)
   const MEMBER_BATCH = 5;
@@ -285,10 +455,12 @@ async function syncGroups(customerId, tenantId) {
             tenantFilter: tenantId,
             groupId: g.id || g.Id,
           });
-          const memberList = Array.isArray(members) ? members : [];
+          const memberList = asArray(members, ['members', 'Members']);
           return {
             groupId: g.id || g.Id,
-            members: memberList.map(m => m.displayName || m.userPrincipalName || m.mail || 'Unknown'),
+            members: memberList
+              .map(m => m.displayName || m.userPrincipalName || m.mail)
+              .filter(Boolean),
           };
         } catch {
           return { groupId: g.id || g.Id, members: [] };
@@ -350,7 +522,7 @@ async function syncGroups(customerId, tenantId) {
 async function syncMailboxes(customerId, tenantId) {
   const supabase = getServiceSupabase();
   const mailboxes = await cippApiCall('ListMailboxes', { tenantFilter: tenantId });
-  const mailboxList = Array.isArray(mailboxes) ? mailboxes : [];
+  const mailboxList = asArray(mailboxes, ['mailboxes', 'Mailboxes']);
 
   const records = mailboxList.map((m) => ({
     customer_id: customerId,
@@ -373,11 +545,12 @@ async function syncMailboxes(customerId, tenantId) {
 async function syncCustomer(customerId, tenantId) {
   console.log(`[CIPP] syncCustomer called: customerId=${customerId}, tenantId=${tenantId}`);
   const supabase = getServiceSupabase();
-  const results = { users: 0, groups: 0, mailboxes: 0, errors: [] };
+  const results = { users: 0, groups: 0, mailboxes: 0, licenses: [], errors: [] };
 
   try {
     const userResult = await syncUsers(customerId, tenantId);
     results.users = userResult.count;
+    results.licenses = userResult.licenseSummary || [];
   } catch (err) {
     results.errors.push(`Users: ${err.message}`);
   }
@@ -401,7 +574,12 @@ async function syncCustomer(customerId, tenantId) {
     .from('cipp_mappings')
     .update({
       last_synced: new Date().toISOString(),
-      cached_data: { users: results.users, groups: results.groups, mailboxes: results.mailboxes },
+      cached_data: {
+        users: results.users,
+        groups: results.groups,
+        mailboxes: results.mailboxes,
+        licenses: results.licenses,
+      },
     })
     .eq('customer_id', customerId);
 
