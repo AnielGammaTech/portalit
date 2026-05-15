@@ -547,8 +547,8 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           staleness={stalenessMap[detailItem.ruleId || detailItem.rule?.id]}
           signOffDate={latestSignOff?.signed_at}
           isSaving={isSaving}
-          onReVerify={async (ruleId) => {
-            await reVerify(ruleId);
+          onReVerify={async (ruleId, opts) => {
+            await reVerify(ruleId, opts);
             toast.success('Re-verified');
           }}
           onForceMatch={async (ruleId, notes) => {

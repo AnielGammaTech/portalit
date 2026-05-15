@@ -163,7 +163,7 @@ export function useReconciliationReviews(customerId) {
     });
   };
 
-  const reVerify = (ruleId) => {
+  const reVerify = (ruleId, { psaQty, vendorQty } = {}) => {
     const existing = reviews.find((r) => r.rule_id === ruleId);
     if (!existing) return Promise.resolve();
     return upsertMutation.mutateAsync({
@@ -171,8 +171,8 @@ export function useReconciliationReviews(customerId) {
       status: existing.status,
       action: 're_verified',
       notes: existing.notes,
-      psaQty: existing.psa_qty,
-      vendorQty: existing.vendor_qty,
+      psaQty: psaQty ?? existing.psa_qty,
+      vendorQty: vendorQty ?? existing.vendor_qty,
     });
   };
 

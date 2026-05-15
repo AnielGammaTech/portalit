@@ -5,6 +5,16 @@ function daysBetween(dateA, dateB) {
   return Math.floor(Math.abs(dateB - dateA) / msPerDay);
 }
 
+function normalizeQty(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+function qtyChanged(currentValue, snapshotValue) {
+  return normalizeQty(currentValue) !== normalizeQty(snapshotValue);
+}
+
 export function useStalenessData({ reviews, snapshotsByRuleId, latestSignOff, allRecons, pax8Recons }) {
   return useMemo(() => {
     const stalenessMap = {};
@@ -19,7 +29,7 @@ export function useStalenessData({ reviews, snapshotsByRuleId, latestSignOff, al
       : (daysSinceSignOff === null || daysSinceSignOff >= 30);
 
     const allTiles = [
-      ...(allRecons || []).map((r) => ({ ruleId: r.rule?.id || r.ruleId, psaQty: r.psaQty, vendorQty: r.rawVendorQty ?? r.vendorQty })),
+      ...(allRecons || []).map((r) => ({ ruleId: r.rule?.id || r.ruleId, psaQty: r.psaQty, vendorQty: r.vendorQty })),
       ...(pax8Recons || []).map((r) => ({ ruleId: r.ruleId, psaQty: r.psaQty, vendorQty: r.vendorQty })),
     ];
 
@@ -82,14 +92,22 @@ export function useStalenessData({ reviews, snapshotsByRuleId, latestSignOff, al
         }
       }
 
-      // Change detection (existing logic)
-      if (snapshot) {
-        const psaChanged = Number(tile.psaQty ?? 0) !== Number(snapshot.psa_qty ?? 0);
-        const vendorChanged = Number(tile.vendorQty ?? 0) !== Number(snapshot.vendor_qty ?? 0);
+      // Compare against the last tile-level verification when present. The
+      // sign-off snapshot is only the fallback baseline.
+      const comparisonSource = hasManualAction && (
+        review.psa_qty !== null ||
+        review.vendor_qty !== null
+      )
+        ? { psa_qty: review.psa_qty, vendor_qty: review.vendor_qty }
+        : snapshot;
+
+      if (comparisonSource) {
+        const psaChanged = qtyChanged(tile.psaQty, comparisonSource.psa_qty);
+        const vendorChanged = qtyChanged(tile.vendorQty, comparisonSource.vendor_qty);
         if (psaChanged || vendorChanged) {
           changeDetected = true;
-          previousPsaQty = snapshot.psa_qty;
-          previousVendorQty = snapshot.vendor_qty;
+          previousPsaQty = comparisonSource.psa_qty;
+          previousVendorQty = comparisonSource.vendor_qty;
           staleReasons.push('data_changed');
         }
       }

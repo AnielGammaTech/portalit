@@ -260,12 +260,18 @@ function ActionFooter({
   isSaving,
   hasMapping,
   changeDetected,
+  isStale,
 }) {
   const { status, review, rule } = reconciliation;
   const isPax8 = !!reconciliation.ruleId;
   const reviewStatus = review?.status;
   const isReviewed = reviewStatus === 'reviewed' || reviewStatus === 'dismissed' || reviewStatus === 'force_matched';
   const isMatch = status === 'match';
+  const reVerifyLabel = changeDetected
+    ? 'Re-verify - accept current quantities'
+    : isStale
+      ? 'Verify again for this reconciliation'
+      : 'Verify again';
 
   const [pendingAction, setPendingAction] = useState(null);
   const [actionNotes, setActionNotes] = useState('');
@@ -347,7 +353,10 @@ function ActionFooter({
     if (!onReVerify) return;
     setSaving(true);
     try {
-      await onReVerify(ruleId);
+      await onReVerify(ruleId, {
+        psaQty: reconciliation.psaQty,
+        vendorQty: reconciliation.vendorQty,
+      });
     } catch (err) {
       console.error('[Modal Action]', err);
     } finally {
@@ -466,15 +475,15 @@ function ActionFooter({
         </button>
       )}
 
-      {/* Re-verify — already reviewed but quantities have changed */}
-      {isReviewed && changeDetected && onReVerify && (
+      {/* Reviewed tiles can be verified again for the active monthly reconciliation */}
+      {isReviewed && onReVerify && (
         <button
           onClick={handleReVerify}
           disabled={saving || isSaving}
           className="w-full py-2.5 text-sm font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
         >
           <RefreshCw className="w-4 h-4" />
-          {saving ? 'Saving\u2026' : 'Re-verify — accept new quantities'}
+          {saving ? 'Saving\u2026' : reVerifyLabel}
         </button>
       )}
 
@@ -845,7 +854,8 @@ export default function ReconciliationDetailModal({
             onUnmap={async (id) => { await onUnmap?.(id); onActionComplete ? onActionComplete(id) : onClose?.(); }}
             hasMapping={mappedVendorItems.length > 0}
             changeDetected={!!staleness?.changeDetected}
-            onReVerify={async (id) => { await onReVerify?.(id); onActionComplete ? onActionComplete(id) : onClose?.(); }}
+            isStale={!!staleness?.isStale}
+            onReVerify={async (id, opts) => { await onReVerify?.(id, opts); onActionComplete ? onActionComplete(id) : onClose?.(); }}
             onSaveNotes={onSaveNotes}
             isSaving={isSavingProp || false}
           />
