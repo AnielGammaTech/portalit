@@ -45,7 +45,6 @@ import {
   Wifi,
   ShieldAlert,
   Database,
-  Package,
   ShieldCheck,
   Phone,
   Globe,
@@ -70,7 +69,6 @@ import RocketCyberTab from './RocketCyberTab';
 import UniFiTab from './UniFiTab';
 import SaaSAlertsTab from './SaaSAlertsTab';
 import CoveTab from './CoveTab';
-import Pax8Tab from './Pax8Tab';
 import InkyTab from './InkyTab';
 import ThreeCXTab from './ThreeCXTab';
 import DmarcReportTab from './DmarcReportTab';
@@ -273,17 +271,6 @@ export default function CustomerServicesTab({
     staleTime: 1000 * 60 * 5
   });
 
-  // Fetch Pax8 mapping for this customer
-  const { data: pax8Mapping } = useQuery({
-    queryKey: ['pax8-mapping', customerId],
-    queryFn: async () => {
-      const mappings = await client.entities.Pax8Mapping.filter({ customer_id: customerId });
-      return (mappings ?? [])[0] || null;
-    },
-    enabled: !!customerId,
-    staleTime: 1000 * 60 * 5
-  });
-
   // Fetch DMARC Report mapping for this customer
   const { data: dmarcMapping } = useQuery({
     queryKey: ['dmarc-mapping', customerId],
@@ -316,7 +303,6 @@ export default function CustomerServicesTab({
   const hasUniFi = !!unifiMapping;
   const hasSaaSAlerts = !!saasAlertsMapping;
   const hasCove = !!coveMapping;
-  const hasPax8 = !!pax8Mapping;
 
   const updateSyncStatus = (service, status, error = null) => {
     setSyncStatuses(prev => ({
@@ -651,7 +637,6 @@ export default function CustomerServicesTab({
               { value: 'rocketcyber', label: 'RocketCyber', icon: Shield, iconClass: 'text-orange-500', show: hasRocketCyber },
               { value: 'firewall', label: 'Firewall', icon: Wifi, iconClass: 'text-sky-500', show: hasUniFi },
               { value: 'saas-alerts', label: 'SaaS Alerts', icon: ShieldAlert, iconClass: 'text-violet-500', show: hasSaaSAlerts },
-              { value: 'm365', label: 'M365', icon: Package, iconClass: 'text-blue-500', show: hasPax8 },
               { value: 'cove', label: 'Cove', icon: Database, iconClass: 'text-teal-500', show: hasCove },
               { value: 'threecx', label: '3CX', icon: Phone, iconClass: 'text-emerald-500', show: has3CX },
               { value: 'dmarc', label: 'DMARC', icon: Globe, iconClass: 'text-emerald-600', show: hasDmarc },
@@ -1117,19 +1102,6 @@ export default function CustomerServicesTab({
             saasAlertsMapping={saasAlertsMapping}
             queryClient={queryClient}
           />
-        </TabsContent>
-
-        {/* M365 / Pax8 Tab */}
-        <TabsContent value="m365">
-          {hasPax8 ? (
-            <Pax8Tab
-              customerId={customerId}
-              pax8Mapping={pax8Mapping}
-              queryClient={queryClient}
-            />
-          ) : (
-            <EmptyState icon={Package} title="Pax8 not connected" description="Subscription data has not been connected for this account yet." />
-          )}
         </TabsContent>
 
         {/* Cove Data Protection Tab */}

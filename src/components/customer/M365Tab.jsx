@@ -8,7 +8,7 @@ import CIPPMicrosoftTab from './CIPPMicrosoftTab';
 
 const M365_SUB_TABS = [
   { key: 'microsoft', label: 'Microsoft', icon: Monitor },
-  { key: 'pax8', label: 'Pax8 Subscriptions', icon: Package },
+  { key: 'pax8', label: 'Pax8', icon: Package },
 ];
 
 export default function M365Tab({ customerId, queryClient }) {
