@@ -1,11 +1,11 @@
 import React from 'react';
 import { Toaster } from "@/components/ui/toaster"
-import { QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider, useIsFetching } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import NavigationTracker from '@/lib/NavigationTracker'
 import { pagesConfig } from './pages.config'
-import { BrowserRouter as Router, Route, Routes, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { supabase } from '@/api/client';
@@ -13,6 +13,7 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import WrongPortalMessage from '@/components/WrongPortalMessage';
 import Login from '@/pages/Login';
 import AcceptInvite from '@/pages/AcceptInvite';
+import { Shimmer } from '@/components/ui/shimmer-skeleton';
 import {
   isCustomerPortal,
   isFullPortal,
@@ -75,9 +76,138 @@ const mainPageKey = isCustomerPortal
 
 const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
 
+const PAGE_LABELS = {
+  Adminland: 'Adminland',
+  Analytics: 'Analytics',
+  Billing: 'Billing',
+  Contracts: 'Contracts',
+  CustomerDetail: 'Customer account',
+  CustomerPortalPreview: 'Customer preview',
+  CustomerSettings: 'Customer settings',
+  Customers: 'Customers',
+  Dashboard: 'Dashboard',
+  Integrations: 'Integrations',
+  LicenseDetail: 'License details',
+  SaaSReports: 'SaaS reports',
+  Services: 'Services',
+  Settings: 'Settings',
+  SpendAnalysis: 'Spend analysis',
+};
+
+function PageLoadingSkeleton({ pageName }) {
+  const label = PAGE_LABELS[pageName] || 'PortalIT';
+
+  return (
+    <div className="space-y-5 rounded-2xl bg-slate-50/95 p-1">
+      <div className="flex items-center justify-between gap-4">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Shimmer className="h-8 w-8 rounded-lg" />
+            <div>
+              <p className="text-sm font-semibold text-slate-700">Loading {label}</p>
+              <p className="text-xs text-slate-400">Preparing the latest portal data</p>
+            </div>
+          </div>
+        </div>
+        <Shimmer className="hidden h-9 w-28 rounded-lg sm:block" />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <Shimmer className="h-3 w-20 rounded-md" />
+            <Shimmer className="mt-3 h-7 w-16 rounded-md" />
+            <Shimmer className="mt-2 h-3 w-28 rounded-md" />
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-100 p-4">
+          <Shimmer className="h-5 w-44 rounded-md" />
+          <Shimmer className="mt-2 h-3 w-64 max-w-full rounded-md" />
+        </div>
+        <div className="divide-y divide-slate-100">
+          {Array.from({ length: 7 }).map((_, index) => (
+            <div key={index} className="grid grid-cols-[minmax(160px,1fr)_120px_100px] gap-4 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <Shimmer className="h-9 w-9 rounded-full" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Shimmer className="h-4 w-36 rounded-md" />
+                  <Shimmer className="h-3 w-52 max-w-full rounded-md" />
+                </div>
+              </div>
+              <Shimmer className="h-5 w-24 self-center rounded-full" />
+              <Shimmer className="h-4 w-16 self-center justify-self-end rounded-md" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RouteDataLoadingBoundary({ children, currentPageName }) {
+  const location = useLocation();
+  const fetchingCount = useIsFetching();
+  const routeKey = `${location.pathname}${location.search}`;
+  const [activeRouteKey, setActiveRouteKey] = React.useState(routeKey);
+  const [isPriming, setIsPriming] = React.useState(true);
+  const startedAtRef = React.useRef(Date.now());
+  const routeChanged = activeRouteKey !== routeKey;
+
+  React.useEffect(() => {
+    startedAtRef.current = Date.now();
+    setActiveRouteKey(routeKey);
+    setIsPriming(true);
+
+    const maxTimer = window.setTimeout(() => {
+      setIsPriming(false);
+    }, 9000);
+
+    return () => window.clearTimeout(maxTimer);
+  }, [routeKey]);
+
+  React.useEffect(() => {
+    if (!isPriming || fetchingCount > 0) return undefined;
+
+    const elapsed = Date.now() - startedAtRef.current;
+    const delay = Math.max(120, 320 - elapsed);
+    const timer = window.setTimeout(() => {
+      setIsPriming(false);
+    }, delay);
+
+    return () => window.clearTimeout(timer);
+  }, [fetchingCount, isPriming, routeKey]);
+
+  const showLoader = routeChanged || isPriming;
+
+  return (
+    <div className="relative min-h-[60vh]">
+      <div className={showLoader ? 'pointer-events-none select-none opacity-0' : 'opacity-100'}>
+        {children}
+      </div>
+      {showLoader && (
+        <div className="absolute inset-0 z-20">
+          <PageLoadingSkeleton pageName={currentPageName} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 const LayoutWrapper = ({ children, currentPageName }) => Layout ?
-  <Layout currentPageName={currentPageName}><ErrorBoundary>{children}</ErrorBoundary></Layout>
-  : <ErrorBoundary>{children}</ErrorBoundary>;
+  <Layout currentPageName={currentPageName}>
+    <ErrorBoundary>
+      <RouteDataLoadingBoundary currentPageName={currentPageName}>{children}</RouteDataLoadingBoundary>
+    </ErrorBoundary>
+  </Layout>
+  : (
+    <ErrorBoundary>
+      <RouteDataLoadingBoundary currentPageName={currentPageName}>{children}</RouteDataLoadingBoundary>
+    </ErrorBoundary>
+  );
+
 
 const AuthenticatedApp = () => {
   const { isAuthenticated, isLoadingAuth, authError, authRetrying, user } = useAuth();

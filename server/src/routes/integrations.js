@@ -519,8 +519,8 @@ router.post('/mapbox/static', requireAuth, async (req, res, next) => {
     }
 
     const pins = coordinates.map(([lng, lat]) => `pin-s+f97316(${lng},${lat})`).join(',');
-    const viewport = coordinates.length === 1 ? `${coordinates[0][0]},${coordinates[0][1]},13` : 'auto';
-    const paddingParam = viewport === 'auto' ? '&padding=40' : '';
+    const viewport = coordinates.length === 1 ? `${coordinates[0][0]},${coordinates[0][1]},12` : 'auto';
+    const paddingParam = viewport === 'auto' ? '&padding=90' : '';
     const width = Math.min(Math.max(Number(req.body?.width) || 800, 200), 1280);
     const height = Math.min(Math.max(Number(req.body?.height) || 200, 120), 800);
     const mapUrl = `https://api.mapbox.com/styles/v1/mapbox/${style}/static/${pins}/${viewport}/${width}x${height}@2x?access_token=${encodeURIComponent(token)}${paddingParam}`;

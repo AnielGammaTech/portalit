@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { useAutoRetry } from '@/hooks/useAutoRetry';
 import { createPageUrl } from '../utils';
 import { motion } from 'framer-motion';
-import { fadeInUp, staggerContainer, staggerItem } from '@/lib/motion';
+import { fadeInUp } from '@/lib/motion';
 import Breadcrumbs from '../components/ui/breadcrumbs';
 import {
   Building2,
@@ -810,34 +810,6 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
             <CustomerMap addresses={mapAddresses} />
           </div>
         )}
-      </motion.div>
-
-      <motion.div
-        variants={staggerContainer}
-        initial="initial"
-        animate="animate"
-        className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 rounded-lg px-2 py-1.5 text-sm"
-      >
-        {[
-          { icon: DollarSign, value: `$${monthlyBilling.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, label: 'Monthly billing', color: 'text-emerald-700', bg: 'bg-emerald-50' },
-          { icon: DollarSign, value: `$${pastDueBalance.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, label: 'Past due', color: pastDueBalance > 0 ? 'text-rose-700' : 'text-slate-700', bg: pastDueBalance > 0 ? 'bg-rose-50' : 'bg-slate-50' },
-          { icon: Users, value: contacts.length, label: 'Team', color: 'text-blue-700', bg: 'bg-blue-50' },
-          { icon: FileText, value: contracts.filter(c => c.status === 'active').length, label: 'Contracts', color: 'text-amber-700', bg: 'bg-amber-50' },
-          { icon: HelpCircle, value: tickets.length, label: 'Tickets 90 days', color: 'text-slate-700', bg: 'bg-slate-50' },
-          { icon: Monitor, value: devices.length, label: 'Devices', color: 'text-violet-700', bg: 'bg-violet-50' },
-        ].map(stat => (
-          <motion.div
-            key={stat.label}
-            variants={staggerItem}
-            className="flex min-w-[112px] items-center justify-center gap-2"
-          >
-            <stat.icon className={cn('h-3.5 w-3.5 shrink-0', stat.color)} />
-            <div className="flex min-w-0 items-baseline gap-1.5">
-              <span className="truncate text-base font-bold leading-5 tabular-nums text-slate-950">{stat.value}</span>
-              <span className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-500">{stat.label}</span>
-            </div>
-          </motion.div>
-        ))}
       </motion.div>
 
       <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6" id="customer-tabs">

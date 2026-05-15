@@ -32,6 +32,34 @@ function StatusBadge({ status }) {
   );
 }
 
+function ticketDateInfo(ticket) {
+  const status = customerStatus(ticket.status);
+  if (status.tone === 'emerald') {
+    const completedDate = ticket.closed_at || ticket.resolved_at || ticket.created_date;
+    return {
+      label: 'Completed',
+      value: completedDate,
+      sortDate: completedDate || ticket.created_date || ticket.updated_date,
+    };
+  }
+
+  if (status.tone === 'amber') {
+    const waitingDate = ticket.created_date || ticket.updated_date;
+    return {
+      label: 'Waiting since',
+      value: waitingDate,
+      sortDate: waitingDate,
+    };
+  }
+
+  const openedDate = ticket.created_date || ticket.updated_date;
+  return {
+    label: 'Opened',
+    value: openedDate,
+    sortDate: openedDate,
+  };
+}
+
 export default function CustomerTicketsTab({
   tickets = [],
   ticketFilter,
@@ -42,7 +70,7 @@ export default function CustomerTicketsTab({
 }) {
   const filteredTickets = tickets
     .filter(ticket => ticketFilter === 'all' || normalized(ticket.status) === ticketFilter)
-    .sort((a, b) => new Date(b.updated_date || b.created_date || 0) - new Date(a.updated_date || a.created_date || 0));
+    .sort((a, b) => new Date(ticketDateInfo(b).sortDate || 0) - new Date(ticketDateInfo(a).sortDate || 0));
   const totalPages = Math.max(1, Math.ceil(filteredTickets.length / 10));
   const visibleTickets = filteredTickets.slice((ticketPage - 1) * 10, ticketPage * 10);
   const inProgress = tickets.filter(ticket => ['open', 'new', 'in_progress', 'active', 'pending'].includes(normalized(ticket.status))).length;
@@ -79,7 +107,7 @@ export default function CustomerTicketsTab({
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
           <div>
             <h3 className="font-semibold text-slate-950">Service requests</h3>
-            <p className="text-sm text-slate-500">Progress and history sorted by most recent update.</p>
+            <p className="text-sm text-slate-500">Progress and history sorted by the customer-facing ticket date.</p>
           </div>
           <select
             value={ticketFilter}
@@ -108,32 +136,36 @@ export default function CustomerTicketsTab({
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {visibleTickets.map(ticket => (
-              <div key={ticket.id} className="grid grid-cols-1 gap-3 px-5 py-4 transition-colors hover:bg-slate-50 md:grid-cols-[minmax(0,1fr)_150px_150px] md:items-center">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <Monitor className="h-4 w-4 shrink-0 text-slate-400" />
-                    <p className="truncate text-sm font-semibold text-slate-950">
-                      {ticket.external_id ? `#${ticket.external_id} - ` : ''}{ticket.subject || ticket.summary || 'Service request'}
-                    </p>
+            {visibleTickets.map(ticket => {
+              const dateInfo = ticketDateInfo(ticket);
+
+              return (
+                <div key={ticket.id} className="grid grid-cols-1 gap-3 px-5 py-4 transition-colors hover:bg-slate-50 md:grid-cols-[minmax(0,1fr)_150px_150px] md:items-center">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Monitor className="h-4 w-4 shrink-0 text-slate-400" />
+                      <p className="truncate text-sm font-semibold text-slate-950">
+                        {ticket.external_id ? `#${ticket.external_id} - ` : ''}{ticket.subject || ticket.summary || 'Service request'}
+                      </p>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                      {ticket.contact_name && (
+                        <span className="inline-flex items-center gap-1">
+                          <UserCircle className="h-3.5 w-3.5" />
+                          {ticket.contact_name}
+                        </span>
+                      )}
+                      {ticket.assigned_to && <span>Assigned to {ticket.assigned_to}</span>}
+                      <span>{dateInfo.label} {dateInfo.value ? safeFormatDate(dateInfo.value, 'MMM d, yyyy') : '-'}</span>
+                    </div>
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                    {ticket.contact_name && (
-                      <span className="inline-flex items-center gap-1">
-                        <UserCircle className="h-3.5 w-3.5" />
-                        {ticket.contact_name}
-                      </span>
-                    )}
-                    {ticket.assigned_to && <span>Assigned to {ticket.assigned_to}</span>}
-                    <span>Updated {ticket.updated_date ? safeFormatDate(ticket.updated_date, 'MMM d, yyyy') : ticket.created_date ? safeFormatDate(ticket.created_date, 'MMM d, yyyy') : '-'}</span>
+                  <div><StatusBadge status={ticket.status} /></div>
+                  <div className="text-sm text-slate-600 md:text-right">
+                    {ticket.priority ? `${ticket.priority} priority` : 'Standard priority'}
                   </div>
                 </div>
-                <div><StatusBadge status={ticket.status} /></div>
-                <div className="text-sm text-slate-600 md:text-right">
-                  {ticket.priority ? `${ticket.priority} priority` : 'Standard priority'}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
