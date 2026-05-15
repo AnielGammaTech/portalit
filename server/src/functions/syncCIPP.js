@@ -304,43 +304,110 @@ async function listTenants() {
   };
 }
 
+async function fetchGraphUserSignInActivity(tenantId) {
+  const select = [
+    'id',
+    'displayName',
+    'mail',
+    'userPrincipalName',
+    'signInActivity',
+  ].join(',');
+  const attempts = [
+    { tenantFilter: tenantId, Endpoint: 'users', '$select': select, '$top': 999, manualPagination: true },
+    { tenantFilter: tenantId, endpoint: 'users', '$select': select, '$top': 999, manualPagination: true },
+  ];
+
+  for (const params of attempts) {
+    try {
+      const data = await cippApiCall('ListGraphRequest', params);
+      const rows = asArray(data, ['Results', 'results', 'value', 'Value']);
+      if (rows.length > 0) return rows;
+    } catch (err) {
+      console.warn(`[CIPP] ListGraphRequest signInActivity failed (non-critical): ${err.message}`);
+    }
+  }
+
+  return [];
+}
+
+function getGraphSignInActivity(record) {
+  return record?.signInActivity || record?.SignInActivity || record?.sign_in_activity || {};
+}
+
+function buildGraphSignInActivityMap(records) {
+  const map = {};
+
+  for (const record of records) {
+    const upn = (record.userPrincipalName || record.UserPrincipalName || record.mail || record.Mail || '').toLowerCase();
+    if (!upn) continue;
+
+    const activity = getGraphSignInActivity(record);
+    const successfulDate = normalizeDateValue(firstNestedValue(activity, [
+      'lastSuccessfulSignInDateTime',
+      'LastSuccessfulSignInDateTime',
+    ]));
+    const interactiveDate = normalizeDateValue(firstNestedValue(activity, [
+      'lastSignInDateTime',
+      'LastSignInDateTime',
+    ]));
+    const nonInteractiveDate = normalizeDateValue(firstNestedValue(activity, [
+      'lastNonInteractiveSignInDateTime',
+      'LastNonInteractiveSignInDateTime',
+    ]));
+    const date = successfulDate || interactiveDate || nonInteractiveDate || getLastSignInDate(record);
+
+    if (!date) continue;
+    map[upn] = {
+      date,
+      status: successfulDate ? 'success' : 'activity',
+      source: 'graph_user_signinactivity',
+      lastSuccessfulSignInDateTime: successfulDate,
+      lastSignInDateTime: interactiveDate,
+      lastNonInteractiveSignInDateTime: nonInteractiveDate,
+    };
+  }
+
+  return map;
+}
+
+function getActivityTime(activity) {
+  if (!activity?.date) return 0;
+  const parsed = new Date(activity.date).getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function selectBestUserActivity(graphActivity, lastSignIn, inactiveAccount) {
+  const candidates = [graphActivity, lastSignIn].filter((activity) => activity?.date);
+  if (candidates.length > 0) {
+    return candidates.sort((a, b) => getActivityTime(b) - getActivityTime(a))[0];
+  }
+  if (!inactiveAccount?.date) return null;
+  return {
+    date: inactiveAccount.date,
+    status: 'inactive',
+    source: 'cipp_inactive_accounts',
+    refreshed: inactiveAccount.refreshed,
+    assigned_licenses: inactiveAccount.assignedLicenses,
+  };
+}
+
 async function syncUsers(customerId, tenantId) {
   const supabase = getServiceSupabase();
 
   // Fetch users + enrichment data in parallel
-  const [users, mfaData, licenseSKUs, signIns, inactiveAccounts] = await Promise.all([
+  const [users, licenseSKUs, graphSignInUsers, signIns, inactiveAccounts] = await Promise.all([
     cippApiCall('ListUsers', { tenantFilter: tenantId }),
-    safeFirstApiCall(['ListPerUserMFA', 'ListMFAUsers'], { tenantFilter: tenantId }),
     safeApiCall('ListLicenses', { tenantFilter: tenantId }),
+    fetchGraphUserSignInActivity(tenantId),
     safeApiCall('ListSignIns', { tenantFilter: tenantId, Days: 30, filter: 'createdDateTime ge ' + new Date(Date.now() - 30 * 86400000).toISOString() }),
     safeApiCall('ListInactiveAccounts', { tenantFilter: tenantId }),
   ]);
 
   const userList = asArray(users, ['users', 'Users']);
-  const mfaList = asArray(mfaData, ['users', 'Users']);
   const skuList = asArray(licenseSKUs, ['licenses', 'Licenses', 'skus', 'Skus']);
   const signInList = asArray(signIns, ['signIns', 'SignIns']);
   const inactiveList = asArray(inactiveAccounts, ['users', 'Users', 'accounts', 'Accounts']);
-
-  // Build MFA lookup by UPN
-  const mfaMap = {};
-  for (const m of mfaList) {
-    const upn = m.userPrincipalName || m.UserPrincipalName || m.UPN || m.upn || '';
-    if (upn) {
-      const accountEnabled = m.accountEnabled ?? m.AccountEnabled;
-      const accountDisabled = accountEnabled === false || String(accountEnabled).toLowerCase() === 'false';
-      const conditionalAccessCovered = m.CoveredByCA === true || String(m.CoveredByCA).toLowerCase() === 'true';
-      const securityDefaultsCovered = m.CoveredBySD === true || String(m.CoveredBySD).toLowerCase() === 'true';
-      mfaMap[upn.toLowerCase()] = {
-        status: accountDisabled ? 'disabled'
-          : m.perUser || m.PerUser || m.MFAState || m.MFARegistration
-          || (conditionalAccessCovered ? 'conditional access' : '')
-          || (securityDefaultsCovered ? 'security defaults' : '')
-          || 'unknown',
-        methods: m.MFAMethods || m.authMethods || m.methods || [],
-      };
-    }
-  }
+  const graphSignInMap = buildGraphSignInActivityMap(graphSignInUsers);
 
   // Build SKU name lookup (skuId → friendly name)
   const skuMap = {};
@@ -386,10 +453,11 @@ async function syncUsers(customerId, tenantId) {
 
   const records = userList.map((u) => {
     const upn = (u.userPrincipalName || u.UserPrincipalName || '').toLowerCase();
-    const mfa = mfaMap[upn] || { status: 'unknown', methods: [] };
+    const graphActivity = graphSignInMap[upn] || null;
     const lastSignIn = signInMap[upn] || null;
     const inactiveAccount = inactiveMap[upn] || null;
-    const lastSignInDate = lastSignIn?.date || getLastSignInDate(u) || inactiveAccount?.date || null;
+    const bestActivity = selectBestUserActivity(graphActivity, lastSignIn, inactiveAccount);
+    const lastSignInDate = bestActivity?.date || getLastSignInDate(u) || null;
 
     // Resolve license SKU IDs to friendly names
     const rawLicenses = u.assignedLicenses || [];
@@ -424,14 +492,7 @@ async function syncUsers(customerId, tenantId) {
       external_id: u.id || u.Id || u.ObjectId || '',
       cached_data: {
         licenses: licenseString,
-        mfa_status: mfa.status,
-        mfa_methods: mfa.methods,
-        last_sign_in_details: lastSignIn || (inactiveAccount ? {
-          date: inactiveAccount.date,
-          status: 'inactive',
-          refreshed: inactiveAccount.refreshed,
-          assigned_licenses: inactiveAccount.assignedLicenses,
-        } : null),
+        last_sign_in_details: bestActivity,
         given_name: u.givenName || null,
         surname: u.surname || null,
         city: u.city || null,
@@ -467,17 +528,6 @@ async function safeApiCall(endpoint, params) {
     console.warn(`[CIPP] ${endpoint} failed (non-critical): ${err.message}`);
     return [];
   }
-}
-
-async function safeFirstApiCall(endpoints, params) {
-  for (const endpoint of endpoints) {
-    try {
-      return await cippApiCall(endpoint, params);
-    } catch (err) {
-      console.warn(`[CIPP] ${endpoint} failed (non-critical): ${err.message}`);
-    }
-  }
-  return [];
 }
 
 function getGroupId(group) {

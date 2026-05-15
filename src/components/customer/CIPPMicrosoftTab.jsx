@@ -18,9 +18,6 @@ import {
   Phone,
   Search,
   Shield,
-  ShieldAlert,
-  ShieldCheck,
-  ShieldX,
   UserCheck,
   UserRound,
   Users,
@@ -52,9 +49,7 @@ const USER_FILTERS = [
   { key: 'unlicensed', label: 'Unlicensed' },
   { key: 'guest', label: 'Guests' },
   { key: 'hybrid', label: 'Hybrid synced' },
-  { key: 'stale', label: 'No recent sign-in' },
-  { key: 'mfa_enabled', label: 'MFA enabled' },
-  { key: 'mfa_missing', label: 'MFA disabled' },
+  { key: 'stale', label: 'No recent activity' },
 ];
 
 const GROUP_FILTERS = [
@@ -221,24 +216,6 @@ function getLicenseNames(user) {
     .filter(Boolean);
 }
 
-function getMfaConfig(status) {
-  const value = String(status || '').toLowerCase();
-  if (
-    value.includes('enforced') ||
-    value.includes('enabled') ||
-    value.includes('registered') ||
-    value.includes('capable') ||
-    value.includes('conditional access') ||
-    value.includes('security default')
-  ) {
-    return { label: 'Enabled', tone: 'emerald', icon: ShieldCheck, enabled: true, known: true };
-  }
-  if (value.includes('disabled') || value.includes('not')) {
-    return { label: 'Disabled', tone: 'amber', icon: ShieldX, enabled: false, known: true };
-  }
-  return { label: 'Unknown', tone: 'slate', icon: ShieldAlert, enabled: false, known: false };
-}
-
 function getUserRoles(user) {
   const cd = parseCachedData(user.cached_data);
   return asArray(
@@ -272,7 +249,7 @@ function formatDateTime(value) {
 
 function formatRelativeDate(value) {
   const date = safeDate(value);
-  return date ? formatDistanceToNow(date, { addSuffix: true }) : 'No recent sign-in';
+  return date ? formatDistanceToNow(date, { addSuffix: true }) : 'No recent activity';
 }
 
 function formatCompactRelativeDate(value) {
@@ -451,10 +428,8 @@ function UserDetailDrawer({ user, onClose }) {
 
   const cd = parseCachedData(user.cached_data);
   const licenses = getLicenseNames(user);
-  const mfa = getMfaConfig(cd.mfa_status);
   const roles = getUserRoles(user);
   const signIn = cd.last_sign_in_details || {};
-  const MfaIcon = mfa.icon;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -479,11 +454,10 @@ function UserDetailDrawer({ user, onClose }) {
                 <p className="truncate text-sm text-slate-500">{user.mail || user.user_principal_name}</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <PortalStatusPill
-                    label={user.account_enabled ? 'Active sign-in' : 'Sign-in disabled'}
+                    label={user.account_enabled ? 'Active account' : 'Sign-in disabled'}
                     tone={user.account_enabled ? 'emerald' : 'amber'}
                     icon={user.account_enabled ? UserCheck : UserX}
                   />
-                  {mfa.known && <PortalStatusPill label={`MFA ${mfa.label}`} tone={mfa.tone} icon={MfaIcon} />}
                   {user.user_type === 'Guest' && <PortalStatusPill label="Guest" tone="violet" icon={UserRound} />}
                   {user.on_premises_sync_enabled && <PortalStatusPill label="Hybrid synced" tone="blue" icon={Monitor} />}
                 </div>
@@ -503,11 +477,11 @@ function UserDetailDrawer({ user, onClose }) {
         <div className="space-y-4 p-5">
           <PortalSection
             title="Account Snapshot"
-            description="Profile, access state, and the most recent sign-in data available from Microsoft 365."
+            description="Profile, access state, and the most recent activity data available from Microsoft 365."
             bodyClassName="grid gap-3 p-4 sm:grid-cols-2"
           >
             <DetailItem icon={KeyRound} label="Assigned licenses" value={licenses.length ? `${licenses.length} license${licenses.length !== 1 ? 's' : ''}` : 'No license assigned'} />
-            <DetailItem icon={LogIn} label="Last sign-in" value={formatRelativeDate(user.last_sign_in)} />
+            <DetailItem icon={LogIn} label="Last activity" value={formatRelativeDate(user.last_sign_in)} />
             <DetailItem icon={Briefcase} label="Title" value={user.job_title} />
             <DetailItem icon={Building2} label="Company" value={cd.company_name} />
             <DetailItem icon={MapPin} label="Office" value={cd.office_location} />
@@ -529,29 +503,16 @@ function UserDetailDrawer({ user, onClose }) {
             )}
           </PortalSection>
 
-          <PortalSection title="Security And Sign-In" bodyClassName="grid gap-3 p-4 sm:grid-cols-2">
-            {mfa.known && <DetailItem icon={MfaIcon} label="MFA status" value={mfa.label} />}
-            <DetailItem icon={Clock} label="Last sign-in time" value={formatDateTime(user.last_sign_in)} />
+          <PortalSection title="Security And Activity" bodyClassName="grid gap-3 p-4 sm:grid-cols-2">
+            <DetailItem icon={Clock} label="Last activity time" value={formatDateTime(user.last_sign_in)} />
             <DetailItem icon={Monitor} label="Last app" value={signIn.app} />
             <DetailItem icon={Globe2} label="IP / location" value={[signIn.ip, signIn.location].filter(Boolean).join(' - ')} />
             {signIn.status && (
               <DetailItem
                 icon={signIn.status === 'success' ? CheckCircle2 : AlertCircle}
                 label="Sign-in result"
-                value={signIn.status === 'success' ? 'Success' : signIn.status === 'inactive' ? 'No recent sign-in' : signIn.error || 'Failed'}
+                value={signIn.status === 'success' ? 'Success' : signIn.status === 'activity' ? 'Last activity from Microsoft Graph' : signIn.status === 'inactive' ? 'No recent activity' : signIn.error || 'Failed'}
               />
-            )}
-            {asArray(cd.mfa_methods).length > 0 && (
-              <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 sm:col-span-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">MFA methods</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {asArray(cd.mfa_methods).map((method, index) => (
-                    <span key={`${method}-${index}`} className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">
-                      {typeof method === 'string' ? method : method?.methodType || method?.['@odata.type']?.replace('#microsoft.graph.', '') || 'Method'}
-                    </span>
-                  ))}
-                </div>
-              </div>
             )}
           </PortalSection>
 
@@ -692,7 +653,6 @@ export default function CIPPMicrosoftTab({ customerId }) {
     const licensedUsers = users.filter(user => getLicenseNames(user).length > 0);
     const activeUsers = users.filter(user => user.account_enabled === true);
     const disabledUsers = users.filter(user => user.account_enabled === false);
-    const mfaShown = users.filter(user => getMfaConfig(parseCachedData(user.cached_data).mfa_status).enabled);
     const hybridUsers = users.filter(user => user.on_premises_sync_enabled);
     const staleUsers = users.filter(user => user.account_enabled === true && !hasRecentSignIn(user.last_sign_in, 30));
     return {
@@ -704,7 +664,6 @@ export default function CIPPMicrosoftTab({ customerId }) {
       guestUsers: users.filter(user => user.user_type === 'Guest').length,
       hybridUsers: hybridUsers.length,
       staleUsers: staleUsers.length,
-      mfaShown: mfaShown.length,
       groups: groups.length,
       sharedMailboxes: mailboxes.filter(mailbox => mailboxCategory(mailbox.mailbox_type) === 'shared_mailboxes').length,
     };
@@ -729,7 +688,6 @@ export default function CIPPMicrosoftTab({ customerId }) {
       .filter(user => {
         const cd = parseCachedData(user.cached_data);
         const licenses = getLicenseNames(user);
-        const mfa = getMfaConfig(cd.mfa_status);
         const searchable = [
           user.display_name,
           user.mail,
@@ -747,9 +705,7 @@ export default function CIPPMicrosoftTab({ customerId }) {
           || (statusFilter === 'unlicensed' && licenses.length === 0)
           || (statusFilter === 'guest' && user.user_type === 'Guest')
           || (statusFilter === 'hybrid' && user.on_premises_sync_enabled)
-          || (statusFilter === 'stale' && user.account_enabled === true && !hasRecentSignIn(user.last_sign_in, 30))
-          || (statusFilter === 'mfa_enabled' && mfa.enabled)
-          || (statusFilter === 'mfa_missing' && mfa.known && !mfa.enabled);
+          || (statusFilter === 'stale' && user.account_enabled === true && !hasRecentSignIn(user.last_sign_in, 30));
 
         const licenseMatches = licenseFilter === 'all' || licenses.includes(licenseFilter);
         const titleMatches = titleFilter === 'all' || user.job_title === titleFilter;
@@ -820,7 +776,7 @@ export default function CIPPMicrosoftTab({ customerId }) {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <PortalMetricCard
           icon={Users}
           label="Users"
@@ -846,16 +802,8 @@ export default function CIPPMicrosoftTab({ customerId }) {
           onClick={() => { setActiveView('users'); setStatusFilter('disabled'); }}
         />
         <PortalMetricCard
-          icon={ShieldCheck}
-          label="MFA Enabled"
-          value={stats.mfaShown}
-          detail={`${stats.totalUsers ? Math.round((stats.mfaShown / stats.totalUsers) * 100) : 0}% of users`}
-          tone="violet"
-          onClick={() => { setActiveView('users'); setStatusFilter('mfa_enabled'); }}
-        />
-        <PortalMetricCard
           icon={Clock}
-          label="No Recent Sign-In"
+          label="No Recent Activity"
           value={stats.staleUsers}
           detail="Active users over 30 days"
           tone={stats.staleUsers > 0 ? 'amber' : 'slate'}
@@ -1001,18 +949,15 @@ export default function CIPPMicrosoftTab({ customerId }) {
               <thead className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-4 py-2.5 font-semibold">User</th>
-                  <th className="px-3 py-2.5 font-semibold">Account / MFA</th>
+                  <th className="px-3 py-2.5 font-semibold">Account</th>
                   <th className="px-3 py-2.5 font-semibold">Licenses</th>
                   <th className="px-3 py-2.5 font-semibold">Title</th>
-                  <th className="px-4 py-2.5 font-semibold">Last Sign-In</th>
+                  <th className="px-4 py-2.5 font-semibold">Last Activity</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredUsers.map(user => {
-                  const cd = parseCachedData(user.cached_data);
                   const licenses = getLicenseNames(user);
-                  const mfa = getMfaConfig(cd.mfa_status);
-                  const MfaIcon = mfa.icon;
                   return (
                     <tr
                       key={user.id}
@@ -1041,9 +986,6 @@ export default function CIPPMicrosoftTab({ customerId }) {
                             icon={user.account_enabled ? UserCheck : UserX}
                             className="px-2 py-0.5"
                           />
-                          {mfa.known && (
-                            <PortalStatusPill label={`MFA ${mfa.label}`} tone={mfa.tone} icon={MfaIcon} className="px-2 py-0.5" />
-                          )}
                           {user.user_type === 'Guest' && <PortalStatusPill label="Guest" tone="violet" className="px-2 py-0.5" />}
                         </div>
                       </td>
@@ -1062,7 +1004,7 @@ export default function CIPPMicrosoftTab({ customerId }) {
                       </td>
                       <td className="px-4 py-2">
                         <p className="font-medium text-slate-800">{formatCompactRelativeDate(user.last_sign_in)}</p>
-                        <p className="text-xs text-slate-500">{safeDate(user.last_sign_in) ? formatShortDate(user.last_sign_in) : 'Not returned by CIPP'}</p>
+                        <p className="text-xs text-slate-500">{safeDate(user.last_sign_in) ? formatShortDate(user.last_sign_in) : 'No activity returned'}</p>
                       </td>
                     </tr>
                   );

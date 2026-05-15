@@ -9,6 +9,15 @@ const maskUrl = (url) => url.replace(/access_token=[^&]+/, 'access_token=***');
 const PAGE_SIZE = 100;
 const ONLINE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
+function positiveEnvNumber(name, fallback, minimum = 1) {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) ? Math.max(minimum, value) : fallback;
+}
+
+const SYNC_ALL_CONCURRENCY = positiveEnvNumber('DATTO_EDR_SYNC_ALL_CONCURRENCY', 2);
+const MAX_PAGES_PER_COLLECTION = positiveEnvNumber('DATTO_EDR_MAX_PAGES', 40);
+const MAX_ROWS_PER_TARGET = positiveEnvNumber('DATTO_EDR_MAX_ROWS_PER_TARGET', 2000, PAGE_SIZE);
+
 function firstValue(...values) {
   for (const value of values) {
     if (value === null || value === undefined) continue;
@@ -64,6 +73,28 @@ function targetMatchesAgent(agent, targetId) {
     agent.organization?.id,
   ];
   return candidates.some(value => value !== undefined && value !== null && String(value) === target);
+}
+
+function getAgentKey(agent) {
+  return firstValue(
+    agent.id,
+    agent.agentId,
+    agent.hostId,
+    agent.deviceId,
+    agent.uid,
+    agent.hostname,
+    agent.hostName,
+    agent.computerName,
+    agent.deviceName,
+    agent.name
+  );
+}
+
+function pageSignature(page) {
+  if (!Array.isArray(page) || page.length === 0) return 'empty';
+  const first = getAgentKey(page[0]) || JSON.stringify(page[0]).slice(0, 100);
+  const last = getAgentKey(page[page.length - 1]) || JSON.stringify(page[page.length - 1]).slice(0, 100);
+  return `${page.length}:${first}:${last}`;
 }
 
 function normalizeHost(host, cutoffDate) {
@@ -175,20 +206,35 @@ export async function syncDattoEDR(body, user) {
 
   async function fetchPagedCollection(pathBuilder, label) {
     const rows = [];
-    for (let skip = 0; ; skip += PAGE_SIZE) {
+    const seenPageSignatures = new Set();
+
+    for (let skip = 0, pageNumber = 0; pageNumber < MAX_PAGES_PER_COLLECTION && rows.length < MAX_ROWS_PER_TARGET; skip += PAGE_SIZE, pageNumber += 1) {
       const payload = await fetchJsonPath(pathBuilder(skip));
       if (!payload) break;
       const page = parseCollection(payload, ['data', 'value', 'agents', 'hosts']);
-      rows.push(...page);
+      if (page.length === 0) break;
+
+      const signature = pageSignature(page);
+      if (seenPageSignatures.has(signature)) {
+        console.warn(`[DattoEDR] ${label || 'collection'} repeated a page at skip=${skip}; stopping pagination`);
+        break;
+      }
+      seenPageSignatures.add(signature);
+
+      const remaining = MAX_ROWS_PER_TARGET - rows.length;
+      rows.push(...page.slice(0, remaining));
       if (page.length < PAGE_SIZE) break;
     }
     if (rows.length === 0 && label) {
       console.log(`[DattoEDR] ${label} returned 0 rows`);
     }
+    if (rows.length >= MAX_ROWS_PER_TARGET) {
+      console.warn(`[DattoEDR] ${label || 'collection'} hit row cap ${MAX_ROWS_PER_TARGET}; cached data was truncated`);
+    }
     return rows;
   }
 
-  async function fetchTargetBundle(targetId, targetName, { allowGlobalWhenEmpty = false } = {}) {
+  async function fetchTargetBundle(targetId, targetName, { allowGlobalWhenEmpty = false, allowGlobalFallback = true } = {}) {
     const targetData = await fetchJsonPath(`/targets/${targetId}`);
     const expectedCount = toNumber(firstValue(targetData?.agentCount, targetData?.hostCount, targetData?.endpointCount));
 
@@ -197,7 +243,7 @@ export async function syncDattoEDR(body, user) {
       `target-scoped agents for ${targetId}`
     );
 
-    const shouldTryGlobal = (expectedCount > 0 && hosts.length < expectedCount) || (allowGlobalWhenEmpty && hosts.length === 0);
+    const shouldTryGlobal = allowGlobalFallback && ((expectedCount > 0 && hosts.length < expectedCount) || (allowGlobalWhenEmpty && hosts.length === 0));
     if (shouldTryGlobal) {
       console.log(`[DattoEDR] global fallback for ${targetId}: scoped=${hosts.length} expected=${expectedCount}`);
       const allAgents = await fetchPagedCollection(
@@ -500,15 +546,16 @@ export async function syncDattoEDR(body, user) {
   }
 
   if (action === 'sync_all') {
-    const { data: allMappingsData } = await supabase.from('datto_edr_mappings').select('*');
+    const { data: allMappingsData } = await supabase
+      .from('datto_edr_mappings')
+      .select('id, customer_id, customer_name, edr_tenant_id, edr_tenant_name');
     const allMappings = allMappingsData || [];
-    const CONCURRENCY = 8;
 
     async function syncOne(mapping) {
       const targetId = mapping.edr_tenant_id;
       if (!targetId) return { synced: false, reason: 'missing_tenant_id' };
 
-      const responseData = await fetchTargetBundle(targetId, mapping.edr_tenant_name);
+      const responseData = await fetchTargetBundle(targetId, mapping.edr_tenant_name, { allowGlobalFallback: false });
 
       await supabase.from('datto_edr_mappings').update({
         last_synced: new Date().toISOString(),
@@ -519,7 +566,7 @@ export async function syncDattoEDR(body, user) {
     }
 
     const startedAt = Date.now();
-    const results = await runWithConcurrency(allMappings, CONCURRENCY, syncOne);
+    const results = await runWithConcurrency(allMappings, SYNC_ALL_CONCURRENCY, syncOne);
     const synced = results.filter(r => r.ok && r.value?.synced).length;
     const failed = results.length - synced;
     const durationMs = Date.now() - startedAt;
