@@ -65,7 +65,8 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const customerIdParam = searchParams.get('id');
-  const currentTab = searchParams.get('tab') || 'dashboard';
+  const rawTab = searchParams.get('tab') || 'dashboard';
+  const currentTab = rawTab === 'requests' ? 'tickets' : rawTab;
   const { user, isLoadingAuth: userLoading } = useAuth();
 
   // Security: customer portal users can ONLY access their own customer; staff (admin + sales) can browse any
@@ -821,7 +822,7 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
             { value: 'm365', icon: Monitor, label: 'M365' },
             { value: 'licenses', icon: Cloud, label: 'SaaS' },
             { value: 'quotes', icon: FileText, label: 'Quotes' },
-            { value: 'tickets', icon: HelpCircle, label: 'Tickets' },
+            { value: 'tickets', icon: HelpCircle, label: 'Requests' },
           ].map(tab => (
             <TabsTrigger
               key={tab.value}
