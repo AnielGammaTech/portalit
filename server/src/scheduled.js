@@ -32,9 +32,16 @@ const CRON_RETRY_DELAY_MS = Number(process.env.CRON_RETRY_DELAY_MS || 30000);
 const CRON_CATCHUP_DELAY_MS = Number(process.env.CRON_CATCHUP_DELAY_MS || 60000);
 const CRON_CATCHUP_STAGGER_MS = Number(process.env.CRON_CATCHUP_STAGGER_MS || 45000);
 const CRON_STALE_MONITOR_INTERVAL_MS = Number(process.env.CRON_STALE_MONITOR_INTERVAL_MS || 60 * 60 * 1000);
+const CRON_STARTUP_CATCHUP_MAX_JOBS = Math.max(0, Number(process.env.CRON_STARTUP_CATCHUP_MAX_JOBS || 1));
+const CRON_CATCHUP_MAX_JOBS = Math.max(0, Number(process.env.CRON_CATCHUP_MAX_JOBS || 3));
+const CRON_CATCHUP_CONCURRENCY = Math.max(1, Number(process.env.CRON_CATCHUP_CONCURRENCY || 1));
+const CRON_HEAP_GUARD_MB = Math.max(0, Number(process.env.CRON_HEAP_GUARD_MB || 420));
 export const DEFAULT_STALE_AFTER_HOURS = 26;
 export const DEFAULT_FAILED_RETRY_AFTER_HOURS = 6;
 const runningJobs = new Set();
+const queuedCatchupJobs = new Set();
+const catchupQueue = [];
+let catchupQueueProcessing = false;
 
 export function getRunningCronJobNames() {
   return Array.from(runningJobs);
@@ -91,6 +98,14 @@ async function logCronRun(jobName, status, result, error, durationMs) {
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function heapUsedMb() {
+  return Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
+}
+
+function isHeapGuardTripped() {
+  return CRON_HEAP_GUARD_MB > 0 && heapUsedMb() >= CRON_HEAP_GUARD_MB;
 }
 
 function normalizeJobError(error) {
@@ -198,6 +213,49 @@ function wrapJob(jobDef) {
   };
 }
 
+async function processCatchupQueue() {
+  if (catchupQueueProcessing) return;
+  catchupQueueProcessing = true;
+
+  try {
+    while (catchupQueue.length > 0) {
+      const jobDef = catchupQueue.shift();
+      queuedCatchupJobs.delete(jobDef.name);
+
+      if (isHeapGuardTripped()) {
+        console.warn(`[CRON] Skipping catch-up for ${jobDef.name}; heap usage is ${heapUsedMb()}MB and guard is ${CRON_HEAP_GUARD_MB}MB`);
+        continue;
+      }
+
+      while (runningJobs.size >= CRON_CATCHUP_CONCURRENCY) {
+        await sleep(5000);
+      }
+
+      await wrapJob(jobDef)();
+
+      if (catchupQueue.length > 0) {
+        await sleep(CRON_CATCHUP_STAGGER_MS);
+      }
+    }
+  } finally {
+    catchupQueueProcessing = false;
+  }
+}
+
+function enqueueCatchupJob(jobDef) {
+  if (runningJobs.has(jobDef.name) || queuedCatchupJobs.has(jobDef.name)) {
+    console.warn(`[CRON] ${jobDef.name} is already running or queued; skipping duplicate catch-up`);
+    return false;
+  }
+
+  queuedCatchupJobs.add(jobDef.name);
+  catchupQueue.push(jobDef);
+  processCatchupQueue().catch((error) => {
+    console.error('[CRON] Catch-up queue failed:', normalizeJobError(error));
+  });
+  return true;
+}
+
 // ── Manual trigger (for admin "Run Now" button) ──────────────────────
 
 export async function runCronJobManually(jobName) {
@@ -224,23 +282,29 @@ export async function runCronJobManually(jobName) {
   }
 }
 
-export async function runStaleJobCatchup({ immediate = false, ignoreFailureBackoff = false } = {}) {
+export async function runStaleJobCatchup({ immediate = false, ignoreFailureBackoff = false, maxJobs = CRON_CATCHUP_MAX_JOBS } = {}) {
   if (process.env.DISABLE_CRON_CATCHUP === 'true') {
     return { queued: [], skipped: CRON_JOBS.map(job => ({ name: job.name, reason: 'catch-up disabled' })) };
   }
 
   console.log('[CRON] Checking for stale scheduled jobs');
   let offset = 0;
+  const queueLimit = Math.max(0, Number(maxJobs) || 0);
   const queued = [];
   const skipped = [];
 
   for (const jobDef of CRON_JOBS) {
     try {
+      if (queueLimit > 0 && queued.length >= queueLimit) {
+        skipped.push({ name: jobDef.name, reason: 'catch-up queue limit reached' });
+        continue;
+      }
+
       const lastSuccess = await getLastSuccessfulRun(jobDef.name);
       const lastRun = await getLastRun(jobDef.name);
       const staleAfterHours = jobDef.staleAfterHours || DEFAULT_STALE_AFTER_HOURS;
-      if (runningJobs.has(jobDef.name)) {
-        skipped.push({ name: jobDef.name, reason: 'already running' });
+      if (runningJobs.has(jobDef.name) || queuedCatchupJobs.has(jobDef.name)) {
+        skipped.push({ name: jobDef.name, reason: 'already running or queued' });
         continue;
       }
       if (!isRunStale(lastSuccess, staleAfterHours)) {
@@ -254,8 +318,9 @@ export async function runStaleJobCatchup({ immediate = false, ignoreFailureBacko
 
       const delayMs = offset + (immediate && queued.length === 0 ? 0 : CRON_CATCHUP_STAGGER_MS);
       setTimeout(() => {
-        console.log(`[CRON] Catch-up run queued for stale job ${jobDef.name}`);
-        wrapJob(jobDef)();
+        if (enqueueCatchupJob(jobDef)) {
+          console.log(`[CRON] Catch-up run queued for stale job ${jobDef.name}`);
+        }
       }, delayMs).unref();
       queued.push({ name: jobDef.name, label: jobDef.label, delayMs, staleAfterHours });
       offset = delayMs;
@@ -276,7 +341,7 @@ export function setupScheduledJobs() {
   }
 
   setTimeout(() => {
-    runStaleJobCatchup().catch((error) => {
+    runStaleJobCatchup({ maxJobs: CRON_STARTUP_CATCHUP_MAX_JOBS }).catch((error) => {
       console.error('[CRON] Catch-up scheduler failed:', normalizeJobError(error));
     });
   }, CRON_CATCHUP_DELAY_MS).unref();
@@ -287,5 +352,5 @@ export function setupScheduledJobs() {
     });
   }, CRON_STALE_MONITOR_INTERVAL_MS).unref();
 
-  console.log(`[CRON] ${CRON_JOBS.length} scheduled jobs registered with retries and stale-job catch-up enabled`);
+  console.log(`[CRON] ${CRON_JOBS.length} scheduled jobs registered with retries and bounded stale-job catch-up enabled`);
 }
