@@ -53,7 +53,7 @@ const USER_FILTERS = [
   { key: 'hybrid', label: 'Hybrid synced' },
   { key: 'stale', label: 'No recent sign-in' },
   { key: 'mfa_enabled', label: 'MFA enabled' },
-  { key: 'mfa_missing', label: 'MFA disabled or unknown' },
+  { key: 'mfa_missing', label: 'MFA disabled' },
 ];
 
 const LICENSE_ALIASES = {
@@ -160,12 +160,12 @@ function getMfaConfig(status) {
     value.includes('conditional access') ||
     value.includes('security default')
   ) {
-    return { label: 'Enabled', tone: 'emerald', icon: ShieldCheck, enabled: true };
+    return { label: 'Enabled', tone: 'emerald', icon: ShieldCheck, enabled: true, known: true };
   }
   if (value.includes('disabled') || value.includes('not')) {
-    return { label: 'Disabled', tone: 'amber', icon: ShieldX, enabled: false };
+    return { label: 'Disabled', tone: 'amber', icon: ShieldX, enabled: false, known: true };
   }
-  return { label: 'Unknown', tone: 'slate', icon: ShieldAlert, enabled: false };
+  return { label: 'Unknown', tone: 'slate', icon: ShieldAlert, enabled: false, known: false };
 }
 
 function getUserRoles(user) {
@@ -323,7 +323,7 @@ function UserDetailDrawer({ user, onClose }) {
                     tone={user.account_enabled ? 'emerald' : 'amber'}
                     icon={user.account_enabled ? UserCheck : UserX}
                   />
-                  <PortalStatusPill label={mfa.label} tone={mfa.tone} icon={MfaIcon} />
+                  {mfa.known && <PortalStatusPill label={`MFA ${mfa.label}`} tone={mfa.tone} icon={MfaIcon} />}
                   {user.user_type === 'Guest' && <PortalStatusPill label="Guest" tone="violet" icon={UserRound} />}
                   {user.on_premises_sync_enabled && <PortalStatusPill label="Hybrid synced" tone="blue" icon={Monitor} />}
                 </div>
@@ -370,7 +370,7 @@ function UserDetailDrawer({ user, onClose }) {
           </PortalSection>
 
           <PortalSection title="Security And Sign-In" bodyClassName="grid gap-3 p-4 sm:grid-cols-2">
-            <DetailItem icon={MfaIcon} label="MFA status" value={mfa.label} />
+            {mfa.known && <DetailItem icon={MfaIcon} label="MFA status" value={mfa.label} />}
             <DetailItem icon={Clock} label="Last sign-in time" value={formatDateTime(user.last_sign_in)} />
             <DetailItem icon={Monitor} label="Last app" value={signIn.app} />
             <DetailItem icon={Globe2} label="IP / location" value={[signIn.ip, signIn.location].filter(Boolean).join(' - ')} />
@@ -572,7 +572,7 @@ export default function CIPPMicrosoftTab({ customerId }) {
           || (statusFilter === 'hybrid' && user.on_premises_sync_enabled)
           || (statusFilter === 'stale' && user.account_enabled === true && !hasRecentSignIn(user.last_sign_in, 30))
           || (statusFilter === 'mfa_enabled' && mfa.enabled)
-          || (statusFilter === 'mfa_missing' && !mfa.enabled);
+          || (statusFilter === 'mfa_missing' && mfa.known && !mfa.enabled);
 
         const licenseMatches = licenseFilter === 'all' || licenses.includes(licenseFilter);
         const titleMatches = titleFilter === 'all' || user.job_title === titleFilter;
@@ -839,7 +839,9 @@ export default function CIPPMicrosoftTab({ customerId }) {
                             icon={user.account_enabled ? UserCheck : UserX}
                             className="px-2 py-0.5"
                           />
-                          <PortalStatusPill label={`MFA ${mfa.label}`} tone={mfa.tone} icon={MfaIcon} className="px-2 py-0.5" />
+                          {mfa.known && (
+                            <PortalStatusPill label={`MFA ${mfa.label}`} tone={mfa.tone} icon={MfaIcon} className="px-2 py-0.5" />
+                          )}
                           {user.user_type === 'Guest' && <PortalStatusPill label="Guest" tone="violet" className="px-2 py-0.5" />}
                         </div>
                       </td>
