@@ -118,10 +118,12 @@ export function useSignOff(customerId) {
       return signOff;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reconciliation_sign_off_history', customerId] });
       queryClient.invalidateQueries({ queryKey: ['reconciliation_sign_off_latest', customerId] });
       queryClient.invalidateQueries({ queryKey: ['reconciliation_snapshots', customerId] });
       queryClient.invalidateQueries({ queryKey: ['reconciliation_review_history', customerId] });
       queryClient.invalidateQueries({ queryKey: ['sign_off_status', customerId] });
+      queryClient.invalidateQueries({ queryKey: ['all_sign_offs'] });
     },
   });
 

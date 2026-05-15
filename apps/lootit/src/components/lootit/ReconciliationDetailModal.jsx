@@ -855,7 +855,7 @@ export default function ReconciliationDetailModal({
             hasMapping={mappedVendorItems.length > 0}
             changeDetected={!!staleness?.changeDetected}
             isStale={!!staleness?.isStale}
-            onReVerify={async (id, opts) => { await onReVerify?.(id, opts); onActionComplete ? onActionComplete(id) : onClose?.(); }}
+            onReVerify={async (id, opts) => { await onReVerify?.(id, opts); }}
             onSaveNotes={onSaveNotes}
             isSaving={isSavingProp || false}
           />

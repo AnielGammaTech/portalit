@@ -359,17 +359,22 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   }, [allRecons, reviews]);
 
   const handleSignOff = async (notes, nextReconciliationDate) => {
-    await signOff({
-      allRecons: recons,
-      pax8Recons,
-      reviews,
-      overrides: existingOverrides,
-      notes,
-      nextReconciliationDate,
-    });
-    setShowSignOffDialog(false);
-    toast.success('Reconciliation signed off successfully');
-    setActiveTab('dashboard');
+    try {
+      await signOff({
+        allRecons: recons,
+        pax8Recons,
+        reviews,
+        overrides: existingOverrides,
+        notes,
+        nextReconciliationDate,
+      });
+      setShowSignOffDialog(false);
+      toast.success('Reconciliation signed off successfully');
+      setActiveTab('dashboard');
+    } catch (err) {
+      toast.error(`Sign-off failed: ${err.message || 'Unknown error'}`);
+      throw err;
+    }
   };
 
   const activeTab = activeTabProp;
@@ -552,7 +557,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
             toast.success('Re-verified');
           }}
           onForceMatch={async (ruleId, notes) => {
-            const rawId = ruleId.startsWith('unmatched_') ? ruleId : null;
+            const rawId = ruleId.startsWith('unmatched_') && !ruleId.startsWith('unmatched_group:') ? ruleId : null;
             const liId = rawId ? rawId.replace('unmatched_', '') : null;
             if (liId) {
               const reviewNotes = `[APPROVED AS-IS by ${user?.full_name || user?.email || 'Unknown'} — ${new Date().toLocaleString()}] ${(notes || '').trim()}`;

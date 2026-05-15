@@ -9,6 +9,19 @@
 // Each integration stores cached_data in a different shape.
 // These extractors normalise that to a single number.
 
+function cleanLineItemLabel(description) {
+  return (description || 'Unknown').replace(/\s*\$recurringbillingdate\s*/gi, '').trim() || description || 'Unknown';
+}
+
+function normalizeLineItemLabel(description) {
+  return cleanLineItemLabel(description).toLowerCase().replace(/\s+/g, ' ');
+}
+
+function unmatchedGroupRuleId(groupKey) {
+  const slug = groupKey.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 100);
+  return `unmatched_group:${slug || 'item'}`;
+}
+
 const VENDOR_EXTRACTORS = {
   cove: (data) => {
     if (!data) return null;
@@ -351,7 +364,11 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
           };
         }
       } catch {}
-    } else if (ov.group_id?.startsWith('qty:') && ov.rule_id && !ov.rule_id.startsWith('unmatched_')) {
+    } else if (
+      ov.group_id?.startsWith('qty:') &&
+      ov.rule_id &&
+      (!ov.rule_id.startsWith('unmatched_') || ov.rule_id.startsWith('unmatched_group:'))
+    ) {
       const parsedQty = parseFloat(ov.group_id.replace('qty:', ''));
       const qty = Number.isFinite(parsedQty) ? parsedQty : 0;
       multiMappingMap[ov.rule_id] = {
@@ -552,22 +569,52 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
     !(li.description || '').toLowerCase().startsWith('discount')
   );
 
-  const unmatchedResults = unmatchedItems.map((li) => {
-    const unmatchedRuleId = `unmatched_${li.id}`;
+  const unmatchedGroups = new Map();
+  for (const li of unmatchedItems) {
+    const groupKey = normalizeLineItemLabel(li.description);
+    if (!unmatchedGroups.has(groupKey)) {
+      unmatchedGroups.set(groupKey, {
+        label: cleanLineItemLabel(li.description),
+        items: [],
+      });
+    }
+    unmatchedGroups.get(groupKey).items.push(li);
+  }
+
+  const unmatchedResults = [...unmatchedGroups.entries()].map(([groupKey, group]) => {
+    const isGrouped = group.items.length > 1;
+    const unmatchedRuleId = isGrouped ? unmatchedGroupRuleId(groupKey) : `unmatched_${group.items[0].id}`;
+    const psaQty = group.items.reduce((sum, li) => sum + (parseFloat(li.quantity) || 0), 0);
+    const multiMapping = multiMappingMap[unmatchedRuleId];
+    const vendorQty = multiMapping ? multiMapping.totalQty : null;
+    const hasVendorData = vendorQty !== null;
+    const difference = hasVendorData ? psaQty - vendorQty : 0;
+    let status = 'unmatched_line_item';
+    if (hasVendorData) {
+      if (difference === 0) status = 'match';
+      else if (difference > 0) status = 'over';
+      else status = 'under';
+    }
+    const individualReview = group.items
+      .map((li) => reviewMap[`unmatched_${li.id}`] || reviewMap[li.id])
+      .find(Boolean);
     return {
       rule: {
         id: unmatchedRuleId,
-        label: (li.description || 'Unknown').replace(/\s*\$recurringbillingdate\s*/gi, '').trim() || li.description,
+        label: group.label,
         integration_key: 'unmatched',
         is_active: true,
       },
-      psaQty: parseFloat(li.quantity) || 0,
-      vendorQty: null,
-      difference: 0,
-      status: 'unmatched_line_item',
-      matchedLineItems: [li],
-      review: reviewMap[unmatchedRuleId] || reviewMap[li.id] || null,
-      integrationLabel: 'Unmatched Billing Item',
+      allRuleIds: isGrouped
+        ? [unmatchedRuleId, ...group.items.map((li) => `unmatched_${li.id}`)]
+        : [unmatchedRuleId],
+      psaQty,
+      vendorQty,
+      difference,
+      status,
+      matchedLineItems: group.items,
+      review: reviewMap[unmatchedRuleId] || individualReview || null,
+      integrationLabel: multiMapping ? `Mapped to ${multiMapping.items.length} vendor item(s)` : 'Unmatched Billing Item',
       isUnmatchedLineItem: true,
     };
   });

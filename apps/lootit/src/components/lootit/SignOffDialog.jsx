@@ -28,14 +28,18 @@ function formatDate(date) {
 
 export default function SignOffDialog({ open, onClose, summary, unresolvedItems, onConfirm, isSigningOff, verificationState }) {
   const [notes, setNotes] = useState('');
-  const [selectedMonths, setSelectedMonths] = useState(null);
+  const [selectedMonths, setSelectedMonths] = useState(1);
 
   const nextDate = selectedMonths ? addMonths(new Date(), selectedMonths) : null;
 
-  const handleConfirm = () => {
-    onConfirm(notes, nextDate?.toISOString());
-    setNotes('');
-    setSelectedMonths(1);
+  const handleConfirm = async () => {
+    try {
+      await onConfirm(notes, nextDate?.toISOString());
+      setNotes('');
+      setSelectedMonths(1);
+    } catch {
+      // Parent owns the user-facing error toast.
+    }
   };
 
   return (
