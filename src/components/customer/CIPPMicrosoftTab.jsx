@@ -12,7 +12,6 @@ import {
   KeyRound,
   Layers3,
   LogIn,
-  Mail,
   MapPin,
   Monitor,
   Phone,
@@ -41,7 +40,6 @@ import {
 const VIEW_TABS = [
   { key: 'users', label: 'Users', icon: Users },
   { key: 'licenses', label: 'Licenses', icon: KeyRound },
-  { key: 'mailboxes', label: 'Mailboxes', icon: Mail },
   { key: 'groups', label: 'Groups', icon: Shield },
 ];
 
@@ -54,8 +52,8 @@ const USER_FILTERS = [
   { key: 'guest', label: 'Guests' },
   { key: 'hybrid', label: 'Hybrid synced' },
   { key: 'stale', label: 'No recent sign-in' },
-  { key: 'mfa_enabled', label: 'MFA known' },
-  { key: 'mfa_missing', label: 'MFA not shown' },
+  { key: 'mfa_enabled', label: 'MFA enabled' },
+  { key: 'mfa_missing', label: 'MFA disabled or unknown' },
 ];
 
 const LICENSE_ALIASES = {
@@ -162,12 +160,12 @@ function getMfaConfig(status) {
     value.includes('conditional access') ||
     value.includes('security default')
   ) {
-    return { label: 'MFA shown', tone: 'emerald', icon: ShieldCheck, enabled: true };
+    return { label: 'Enabled', tone: 'emerald', icon: ShieldCheck, enabled: true };
   }
   if (value.includes('disabled') || value.includes('not')) {
-    return { label: 'MFA not shown', tone: 'amber', icon: ShieldX, enabled: false };
+    return { label: 'Disabled', tone: 'amber', icon: ShieldX, enabled: false };
   }
-  return { label: 'MFA unknown', tone: 'slate', icon: ShieldAlert, enabled: false };
+  return { label: 'Unknown', tone: 'slate', icon: ShieldAlert, enabled: false };
 }
 
 function getUserRoles(user) {
@@ -206,18 +204,18 @@ function formatRelativeDate(value) {
   return date ? formatDistanceToNow(date, { addSuffix: true }) : 'No recent sign-in';
 }
 
+function formatCompactRelativeDate(value) {
+  const date = safeDate(value);
+  if (!date) return 'No recent';
+  return formatDistanceToNow(date, { addSuffix: true })
+    .replace(/^about /, '')
+    .replace(/^less than /, '< ');
+}
+
 function hasRecentSignIn(value, days = 30) {
   const date = safeDate(value);
   if (!date) return false;
   return Date.now() - date.getTime() <= days * 24 * 60 * 60 * 1000;
-}
-
-function formatMailboxType(type) {
-  return String(type || 'Mailbox')
-    .replace(/Mailbox$/i, '')
-    .replace(/([a-z])([A-Z])/g, '$1 $2')
-    .replace(/^User$/i, 'User mailbox')
-    .trim();
 }
 
 function formatGroupType(type) {
@@ -405,7 +403,6 @@ function UserDetailDrawer({ user, onClose }) {
             <DetailItem icon={Phone} label="Business phone" value={asArray(cd.business_phones).join(', ')} />
             <DetailItem icon={Globe2} label="Usage location" value={cd.usage_location} />
             <DetailItem icon={Globe2} label="Location" value={[cd.city, cd.state, cd.country].filter(Boolean).join(', ')} />
-            <DetailItem icon={Monitor} label="Directory source" value={user.on_premises_sync_enabled ? 'Hybrid / on-prem synced' : 'Cloud'} />
             <DetailItem icon={Clock} label="Last AD sync" value={formatDateTime(cd.on_premises_last_sync)} />
             {roles.length > 0 && (
               <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 sm:col-span-2">
@@ -482,7 +479,6 @@ export default function CIPPMicrosoftTab({ customerId }) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [licenseFilter, setLicenseFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
-  const [mailboxTypeFilter, setMailboxTypeFilter] = useState('all');
   const [groupTypeFilter, setGroupTypeFilter] = useState('all');
   const [selectedUser, setSelectedUser] = useState(null);
   const [expandedGroup, setExpandedGroup] = useState(null);
@@ -503,14 +499,6 @@ export default function CIPPMicrosoftTab({ customerId }) {
   });
   const users = usersRaw ?? [];
 
-  const { data: mailboxesRaw = [], isLoading: loadingMailboxes } = useQuery({
-    queryKey: ['cipp-mailboxes', customerId],
-    queryFn: () => client.entities.CIPPMailbox.filter({ customer_id: customerId }),
-    enabled: !!customerId,
-    staleTime: 1000 * 60 * 5,
-  });
-  const mailboxes = mailboxesRaw ?? [];
-
   const { data: groupsRaw = [], isLoading: loadingGroups } = useQuery({
     queryKey: ['cipp-groups', customerId],
     queryFn: () => client.entities.CIPPGroup.filter({ customer_id: customerId }),
@@ -525,7 +513,6 @@ export default function CIPPMicrosoftTab({ customerId }) {
     const licensedUsers = users.filter(user => getLicenseNames(user).length > 0);
     const activeUsers = users.filter(user => user.account_enabled === true);
     const disabledUsers = users.filter(user => user.account_enabled === false);
-    const sharedMailboxes = mailboxes.filter(mb => String(mb.mailbox_type || '').toLowerCase().includes('shared'));
     const mfaShown = users.filter(user => getMfaConfig(parseCachedData(user.cached_data).mfa_status).enabled);
     const hybridUsers = users.filter(user => user.on_premises_sync_enabled);
     const staleUsers = users.filter(user => user.account_enabled === true && !hasRecentSignIn(user.last_sign_in, 30));
@@ -539,11 +526,9 @@ export default function CIPPMicrosoftTab({ customerId }) {
       hybridUsers: hybridUsers.length,
       staleUsers: staleUsers.length,
       mfaShown: mfaShown.length,
-      mailboxes: mailboxes.length,
-      sharedMailboxes: sharedMailboxes.length,
       groups: groups.length,
     };
-  }, [users, mailboxes, groups]);
+  }, [users, groups]);
 
   const tenantName = mappings[0]?.cipp_tenant_name || mappings[0]?.cipp_default_domain || 'Microsoft 365 tenant';
   const lastSynced = mappings
@@ -557,9 +542,6 @@ export default function CIPPMicrosoftTab({ customerId }) {
   }, [users]);
 
   const licenseOptions = useMemo(() => licenseSummary.map(license => license.name), [licenseSummary]);
-  const mailboxTypeOptions = useMemo(() => {
-    return [...new Set(mailboxes.map(mb => mb.mailbox_type || 'Mailbox'))].sort((a, b) => a.localeCompare(b));
-  }, [mailboxes]);
   const groupTypeOptions = useMemo(() => {
     return [...new Set(groups.map(group => group.group_type || 'Group'))].sort((a, b) => a.localeCompare(b));
   }, [groups]);
@@ -602,16 +584,6 @@ export default function CIPPMicrosoftTab({ customerId }) {
       .sort((a, b) => (a.display_name || a.user_principal_name || '').localeCompare(b.display_name || b.user_principal_name || ''));
   }, [users, statusFilter, licenseFilter, departmentFilter, searchLower]);
 
-  const filteredMailboxes = useMemo(() => {
-    return mailboxes.filter(mailbox => {
-      const searchable = [mailbox.display_name, mailbox.primary_smtp_address, mailbox.user_principal_name, mailbox.mailbox_type]
-        .filter(Boolean).join(' ').toLowerCase();
-      const searchMatches = !searchLower || searchable.includes(searchLower);
-      const typeMatches = mailboxTypeFilter === 'all' || mailbox.mailbox_type === mailboxTypeFilter;
-      return searchMatches && typeMatches;
-    });
-  }, [mailboxes, searchLower, mailboxTypeFilter]);
-
   const filteredGroups = useMemo(() => {
     return groups.filter(group => {
       const cd = parseCachedData(group.cached_data);
@@ -631,7 +603,11 @@ export default function CIPPMicrosoftTab({ customerId }) {
     });
   }, [licenseSummary, searchLower]);
 
-  const isLoading = loadingMappings || loadingUsers || loadingMailboxes || loadingGroups;
+  const maxAssignedLicenses = useMemo(() => {
+    return Math.max(...filteredLicenseSummary.map(license => asNumber(license.assigned) || 0), 1);
+  }, [filteredLicenseSummary]);
+
+  const isLoading = loadingMappings || loadingUsers || loadingGroups;
 
   if (isLoading) {
     return (
@@ -661,9 +637,8 @@ export default function CIPPMicrosoftTab({ customerId }) {
             </div>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
           <PortalStatusPill label={`${stats.licensedUsers} licensed`} tone="blue" icon={KeyRound} />
-          <PortalStatusPill label={`${stats.sharedMailboxes} shared mailboxes`} tone="violet" icon={Mail} />
           <PortalStatusPill label={`${stats.groups} groups`} tone="slate" icon={Shield} />
         </div>
       </div>
@@ -695,7 +670,7 @@ export default function CIPPMicrosoftTab({ customerId }) {
         />
         <PortalMetricCard
           icon={ShieldCheck}
-          label="MFA Shown"
+          label="MFA Enabled"
           value={stats.mfaShown}
           detail={`${stats.totalUsers ? Math.round((stats.mfaShown / stats.totalUsers) * 100) : 0}% of users`}
           tone="violet"
@@ -721,7 +696,7 @@ export default function CIPPMicrosoftTab({ customerId }) {
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search name, email, department, license, mailbox, or group"
+              placeholder="Search name, email, department, license, or group"
               className="h-10 pl-9"
             />
           </div>
@@ -743,13 +718,6 @@ export default function CIPPMicrosoftTab({ customerId }) {
           </>
         )}
 
-        {activeView === 'mailboxes' && (
-          <SelectFilter label="Mailbox Type" value={mailboxTypeFilter} onChange={setMailboxTypeFilter}>
-            <option value="all">All mailboxes</option>
-            {mailboxTypeOptions.map(type => <option key={type} value={type}>{formatMailboxType(type)}</option>)}
-          </SelectFilter>
-        )}
-
         {activeView === 'groups' && (
           <SelectFilter label="Group Type" value={groupTypeFilter} onChange={setGroupTypeFilter}>
             <option value="all">All groups</option>
@@ -761,55 +729,60 @@ export default function CIPPMicrosoftTab({ customerId }) {
       {activeView === 'licenses' && (
         <PortalSection
           title="License Utilization"
-          description="CIPP license totals when available, with user assignment counts as the fallback."
+          description="Assigned Microsoft 365 products from CIPP."
           badge={<PortalStatusPill label={`${filteredLicenseSummary.length} products`} tone="blue" />}
-          bodyClassName="divide-y divide-slate-100"
+          bodyClassName="p-4"
         >
           {filteredLicenseSummary.length === 0 ? (
             <EmptyState icon={KeyRound} title="No license data synced" description="License details will appear after the next CIPP sync." />
           ) : (
-            filteredLicenseSummary.map(license => {
-              const total = asNumber(license.total);
-              const assigned = asNumber(license.assigned) || 0;
-              const percent = total && total > 0 ? Math.min(Math.round((assigned / total) * 100), 100) : null;
-              const available = total === null ? null : Math.max(total - assigned, 0);
-              return (
-                <div key={license.name} className="grid gap-3 px-5 py-4 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-center">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate text-sm font-semibold text-slate-950">{license.name}</p>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {filteredLicenseSummary.map(license => {
+                const total = asNumber(license.total);
+                const assigned = asNumber(license.assigned) || 0;
+                const available = total === null ? null : Math.max(total - assigned, 0);
+                const percent = total && total > 0
+                  ? Math.min(Math.round((assigned / total) * 100), 100)
+                  : Math.min(Math.round((assigned / maxAssignedLicenses) * 100), 100);
+                return (
+                  <div key={license.name} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="flex min-w-0 items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-950">{license.name}</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {total !== null ? `${assigned} of ${total} assigned` : `${assigned} assigned users`}
+                        </p>
+                      </div>
                       {available === 0 && total !== null && (
-                        <PortalStatusPill label="Fully assigned" tone="amber" icon={AlertCircle} />
+                        <PortalStatusPill label="Full" tone="amber" icon={AlertCircle} className="shrink-0 px-2 py-0.5" />
                       )}
                     </div>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {total !== null ? `${assigned} assigned of ${total} purchased` : `${assigned} assigned users`}
-                      {available !== null ? ` · ${available} available` : ''}
-                    </p>
-                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+
+                    <div className="mt-4 grid grid-cols-3 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 text-center">
+                      <div className="px-2 py-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Assigned</p>
+                        <p className="text-base font-bold tabular-nums text-slate-950">{assigned}</p>
+                      </div>
+                      <div className="border-x border-slate-200 px-2 py-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Total</p>
+                        <p className="text-base font-bold tabular-nums text-slate-950">{total ?? '-'}</p>
+                      </div>
+                      <div className="px-2 py-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Open</p>
+                        <p className="text-base font-bold tabular-nums text-slate-950">{available ?? '-'}</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
                       <div
                         className={cn('h-full rounded-full', available === 0 && total !== null ? 'bg-amber-500' : 'bg-blue-500')}
-                        style={{ width: `${percent ?? 100}%` }}
+                        style={{ width: `${percent}%` }}
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 rounded-lg border border-slate-200 bg-slate-50 text-center">
-                    <div className="px-3 py-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Assigned</p>
-                      <p className="text-lg font-bold tabular-nums text-slate-950">{assigned}</p>
-                    </div>
-                    <div className="border-x border-slate-200 px-3 py-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Total</p>
-                      <p className="text-lg font-bold tabular-nums text-slate-950">{total ?? '-'}</p>
-                    </div>
-                    <div className="px-3 py-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Open</p>
-                      <p className="text-lg font-bold tabular-nums text-slate-950">{available ?? '-'}</p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
+                );
+              })}
+            </div>
           )}
         </PortalSection>
       )}
@@ -824,15 +797,14 @@ export default function CIPPMicrosoftTab({ customerId }) {
           {filteredUsers.length === 0 ? (
             <EmptyState icon={Users} title="No users match this view" description="Adjust the search or filters to see more users." />
           ) : (
-            <table className="w-full min-w-[920px] text-left text-sm">
+            <table className="w-full min-w-[820px] text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="px-5 py-3 font-semibold">User</th>
-                  <th className="px-4 py-3 font-semibold">Status</th>
-                  <th className="px-4 py-3 font-semibold">Licenses</th>
-                  <th className="px-4 py-3 font-semibold">Department / Role</th>
-                  <th className="px-4 py-3 font-semibold">Last Sign-In</th>
-                  <th className="px-5 py-3 text-right font-semibold">Source</th>
+                  <th className="px-4 py-2.5 font-semibold">User</th>
+                  <th className="px-3 py-2.5 font-semibold">Account / MFA</th>
+                  <th className="px-3 py-2.5 font-semibold">Licenses</th>
+                  <th className="px-3 py-2.5 font-semibold">Department / Role</th>
+                  <th className="px-4 py-2.5 font-semibold">Last Sign-In</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -847,10 +819,10 @@ export default function CIPPMicrosoftTab({ customerId }) {
                       className="cursor-pointer transition-colors hover:bg-slate-50"
                       onClick={() => setSelectedUser(user)}
                     >
-                      <td className="px-5 py-3">
-                        <div className="flex min-w-0 items-center gap-3">
+                      <td className="px-4 py-2">
+                        <div className="flex min-w-0 items-center gap-2.5">
                           <div className={cn(
-                            'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-bold',
+                            'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold',
                             user.account_enabled ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-500'
                           )}>
                             {(user.display_name || user.user_principal_name || '?').charAt(0).toUpperCase()}
@@ -861,19 +833,19 @@ export default function CIPPMicrosoftTab({ customerId }) {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1.5">
+                      <td className="px-3 py-2">
+                        <div className="flex flex-wrap gap-1">
                           <PortalStatusPill
                             label={user.account_enabled ? 'Active' : 'Disabled'}
                             tone={user.account_enabled ? 'emerald' : 'amber'}
                             icon={user.account_enabled ? UserCheck : UserX}
                             className="px-2 py-0.5"
                           />
-                          <PortalStatusPill label={mfa.label} tone={mfa.tone} icon={MfaIcon} className="px-2 py-0.5" />
+                          <PortalStatusPill label={`MFA ${mfa.label}`} tone={mfa.tone} icon={MfaIcon} className="px-2 py-0.5" />
                           {user.user_type === 'Guest' && <PortalStatusPill label="Guest" tone="violet" className="px-2 py-0.5" />}
                         </div>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-2">
                         {licenses.length > 0 ? (
                           <div className="max-w-[260px]">
                             <p className="truncate text-xs font-semibold text-blue-700">{licenses[0]}</p>
@@ -883,67 +855,17 @@ export default function CIPPMicrosoftTab({ customerId }) {
                           <span className="text-xs font-medium text-amber-700">No license</span>
                         )}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-2">
                         <p className="truncate font-medium text-slate-800">{user.department || 'No department'}</p>
                         <p className="truncate text-xs text-slate-500">{user.job_title || 'No title shown'}</p>
                       </td>
-                      <td className="px-4 py-3">
-                        <p className="font-medium text-slate-800">{formatRelativeDate(user.last_sign_in)}</p>
-                        <p className="text-xs text-slate-500">{formatShortDate(user.last_sign_in)}</p>
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <PortalStatusPill
-                          label={user.on_premises_sync_enabled ? 'Hybrid' : 'Cloud'}
-                          tone={user.on_premises_sync_enabled ? 'blue' : 'slate'}
-                          icon={Monitor}
-                          className="justify-center px-2 py-0.5"
-                        />
+                      <td className="px-4 py-2">
+                        <p className="font-medium text-slate-800">{formatCompactRelativeDate(user.last_sign_in)}</p>
+                        <p className="text-xs text-slate-500">{safeDate(user.last_sign_in) ? formatShortDate(user.last_sign_in) : 'Not returned by CIPP'}</p>
                       </td>
                     </tr>
                   );
                 })}
-              </tbody>
-            </table>
-          )}
-        </PortalSection>
-      )}
-
-      {activeView === 'mailboxes' && (
-        <PortalSection
-          title="Mailbox Inventory"
-          description={`Showing ${filteredMailboxes.length} of ${mailboxes.length} mailboxes from CIPP.`}
-          bodyClassName="overflow-x-auto"
-        >
-          {filteredMailboxes.length === 0 ? (
-            <EmptyState icon={Mail} title="No mailboxes match this view" description="Adjust the search or mailbox type filter." />
-          ) : (
-            <table className="w-full min-w-[760px] text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-5 py-3 font-semibold">Mailbox</th>
-                  <th className="px-4 py-3 font-semibold">Type</th>
-                  <th className="px-4 py-3 font-semibold">Primary Address</th>
-                  <th className="px-5 py-3 font-semibold">User Principal Name</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredMailboxes.map(mailbox => (
-                  <tr key={mailbox.id} className="hover:bg-slate-50">
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
-                          <Mail className="h-4 w-4" />
-                        </div>
-                        <p className="font-semibold text-slate-950">{mailbox.display_name || 'Mailbox'}</p>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <PortalStatusPill label={formatMailboxType(mailbox.mailbox_type)} tone={String(mailbox.mailbox_type || '').toLowerCase().includes('shared') ? 'violet' : 'slate'} />
-                    </td>
-                    <td className="px-4 py-3 font-medium text-slate-800">{mailbox.primary_smtp_address || '-'}</td>
-                    <td className="px-5 py-3 text-slate-600">{mailbox.user_principal_name || '-'}</td>
-                  </tr>
-                ))}
               </tbody>
             </table>
           )}

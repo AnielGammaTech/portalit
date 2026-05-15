@@ -637,7 +637,7 @@ export default function CustomerServicesTab({
       <Tabs defaultValue="recurring" className="space-y-4">
         {/* Service Tabs — only show tabs for services the customer has */}
         <div className="flex justify-center">
-          <TabsList className="flex h-auto w-full max-w-5xl justify-start gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm scrollbar-hide md:justify-center">
+          <TabsList className="flex h-auto w-full max-w-5xl flex-wrap justify-center gap-1 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
             {[
               { value: 'recurring', label: 'Recurring', icon: DollarSign, show: true },
               { value: 'users', label: 'Users', icon: Users, show: contacts.length > 0 },
@@ -658,7 +658,7 @@ export default function CustomerServicesTab({
             ].filter(tab => tab.show).map(tab => {
               const TabIcon = tab.icon;
               return (
-                <TabsTrigger key={tab.value} value={tab.value} className="group gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-medium text-slate-500 transition-all hover:text-slate-900 data-[state=active]:bg-slate-950 data-[state=active]:text-white data-[state=active]:shadow-none">
+                <TabsTrigger key={tab.value} value={tab.value} className="group min-w-[112px] flex-none gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-medium text-slate-500 transition-all hover:text-slate-900 data-[state=active]:bg-slate-950 data-[state=active]:text-white data-[state=active]:shadow-none sm:min-w-[124px]">
                   <TabIcon className={cn("w-3.5 h-3.5 group-data-[state=active]:text-white", tab.iconClass)} />
                   {tab.label}
                 </TabsTrigger>

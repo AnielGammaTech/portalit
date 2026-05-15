@@ -438,75 +438,108 @@ async function safeFirstApiCall(endpoints, params) {
   return [];
 }
 
+function getGroupId(group) {
+  return group?.id || group?.Id || group?.groupId || group?.GroupId || group?.idTxt || '';
+}
+
+function getGroupMemberName(member) {
+  if (typeof member === 'string') return member;
+  return member?.displayName ||
+    member?.DisplayName ||
+    member?.userPrincipalName ||
+    member?.UserPrincipalName ||
+    member?.mail ||
+    member?.Mail ||
+    member?.id ||
+    '';
+}
+
+function getGroupMembersFromPayload(payload) {
+  if (!payload) return [];
+  if (Array.isArray(payload)) {
+    return payload.map(getGroupMemberName).filter(Boolean);
+  }
+  const members = asArray(payload.members || payload.Members || payload.memberList || payload.MemberList);
+  return members.map(getGroupMemberName).filter(Boolean);
+}
+
 async function syncGroups(customerId, tenantId) {
   const supabase = getServiceSupabase();
   const groups = await cippApiCall('ListGroups', { tenantFilter: tenantId });
   const groupList = asArray(groups, ['groups', 'Groups']);
 
-  // Fetch members for each group (batch 5 at a time to avoid rate limits)
+  // CIPP's ListGroups detail endpoint returns members when groupID + members=true are provided.
   const MEMBER_BATCH = 5;
   const groupMembersMap = {};
+  const groupDetailsMap = {};
   for (let i = 0; i < groupList.length; i += MEMBER_BATCH) {
     const batch = groupList.slice(i, i + MEMBER_BATCH);
     const results = await Promise.allSettled(
       batch.map(async (g) => {
+        const groupId = getGroupId(g);
+        if (!groupId) return { groupId, detail: null, members: [] };
         try {
-          const members = await cippApiCall('ListGroupMembers', {
+          const detail = await cippApiCall('ListGroups', {
             tenantFilter: tenantId,
-            groupId: g.id || g.Id,
+            groupID: groupId,
+            members: true,
+            owners: true,
           });
-          const memberList = asArray(members, ['members', 'Members']);
           return {
-            groupId: g.id || g.Id,
-            members: memberList
-              .map(m => m.displayName || m.userPrincipalName || m.mail)
-              .filter(Boolean),
+            groupId,
+            detail,
+            members: getGroupMembersFromPayload(detail),
           };
         } catch {
-          return { groupId: g.id || g.Id, members: [] };
+          return { groupId, detail: null, members: [] };
         }
       })
     );
     for (const r of results) {
       if (r.status === 'fulfilled') {
         groupMembersMap[r.value.groupId] = r.value.members;
+        groupDetailsMap[r.value.groupId] = r.value.detail;
       }
     }
   }
 
   const records = groupList.map((g) => {
-    const groupType = g.calculatedGroupType || g.groupType || (() => {
-      const types = g.groupTypes || [];
-      const mailEnabled = g.mailEnabled ?? false;
-      const secEnabled = g.securityEnabled ?? false;
+    const groupId = getGroupId(g);
+    const detail = groupDetailsMap[groupId] || {};
+    const groupInfo = detail.groupInfo || detail.GroupInfo || detail;
+    const groupType = g.calculatedGroupType || g.groupType || groupInfo.calculatedGroupType || groupInfo.groupType || (() => {
+      const types = g.groupTypes || groupInfo.groupTypes || [];
+      const mailEnabled = g.mailEnabled ?? groupInfo.mailEnabled ?? false;
+      const secEnabled = g.securityEnabled ?? groupInfo.securityEnabled ?? false;
       if (types.includes('Unified')) return 'M365 Group';
       if (mailEnabled && secEnabled) return 'Mail-Enabled Security';
       if (mailEnabled && !secEnabled) return 'Distribution List';
       return 'Security';
     })();
 
-    // Use fetched members, fall back to CSV
-    const groupId = g.id || g.Id || '';
+    // Use fetched members from group details, fall back to any list-level CSV/detail payload.
     const fetchedMembers = groupMembersMap[groupId] || [];
-    const csvMembers = (g.membersCsv || '').split(',').map(m => m.trim()).filter(Boolean);
+    const detailMembers = getGroupMembersFromPayload(g);
+    const csvMembers = (g.membersCsv || groupInfo.membersCsv || '').split(',').map(m => m.trim()).filter(Boolean);
     const members = fetchedMembers.length > 0 ? fetchedMembers : csvMembers;
+    const resolvedMembers = members.length > 0 ? members : detailMembers;
 
     return {
       customer_id: customerId,
       cipp_tenant_id: tenantId,
-      display_name: g.displayName || g.DisplayName || '',
-      description: g.description || g.Description || null,
-      mail: g.mail || g.Mail || null,
+      display_name: g.displayName || g.DisplayName || groupInfo.displayName || groupInfo.DisplayName || '',
+      description: g.description || g.Description || groupInfo.description || groupInfo.Description || null,
+      mail: g.mail || g.Mail || groupInfo.mail || groupInfo.Mail || null,
       group_type: groupType,
-      member_count: members.length,
+      member_count: resolvedMembers.length,
       external_id: groupId,
       cached_data: {
-        members,
-        teams_enabled: g.teamsEnabled ?? false,
-        on_premises_sync: g.onPremisesSyncEnabled ?? false,
-        visibility: g.visibility || null,
-        dynamic: g.dynamicGroupBool ?? false,
-        membership_rule: g.membershipRule || null,
+        members: resolvedMembers,
+        teams_enabled: g.teamsEnabled ?? groupInfo.teamsEnabled ?? false,
+        on_premises_sync: g.onPremisesSyncEnabled ?? groupInfo.onPremisesSyncEnabled ?? false,
+        visibility: g.visibility || groupInfo.visibility || null,
+        dynamic: g.dynamicGroupBool ?? groupInfo.dynamicGroupBool ?? false,
+        membership_rule: g.membershipRule || groupInfo.membershipRule || null,
       },
     };
   });
