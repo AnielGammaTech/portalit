@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import { Button } from "@/components/ui/button";
@@ -231,7 +231,7 @@ export default function JumpCloudConfig() {
   const debugApi = useCallback(async () => {
     try {
       const res = await invoke({ action: 'test_connection' });
-      console.log('JumpCloud Debug:', JSON.stringify(res, null, 2)); // eslint-disable-line no-console
+      console.log('JumpCloud Debug:', JSON.stringify(res, null, 2));
       toast.success('Debug output in console (F12)');
     } catch (err) { toast.error(err.message); }
   }, [invoke]);

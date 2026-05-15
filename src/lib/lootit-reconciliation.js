@@ -147,6 +147,28 @@ const VENDOR_EXTRACTORS = {
     }
     return null;
   },
+
+  cipp: (data) => {
+    if (!data) return null;
+    if (Array.isArray(data.users)) return data.users.length;
+    if (typeof data.users === 'number') return data.users;
+    return null;
+  },
+
+  cipp_licensed: (data) => {
+    if (!data) return null;
+    if (Array.isArray(data.users)) return data.users.filter(u => u.licenses).length;
+    if (typeof data.licensed_users === 'number') return data.licensed_users;
+    return null;
+  },
+
+  graphus: (data) => {
+    if (!data) return null;
+    if (typeof data.protected_users === 'number') return data.protected_users;
+    if (typeof data.total_users === 'number') return data.total_users;
+    if (Array.isArray(data.users)) return data.users.length;
+    return null;
+  },
 };
 
 /**
@@ -180,6 +202,9 @@ export const INTEGRATION_MAPPING_ENTITIES = {
   threecx: 'ThreeCXReport',
   inky: 'InkyReport',
   pax8: 'Pax8Mapping',
+  cipp: 'CIPPMapping',
+  cipp_licensed: 'CIPPMapping',
+  graphus: 'GraphusMapping',
 };
 
 export const INTEGRATION_LABELS = {
@@ -201,6 +226,9 @@ export const INTEGRATION_LABELS = {
   threecx: '3CX VoIP',
   inky: 'Inky',
   pax8: 'Pax8',
+  cipp: 'CIPP Users',
+  cipp_licensed: 'CIPP Licensed Users',
+  graphus: 'Graphus Email Security',
 };
 
 // ── Rule matching ──────────────────────────────────────────────────────
@@ -216,7 +244,15 @@ export function lineItemMatchesRule(lineItem, rule) {
   if (!pattern) return false;
   // Support pipe-separated patterns (OR logic): "JumpCloud|Jump Cloud"
   const patterns = pattern.split('|').map(p => p.trim()).filter(Boolean);
-  return patterns.some(p => value.includes(p));
+  return patterns.some(p => {
+    // Whole-word match so short tokens like "EDR" don't match "OneDrive".
+    const escaped = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    try {
+      return new RegExp(`\\b${escaped}\\b`, 'i').test(value);
+    } catch {
+      return value.includes(p);
+    }
+  });
 }
 
 /**
@@ -304,26 +340,40 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
       : null;
     const hasVendorData = vendorQty !== null;
 
-    // 3. Calculate difference and status
-    const difference = hasPsaData && hasVendorData ? psaQty - vendorQty : 0;
+    // 3. Look up review (needed for vendor_divisor before difference calc)
+    const review = reviewMap[rule.id] || null;
+
+    // 4. Apply vendor_divisor (e.g. Datto RMM "2 Per User" mode)
+    const divisor = review?.vendor_divisor || 1;
+    let adjustedVendorQty = hasVendorData && divisor > 1
+      ? Math.ceil(vendorQty / divisor)
+      : vendorQty;
+
+    // 4b. Subtract exclusions from vendor count
+    const exclusionCount = review?.exclusion_count || 0;
+    if (hasVendorData && exclusionCount > 0) {
+      adjustedVendorQty = Math.max(0, adjustedVendorQty - exclusionCount);
+    }
+
+    // 5. Calculate difference and status
+    const difference = hasPsaData && hasVendorData ? psaQty - adjustedVendorQty : 0;
     let status = 'no_data';
     if (hasPsaData && hasVendorData) {
       if (difference === 0) status = 'match';
       else if (difference > 0) status = 'over';
       else status = 'under';
-    } else if (!hasPsaData && hasVendorData && vendorQty > 0) {
+    } else if (!hasPsaData && hasVendorData && adjustedVendorQty > 0) {
       status = 'no_psa_data';
     } else if (hasPsaData && !hasVendorData) {
       status = 'no_vendor_data';
     }
 
-    // 4. Attach review info
-    const review = reviewMap[rule.id] || null;
-
     return {
       rule,
       psaQty: hasPsaData ? psaQty : null,
-      vendorQty,
+      vendorQty: hasVendorData ? adjustedVendorQty : null,
+      rawVendorQty: vendorQty,
+      vendorDivisor: divisor,
       difference,
       status,
       matchedLineItems: matched,
@@ -360,7 +410,7 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
     difference: 0,
     status: 'unmatched_line_item',
     matchedLineItems: [li],
-    review: null,
+    review: reviewMap[`unmatched_${li.id}`] || null,
     integrationLabel: 'Unmatched Billing Item',
     isUnmatchedLineItem: true,
   }));

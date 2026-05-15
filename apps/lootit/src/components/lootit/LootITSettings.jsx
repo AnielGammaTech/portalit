@@ -24,6 +24,7 @@ const DEFAULT_VENDOR_PATHS = {
   threecx: 'user_extensions',
   inky: 'total_users',
   pax8: 'totalQuantity',
+  graphus: 'protected_users',
 };
 
 const TEMPLATE_RULES = [
@@ -40,6 +41,7 @@ const TEMPLATE_RULES = [
   { integration_key: 'inky', match_pattern: 'Inky', label: 'Inky Email Protection', vendor_count_path: 'total_users' },
   { integration_key: 'threecx', match_pattern: 'GTVoice extension', label: '3CX Extensions', vendor_count_path: 'user_extensions' },
   { integration_key: 'unifi_firewall', match_pattern: 'Firewall Support|Firewall', label: 'UniFi Firewalls', vendor_count_path: 'firewalls' },
+  { integration_key: 'graphus', match_pattern: 'Graphus|Email Security', label: 'Graphus Email Security', vendor_count_path: 'protected_users' },
 ];
 
 const EMPTY_FORM = {

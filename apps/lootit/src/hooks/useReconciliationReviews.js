@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import { supabase } from '@/api/client';
 import { useAuth } from '@/lib/AuthContext';
+import { toast } from 'sonner';
 
 export function useReconciliationReviews(customerId) {
   const queryClient = useQueryClient();
@@ -23,7 +24,7 @@ export function useReconciliationReviews(customerId) {
 
   // Log every action to the history table
   const logHistory = async ({ reviewId, ruleId, action, status, notes, psaQty, vendorQty }) => {
-    await supabase.from('reconciliation_review_history').insert({
+    const { error } = await supabase.from('reconciliation_review_history').insert({
       review_id: reviewId || null,
       customer_id: customerId,
       rule_id: ruleId,
@@ -33,7 +34,9 @@ export function useReconciliationReviews(customerId) {
       psa_qty: psaQty ?? null,
       vendor_qty: vendorQty ?? null,
       created_by: user?.id || null,
+      created_by_name: user?.full_name || user?.email || null,
     });
+    if (error) console.warn('[logHistory]', error.message);
   };
 
   const upsertMutation = useMutation({
@@ -79,6 +82,9 @@ export function useReconciliationReviews(customerId) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: reviewsKey });
       queryClient.invalidateQueries({ queryKey: historyKey });
+    },
+    onError: (err) => {
+      toast.error(`Save failed: ${err.message || 'Unknown error'}`);
     },
   });
 
@@ -128,7 +134,7 @@ export function useReconciliationReviews(customerId) {
 
   const saveExclusion = async (ruleId, exclusionCount, exclusionReason) => {
     const existing = reviews.find((r) => r.rule_id === ruleId);
-    return upsertMutation.mutateAsync({
+    const result = await upsertMutation.mutateAsync({
       ruleId,
       status: existing?.status || 'reviewed',
       action: 'exclusion',
@@ -138,6 +144,13 @@ export function useReconciliationReviews(customerId) {
       exclusionCount: exclusionCount || 0,
       exclusionReason: exclusionReason || null,
     });
+    if (result?.id && exclusionCount > 0) {
+      await supabase
+        .from('reconciliation_reviews')
+        .update({ exclusion_verified_at: new Date().toISOString() })
+        .eq('id', result.id);
+    }
+    return result;
   };
 
   const forceMatch = (ruleId, notes) => {
@@ -163,6 +176,61 @@ export function useReconciliationReviews(customerId) {
     });
   };
 
+  const saveVendorDivisor = async (ruleId, divisor) => {
+    const existing = reviews.find((r) => r.rule_id === ruleId);
+    if (existing) {
+      const { error } = await supabase
+        .from('reconciliation_reviews')
+        .update({ vendor_divisor: divisor })
+        .eq('id', existing.id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from('reconciliation_reviews')
+        .insert({
+          customer_id: customerId,
+          rule_id: ruleId,
+          status: 'pending',
+          vendor_divisor: divisor,
+          reviewed_by: user?.id || null,
+          reviewed_at: new Date().toISOString(),
+        });
+      if (error) throw error;
+    }
+    await logHistory({
+      reviewId: existing?.id,
+      ruleId,
+      action: 'billing_model',
+      status: existing?.status || 'pending',
+      notes: divisor > 1 ? `Changed to ${divisor} devices per user` : 'Changed to Per Device',
+    });
+    queryClient.invalidateQueries({ queryKey: reviewsKey });
+    queryClient.invalidateQueries({ queryKey: ['reconciliation_reviews'] });
+    queryClient.invalidateQueries({ queryKey: historyKey });
+    toast.success(divisor > 1 ? `Billing model: ${divisor} devices per user` : 'Billing model: Per Device');
+  };
+
+  const reVerifyExclusion = async (ruleId) => {
+    const existing = reviews.find((r) => r.rule_id === ruleId);
+    if (!existing) return;
+    const { error } = await supabase
+      .from('reconciliation_reviews')
+      .update({ exclusion_verified_at: new Date().toISOString() })
+      .eq('id', existing.id);
+    if (error) throw error;
+    logHistory({
+      reviewId: existing.id,
+      ruleId,
+      action: 'exclusion_reverified',
+      status: existing.status,
+      notes: `Exclusions re-verified (${existing.exclusion_count} excluded)`,
+      psaQty: existing.psa_qty,
+      vendorQty: existing.vendor_qty,
+    });
+    queryClient.invalidateQueries({ queryKey: reviewsKey });
+    queryClient.invalidateQueries({ queryKey: historyKey });
+  };
+
   return {
     reviews,
     isLoading,
@@ -174,6 +242,8 @@ export function useReconciliationReviews(customerId) {
     saveExclusion,
     forceMatch,
     reVerify,
+    reVerifyExclusion,
+    saveVendorDivisor,
     isSaving: upsertMutation.isPending,
   };
 }

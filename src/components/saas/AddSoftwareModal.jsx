@@ -95,8 +95,8 @@ Return JSON with:
         
         setForm(prev => ({ ...prev, ...updates }));
       }
-    } catch (error) {
-      console.warn('Could not fetch app info:', error);
+    } catch (_error) {
+      // Non-critical: auto-fetch is best-effort
     } finally {
       setIsLoadingInfo(false);
     }
@@ -149,8 +149,8 @@ Return JSON with:
           category: result.category || prev.category
         }));
       }
-    } catch (error) {
-      console.warn('Could not fetch app info:', error);
+    } catch (_error) {
+      // Non-critical: auto-fetch is best-effort
     } finally {
       setIsLoadingLogo(false);
       setIsLoadingInfo(false);
@@ -204,8 +204,8 @@ Return JSON with:
         setIsLoadingLogo(false);
       };
       img.src = brandfetchUrl;
-    } catch (error) {
-      console.warn('Could not fetch logo:', error);
+    } catch (_error) {
+      // Non-critical: logo fetch is best-effort
       setIsLoadingLogo(false);
     }
   };

@@ -3,6 +3,8 @@ import { supabase } from '@/api/client';
 
 const AuthContext = createContext();
 
+// Race a promise against a timeout — rejects if the promise doesn't
+// settle within `ms` milliseconds.
 function withTimeout(promise, ms) {
   return Promise.race([
     promise,
@@ -12,10 +14,6 @@ function withTimeout(promise, ms) {
   ]);
 }
 
-const MAX_AUTH_RETRIES = 3;
-const AUTH_TIMEOUT_MS = 8000;
-const PROFILE_TIMEOUT_MS = 5000;
-
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -23,26 +21,17 @@ export const AuthProvider = ({ children }) => {
   const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(false);
   const [authError, setAuthError] = useState(null);
   const [appPublicSettings, setAppPublicSettings] = useState(null);
-  const [authRetrying, setAuthRetrying] = useState(false);
   const initialCheckDone = useRef(false);
-  const retryCount = useRef(0);
-  const isAuthenticatedRef = useRef(false);
-
-  useEffect(() => {
-    isAuthenticatedRef.current = isAuthenticated;
-  }, [isAuthenticated]);
 
   useEffect(() => {
     checkUserAuth();
 
+    // Listen for auth state changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        // Skip SIGNED_IN during initial load — checkUserAuth handles it
         if (event === 'SIGNED_IN' && session?.user && initialCheckDone.current) {
           await loadUserProfile(session.user);
-        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          setIsAuthenticated(true);
-          setAuthError(null);
-          retryCount.current = 0;
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setIsAuthenticated(false);
@@ -50,18 +39,7 @@ export const AuthProvider = ({ children }) => {
       }
     );
 
-    const handleFocus = () => {
-      if (!isAuthenticatedRef.current && initialCheckDone.current) {
-        retryCount.current = 0;
-        checkUserAuth();
-      }
-    };
-    window.addEventListener('focus', handleFocus);
-
-    return () => {
-      subscription.unsubscribe();
-      window.removeEventListener('focus', handleFocus);
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   const loadUserProfile = async (authUser) => {
@@ -85,8 +63,8 @@ export const AuthProvider = ({ children }) => {
 
       setUser(fullUser);
       setIsAuthenticated(true);
-    } catch (error) {
-      console.error('Failed to load user profile:', error);
+    } catch (_error) {
+      // Still set as authenticated even if profile fetch fails
       setUser({
         id: authUser.id,
         auth_id: authUser.id,
@@ -102,37 +80,28 @@ export const AuthProvider = ({ children }) => {
       setIsLoadingAuth(true);
       setAuthError(null);
 
+      // 5-second timeout — if session check hangs (stale cookies,
+      // network issues), stop waiting and send user to login.
       const { data: { session } } = await withTimeout(
         supabase.auth.getSession(),
-        AUTH_TIMEOUT_MS
+        5000
       );
 
       if (session?.user) {
-        await withTimeout(loadUserProfile(session.user), PROFILE_TIMEOUT_MS);
-        retryCount.current = 0;
+        await withTimeout(loadUserProfile(session.user), 5000);
       } else {
         setIsAuthenticated(false);
       }
     } catch (error) {
-      console.error('Auth check failed:', error);
-
-      if (error.message === 'Auth check timed out' && retryCount.current < MAX_AUTH_RETRIES) {
-        retryCount.current += 1;
-        console.warn(`Auth timed out — retry ${retryCount.current}/${MAX_AUTH_RETRIES}`);
-        setAuthRetrying(true);
-        const backoff = Math.min(1000 * retryCount.current, 3000);
-        await new Promise(r => setTimeout(r, backoff));
-        setAuthRetrying(false);
-        return checkUserAuth();
-      }
-
+      // On timeout, clear the stale session so the user
+      // isn't stuck in a loop on next reload.
       if (error.message === 'Auth check timed out') {
-        console.warn('Auth retries exhausted — will retry on next focus');
-        setAuthError('Connection slow — retrying...');
+        await supabase.auth.signOut().catch(() => {});
+        setAuthError(null);
       } else {
         setAuthError(error.message || 'Authentication failed');
-        setIsAuthenticated(false);
       }
+      setIsAuthenticated(false);
     } finally {
       initialCheckDone.current = true;
       setIsLoadingAuth(false);
@@ -160,7 +129,6 @@ export const AuthProvider = ({ children }) => {
       isLoadingAuth,
       isLoadingPublicSettings,
       authError,
-      authRetrying,
       appPublicSettings,
       logout,
       navigateToLogin,

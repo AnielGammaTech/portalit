@@ -28,6 +28,16 @@ const VENDOR_CONFIG = {
       report_data: { user_extensions: team.count, synced_from: 'lootit_link' },
     }),
   },
+  graphus: {
+    table: 'graphus_mappings',
+    usesMappingSchema: true,
+    buildRecord: (team) => ({
+      graphus_org_id: team.slug,
+      graphus_org_name: team.name,
+      cached_data: { protected_users: team.count, synced_from: 'lootit_link' },
+      last_synced: new Date().toISOString(),
+    }),
+  },
 };
 
 export async function lootitLink(params) {
@@ -65,18 +75,15 @@ export async function lootitLink(params) {
         const vendorFields = config.buildRecord(team);
 
         if (existing && existing.length > 0) {
-          await supabase.from(config.table).update({
-            ...vendorFields,
-            report_date: today,
-            updated_date: new Date().toISOString(),
-          }).eq('id', existing[0].id);
+          const updateFields = config.usesMappingSchema
+            ? vendorFields
+            : { ...vendorFields, report_date: today, updated_date: new Date().toISOString() };
+          await supabase.from(config.table).update(updateFields).eq('id', existing[0].id);
         } else {
-          await supabase.from(config.table).insert({
-            customer_id,
-            customer_name,
-            ...vendorFields,
-            report_date: today,
-          });
+          const insertFields = config.usesMappingSchema
+            ? { customer_id, customer_name, ...vendorFields }
+            : { customer_id, customer_name, ...vendorFields, report_date: today };
+          await supabase.from(config.table).insert(insertFields);
         }
 
         synced++;

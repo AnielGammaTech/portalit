@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import { motion } from 'framer-motion';
@@ -24,11 +24,13 @@ import {
   User,
   StickyNote,
   Loader2,
-  X
+  X,
+  Network,
+  Cpu
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn, safeJsonParse, safeFormatDate } from "@/lib/utils";
-// date-fns calls replaced by safe wrappers from @/lib/utils
+import { cn, safeJsonParse, safeFormatDate, safeFormatDistanceToNow } from "@/lib/utils";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import DeviceDetailModal from './DeviceDetailModal';
 
 const deviceIcons = {
@@ -41,19 +43,72 @@ const deviceIcons = {
 };
 
 const statusConfig = {
-  online: { icon: CheckCircle2, color: 'text-success', bg: 'bg-success/10', label: 'Online' },
-  offline: { icon: XCircle, color: 'text-destructive', bg: 'bg-destructive/10', label: 'Offline' },
-  unknown: { icon: Clock, color: 'text-muted-foreground', bg: 'bg-muted', label: 'Unknown' }
+  online: { icon: CheckCircle2, className: 'bg-green-50 text-green-700 border-green-200', label: 'Online' },
+  offline: { icon: XCircle, className: 'bg-rose-50 text-rose-700 border-rose-200', label: 'Offline' },
+  unknown: { icon: Clock, className: 'bg-slate-50 text-slate-600 border-slate-200', label: 'Unknown' }
 };
 
-const STAT_CARDS = [
-  { key: 'total', icon: Monitor, label: 'Total Devices', color: 'text-primary', bg: 'bg-primary/10' },
-  { key: 'online', icon: CheckCircle2, label: 'Online', color: 'text-success', bg: 'bg-success/10' },
-  { key: 'offline', icon: XCircle, label: 'Offline', color: 'text-destructive', bg: 'bg-destructive/10' },
-  { key: 'servers', icon: Server, label: 'Servers', color: 'text-[#7828C8]', bg: 'bg-[#7828C8]/10' },
-];
+const typeLabels = {
+  desktop: 'Desktop',
+  laptop: 'Laptop',
+  server: 'Server',
+  network: 'Network',
+  printer: 'Printer',
+  other: 'Other'
+};
 
-export default function DevicesTab({ customerId, customerExternalId }) {
+function getDeviceName(device) {
+  return device.hostname || device.name || 'Unknown device';
+}
+
+function normalizeStatus(status) {
+  return statusConfig[status] ? status : 'unknown';
+}
+
+function getTypeLabel(type) {
+  if (!type) return 'Other';
+  return typeLabels[type] || String(type).replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase());
+}
+
+function getLastSeenSort(value) {
+  if (!value) return 0;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date.getTime() : 0;
+}
+
+function DeviceStatCard({ icon: Icon, label, value, detail, className }) {
+  return (
+    <motion.div
+      variants={staggerItem}
+      className="bg-card rounded-lg border shadow-sm p-4"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-muted-foreground">{label}</p>
+          <AnimatedCounter value={value} className="text-2xl font-bold text-foreground" />
+          {detail && <p className="text-xs text-muted-foreground mt-1 truncate">{detail}</p>}
+        </div>
+        <div className={cn('p-2 rounded-lg border', className)}>
+          <Icon className="w-5 h-5" />
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function StatusBadge({ status }) {
+  const config = statusConfig[normalizeStatus(status)];
+  const StatusIcon = config.icon;
+
+  return (
+    <Badge variant="outline" className={cn('gap-1.5 text-[11px]', config.className)}>
+      <StatusIcon className="w-3 h-3" />
+      {config.label}
+    </Badge>
+  );
+}
+
+export default function DevicesTab({ customerId }) {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -65,7 +120,8 @@ export default function DevicesTab({ customerId, customerExternalId }) {
   const { data: devices = [], isLoading } = useQuery({
     queryKey: ['devices', customerId],
     queryFn: () => client.entities.Device.filter({ customer_id: customerId }),
-    enabled: !!customerId
+    enabled: !!customerId,
+    staleTime: 1000 * 60 * 5
   });
 
   const { data: mappings = [], isLoading: loadingMappings } = useQuery({
@@ -75,13 +131,93 @@ export default function DevicesTab({ customerId, customerExternalId }) {
     staleTime: 1000 * 60 * 5
   });
 
-  const cachedData = mappings[0]?.cached_data
-    ? safeJsonParse(mappings[0].cached_data)
-    : null;
-  const lastSynced = mappings[0]?.last_synced;
+  const { data: contacts = [] } = useQuery({
+    queryKey: ['device-contacts', customerId],
+    queryFn: () => client.entities.Contact.filter({ customer_id: customerId }),
+    enabled: !!customerId,
+    staleTime: 1000 * 60 * 5
+  });
+
+  const safeMappings = mappings ?? [];
+  const mapping = safeMappings[0] || null;
+  const cachedData = mapping?.cached_data ? safeJsonParse(mapping.cached_data) : null;
+  const lastSynced = mapping?.last_synced;
+
+  const contactsById = useMemo(() => {
+    const map = {};
+    contacts.forEach(contact => {
+      if (contact.id) map[contact.id] = contact;
+    });
+    return map;
+  }, [contacts]);
+
+  const availableTypes = useMemo(() => (
+    Array.from(new Set(devices.map(device => device.device_type || 'other'))).sort()
+  ), [devices]);
+
+  const deviceCounts = useMemo(() => {
+    const total = devices.length || cachedData?.total_devices || 0;
+    const online = devices.length
+      ? devices.filter(device => device.status === 'online').length
+      : cachedData?.online_count || 0;
+    const offline = devices.length
+      ? devices.filter(device => device.status === 'offline').length
+      : cachedData?.offline_count || 0;
+    const servers = devices.length
+      ? devices.filter(device => device.device_type === 'server').length
+      : cachedData?.server_count || 0;
+    const workstations = devices.filter(device => ['desktop', 'laptop'].includes(device.device_type)).length;
+    const withUser = devices.filter(device => device.last_user || device.assigned_contact_id).length;
+
+    return { total, online, offline, servers, workstations, withUser };
+  }, [cachedData, devices]);
+
+  const lastSeenDevice = useMemo(() => {
+    return [...devices]
+      .filter(device => device.last_seen)
+      .sort((a, b) => getLastSeenSort(b.last_seen) - getLastSeenSort(a.last_seen))[0] || null;
+  }, [devices]);
+
+  const filteredDevices = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    const statusRank = { online: 0, offline: 1, unknown: 2 };
+
+    return devices
+      .filter(device => {
+        const assignedContact = contactsById[device.assigned_contact_id];
+        const matchesSearch = !query || [
+          device.name,
+          device.hostname,
+          device.ip_address,
+          device.serial_number,
+          device.manufacturer,
+          device.model,
+          device.operating_system,
+          device.os_version,
+          device.last_user,
+          assignedContact?.full_name,
+          assignedContact?.email
+        ].some(value => String(value || '').toLowerCase().includes(query));
+        const matchesType = typeFilter === 'all' || (device.device_type || 'other') === typeFilter;
+        const matchesStatus = statusFilter === 'all' || normalizeStatus(device.status) === statusFilter;
+        return matchesSearch && matchesType && matchesStatus;
+      })
+      .sort((a, b) => {
+        const statusDelta = (statusRank[normalizeStatus(a.status)] ?? 3) - (statusRank[normalizeStatus(b.status)] ?? 3);
+        if (statusDelta !== 0) return statusDelta;
+        return getDeviceName(a).localeCompare(getDeviceName(b));
+      });
+  }, [contactsById, devices, search, statusFilter, typeFilter]);
+
+  const statusFilters = [
+    { key: 'all', label: 'All', count: devices.length },
+    { key: 'online', label: 'Online', count: devices.filter(device => device.status === 'online').length },
+    { key: 'offline', label: 'Offline', count: devices.filter(device => device.status === 'offline').length },
+    { key: 'unknown', label: 'Unknown', count: devices.filter(device => !statusConfig[device.status]).length }
+  ].filter(filter => filter.key !== 'unknown' || filter.count > 0);
 
   const syncDevices = async () => {
-    if (mappings.length === 0) {
+    if (safeMappings.length === 0) {
       toast.error('No Datto RMM site mapped to this customer');
       return;
     }
@@ -105,220 +241,252 @@ export default function DevicesTab({ customerId, customerExternalId }) {
     }
   };
 
-  const filteredDevices = devices.filter(device => {
-    const matchesSearch = !search ||
-      device.name?.toLowerCase().includes(search.toLowerCase()) ||
-      device.hostname?.toLowerCase().includes(search.toLowerCase()) ||
-      device.ip_address?.includes(search) ||
-      device.serial_number?.toLowerCase().includes(search.toLowerCase()) ||
-      device.manufacturer?.toLowerCase().includes(search.toLowerCase()) ||
-      device.model?.toLowerCase().includes(search.toLowerCase()) ||
-      device.last_user?.toLowerCase().includes(search.toLowerCase());
-    const matchesType = typeFilter === 'all' || device.device_type === typeFilter;
-    const matchesStatus = statusFilter === 'all' || device.status === statusFilter;
-    return matchesSearch && matchesType && matchesStatus;
-  });
-
-  const availableTypes = Array.from(new Set(devices.map(d => d.device_type).filter(Boolean))).sort();
-
-  const deviceCounts = {
-    total: cachedData?.total_devices ?? devices.length,
-    online: cachedData?.online_count ?? devices.filter(d => d.status === 'online').length,
-    offline: cachedData?.offline_count ?? devices.filter(d => d.status === 'offline').length,
-    servers: cachedData?.server_count ?? devices.filter(d => d.device_type === 'server').length,
-  };
-
-  // Shimmer loading while checking mappings
   if (loadingMappings) {
     return (
       <div className="space-y-6">
         <SkeletonStats count={4} className="grid-cols-2 lg:grid-cols-4" />
-        <SkeletonTable rows={5} cols={4} />
+        <SkeletonTable rows={5} cols={5} />
       </div>
     );
   }
 
-  if (mappings.length === 0) {
+  if (safeMappings.length === 0) {
     return (
       <EmptyState
         icon={Monitor}
-        title="No Datto RMM Site Mapped"
-        description="This customer doesn't have a Datto RMM site linked. Go to Adminland > Integrations to map a site."
+        title="Device inventory is not connected yet"
+        description="Datto RMM inventory will appear here once it is available for this account."
       />
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Stats Cards — Animated counters */}
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-slate-900">Datto RMM Devices</h3>
+          <p className="text-sm text-slate-500">
+            {mapping?.datto_site_name || 'Mapped Datto site'}
+            {lastSynced && <span> - Last synced {safeFormatDate(lastSynced, 'MMM d, yyyy h:mm a')}</span>}
+          </p>
+          {lastSeenDevice?.last_seen && (
+            <p className="text-xs text-slate-400 mt-1">
+              Most recent heartbeat: {safeFormatDistanceToNow(lastSeenDevice.last_seen, { addSuffix: true }, 'Unknown')}
+            </p>
+          )}
+        </div>
+        <Button onClick={syncDevices} disabled={syncing} className="gap-2 self-start">
+          {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          {syncing ? 'Syncing...' : 'Sync Devices'}
+        </Button>
+      </div>
+
       <motion.div
         variants={staggerContainer}
         initial="initial"
         animate="animate"
-        className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+        className="grid grid-cols-2 xl:grid-cols-4 gap-4"
       >
-        {STAT_CARDS.map(stat => (
-          <motion.div
-            key={stat.key}
-            variants={staggerItem}
-            className="bg-card rounded-[14px] border shadow-hero-sm p-4 hover:shadow-hero-md transition-all duration-[250ms]"
-          >
-            <div className="flex items-center gap-3">
-              <div className={cn('w-10 h-10 rounded-hero-md flex items-center justify-center', stat.bg)}>
-                <stat.icon className={cn('w-5 h-5', stat.color)} />
-              </div>
-              <div>
-                <AnimatedCounter value={deviceCounts[stat.key]} className="text-2xl font-bold text-foreground" />
-                <p className="text-xs text-muted-foreground">{stat.label}</p>
-              </div>
-            </div>
-          </motion.div>
-        ))}
+        <DeviceStatCard
+          icon={Monitor}
+          label="Total devices"
+          value={deviceCounts.total}
+          detail={`${deviceCounts.workstations} workstations`}
+          className="bg-cyan-50 text-cyan-700 border-cyan-100"
+        />
+        <DeviceStatCard
+          icon={CheckCircle2}
+          label="Online"
+          value={deviceCounts.online}
+          detail={deviceCounts.total ? `${Math.round((deviceCounts.online / deviceCounts.total) * 100)}% online` : 'No devices'}
+          className="bg-green-50 text-green-700 border-green-100"
+        />
+        <DeviceStatCard
+          icon={XCircle}
+          label="Offline"
+          value={deviceCounts.offline}
+          detail="Not currently connected"
+          className="bg-rose-50 text-rose-700 border-rose-100"
+        />
+        <DeviceStatCard
+          icon={Server}
+          label="Servers"
+          value={deviceCounts.servers}
+          detail={`${deviceCounts.withUser} with user/contact`}
+          className="bg-violet-50 text-violet-700 border-violet-100"
+        />
       </motion.div>
 
-      {/* Last synced */}
-      {lastSynced && (
-        <p className="text-xs text-muted-foreground text-right">
-          Last synced: {safeFormatDate(lastSynced, 'MMM d, yyyy h:mm a')}
-        </p>
-      )}
-
-      {/* Filters & Actions */}
-      <motion.div {...fadeInUp} className="bg-card rounded-[14px] border shadow-hero-sm p-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+      <motion.div {...fadeInUp} className="bg-card rounded-lg border shadow-sm p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="relative min-w-[260px] flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input
-              placeholder="Search by hostname, IP, or serial..."
+              placeholder="Search device, IP, serial, user, or model"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 pr-9 rounded-hero-md bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800"
+              onChange={(event) => setSearch(event.target.value)}
+              className="pl-9 pr-9"
             />
             {search && (
-              <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                aria-label="Clear search"
+              >
                 <X className="w-4 h-4" />
               </button>
             )}
           </div>
-          {/* Filter chips */}
-          <div className="flex gap-2">
-            {['all', 'online', 'offline'].map(s => (
+
+          <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap">
+            {statusFilters.map(filter => (
               <button
-                key={s}
-                onClick={() => setStatusFilter(s)}
+                key={filter.key}
+                type="button"
+                onClick={() => setStatusFilter(filter.key)}
                 className={cn(
-                  'px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-[250ms] active:scale-[0.97] capitalize',
-                  statusFilter === s
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'bg-zinc-100 dark:bg-zinc-800 text-muted-foreground hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                  'whitespace-nowrap px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                  statusFilter === filter.key
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 )}
               >
-                {s}
+                {filter.label}
+                <span className={cn('ml-1.5', statusFilter === filter.key ? 'text-white/70' : 'text-slate-400')}>
+                  {filter.count}
+                </span>
               </button>
             ))}
+
+            {availableTypes.length > 1 && (
+              <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap">
+                {['all', ...availableTypes].map(type => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setTypeFilter(type)}
+                    className={cn(
+                      'whitespace-nowrap px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                      typeFilter === type
+                        ? 'bg-cyan-600 text-white'
+                        : 'bg-cyan-50 text-cyan-700 hover:bg-cyan-100'
+                    )}
+                  >
+                    {type === 'all' ? 'All types' : getTypeLabel(type)}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          {availableTypes.length > 1 && (
-            <div className="flex gap-2">
-              {['all', ...availableTypes].map(type => (
-                <button
-                  key={type}
-                  onClick={() => setTypeFilter(type)}
-                  className={cn(
-                    'px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-[250ms] active:scale-[0.97] capitalize',
-                    typeFilter === type
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'bg-zinc-100 dark:bg-zinc-800 text-muted-foreground hover:bg-zinc-200 dark:hover:bg-zinc-700'
-                  )}
-                >
-                  {type.replace(/_/g, ' ')}
-                </button>
-              ))}
-            </div>
-          )}
-          <Button onClick={syncDevices} disabled={syncing}>
-            {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-            Sync Devices
-          </Button>
         </div>
       </motion.div>
 
-      {/* Device List */}
-      <div className="bg-card rounded-[14px] border shadow-hero-sm overflow-hidden">
+      <div className="bg-card rounded-lg border shadow-sm overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h4 className="font-semibold text-slate-900">Device inventory</h4>
+            <p className="text-sm text-slate-500">Showing {filteredDevices.length} of {devices.length} Datto RMM devices.</p>
+          </div>
+          <Badge variant="outline">{mapping?.datto_site_name || 'Datto site'}</Badge>
+        </div>
+
         {isLoading ? (
-          <SkeletonTable rows={5} cols={4} className="shadow-none border-0" />
+          <SkeletonTable rows={6} cols={5} className="shadow-none border-0" />
         ) : filteredDevices.length === 0 ? (
           <EmptyState
             icon={Monitor}
             title="No devices found"
-            description={search ? 'Try adjusting your search' : 'Sync from Datto RMM to populate devices'}
-            action={!search ? { label: 'Sync from Datto RMM', onClick: syncDevices } : undefined}
+            description={search || statusFilter !== 'all' || typeFilter !== 'all' ? 'Try adjusting the search or filters.' : 'Sync from Datto RMM to populate devices.'}
+            action={!search && statusFilter === 'all' && typeFilter === 'all' ? { label: 'Sync from Datto RMM', onClick: syncDevices } : undefined}
           />
         ) : (
-          <motion.div
-            variants={staggerContainer}
-            initial="initial"
-            animate="animate"
-            className="divide-y divide-border/50"
-          >
-            {filteredDevices.map(device => {
-              const DeviceIcon = deviceIcons[device.device_type] || Monitor;
-              const status = statusConfig[device.status] || statusConfig.unknown;
-              const StatusIcon = status.icon;
+          <div className="overflow-x-auto">
+            <Table className="min-w-[980px]">
+              <TableHeader>
+                <TableRow className="bg-slate-50">
+                  <TableHead>Device</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Last seen</TableHead>
+                  <TableHead>OS / Hardware</TableHead>
+                  <TableHead>Network / User</TableHead>
+                  <TableHead className="text-right">Info</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredDevices.map(device => {
+                  const type = device.device_type || 'other';
+                  const DeviceIcon = deviceIcons[type] || Monitor;
+                  const assignedContact = contactsById[device.assigned_contact_id];
+                  const hardware = [device.manufacturer, device.model].filter(Boolean).join(' ');
+                  const os = [device.operating_system, device.os_version].filter(Boolean).join(' ');
 
-              return (
-                <motion.div
-                  key={device.id}
-                  variants={staggerItem}
-                  whileHover={{ backgroundColor: 'rgba(0,0,0,0.02)' }}
-                  className="p-4 cursor-pointer transition-colors duration-[250ms]"
-                  onClick={() => setSelectedDevice(device)}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className={cn("w-11 h-11 rounded-hero-md flex items-center justify-center", status.bg)}>
-                      <DeviceIcon className={cn("w-5 h-5", status.color)} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold text-foreground">{device.hostname}</p>
-                        <Badge
-                          variant={device.status === 'online' ? 'flat-success' : device.status === 'offline' ? 'flat-destructive' : 'secondary'}
-                          className="text-[11px] gap-1"
-                        >
-                          <StatusIcon className="w-3 h-3" />
-                          {status.label}
-                        </Badge>
-                        {device.notes && <StickyNote className="w-3.5 h-3.5 text-warning" />}
-                        {device.assigned_contact_id && <User className="w-3.5 h-3.5 text-[#7828C8]" />}
-                      </div>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-                        {device.operating_system && <span>{device.operating_system}</span>}
-                        {(device.manufacturer || device.model) && (
-                          <span>{[device.manufacturer, device.model].filter(Boolean).join(' ')}</span>
-                        )}
-                        {device.ip_address && <span>{device.ip_address}</span>}
-                        {device.last_user && (
-                          <span className="flex items-center gap-1">
-                            <User className="w-3 h-3" />
-                            {device.last_user}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right text-sm hidden sm:block">
-                      {device.last_seen && (
-                        <p className="text-muted-foreground">
-                          Last seen: {safeFormatDate(device.last_seen, 'MMM d, h:mm a')}
-                        </p>
-                      )}
-                      {device.serial_number && (
-                        <p className="text-muted-foreground/60 text-xs mt-1">S/N: {device.serial_number}</p>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </motion.div>
+                  return (
+                    <TableRow
+                      key={device.id}
+                      className="cursor-pointer hover:bg-slate-50"
+                      onClick={() => setSelectedDevice(device)}
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center flex-shrink-0">
+                            <DeviceIcon className="w-4 h-4 text-slate-600" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-slate-900 truncate">{getDeviceName(device)}</p>
+                            <p className="text-xs text-slate-500 truncate">{getTypeLabel(type)}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge status={device.status} />
+                      </TableCell>
+                      <TableCell className="text-slate-600">
+                        <div>{safeFormatDistanceToNow(device.last_seen, { addSuffix: true }, 'Unknown')}</div>
+                        <div className="text-xs text-slate-400">{safeFormatDate(device.last_seen, 'MMM d, yyyy h:mm a', '')}</div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1 max-w-[260px]">
+                          <div className="flex items-center gap-2 text-slate-700">
+                            <Cpu className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                            <span className="truncate">{os || 'Unknown OS'}</span>
+                          </div>
+                          {hardware && <div className="text-xs text-slate-500 truncate">{hardware}</div>}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1 max-w-[260px]">
+                          <div className="flex items-center gap-2 text-slate-700">
+                            <Network className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                            <span className="truncate">{device.ip_address || 'No IP'}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-slate-500">
+                            <User className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                            <span className="truncate">{assignedContact?.full_name || device.last_user || 'No user linked'}</span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {device.notes && (
+                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 gap-1">
+                              <StickyNote className="w-3 h-3" />
+                              Notes
+                            </Badge>
+                          )}
+                          {device.serial_number && (
+                            <span className="hidden xl:inline text-xs text-slate-400 font-mono">
+                              {device.serial_number}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </div>
 

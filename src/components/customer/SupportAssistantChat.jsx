@@ -3,12 +3,9 @@ import { client } from '@/api/client';
 import { 
   Bot, 
   Send, 
-  X, 
   Loader2,
   ArrowRight,
-  MessageSquare,
-  Paperclip,
-  Image as ImageIcon
+  Paperclip
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,21 +42,14 @@ export default function SupportAssistantChat({
     let cancelled = false;
 
     const init = async () => {
-      setIsInitializing(true);
-      setConversation(null);
-      setMessages([]);
-      const unsub = await initConversation(() => cancelled);
-      if (cancelled) {
-        unsub?.();
-      } else {
-        unsubscribe = unsub;
-      }
+      const unsub = await initConversation(cancelled);
+      if (!cancelled) unsubscribe = unsub;
     };
     init();
 
     return () => {
       cancelled = true;
-      unsubscribe?.();
+      if (unsubscribe) unsubscribe();
     };
   }, [customerId]);
 
@@ -67,7 +57,7 @@ export default function SupportAssistantChat({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const initConversation = async (isCancelled = () => false) => {
+  const initConversation = async () => {
     try {
       // Fetch customer-specific AI instructions and recent tickets
       let customerInstructions = '';
@@ -94,8 +84,8 @@ export default function SupportAssistantChat({
               status: t.status,
               date: t.date_opened
             }));
-        } catch (e) {
-          console.error('Failed to fetch customer data:', e);
+        } catch (_e) {
+          // Customer data is supplementary; continue without it
         }
       }
 
@@ -108,13 +98,10 @@ export default function SupportAssistantChat({
           recent_tickets: JSON.stringify(recentTickets)
         }
       });
-      if (isCancelled()) return null;
-
       setConversation(conv);
       
       // Subscribe to updates
       const unsub = client.agents.subscribeToConversation(conv.id, (data) => {
-        if (isCancelled()) return;
         setMessages(data.messages || []);
       });
 
@@ -123,13 +110,12 @@ export default function SupportAssistantChat({
         role: 'assistant',
         content: "Hi! I'm here to help with your IT issue. What's going on?"
       }]);
-      
+
       setIsInitializing(false);
       return unsub;
     } catch (error) {
-      console.error('Failed to init conversation:', error);
-      if (!isCancelled()) toast.error('Failed to start support chat');
-      if (!isCancelled()) setIsInitializing(false);
+      toast.error('Failed to start support chat');
+      setIsInitializing(false);
       return null;
     }
   };
@@ -155,7 +141,6 @@ export default function SupportAssistantChat({
 
       await client.agents.addMessage(conversation, messagePayload);
     } catch (error) {
-      console.error('Failed to send message:', error);
       toast.error(error.message || 'Failed to send message');
     } finally {
       setIsLoading(false);
@@ -174,7 +159,6 @@ export default function SupportAssistantChat({
         setAttachedImages(prev => [...prev, file_url]);
       }
     } catch (error) {
-      console.error('Failed to upload file:', error);
       toast.error(error.message || 'Failed to upload file');
     } finally {
       setIsUploading(false);
@@ -197,7 +181,6 @@ export default function SupportAssistantChat({
           const { file_url } = await client.integrations.Core.UploadFile({ file });
           setAttachedImages(prev => [...prev, file_url]);
         } catch (error) {
-          console.error('Failed to upload pasted image:', error);
           toast.error(error.message || 'Failed to upload pasted image');
         } finally {
           setIsUploading(false);

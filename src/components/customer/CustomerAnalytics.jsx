@@ -3,12 +3,9 @@ import {
   DollarSign,
   TrendingUp,
   HelpCircle,
-  FileText,
   Cloud
 } from 'lucide-react';
 import {
-  LineChart,
-  Line,
   AreaChart,
   Area,
   BarChart,

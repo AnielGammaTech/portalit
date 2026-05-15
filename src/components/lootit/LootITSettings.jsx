@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Pencil, Trash2, Save, X, Sparkles } from 'lucide-react';
+import { Plus, Pencil, Trash2, Save, Sparkles } from 'lucide-react';
 import { useReconciliationRules } from '@/hooks/useReconciliationRules';
 import { INTEGRATION_LABELS } from '@/lib/lootit-reconciliation';
 

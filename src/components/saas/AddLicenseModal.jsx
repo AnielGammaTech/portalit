@@ -116,8 +116,8 @@ Return JSON with:
           category: result.category || prev.category
         }));
       }
-    } catch (error) {
-      console.warn('Could not fetch app info:', error);
+    } catch (_error) {
+      // Non-critical: auto-fetch is best-effort
     } finally {
       setIsLoadingLogo(false);
       setIsLoadingInfo(false);

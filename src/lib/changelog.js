@@ -3,6 +3,26 @@
 
 export const CHANGELOG = [
   {
+    version: '1.6.0',
+    date: '2026-04-20',
+    changes: [
+      'LootIT — Audit log fixed: entries now appear correctly (was querying wrong column + broken FK join)',
+      'LootIT — "Approved as-is" actions now logged to audit trail with user name and reason',
+      'LootIT — Note and exclusion saving: errors now surface as toast messages instead of silently failing',
+      'LootIT — Dashboard: hidden empty "No Vendor" cards with no data',
+      'LootIT — Dashboard: auto-matched items show "Auto-matched" instead of "Pending by Unknown"',
+      'LootIT — Dashboard: snapshot cards now show exclusion-adjusted vendor qty with "-N excluded" indicator',
+      'LootIT — Stale badge no longer clipped on reconciliation cards',
+      'LootIT — Sign-off blocks when unresolved items remain (including unmatched and missing-from-PSA)',
+      'LootIT — Matched count in header and filter tabs now includes force-matched items',
+      'LootIT — EDR sync: fixed wrong action name, auth sign-off on timeout, sync_logs column mismatch',
+      'LootIT — Staleness badges, due banner, and dashboard Due column added',
+      'LootIT — RecurringTab: fixed stale dependency array, filtered discount/zero-qty items',
+      'LootIT — Rule cards: suppressed no-PSA-data cards when vendor covered by override',
+      'LootIT — Dashboard: filtered snapshots to only show cards with actual data',
+    ],
+  },
+  {
     version: '1.5.0',
     date: '2026-03-24',
     changes: [

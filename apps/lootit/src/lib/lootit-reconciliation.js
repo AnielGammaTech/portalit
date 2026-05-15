@@ -107,6 +107,12 @@ const VENDOR_EXTRACTORS = {
     if (typeof data.summary?.firewalls === 'number') return data.summary.firewalls;
     return null;
   },
+  unifi_location: (data) => {
+    if (!data) return null;
+    if (Array.isArray(data.devices)) return data.devices.filter(d => d.type === 'firewall' || d.device_type === 'firewall' || d.model?.toLowerCase().includes('udm') || d.model?.toLowerCase().includes('usg') || d.model?.toLowerCase().includes('gateway')).length;
+    if (typeof data.summary?.firewalls === 'number') return data.summary.firewalls;
+    return null;
+  },
 
   rocket_cyber: (data) => {
     if (!data) return null;
@@ -152,6 +158,28 @@ const VENDOR_EXTRACTORS = {
     }
     return null;
   },
+
+  cipp: (data) => {
+    if (!data) return null;
+    if (Array.isArray(data.users)) return data.users.length;
+    if (typeof data.users === 'number') return data.users;
+    return null;
+  },
+
+  cipp_licensed: (data) => {
+    if (!data) return null;
+    if (Array.isArray(data.users)) return data.users.filter(u => u.licenses).length;
+    if (typeof data.licensed_users === 'number') return data.licensed_users;
+    return null;
+  },
+
+  graphus: (data) => {
+    if (!data) return null;
+    if (typeof data.protected_users === 'number') return data.protected_users;
+    if (typeof data.total_users === 'number') return data.total_users;
+    if (Array.isArray(data.users)) return data.users.length;
+    return null;
+  },
 };
 
 /**
@@ -163,6 +191,10 @@ export function extractVendorCount(integrationKey, cachedData) {
   if (!extractor) return null;
   return extractor(cachedData);
 }
+
+const VENDOR_DATA_ALIAS = {
+  unifi_location: 'unifi_firewall',
+};
 
 // ── Mapping table keys ─────────────────────────────────────────────────
 
@@ -179,12 +211,16 @@ export const INTEGRATION_MAPPING_ENTITIES = {
   datto_edr: 'DattoEDRMapping',
   unifi: 'UniFiMapping',
   unifi_firewall: 'UniFiMapping',
+  unifi_location: 'UniFiMapping',
   rocket_cyber: 'RocketCyberMapping',
   darkweb: 'DarkWebIDReport',
   bullphish: 'BullPhishIDReport',
   threecx: 'ThreeCXReport',
   inky: 'InkyReport',
   pax8: 'Pax8Mapping',
+  cipp: 'CIPPMapping',
+  cipp_licensed: 'CIPPMapping',
+  graphus: 'GraphusMapping',
 };
 
 export const INTEGRATION_LABELS = {
@@ -200,12 +236,16 @@ export const INTEGRATION_LABELS = {
   datto_edr: 'Datto EDR',
   unifi: 'UniFi Network',
   unifi_firewall: 'UniFi Firewall',
+  unifi_location: 'UniFi Location',
   rocket_cyber: 'RocketCyber',
   darkweb: 'Dark Web ID',
   bullphish: 'BullPhish ID',
   threecx: '3CX VoIP',
   inky: 'Inky',
   pax8: 'Pax8',
+  cipp: 'CIPP Users',
+  cipp_licensed: 'CIPP Licensed Users',
+  graphus: 'Graphus Email Security',
 };
 
 // ── Rule matching ──────────────────────────────────────────────────────
@@ -221,7 +261,16 @@ export function lineItemMatchesRule(lineItem, rule) {
   if (!pattern) return false;
   // Support pipe-separated patterns (OR logic): "JumpCloud|Jump Cloud"
   const patterns = pattern.split('|').map(p => p.trim()).filter(Boolean);
-  return patterns.some(p => value.includes(p));
+  return patterns.some(p => {
+    // Whole-word match so short tokens like "EDR" don't match "OneDrive".
+    const escaped = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    try {
+      return new RegExp(`\\b${escaped}\\b`, 'i').test(value);
+    } catch {
+      // Defensive: fall back to substring match if regex compile fails.
+      return value.includes(p);
+    }
+  });
 }
 
 /**
@@ -289,7 +338,7 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
   // Track which line items are matched by any rule or override
   const matchedLineItemIds = new Set();
 
-  // Build multi-mapping lookup: rule_id → parsed JSON items with summed qty
+  // Build vendor-mapping lookup: rule_id → { items, totalQty }
   const multiMappingMap = {};
   for (const ov of overrides) {
     if (ov.pax8_product_name && ov.pax8_product_name.startsWith('[')) {
@@ -302,57 +351,100 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
           };
         }
       } catch {}
+    } else if (ov.group_id?.startsWith('qty:') && ov.rule_id && !ov.rule_id.startsWith('unmatched_')) {
+      const parsedQty = parseFloat(ov.group_id.replace('qty:', ''));
+      const qty = Number.isFinite(parsedQty) ? parsedQty : 0;
+      multiMappingMap[ov.rule_id] = {
+        items: [{ id: ov.pax8_product_name, name: ov.pax8_product_name, qty }],
+        totalQty: qty,
+      };
     }
   }
 
-  const ruleResults = activeRules.map((rule) => {
-    // 1. Check for manual overrides first, then fall back to pattern matching
-    const overrideIds = overrideMap[rule.id] || [];
-    const overrideItems = overrideIds.map(resolveOverrideItem).filter(Boolean);
-    const matched = overrideItems.length > 0
-      ? overrideItems
-      : lineItems.filter((li) => lineItemMatchesRule(li, rule));
-    const psaQty = matched.reduce((sum, li) => sum + (parseFloat(li.quantity) || 0), 0);
-    const hasPsaData = matched.length > 0;
+  // Group rules by integration_key so multiple patterns merge into one card
+  const rulesByIntegration = new Map();
+  for (const rule of activeRules) {
+    const key = rule.integration_key || rule.id;
+    if (!rulesByIntegration.has(key)) rulesByIntegration.set(key, []);
+    rulesByIntegration.get(key).push(rule);
+  }
 
-    // Track matched line items
-    for (const li of matched) matchedLineItemIds.add(li.id);
+  const ruleResults = [...rulesByIntegration.entries()].map(([integrationKey, rules]) => {
+    const primaryRule = rules[0];
 
-    // 2. Extract vendor count — check multi-mapping overrides first, then integration cached_data
-    const multiMapping = multiMappingMap[rule.id];
-    const mapping = mappings[rule.integration_key];
+    // 1. Collect matched line items across all rules in this group
+    const allMatched = [];
+    const allRuleIds = rules.map(r => r.id);
+    for (const rule of rules) {
+      const overrideIds = overrideMap[rule.id] || [];
+      const overrideItems = overrideIds.map(resolveOverrideItem).filter(Boolean);
+      const matched = overrideItems.length > 0
+        ? overrideItems
+        : lineItems.filter((li) => lineItemMatchesRule(li, rule));
+      for (const li of matched) {
+        if (!allMatched.some(m => m.id === li.id)) allMatched.push(li);
+      }
+    }
+    const psaQty = allMatched.reduce((sum, li) => sum + (parseFloat(li.quantity) || 0), 0);
+    const hasPsaData = allMatched.length > 0;
+
+    for (const li of allMatched) matchedLineItemIds.add(li.id);
+
+    // 2. Extract vendor count — check multi-mapping overrides first
+    let multiMapping = null;
+    for (const ruleId of allRuleIds) {
+      if (multiMappingMap[ruleId]) { multiMapping = multiMappingMap[ruleId]; break; }
+    }
+    const mapping = mappings[integrationKey] || mappings[VENDOR_DATA_ALIAS[integrationKey]];
     const vendorQty = multiMapping
       ? multiMapping.totalQty
       : mapping
-        ? extractVendorCount(rule.integration_key, mapping.cached_data)
+        ? extractVendorCount(integrationKey, mapping.cached_data)
         : null;
     const hasVendorData = vendorQty !== null;
 
-    // 3. Calculate difference and status
-    const difference = hasPsaData && hasVendorData ? psaQty - vendorQty : 0;
+    // 3. Look up review (check all rule IDs in group)
+    let review = null;
+    for (const ruleId of allRuleIds) {
+      if (reviewMap[ruleId]) { review = reviewMap[ruleId]; break; }
+    }
+
+    // 4. Apply vendor_divisor
+    const divisor = review?.vendor_divisor || 1;
+    let adjustedVendorQty = hasVendorData && divisor > 1
+      ? Math.ceil(vendorQty / divisor)
+      : vendorQty;
+
+    const exclusionCount = review?.exclusion_count || 0;
+    if (hasVendorData && exclusionCount > 0) {
+      adjustedVendorQty = Math.max(0, adjustedVendorQty - exclusionCount);
+    }
+
+    // 5. Calculate difference and status
+    const difference = hasPsaData && hasVendorData ? psaQty - adjustedVendorQty : 0;
     let status = 'no_data';
     if (hasPsaData && hasVendorData) {
       if (difference === 0) status = 'match';
       else if (difference > 0) status = 'over';
       else status = 'under';
-    } else if (!hasPsaData && hasVendorData && vendorQty > 0) {
+    } else if (!hasPsaData && hasVendorData && adjustedVendorQty > 0) {
       status = 'no_psa_data';
     } else if (hasPsaData && !hasVendorData) {
       status = 'no_vendor_data';
     }
 
-    // 4. Attach review info
-    const review = reviewMap[rule.id] || null;
-
     return {
-      rule,
+      rule: primaryRule,
+      allRuleIds,
       psaQty: hasPsaData ? psaQty : null,
-      vendorQty,
+      vendorQty: hasVendorData ? adjustedVendorQty : null,
+      rawVendorQty: vendorQty,
+      vendorDivisor: divisor,
       difference,
       status,
-      matchedLineItems: matched,
+      matchedLineItems: allMatched,
       review,
-      integrationLabel: INTEGRATION_LABELS[rule.integration_key] || rule.integration_key,
+      integrationLabel: INTEGRATION_LABELS[integrationKey] || integrationKey,
     };
   });
 
@@ -421,6 +513,14 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
       const review = reviewMap[ov.rule_id] || reviewMap[liId] || null;
       const approvalNote = isApprovedAsIs && ov.group_id ? ov.group_id.replace('approved:', '') : null;
       const vendorLabel = vendorKey && !isApprovedAsIs ? (INTEGRATION_LABELS[vendorKey] || vendorKey) : null;
+      const syntheticReview = isApprovedAsIs
+        ? (review || {
+            status: 'force_matched',
+            notes: approvalNote,
+            reviewed_at: ov.updated_date || ov.created_date || new Date().toISOString(),
+            reviewed_by_name: ov.created_by_name || 'System',
+          })
+        : review;
       overridedUnmatchedResults.push({
         rule: {
           id: ov.rule_id,
@@ -433,26 +533,12 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
         difference,
         status,
         matchedLineItems: [li],
-        review: isApprovedAsIs ? { status: 'force_matched', notes: approvalNote } : review,
+        review: syntheticReview,
         integrationLabel: isApprovedAsIs ? 'Approved as-is' : multiMapping ? `Mapped to ${multiMapping.items.length} vendor item(s)` : (vendorLabel ? `Mapped → ${vendorLabel}` : 'Manually Mapped'),
         isUnmatchedLineItem: false,
       });
     }
   }
-
-  // 5b. Suppress rule cards with no PSA data when that vendor is already covered by an override
-  const overrideCoveredKeys = new Set();
-  for (const ov of overrides) {
-    if (ov.rule_id?.startsWith('unmatched_') && ov.pax8_product_name && ov.pax8_product_name !== 'approved_as_is') {
-      overrideCoveredKeys.add(ov.pax8_product_name);
-    }
-  }
-  const filteredRuleResults = ruleResults.filter((r) => {
-    if (r.status === 'no_psa_data' && overrideCoveredKeys.has(r.rule.integration_key)) {
-      return false;
-    }
-    return true;
-  });
 
   // 6. Add remaining unmatched line items
   for (const id of pax8MatchedIds) {
@@ -466,24 +552,52 @@ export function reconcileCustomer(lineItems, mappings, rules, reviews = [], over
     !(li.description || '').toLowerCase().startsWith('discount')
   );
 
-  const unmatchedResults = unmatchedItems.map((li) => ({
-    rule: {
-      id: `unmatched_${li.id}`,
-      label: (li.description || 'Unknown').replace(/\s*\$recurringbillingdate\s*/gi, '').trim() || li.description,
-      integration_key: 'unmatched',
-      is_active: true,
-    },
-    psaQty: parseFloat(li.quantity) || 0,
-    vendorQty: null,
-    difference: 0,
-    status: 'unmatched_line_item',
-    matchedLineItems: [li],
-    review: null,
-    integrationLabel: 'Unmatched Billing Item',
-    isUnmatchedLineItem: true,
-  }));
+  const unmatchedResults = unmatchedItems.map((li) => {
+    const unmatchedRuleId = `unmatched_${li.id}`;
+    return {
+      rule: {
+        id: unmatchedRuleId,
+        label: (li.description || 'Unknown').replace(/\s*\$recurringbillingdate\s*/gi, '').trim() || li.description,
+        integration_key: 'unmatched',
+        is_active: true,
+      },
+      psaQty: parseFloat(li.quantity) || 0,
+      vendorQty: null,
+      difference: 0,
+      status: 'unmatched_line_item',
+      matchedLineItems: [li],
+      review: reviewMap[unmatchedRuleId] || reviewMap[li.id] || null,
+      integrationLabel: 'Unmatched Billing Item',
+      isUnmatchedLineItem: true,
+    };
+  });
 
-  return [...filteredRuleResults, ...overridedUnmatchedResults, ...unmatchedResults];
+  // Dedup: when the same line item appears in multiple cards (e.g. a rule card
+  // AND a manual override card), keep whichever has vendor data. If tied, prefer
+  // the override (user's explicit mapping) over the auto-rule.
+  const allCards = [...ruleResults, ...overridedUnmatchedResults, ...unmatchedResults];
+  const lineItemCardIndex = new Map();
+  for (let i = 0; i < allCards.length; i++) {
+    for (const li of allCards[i].matchedLineItems || []) {
+      if (!lineItemCardIndex.has(li.id)) lineItemCardIndex.set(li.id, []);
+      lineItemCardIndex.get(li.id).push(i);
+    }
+  }
+
+  const cardsToRemove = new Set();
+  for (const cardIndices of lineItemCardIndex.values()) {
+    if (cardIndices.length <= 1) continue;
+    const sorted = [...cardIndices].sort((a, b) => {
+      const ca = allCards[a];
+      const cb = allCards[b];
+      const aScore = (ca.vendorQty !== null ? 2 : 0) + (ca.isUnmatchedLineItem ? 0 : 1);
+      const bScore = (cb.vendorQty !== null ? 2 : 0) + (cb.isUnmatchedLineItem ? 0 : 1);
+      return bScore - aScore;
+    });
+    for (let i = 1; i < sorted.length; i++) cardsToRemove.add(sorted[i]);
+  }
+
+  return allCards.filter((_, i) => !cardsToRemove.has(i));
 }
 
 // ── Pax8 per-subscription auto-reconciliation ────────────────────────
@@ -691,12 +805,10 @@ export function getDiscrepancySummary(reconciliations) {
   for (const r of reconciliations) {
     summary.total++;
 
-    // Force-matched items count as matched regardless of actual status
-    if (r.review?.status === 'force_matched') {
-      summary.forceMatched++;
-      summary.matched++;
-      continue;
-    }
+    const reviewStatus = r.review?.status;
+    if (reviewStatus === 'force_matched') { summary.forceMatched++; continue; }
+    if (reviewStatus === 'dismissed') { summary.dismissed++; continue; }
+    if (reviewStatus === 'reviewed') { summary.reviewed++; continue; }
 
     if (r.status === 'match') summary.matched++;
     else if (r.status === 'over') summary.over++;
@@ -705,9 +817,6 @@ export function getDiscrepancySummary(reconciliations) {
     else if (r.status === 'no_data') summary.noData++;
     else if (r.status === 'unmatched_line_item' || r.status === 'no_vendor_data') summary.unmatched++;
     else summary.noData++;
-
-    if (r.review?.status === 'reviewed') summary.reviewed++;
-    else if (r.review?.status === 'dismissed') summary.dismissed++;
   }
 
   return summary;

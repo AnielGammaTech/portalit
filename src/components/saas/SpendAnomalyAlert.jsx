@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { client } from '@/api/client';
-import { AlertTriangle, TrendingUp, Loader2, X, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
+import { AlertTriangle, Loader2, X, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -83,8 +83,8 @@ Be specific with dollar amounts and percentages. Focus on actionable insights.`,
       });
 
       setAnalysis(result);
-    } catch (error) {
-      console.error('Anomaly detection failed:', error);
+    } catch (_error) {
+      // AI analysis is non-critical; fail silently
     } finally {
       setIsLoading(false);
     }

@@ -25,11 +25,12 @@ import {
 
 export default function DattoEDRConfig() {
   const [testing, setTesting] = useState(false);
-  // configStatus is now derived from data, not manual state
+  const [connectionSuccess, setConnectionSuccess] = useState(null);
   const [loadingTenants, setLoadingTenants] = useState(false);
   const [edrTenants, setEdrTenants] = useState([]);
   const [syncing, setSyncing] = useState(false);
   const [automapping, setAutomapping] = useState(false);
+  const [connectionError, setConnectionError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTab, setFilterTab] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -55,7 +56,7 @@ export default function DattoEDRConfig() {
       const { data } = await supabase
         .from('sync_logs')
         .select('completed_at')
-        .eq('sync_type', 'datto_edr')
+        .eq('source', 'datto_edr')
         .eq('status', 'success')
         .order('completed_at', { ascending: false })
         .limit(1);
@@ -92,7 +93,7 @@ export default function DattoEDRConfig() {
       return {
         tenantId,
         tenantName: tenant.name,
-        hostCount: tenant.host_count || 0,
+        hostCount: tenant.deviceCount || tenant.host_count || 0,
         mapping,
         isMapped: Boolean(mapping),
         isStale: mapping ? isStale(mapping.last_synced) : false,
@@ -105,7 +106,7 @@ export default function DattoEDRConfig() {
         rows.push({
           tenantId: normalizeId(mapping.edr_tenant_id),
           tenantName: mapping.edr_tenant_name || mapping.edr_tenant_id,
-          hostCount: 0,
+          hostCount: mapping.cached_data?.hostCount || 0,
           mapping,
           isMapped: true,
           isStale: isStale(mapping.last_synced),
@@ -168,15 +169,20 @@ export default function DattoEDRConfig() {
 
   const testConnection = useCallback(async () => {
     setTesting(true);
+    setConnectionError(null);
     try {
       const response = await client.functions.invoke('syncDattoEDR', { action: 'test_connection' });
       if (response.success) {
-                toast.success('Connected to Datto EDR');
+        setConnectionError(null);
+        setConnectionSuccess(response.message || 'Connected to Datto EDR');
+        setTimeout(() => setConnectionSuccess(null), 8000);
       } else {
-                toast.error(response.error || 'Connection failed');
+        setConnectionSuccess(null);
+        setConnectionError(response.error || 'Connection failed');
       }
     } catch (error) {
-            toast.error(error.message || 'Connection test failed');
+      setConnectionSuccess(null);
+      setConnectionError(error.message || 'Connection test failed');
     } finally {
       setTesting(false);
     }
@@ -189,11 +195,14 @@ export default function DattoEDRConfig() {
       if (response.success) {
         setEdrTenants(response.tenants || []);
         setCurrentPage(1);
-                toast.success(`Found ${response.tenants?.length || 0} EDR tenants`);
+        setConnectionError(null);
+        toast.success(`Found ${response.tenants?.length || 0} EDR tenants`);
       } else {
+        setConnectionError(response.error || 'Failed to fetch tenants');
         toast.error(response.error || 'Failed to fetch tenants');
       }
     } catch (error) {
+      setConnectionError(error.message || 'Failed to connect to Datto EDR');
       toast.error(error.message || 'Failed to connect to Datto EDR');
     } finally {
       setLoadingTenants(false);
@@ -344,6 +353,36 @@ export default function DattoEDRConfig() {
         </Button>
       </IntegrationHeader>
 
+      {/* Connection Success Banner */}
+      {connectionSuccess && (
+        <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700">
+          <span className="text-sm font-medium flex-shrink-0">Connected:</span>
+          <span className="text-sm">{connectionSuccess}</span>
+          <button
+            type="button"
+            onClick={() => setConnectionSuccess(null)}
+            className="ml-auto text-emerald-400 hover:text-emerald-600 text-xs flex-shrink-0"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Connection Error Banner */}
+      {connectionError && (
+        <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700">
+          <span className="text-sm font-medium flex-shrink-0">Connection Error:</span>
+          <span className="text-sm">{connectionError}</span>
+          <button
+            type="button"
+            onClick={() => setConnectionError(null)}
+            className="ml-auto text-red-400 hover:text-red-600 text-xs flex-shrink-0"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Filter Tabs + Search */}
       <FilterBar
         filterTab={filterTab}
@@ -429,15 +468,29 @@ function TenantRow({ row, customers, getCustomerName, onMap, onDelete, isOdd }) 
   const syncTime = row.mapping ? getRelativeTime(row.mapping.last_synced) : null;
   const statusDot = getRowStatusDot(row.mapping);
 
+  const [resyncing, setResyncing] = useState(false);
+  const queryClient = useQueryClient();
+
   const handleResync = useCallback(async () => {
     if (!row.mapping) return;
+    setResyncing(true);
     try {
-      await client.functions.invoke('syncDattoEDR', { action: 'sync_all' });
-      toast.success(`Re-synced ${row.tenantName}`);
+      const response = await client.functions.invoke('syncDattoEDR', {
+        action: 'sync_customer',
+        customer_id: row.mapping.customer_id,
+      });
+      if (response.success) {
+        toast.success(`Synced ${row.tenantName} — ${response.data?.hostCount || 0} hosts`);
+        queryClient.invalidateQueries({ queryKey: ['datto-edr-mappings'] });
+      } else {
+        toast.error(response.error || `Sync failed for ${row.tenantName}`);
+      }
     } catch (err) {
       toast.error(`Sync failed: ${err.message}`);
+    } finally {
+      setResyncing(false);
     }
-  }, [row.mapping, row.tenantName]);
+  }, [row.mapping, row.tenantName, queryClient]);
 
   return (
     <MappingRow

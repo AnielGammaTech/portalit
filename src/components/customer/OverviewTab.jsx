@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { staggerContainer, staggerItem, fadeInUp } from '@/lib/motion';
-import { Link } from 'react-router-dom';
-import { createPageUrl } from '../../utils';
 import {
   Users,
   DollarSign,
@@ -11,17 +9,9 @@ import {
   RefreshCw,
   ChevronRight,
   UserPlus,
-  TrendingUp,
-  Zap,
   HelpCircle,
   Send,
-  Bot,
-  ArrowRight,
-  Monitor,
-  Receipt,
-  CheckCircle2,
   AlertCircle,
-  Clock,
   Loader2,
   UserCheck,
   UserMinus,
@@ -67,7 +57,7 @@ const StatCard = ({ icon: Icon, label, value, subtext, color = 'purple', delay =
   return (
     <motion.div
       variants={staggerItem}
-      className="bg-card rounded-[14px] border shadow-hero-sm p-4 hover:shadow-hero-md transition-all duration-[250ms]"
+      className="bg-card rounded-[14px] border shadow-hero-sm p-4 hover:shadow-hero-md transition-all duration-200"
     >
       <div className="flex items-center gap-3">
         <div className={cn('w-10 h-10 rounded-hero-md flex items-center justify-center', c.bg)}>
@@ -96,7 +86,7 @@ const ContractCard = ({ contract }) => {
     <motion.div
       variants={staggerItem}
       className={cn(
-        "group flex items-center justify-between p-4 rounded-hero-md border transition-all duration-[250ms] cursor-pointer",
+        "group flex items-center justify-between p-4 rounded-hero-md border transition-all duration-200 cursor-pointer",
         "hover:shadow-hero-sm",
         contract.status === 'active' ? "bg-card border-border" : "bg-zinc-50 dark:bg-zinc-800/50 border-border/50"
       )}
@@ -107,7 +97,7 @@ const ContractCard = ({ contract }) => {
           contract.status === 'active' ? "bg-success" : "bg-zinc-300 dark:bg-zinc-600"
         )} />
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-foreground truncate group-hover:text-primary transition-colors duration-[250ms]">
+          <p className="font-semibold text-foreground truncate group-hover:text-primary transition-colors duration-200">
             {contract.name}
           </p>
           <p className="text-sm text-muted-foreground mt-0.5">
@@ -139,7 +129,7 @@ const ContractCard = ({ contract }) => {
             )}>{safeFormatDate(renewalDate, 'MMM d')}</p>
           </div>
         )}
-        <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors duration-[250ms]" />
+        <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors duration-200" />
       </div>
     </motion.div>
   );
@@ -149,13 +139,13 @@ const TeamMemberCard = ({ contact, onClick }) => (
   <motion.div
     variants={staggerItem}
     onClick={onClick}
-    className="flex items-center gap-3 p-3.5 rounded-hero-md hover:bg-zinc-50 dark:hover:bg-zinc-800/50 hover:shadow-hero-sm transition-all duration-[250ms] cursor-pointer group"
+    className="flex items-center gap-3 p-3.5 rounded-hero-md hover:bg-zinc-50 dark:hover:bg-zinc-800/50 hover:shadow-hero-sm transition-all duration-200 cursor-pointer group"
   >
     <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-medium shadow-sm text-base">
       {contact.full_name?.charAt(0) || '?'}
     </div>
     <div className="flex-1 min-w-0">
-      <p className="font-semibold text-foreground truncate group-hover:text-primary transition-colors duration-[250ms] text-sm">
+      <p className="font-semibold text-foreground truncate group-hover:text-primary transition-colors duration-200 text-sm">
         {contact.full_name}
       </p>
       <p className="text-xs text-muted-foreground truncate">{contact.email || contact.title || 'No email'}</p>
@@ -163,7 +153,7 @@ const TeamMemberCard = ({ contact, onClick }) => (
     {contact.is_primary && (
       <Badge variant="flat" className="text-[10px]">Primary</Badge>
     )}
-    <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-primary transition-colors duration-[250ms]" />
+    <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-primary transition-colors duration-200" />
   </motion.div>
 );
 
@@ -223,7 +213,7 @@ export default function OverviewTab({
           // Get license details
           const licenseDetails = await Promise.all(assignments.map(async (a) => {
             const licenses = await client.entities.SaaSLicense.filter({ id: a.license_id });
-            return licenses[0]?.application_name || 'Unknown License';
+            return (licenses ?? [])[0]?.application_name || 'Unknown License';
           }));
           return { ...alert, metadata, licenseNames: licenseDetails };
         }
@@ -312,7 +302,7 @@ export default function OverviewTab({
         <motion.div {...fadeInUp} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <button
             onClick={() => setShowTicketModal(true)}
-            className="group flex items-center gap-4 p-4 bg-card rounded-[14px] border shadow-hero-sm hover:shadow-hero-md hover:border-emerald-200 transition-all duration-[250ms]"
+            className="group flex items-center gap-4 p-4 bg-card rounded-[14px] border shadow-hero-sm hover:shadow-hero-md hover:border-emerald-200 transition-all duration-200"
           >
             <div className="w-11 h-11 rounded-hero-md bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
               <UserCheck className="w-5 h-5 text-emerald-600" />
@@ -327,7 +317,7 @@ export default function OverviewTab({
               setNewTicket(prev => ({ ...prev, summary: 'Offboard User Request' }));
               setShowTicketModal(true);
             }}
-            className="group flex items-center gap-4 p-4 bg-card rounded-[14px] border shadow-hero-sm hover:shadow-hero-md hover:border-red-200 transition-all duration-[250ms]"
+            className="group flex items-center gap-4 p-4 bg-card rounded-[14px] border shadow-hero-sm hover:shadow-hero-md hover:border-red-200 transition-all duration-200"
           >
             <div className="w-11 h-11 rounded-hero-md bg-red-100 flex items-center justify-center group-hover:bg-red-200 transition-colors">
               <UserMinus className="w-5 h-5 text-red-600" />
@@ -342,7 +332,7 @@ export default function OverviewTab({
               setNewTicket(prev => ({ ...prev, summary: 'Hardware / Quote Request' }));
               setShowTicketModal(true);
             }}
-            className="group flex items-center gap-4 p-4 bg-card rounded-[14px] border shadow-hero-sm hover:shadow-hero-md hover:border-blue-200 transition-all duration-[250ms]"
+            className="group flex items-center gap-4 p-4 bg-card rounded-[14px] border shadow-hero-sm hover:shadow-hero-md hover:border-blue-200 transition-all duration-200"
           >
             <div className="w-11 h-11 rounded-hero-md bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
               <Package className="w-5 h-5 text-blue-600" />
@@ -421,7 +411,7 @@ export default function OverviewTab({
         {/* Billing Summary */}
         <motion.div
           variants={staggerItem}
-          className="bg-card rounded-[14px] border shadow-hero-sm overflow-hidden cursor-pointer hover:shadow-hero-md transition-all duration-[250ms]"
+          className="bg-card rounded-[14px] border shadow-hero-sm overflow-hidden cursor-pointer hover:shadow-hero-md transition-all duration-200"
           onClick={() => document.querySelector('[value="billing"]')?.click()}
         >
           <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between">
@@ -457,7 +447,7 @@ export default function OverviewTab({
         {/* Quotes */}
         <motion.div
           variants={staggerItem}
-          className="bg-card rounded-[14px] border shadow-hero-sm overflow-hidden cursor-pointer hover:shadow-hero-md transition-all duration-[250ms]"
+          className="bg-card rounded-[14px] border shadow-hero-sm overflow-hidden cursor-pointer hover:shadow-hero-md transition-all duration-200"
           onClick={() => document.querySelector('[value="billing"]')?.click()}
         >
           <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between">
@@ -486,7 +476,7 @@ export default function OverviewTab({
         {/* Tickets */}
         <motion.div
           variants={staggerItem}
-          className="bg-card rounded-[14px] border shadow-hero-sm overflow-hidden cursor-pointer hover:shadow-hero-md transition-all duration-[250ms]"
+          className="bg-card rounded-[14px] border shadow-hero-sm overflow-hidden cursor-pointer hover:shadow-hero-md transition-all duration-200"
           onClick={() => document.querySelector('[value="tickets"]')?.click()}
         >
           <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between">
@@ -511,7 +501,7 @@ export default function OverviewTab({
         {/* Devices */}
         <motion.div
           variants={staggerItem}
-          className="bg-card rounded-[14px] border shadow-hero-sm overflow-hidden cursor-pointer hover:shadow-hero-md transition-all duration-[250ms]"
+          className="bg-card rounded-[14px] border shadow-hero-sm overflow-hidden cursor-pointer hover:shadow-hero-md transition-all duration-200"
           onClick={() => document.querySelector('[value="devices"]')?.click()}
         >
           <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between">
@@ -539,10 +529,10 @@ export default function OverviewTab({
         {/* Team Members */}
         <motion.div
           variants={staggerItem}
-          className="bg-card rounded-[14px] border shadow-hero-sm overflow-hidden hover:shadow-hero-md transition-all duration-[250ms]"
+          className="bg-card rounded-[14px] border shadow-hero-sm overflow-hidden hover:shadow-hero-md transition-all duration-200"
         >
           <div
-            className="px-4 py-3 border-b border-border/50 flex items-center justify-between cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors duration-[250ms]"
+            className="px-4 py-3 border-b border-border/50 flex items-center justify-between cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors duration-200"
             onClick={() => setShowTeamModal(true)}
           >
             <div className="flex items-center gap-2">
@@ -567,7 +557,7 @@ export default function OverviewTab({
               <div
                 key={contact.id}
                 onClick={() => setSelectedContact(contact)}
-                className="flex items-center gap-2.5 p-2.5 rounded-hero-sm hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors duration-[250ms]"
+                className="flex items-center gap-2.5 p-2.5 rounded-hero-sm hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors duration-200"
               >
                 <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-sm font-medium">
                   {contact.full_name?.charAt(0)}
@@ -578,7 +568,7 @@ export default function OverviewTab({
             ))}
             {contacts.length > 3 && (
               <p
-                className="text-xs text-muted-foreground text-center hover:text-primary cursor-pointer py-1 transition-colors duration-[250ms]"
+                className="text-xs text-muted-foreground text-center hover:text-primary cursor-pointer py-1 transition-colors duration-200"
                 onClick={() => setShowTeamModal(true)}
               >
                 +{contacts.length - 3} more
@@ -590,7 +580,7 @@ export default function OverviewTab({
         {/* SaaS Metrics */}
         <motion.div
           variants={staggerItem}
-          className="bg-card rounded-[14px] border shadow-hero-sm overflow-hidden cursor-pointer hover:shadow-hero-md transition-all duration-[250ms]"
+          className="bg-card rounded-[14px] border shadow-hero-sm overflow-hidden cursor-pointer hover:shadow-hero-md transition-all duration-200"
           onClick={() => document.querySelector('[value="licenses"]')?.click()}
         >
           <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between">
@@ -648,7 +638,7 @@ export default function OverviewTab({
               <div
                 key={contact.id}
                 onClick={() => { setShowTeamModal(false); setSelectedContact(contact); }}
-                className="flex items-center gap-3 p-3 rounded-hero-md hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors duration-[250ms]"
+                className="flex items-center gap-3 p-3 rounded-hero-md hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors duration-200"
               >
                 <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-medium">
                   {contact.full_name?.charAt(0)}

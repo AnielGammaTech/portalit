@@ -1,0 +1,146 @@
+<h2>Option A: Wizard-Style Verification Flow</h2>
+<p class="subtitle">Step-by-step reconciliation — must complete each step before advancing</p>
+
+<div class="mockup">
+  <div class="mockup-header">LootIT — Acme Corp — Reconciliation Wizard</div>
+  <div class="mockup-body" style="padding: 0; background: #1a1a2e; color: #e0e0e0; font-family: system-ui, sans-serif;">
+
+    <!-- Tab bar -->
+    <div style="display: flex; gap: 0; border-bottom: 2px solid #2E0820; background: #12121f;">
+      <div style="padding: 12px 24px; color: #888; cursor: pointer;">Dashboard</div>
+      <div style="padding: 12px 24px; color: #f472b6; border-bottom: 2px solid #f472b6; font-weight: 600; margin-bottom: -2px;">Reconciliation</div>
+      <div style="padding: 12px 24px; color: #888; cursor: pointer;">Recurring</div>
+      <div style="padding: 12px 24px; color: #888; cursor: pointer;">Contract</div>
+    </div>
+
+    <!-- Wizard progress bar -->
+    <div style="padding: 24px 32px 16px; background: #1e1e35;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+        <span style="font-size: 13px; color: #f472b6; font-weight: 600;">Step 2 of 4</span>
+        <span style="font-size: 12px; color: #888;">Last completed: Mar 15, 2026 by Daniel R.</span>
+      </div>
+      <div style="display: flex; gap: 4px; align-items: center;">
+        <!-- Step 1: Done -->
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+          <div style="width: 100%; height: 6px; border-radius: 3px; background: #22c55e;"></div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <div style="width: 24px; height: 24px; border-radius: 50%; background: #22c55e; display: flex; align-items: center; justify-content: center; font-size: 12px; color: white;">✓</div>
+            <span style="font-size: 11px; color: #22c55e;">Excluded Licenses</span>
+          </div>
+        </div>
+        <!-- Step 2: Active -->
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+          <div style="width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(90deg, #f472b6 60%, #333 60%);"></div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <div style="width: 24px; height: 24px; border-radius: 50%; background: #f472b6; display: flex; align-items: center; justify-content: center; font-size: 12px; color: white; font-weight: 700;">2</div>
+            <span style="font-size: 11px; color: #f472b6; font-weight: 600;">Manual Overrides</span>
+          </div>
+        </div>
+        <!-- Step 3: Pending -->
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+          <div style="width: 100%; height: 6px; border-radius: 3px; background: #333;"></div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <div style="width: 24px; height: 24px; border-radius: 50%; background: #333; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #666;">3</div>
+            <span style="font-size: 11px; color: #666;">Pax8 Mappings</span>
+          </div>
+        </div>
+        <!-- Step 4: Pending -->
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+          <div style="width: 100%; height: 6px; border-radius: 3px; background: #333;"></div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <div style="width: 24px; height: 24px; border-radius: 50%; background: #333; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #666;">4</div>
+            <span style="font-size: 11px; color: #666;">Sign Off</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2 content: Manual Overrides -->
+    <div style="padding: 24px 32px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+        <div>
+          <h3 style="margin: 0 0 4px; font-size: 18px; color: white;">Verify Manual Overrides</h3>
+          <p style="margin: 0; font-size: 13px; color: #888;">3 overrides were set during the last reconciliation. Confirm each is still accurate.</p>
+        </div>
+        <div style="background: #2E0820; padding: 6px 14px; border-radius: 20px; font-size: 12px; color: #f472b6;">
+          1 of 3 confirmed
+        </div>
+      </div>
+
+      <!-- Override cards -->
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+
+        <!-- Card 1: Confirmed -->
+        <div style="background: #162016; border: 1px solid #22c55e40; border-radius: 10px; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: #22c55e20; display: flex; align-items: center; justify-content: center; color: #22c55e; font-size: 16px;">✓</div>
+            <div>
+              <div style="font-size: 14px; font-weight: 600; color: white;">Microsoft 365 Business Premium → Grouped (3 subs)</div>
+              <div style="font-size: 12px; color: #888; margin-top: 2px;">PSA Qty: 45 | Vendor Qty: 15+15+15 = 45 | Override set Feb 20</div>
+            </div>
+          </div>
+          <span style="font-size: 12px; color: #22c55e; font-weight: 500;">Confirmed</span>
+        </div>
+
+        <!-- Card 2: Needs review (highlighted) -->
+        <div style="background: #1e1530; border: 2px solid #f472b6; border-radius: 10px; padding: 16px 20px; box-shadow: 0 0 20px #f472b620;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 16px;">
+              <div style="width: 36px; height: 36px; border-radius: 8px; background: #f472b620; display: flex; align-items: center; justify-content: center; color: #f472b6; font-size: 16px;">⚠</div>
+              <div>
+                <div style="font-size: 14px; font-weight: 600; color: white;">Datto EDR — Force Matched</div>
+                <div style="font-size: 12px; color: #888; margin-top: 2px;">PSA Qty: 28 | Vendor Qty: 25 | Diff: +3 | Override set Jan 8</div>
+                <div style="font-size: 12px; color: #f472b6; margin-top: 4px;">Note: "3 test machines excluded per Mike"</div>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid #333;">
+            <button style="background: #22c55e; color: white; border: none; padding: 8px 20px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 500;">Still Accurate</button>
+            <button style="background: transparent; color: #f472b6; border: 1px solid #f472b6; padding: 8px 20px; border-radius: 6px; font-size: 13px; cursor: pointer;">Needs Update</button>
+            <button style="background: transparent; color: #ef4444; border: 1px solid #ef444440; padding: 8px 20px; border-radius: 6px; font-size: 13px; cursor: pointer;">Remove Override</button>
+          </div>
+        </div>
+
+        <!-- Card 3: Pending -->
+        <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 10px; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; opacity: 0.6;">
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: #33333380; display: flex; align-items: center; justify-content: center; color: #666; font-size: 16px;">○</div>
+            <div>
+              <div style="font-size: 14px; font-weight: 600; color: #ccc;">Cove Backup — Approved As-Is</div>
+              <div style="font-size: 12px; color: #666; margin-top: 2px;">PSA Qty: 12 | No vendor match | Override set Dec 15</div>
+            </div>
+          </div>
+          <span style="font-size: 12px; color: #666;">Pending</span>
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 28px; padding-top: 20px; border-top: 1px solid #333;">
+        <button style="background: transparent; color: #888; border: 1px solid #444; padding: 10px 24px; border-radius: 8px; font-size: 13px; cursor: pointer;">← Back to Excluded Licenses</button>
+        <button style="background: #333; color: #666; border: none; padding: 10px 24px; border-radius: 8px; font-size: 13px; cursor: not-allowed;">Next: Pax8 Mappings →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 24px;">
+  <h3>How it works</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px;">
+    <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px;">
+      <div style="font-weight: 600; color: #f472b6; margin-bottom: 6px;">Step 1: Excluded Licenses</div>
+      <div style="font-size: 13px; color: #aaa;">Review all accounts marked as excluded (service accounts, test users, shared mailboxes). Confirm each is still valid or flag for removal.</div>
+    </div>
+    <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px;">
+      <div style="font-weight: 600; color: #f472b6; margin-bottom: 6px;">Step 2: Manual Overrides</div>
+      <div style="font-size: 13px; color: #aaa;">Every force match, approved-as-is, and grouped mapping. Confirm the reason is still valid or update/remove it.</div>
+    </div>
+    <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px;">
+      <div style="font-weight: 600; color: #f472b6; margin-bottom: 6px;">Step 3: Pax8 Mappings</div>
+      <div style="font-size: 13px; color: #aaa;">Verify vendor-to-PSA subscription mappings. Catch any new unmatched subscriptions or quantity changes since last review.</div>
+    </div>
+    <div style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px;">
+      <div style="font-weight: 600; color: #f472b6; margin-bottom: 6px;">Step 4: Sign Off</div>
+      <div style="font-size: 13px; color: #aaa;">Summary of all changes made during this session. Digital signature with timestamp, logged to audit trail. Dashboard updates immediately.</div>
+    </div>
+  </div>
+</div>

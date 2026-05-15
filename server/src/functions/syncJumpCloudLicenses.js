@@ -1,4 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
+import { fetchWithTimeout } from '../lib/sync-utils.js';
 
 const JUMPCLOUD_API_KEY = process.env.JUMPCLOUD_API_KEY;
 const JUMPCLOUD_PROVIDER_ID = process.env.JUMPCLOUD_PROVIDER_ID;
@@ -19,7 +20,7 @@ async function jumpcloudApiCall(endpoint, orgId = null) {
     headers['x-org-id'] = orgId;
   }
 
-  const response = await fetch(`${JUMPCLOUD_API_URL}${endpoint}`, { headers });
+  const response = await fetchWithTimeout(`${JUMPCLOUD_API_URL}${endpoint}`, { headers });
 
   if (!response.ok) {
     const error = await response.text();
@@ -44,7 +45,7 @@ async function jumpcloudV2ApiCall(endpoint, orgId = null) {
     headers['x-org-id'] = orgId;
   }
 
-  const response = await fetch(`https://console.jumpcloud.com/api/v2${endpoint}`, { headers });
+  const response = await fetchWithTimeout(`https://console.jumpcloud.com/api/v2${endpoint}`, { headers });
 
   if (!response.ok) {
     const error = await response.text();
@@ -379,9 +380,7 @@ export async function syncJumpCloudLicenses(body, user) {
   // Action: Sync licenses for a specific customer
   if (action === 'sync_licenses') {
     if (!customer_id) {
-      const err = new Error('customer_id is required');
-      err.statusCode = 400;
-      throw err;
+      return { success: false, error: 'customer_id is required' };
     }
 
     // Get the JumpCloud mapping for this customer
@@ -391,9 +390,7 @@ export async function syncJumpCloudLicenses(body, user) {
       .eq('customer_id', customer_id);
 
     if (!mappings || mappings.length === 0) {
-      const err = new Error('No JumpCloud organization mapped to this customer');
-      err.statusCode = 400;
-      throw err;
+      return { success: true, skipped: true, message: 'No JumpCloud organization mapped to this customer' };
     }
 
     const mapping = mappings[0];
@@ -580,7 +577,7 @@ export async function syncJumpCloudLicenses(body, user) {
       ssoApps: applications?.length || 0
     };
 
-    // Cache the data for future quick loads
+    // Cache the data for future quick loads (include user list for exclusion picker)
     await supabase
       .from('jump_cloud_mappings')
       .update({
@@ -591,7 +588,15 @@ export async function syncJumpCloudLicenses(body, user) {
           usersCreated,
           usersUpdated,
           licensesCreated: created,
-          licensesUpdated: updated
+          licensesUpdated: updated,
+          users: jcUsers.map(u => ({
+            id: u._id || u.id,
+            email: u.email,
+            username: u.username,
+            firstname: u.firstname,
+            lastname: u.lastname,
+            state: u.state || (u.activated ? 'ACTIVATED' : 'STAGED'),
+          })),
         }
       })
       .eq('id', mapping.id);
@@ -617,6 +622,43 @@ export async function syncJumpCloudLicenses(body, user) {
       try {
         const orgId = mapping.jumpcloud_org_id !== 'default' ? mapping.jumpcloud_org_id : null;
         const applications = await fetchAllApplications(orgId);
+
+        // Fetch system users for caching (exclusion picker)
+        let jcUsers = [];
+        try {
+          let skip = 0;
+          const pageLimit = 100;
+          while (true) {
+            const page = await jumpcloudApiCall(`/systemusers?limit=${pageLimit}&skip=${skip}`, orgId);
+            const results = page.results || [];
+            jcUsers = jcUsers.concat(results);
+            skip += results.length;
+            if (results.length < pageLimit || skip >= (page.totalCount || 0)) break;
+          }
+        } catch (err) {
+          console.error(`[JumpCloud] sync_all: Failed to fetch users for ${mapping.jumpcloud_org_name}:`, err.message);
+        }
+
+        // Cache user list for exclusion picker
+        await supabase
+          .from('jump_cloud_mappings')
+          .update({
+            last_synced: new Date().toISOString(),
+            cached_data: {
+              ...(mapping.cached_data || {}),
+              totalUsers: jcUsers.length,
+              ssoApps: applications?.length || 0,
+              users: jcUsers.map(u => ({
+                id: u._id || u.id,
+                email: u.email,
+                username: u.username,
+                firstname: u.firstname,
+                lastname: u.lastname,
+                state: u.state || (u.activated ? 'ACTIVATED' : 'STAGED'),
+              })),
+            },
+          })
+          .eq('id', mapping.id);
 
         const { data: existingLicenses } = await supabase
           .from('saas_licenses')

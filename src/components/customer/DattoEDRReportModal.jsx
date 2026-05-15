@@ -51,8 +51,8 @@ export default function DattoEDRReportModal({ open, onOpenChange, edrData, tenan
             toast.success('Report is ready for download!');
           }
         }
-      } catch (error) {
-        console.error('Status check error:', error);
+      } catch (_error) {
+        // Polling error is non-critical; will retry on next interval
       }
     }, 5000); // Check every 5 seconds
 
@@ -80,7 +80,6 @@ export default function DattoEDRReportModal({ open, onOpenChange, edrData, tenan
         toast.error(response.error || 'Failed to generate report');
       }
     } catch (error) {
-      console.error('Report generation error:', error);
       toast.error(error.message || 'Failed to generate report');
     } finally {
       setGenerating(false);
@@ -143,7 +142,6 @@ export default function DattoEDRReportModal({ open, onOpenChange, edrData, tenan
         toast.error('Unexpected response format');
       }
     } catch (error) {
-      console.error('Download error:', error);
       toast.error(error.message || 'Failed to download report');
     } finally {
       setDownloading(false);

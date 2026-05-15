@@ -1,4 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
+import { fetchWithTimeout } from '../lib/sync-utils.js';
 
 const COVE_API_URL = 'https://api.backup.management/jsonapi';
 
@@ -15,7 +16,7 @@ async function coveApiCall(method, params = {}, visa = null) {
     body.visa = visa;
   }
 
-  const response = await fetch(COVE_API_URL, {
+  const response = await fetchWithTimeout(COVE_API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -44,7 +45,7 @@ async function coveLogin(partner, username, apiToken) {
     id: Date.now().toString(),
   };
 
-  const response = await fetch(COVE_API_URL, {
+  const response = await fetchWithTimeout(COVE_API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -157,6 +158,87 @@ function parseSettings(settings) {
   return flat;
 }
 
+function buildCoveCache(devices) {
+  let totalDevices = devices.length;
+  let activeDevices = 0;
+  let devicesWithErrors = 0;
+  let devicesWithWarnings = 0;
+  let totalStorageUsed = 0;
+  let totalProtectedSize = 0;
+  let lastBackupSuccess = 0;
+  let lastBackupFailed = 0;
+
+  const deviceDetails = devices.map(d => {
+    const s = parseSettings(d.Settings);
+    const computerName = d.AccountName || d.Name || d.ComputerName || s['I18'] || 'Unknown';
+    const osTypeRaw = d.OsType || s['I32'];
+    const osType = OS_TYPE_MAP[osTypeRaw] || osTypeRaw || 'Unknown';
+    const usedStorage = parseInt(d.UsedStorage || s['I14'] || 0, 10);
+    const protectedSize = parseInt(d.SelectedSize || s['D9F03'] || 0, 10);
+    const lastBackupTs = d.LastSessionTimestamp || s['D9F15'] || s['D1F15'] || null;
+    const statusCode = d.LastSessionStatus || s['D9F00'] || s['D1F00'];
+    const lastSessionStatus = SESSION_STATUS_MAP[statusCode] || statusCode || 'Unknown';
+    const errors = parseInt(d.SessionErrors || s['D9F06'] || 0, 10);
+    const warnings = parseInt(d.SessionWarnings || s['D9F07'] || 0, 10);
+    const isActive = d.AccountState === 'Active' || d.State === 1 ||
+      !(d.Flags || []).includes('integrityCheckAccountMissedBackupAlertSent');
+
+    if (isActive) activeDevices++;
+
+    if (errors > 0 || lastSessionStatus === 'Failed' || lastSessionStatus === 'CompletedWithErrors') {
+      devicesWithErrors++;
+      lastBackupFailed++;
+    } else if (lastSessionStatus === 'Completed') {
+      lastBackupSuccess++;
+    } else if (lastSessionStatus === 'InProcess' || lastSessionStatus === 'InProgressWithFaults') {
+      // In progress, not success or failure.
+    } else if (lastSessionStatus !== 'Unknown' && lastSessionStatus !== 'NoData' && lastSessionStatus !== 'NotStarted') {
+      devicesWithWarnings++;
+    }
+
+    totalStorageUsed += usedStorage;
+    totalProtectedSize += protectedSize;
+
+    return {
+      id: d.AccountId || d.Id,
+      name: computerName,
+      osType,
+      state: isActive ? 'active' : 'inactive',
+      lastBackup: lastBackupTs,
+      lastBackupStatus: lastSessionStatus,
+      usedStorage: formatBytes(usedStorage),
+      usedStorageBytes: usedStorage,
+      protectedSize: formatBytes(protectedSize),
+      protectedSizeBytes: protectedSize,
+      errors,
+      warnings
+    };
+  });
+
+  const workstationCount = deviceDetails.filter(d => d.osType === 'Workstation').length;
+  const serverCount = deviceDetails.filter(d => d.osType === 'Server').length;
+
+  return {
+    totalDevices,
+    workstation_count: workstationCount,
+    server_count: serverCount,
+    activeDevices,
+    inactiveDevices: totalDevices - activeDevices,
+    devicesWithErrors,
+    devicesWithWarnings,
+    healthyDevices: Math.max(0, totalDevices - devicesWithErrors - devicesWithWarnings),
+    totalStorageUsed: formatBytes(totalStorageUsed),
+    totalStorageUsedBytes: totalStorageUsed,
+    totalProtectedSize: formatBytes(totalProtectedSize),
+    totalProtectedSizeBytes: totalProtectedSize,
+    lastBackupSuccess,
+    lastBackupFailed,
+    successRate: totalDevices > 0 ? Math.round((lastBackupSuccess / totalDevices) * 100) : 0,
+    devices: deviceDetails.slice(0, 500),
+    syncedAt: new Date().toISOString()
+  };
+}
+
 export async function syncCoveData(body, user) {
   const supabase = getServiceSupabase();
   const { action, customer_id } = body;
@@ -164,6 +246,31 @@ export async function syncCoveData(body, user) {
   const partner = process.env.COVE_API_PARTNER;
   const username = process.env.COVE_API_USERNAME;
   const apiToken = process.env.COVE_API_TOKEN;
+
+  // Get cached data for a customer
+  if (action === 'get_cached') {
+    if (!customer_id) {
+      return { success: false, error: 'customer_id required' };
+    }
+
+    const { data: mappings } = await supabase
+      .from('cove_data_mappings')
+      .select('*')
+      .eq('customer_id', customer_id);
+
+    const mapping = mappings?.[0];
+
+    if (!mapping || !mapping.cached_data) {
+      return { success: false, error: 'No cached data available' };
+    }
+
+    return {
+      success: true,
+      data: mapping.cached_data,
+      last_synced: mapping.last_synced,
+      fromCache: true
+    };
+  }
 
   if (!partner || !username || !apiToken) {
     return {
@@ -227,31 +334,6 @@ export async function syncCoveData(body, user) {
     }
   }
 
-  // Get cached data for a customer
-  if (action === 'get_cached') {
-    if (!customer_id) {
-      return { success: false, error: 'customer_id required' };
-    }
-
-    const { data: mappings } = await supabase
-      .from('cove_data_mappings')
-      .select('*')
-      .eq('customer_id', customer_id);
-
-    const mapping = mappings?.[0];
-
-    if (!mapping || !mapping.cached_data) {
-      return { success: false, error: 'No cached data available' };
-    }
-
-    return {
-      success: true,
-      data: mapping.cached_data,
-      last_synced: mapping.last_synced,
-      fromCache: true
-    };
-  }
-
   // Sync customer data
   if (action === 'sync_customer') {
     if (!customer_id) {
@@ -281,87 +363,7 @@ export async function syncCoveData(body, user) {
         console.log(`[Cove] Sample device keys:`, Object.keys(devices[0]));
       }
 
-      let totalDevices = devices.length;
-      let activeDevices = 0;
-      let devicesWithErrors = 0;
-      let devicesWithWarnings = 0;
-      let totalStorageUsed = 0;
-      let totalProtectedSize = 0;
-      let lastBackupSuccess = 0;
-      let lastBackupFailed = 0;
-
-      const deviceDetails = devices.map(d => {
-        // Parse Settings array if present (Cove returns column-coded data)
-        const s = parseSettings(d.Settings);
-
-        // Extract fields — try flat fields first, then Settings column codes
-        // Session columns use data-source prefix: D9 = Total, D1 = Files & Folders (fallback)
-        const computerName = d.AccountName || d.Name || d.ComputerName || s['I18'] || 'Unknown';
-        const osTypeRaw = d.OsType || s['I32'];
-        const osType = OS_TYPE_MAP[osTypeRaw] || osTypeRaw || 'Unknown';
-        const usedStorage = parseInt(d.UsedStorage || s['I14'] || 0, 10);
-        const protectedSize = parseInt(d.SelectedSize || s['D9F03'] || 0, 10);
-        const lastBackupTs = d.LastSessionTimestamp || s['D9F15'] || s['D1F15'] || null;
-        const statusCode = d.LastSessionStatus || s['D9F00'] || s['D1F00'];
-        const lastSessionStatus = SESSION_STATUS_MAP[statusCode] || statusCode || 'Unknown';
-        const errors = parseInt(d.SessionErrors || s['D9F06'] || 0, 10);
-
-        // Determine active state — Cove devices without "Flags" containing " integrityCheckAccountMissedBackupAlertSent" are generally active
-        const isActive = d.AccountState === 'Active' || d.State === 1 ||
-          !(d.Flags || []).includes('integrityCheckAccountMissedBackupAlertSent');
-
-        if (isActive) activeDevices++;
-
-        if (errors > 0 || lastSessionStatus === 'Failed' || lastSessionStatus === 'CompletedWithErrors') {
-          devicesWithErrors++;
-          lastBackupFailed++;
-        } else if (lastSessionStatus === 'Completed') {
-          lastBackupSuccess++;
-        } else if (lastSessionStatus === 'InProcess' || lastSessionStatus === 'InProgressWithFaults') {
-          // In progress — don't count as success or failure
-        } else if (lastSessionStatus !== 'Unknown' && lastSessionStatus !== 'NoData' && lastSessionStatus !== 'NotStarted') {
-          devicesWithWarnings++;
-        }
-
-        totalStorageUsed += usedStorage;
-        totalProtectedSize += protectedSize;
-
-        return {
-          id: d.AccountId || d.Id,
-          name: computerName,
-          osType,
-          state: isActive ? 'active' : 'inactive',
-          lastBackup: lastBackupTs,
-          lastBackupStatus: lastSessionStatus,
-          usedStorage: formatBytes(usedStorage),
-          protectedSize: formatBytes(protectedSize),
-          errors,
-          warnings: d.SessionWarnings || 0
-        };
-      });
-
-      const workstationCount = deviceDetails.filter(d => d.osType === 'Workstation').length;
-      const serverCount = deviceDetails.filter(d => d.osType === 'Server').length;
-
-      const cachedData = {
-        totalDevices,
-        workstation_count: workstationCount,
-        server_count: serverCount,
-        activeDevices,
-        inactiveDevices: totalDevices - activeDevices,
-        devicesWithErrors,
-        devicesWithWarnings,
-        healthyDevices: Math.max(0, totalDevices - devicesWithErrors - devicesWithWarnings),
-        totalStorageUsed: formatBytes(totalStorageUsed),
-        totalStorageUsedBytes: totalStorageUsed,
-        totalProtectedSize: formatBytes(totalProtectedSize),
-        totalProtectedSizeBytes: totalProtectedSize,
-        lastBackupSuccess,
-        lastBackupFailed,
-        successRate: totalDevices > 0 ? Math.round((lastBackupSuccess / totalDevices) * 100) : 0,
-        devices: deviceDetails.slice(0, 500),
-        syncedAt: new Date().toISOString()
-      };
+      const cachedData = buildCoveCache(devices);
 
       // Update mapping with cached data
       await supabase
@@ -458,72 +460,7 @@ export async function syncCoveData(body, user) {
       try {
         const devices = await fetchAllDevices(mapping.cove_partner_id, visa);
 
-        let totalDevices = devices.length;
-        let activeDevices = 0;
-        let devicesWithErrors = 0;
-        let devicesWithWarnings = 0;
-        let totalStorageUsed = 0;
-        let totalProtectedSize = 0;
-        let lastBackupSuccess = 0;
-        let lastBackupFailed = 0;
-
-        const deviceDetails = devices.map(d => {
-          const s = parseSettings(d.Settings);
-          const computerName = d.AccountName || d.Name || d.ComputerName || s['I18'] || 'Unknown';
-          const osTypeRaw = d.OsType || s['I32'];
-          const osType = OS_TYPE_MAP[osTypeRaw] || osTypeRaw || 'Unknown';
-          const usedStorage = parseInt(d.UsedStorage || s['I14'] || 0, 10);
-          const protectedSize = parseInt(d.SelectedSize || s['D9F03'] || 0, 10);
-          const statusCode = d.LastSessionStatus || s['D9F00'] || s['D1F00'];
-          const lastSessionStatus = SESSION_STATUS_MAP[statusCode] || statusCode || 'Unknown';
-          const errors = parseInt(d.SessionErrors || s['D9F06'] || 0, 10);
-          const isActive = d.AccountState === 'Active' || d.State === 1 ||
-            !(d.Flags || []).includes('integrityCheckAccountMissedBackupAlertSent');
-
-          if (isActive) activeDevices++;
-          if (errors > 0 || lastSessionStatus === 'Failed' || lastSessionStatus === 'CompletedWithErrors') {
-            devicesWithErrors++;
-            lastBackupFailed++;
-          } else if (lastSessionStatus === 'Completed') {
-            lastBackupSuccess++;
-          } else if (lastSessionStatus !== 'InProcess' && lastSessionStatus !== 'InProgressWithFaults' &&
-                     lastSessionStatus !== 'Unknown' && lastSessionStatus !== 'NoData' && lastSessionStatus !== 'NotStarted') {
-            devicesWithWarnings++;
-          }
-
-          totalStorageUsed += usedStorage;
-          totalProtectedSize += protectedSize;
-
-          return {
-            id: d.AccountId || d.Id,
-            name: computerName,
-            osType,
-            state: isActive ? 'active' : 'inactive',
-          };
-        });
-
-        const workstationCount = deviceDetails.filter(d => d.osType === 'Workstation').length;
-        const serverCount = deviceDetails.filter(d => d.osType === 'Server').length;
-
-        const cachedData = {
-          totalDevices,
-          workstation_count: workstationCount,
-          server_count: serverCount,
-          activeDevices,
-          inactiveDevices: totalDevices - activeDevices,
-          devicesWithErrors,
-          devicesWithWarnings,
-          healthyDevices: Math.max(0, totalDevices - devicesWithErrors - devicesWithWarnings),
-          totalStorageUsed: formatBytes(totalStorageUsed),
-          totalStorageUsedBytes: totalStorageUsed,
-          totalProtectedSize: formatBytes(totalProtectedSize),
-          totalProtectedSizeBytes: totalProtectedSize,
-          lastBackupSuccess,
-          lastBackupFailed,
-          successRate: totalDevices > 0 ? Math.round((lastBackupSuccess / totalDevices) * 100) : 0,
-          devices: deviceDetails.slice(0, 500),
-          syncedAt: new Date().toISOString()
-        };
+        const cachedData = buildCoveCache(devices);
 
         await supabase
           .from('cove_data_mappings')

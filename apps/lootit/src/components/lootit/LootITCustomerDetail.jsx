@@ -3,11 +3,14 @@ import { RotateCcw, Repeat2, DollarSign, FileText, LayoutDashboard } from 'lucid
 import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
-import { client } from '@/api/client';
+import { client, supabase } from '@/api/client';
+import { useAuth } from '@/lib/AuthContext';
 import { useReconciliationData } from '@/hooks/useReconciliationData';
 import { useReconciliationReviews } from '@/hooks/useReconciliationReviews';
+import { useExcludedItems } from '@/hooks/useExcludedItems';
 import { useCustomerContacts, useCustomerDevices } from '@/hooks/useCustomerData';
 import { getDiscrepancySummary } from '@/lib/lootit-reconciliation';
+import { extractVendorItems } from '@/lib/vendor-item-extractors';
 import { useAnomalyData } from '@/hooks/useAnomalyData';
 import { useContractActions } from '@/hooks/useContractActions';
 import { useSyncCustomer } from '@/hooks/useSyncCustomer';
@@ -29,6 +32,7 @@ import SignOffDialog from './SignOffDialog';
 
 export default function LootITCustomerDetail({ customer, onBack, activeTab: activeTabProp = 'dashboard', onTabChange }) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [statusFilter, setStatusFilter] = useState('all');
   const [detailItem, setDetailItem] = useState(null);
   const [mappingRecon, setMappingRecon] = useState(null);
@@ -36,7 +40,8 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   const [editingRule, setEditingRule] = useState(null);
 
   const { reconciliations, isLoading, rules: allRules } = useReconciliationData(customer.id);
-  const { reviews, markReviewed, dismiss, resetReview, saveNotes, saveExclusion, forceMatch, reVerify, isSaving } = useReconciliationReviews(customer.id);
+  const { reviews, markReviewed, dismiss, resetReview, saveNotes, saveExclusion, forceMatch, reVerify, saveVendorDivisor, isSaving } = useReconciliationReviews(customer.id);
+  const { excludedItems, getExcludedForRule, getExclusionCount, saveExcludedItems, removeAllForRule, detectDroppedItems, isSaving: isExclusionSaving } = useExcludedItems(customer.id);
   const { data: contacts = [] } = useCustomerContacts(customer.id);
   const { data: devices = [] } = useCustomerDevices(customer.id);
 
@@ -91,7 +96,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   const allRecons = useMemo(() => [...recons, ...pax8Recons], [recons, pax8Recons]);
   const summary = customerData ? getDiscrepancySummary(allRecons) : null;
 
-  const { stalenessMap, staleCount } = useStalenessData({
+  const { stalenessMap, staleCount, signOffExpired, daysSinceSignOff } = useStalenessData({
     reviews,
     snapshotsByRuleId,
     latestSignOff,
@@ -99,24 +104,88 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
     pax8Recons,
   });
 
+  // Detect excluded items that no longer exist in vendor data
+  React.useEffect(() => {
+    if (!customerData?.vendorMappings || excludedItems.length === 0) return;
+    const mappings = customerData.vendorMappings;
+    const processedRules = new Set();
+    for (const recon of recons) {
+      const ruleId = recon.rule?.id;
+      const integrationKey = recon.rule?.integration_key;
+      if (!ruleId || !integrationKey || processedRules.has(ruleId)) continue;
+      const hasExclusions = excludedItems.some(e => e.rule_id === ruleId);
+      if (!hasExclusions) continue;
+      const mapping = mappings[integrationKey];
+      if (!mapping) continue;
+      const vendorItems = extractVendorItems(integrationKey, mapping.cached_data);
+      if (!vendorItems) continue;
+      processedRules.add(ruleId);
+      detectDroppedItems(ruleId, vendorItems);
+    }
+  }, [customerData?.vendorMappings, excludedItems.length]);
+
+  const verificationState = useMemo(() => {
+    const tiles = [
+      ...(recons || []).filter(r => r.status !== 'no_data' || ['force_matched', 'reviewed', 'dismissed'].includes(r.review?.status))
+        .map(r => ({ ruleId: r.rule?.id, label: r.rule?.label })),
+      ...(pax8Recons || []).map(r => ({ ruleId: r.ruleId, label: r.productName })),
+    ];
+    const total = tiles.length;
+    let verified = 0;
+    const unverified = [];
+    const verifiedMap = {};
+    for (const tile of tiles) {
+      const review = reviews.find(r => r.rule_id === tile.ruleId);
+      const isReviewed = ['reviewed', 'force_matched', 'dismissed'].includes(review?.status);
+      const hasDataChanged = stalenessMap[tile.ruleId]?.changeDetected;
+      if (isReviewed && !hasDataChanged) {
+        verified++;
+        verifiedMap[tile.ruleId] = true;
+      } else {
+        unverified.push(tile);
+        verifiedMap[tile.ruleId] = false;
+      }
+    }
+    return {
+      total, verified, unverified, verifiedMap,
+      allVerified: total > 0 && verified === total,
+      pct: total > 0 ? Math.round((verified / total) * 100) : 0,
+    };
+  }, [recons, pax8Recons, reviews, stalenessMap]);
+
+  const advanceToNext = (completedRuleId) => {
+    const unverified = verificationState.unverified.filter(t => t.ruleId !== completedRuleId);
+    if (unverified.length > 0) {
+      const nextRuleId = unverified[0].ruleId;
+      const nextRecon = allRecons.find(r => (r.rule?.id || r.ruleId) === nextRuleId);
+      if (nextRecon) {
+        setDetailItem(nextRecon);
+        return;
+      }
+    }
+    setDetailItem(null);
+  };
+
   const filteredRecons = useMemo(() => {
     const visible = recons.filter((r) => r.status !== 'no_data' || r.review?.status === 'force_matched' || r.review?.status === 'reviewed' || r.review?.status === 'dismissed');
     if (statusFilter === 'all') return visible;
-    if (statusFilter === 'issues') return visible.filter((r) => (r.status === 'over' || r.status === 'under') && r.review?.status !== 'force_matched');
+    if (statusFilter === 'issues') return visible.filter((r) => (r.status === 'over' || r.status === 'under') && !['force_matched', 'dismissed', 'reviewed'].includes(r.review?.status));
     if (statusFilter === 'stale') return visible.filter((r) => stalenessMap[r.rule.id]);
     if (statusFilter === 'matched') return visible.filter((r) => r.status === 'match' || r.review?.status === 'force_matched');
-    if (statusFilter === 'reviewed') return visible.filter((r) => r.review?.status === 'reviewed' || r.review?.status === 'dismissed' || r.review?.status === 'force_matched');
+    if (statusFilter === 'verified') return visible.filter((r) => verificationState.verifiedMap[r.rule?.id]);
+    if (statusFilter === 'unverified') return visible.filter((r) => !verificationState.verifiedMap[r.rule?.id]);
     return visible;
-  }, [recons, statusFilter, stalenessMap]);
+  }, [recons, statusFilter, stalenessMap, verificationState]);
 
   const filteredPax8 = useMemo(() => {
     if (statusFilter === 'all') return pax8Recons;
-    if (statusFilter === 'issues') return pax8Recons.filter((r) => r.status === 'over' || r.status === 'under' || r.status === 'missing_from_psa');
+    if (statusFilter === 'issues') return pax8Recons.filter((r) => (r.status === 'over' || r.status === 'under' || r.status === 'missing_from_psa') && !['force_matched', 'dismissed', 'reviewed'].includes(r.review?.status));
     if (statusFilter === 'stale') return pax8Recons.filter((r) => stalenessMap[r.ruleId]);
     if (statusFilter === 'matched') return pax8Recons.filter((r) => r.status === 'match');
-    if (statusFilter === 'reviewed') return pax8Recons.filter((r) => r.review?.status === 'reviewed' || r.review?.status === 'dismissed');
+    if (statusFilter === 'verified') return pax8Recons.filter((r) => verificationState.verifiedMap[r.ruleId]);
+    if (statusFilter === 'unverified') return pax8Recons.filter((r) => !verificationState.verifiedMap[r.ruleId]);
     return pax8Recons;
-  }, [pax8Recons, statusFilter, stalenessMap]);
+  }, [pax8Recons, statusFilter, stalenessMap, verificationState]);
 
   // ── Computed values ──
   const dollarImpact = useMemo(() => {
@@ -125,6 +194,8 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
     let overBilledAmount = 0;
     let totalMonthlyBilled = 0;
     for (const r of allRecons) {
+      const reviewStatus = r.review?.status;
+      if (reviewStatus === 'force_matched' || reviewStatus === 'dismissed' || reviewStatus === 'reviewed') continue;
       const price = r.price || 0;
       const diff = r.difference || 0;
       if (r.status === 'under' || r.status === 'missing_from_psa') {
@@ -150,7 +221,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
 
   const issueCount = summary ? summary.over + summary.under : 0;
   const totalRules = summary ? summary.total - (summary.noData || 0) : 0;
-  const resolvedCount = summary ? (summary.matched || 0) + (summary.dismissed || 0) : 0;
+  const resolvedCount = summary ? (summary.matched || 0) + (summary.forceMatched || 0) + (summary.dismissed || 0) + (summary.reviewed || 0) : 0;
   const healthPct = totalRules > 0 ? Math.min(100, Math.round((resolvedCount / totalRules) * 100)) : 0;
   const hasUnresolvedItems = totalRules > resolvedCount;
 
@@ -199,7 +270,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           customer_id: customer.id,
           rule_id: ruleId,
           pax8_product_name: isPsaLineItem ? (productName || null) : (vendorKey || item.description || item.id),
-          line_item_id: isPsaLineItem ? item.id : (psaLineItemId || item.id),
+          line_item_id: isPsaLineItem ? item.id : (psaLineItemId || null),
           group_id: `qty:${item.quantity || 0}`,
         });
       } else {
@@ -213,7 +284,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           customer_id: customer.id,
           rule_id: ruleId,
           pax8_product_name: JSON.stringify(mappingData),
-          line_item_id: psaLineItemId || items[0].id,
+          line_item_id: psaLineItemId || null,
           group_id: `multi:${totalQty}`,
         });
       }
@@ -270,22 +341,31 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   };
 
   const unresolvedItems = useMemo(() => {
+    const unresolvedStatuses = new Set([
+      'over',
+      'under',
+      'missing_from_psa',
+      'no_psa_data',
+      'unmatched_line_item',
+      'no_vendor_data',
+    ]);
     const allTiles = [
       ...(allRecons || []).map((r) => ({ ruleId: r.rule?.id || r.ruleId, label: r.rule?.label || r.productName, status: r.status, review: reviews.find((rv) => rv.rule_id === (r.rule?.id || r.ruleId)) })),
     ];
     return allTiles.filter((t) =>
-      ['over', 'under'].includes(t.status) &&
+      unresolvedStatuses.has(t.status) &&
       !['reviewed', 'force_matched', 'dismissed'].includes(t.review?.status)
     );
   }, [allRecons, reviews]);
 
-  const handleSignOff = async (notes) => {
+  const handleSignOff = async (notes, nextReconciliationDate) => {
     await signOff({
       allRecons: recons,
       pax8Recons,
       reviews,
       overrides: existingOverrides,
       notes,
+      nextReconciliationDate,
     });
     setShowSignOffDialog(false);
     toast.success('Reconciliation signed off successfully');
@@ -304,8 +384,7 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
   }
 
   return (
-    <div className="space-y-5 relative">
-      <div className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-pink-400/10 rounded-full blur-[100px]" />
+    <div className="space-y-4">
 
       <CustomerDetailHeaderCard
         customer={customer}
@@ -316,16 +395,14 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
         healthPct={healthPct}
         activeIntegrations={activeIntegrations}
         summary={summary}
-        issueCount={issueCount}
-        dollarImpact={dollarImpact}
-        contacts={contacts}
-        devices={devices}
-        contracts={contracts}
         recons={recons}
         pax8Recons={pax8Recons}
         allRecons={allRecons}
         hasUnresolvedItems={hasUnresolvedItems}
         unresolvedCount={totalRules - resolvedCount}
+        signOffExpired={signOffExpired}
+        daysSinceSignOff={daysSinceSignOff}
+        verificationState={verificationState}
       />
 
       <BillingAnomaliesSection
@@ -344,8 +421,8 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
       />
 
       {/* Tab bar */}
-      <div className="sticky top-0 z-10 bg-white shadow-sm">
-        <div className="flex w-full">
+      <div className="sticky top-0 z-10 bg-white border-b border-slate-200">
+        <div className="flex">
           {[
             { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
             { key: 'reconciliation', label: 'Reconciliation', icon: RotateCcw },
@@ -357,19 +434,22 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={cn(
-                'flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-all rounded-lg mx-1 my-1.5',
+                'flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-3 text-xs font-medium transition-colors cursor-pointer relative',
                 activeTab === tab.key
-                  ? 'bg-pink-500 text-white shadow-sm'
-                  : 'text-slate-500 hover:bg-pink-50'
+                  ? 'text-pink-600'
+                  : 'text-slate-400 hover:text-slate-600'
               )}
             >
-              <tab.icon className="w-5 h-5" />
+              <tab.icon className="w-4 h-4" />
               {tab.label}
               {tab.badge != null && (
                 <span className={cn(
-                  'text-[10px] px-1.5 py-0.5 rounded-full font-bold',
-                  activeTab === tab.key ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                  'text-[10px] px-1.5 py-0.5 rounded-full font-semibold tabular-nums',
+                  activeTab === tab.key ? 'bg-pink-50 text-pink-600' : 'bg-slate-100 text-slate-400'
                 )}>{tab.badge}</span>
+              )}
+              {activeTab === tab.key && (
+                <span className="absolute bottom-0 left-3 right-3 h-0.5 bg-pink-500 rounded-full" />
               )}
             </button>
           ))}
@@ -381,11 +461,16 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           customerId={customer.id}
           onTabChange={setActiveTab}
           onShowSnapshotDetail={(snapshot) => {
+            const liveRecon = allRecons.find((r) => (r.rule?.id || r.ruleId) === snapshot.rule_id);
             setDetailItem({
               rule: { id: snapshot.rule_id, label: snapshot.label, integration_key: snapshot.integration_key },
               psaQty: snapshot.psa_qty,
               vendorQty: snapshot.vendor_qty,
               status: snapshot.status,
+              matchedLineItems: liveRecon?.matchedLineItems || [],
+              rawVendorQty: liveRecon?.rawVendorQty,
+              vendorDivisor: liveRecon?.vendorDivisor,
+              difference: (snapshot.psa_qty || 0) - (snapshot.vendor_qty || 0),
               review: {
                 status: snapshot.review_status,
                 notes: snapshot.review_notes,
@@ -395,7 +480,8 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
                 exclusion_reason: snapshot.exclusion_reason,
               },
               integrationLabel: snapshot.integration_key,
-              _readOnly: true,
+              allRuleIds: liveRecon?.allRuleIds || [snapshot.rule_id],
+              _readOnly: false,
               _snapshotDate: latestSignOff?.signed_at,
             });
           }}
@@ -412,20 +498,14 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           summary={summary}
           issueCount={issueCount}
           existingOverrides={existingOverrides}
-          isSaving={isSaving}
-          onReview={handleReview}
-          onDismiss={handleDismiss}
-          onReset={resetReview}
           onDetails={setDetailItem}
-          onEditRule={setEditingRule}
-          onSaveNotes={(ruleId, notes) => saveNotes(ruleId, notes)}
-          onForceMatch={(ruleId, notes) => forceMatch(ruleId, notes)}
-          onMapLineItem={(ruleId, label) => setMappingRecon({ ruleId, productName: label })}
-          onRemoveMapping={(ruleId) => handleRemoveMapping(ruleId)}
           onShowGroupMapper={() => setShowGroupMapper(true)}
           stalenessMap={stalenessMap}
           staleCount={staleCount}
-          onSignOff={() => setShowSignOffDialog(true)}
+          onSignOff={verificationState.allVerified ? () => setShowSignOffDialog(true) : null}
+          customerId={customer.id}
+          vendorMappings={customerData?.vendorMappings || {}}
+          verificationState={verificationState}
         />
       )}
 
@@ -460,8 +540,13 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
           customerId={customer.id}
           overrides={existingOverrides}
           onClose={() => setDetailItem(null)}
+          onActionComplete={(ruleId) => advanceToNext(ruleId)}
           readOnly={detailItem._readOnly || false}
           snapshotDate={detailItem._snapshotDate}
+          snapshot={snapshotsByRuleId[detailItem.ruleId || detailItem.rule?.id]}
+          staleness={stalenessMap[detailItem.ruleId || detailItem.rule?.id]}
+          signOffDate={latestSignOff?.signed_at}
+          isSaving={isSaving}
           onReVerify={async (ruleId) => {
             await reVerify(ruleId);
             toast.success('Re-verified');
@@ -470,18 +555,50 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
             const rawId = ruleId.startsWith('unmatched_') ? ruleId : null;
             const liId = rawId ? rawId.replace('unmatched_', '') : null;
             if (liId) {
-              const toRemove = existingOverrides.filter(o => o.rule_id === rawId);
-              for (const ov of toRemove) await client.entities.Pax8LineItemOverride.delete(ov.id);
-              await client.entities.Pax8LineItemOverride.create({
-                customer_id: customer.id,
-                rule_id: rawId,
-                pax8_product_name: 'approved_as_is',
-                line_item_id: liId,
-                group_id: `approved:${(notes || '').slice(0, 200)}`,
-              });
-              await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides', customer.id] });
-              await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides_all'] });
-              toast.success('Approved as-is');
+              const reviewNotes = `[APPROVED AS-IS by ${user?.full_name || user?.email || 'Unknown'} — ${new Date().toLocaleString()}] ${(notes || '').trim()}`;
+              try {
+                const { error: reviewError } = await supabase.from('reconciliation_reviews').upsert({
+                  customer_id: customer.id,
+                  rule_id: rawId,
+                  status: 'force_matched',
+                  reviewed_by: user?.id || null,
+                  reviewed_by_name: user?.full_name || user?.email || null,
+                  reviewed_at: new Date().toISOString(),
+                  notes: reviewNotes,
+                }, { onConflict: 'customer_id,rule_id' });
+                if (reviewError) throw reviewError;
+
+                const toRemove = existingOverrides.filter(o => o.rule_id === rawId);
+                for (const ov of toRemove) await client.entities.Pax8LineItemOverride.delete(ov.id);
+                await client.entities.Pax8LineItemOverride.create({
+                  customer_id: customer.id,
+                  rule_id: rawId,
+                  pax8_product_name: 'approved_as_is',
+                  line_item_id: liId,
+                  group_id: `approved:${(notes || '').slice(0, 200)}`,
+                });
+
+                const { error: historyError } = await supabase.from('reconciliation_review_history').insert({
+                  customer_id: customer.id,
+                  rule_id: rawId,
+                  action: 'approved_as_is',
+                  status: 'force_matched',
+                  notes: reviewNotes,
+                  created_by: user?.id || null,
+                  created_by_name: user?.full_name || user?.email || null,
+                });
+                if (historyError) console.warn('History insert failed:', historyError);
+
+                toast.success('Approved as-is');
+              } catch (err) {
+                console.error('Force-match failed:', err);
+                toast.error(`Failed to approve: ${err.message || 'Unknown error'}`);
+              } finally {
+                await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides', customer.id] });
+                await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides_all'] });
+                await queryClient.invalidateQueries({ queryKey: ['reconciliation_reviews', customer.id] });
+                await queryClient.invalidateQueries({ queryKey: ['reconciliation_review_history', customer.id] });
+              }
             } else {
               await forceMatch(ruleId, notes);
             }
@@ -499,6 +616,63 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
             }
           }}
           onMapLineItem={(ruleId, label) => setMappingRecon({ ruleId, productName: label })}
+          onUnmap={async (ruleId) => {
+            try {
+              const toRemove = existingOverrides.filter(o => o.rule_id === ruleId);
+              for (const ov of toRemove) {
+                await client.entities.Pax8LineItemOverride.delete(ov.id);
+              }
+              const { error: reviewError } = await supabase
+                .from('reconciliation_reviews')
+                .delete()
+                .eq('customer_id', customer.id)
+                .eq('rule_id', ruleId);
+              if (reviewError) console.warn('Review delete failed:', reviewError);
+              await supabase.from('reconciliation_review_history').insert({
+                customer_id: customer.id,
+                rule_id: ruleId,
+                action: 'unmapped',
+                status: 'pending',
+                notes: `[UNMAPPED by ${user?.full_name || user?.email || 'Unknown'} — ${new Date().toLocaleString()}] Mapping removed.`,
+                created_by: user?.id || null,
+                created_by_name: user?.full_name || user?.email || null,
+              });
+            } finally {
+              await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides', customer.id] });
+              await queryClient.invalidateQueries({ queryKey: ['pax8_line_item_overrides_all'] });
+              await queryClient.invalidateQueries({ queryKey: ['reconciliation_reviews', customer.id] });
+              await queryClient.invalidateQueries({ queryKey: ['reconciliation_review_history', customer.id] });
+            }
+          }}
+          onSaveExcludedItems={saveExcludedItems}
+          onRemoveAllExcludedItems={removeAllForRule}
+          excludedItemsForRule={detailItem ? getExcludedForRule(
+            detailItem.ruleId || detailItem.rule?.id
+          ) : []}
+          vendorMapping={
+            detailItem
+              ? (customerData?.vendorMappings || {})[
+                  detailItem.ruleId ? 'pax8' : detailItem.rule?.integration_key
+                ]
+              : null
+          }
+          isExclusionSaving={isExclusionSaving}
+          haloDevices={devices}
+          onSaveVendorDivisor={async (ruleId, divisor) => {
+            await saveVendorDivisor(ruleId, divisor);
+            setDetailItem((prev) => {
+              if (!prev) return prev;
+              const raw = prev.rawVendorQty ?? prev.vendorQty;
+              const adjusted = raw != null && divisor > 1 ? Math.ceil(raw / divisor) : raw;
+              return {
+                ...prev,
+                vendorDivisor: divisor,
+                rawVendorQty: raw,
+                vendorQty: adjusted,
+                difference: prev.psaQty != null && adjusted != null ? prev.psaQty - adjusted : 0,
+              };
+            });
+          }}
         />
       )}
 
@@ -507,12 +681,14 @@ export default function LootITCustomerDetail({ customer, onBack, activeTab: acti
         onClose={() => setShowSignOffDialog(false)}
         summary={{
           matched: summary?.matched || 0,
-          forceMatched: allRecons.filter((r) => reviews.find((rv) => rv.rule_id === (r.rule?.id || r.ruleId))?.status === 'force_matched').length,
-          dismissed: allRecons.filter((r) => reviews.find((rv) => rv.rule_id === (r.rule?.id || r.ruleId))?.status === 'dismissed').length,
+          forceMatched: summary?.forceMatched || 0,
+          dismissed: summary?.dismissed || 0,
+          reviewed: summary?.reviewed || 0,
         }}
         unresolvedItems={unresolvedItems}
         onConfirm={handleSignOff}
         isSigningOff={isSigningOff}
+        verificationState={verificationState}
       />
 
       {editingRule && (

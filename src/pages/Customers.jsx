@@ -4,8 +4,6 @@ import { client, resolveFileUrl } from '@/api/client';
 import { useAutoRetry } from '@/hooks/useAutoRetry';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '../utils';
-import { motion, AnimatePresence } from 'framer-motion';
-import { staggerContainer, staggerItem, fadeInUp } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import Breadcrumbs from '../components/ui/breadcrumbs';
 import {
@@ -13,7 +11,6 @@ import {
   Plus,
   Search,
   X,
-  Users,
   ChevronRight,
   MoreVertical,
   Pencil,
@@ -26,7 +23,7 @@ import {
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { PortalMetricCard, PortalPageHeader, PortalSection, PortalStatusPill } from "@/components/ui/portal-primitives";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,7 +36,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { toast } from 'sonner';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,6 +46,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { toast } from 'sonner';
 import {
   Select,
   SelectContent,
@@ -61,12 +58,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { SkeletonGrid } from "@/components/ui/shimmer-skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
-
-const STATUS_COLORS = {
-  active: { bg: 'bg-success/15', text: 'text-success', dot: 'bg-success' },
-  inactive: { bg: 'bg-zinc-100 dark:bg-zinc-800', text: 'text-zinc-500', dot: 'bg-zinc-400' },
-  suspended: { bg: 'bg-destructive/15', text: 'text-destructive', dot: 'bg-destructive' },
-};
 
 const FILTER_CHIPS = [
   { value: 'all', label: 'All' },
@@ -84,7 +75,7 @@ export default function Customers() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [errorDialogOpen, setErrorDialogOpen] = useState(false);
   const [syncError, setSyncError] = useState(null);
-  const [deletingCustomer, setDeletingCustomer] = useState(null);
+  const [deleteConfirmCustomer, setDeleteConfirmCustomer] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     primary_contact: '',
@@ -102,25 +93,28 @@ export default function Customers() {
     queryFn: () => client.entities.Customer.list('-created_date', 500),
   });
 
-  // Auto-retry if customers page loads empty
-  useAutoRetry([customers], isLoading, [['customers']]);
-
   const { data: contracts = [], isLoading: loadingContracts } = useQuery({
     queryKey: ['all_contracts'],
     queryFn: () => client.entities.Contract.list('-created_date', 1000),
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
 
   const { data: recurringBills = [], isLoading: loadingBills } = useQuery({
     queryKey: ['all_recurring_bills'],
     queryFn: () => client.entities.RecurringBill.list('-created_date', 1000),
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
 
-  const { data: tickets = [], isLoading: loadingTickets } = useQuery({
-    queryKey: ['all_tickets'],
-    queryFn: () => client.entities.Ticket.list('-created_date', 1000),
-  });
+  // Auto-retry if any of the main queries loads empty
+  useAutoRetry(
+    [customers, contracts, recurringBills],
+    isLoading || loadingContracts || loadingBills,
+    [['customers'], ['all_contracts'], ['all_recurring_bills']]
+  );
 
-  const statsReady = !loadingContracts && !loadingBills && !loadingTickets;
+  const statsReady = !loadingContracts && !loadingBills;
 
   const createMutation = useMutation({
     mutationFn: (data) => client.entities.Customer.create(data),
@@ -128,7 +122,7 @@ export default function Customers() {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       handleCloseDialog();
     },
-    onError: (err) => toast.error(err.message || 'Failed to create customer')
+    onError: (error) => toast.error(error.message || 'Failed to create customer')
   });
 
   const updateMutation = useMutation({
@@ -137,16 +131,16 @@ export default function Customers() {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       handleCloseDialog();
     },
-    onError: (err) => toast.error(err.message || 'Failed to update customer')
+    onError: (error) => toast.error(error.message || 'Failed to update customer')
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id) => client.entities.Customer.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
-      setDeletingCustomer(null);
+      setDeleteConfirmCustomer(null);
     },
-    onError: (err) => toast.error(err.message || 'Failed to delete customer')
+    onError: (error) => toast.error(error.message || 'Failed to delete customer')
   });
 
   const handleOpenDialog = (customer = null) => {
@@ -211,8 +205,14 @@ export default function Customers() {
 
   const filteredCustomers = customers
     .filter(customer => {
-      const matchesSearch = customer.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           customer.email?.toLowerCase().includes(searchQuery.toLowerCase());
+      const query = searchQuery.toLowerCase();
+      const matchesSearch = [
+        customer.name,
+        customer.email,
+        customer.primary_contact,
+        customer.phone,
+        customer.address,
+      ].some(value => String(value || '').toLowerCase().includes(query));
       const matchesStatus = statusFilter === 'all' || customer.status === statusFilter;
       return matchesSearch && matchesStatus;
     })
@@ -220,7 +220,6 @@ export default function Customers() {
 
   const getCustomerStats = (customerId) => {
     const customerContracts = contracts.filter(c => c.customer_id === customerId && c.status === 'active');
-    const customerTickets = tickets.filter(t => t.customer_id === customerId && ['new', 'open', 'in_progress'].includes(t.status));
     const now = new Date();
     const customerBills = recurringBills.filter(b => {
       if (b.customer_id !== customerId) return false;
@@ -238,205 +237,200 @@ export default function Customers() {
       if (['yearly', 'annual', 'annually', 'year'].includes(freq)) return sum + amount / 12;
       return sum + amount;
     }, 0);
-    return { contracts: customerContracts.length, tickets: customerTickets.length, mrr };
+    return { contracts: customerContracts.length, services: customerBills.length, mrr };
   };
 
   const activeCount = customers.filter(c => c.status === 'active').length;
+  const totalMonthly = customers.reduce((sum, customer) => sum + getCustomerStats(customer.id).mrr, 0);
+  const accountsWithServices = customers.filter(customer => getCustomerStats(customer.id).services > 0).length;
+  const activeContracts = contracts.filter(c => c.status === 'active').length;
 
   return (
     <div className="space-y-6">
       <Breadcrumbs items={[{ label: 'Customers' }]} />
 
-      {/* Header */}
-      <motion.div
-        {...fadeInUp}
-        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-      >
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Customers</h1>
-          <p className="text-muted-foreground mt-1">
-            {customers.length} total &middot; {activeCount} active
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <Button
-            onClick={handleSyncHaloPSA}
-            disabled={isSyncing}
-            variant="outline"
-          >
-            {isSyncing ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <RefreshCw className="w-4 h-4 mr-2" />
-            )}
-            Sync HaloPSA
-          </Button>
-          <Button onClick={() => handleOpenDialog()}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Customer
-          </Button>
-        </div>
-      </motion.div>
+      <PortalPageHeader
+        title="Customers"
+        description={`${customers.length} total accounts, ${activeCount} currently active.`}
+        actions={(
+          <>
+            <Button onClick={handleSyncHaloPSA} disabled={isSyncing} variant="outline" size="sm" className="gap-2">
+              {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Sync HaloPSA
+            </Button>
+            <Button onClick={() => handleOpenDialog()} size="sm" className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add Customer
+            </Button>
+          </>
+        )}
+      />
 
-      {/* Search + Filter Chips */}
-      <motion.div {...fadeInUp} className="space-y-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search customers..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-10 h-10 rounded-hero-md bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 focus:bg-white dark:focus:bg-zinc-800 transition-colors duration-[250ms]"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-        <div className="flex gap-2">
-          {FILTER_CHIPS.map((chip) => (
-            <button
-              key={chip.value}
-              onClick={() => setStatusFilter(chip.value)}
-              className={cn(
-                'px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-[250ms] ease-out active:scale-[0.97]',
-                statusFilter === chip.value
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'bg-zinc-100 dark:bg-zinc-800 text-muted-foreground hover:bg-zinc-200 dark:hover:bg-zinc-700'
-              )}
-            >
-              {chip.label}
-            </button>
-          ))}
-        </div>
-      </motion.div>
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <PortalMetricCard icon={Building2} label="Total customers" value={customers.length} detail={`${activeCount} active`} tone="violet" />
+        <PortalMetricCard icon={DollarSign} label="Monthly billing" value={`$${Math.round(totalMonthly).toLocaleString()}`} detail="recurring services" tone="emerald" />
+        <PortalMetricCard icon={FileText} label="Active contracts" value={activeContracts} detail="current agreements" tone="blue" />
+        <PortalMetricCard icon={RefreshCw} label="Service accounts" value={accountsWithServices} detail="with recurring billing" tone="slate" />
+      </div>
 
-      {/* Customer List */}
-      {isLoading ? (
-        <SkeletonGrid count={6} cols={2} className="grid-cols-1 lg:grid-cols-2" />
-      ) : filteredCustomers.length === 0 ? (
-        <EmptyState
-          icon={Building2}
-          title="No customers found"
-          description={
-            searchQuery || statusFilter !== 'all'
-              ? 'Try adjusting your search or filters'
-              : 'Get started by adding your first customer'
-          }
-          action={!searchQuery && statusFilter === 'all' ? {
-            label: 'Add Customer',
-            onClick: () => handleOpenDialog()
-          } : undefined}
-        />
-      ) : (
-        <motion.div
-          variants={staggerContainer}
-          initial="initial"
-          animate="animate"
-          className="grid grid-cols-1 lg:grid-cols-2 gap-3"
-        >
-          {filteredCustomers.map((customer) => {
-            const stats = getCustomerStats(customer.id);
-            const statusStyle = STATUS_COLORS[customer.status] || STATUS_COLORS.active;
-            return (
-              <motion.div
-                key={customer.id}
-                variants={staggerItem}
-                whileHover={{ y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => navigate(createPageUrl(`CustomerDetail?id=${customer.id}`))}
-                className="flex items-center gap-3 bg-card rounded-[14px] border border-border/50 p-3.5 hover:shadow-hero-md transition-all duration-[250ms] group cursor-pointer"
+      <PortalSection
+        title="Customer directory"
+        description="Search accounts and open a customer workspace."
+        actions={(
+          <div className="flex flex-wrap items-center gap-2">
+            {FILTER_CHIPS.map((chip) => (
+              <button
+                key={chip.value}
+                onClick={() => setStatusFilter(chip.value)}
+                className={cn(
+                  'rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
+                  statusFilter === chip.value
+                    ? 'bg-slate-950 text-white'
+                    : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                )}
               >
-                {/* Avatar */}
-                <div className="w-10 h-10 rounded-hero-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  {customer.logo_url ? (
-                    <img src={resolveFileUrl(customer.logo_url)} alt={customer.name} className="w-6 h-6 rounded" />
-                  ) : (
-                    <Building2 className="w-5 h-5 text-primary" />
-                  )}
-                </div>
+                {chip.label}
+              </button>
+            ))}
+          </div>
+        )}
+      >
+        <div className="border-b border-slate-100 p-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              placeholder="Search customer, email, or primary contact"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-10 rounded-lg border-slate-200 bg-white pl-10 pr-10"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
 
-                {/* Name + Status */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-medium text-foreground truncate text-sm">{customer.name}</p>
-                    <Badge
-                      variant="dot"
-                      dotColor={statusStyle.dot}
-                      className="text-[10px] px-1.5 py-0 h-5"
-                    >
-                      {customer.status || 'active'}
-                    </Badge>
-                  </div>
-                  {customer.email && (
-                    <p className="text-xs text-muted-foreground truncate mt-0.5">{customer.email}</p>
-                  )}
-                </div>
-
-                {/* Stats */}
-                <div className="hidden sm:flex items-center gap-2 text-xs">
-                  {statsReady ? (
-                    <>
-                      <div className="flex items-center gap-1 px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded-full" title="Contracts">
-                        <FileText className="w-3 h-3 text-muted-foreground" />
-                        <span className="font-medium">{stats.contracts}</span>
+        {isLoading ? (
+          <div className="p-4">
+            <SkeletonGrid count={6} cols={1} className="grid-cols-1" />
+          </div>
+        ) : filteredCustomers.length === 0 ? (
+          <div className="p-6">
+            <EmptyState
+              icon={Building2}
+              title="No customers found"
+              description={
+                searchQuery || statusFilter !== 'all'
+                  ? 'Try adjusting the search or status filter.'
+                  : 'Create the first customer account to get started.'
+              }
+              action={!searchQuery && statusFilter === 'all' ? {
+                label: 'Add Customer',
+                onClick: () => handleOpenDialog()
+              } : undefined}
+            />
+          </div>
+        ) : (
+          <>
+            <div className="hidden grid-cols-[minmax(0,1.3fr)_minmax(170px,0.9fr)_120px_120px_120px_72px] gap-3 border-b border-slate-100 bg-slate-50 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 lg:grid">
+              <div>Customer</div>
+              <div>Primary contact</div>
+              <div className="text-right">Monthly</div>
+              <div className="text-center">Contracts</div>
+              <div className="text-center">Status</div>
+              <div />
+            </div>
+            <div className="divide-y divide-slate-100">
+              {filteredCustomers.map((customer) => {
+                const stats = getCustomerStats(customer.id);
+                return (
+                  <div
+                    key={customer.id}
+                    onClick={() => navigate(createPageUrl(`CustomerDetail?id=${customer.id}`))}
+                    className="grid cursor-pointer grid-cols-1 gap-3 px-5 py-3 transition-colors hover:bg-slate-50 lg:grid-cols-[minmax(0,1.3fr)_minmax(170px,0.9fr)_120px_120px_120px_72px] lg:items-center"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                        {customer.logo_url ? (
+                          <img src={resolveFileUrl(customer.logo_url)} alt={customer.name} className="h-7 w-7 object-contain" />
+                        ) : (
+                          <Building2 className="h-5 w-5 text-slate-500" />
+                        )}
                       </div>
-                      <div className="flex items-center gap-1 px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded-full" title="Open Tickets">
-                        <AlertCircle className="w-3 h-3 text-muted-foreground" />
-                        <span className="font-medium">{stats.tickets}</span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-sm font-semibold text-slate-950">{customer.name}</p>
+                          <PortalStatusPill
+                            tone={customer.status === 'active' ? 'emerald' : customer.status === 'suspended' ? 'rose' : 'slate'}
+                            label={customer.status || 'active'}
+                            className="hidden py-0.5 text-[10px] sm:inline-flex"
+                          />
+                        </div>
+                        <p className="truncate text-xs text-slate-500">{customer.email || customer.address || 'No email on file'}</p>
                       </div>
-                      <div className="flex items-center gap-1 px-2 py-1 bg-success/10 rounded-full" title="Monthly Revenue">
-                        <DollarSign className="w-3 h-3 text-success" />
-                        <span className="font-medium text-success">${stats.mrr.toLocaleString()}</span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex gap-2">
-                      <div className="w-10 h-5 bg-zinc-100 rounded-full animate-pulse" />
-                      <div className="w-10 h-5 bg-zinc-100 rounded-full animate-pulse" />
-                      <div className="w-12 h-5 bg-zinc-100 rounded-full animate-pulse" />
                     </div>
-                  )}
-                </div>
-
-                {/* Actions */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <MoreVertical className="w-4 h-4 text-muted-foreground" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenDialog(customer);
-                    }}>
-                      <Pencil className="w-4 h-4 mr-2" />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="text-destructive"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeletingCustomer(customer);
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
-              </motion.div>
-            );
-          })}
-        </motion.div>
-      )}
+                    <div className="min-w-0 text-sm text-slate-700">
+                      <p className="truncate font-medium text-slate-800">{customer.primary_contact || 'No primary contact'}</p>
+                      <p className="truncate text-xs text-slate-500">{customer.phone || customer.email || 'No contact detail'}</p>
+                    </div>
+                    <div className="lg:text-right">
+                      <p className="text-sm font-semibold tabular-nums text-slate-950">
+                        {statsReady ? `$${Math.round(stats.mrr).toLocaleString()}` : '-'}
+                      </p>
+                      <p className="text-xs text-slate-500">{statsReady ? `${stats.services} service${stats.services === 1 ? '' : 's'}` : 'loading'}</p>
+                    </div>
+                    <div className="lg:text-center">
+                      <span className={cn(
+                        'inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold',
+                        statsReady && stats.contracts > 0
+                          ? 'border-blue-200 bg-blue-50 text-blue-700'
+                          : 'border-slate-200 bg-slate-50 text-slate-500'
+                      )}>
+                        {statsReady ? `${stats.contracts} active` : '-'}
+                      </span>
+                    </div>
+                    <div className="lg:text-center">
+                      <PortalStatusPill
+                        tone={customer.status === 'active' ? 'emerald' : customer.status === 'suspended' ? 'rose' : 'slate'}
+                        label={customer.status || 'active'}
+                        className="py-1 text-[11px]"
+                      />
+                    </div>
+                    <div className="flex items-center justify-end gap-1" onClick={(event) => event.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4 text-slate-500" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleOpenDialog(customer)}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => setDeleteConfirmCustomer(customer)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      <ChevronRight className="h-4 w-4 text-slate-300" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </PortalSection>
 
       {/* Error Dialog */}
       <Dialog open={errorDialogOpen} onOpenChange={setErrorDialogOpen}>
@@ -459,6 +453,27 @@ export default function Customers() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirmCustomer} onOpenChange={(open) => { if (!open) setDeleteConfirmCustomer(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Customer</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <span className="font-semibold">{deleteConfirmCustomer?.name}</span>? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteMutation.mutate(deleteConfirmCustomer.id)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -549,27 +564,6 @@ export default function Customers() {
           </form>
         </DialogContent>
       </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deletingCustomer} onOpenChange={(open) => { if (!open) setDeletingCustomer(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete {deletingCustomer?.name}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete this customer and all associated data. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => deleteMutation.mutate(deletingCustomer.id)}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

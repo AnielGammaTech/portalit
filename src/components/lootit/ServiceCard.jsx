@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { Check, X, ChevronRight, RotateCcw, Settings2, StickyNote, Link2, ShieldCheck } from 'lucide-react';
+import { Check, X, ChevronRight, RotateCcw, StickyNote, Link2, ShieldCheck } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import ReconciliationBadge from './ReconciliationBadge';
 import { getDiscrepancyMessage } from '@/lib/lootit-reconciliation';
@@ -47,9 +47,9 @@ export default function ServiceCard({
   const hasNotes = !!(review?.notes);
   const hasExclusions = review?.exclusion_count > 0;
 
-  // Compute effective vendor qty after exclusions
+  // Engine already subtracts exclusion_count from vendorQty — use directly
   const exclusionCount = review?.exclusion_count || 0;
-  const effectiveVendorQty = vendorQty !== null ? vendorQty - exclusionCount : null;
+  const effectiveVendorQty = vendorQty;
   const effectiveDifference = psaQty !== null && effectiveVendorQty !== null ? psaQty - effectiveVendorQty : difference;
   const effectiveStatus = hasExclusions
     ? (effectiveDifference === 0 ? 'match' : effectiveDifference > 0 ? 'over' : 'under')
@@ -70,13 +70,14 @@ export default function ServiceCard({
       } else if (pendingAction === 'dismiss') {
         await onDismiss?.(rule.id, { notes: noteText });
       } else {
-        // Standalone note save
         await onSaveNotes(rule.id, noteText);
       }
-    } finally {
-      setSavingNote(false);
       setShowNotes(false);
       setPendingAction(null);
+    } catch (_err) {
+      // Error toast is shown by the mutation's onError
+    } finally {
+      setSavingNote(false);
     }
   };
 

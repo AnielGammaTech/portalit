@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/api/client';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -19,20 +20,15 @@ import {
   Link2,
   StickyNote,
   AlertTriangle,
+  Settings,
+  ClipboardCheck,
+  Clock,
+  ChevronRight,
+  MessageSquarePlus,
+  Minus,
 } from 'lucide-react';
 import { ACTION_LABELS } from './lootit-constants';
-
-// -------------------------------------------------------------------
-// Constants
-// -------------------------------------------------------------------
-
-const EXCLUSION_PRESETS = [
-  { label: 'Service Account', value: 'service account' },
-  { label: 'Free Account', value: 'free account' },
-  { label: 'Admin Account', value: 'admin account' },
-  { label: 'Shared Mailbox', value: 'shared mailbox' },
-  { label: 'Test Account', value: 'test account' },
-];
+import ExclusionSection from './ExclusionSection';
 
 const ACTION_ICONS = {
   reviewed: Check,
@@ -40,84 +36,233 @@ const ACTION_ICONS = {
   reset: RotateCcw,
   note: StickyNote,
   exclusion: ShieldCheck,
+  exclusion_added: ShieldCheck,
+  exclusion_removed: ShieldOff,
+  exclusion_dropped: AlertTriangle,
   force_matched: ShieldCheck,
+  approved_as_is: Check,
   re_verified: RefreshCw,
   signed_off: ShieldCheck,
+  billing_model: Settings,
+  mapping_changed: Link2,
 };
-
-// -------------------------------------------------------------------
-// Helpers
-// -------------------------------------------------------------------
 
 function getStatusBadge(reconciliation) {
   const { status, review } = reconciliation;
-  const reviewStatus = review?.status;
-
-  if (reviewStatus === 'force_matched') {
-    return { label: 'Approved', className: 'bg-blue-100 text-blue-700' };
-  }
-  if (reviewStatus === 'dismissed') {
-    return { label: 'Skipped', className: 'bg-slate-200 text-slate-600' };
-  }
-  if (status === 'match') {
-    return { label: 'Matched', className: 'bg-emerald-100 text-emerald-700' };
-  }
-  if (status === 'no_vendor_data' || status === 'no_data') {
-    return { label: 'No Vendor', className: 'bg-amber-100 text-amber-700' };
-  }
-  if (status === 'over' || status === 'under') {
-    return { label: 'Mismatch', className: 'bg-red-100 text-red-700' };
-  }
-  return { label: 'Pending', className: 'bg-slate-100 text-slate-500' };
+  const rs = review?.status;
+  if (rs === 'force_matched') return { label: 'Approved', bg: 'bg-blue-50', text: 'text-blue-700', ring: 'ring-blue-200' };
+  if (rs === 'dismissed') return { label: 'Skipped', bg: 'bg-slate-100', text: 'text-slate-600', ring: 'ring-slate-200' };
+  if (status === 'match') return { label: 'Matched', bg: 'bg-emerald-50', text: 'text-emerald-700', ring: 'ring-emerald-200' };
+  if (status === 'no_vendor_data' || status === 'no_data') return { label: 'No Vendor', bg: 'bg-amber-50', text: 'text-amber-700', ring: 'ring-amber-200' };
+  if (status === 'over' || status === 'under') return { label: 'Mismatch', bg: 'bg-red-50', text: 'text-red-700', ring: 'ring-red-200' };
+  return { label: 'Pending', bg: 'bg-slate-50', text: 'text-slate-500', ring: 'ring-slate-200' };
 }
 
-function formatTimestamp(ts) {
-  if (!ts) return '';
-  const d = new Date(ts);
-  return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+function timeAgo(dateStr) {
+  if (!dateStr) return '';
+  const ms = Date.now() - new Date(dateStr).getTime();
+  const min = Math.floor(ms / 60000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min}m ago`;
+  const hrs = Math.floor(min / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-// -------------------------------------------------------------------
-// Sub-components
-// -------------------------------------------------------------------
+function StatCard({ label, value, previousValue, variant = 'default' }) {
+  const numVal = Number(value ?? 0);
+  const numPrev = previousValue != null ? Number(previousValue) : null;
+  const changed = numPrev != null && numVal !== numPrev;
 
-function InfoRow({ label, value, mono }) {
-  if (value === null || value === undefined) return null;
+  const isDiff = variant === 'diff';
+  const diffVal = isDiff ? numVal : 0;
+
+  const cardBg = isDiff
+    ? diffVal === 0 ? 'bg-emerald-50/80' : diffVal > 0 ? 'bg-amber-50/80' : 'bg-red-50/80'
+    : changed ? 'bg-red-50/80' : 'bg-slate-50/80';
+
+  const cardBorder = isDiff
+    ? diffVal === 0 ? 'border-emerald-200/60' : diffVal > 0 ? 'border-amber-200/60' : 'border-red-200/60'
+    : changed ? 'border-red-200/60' : 'border-slate-200/60';
+
+  const valColor = isDiff
+    ? diffVal === 0 ? 'text-emerald-700' : diffVal > 0 ? 'text-amber-700' : 'text-red-700'
+    : changed ? 'text-red-700' : 'text-slate-900';
+
+  const displayVal = isDiff
+    ? (diffVal > 0 ? `+${diffVal}` : diffVal === 0 ? '0' : String(diffVal))
+    : (value ?? '\u2014');
+
   return (
-    <div className="flex justify-between items-baseline gap-4 min-w-0">
-      <dt className="text-xs text-slate-500 shrink-0">{label}</dt>
-      <dd className={cn('text-sm font-semibold text-slate-700 text-right truncate min-w-0 max-w-[60%]', mono && 'font-mono text-xs bg-slate-50 px-2 py-0.5 rounded')}>
-        {value}
-      </dd>
+    <div className={cn('rounded-xl border px-3 py-2.5 text-center transition-colors', cardBg, cardBorder)}>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{label}</p>
+      <p className={cn('text-xl font-bold tabular-nums mt-0.5', valColor)}>{displayVal}</p>
+      {changed && numPrev != null && (
+        <p className="text-[10px] text-red-400 mt-0.5">was {numPrev}</p>
+      )}
     </div>
   );
 }
 
-function StatusBadge({ reconciliation }) {
-  const badge = getStatusBadge(reconciliation);
+function CollapsibleSection({ title, icon: Icon, count, defaultOpen = false, children }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <span className={cn('inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold', badge.className)}>
-      {badge.label}
-    </span>
+    <div className="rounded-xl border border-slate-200/80 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-50/80 transition-colors cursor-pointer"
+      >
+        <div className="flex items-center gap-2">
+          {Icon && <Icon className="w-3.5 h-3.5 text-slate-400" />}
+          <span className="text-xs font-semibold text-slate-600">{title}</span>
+          {count != null && (
+            <span className="text-[10px] font-medium bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full tabular-nums">
+              {count}
+            </span>
+          )}
+        </div>
+        <ChevronRight className={cn('w-3.5 h-3.5 text-slate-400 transition-transform duration-200', open && 'rotate-90')} />
+      </button>
+      {open && <div className="border-t border-slate-100 px-4 py-3">{children}</div>}
+    </div>
   );
 }
 
-// -------------------------------------------------------------------
-// Action Section
-// -------------------------------------------------------------------
+function BillingModelToggle({ ruleId, currentDivisor, rawVendorQty, onSave }) {
+  const [saving, setSaving] = useState(false);
+  const [localDivisor, setLocalDivisor] = useState(currentDivisor);
 
-function ActionSection({
+  const adjustedQty = rawVendorQty != null && localDivisor > 1
+    ? Math.ceil(rawVendorQty / localDivisor)
+    : rawVendorQty;
+
+  const handleSelect = async (value) => {
+    if (value === localDivisor) return;
+    setLocalDivisor(value);
+    setSaving(true);
+    try {
+      await onSave(ruleId, value);
+    } catch (err) {
+      setLocalDivisor(currentDivisor);
+      toast.error(`Failed to save: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const options = [
+    { value: 1, label: 'Per Device' },
+    { value: 2, label: '2 Per User' },
+  ];
+
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-xs font-semibold text-slate-500 shrink-0">Billing</span>
+      <div className="flex gap-1.5 flex-1">
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => handleSelect(opt.value)}
+            disabled={saving}
+            className={cn(
+              'flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all disabled:opacity-50 cursor-pointer',
+              localDivisor === opt.value
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            )}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      {rawVendorQty != null && localDivisor > 1 && (
+        <span className="text-[10px] text-slate-400 tabular-nums shrink-0">
+          {rawVendorQty} ÷ {localDivisor} = {adjustedQty}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function HistoryTimeline({ customerId, ruleId, allRuleIds }) {
+  const ruleIds = allRuleIds?.length > 0 ? allRuleIds : (ruleId ? [ruleId] : []);
+  const { data: history = [] } = useQuery({
+    queryKey: ['reconciliation_review_history', customerId, ...ruleIds],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('reconciliation_review_history')
+        .select('*')
+        .eq('customer_id', customerId)
+        .in('rule_id', ruleIds)
+        .order('created_date', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!customerId && ruleIds.length > 0,
+  });
+
+  if (history.length === 0) {
+    return <p className="text-xs text-slate-400 italic py-1">No activity yet</p>;
+  }
+
+  return (
+    <div className="relative pl-4 border-l-2 border-slate-100 space-y-3">
+      {history.map((entry) => {
+        const config = ACTION_LABELS[entry.action] || ACTION_LABELS.note;
+        const Icon = ACTION_ICONS[entry.action] || StickyNote;
+        const userName = entry.created_by_name || 'System';
+        const ts = new Date(entry.created_date);
+        return (
+          <div key={entry.id} className="relative">
+            <div className={cn('absolute -left-[21px] top-0.5 w-4 h-4 rounded-full flex items-center justify-center border-2 border-white', config.bg)}>
+              <Icon className={cn('w-2.5 h-2.5', config.color)} />
+            </div>
+            <div className="ml-1.5">
+              <div className="flex items-center gap-2">
+                <span className={cn('text-[11px] font-semibold', config.color)}>{config.label}</span>
+                <span className="text-[10px] text-slate-400">
+                  {ts.toLocaleDateString()} {ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">by {userName}</p>
+              {entry.notes && (
+                <p className="text-xs text-slate-600 mt-1 bg-slate-50 rounded-md px-2.5 py-1.5 border border-slate-100">
+                  {entry.notes}
+                </p>
+              )}
+              {(entry.psa_qty !== null || entry.vendor_qty !== null) && (
+                <p className="text-[10px] text-slate-400 mt-0.5 tabular-nums">
+                  PSA: {entry.psa_qty ?? '\u2014'} · Vendor: {entry.vendor_qty ?? '\u2014'}
+                </p>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ActionFooter({
   reconciliation,
+  ruleId,
   onForceMatch,
   onReview,
   onDismiss,
   onReset,
   onMapLineItem,
+  onUnmap,
+  onReVerify,
+  onSaveNotes,
   isSaving,
+  hasMapping,
+  changeDetected,
 }) {
   const { status, review, rule } = reconciliation;
   const isPax8 = !!reconciliation.ruleId;
-  const ruleId = isPax8 ? reconciliation.ruleId : rule?.id;
   const reviewStatus = review?.status;
   const isReviewed = reviewStatus === 'reviewed' || reviewStatus === 'dismissed' || reviewStatus === 'force_matched';
   const isMatch = status === 'match';
@@ -125,21 +270,38 @@ function ActionSection({
   const [pendingAction, setPendingAction] = useState(null);
   const [actionNotes, setActionNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showNoteInput, setShowNoteInput] = useState(false);
+  const [standaloneNote, setStandaloneNote] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
 
-  const handleExecute = async () => {
-    if (!pendingAction) return;
-    if ((pendingAction === 'force_match' || pendingAction === 'approve') && !actionNotes.trim()) return;
+  const handleApprove = async () => {
     setSaving(true);
     try {
-      if (pendingAction === 'force_match' || pendingAction === 'approve') {
-        await onForceMatch?.(ruleId, actionNotes);
-      } else if (pendingAction === 'review') {
-        await onReview?.(ruleId, { notes: actionNotes || undefined });
-      } else if (pendingAction === 'dismiss') {
-        await onDismiss?.(ruleId, { notes: actionNotes || undefined });
-      }
+      await onForceMatch?.(ruleId, actionNotes || undefined);
       setPendingAction(null);
       setActionNotes('');
+    } catch (err) {
+      console.error('[Modal Action]', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleConfirmMatch = async () => {
+    setSaving(true);
+    try {
+      await onReview?.(ruleId);
+    } catch (err) {
+      console.error('[Modal Action]', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSkip = async () => {
+    setSaving(true);
+    try {
+      await onDismiss?.(ruleId);
     } catch (err) {
       console.error('[Modal Action]', err);
     } finally {
@@ -152,418 +314,272 @@ function ActionSection({
     setActionNotes('');
   };
 
-  const noteRequired = pendingAction === 'force_match' || pendingAction === 'approve';
-  const buttonDisabled = saving || isSaving || (noteRequired && !actionNotes.trim());
+  const handleSaveNote = async () => {
+    if (!standaloneNote.trim() || !onSaveNotes) return;
+    setSavingNote(true);
+    try {
+      await onSaveNotes(ruleId, standaloneNote);
+      setStandaloneNote('');
+      setShowNoteInput(false);
+      toast.success('Note saved');
+    } catch (err) {
+      toast.error(`Failed to save note: ${err.message || 'Unknown error'}`);
+    } finally {
+      setSavingNote(false);
+    }
+  };
 
-  const buttonLabel = (() => {
-    if (saving) return 'Saving...';
-    if (pendingAction === 'force_match') return 'Force Match';
-    if (pendingAction === 'approve') return 'Approve';
-    if (pendingAction === 'review') return 'Save & OK';
-    if (pendingAction === 'dismiss') return 'Save & Skip';
-    return 'Save';
-  })();
-
-  const buttonColor = (() => {
-    if (pendingAction === 'force_match' || pendingAction === 'approve') return 'bg-pink-500 hover:bg-pink-600';
-    if (pendingAction === 'review') return 'bg-emerald-500 hover:bg-emerald-600';
-    return 'bg-slate-500 hover:bg-slate-600';
-  })();
-
-  return (
-    <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Actions</span>
-        {review && (
-          <span className={cn(
-            'text-[10px] font-bold px-2 py-0.5 rounded-full',
-            reviewStatus === 'force_matched' && 'bg-blue-100 text-blue-700',
-            reviewStatus === 'reviewed' && 'bg-emerald-100 text-emerald-700',
-            reviewStatus === 'dismissed' && 'bg-slate-200 text-slate-600',
-            reviewStatus === 'pending' && 'bg-amber-100 text-amber-700',
-            !reviewStatus && 'bg-slate-100 text-slate-400',
-          )}>
-            {reviewStatus === 'force_matched' ? 'Force Matched' : reviewStatus === 'reviewed' ? 'Reviewed' : reviewStatus === 'dismissed' ? 'Dismissed' : 'Pending'}
-          </span>
-        )}
-      </div>
-
-      {/* Action buttons (visible when no pending action) */}
-      {!pendingAction && (
-        <div className="flex flex-wrap gap-2">
-          {!isMatch && !isReviewed && (
-            <button
-              onClick={() => setPendingAction('approve')}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors"
-            >
-              <ShieldCheck className="w-3.5 h-3.5" /> Approve
-            </button>
-          )}
-          {!isMatch && !isReviewed && status !== 'no_vendor_data' && status !== 'no_data' && status !== 'unmatched_line_item' && (
-            <button
-              onClick={() => setPendingAction('force_match')}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-pink-500 text-white hover:bg-pink-600 transition-colors"
-            >
-              <ShieldCheck className="w-3.5 h-3.5" /> Force Match
-            </button>
-          )}
-          {!isReviewed && !isMatch && (
-            <button
-              onClick={() => setPendingAction('dismiss')}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors"
-            >
-              <X className="w-3.5 h-3.5" /> Dismiss
-            </button>
-          )}
-          {isReviewed && (
-            <button
-              onClick={() => onReset?.(ruleId)}
-              disabled={isSaving}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200 transition-colors disabled:opacity-50"
-            >
-              <RotateCcw className="w-3.5 h-3.5" /> Reset
-            </button>
-          )}
-          {onMapLineItem && (
-            <button
-              onClick={() => onMapLineItem?.(ruleId, isPax8 ? reconciliation.productName : rule?.label)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
-            >
-              <Link2 className="w-3.5 h-3.5" /> Map
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Note textarea for pending action */}
-      {pendingAction && (
-        <div className="space-y-2">
-          <p className="text-xs text-slate-500">
-            {noteRequired
-              ? 'Note is required \u2014 explain why:'
-              : 'Add an optional note:'}
-          </p>
-          <textarea
-            value={actionNotes}
-            onChange={(e) => setActionNotes(e.target.value)}
-            placeholder={noteRequired ? 'Why is this being approved?' : 'Optional note...'}
-            rows={2}
-            className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-300 resize-none"
-            autoFocus
-          />
-          <div className="flex gap-2">
-            <button
-              onClick={handleExecute}
-              disabled={buttonDisabled}
-              className={cn('px-3 py-1.5 text-xs font-semibold rounded-lg text-white transition-colors disabled:opacity-50', buttonColor)}
-            >
-              {buttonLabel}
-            </button>
-            <button
-              onClick={handleCancel}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Current notes display */}
-      {review?.notes && !pendingAction && (
-        <div className="bg-white rounded-md px-3 py-2 border border-slate-100">
-          <p className="text-sm text-slate-600">{review.notes}</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// -------------------------------------------------------------------
-// Exclusion Section
-// -------------------------------------------------------------------
-
-function ExclusionSection({ reconciliation, onSaveExclusion }) {
-  const { review, rule } = reconciliation;
-  const isPax8 = !!reconciliation.ruleId;
-  const ruleId = isPax8 ? reconciliation.ruleId : rule?.id;
-
-  const [exclusionCount, setExclusionCount] = useState(review?.exclusion_count || 0);
-  const [exclusionReason, setExclusionReason] = useState(review?.exclusion_reason || '');
-  const [showForm, setShowForm] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    if (!onSaveExclusion) return;
+  const handleUnmap = async () => {
+    if (!onUnmap) return;
+    if (!window.confirm('Remove this vendor mapping? The item will go back to its original unmatched state.')) return;
     setSaving(true);
     try {
-      await onSaveExclusion(ruleId, exclusionCount, exclusionReason);
-      setShowForm(false);
+      await onUnmap(ruleId);
+      toast.success('Mapping removed');
+    } catch (err) {
+      toast.error(`Failed to unmap: ${err.message || 'Unknown error'}`);
     } finally {
       setSaving(false);
     }
   };
 
-  const handleRemove = async () => {
-    if (!onSaveExclusion) return;
+  const handleReVerify = async () => {
+    if (!onReVerify) return;
     setSaving(true);
     try {
-      await onSaveExclusion(ruleId, 0, '');
-      setExclusionCount(0);
-      setExclusionReason('');
-      setShowForm(false);
+      await onReVerify(ruleId);
+    } catch (err) {
+      console.error('[Modal Action]', err);
     } finally {
       setSaving(false);
     }
   };
 
-  const handleCancel = () => {
-    setShowForm(false);
-    setExclusionCount(review?.exclusion_count || 0);
-    setExclusionReason(review?.exclusion_reason || '');
-  };
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Excluded Accounts</h4>
-        {!showForm && (
+  /* Approve note panel — note is optional */
+  if (pendingAction === 'approve') {
+    return (
+      <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-4 space-y-3 shrink-0">
+        <p className="text-xs font-medium text-slate-500">
+          Approve — accept this billing difference as-is
+        </p>
+        <textarea
+          value={actionNotes}
+          onChange={(e) => setActionNotes(e.target.value)}
+          placeholder="Optional note..."
+          rows={2}
+          className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-300 resize-none bg-white"
+          autoFocus
+        />
+        <div className="flex gap-2">
           <button
-            onClick={() => setShowForm(true)}
-            className="text-xs font-semibold text-amber-600 hover:text-amber-700 transition-colors"
+            onClick={handleApprove}
+            disabled={saving || isSaving}
+            className={cn('flex-1 py-2 text-xs font-semibold rounded-lg text-white transition-colors disabled:opacity-40 cursor-pointer', 'bg-pink-500 hover:bg-pink-600')}
           >
-            {review?.exclusion_count > 0 ? 'Edit' : '+ Add'}
+            {saving ? 'Saving\u2026' : 'Approve'}
           </button>
-        )}
+          <button
+            onClick={handleCancel}
+            className="px-4 py-2 text-xs font-medium rounded-lg text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer"
+          >
+            Cancel
+          </button>
+        </div>
       </div>
+    );
+  }
 
-      {review?.exclusion_count > 0 && !showForm && (
-        <div
-          className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-amber-200"
-          style={{ backgroundImage: 'linear-gradient(135deg, #fffbeb 0%, #fef9c3 100%)' }}
-        >
-          <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-amber-800">
-              {review.exclusion_count} {review.exclusion_reason || 'excluded'}
-            </p>
-            <p className="text-[11px] text-amber-600">These don't count against the vendor total</p>
-          </div>
+  /* Standalone note panel */
+  if (showNoteInput) {
+    return (
+      <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-4 space-y-3 shrink-0">
+        <textarea
+          value={standaloneNote}
+          onChange={(e) => setStandaloneNote(e.target.value)}
+          placeholder="Add an audit note..."
+          rows={2}
+          className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-300 resize-none bg-white"
+          autoFocus
+        />
+        <div className="flex gap-2">
+          <button
+            onClick={handleSaveNote}
+            disabled={savingNote || !standaloneNote.trim()}
+            className={cn('flex-1 py-2 text-xs font-semibold rounded-lg text-white transition-colors disabled:opacity-40 cursor-pointer', 'bg-slate-800 hover:bg-slate-900')}
+          >
+            {savingNote ? 'Saving\u2026' : 'Save Note'}
+          </button>
+          <button
+            onClick={() => { setShowNoteInput(false); setStandaloneNote(''); }}
+            className="px-4 py-2 text-xs font-medium rounded-lg text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer"
+          >
+            Cancel
+          </button>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {showForm && (
-        <div className="space-y-3 bg-amber-50/50 rounded-lg px-4 py-3 border border-amber-200">
-          <p className="text-xs text-amber-700">
-            Add accounts that shouldn't count against the licence total (e.g. service accounts, free accounts).
-          </p>
-          <div>
-            <label className="text-xs font-medium text-slate-600 mb-1 block">How many?</label>
-            <input
-              type="number"
-              min="0"
-              value={exclusionCount}
-              onChange={(e) => setExclusionCount(parseInt(e.target.value) || 0)}
-              className="w-24 text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-slate-600 mb-1 block">Reason</label>
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {EXCLUSION_PRESETS.map((preset) => (
-                <button
-                  key={preset.value}
-                  onClick={() => setExclusionReason(preset.value)}
-                  className={cn(
-                    'px-2.5 py-1 text-[11px] font-medium rounded-full border transition-colors',
-                    exclusionReason === preset.value
-                      ? 'bg-amber-200 border-amber-300 text-amber-800'
-                      : 'bg-white border-slate-200 text-slate-500 hover:border-amber-200 hover:text-amber-700'
-                  )}
-                >
-                  {preset.label}
-                </button>
-              ))}
+  return (
+    <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-4 shrink-0 space-y-3">
+      {/* Already reviewed — status display */}
+      {isReviewed && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className={cn(
+              'w-6 h-6 rounded-full flex items-center justify-center',
+              reviewStatus === 'force_matched' ? 'bg-blue-100' : reviewStatus === 'dismissed' ? 'bg-slate-100' : 'bg-emerald-100'
+            )}>
+              <Check className={cn(
+                'w-3.5 h-3.5',
+                reviewStatus === 'force_matched' ? 'text-blue-600' : reviewStatus === 'dismissed' ? 'text-slate-500' : 'text-emerald-600'
+              )} />
             </div>
-            <input
-              type="text"
-              value={exclusionReason}
-              onChange={(e) => setExclusionReason(e.target.value)}
-              placeholder="Or type a custom reason..."
-              className="w-full text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white"
-            />
+            <div>
+              <p className="text-xs font-semibold text-slate-700">
+                {reviewStatus === 'force_matched' ? 'Force Matched' : reviewStatus === 'dismissed' ? 'Dismissed' : 'Verified'}
+              </p>
+              {review?.notes && (
+                <p className="text-[11px] text-slate-400 truncate max-w-[280px]">{review.notes}</p>
+              )}
+            </div>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={handleSave}
-              disabled={saving || exclusionCount <= 0}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 transition-colors"
-            >
-              {saving ? 'Saving...' : 'Save Exclusion'}
-            </button>
-            {review?.exclusion_count > 0 && (
-              <button
-                onClick={handleRemove}
-                disabled={saving}
-                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors disabled:opacity-50"
-              >
-                Remove
-              </button>
-            )}
-            <button
-              onClick={handleCancel}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
+          <button
+            onClick={() => onReset?.(ruleId)}
+            disabled={isSaving}
+            className="text-[11px] font-medium text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50 cursor-pointer"
+          >
+            Undo
+          </button>
         </div>
       )}
 
-      {!review?.exclusion_count && !showForm && (
-        <p className="text-sm text-slate-400 italic">No excluded accounts</p>
+      {/* Confirm — matched but not yet verified (fires immediately) */}
+      {isMatch && !isReviewed && (
+        <button
+          onClick={handleConfirmMatch}
+          disabled={saving || isSaving}
+          className="w-full py-2.5 text-sm font-semibold rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+        >
+          <Check className="w-4 h-4" />
+          {saving ? 'Saving\u2026' : 'Confirm'}
+        </button>
       )}
-    </div>
-  );
-}
 
-// -------------------------------------------------------------------
-// History Timeline
-// -------------------------------------------------------------------
+      {/* Re-verify — already reviewed but quantities have changed */}
+      {isReviewed && changeDetected && onReVerify && (
+        <button
+          onClick={handleReVerify}
+          disabled={saving || isSaving}
+          className="w-full py-2.5 text-sm font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+        >
+          <RefreshCw className="w-4 h-4" />
+          {saving ? 'Saving\u2026' : 'Re-verify — accept new quantities'}
+        </button>
+      )}
 
-function HistoryTimeline({ customerId, ruleId }) {
-  const { data: history = [] } = useQuery({
-    queryKey: ['reconciliation_review_history', customerId, ruleId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('reconciliation_review_history')
-        .select('*, created_by_user:users!reconciliation_review_history_created_by_fkey(full_name, email)')
-        .eq('customer_id', customerId)
-        .eq('rule_id', ruleId)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!customerId && !!ruleId && !ruleId.startsWith('unmatched_'),
-  });
-
-  return (
-    <div>
-      <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-        Audit Log
-        <span className="text-[10px] font-normal text-slate-400">
-          {history.length} {history.length === 1 ? 'entry' : 'entries'}
-        </span>
-      </h3>
-      {history.length === 0 ? (
-        <p className="text-sm text-slate-400 italic">No activity yet</p>
-      ) : (
-        <div className="relative pl-4 border-l-2 border-slate-100 space-y-4">
-          {history.map((entry) => {
-            const config = ACTION_LABELS[entry.action] || ACTION_LABELS.note;
-            const Icon = ACTION_ICONS[entry.action] || StickyNote;
-            const userName = entry.created_by_user?.full_name || entry.created_by_user?.email || 'System';
-            const timestamp = new Date(entry.created_at);
-            return (
-              <div key={entry.id} className="relative">
-                <div className={cn('absolute -left-[23px] top-0.5 w-5 h-5 rounded-full flex items-center justify-center border-2 border-white', config.bg)}>
-                  <Icon className={cn('w-3 h-3', config.color)} />
-                </div>
-                <div className="ml-2">
-                  <div className="flex items-center gap-2">
-                    <span className={cn('text-xs font-semibold', config.color)}>{config.label}</span>
-                    <span className="text-[11px] text-slate-400">
-                      {timestamp.toLocaleDateString()} {timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-0.5">by {userName}</p>
-                  {entry.notes && (
-                    <p className="text-sm text-slate-700 mt-1 bg-slate-50 rounded-md px-3 py-2 border border-slate-100">
-                      {entry.notes}
-                    </p>
-                  )}
-                  {(entry.psa_qty !== null || entry.vendor_qty !== null) && (
-                    <p className="text-[11px] text-slate-400 mt-1">
-                      PSA: {entry.psa_qty ?? '\u2014'} | Vendor: {entry.vendor_qty ?? '\u2014'}
-                    </p>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+      {/* Mismatch actions — Approve (primary) + Skip (secondary) */}
+      {!isMatch && !isReviewed && (
+        <div className="space-y-2">
+          <button
+            onClick={() => setPendingAction('approve')}
+            className="w-full py-2.5 text-sm font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors cursor-pointer"
+          >
+            Approve — accept this difference
+          </button>
+          <button
+            onClick={handleSkip}
+            disabled={saving || isSaving}
+            className="w-full py-2 text-xs font-semibold rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors disabled:opacity-50 cursor-pointer"
+          >
+            {saving ? 'Saving\u2026' : 'Skip'}
+          </button>
         </div>
       )}
+
+      {/* Utility row — always visible */}
+      <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+        <div className="flex items-center gap-3 flex-wrap">
+          {!isMatch && !isReviewed && onMapLineItem && (
+            <button
+              onClick={() => {
+                const lbl = isPax8 ? reconciliation.productName : rule?.label;
+                onMapLineItem(ruleId, lbl);
+              }}
+              className="text-[11px] font-medium text-blue-500 hover:text-blue-700 transition-colors cursor-pointer inline-flex items-center gap-1"
+            >
+              <Link2 className="w-3 h-3" /> Re-map
+            </button>
+          )}
+          {hasMapping && onUnmap && (
+            <button
+              onClick={handleUnmap}
+              disabled={saving || isSaving}
+              className="text-[11px] font-medium text-rose-500 hover:text-rose-700 transition-colors cursor-pointer inline-flex items-center gap-1 disabled:opacity-50"
+            >
+              <X className="w-3 h-3" /> Unmatch
+            </button>
+          )}
+          <button
+            onClick={() => setShowNoteInput(true)}
+            className="text-[11px] font-medium text-slate-400 hover:text-slate-600 transition-colors cursor-pointer inline-flex items-center gap-1"
+          >
+            <MessageSquarePlus className="w-3 h-3" /> Add Note
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
-
-// -------------------------------------------------------------------
-// Standalone Note Form
-// -------------------------------------------------------------------
-
-function AddNoteForm({ ruleId, onSaveNotes }) {
-  const [noteText, setNoteText] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    if (!noteText.trim() || !onSaveNotes) return;
-    setSaving(true);
-    try {
-      await onSaveNotes(ruleId, noteText);
-      setNoteText('');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="space-y-2">
-      <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Add Note</h4>
-      <textarea
-        value={noteText}
-        onChange={(e) => setNoteText(e.target.value)}
-        placeholder="Add a note to this item..."
-        rows={2}
-        className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-300 resize-none"
-      />
-      <button
-        onClick={handleSave}
-        disabled={saving || !noteText.trim()}
-        className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-pink-500 text-white hover:bg-pink-600 disabled:opacity-50 transition-colors"
-      >
-        {saving ? 'Saving...' : 'Save Note'}
-      </button>
-    </div>
-  );
-}
-
-// -------------------------------------------------------------------
-// Main Modal
-// -------------------------------------------------------------------
 
 export default function ReconciliationDetailModal({
   reconciliation,
   customerId,
   onClose,
+  onActionComplete,
   onForceMatch,
   onReview,
   onDismiss,
   onReset,
   onSaveNotes,
   onSaveExclusion,
+  onSaveExcludedItems,
+  onRemoveAllExcludedItems,
+  excludedItemsForRule,
+  vendorMapping,
+  isExclusionSaving,
+  haloDevices,
   onMapLineItem,
+  onUnmap,
   overrides = [],
   readOnly = false,
   snapshotDate,
   onReVerify,
+  onSaveVendorDivisor,
+  snapshot,
+  staleness,
+  signOffDate,
+  isSaving: isSavingProp,
 }) {
   if (!reconciliation) return null;
 
   const isPax8 = !!reconciliation.ruleId;
   const ruleId = isPax8 ? reconciliation.ruleId : reconciliation.rule?.id;
+  const allRuleIds = reconciliation.allRuleIds || (ruleId ? [ruleId] : []);
   const label = isPax8 ? reconciliation.productName : reconciliation.rule?.label;
   const integrationLabel = reconciliation.integrationLabel || '';
   const { matchedLineItems = [], psaQty, vendorQty } = reconciliation;
+  const review = reconciliation.review;
+  const badge = getStatusBadge(reconciliation);
+
+  const hasDataChange = staleness?.changeDetected;
+  const hasReview = !!review?.reviewed_at;
+  const psaPrev = snapshot ? Number(snapshot.psa_qty ?? 0) : null;
+  const vendorPrev = snapshot ? Number(snapshot.vendor_qty ?? 0) : null;
+  const diff = (Number(psaQty ?? 0)) - (Number(vendorQty ?? 0));
+
+  const showBillingToggle = !isPax8 && reconciliation.rule?.integration_key?.startsWith('datto_rmm') && onSaveVendorDivisor && !readOnly;
+  const matchPattern = !isPax8 ? reconciliation.rule?.match_pattern : null;
 
   let mappedVendorItems = [];
   if (ruleId) {
@@ -575,102 +591,184 @@ export default function ReconciliationDetailModal({
       }
     }
     if (mappedVendorItems.length === 0 && ruleOverrides.length > 0 && ruleOverrides[0].pax8_product_name && !ruleOverrides[0].pax8_product_name.startsWith('[')) {
-      mappedVendorItems = [{ name: ruleOverrides[0].pax8_product_name, qty: vendorQty || 0 }];
+      const ov = ruleOverrides[0];
+      const storedQty = ov.group_id?.startsWith('qty:') ? parseFloat(ov.group_id.replace('qty:', '')) : null;
+      mappedVendorItems = [{ name: ov.pax8_product_name, qty: storedQty ?? vendorQty ?? 0 }];
     }
   }
 
+  const exclusionCount = excludedItemsForRule?.length || 0;
+
   return (
     <Dialog open={!!reconciliation} onOpenChange={(open) => { if (!open) onClose?.(); }}>
-      <DialogContent className="max-w-2xl rounded-2xl p-0 gap-0 backdrop-blur-sm border-slate-200 overflow-hidden">
+      <DialogContent className="max-w-xl rounded-2xl p-0 gap-0 border-slate-200/80 overflow-hidden flex flex-col max-h-[85vh]">
         {/* Header */}
-        <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100">
-          <div className="flex items-center justify-between gap-3">
+        <DialogHeader className="px-6 pt-5 pb-4 border-b border-slate-100 shrink-0">
+          <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <DialogTitle className="text-lg font-bold text-slate-900 truncate">
+              <DialogTitle className="text-base font-bold text-slate-900 truncate">
                 {label}
               </DialogTitle>
-              <DialogDescription className="text-xs text-slate-400 mt-0.5">
+              <DialogDescription className="text-xs text-slate-400 mt-0.5 truncate">
                 {integrationLabel}
+                {matchPattern && integrationLabel && ' \u00B7 '}
+                {matchPattern && <span className="font-mono text-[11px] bg-slate-100 px-1.5 py-0.5 rounded">{matchPattern}</span>}
                 {readOnly && snapshotDate && (
                   <span className="ml-2 text-purple-500 font-medium">
-                    Snapshot from {new Date(snapshotDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    Snapshot {new Date(snapshotDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </span>
                 )}
               </DialogDescription>
             </div>
-            <StatusBadge reconciliation={reconciliation} />
+            <span className={cn('inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold ring-1 shrink-0', badge.bg, badge.text, badge.ring)}>
+              {badge.label}
+            </span>
           </div>
         </DialogHeader>
 
         {/* Scrollable body */}
-        <div className="px-6 py-5 space-y-6 max-h-[70vh] overflow-y-auto">
-          {/* Info section */}
-          <div>
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Details</h4>
-            <dl className="space-y-2">
-              <InfoRow label="PSA Quantity" value={psaQty ?? '\u2014'} />
-              <InfoRow label="Vendor Quantity" value={vendorQty ?? '\u2014'} />
-              {isPax8 && reconciliation.totalVendorQty !== reconciliation.vendorQty && (
-                <InfoRow label="Total Pax8 (all subs)" value={reconciliation.totalVendorQty} />
-              )}
-              <InfoRow label="Integration" value={integrationLabel} />
-              {!isPax8 && reconciliation.rule?.match_pattern && (
-                <InfoRow label="Match Pattern" value={reconciliation.rule.match_pattern} mono />
-              )}
-              {isPax8 && reconciliation.subscriptionId && (
-                <InfoRow label="Subscription ID" value={reconciliation.subscriptionId} mono />
-              )}
-              {isPax8 && reconciliation.billingTerm && (
-                <InfoRow label="Billing Term" value={reconciliation.billingTerm} />
-              )}
-              {isPax8 && reconciliation.price > 0 && (
-                <InfoRow label="Price / Unit" value={`$${parseFloat(reconciliation.price).toFixed(2)}`} />
-              )}
-              {isPax8 && reconciliation.startDate && (
-                <InfoRow label="Start Date" value={new Date(reconciliation.startDate).toLocaleDateString()} />
-              )}
-            </dl>
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          {/* Stat cards */}
+          <div className="grid grid-cols-3 gap-3">
+            <StatCard label="PSA" value={psaQty} previousValue={psaPrev} />
+            <StatCard label="Vendor" value={vendorQty} previousValue={vendorPrev} />
+            <StatCard label="Diff" value={diff} variant="diff" />
           </div>
 
-          {/* Matched line items */}
-          <div>
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-              HaloPSA Billing Line Items ({matchedLineItems.length})
-            </h4>
-            {matchedLineItems.length === 0 ? (
-              <p className="text-sm text-slate-400 italic">No matching line items found in HaloPSA billing</p>
-            ) : (
-              <div className="space-y-2">
+          {/* Change alert */}
+          {hasDataChange && !readOnly && (
+            <div className="flex items-center gap-2 bg-red-50 border border-red-200/60 rounded-lg px-3 py-2">
+              <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+              <p className="text-xs font-medium text-red-700">Quantities changed since last review</p>
+            </div>
+          )}
+
+          {/* Last reviewed */}
+          {hasReview && !readOnly && (
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+              <Clock className="w-3 h-3" />
+              <span>Reviewed by <span className="font-medium text-slate-500">{review.reviewed_by_name || 'Unknown'}</span></span>
+              <span>·</span>
+              <span>{timeAgo(review.reviewed_at)}</span>
+              {signOffDate && (
+                <>
+                  <span>·</span>
+                  <span>Signed off {new Date(signOffDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Pax8 extra details */}
+          {isPax8 && (
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs">
+              {reconciliation.totalVendorQty !== reconciliation.vendorQty && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Total Pax8</span>
+                  <span className="font-semibold text-slate-700 tabular-nums">{reconciliation.totalVendorQty}</span>
+                </div>
+              )}
+              {reconciliation.subscriptionId && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Sub ID</span>
+                  <span className="font-mono text-[11px] text-slate-600 truncate ml-2">{reconciliation.subscriptionId}</span>
+                </div>
+              )}
+              {reconciliation.billingTerm && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Billing</span>
+                  <span className="font-semibold text-slate-700">{reconciliation.billingTerm}</span>
+                </div>
+              )}
+              {reconciliation.price > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Price/Unit</span>
+                  <span className="font-semibold text-slate-700 tabular-nums">${parseFloat(reconciliation.price).toFixed(2)}</span>
+                </div>
+              )}
+              {reconciliation.startDate && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Start</span>
+                  <span className="font-semibold text-slate-700">{new Date(reconciliation.startDate).toLocaleDateString()}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Billing model toggle (Datto RMM) */}
+          {showBillingToggle && (
+            <BillingModelToggle
+              ruleId={ruleId}
+              currentDivisor={reconciliation.vendorDivisor || 1}
+              rawVendorQty={reconciliation.rawVendorQty}
+              onSave={onSaveVendorDivisor}
+            />
+          )}
+
+          {/* Line items */}
+          {matchedLineItems.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                Line Items ({matchedLineItems.length})
+              </p>
+              <div className="space-y-1.5">
                 {matchedLineItems.map((li) => (
-                  <div key={li.id} className="bg-slate-50 rounded-lg px-3 py-2 text-sm">
-                    <p className="text-slate-700 truncate">{li.description}</p>
-                    <div className="flex gap-4 mt-1 text-xs text-slate-400">
+                  <div key={li.id} className="bg-slate-50/80 rounded-lg px-3 py-2">
+                    <p className="text-sm font-medium text-slate-700 truncate">{li.description}</p>
+                    <div className="flex gap-3 mt-0.5 text-[11px] text-slate-400 tabular-nums">
                       <span>Qty: {li.quantity}</span>
-                      {li.price > 0 && <span>Price: ${parseFloat(li.price).toFixed(2)}</span>}
+                      {li.price > 0 && <span>${parseFloat(li.price).toFixed(2)}</span>}
                       {li.net_amount > 0 && <span>Net: ${parseFloat(li.net_amount).toFixed(2)}</span>}
                     </div>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* Mapped Vendor Items breakdown */}
+          {matchedLineItems.length === 0 && (
+            <div className="bg-amber-50 border border-amber-200/60 rounded-xl p-4 text-center space-y-2">
+              <p className="text-xs font-medium text-amber-700">No matching HaloPSA line items</p>
+              {!readOnly && onMapLineItem && (
+                <button
+                  onClick={() => { onClose?.(); setTimeout(() => onMapLineItem?.(ruleId, label), 100); }}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors cursor-pointer"
+                >
+                  <Link2 className="w-3.5 h-3.5" /> Map to a line item
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Map to vendor — PSA exists but no vendor data */}
+          {matchedLineItems.length > 0 && vendorQty === null && !readOnly && onMapLineItem && (
+            <div className="bg-amber-50 border border-amber-200/60 rounded-xl p-4 text-center space-y-2">
+              <p className="text-xs font-medium text-amber-700">No vendor data to compare against</p>
+              <button
+                onClick={() => { onClose?.(); setTimeout(() => onMapLineItem?.(ruleId, label), 100); }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors cursor-pointer"
+              >
+                <Link2 className="w-3.5 h-3.5" /> Map to a vendor item
+              </button>
+            </div>
+          )}
+
+          {/* Mapped vendor items */}
           {mappedVendorItems.length > 0 && (
             <div>
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-pink-400 mb-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-pink-400 mb-2">
                 Mapped Vendor Items ({mappedVendorItems.length})
-              </h4>
-              <div className="bg-pink-50 rounded-xl border border-pink-200 divide-y divide-pink-100 overflow-hidden">
+              </p>
+              <div className="rounded-lg border border-pink-200/60 overflow-hidden">
                 {mappedVendorItems.map((item, i) => (
-                  <div key={i} className="flex items-center justify-between px-4 py-2.5">
-                    <span className="text-sm font-medium text-slate-700">{item.name}</span>
-                    <span className="text-sm font-bold text-pink-600 tabular-nums">Qty: {item.qty}</span>
+                  <div key={i} className="flex items-center justify-between px-3 py-2 border-b border-pink-100 last:border-b-0">
+                    <span className="text-xs font-medium text-slate-700">{item.name}</span>
+                    <span className="text-xs font-bold text-pink-600 tabular-nums">{item.qty}</span>
                   </div>
                 ))}
-                <div className="flex items-center justify-between px-4 py-2.5 bg-pink-100/60">
-                  <span className="text-xs font-semibold text-pink-700 uppercase">Total</span>
-                  <span className="text-sm font-bold text-pink-700 tabular-nums">
+                <div className="flex items-center justify-between px-3 py-2 bg-pink-50/80">
+                  <span className="text-[10px] font-semibold text-pink-600 uppercase">Total</span>
+                  <span className="text-xs font-bold text-pink-700 tabular-nums">
                     {mappedVendorItems.reduce((sum, m) => sum + (m.qty || 0), 0)}
                   </span>
                 </div>
@@ -678,45 +776,80 @@ export default function ReconciliationDetailModal({
             </div>
           )}
 
-          {/* Re-verify button (for stale items in active mode) */}
-          {!readOnly && onReVerify && (
-            <button
-              onClick={() => onReVerify(ruleId)}
-              className="w-full py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
-            >
-              Re-verify
-            </button>
-          )}
-
-          {/* Actions */}
-          {!readOnly && (
-            <ActionSection
-              reconciliation={reconciliation}
-              onForceMatch={async (ruleId, notes) => { await onForceMatch?.(ruleId, notes); onClose?.(); }}
-              onReview={async (ruleId, opts) => { await onReview?.(ruleId, opts); onClose?.(); }}
-              onDismiss={async (ruleId, opts) => { await onDismiss?.(ruleId, opts); onClose?.(); }}
-              onReset={async (ruleId) => { await onReset?.(ruleId); onClose?.(); }}
-              onMapLineItem={(ruleId, label) => { onClose?.(); setTimeout(() => onMapLineItem?.(ruleId, label), 100); }}
-              isSaving={false}
-            />
-          )}
-
           {/* Exclusions */}
           {!readOnly && (
-            <ExclusionSection
-              reconciliation={reconciliation}
-              onSaveExclusion={onSaveExclusion}
-            />
+            <CollapsibleSection
+              title="Exclusions"
+              icon={ShieldOff}
+              count={exclusionCount}
+              defaultOpen={exclusionCount > 0}
+            >
+              <ExclusionSection
+                reconciliation={reconciliation}
+                vendorMapping={vendorMapping}
+                excludedItemsForRule={excludedItemsForRule || []}
+                onSaveExcludedItems={onSaveExcludedItems}
+                onRemoveAllExcludedItems={onRemoveAllExcludedItems}
+                onSaveExclusion={onSaveExclusion}
+                isSaving={isExclusionSaving}
+                haloDevices={haloDevices}
+              />
+            </CollapsibleSection>
           )}
 
-          {/* Add note form */}
-          {!readOnly && (
-            <AddNoteForm ruleId={ruleId} onSaveNotes={onSaveNotes} />
+          {/* Read-only exclusions */}
+          {readOnly && (exclusionCount > 0 || reconciliation.review?.exclusion_count > 0) && (
+            <CollapsibleSection
+              title="Excluded Accounts"
+              icon={ShieldOff}
+              count={exclusionCount || reconciliation.review?.exclusion_count || 0}
+              defaultOpen
+            >
+              {exclusionCount > 0 ? (
+                <div className="space-y-1">
+                  {excludedItemsForRule.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between py-1">
+                      <span className="text-xs font-medium text-slate-700">{item.vendor_item_label || item.vendor_item_id}</span>
+                      {item.reason && <span className="text-[10px] text-amber-600">{item.reason}</span>}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-amber-700">
+                  {reconciliation.review.exclusion_count} excluded
+                  {reconciliation.review.exclusion_reason && ` \u2014 "${reconciliation.review.exclusion_reason}"`}
+                </p>
+              )}
+            </CollapsibleSection>
           )}
 
-          {/* History timeline */}
-          <HistoryTimeline customerId={customerId} ruleId={ruleId} />
+          {/* Notes & History */}
+          <CollapsibleSection
+            title="Audit Log"
+            icon={Clock}
+          >
+            <HistoryTimeline customerId={customerId} ruleId={ruleId} allRuleIds={allRuleIds} />
+          </CollapsibleSection>
         </div>
+
+        {/* Action footer */}
+        {!readOnly && (
+          <ActionFooter
+            reconciliation={reconciliation}
+            ruleId={ruleId}
+            onForceMatch={async (id, notes) => { await onForceMatch?.(id, notes); onActionComplete ? onActionComplete(id) : onClose?.(); }}
+            onReview={async (id, opts) => { await onReview?.(id, opts); onActionComplete ? onActionComplete(id) : onClose?.(); }}
+            onDismiss={async (id, opts) => { await onDismiss?.(id, opts); onActionComplete ? onActionComplete(id) : onClose?.(); }}
+            onReset={async (id) => { await onReset?.(id); onClose?.(); }}
+            onMapLineItem={(id, lbl) => { onClose?.(); setTimeout(() => onMapLineItem?.(id, lbl), 100); }}
+            onUnmap={async (id) => { await onUnmap?.(id); onActionComplete ? onActionComplete(id) : onClose?.(); }}
+            hasMapping={mappedVendorItems.length > 0}
+            changeDetected={!!staleness?.changeDetected}
+            onReVerify={async (id) => { await onReVerify?.(id); onActionComplete ? onActionComplete(id) : onClose?.(); }}
+            onSaveNotes={onSaveNotes}
+            isSaving={isSavingProp || false}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

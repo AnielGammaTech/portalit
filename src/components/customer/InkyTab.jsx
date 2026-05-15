@@ -8,15 +8,13 @@ import {
   ShieldCheck,
   Mail,
   ShieldAlert,
-  Bug,
   UserX,
   TrendingDown,
   TrendingUp,
   Eye,
   Calendar,
   Users,
-  ChevronRight,
-  X
+  ChevronRight
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { format } from 'date-fns';

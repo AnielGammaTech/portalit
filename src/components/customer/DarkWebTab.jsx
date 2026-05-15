@@ -16,15 +16,12 @@ import {
   Mail,
   TrendingDown,
   TrendingUp,
-  ChevronRight,
   ChevronDown,
   Database,
   Key,
   Search,
-  Filter,
   User,
   Lock,
-  Globe,
   Clock,
   BarChart3,
   PieChart as PieChartIcon,
@@ -32,7 +29,7 @@ import {
   Grid3X3
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import {
   Dialog,
   DialogContent,

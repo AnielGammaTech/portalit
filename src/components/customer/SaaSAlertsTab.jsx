@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { client } from '@/api/client';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,19 +9,12 @@ import {
   RefreshCw,
   Search,
   AlertTriangle,
-  AlertCircle,
-  CheckCircle2,
   Activity,
   Clock,
   User,
-  Globe,
-  Calendar,
   Wifi,
   MapPin,
-  Server,
-  Eye,
   Shield,
-  TrendingUp,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
@@ -68,11 +61,12 @@ function SeverityDot({ severity }) {
 
 export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClient }) {
   const [isSyncing, setIsSyncing] = useState(false);
+  const [liveData, setLiveData] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [severityFilter, setSeverityFilter] = useState('all');
   const [expandedEvent, setExpandedEvent] = useState(null);
 
-  const cachedData = React.useMemo(() => {
+  const cachedData = useMemo(() => {
     try {
       if (!saasAlertsMapping?.cached_data) return null;
       return typeof saasAlertsMapping.cached_data === 'string'
@@ -83,16 +77,33 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
     }
   }, [saasAlertsMapping?.cached_data]);
 
-  const summary = cachedData?.summary || { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
-  const recentEvents = cachedData?.recent_events || [];
-  const monitoredApps = cachedData?.monitored_apps || [];
-  const totalEvents = cachedData?.total_events || 0;
-  const uniqueUsers = cachedData?.unique_users || [];
-  const eventTypeCounts = cachedData?.event_type_counts || {};
-  const vpnEvents = cachedData?.vpn_events || 0;
-  const threatEvents = cachedData?.threat_events || 0;
-  const datacenterEvents = cachedData?.datacenter_events || 0;
-  const countryCounts = cachedData?.country_counts || {};
+  const { data: backendCache } = useQuery({
+    queryKey: ['saas-alerts-cached', customerId],
+    queryFn: async () => {
+      const res = await client.functions.invoke('syncSaaSAlerts', {
+        action: 'get_cached',
+        customer_id: customerId,
+      });
+      return res?.success ? res : null;
+    },
+    enabled: !!customerId && !!saasAlertsMapping && !cachedData,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+
+  const data = liveData || cachedData || backendCache;
+  const fromCache = !liveData && !!data;
+  const lastSynced = saasAlertsMapping?.last_synced || backendCache?.last_synced || data?.syncedAt;
+  const summary = data?.summary || { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+  const recentEvents = data?.recent_events || [];
+  const monitoredApps = data?.monitored_apps || [];
+  const totalEvents = data?.total_events || 0;
+  const uniqueUsers = data?.unique_users || [];
+  const eventTypeCounts = data?.event_type_counts || {};
+  const vpnEvents = data?.vpn_events || 0;
+  const threatEvents = data?.threat_events || 0;
+  const datacenterEvents = data?.datacenter_events || 0;
+  const countryCounts = data?.country_counts || {};
 
   const handleSync = async () => {
     setIsSyncing(true);
@@ -102,8 +113,10 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
         customer_id: customerId,
       });
       if (response.success) {
+        setLiveData(response);
         toast.success(`Synced ${response.total_events || 0} events`);
         queryClient.invalidateQueries({ queryKey: ['saas-alerts-mapping', customerId] });
+        queryClient.invalidateQueries({ queryKey: ['saas-alerts-cached', customerId] });
       } else {
         toast.error(response.error || 'Sync failed');
       }
@@ -114,7 +127,7 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
     }
   };
 
-  const filteredEvents = recentEvents.filter(event => {
+  const filteredEvents = useMemo(() => recentEvents.filter(event => {
     const sev = safeStr(event.severity, 'info').toLowerCase();
     if (severityFilter !== 'all' && sev !== severityFilter) return false;
     if (searchQuery) {
@@ -129,7 +142,7 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
       );
     }
     return true;
-  });
+  }), [recentEvents, searchQuery, severityFilter]);
 
   // Count non-info events for "actionable alerts"
   const actionableCount = summary.critical + summary.high + summary.medium;
@@ -138,8 +151,8 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
     return (
       <EmptyState
         icon={ShieldAlert}
-        title="SaaS Alerts not configured"
-        description="Go to Adminland > Integrations to map this customer's SaaS Alerts account."
+        title="SaaS security data is not connected yet"
+        description="Application security events will appear here once they are available for this account."
       />
     );
   }
@@ -152,19 +165,20 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <ShieldAlert className="w-5 h-5 text-violet-500" />
             SaaS Alerts
+            {fromCache && <Badge variant="outline" className="text-xs">Cached</Badge>}
           </h3>
           <p className="text-sm text-muted-foreground">
             {safeStr(saasAlertsMapping.saas_alerts_customer_name, 'Unknown')}
-            {saasAlertsMapping.last_synced && (
+            {lastSynced && (
               <span className="ml-2 text-xs">
-                · Synced {formatTimeAgo(saasAlertsMapping.last_synced)}
+                · Synced {formatTimeAgo(lastSynced)}
               </span>
             )}
           </p>
         </div>
         <Button onClick={handleSync} disabled={isSyncing} variant="outline" size="sm" className="gap-2">
           <RefreshCw className={cn("w-3.5 h-3.5", isSyncing && "animate-spin")} />
-          {isSyncing ? 'Syncing…' : 'Sync Events'}
+          {isSyncing ? 'Refreshing...' : 'Refresh Events'}
         </Button>
       </div>
 
@@ -203,18 +217,18 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
           <p className="text-[10px] text-muted-foreground mt-1">{uniqueUsers.length} unique user{uniqueUsers.length !== 1 ? 's' : ''}</p>
         </div>
 
-        {/* VPN / Datacenter */}
+        {/* Risky Access */}
         <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
           <div className="flex items-center gap-2 mb-1">
             <div className="w-8 h-8 rounded-lg bg-sky-50 flex items-center justify-center">
               <Wifi className="w-4 h-4 text-sky-600" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{vpnEvents}</p>
-          <p className="text-xs text-muted-foreground">VPN Logins</p>
-          {datacenterEvents > 0 && (
-            <p className="text-[10px] text-muted-foreground mt-1">{datacenterEvents} from datacenters</p>
-          )}
+          <p className="text-2xl font-bold text-gray-900">{vpnEvents + datacenterEvents + threatEvents}</p>
+          <p className="text-xs text-muted-foreground">Risky Access</p>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            {vpnEvents} VPN · {datacenterEvents} datacenter · {threatEvents} threat
+          </p>
         </div>
 
         {/* Monitored Apps */}
@@ -342,7 +356,7 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
               <>
                 <Shield className="w-10 h-10 mx-auto text-gray-200 mb-3" />
                 <p className="font-medium text-gray-500">No events synced</p>
-                <p className="text-sm mt-1">Click "Sync Events" to pull from SaaS Alerts</p>
+                <p className="text-sm mt-1">Click "Refresh Events" to pull from SaaS Alerts</p>
               </>
             ) : (
               <>

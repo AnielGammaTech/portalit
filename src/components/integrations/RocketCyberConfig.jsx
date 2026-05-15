@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,27 @@ import {
 } from './shared/IntegrationTableParts';
 
 const TH = "text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-2";
+
+function parseCachedData(value) {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  return value;
+}
+
+function getCachedAgentCount(mapping) {
+  const cachedData = parseCachedData(mapping?.cached_data);
+  if (!cachedData) return 0;
+  if (typeof cachedData.total_agents === 'number') return cachedData.total_agents;
+  if (typeof cachedData.totalAgents === 'number') return cachedData.totalAgents;
+  if (Array.isArray(cachedData.agents)) return cachedData.agents.length;
+  return 0;
+}
 
 export default function RocketCyberConfig() {
   const [testing, setTesting] = useState(false);
@@ -62,7 +83,7 @@ export default function RocketCyberConfig() {
       return {
         accountId,
         accountName: account.name,
-        agentCount: account.agentCount || account.agent_count || 0,
+        agentCount: account.agentCount || account.agent_count || getCachedAgentCount(mapping),
         mapping,
         isMapped: Boolean(mapping),
         isStale: mapping ? isStale(mapping.last_synced) : false,
@@ -74,7 +95,7 @@ export default function RocketCyberConfig() {
         rows.push({
           accountId: mapping.rc_account_id,
           accountName: mapping.rc_account_name || mapping.rc_account_id,
-          agentCount: 0,
+          agentCount: getCachedAgentCount(mapping),
           mapping,
           isMapped: true,
           isStale: isStale(mapping.last_synced),
@@ -233,8 +254,8 @@ export default function RocketCyberConfig() {
   }, [rcAccounts, mappedAccountIds, customers, mappings, refetchMappings]);
   const resyncMapping = useCallback(async (mapping) => {
     try {
-      await client.functions.invoke('syncRocketCyber', { action: 'sync_all' });
-      toast.success(`Re-synced ${mapping.rc_account_name}`);
+      await client.functions.invoke('syncRocketCyber', { action: 'sync_agents', customer_id: mapping.customer_id });
+      toast.success(`Refreshed ${mapping.rc_account_name}`);
       queryClient.invalidateQueries({ queryKey: ['rocketcyber_mappings'] });
     } catch (error) {
       toast.error(`Sync failed: ${error.message}`);

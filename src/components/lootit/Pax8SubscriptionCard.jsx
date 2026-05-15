@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 import ReconciliationBadge from './ReconciliationBadge';
 import { getDiscrepancyMessage } from '@/lib/lootit-reconciliation';
 import { STATUS_COLORS } from './lootit-constants';
-import { Check, X, RotateCcw, ChevronRight, StickyNote, Link2, ShieldCheck, AlertTriangle, Trash2 } from 'lucide-react';
+import { Check, X, RotateCcw, ChevronRight, StickyNote, Link2, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 
 const PAX8_REVIEWED_STYLES = {
@@ -31,9 +31,9 @@ export default function Pax8SubscriptionCard({ recon, onReview, onDismiss, onRes
   const hasNotes = !!(review?.notes);
   const hasExclusions = review?.exclusion_count > 0;
 
-  // Compute effective vendor qty after exclusions
+  // Engine already subtracts exclusion_count from vendorQty — use directly
   const exclusionCount = review?.exclusion_count || 0;
-  const effectiveVendorQty = vendorQty !== null ? vendorQty - exclusionCount : null;
+  const effectiveVendorQty = vendorQty;
   const effectiveDifference = psaQty !== null && effectiveVendorQty !== null ? psaQty - effectiveVendorQty : difference;
   const effectiveStatus = hasExclusions
     ? (effectiveDifference === 0 ? 'match' : effectiveDifference > 0 ? 'over' : 'under')

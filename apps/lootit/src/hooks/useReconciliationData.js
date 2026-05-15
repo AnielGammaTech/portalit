@@ -94,6 +94,15 @@ export function useReconciliationData(customerId) {
     staleTime: 1000 * 60 * 2,
   });
 
+  // 4b. Fetch CIPP users for enriching cipp/cipp_licensed cached_data
+  const { data: cippUsers = [] } = useQuery({
+    queryKey: ['cipp_users_lootit'],
+    queryFn: () => client.entities.CIPPUser.list(null, 5000),
+    staleTime: 1000 * 60 * 5,
+    refetchInterval,
+    enabled: !!mappingQueries.cipp || !!mappingQueries.cipp_licensed,
+  });
+
   // Only block on core data (rules + customers + bills).
   // Mapping queries load progressively — treat errors as "done".
   const isLoading =
@@ -129,16 +138,21 @@ export function useReconciliationData(customerId) {
     return map;
   }, [bills, activeBillIds]);
 
-  // 7. Group line items by customer (only from active bills)
+  // 7. Group line items by customer (only from active bills, dedup by halopsa_id)
   const lineItemsByCustomer = useMemo(() => {
     const grouped = {};
     for (const li of lineItems) {
       const custId = billCustomerMap[li.recurring_bill_id];
       if (!custId) continue;
-      if (!grouped[custId]) grouped[custId] = [];
-      grouped[custId].push(li);
+      if (!grouped[custId]) grouped[custId] = { items: [], seen: new Set() };
+      const dedupKey = li.halopsa_id || li.id;
+      if (grouped[custId].seen.has(dedupKey)) continue;
+      grouped[custId].seen.add(dedupKey);
+      grouped[custId].items.push(li);
     }
-    return grouped;
+    const result = {};
+    for (const [custId, { items }] of Object.entries(grouped)) result[custId] = items;
+    return result;
   }, [lineItems, billCustomerMap]);
 
   // 8. Build mappings-by-customer: { customerId: { integration_key: mapping } }
@@ -222,6 +236,38 @@ export function useReconciliationData(customerId) {
         continue;
       }
 
+      if (integrationKey === 'cipp' || integrationKey === 'cipp_licensed') {
+        for (const row of rows) {
+          if (!row.customer_id) continue;
+          if (!result[row.customer_id]) result[row.customer_id] = {};
+          const custUsers = cippUsers
+            .filter(u => u.customer_id === row.customer_id)
+            .map(u => ({
+              id: u.id,
+              displayName: u.display_name,
+              email: u.user_principal_name,
+              userType: u.user_type,
+              licenses: (typeof u.cached_data?.licenses === 'string' && u.cached_data.licenses) || '',
+              accountEnabled: u.account_enabled,
+              department: u.department,
+              jobTitle: u.job_title,
+            }));
+          const originalCached = typeof row.cached_data === 'string'
+            ? (() => { try { return JSON.parse(row.cached_data); } catch { return {}; } })()
+            : (row.cached_data || {});
+          const fallbackUserCount = typeof originalCached.users === 'number'
+            ? originalCached.users
+            : Array.isArray(originalCached.users) ? originalCached.users.length : 0;
+          result[row.customer_id][integrationKey] = {
+            ...row,
+            cached_data: custUsers.length > 0
+              ? { users: custUsers, licensed_users: custUsers.filter(u => u.licenses).length }
+              : { ...originalCached, users: fallbackUserCount, licensed_users: originalCached.licensed_users || 0 },
+          };
+        }
+        continue;
+      }
+
       for (const row of rows) {
         if (!row.customer_id) continue;
         if (!result[row.customer_id]) result[row.customer_id] = {};
@@ -248,6 +294,7 @@ export function useReconciliationData(customerId) {
   }, [
     // Depend on the data arrays themselves, not the query objects
     ...Object.values(mappingQueries).map((q) => q.data),
+    cippUsers,
   ]);
 
   // 9. Group reviews by customer
@@ -330,7 +377,7 @@ export function useReconciliationData(customerId) {
         (c) => c.summary.over > 0 || c.summary.under > 0 || (c.pax8Reconciliations || []).some(r => r.status !== 'match')
       ).length,
       pax8MissingFromPsa: all.reduce((s, c) => s + (c.pax8Reconciliations || []).filter(r => r.status === 'missing_from_psa').length, 0),
-      totalMatched: all.reduce((s, c) => s + c.summary.matched, 0),
+      totalMatched: all.reduce((s, c) => s + c.summary.matched + c.summary.forceMatched, 0),
       totalOver: all.reduce((s, c) => s + c.summary.over, 0),
       totalUnder: all.reduce((s, c) => s + c.summary.under, 0),
       totalNoData: all.reduce((s, c) => s + c.summary.noData, 0),

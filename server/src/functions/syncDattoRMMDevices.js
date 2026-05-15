@@ -1,4 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
+import { fetchWithTimeout, runWithConcurrency } from '../lib/sync-utils.js';
 
 const DATTO_API_KEY = process.env.DATTO_RMM_API_KEY;
 const DATTO_API_SECRET = process.env.DATTO_RMM_API_SECRET;
@@ -21,7 +22,7 @@ async function getDattoAccessToken() {
   // Basic auth with public-client:public as per Datto docs
   const basicAuth = Buffer.from('public-client:public').toString('base64');
 
-  const response = await fetch(authUrl, {
+  const response = await fetchWithTimeout(authUrl, {
     method: 'POST',
     headers: {
       'Authorization': `Basic ${basicAuth}`,
@@ -41,7 +42,7 @@ async function getDattoAccessToken() {
 
 async function dattoApiCall(accessToken, endpoint) {
   const baseUrl = DATTO_API_URL.replace(/\/$/, '');
-  const response = await fetch(`${baseUrl}/api/v2${endpoint}`, {
+  const response = await fetchWithTimeout(`${baseUrl}/api/v2${endpoint}`, {
     headers: {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json'
@@ -283,9 +284,7 @@ export async function syncDattoRMMDevices(body, user) {
     const mappings = mappingsData || [];
 
     if (mappings.length === 0) {
-      const err = new Error('No Datto site mapped to this customer');
-      err.statusCode = 400;
-      throw err;
+      return { success: true, skipped: true, message: 'No Datto site mapped to this customer' };
     }
 
     let totalSynced = 0;
@@ -444,135 +443,135 @@ export async function syncDattoRMMDevices(body, user) {
       return { success: true, recordsSynced: 0, message: 'No site mappings found' };
     }
 
-    let totalSynced = 0;
-    const errors = [];
+    const startedAt = Date.now();
+    const results = await runWithConcurrency(allMappings, 6, async (mapping) => {
+      const siteUid = mapping.datto_site_id;
+      let perCustomerSynced = 0;
 
-    for (const mapping of allMappings) {
-      try {
-        const siteUid = mapping.datto_site_id;
+      // Datto RMM API: /site/{siteUid}/devices - with pagination (0-based)
+      let allDevices = [];
+      let page = 0;
+      const pageSize = 250;
 
-        // Datto RMM API: /site/{siteUid}/devices - with pagination (0-based)
-        let allDevices = [];
-        let page = 0;
-        const pageSize = 250;
+      while (true) {
+        const devicesData = await dattoApiCall(accessToken, `/site/${siteUid}/devices?max=${pageSize}&page=${page}`);
+        const pageDevices = devicesData.devices || [];
 
-        while (true) {
-          const devicesData = await dattoApiCall(accessToken, `/site/${siteUid}/devices?max=${pageSize}&page=${page}`);
-          const pageDevices = devicesData.devices || [];
+        if (!pageDevices || pageDevices.length === 0) break;
+        allDevices = allDevices.concat(pageDevices);
 
-          if (!pageDevices || pageDevices.length === 0) break;
-          allDevices = allDevices.concat(pageDevices);
+        if (pageDevices.length < pageSize) break;
+        page++;
+        if (page > 50) break; // Safety limit
+      }
 
-          if (pageDevices.length < pageSize) break;
-          page++;
-          if (page > 50) break; // Safety limit
+      const devices = allDevices;
+
+      const { data: existingDevicesData } = await supabase
+        .from('devices')
+        .select('*')
+        .eq('customer_id', mapping.customer_id)
+        .eq('datto_site_id', siteUid);
+      const existingDevices = existingDevicesData || [];
+
+      const existingByExternalId = {};
+      existingDevices.forEach(d => { existingByExternalId[d.external_id] = d; });
+
+      const dattoDeviceIds = new Set();
+      let onlineCount = 0;
+      let offlineCount = 0;
+      let serverCount = 0;
+      let workstationCount = 0;
+
+      for (const device of devices) {
+        const deviceUid = device.uid || device.id;
+        const dattoId = String(deviceUid);
+        dattoDeviceIds.add(dattoId);
+        const existing = existingByExternalId[dattoId];
+
+        let lastSeenStr = null;
+        const lastSeen = device.lastSeen;
+        if (lastSeen) {
+          lastSeenStr = typeof lastSeen === 'number' ? new Date(lastSeen).toISOString() : lastSeen;
         }
 
-        const devices = allDevices;
+        const deviceType = mapDeviceType(device.deviceType?.category);
+        const isOnline = device.online;
 
-        const { data: existingDevicesData } = await supabase
-          .from('devices')
-          .select('*')
-          .eq('customer_id', mapping.customer_id)
-          .eq('datto_site_id', siteUid);
-        const existingDevices = existingDevicesData || [];
+        if (isOnline) onlineCount++;
+        else offlineCount++;
+        if (deviceType === 'server') serverCount++;
+        else workstationCount++;
 
-        const existingByExternalId = {};
-        existingDevices.forEach(d => { existingByExternalId[d.external_id] = d; });
-
-        const dattoDeviceIds = new Set();
-        let onlineCount = 0;
-        let offlineCount = 0;
-        let serverCount = 0;
-        let workstationCount = 0;
-
-        for (const device of devices) {
-          const deviceUid = device.uid || device.id;
-          const dattoId = String(deviceUid);
-          dattoDeviceIds.add(dattoId);
-          const existing = existingByExternalId[dattoId];
-
-          let lastSeenStr = null;
-          const lastSeen = device.lastSeen;
-          if (lastSeen) {
-            lastSeenStr = typeof lastSeen === 'number' ? new Date(lastSeen).toISOString() : lastSeen;
-          }
-
-          const deviceType = mapDeviceType(device.deviceType?.category);
-          const isOnline = device.online;
-
-          // Track stats for cached_data
-          if (isOnline) onlineCount++;
-          else offlineCount++;
-          if (deviceType === 'server') serverCount++;
-          else workstationCount++;
-
-          const deviceData = {
-            customer_id: mapping.customer_id,
-            external_id: dattoId,
-            source: 'datto_rmm',
-            name: device.hostname || device.name || 'Unknown',
-            datto_site_id: siteUid,
-            datto_site_uid: siteUid,
-            hostname: device.hostname || device.name || 'Unknown',
-            notes: existing?.notes || device.description || '',
-            device_type: deviceType,
-            operating_system: pickFirst(device.operatingSystem, device.os, device.osName),
-            os_version: pickFirst(device.operatingSystemVersion, device.osVersion, device.osRelease),
-            serial_number: pickFirst(device.serialNumber, device.serial, device.serviceTag, device.biosSerialNumber),
-            manufacturer: pickFirst(device.manufacturer, device.make, device.deviceManufacturer, device.hardware?.manufacturer),
-            model: pickFirst(device.model, device.deviceModel, device.hardware?.model),
-            ip_address: pickFirst(device.intIpAddress, device.extIpAddress, device.ipAddress, device.ip),
-            last_seen: lastSeenStr,
-            last_user: device.lastLoggedInUser || '',
-            status: isOnline ? 'online' : 'offline',
-            online_status: isOnline ? 'online' : 'offline'
-          };
-
-          if (existing && !hasDeviceChanged(existing, deviceData)) {
-            continue;
-          }
-
-          if (existing) {
-            await supabase.from('devices').update(deviceData).eq('id', existing.id);
-          } else {
-            const { error } = await supabase.from('devices').insert(deviceData).select().single();
-            if (error) {
-              console.error(`Failed to insert device ${dattoId}: ${error.message}`);
-              throw new Error(error.message);
-            }
-          }
-          totalSynced++;
-        }
-
-        // Safety: only delete stale devices if API returned data
-        if (allDevices.length > 0) {
-          for (const existing of existingDevices) {
-            if (!dattoDeviceIds.has(existing.external_id)) {
-              await supabase.from('devices').delete().eq('id', existing.id);
-              totalSynced++;
-            }
-          }
-        }
-
-        // Write cached_data to mapping for fast frontend reads
-        const cachedData = {
-          total_devices: allDevices.length,
-          online_count: onlineCount,
-          offline_count: offlineCount,
-          server_count: serverCount,
-          workstation_count: workstationCount
+        const deviceData = {
+          customer_id: mapping.customer_id,
+          external_id: dattoId,
+          source: 'datto_rmm',
+          name: device.hostname || device.name || 'Unknown',
+          datto_site_id: siteUid,
+          datto_site_uid: siteUid,
+          hostname: device.hostname || device.name || 'Unknown',
+          notes: existing?.notes || device.description || '',
+          device_type: deviceType,
+          operating_system: pickFirst(device.operatingSystem, device.os, device.osName),
+          os_version: pickFirst(device.operatingSystemVersion, device.osVersion, device.osRelease),
+          serial_number: pickFirst(device.serialNumber, device.serial, device.serviceTag, device.biosSerialNumber),
+          manufacturer: pickFirst(device.manufacturer, device.make, device.deviceManufacturer, device.hardware?.manufacturer),
+          model: pickFirst(device.model, device.deviceModel, device.hardware?.model),
+          ip_address: pickFirst(device.intIpAddress, device.extIpAddress, device.ipAddress, device.ip),
+          last_seen: lastSeenStr,
+          last_user: device.lastLoggedInUser || '',
+          status: isOnline ? 'online' : 'offline',
+          online_status: isOnline ? 'online' : 'offline'
         };
 
-        await supabase.from('datto_site_mappings').update({
-          last_synced: new Date().toISOString(),
-          cached_data: cachedData
-        }).eq('id', mapping.id);
-      } catch (err) {
-        console.error(`Error syncing site ${mapping.datto_site_id}:`, err.message);
-        errors.push({ site: mapping.datto_site_name, error: err.message });
+        if (existing && !hasDeviceChanged(existing, deviceData)) {
+          continue;
+        }
+
+        if (existing) {
+          await supabase.from('devices').update(deviceData).eq('id', existing.id);
+        } else {
+          const { error } = await supabase.from('devices').insert(deviceData).select().single();
+          if (error) {
+            console.error(`Failed to insert device ${dattoId}: ${error.message}`);
+            throw new Error(error.message);
+          }
+        }
+        perCustomerSynced++;
       }
-    }
+
+      // Safety: only delete stale devices if API returned data
+      if (allDevices.length > 0) {
+        for (const existing of existingDevices) {
+          if (!dattoDeviceIds.has(existing.external_id)) {
+            await supabase.from('devices').delete().eq('id', existing.id);
+            perCustomerSynced++;
+          }
+        }
+      }
+
+      const cachedData = {
+        total_devices: allDevices.length,
+        online_count: onlineCount,
+        offline_count: offlineCount,
+        server_count: serverCount,
+        workstation_count: workstationCount
+      };
+
+      await supabase.from('datto_site_mappings').update({
+        last_synced: new Date().toISOString(),
+        cached_data: cachedData
+      }).eq('id', mapping.id);
+
+      return { synced: true, count: perCustomerSynced };
+    });
+
+    const totalSynced = results.reduce((s, r) => s + (r.ok ? (r.value?.count || 0) : 0), 0);
+    const errors = results
+      .map((r, i) => !r.ok ? { site: allMappings[i]?.datto_site_name, error: r.error?.message || 'unknown' } : null)
+      .filter(Boolean);
+    console.log(`[DattoRMM] sync_all done in ${Date.now() - startedAt}ms — ${totalSynced} device-ops across ${allMappings.length} sites, ${errors.length} failed`);
 
     return {
       success: true,

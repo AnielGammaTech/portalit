@@ -1,4 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
+import { fetchWithTimeout } from '../lib/sync-utils.js';
 
 const UNITRENDS_API_BASE = 'https://public-api.backup.net';
 const UNITRENDS_AUTH_URL = 'https://login.backup.net/connect/token';
@@ -22,7 +23,7 @@ async function getUnitrendsToken() {
   // Basic auth with Base64 encoded client_id:client_secret
   const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
 
-  const response = await fetch(UNITRENDS_AUTH_URL, {
+  const response = await fetchWithTimeout(UNITRENDS_AUTH_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -45,7 +46,7 @@ async function getUnitrendsToken() {
 
 async function unitrendsApiCall(endpoint) {
   const token = await getUnitrendsToken();
-  const response = await fetch(`${UNITRENDS_API_BASE}${endpoint}`, {
+  const response = await fetchWithTimeout(`${UNITRENDS_API_BASE}${endpoint}`, {
     headers: {
       'Authorization': `Bearer ${token}`,
       'Accept': 'application/json'
@@ -85,23 +86,11 @@ function parseUsersResponse(usersResponse) {
   return users;
 }
 
-const PAGE_SIZE = 1000;
-const MAX_PAGES = 20;
-
 async function fetchAllUsers(tenantId) {
-  let allUsers = [];
-  let page = 1;
-  while (true) {
-    const resp = await unitrendsApiCall(
-      `/v2/spanning/domains/${tenantId}/users?page_size=${PAGE_SIZE}&page=${page}`
-    );
-    const users = parseUsersResponse(resp);
-    allUsers = allUsers.concat(users);
-    if (users.length < PAGE_SIZE) break;
-    page++;
-    if (page > MAX_PAGES) break;
-  }
-  return allUsers;
+  const resp = await unitrendsApiCall(
+    `/v2/spanning/domains/${tenantId}/users?page_size=1000`
+  );
+  return parseUsersResponse(resp);
 }
 
 function formatUser(u) {
@@ -337,7 +326,13 @@ export async function syncSpanningBackup(body, user) {
 
     const mapping = mappings[0];
 
-    if (!mapping.spanning_api_key) {
+    const { data: cred } = await supabase
+      .from('spanning_credentials')
+      .select('api_key')
+      .eq('customer_id', customer_id)
+      .maybeSingle();
+
+    if (!cred?.api_key) {
       return {
         success: true,
         total: 0,
@@ -392,7 +387,13 @@ export async function syncSpanningBackup(body, user) {
 
     const mapping = mappings[0];
 
-    if (!mapping.spanning_api_key) {
+    const { data: cred } = await supabase
+      .from('spanning_credentials')
+      .select('api_key')
+      .eq('customer_id', customer_id)
+      .maybeSingle();
+
+    if (!cred?.api_key) {
       return {
         success: true,
         total: 0,
@@ -509,9 +510,7 @@ export async function syncSpanningBackup(body, user) {
   // Sync licenses (contacts only, no SaaS license auto-creation)
   if (action === 'sync_licenses') {
     if (!customer_id) {
-      const err = new Error('customer_id is required');
-      err.statusCode = 400;
-      throw err;
+      return { success: false, error: 'customer_id is required' };
     }
 
     const { data: mappings } = await supabase
@@ -520,9 +519,7 @@ export async function syncSpanningBackup(body, user) {
       .eq('customer_id', customer_id);
 
     if (!mappings || mappings.length === 0) {
-      const err = new Error('No Spanning mapping found for this customer');
-      err.statusCode = 400;
-      throw err;
+      return { success: true, skipped: true, message: 'No Spanning mapping found for this customer' };
     }
 
     const mapping = mappings[0];

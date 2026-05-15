@@ -1,0 +1,87 @@
+<h2>LootIT Reconciliation Reminders & Visibility</h2>
+<p class="subtitle">Three features built on top of the existing staleness system</p>
+
+<div class="section">
+  <h3>Architecture Overview</h3>
+  <div class="mockup">
+    <div class="mockup-header">How the 3 features connect</div>
+    <div class="mockup-body" style="padding: 24px; font-family: system-ui;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+        <!-- Feature 1 -->
+        <div style="background: #f0fdf4; border: 2px solid #86efac; border-radius: 12px; padding: 16px;">
+          <div style="font-size: 11px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Feature 1</div>
+          <div style="font-size: 16px; font-weight: 700; color: #14532d; margin-bottom: 8px;">Sign-Off Reminders</div>
+          <div style="font-size: 13px; color: #166534; line-height: 1.5;">
+            Trigger: <strong>30 days</strong> since last sign-off per customer<br><br>
+            &bull; Badge on global dashboard per customer<br>
+            &bull; Banner on customer detail page<br>
+            &bull; Telegram notification when due
+          </div>
+        </div>
+        <!-- Feature 2 -->
+        <div style="background: #eff6ff; border: 2px solid #93c5fd; border-radius: 12px; padding: 16px;">
+          <div style="font-size: 11px; font-weight: 700; color: #2563eb; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Feature 2</div>
+          <div style="font-size: 16px; font-weight: 700; color: #1e3a5f; margin-bottom: 8px;">Force-Match Alerts</div>
+          <div style="font-size: 13px; color: #1e40af; line-height: 1.5;">
+            Trigger: Follows <strong>sign-off expiry</strong> (same 30-day cycle)<br><br>
+            &bull; Orange badge on force-matched tiles<br>
+            &bull; Count in reconciliation filter tabs<br>
+            &bull; Included in Telegram reminder
+          </div>
+        </div>
+        <!-- Feature 3 -->
+        <div style="background: #fef3c7; border: 2px solid #fcd34d; border-radius: 12px; padding: 16px;">
+          <div style="font-size: 11px; font-weight: 700; color: #b45309; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Feature 3</div>
+          <div style="font-size: 16px; font-weight: 700; color: #78350f; margin-bottom: 8px;">Exclusion Visibility</div>
+          <div style="font-size: 13px; color: #92400e; line-height: 1.5;">
+            Trigger: Exclusion age &gt; <strong>90 days</strong> without re-verification<br><br>
+            &bull; Badge on tiles with stale exclusions<br>
+            &bull; Shows excluded count + last verified date<br>
+            &bull; Flagged during sign-off verification
+          </div>
+        </div>
+      </div>
+
+      <!-- Shared infrastructure -->
+      <div style="background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 12px; padding: 16px;">
+        <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Shared Infrastructure</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; font-size: 13px; color: #475569;">
+          <div>
+            <strong>Expand useStalenessData</strong><br>
+            Add sign-off expiry + exclusion staleness to existing hook
+          </div>
+          <div>
+            <strong>Supabase Edge Function</strong><br>
+            Daily cron checks all customers, sends Telegram for due items
+          </div>
+          <div>
+            <strong>New DB columns</strong><br>
+            exclusion_verified_at on reconciliation_reviews, reminder_sent_at on sign_offs
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Does this breakdown look right?</h3>
+  <p class="subtitle">Click to confirm or flag concerns</p>
+
+  <div class="options">
+    <div class="option" data-choice="approve" onclick="toggleSelect(this)">
+      <div class="letter">A</div>
+      <div class="content">
+        <h3>Looks good — show me the UI details</h3>
+        <p>Move on to mockups of badges, banners, and notifications</p>
+      </div>
+    </div>
+    <div class="option" data-choice="adjust" onclick="toggleSelect(this)">
+      <div class="letter">B</div>
+      <div class="content">
+        <h3>Needs adjustment</h3>
+        <p>I'll explain what should change in the terminal</p>
+      </div>
+    </div>
+  </div>
+</div>

@@ -15,10 +15,11 @@ const PORTALIT_URL = import.meta.env.VITE_PORTALIT_URL || 'https://portalit.gtoo
 
 const FILTERS = [
   { key: 'all', label: 'All' },
+  { key: 'overdue', label: 'Overdue' },
+  { key: 'upcoming', label: 'Upcoming' },
+  { key: 'never', label: 'Never' },
   { key: 'issues', label: 'Issues' },
-  { key: 'matched', label: 'Matched' },
   { key: 'signed_off', label: 'Signed Off' },
-  { key: 'pending', label: 'Pending' },
 ];
 
 const SORT_KEYS = {
@@ -59,6 +60,17 @@ export default function LootITDashboard({ onSelectCustomer }) {
   });
   const signedOffCustomerIds = useMemo(() => new Set(signOffs.map(s => s.customer_id)), [signOffs]);
 
+  const signOffDateMap = useMemo(() => {
+    const map = {};
+    for (const so of (signOffs || [])) {
+      const existing = map[so.customer_id];
+      if (!existing || new Date(so.signed_at) > new Date(existing.signed_at)) {
+        map[so.customer_id] = { signed_at: so.signed_at, next_reconciliation_date: so.next_reconciliation_date };
+      }
+    }
+    return map;
+  }, [signOffs]);
+
   const anomalies = useMemo(() => {
     if (!dbAnomalies || dbAnomalies.length === 0) return [];
     const customerMap = Object.fromEntries((customers || []).map(c => [c.id, c]));
@@ -89,7 +101,7 @@ export default function LootITDashboard({ onSelectCustomer }) {
         ...(entry.pax8Reconciliations || []),
       ];
       const combined = getDiscrepancySummary(allRecons);
-      const resolved = (combined.matched || 0) + (combined.dismissed || 0);
+      const resolved = (combined.matched || 0) + (combined.forceMatched || 0) + (combined.dismissed || 0) + (combined.reviewed || 0);
       const applicable = combined.total - (combined.noData || 0);
       return { ...entry, combinedSummary: combined, resolved, applicable };
     });
@@ -103,10 +115,23 @@ export default function LootITDashboard({ onSelectCustomer }) {
     const filtered = searched.filter((entry) => {
       const s = entry.combinedSummary;
       if (filter === 'issues') return s.over > 0 || s.under > 0;
-      if (filter === 'matched') return s.matched > 0 && s.over === 0 && s.under === 0;
-      if (filter === 'no_data') return s.noData > 0;
       if (filter === 'signed_off') return signedOffCustomerIds.has(entry.customer.id);
-      if (filter === 'pending') return !signedOffCustomerIds.has(entry.customer.id);
+      if (filter === 'never') {
+        return !signOffDateMap[entry.customer.id];
+      }
+      if (filter === 'overdue') {
+        const so = signOffDateMap[entry.customer.id];
+        if (!so) return false;
+        if (so.next_reconciliation_date) return new Date() >= new Date(so.next_reconciliation_date);
+        const days = Math.floor((Date.now() - new Date(so.signed_at).getTime()) / (1000 * 60 * 60 * 24));
+        return days >= 30;
+      }
+      if (filter === 'upcoming') {
+        const so = signOffDateMap[entry.customer.id];
+        if (!so || !so.next_reconciliation_date) return false;
+        const daysUntil = Math.ceil((new Date(so.next_reconciliation_date) - new Date()) / (1000 * 60 * 60 * 24));
+        return daysUntil > 0 && daysUntil <= 14;
+      }
       return true;
     });
 
@@ -118,7 +143,7 @@ export default function LootITDashboard({ onSelectCustomer }) {
   useAutoRetry(
     [customers, bills],
     isLoading,
-    [['reconciliation_rules'], ['reconciliation_customers'], ['reconciliation_bills'], ['reconciliation_line_items']]
+    [['reconciliation_rules'], ['customers'], ['recurring_bills'], ['recurring_bill_line_items']]
   );
 
   if (isLoading) {
@@ -282,6 +307,9 @@ export default function LootITDashboard({ onSelectCustomer }) {
                 <th className="text-center px-3 py-2 w-16">
                   <SortHeader label="Issues" sortId="issues" className="justify-center" />
                 </th>
+                <th className="text-center px-3 py-2 w-20">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Due</span>
+                </th>
                 <th className="text-center px-3 py-2 w-16">
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Status</span>
                 </th>
@@ -294,6 +322,13 @@ export default function LootITDashboard({ onSelectCustomer }) {
                 const issues = s.over + s.under;
                 const isSignedOff = signedOffCustomerIds.has(customer.id);
                 const isFullyReconciled = applicable > 0 && resolved === applicable;
+                const so = signOffDateMap[customer.id];
+                const isOverdue = so
+                  ? so.next_reconciliation_date
+                    ? new Date() >= new Date(so.next_reconciliation_date)
+                    : Math.floor((Date.now() - new Date(so.signed_at).getTime()) / (1000 * 60 * 60 * 24)) >= 30
+                  : false;
+                const isNeverSignedOff = !so;
 
                 return (
                   <tr
@@ -302,8 +337,10 @@ export default function LootITDashboard({ onSelectCustomer }) {
                     className={cn(
                       "transition-colors cursor-pointer hover:bg-slate-50",
                       idx % 2 === 1 && "bg-slate-50/40",
-                      isSignedOff && "bg-violet-50/30",
-                      isFullyReconciled && !isSignedOff && "bg-emerald-50/30",
+                      isSignedOff && !isOverdue && "bg-violet-50/30",
+                      isFullyReconciled && !isSignedOff && !isOverdue && "bg-emerald-50/30",
+                      isOverdue && "bg-red-50/30",
+                      isNeverSignedOff && !isFullyReconciled && "bg-amber-50/20",
                     )}
                   >
                     {/* Status dot */}
@@ -375,12 +412,60 @@ export default function LootITDashboard({ onSelectCustomer }) {
                       )}
                     </td>
 
+                    {/* Due */}
+                    <td className="px-3 py-2 text-center">
+                      {(() => {
+                        const so = signOffDateMap[customer.id];
+                        if (!so) {
+                          return (
+                            <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
+                              Never
+                            </span>
+                          );
+                        }
+                        const nextDate = so.next_reconciliation_date ? new Date(so.next_reconciliation_date) : null;
+                        if (nextDate) {
+                          const now = new Date();
+                          const daysUntil = Math.ceil((nextDate - now) / (1000 * 60 * 60 * 24));
+                          const label = nextDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                          if (daysUntil < 0) {
+                            return (
+                              <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
+                                {label} ({Math.abs(daysUntil)}d overdue)
+                              </span>
+                            );
+                          }
+                          if (daysUntil <= 14) {
+                            return (
+                              <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                                {label} ({daysUntil}d)
+                              </span>
+                            );
+                          }
+                          return (
+                            <span className="text-[10px] font-medium text-slate-500">
+                              {label}
+                            </span>
+                          );
+                        }
+                        const days = Math.floor((Date.now() - new Date(so.signed_at).getTime()) / (1000 * 60 * 60 * 24));
+                        if (days >= 30) {
+                          return (
+                            <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
+                              {days}d ago
+                            </span>
+                          );
+                        }
+                        return <span className="text-slate-300">—</span>;
+                      })()}
+                    </td>
+
                     {/* Status badges */}
                     <td className="px-3 py-2 text-center">
                       <div className="flex items-center justify-center gap-1">
-                        {s.matched > 0 && (
+                        {(s.matched + s.forceMatched) > 0 && (
                           <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-600 font-medium">
-                            <Check className="w-3 h-3" />{s.matched}
+                            <Check className="w-3 h-3" />{s.matched + s.forceMatched}
                           </span>
                         )}
                         {s.reviewed > 0 && (

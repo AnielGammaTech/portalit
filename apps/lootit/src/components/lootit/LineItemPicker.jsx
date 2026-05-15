@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { formatLineItemDescription } from '@/lib/utils';
 import { Search, Square, CheckSquare, ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -19,6 +19,7 @@ function getVendorName(integrationKey) {
   if (integrationKey.startsWith('bullphish')) return 'BullPhish ID';
   if (integrationKey.startsWith('threecx')) return '3CX';
   if (integrationKey.startsWith('inky')) return 'Inky';
+  if (integrationKey.startsWith('cipp')) return 'CIPP';
   if (integrationKey.startsWith('pax8')) return 'Pax8';
   // Fallback: capitalize first word
   const first = integrationKey.split('_')[0];
@@ -29,25 +30,82 @@ function getVendorName(integrationKey) {
  * Extract displayable items from a vendor mapping's cached_data.
  * Returns an array of { id, description, quantity, unit_price?, total?, _meta? }.
  */
-function extractVendorItems(integrationKey, mapping) {
+function extractVendorItems(integrationKey, mapping, haloDevices) {
   const raw = typeof mapping.cached_data === 'string'
     ? (() => { try { return JSON.parse(mapping.cached_data); } catch { return {}; } })()
     : (mapping.cached_data || {});
 
   const label = INTEGRATION_LABELS[integrationKey] || integrationKey;
 
+  // Datto RMM: cached_data is count-only, use HaloPSA devices instead
+  if (integrationKey.startsWith('datto_rmm') && (!Array.isArray(raw.devices) || raw.devices.length === 0) && Array.isArray(haloDevices) && haloDevices.length > 0) {
+    let deviceList = haloDevices;
+    if (integrationKey === 'datto_rmm_workstation') {
+      deviceList = haloDevices.filter(d => {
+        const t = (d.device_type || '').toLowerCase();
+        return t === 'desktop' || t === 'laptop' || t === 'workstation';
+      });
+    } else if (integrationKey === 'datto_rmm_server') {
+      deviceList = haloDevices.filter(d => (d.device_type || '').toLowerCase() === 'server');
+    }
+    if (deviceList.length > 0) {
+      const summary = {
+        id: `${integrationKey}:total`,
+        description: label,
+        quantity: deviceList.length,
+        unit_price: 0,
+        total: 0,
+        _meta: `${deviceList.length} total devices`,
+        _isSummary: true,
+      };
+      return [summary, ...deviceList.map((d, i) => ({
+        id: `${integrationKey}:${d.id || d.name || i}`,
+        description: d.name || d.hostname || 'Unknown device',
+        quantity: 1,
+        unit_price: 0,
+        total: 0,
+        _meta: [d.device_type, d.status].filter(Boolean).join(' · '),
+      }))];
+    }
+  }
+
   // Device arrays (UniFi, Datto RMM, Cove)
   if (Array.isArray(raw.devices) && raw.devices.length > 0) {
+    let deviceList = raw.devices;
+
+    if (integrationKey === 'unifi_firewall' || integrationKey === 'unifi_location') {
+      deviceList = raw.devices.filter(d =>
+        d.type === 'firewall' || d.device_type === 'firewall' ||
+        d.model?.toLowerCase().includes('udm') ||
+        d.model?.toLowerCase().includes('usg') ||
+        d.model?.toLowerCase().includes('gateway')
+      );
+      if (deviceList.length === 0) {
+        if (typeof raw.summary?.firewalls === 'number' && raw.summary.firewalls > 0) {
+          return [{
+            id: `${integrationKey}:count`,
+            description: label,
+            quantity: raw.summary.firewalls,
+            unit_price: 0,
+            total: 0,
+            _meta: `${raw.summary.firewalls} total locations`,
+            _isSummary: true,
+          }];
+        }
+        return [];
+      }
+    }
+
     const summary = {
       id: `${integrationKey}:total`,
       description: label,
-      quantity: raw.devices.length,
+      quantity: deviceList.length,
       unit_price: 0,
       total: 0,
-      _meta: `${raw.devices.length} total devices`,
+      _meta: `${deviceList.length} total devices`,
       _isSummary: true,
     };
-    return [summary, ...raw.devices.map((d, i) => ({
+    return [summary, ...deviceList.map((d, i) => ({
       id: `${integrationKey}:${d.id || d.mac || i}`,
       description: d.name || d.hostname || d.model || 'Unknown device',
       quantity: 1,
@@ -78,7 +136,43 @@ function extractVendorItems(integrationKey, mapping) {
     }))];
   }
 
-  // User arrays (Spanning, JumpCloud)
+  // CIPP licensed users: group by license SKU
+  if (integrationKey === 'cipp_licensed' && Array.isArray(raw.users)) {
+    const licensedUsers = raw.users.filter(u => u.licenses);
+    const licenseGroups = {};
+    for (const u of licensedUsers) {
+      const lics = Array.isArray(u.licenses) ? u.licenses : String(u.licenses || '').split(',').map(l => l.trim()).filter(Boolean);
+      for (const lic of lics) {
+        if (!licenseGroups[lic]) licenseGroups[lic] = [];
+        licenseGroups[lic].push(u);
+      }
+    }
+    const items = [];
+    for (const [licName, users] of Object.entries(licenseGroups).sort((a, b) => b[1].length - a[1].length)) {
+      items.push({
+        id: `${integrationKey}:lic:${licName}`,
+        description: licName,
+        quantity: users.length,
+        unit_price: 0,
+        total: 0,
+        _meta: `${users.length} licensed users`,
+        _isSummary: true,
+      });
+      for (const u of users) {
+        items.push({
+          id: `${integrationKey}:${u.id || u.email}`,
+          description: u.displayName || u.email || 'Unknown user',
+          quantity: 1,
+          unit_price: 0,
+          total: 0,
+          _meta: u.email || '',
+        });
+      }
+    }
+    return items;
+  }
+
+  // User arrays (Spanning, JumpCloud, CIPP)
   if (Array.isArray(raw.users) && raw.users.length > 0) {
     const summary = {
       id: `${integrationKey}:total`,
@@ -191,7 +285,7 @@ function buildTabs(lineItems, pax8Products, devices, vendorMappings) {
   if (vendorMappings) {
     for (const [key, mapping] of Object.entries(vendorMappings)) {
       if (key === 'pax8') continue; // already handled above
-      const items = extractVendorItems(key, mapping);
+      const items = extractVendorItems(key, mapping, devices);
       if (items.length > 0) {
         const vendorName = getVendorName(key);
         const existing = vendorGroups.get(vendorName) || [];
@@ -200,8 +294,13 @@ function buildTabs(lineItems, pax8Products, devices, vendorMappings) {
     }
   }
 
-  // Add one tab per vendor group
-  for (const [vendorName, keys] of vendorGroups) {
+  const vendorOrder = ['Cove', 'Datto', 'CIPP', 'Pax8', 'Spanning', 'JumpCloud', 'UniFi', 'RocketCyber', 'Graphus', '3CX', 'Inky', 'SaaS Alerts', 'Dark Web ID', 'BullPhish ID'];
+  const sortedVendors = [...vendorGroups.entries()].sort((a, b) => {
+    const ai = vendorOrder.indexOf(a[0]);
+    const bi = vendorOrder.indexOf(b[0]);
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+  });
+  for (const [vendorName, keys] of sortedVendors) {
     tabs.push({
       key: `vendor:${vendorName}`,
       label: vendorName,
@@ -245,6 +344,18 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
     () => buildTabs(lineItems, pax8Products, devices, vendorMappings),
     [lineItems, pax8Products, devices, vendorMappings],
   );
+
+  const tabsRef = useRef(null);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  useEffect(() => {
+    const el = tabsRef.current;
+    if (!el) return;
+    const check = () => setCanScrollRight(el.scrollWidth > el.clientWidth + el.scrollLeft + 4);
+    check();
+    el.addEventListener('scroll', check);
+    return () => el.removeEventListener('scroll', check);
+  }, [visibleTabs]);
 
   const toggleSection = useCallback((sectionKey) => {
     setExpandedSections((prev) => {
@@ -299,7 +410,7 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
       for (const key of integrationKeys) {
         const mapping = vendorMappings[key];
         if (!mapping) continue;
-        const items = extractVendorItems(key, mapping);
+        const items = extractVendorItems(key, mapping, devices);
         allItems.push(...items);
       }
 
@@ -367,7 +478,8 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
 
         {/* Source tabs */}
         {visibleTabs.length > 1 && (
-          <div className="px-4 pt-3 pb-1 border-b border-slate-100 flex gap-1 overflow-x-auto">
+          <div className="relative">
+          <div ref={tabsRef} className="px-4 pt-3 pb-1 border-b border-slate-100 flex gap-1 overflow-x-auto scrollbar-hide">
             {visibleTabs.map(tab => {
               // Count selections on this tab
               const tabLabel = sourceTabLabel(tab.key);
@@ -397,6 +509,10 @@ export default function LineItemPicker({ productName, lineItems, pax8Products = 
                 </button>
               );
             })}
+          </div>
+          {canScrollRight && (
+            <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent pointer-events-none" />
+          )}
           </div>
         )}
 

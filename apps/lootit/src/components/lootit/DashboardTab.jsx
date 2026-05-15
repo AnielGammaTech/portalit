@@ -2,9 +2,10 @@ import React from 'react';
 import { useReconciliationSnapshot } from '@/hooks/useReconciliationSnapshot';
 import SignOffBanner from './SignOffBanner';
 import SnapshotCard from './SnapshotCard';
+import SignOffHistory from './SignOffHistory';
 
 export default function DashboardTab({ customerId, onTabChange, onShowSnapshotDetail }) {
-  const { latestSignOff, snapshots, isLoading } = useReconciliationSnapshot(customerId);
+  const { latestSignOff, allSignOffs, snapshots, isLoading } = useReconciliationSnapshot(customerId);
 
   if (isLoading) {
     return (
@@ -24,7 +25,7 @@ export default function DashboardTab({ customerId, onTabChange, onShowSnapshotDe
       {snapshots.length > 0 && (
         <div className="grid grid-cols-4 gap-3 auto-rows-fr">
           {snapshots
-            .filter((s) => s.psa_qty != null || s.vendor_qty != null)
+            .filter((s) => !['no_vendor_data', 'no_data'].includes(s.status))
             .map((snapshot) => (
               <SnapshotCard
                 key={snapshot.id}
@@ -42,6 +43,11 @@ export default function DashboardTab({ customerId, onTabChange, onShowSnapshotDe
           </p>
         </div>
       )}
+
+      <SignOffHistory
+        allSignOffs={allSignOffs}
+        onShowSnapshotDetail={onShowSnapshotDetail}
+      />
     </div>
   );
 }

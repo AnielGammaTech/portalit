@@ -74,7 +74,7 @@ export default function AIConfig() {
         setSavedProvider(provider);
       }
     } catch (error) {
-      console.error('Failed to load AI config:', error);
+      toast.error(error.message || 'Failed to load AI config');
     } finally {
       setLoading(false);
     }

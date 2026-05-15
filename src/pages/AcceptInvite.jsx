@@ -26,6 +26,7 @@ async function apiFetchPublic(path, body) {
 export default function AcceptInvite() {
   const [searchParams] = useSearchParams();
   const prefillEmail = searchParams.get('email') || '';
+  const isResetFlow = searchParams.get('mode') === 'reset';
 
   const [step, setStep] = useState('email'); // email → otp → password
   const [email, setEmail] = useState(prefillEmail);
@@ -36,6 +37,15 @@ export default function AcceptInvite() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const otpInputRef = useRef(null);
+
+  const handleCodeRequestError = (err) => {
+    const message = err?.message || 'Failed to send verification code';
+    setError(message);
+    if (message.includes('No PortalIT invitation') || message.includes('not attached to a PortalIT invitation')) {
+      setStep('email');
+      setOtpCode('');
+    }
+  };
 
   // Step 1: Send OTP code to email via our API + Resend
   const handleSendCode = async (e) => {
@@ -49,7 +59,7 @@ export default function AcceptInvite() {
       setLoading(false);
       setTimeout(() => otpInputRef.current?.focus(), 100);
     } catch (err) {
-      setError(err?.message || 'Failed to send verification code');
+      handleCodeRequestError(err);
       setLoading(false);
     }
   };
@@ -137,7 +147,7 @@ export default function AcceptInvite() {
     try {
       await apiFetchPublic('/api/users/send-otp', { email: email.toLowerCase() });
     } catch (err) {
-      setError(err?.message || 'Failed to resend code');
+      handleCodeRequestError(err);
     }
     setLoading(false);
   };
@@ -174,7 +184,9 @@ export default function AcceptInvite() {
           {step === 'email' && (
             <form onSubmit={handleSendCode} className="space-y-4">
               <p className="text-slate-500 text-center text-sm mb-2">
-                Enter your email to receive a verification code
+                {isResetFlow
+                  ? 'Enter your email to receive a secure password reset code.'
+                  : 'Enter the email address your PortalIT admin invited.'}
               </p>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
@@ -249,7 +261,7 @@ export default function AcceptInvite() {
           {step === 'password' && (
             <form onSubmit={handleSetPassword} className="space-y-4">
               <p className="text-slate-500 text-center text-sm mb-2">
-                Set your password to activate your account
+                {isResetFlow ? 'Set your new password' : 'Set your password to activate your account'}
               </p>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
@@ -281,7 +293,7 @@ export default function AcceptInvite() {
                 disabled={loading}
                 className="w-full bg-slate-900 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {loading ? 'Activating...' : 'Activate account'}
+                {loading ? (isResetFlow ? 'Saving...' : 'Activating...') : (isResetFlow ? 'Save new password' : 'Activate account')}
               </button>
             </form>
           )}

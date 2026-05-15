@@ -1,4 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
+import { fetchWithTimeout, runWithConcurrency } from '../lib/sync-utils.js';
 
 const DATTO_EDR_API_TOKEN = process.env.DATTO_EDR_API_TOKEN;
 const DATTO_EDR_BASE_URL = process.env.DATTO_EDR_BASE_URL;
@@ -7,6 +8,15 @@ const DATTO_EDR_BASE_URL = process.env.DATTO_EDR_BASE_URL;
 const maskUrl = (url) => url.replace(/access_token=[^&]+/, 'access_token=***');
 const PAGE_SIZE = 100;
 const ONLINE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function positiveEnvNumber(name, fallback, minimum = 1) {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) ? Math.max(minimum, value) : fallback;
+}
+
+const SYNC_ALL_CONCURRENCY = positiveEnvNumber('DATTO_EDR_SYNC_ALL_CONCURRENCY', 2);
+const MAX_PAGES_PER_COLLECTION = positiveEnvNumber('DATTO_EDR_MAX_PAGES', 40);
+const MAX_ROWS_PER_TARGET = positiveEnvNumber('DATTO_EDR_MAX_ROWS_PER_TARGET', 2000, PAGE_SIZE);
 
 function firstValue(...values) {
   for (const value of values) {
@@ -63,6 +73,28 @@ function targetMatchesAgent(agent, targetId) {
     agent.organization?.id,
   ];
   return candidates.some(value => value !== undefined && value !== null && String(value) === target);
+}
+
+function getAgentKey(agent) {
+  return firstValue(
+    agent.id,
+    agent.agentId,
+    agent.hostId,
+    agent.deviceId,
+    agent.uid,
+    agent.hostname,
+    agent.hostName,
+    agent.computerName,
+    agent.deviceName,
+    agent.name
+  );
+}
+
+function pageSignature(page) {
+  if (!Array.isArray(page) || page.length === 0) return 'empty';
+  const first = getAgentKey(page[0]) || JSON.stringify(page[0]).slice(0, 100);
+  const last = getAgentKey(page[page.length - 1]) || JSON.stringify(page[page.length - 1]).slice(0, 100);
+  return `${page.length}:${first}:${last}`;
 }
 
 function normalizeHost(host, cutoffDate) {
@@ -138,6 +170,11 @@ function buildEdrResponseData({ hosts, targetData, targetName }) {
   };
 }
 
+const edrUrl = (path) => {
+  const separator = path.includes('?') ? '&' : '?';
+  return `${DATTO_EDR_BASE_URL}${path}${separator}access_token=${DATTO_EDR_API_TOKEN}`;
+};
+
 export async function syncDattoEDR(body, user) {
   const supabase = getServiceSupabase();
 
@@ -151,14 +188,12 @@ export async function syncDattoEDR(body, user) {
     };
   }
 
-  // Datto EDR uses Authorization header for API token
   const headers = {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${DATTO_EDR_API_TOKEN}`
+    'Content-Type': 'application/json'
   };
 
-  async function fetchJson(url) {
-    const response = await fetch(url, { headers }).catch(() => null);
+  async function fetchJsonPath(path) {
+    const response = await fetchWithTimeout(edrUrl(path), { headers }).catch(() => null);
     if (!response?.ok) return null;
     const raw = await response.text();
     try {
@@ -169,36 +204,54 @@ export async function syncDattoEDR(body, user) {
     }
   }
 
-  async function fetchPagedCollection(urlBuilder, label) {
+  async function fetchPagedCollection(pathBuilder, label) {
     const rows = [];
-    for (let skip = 0; ; skip += PAGE_SIZE) {
-      const url = urlBuilder(skip);
-      const payload = await fetchJson(url);
+    const seenPageSignatures = new Set();
+
+    for (let skip = 0, pageNumber = 0; pageNumber < MAX_PAGES_PER_COLLECTION && rows.length < MAX_ROWS_PER_TARGET; skip += PAGE_SIZE, pageNumber += 1) {
+      const payload = await fetchJsonPath(pathBuilder(skip));
       if (!payload) break;
       const page = parseCollection(payload, ['data', 'value', 'agents', 'hosts']);
-      rows.push(...page);
+      if (page.length === 0) break;
+
+      const signature = pageSignature(page);
+      if (seenPageSignatures.has(signature)) {
+        console.warn(`[DattoEDR] ${label || 'collection'} repeated a page at skip=${skip}; stopping pagination`);
+        break;
+      }
+      seenPageSignatures.add(signature);
+
+      const remaining = MAX_ROWS_PER_TARGET - rows.length;
+      rows.push(...page.slice(0, remaining));
       if (page.length < PAGE_SIZE) break;
     }
     if (rows.length === 0 && label) {
       console.log(`[DattoEDR] ${label} returned 0 rows`);
     }
+    if (rows.length >= MAX_ROWS_PER_TARGET) {
+      console.warn(`[DattoEDR] ${label || 'collection'} hit row cap ${MAX_ROWS_PER_TARGET}; cached data was truncated`);
+    }
     return rows;
   }
 
-  async function fetchTargetBundle(targetId, targetName) {
-    const targetData = await fetchJson(`${DATTO_EDR_BASE_URL}/targets/${targetId}`);
+  async function fetchTargetBundle(targetId, targetName, { allowGlobalWhenEmpty = false, allowGlobalFallback = true } = {}) {
+    const targetData = await fetchJsonPath(`/targets/${targetId}`);
+    const expectedCount = toNumber(firstValue(targetData?.agentCount, targetData?.hostCount, targetData?.endpointCount));
 
     let hosts = await fetchPagedCollection(
-      (skip) => `${DATTO_EDR_BASE_URL}/targets/${targetId}/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`,
+      (skip) => `/targets/${targetId}/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`,
       `target-scoped agents for ${targetId}`
     );
 
-    if (hosts.length === 0) {
+    const shouldTryGlobal = allowGlobalFallback && ((expectedCount > 0 && hosts.length < expectedCount) || (allowGlobalWhenEmpty && hosts.length === 0));
+    if (shouldTryGlobal) {
+      console.log(`[DattoEDR] global fallback for ${targetId}: scoped=${hosts.length} expected=${expectedCount}`);
       const allAgents = await fetchPagedCollection(
-        (skip) => `${DATTO_EDR_BASE_URL}/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`,
+        (skip) => `/agents?$count=true&$skip=${skip}&$top=${PAGE_SIZE}`,
         'global agents fallback'
       );
-      hosts = allAgents.filter(agent => targetMatchesAgent(agent, targetId));
+      const filteredAgents = allAgents.filter(agent => targetMatchesAgent(agent, targetId));
+      if (filteredAgents.length > hosts.length) hosts = filteredAgents;
     }
 
     console.log(`[DattoEDR] Found ${hosts.length} agents for targetId=${targetId}`);
@@ -208,7 +261,7 @@ export async function syncDattoEDR(body, user) {
   // Action: Test connection
   if (action === 'test_connection') {
     try {
-      const testRes = await fetch(`${DATTO_EDR_BASE_URL}/targets`, { headers });
+      const testRes = await fetch(edrUrl('/targets'), { headers });
       if (!testRes.ok) {
         return { success: false, error: `EDR API returned ${testRes.status}: ${testRes.statusText}` };
       }
@@ -224,7 +277,7 @@ export async function syncDattoEDR(body, user) {
   }
 
   if (action === 'list_tenants') {
-    const targetsRes = await fetch(`${DATTO_EDR_BASE_URL}/targets`, { headers });
+    const targetsRes = await fetch(edrUrl('/targets'), { headers });
 
     if (!targetsRes.ok) {
       const errorText = await targetsRes.text();
@@ -297,7 +350,7 @@ export async function syncDattoEDR(body, user) {
     const mapping = mappings[0];
     const targetId = mapping.edr_tenant_id;
 
-    const responseData = await fetchTargetBundle(targetId, mapping.edr_tenant_name);
+    const responseData = await fetchTargetBundle(targetId, mapping.edr_tenant_name, { allowGlobalWhenEmpty: true });
 
     // Cache the data for future quick loads
     await supabase.from('datto_edr_mappings').update({
@@ -312,7 +365,7 @@ export async function syncDattoEDR(body, user) {
   }
 
   if (action === 'get_reports') {
-    const reportsUrl = `${DATTO_EDR_BASE_URL}/Reports`;
+    const reportsUrl = edrUrl(`/Reports`);
     const reportsRes = await fetch(reportsUrl, { headers });
 
     if (!reportsRes.ok) {
@@ -335,7 +388,7 @@ export async function syncDattoEDR(body, user) {
     }
 
     // Get report details to check status
-    const reportUrl = `${DATTO_EDR_BASE_URL}/Reports/${report_id}`;
+    const reportUrl = edrUrl(`/Reports/${report_id}`);
     const reportRes = await fetch(reportUrl, { headers });
 
     if (!reportRes.ok) {
@@ -354,9 +407,9 @@ export async function syncDattoEDR(body, user) {
 
     // Try multiple download URL patterns
     const downloadUrls = [
-      `${DATTO_EDR_BASE_URL}/Reports/${report_id}/download`,
-      `${DATTO_EDR_BASE_URL}/Reports/${report_id}/file`,
-      `${DATTO_EDR_BASE_URL}/reports/${report_id}/download`
+      edrUrl(`/Reports/${report_id}/download`),
+      edrUrl(`/Reports/${report_id}/file`),
+      edrUrl(`/reports/${report_id}/download`)
     ];
 
     let pdfBuffer = null;
@@ -385,7 +438,7 @@ export async function syncDattoEDR(body, user) {
         console.log('Report has S3 data, trying presigned URL:', report.data);
 
         // Try to get a presigned URL from the API
-        const presignedUrl = `${DATTO_EDR_BASE_URL}/Reports/${report_id}/presignedUrl`;
+        const presignedUrl = edrUrl(`/Reports/${report_id}/presignedUrl`);
         const presignedRes = await fetch(presignedUrl, { headers }).catch(() => null);
 
         if (presignedRes?.ok) {
@@ -427,7 +480,7 @@ export async function syncDattoEDR(body, user) {
       return { success: false, error: 'report_id required' };
     }
 
-    const reportUrl = `${DATTO_EDR_BASE_URL}/Reports/${report_id}`;
+    const reportUrl = edrUrl(`/Reports/${report_id}`);
     const reportRes = await fetch(reportUrl, { headers });
 
     if (!reportRes.ok) {
@@ -469,7 +522,7 @@ export async function syncDattoEDR(body, user) {
 
     console.log('Creating report with payload:', JSON.stringify(reportPayload));
 
-    const createRes = await fetch(`${DATTO_EDR_BASE_URL}/Reports`, {
+    const createRes = await fetch(edrUrl(`/Reports`), {
       method: 'POST',
       headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify(reportPayload)
@@ -493,31 +546,39 @@ export async function syncDattoEDR(body, user) {
   }
 
   if (action === 'sync_all') {
-    const { data: allMappingsData } = await supabase.from('datto_edr_mappings').select('*');
+    const { data: allMappingsData } = await supabase
+      .from('datto_edr_mappings')
+      .select('id, customer_id, customer_name, edr_tenant_id, edr_tenant_name');
     const allMappings = allMappingsData || [];
-    let synced = 0;
-    let failed = 0;
 
-    for (const mapping of allMappings) {
-      try {
-        const targetId = mapping.edr_tenant_id;
-        if (!targetId) { failed++; continue; }
+    async function syncOne(mapping) {
+      const targetId = mapping.edr_tenant_id;
+      if (!targetId) return { synced: false, reason: 'missing_tenant_id' };
 
-        const responseData = await fetchTargetBundle(targetId, mapping.edr_tenant_name);
+      const responseData = await fetchTargetBundle(targetId, mapping.edr_tenant_name, { allowGlobalFallback: false });
 
-        await supabase.from('datto_edr_mappings').update({
-          last_synced: new Date().toISOString(),
-          cached_data: responseData
-        }).eq('id', mapping.id);
-        synced++;
-        console.log(`EDR sync_all: synced ${mapping.customer_name} — ${responseData.hostCount} agents`);
-      } catch (e) {
-        console.error(`Failed to sync ${mapping.customer_name}:`, e);
-        failed++;
-      }
+      await supabase.from('datto_edr_mappings').update({
+        last_synced: new Date().toISOString(),
+        cached_data: responseData
+      }).eq('id', mapping.id);
+
+      return { synced: true, hostCount: responseData.hostCount, customer: mapping.customer_name };
     }
 
-    return { success: true, synced, failed, total: allMappings.length };
+    const startedAt = Date.now();
+    const results = await runWithConcurrency(allMappings, SYNC_ALL_CONCURRENCY, syncOne);
+    const synced = results.filter(r => r.ok && r.value?.synced).length;
+    const failed = results.length - synced;
+    const durationMs = Date.now() - startedAt;
+    console.log(`[DattoEDR] sync_all done in ${durationMs}ms — ${synced}/${allMappings.length} synced, ${failed} failed`);
+
+    // Surface the first few failure messages so the caller has something to act on
+    const errors = results
+      .map((r, i) => (!r.ok || !r.value?.synced) ? { customer: allMappings[i]?.customer_name, reason: r.ok ? r.value?.reason : (r.error?.message || 'unknown') } : null)
+      .filter(Boolean)
+      .slice(0, 10);
+
+    return { success: true, synced, failed, total: allMappings.length, durationMs, errors };
   }
 
   if (action === 'get_tenant_stats') {
@@ -534,7 +595,7 @@ export async function syncDattoEDR(body, user) {
 
     const mapping = mappings[0];
 
-    const hostsRes = await fetch(`${DATTO_EDR_BASE_URL}/targets/${mapping.edr_tenant_id}/hosts`, { headers });
+    const hostsRes = await fetch(edrUrl(`/targets/${mapping.edr_tenant_id}/hosts`), { headers });
 
     const hostsData = hostsRes.ok ? await hostsRes.json() : { data: [] };
 

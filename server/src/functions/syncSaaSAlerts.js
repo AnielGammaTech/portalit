@@ -1,4 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
+import { fetchWithTimeout } from '../lib/sync-utils.js';
 
 // SaaS Alerts production API — Google Cloud Function (from official Swagger spec)
 const SAAS_ALERTS_BASE = 'https://us-central1-the-byway-248217.cloudfunctions.net/reportApi/api/v1';
@@ -28,7 +29,7 @@ async function saasAlertsApiCall(endpoint, { method = 'GET', body } = {}) {
   const url = `${SAAS_ALERTS_BASE}${endpoint}`;
   console.log(`[SaaSAlerts] ${method} ${url}`);
 
-  const response = await fetch(url, options);
+  const response = await fetchWithTimeout(url, options);
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -184,6 +185,47 @@ function formatEvent(event) {
   };
 }
 
+function buildSaaSAlertsCache(events, period = '7 days') {
+  const eventList = Array.isArray(events) ? events : [];
+  const summary = categorizeSeverity(eventList);
+  const recentEvents = [...eventList]
+    .sort((a, b) => new Date(b.time || b.timestamp || b.date || 0) - new Date(a.time || a.timestamp || a.date || 0))
+    .slice(0, 250)
+    .map(formatEvent);
+
+  const monitoredApps = [...new Set(eventList.map(e =>
+    resolveDisplayName(e.product || e.application || e.app_name)
+  ).filter(a => a && a !== 'Unknown'))];
+  const uniqueUsers = [...new Set(recentEvents.map(e => e.user).filter(u => u && u !== 'Unknown'))];
+  const eventTypeCounts = recentEvents.reduce((acc, e) => {
+    const key = e.event_type || 'Unknown';
+    return { ...acc, [key]: (acc[key] || 0) + 1 };
+  }, {});
+  const vpnEvents = recentEvents.filter(e => e.is_vpn).length;
+  const threatEvents = recentEvents.filter(e => e.is_threat).length;
+  const datacenterEvents = recentEvents.filter(e => e.is_datacenter).length;
+  const countryCounts = recentEvents.reduce((acc, e) => {
+    const key = e.country || 'Unknown';
+    return { ...acc, [key]: (acc[key] || 0) + 1 };
+  }, {});
+
+  return {
+    success: true,
+    summary,
+    total_events: eventList.length,
+    recent_events: recentEvents,
+    monitored_apps: monitoredApps,
+    unique_users: uniqueUsers,
+    event_type_counts: eventTypeCounts,
+    vpn_events: vpnEvents,
+    threat_events: threatEvents,
+    datacenter_events: datacenterEvents,
+    country_counts: countryCounts,
+    period,
+    syncedAt: new Date().toISOString()
+  };
+}
+
 export async function syncSaaSAlerts(body, _user) {
   const supabase = getServiceSupabase();
   const { action, customer_id } = body;
@@ -292,45 +334,7 @@ export async function syncSaaSAlerts(body, _user) {
 
       const events = await fetchCustomerEvents(mapping.saas_alerts_customer_id, sevenDaysAgo, now);
 
-      const summary = categorizeSeverity(events);
-      const recentEvents = events
-        .sort((a, b) => new Date(b.time || b.timestamp || b.date || 0) - new Date(a.time || a.timestamp || a.date || 0))
-        .slice(0, 250)
-        .map(formatEvent);
-
-      // Detect monitored apps from events
-      const monitoredApps = [...new Set(events.map(e =>
-        resolveDisplayName(e.product || e.application || e.app_name)
-      ).filter(a => a && a !== 'Unknown'))];
-
-      // Aggregate stats for dashboard
-      const uniqueUsers = [...new Set(recentEvents.map(e => e.user).filter(u => u && u !== 'Unknown'))];
-      const eventTypeCounts = recentEvents.reduce((acc, e) => {
-        const key = e.event_type || 'Unknown';
-        return { ...acc, [key]: (acc[key] || 0) + 1 };
-      }, {});
-      const vpnEvents = recentEvents.filter(e => e.is_vpn).length;
-      const threatEvents = recentEvents.filter(e => e.is_threat).length;
-      const datacenterEvents = recentEvents.filter(e => e.is_datacenter).length;
-      const countryCounts = recentEvents.reduce((acc, e) => {
-        const key = e.country || 'Unknown';
-        return { ...acc, [key]: (acc[key] || 0) + 1 };
-      }, {});
-
-      const cacheData = {
-        success: true,
-        summary,
-        total_events: events.length,
-        recent_events: recentEvents,
-        monitored_apps: monitoredApps,
-        unique_users: uniqueUsers,
-        event_type_counts: eventTypeCounts,
-        vpn_events: vpnEvents,
-        threat_events: threatEvents,
-        datacenter_events: datacenterEvents,
-        country_counts: countryCounts,
-        period: '7 days'
-      };
+      const cacheData = buildSaaSAlertsCache(events);
 
       // Save to mapping (raw object, not stringified — JSONB column)
       await supabase
@@ -363,24 +367,7 @@ export async function syncSaaSAlerts(body, _user) {
 
         const events = await fetchCustomerEvents(mapping.saas_alerts_customer_id, sevenDaysAgo, now);
 
-        const summary = categorizeSeverity(events);
-        const recentEvents = events
-          .sort((a, b) => new Date(b.time || b.timestamp || b.date || 0) - new Date(a.time || a.timestamp || a.date || 0))
-          .slice(0, 250)
-          .map(formatEvent);
-
-        const monitoredApps = [...new Set(events.map(e =>
-          resolveDisplayName(e.product || e.application || e.app_name)
-        ).filter(a => a && a !== 'Unknown'))];
-
-        const cacheData = {
-          success: true,
-          summary,
-          total_events: events.length,
-          recent_events: recentEvents,
-          monitored_apps: monitoredApps,
-          period: '7 days'
-        };
+        const cacheData = buildSaaSAlertsCache(events);
 
         await supabase
           .from('saas_alerts_mappings')

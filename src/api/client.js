@@ -63,16 +63,9 @@ supabase.auth.onAuthStateChange((_event, session) => {
   updateTokenCache(session);
 });
 
-// Re-validate session when tab regains focus (handles background token expiry)
-if (typeof document !== 'undefined') {
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        updateTokenCache(session);
-      }).catch(() => {});
-    }
-  });
-}
+// Tab-resume session refresh now lives in @/lib/query-client.js so it can also
+// invalidate React Query after the refresh — keeping it here only updated the
+// token cache without forcing refetches, which left pages blank with stale data.
 
 async function getAuthToken() {
   if (_cachedToken && Date.now() < _tokenExpiresAt) {
@@ -196,6 +189,7 @@ const ENTITY_TABLE_MAP = {
   VultrMapping: 'vultr_mappings',
   User: 'users',
   VendorBilling: 'vendor_billings',
+  GraphusMapping: 'graphus_mappings',
 };
 
 // ── Entity Proxy ───────────────────────────────────────────────────────
@@ -479,6 +473,11 @@ const integrations = {
       return URL.createObjectURL(blob);
     },
   },
+  halo: {
+    async listCustomerSites(customerId) {
+      return apiFetch(`/api/halo/customers/${encodeURIComponent(customerId)}/sites`, { method: 'GET' });
+    },
+  },
   threecx: {
     async listMappings(params = {}) {
       const query = new URLSearchParams();
@@ -581,6 +580,14 @@ const users = {
     return apiFetch('/api/users/reset-password', {
       body: { user_id: userId, new_password: newPassword || undefined },
     });
+  },
+
+  async suspendUser(userId) {
+    return apiFetch(`/api/users/${userId}/suspend`);
+  },
+
+  async unsuspendUser(userId) {
+    return apiFetch(`/api/users/${userId}/unsuspend`);
   },
 };
 

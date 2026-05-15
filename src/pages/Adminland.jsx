@@ -8,7 +8,6 @@ import ResendEmailConfig from '../components/admin/ResendEmailConfig';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
 import { createPageUrl } from '../utils';
@@ -364,7 +363,7 @@ function GammaStackITPanel() {
         const user = await client.auth.me();
         if (user?.gammastack_api_key) setApiKey(user.gammastack_api_key);
       } catch (_error) {
-        // Non-critical: API key display is best-effort.
+        // Non-critical: API key display is best-effort
       }
     };
     loadApiKey();
@@ -654,6 +653,7 @@ const MENU_GROUPS = [
 export default function Adminland() {
   const [user, setUser] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const activeSection = searchParams.get('section') || null;
   const activeIntegrationId = searchParams.get('id') || null;
@@ -668,18 +668,16 @@ export default function Adminland() {
     else setSearchParams({ section: 'integrations', id: integrationId }, { replace: false });
   };
 
-  const navigate = useNavigate();
-
   useEffect(() => {
     const loadUser = async () => {
       try {
         const currentUser = await client.auth.me();
         setUser(currentUser);
         if (currentUser?.role !== 'admin') navigate(createPageUrl('Dashboard'), { replace: true });
-      } catch (_error) { /* auth redirect handled by layout */ }
+      } catch (_error) { /* auth check failed; render nothing */ }
     };
     loadUser();
-  }, [navigate]);
+  }, []);
 
   // Legacy tab= param migration
   useEffect(() => {

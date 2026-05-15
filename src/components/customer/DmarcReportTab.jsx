@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import { toast } from 'sonner';
 import {
@@ -8,10 +9,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   ShieldX,
-  CheckCircle2,
-  XCircle,
   AlertTriangle,
-  BarChart3,
   Search,
   ChevronDown,
   ChevronUp,
@@ -40,6 +38,18 @@ function complianceBg(rate) {
   if (rate >= 90) return 'bg-emerald-100';
   if (rate >= 70) return 'bg-amber-100';
   return 'bg-red-100';
+}
+
+function parseCachedData(value) {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  return value;
 }
 
 function StatusDot({ active, label }) {
@@ -270,14 +280,28 @@ export default function DmarcReportTab({ customerId, dmarcMapping, queryClient }
   const [searchTerm, setSearchTerm] = useState('');
 
   const cachedData = useMemo(() => {
-    if (!dmarcMapping?.cached_data) return null;
-    return typeof dmarcMapping.cached_data === 'string'
-      ? (() => { try { return JSON.parse(dmarcMapping.cached_data); } catch { return null; } })()
-      : dmarcMapping.cached_data;
+    return parseCachedData(dmarcMapping?.cached_data);
   }, [dmarcMapping?.cached_data]);
 
-  const data = liveData || cachedData;
-  const fromCache = !liveData && !!cachedData;
+  const { data: backendCache } = useQuery({
+    queryKey: ['dmarc-cached', customerId],
+    queryFn: async () => {
+      const res = await client.functions.invoke('syncDmarcReport', {
+        action: 'get_cached',
+        customer_id: customerId,
+      });
+      if (!res?.success) return null;
+      return res;
+    },
+    enabled: !!customerId && !!dmarcMapping && !cachedData,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+
+  const backendCachedData = parseCachedData(backendCache?.data);
+  const data = liveData || cachedData || backendCachedData;
+  const lastSynced = dmarcMapping?.last_synced || backendCache?.last_synced || data?.syncedAt;
+  const fromCache = !liveData && !!data;
 
   const handleSync = async () => {
     setSyncing(true);
@@ -290,6 +314,8 @@ export default function DmarcReportTab({ customerId, dmarcMapping, queryClient }
         setLiveData(res.data);
         toast.success('DMARC data refreshed');
         queryClient?.invalidateQueries({ queryKey: ['dmarc-mapping', customerId] });
+        queryClient?.invalidateQueries({ queryKey: ['dmarc-cached', customerId] });
+        queryClient?.invalidateQueries({ queryKey: ['dmarc_report_mappings'] });
       } else {
         toast.error(res.error || 'Sync failed');
       }
@@ -313,8 +339,8 @@ export default function DmarcReportTab({ customerId, dmarcMapping, queryClient }
         <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
           <Shield className="w-8 h-8 text-slate-300" />
         </div>
-        <p className="text-sm font-semibold text-slate-700">DMARC Not Configured</p>
-        <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">Go to Adminland → Integrations → DMARC Report to map a domain for this customer.</p>
+        <p className="text-sm font-semibold text-slate-700">DMARC data is not connected yet</p>
+        <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">Email domain authentication results will appear here once they are available for this account.</p>
       </div>
     );
   }
@@ -332,10 +358,10 @@ export default function DmarcReportTab({ customerId, dmarcMapping, queryClient }
               <h3 className="font-semibold text-slate-900">DMARC Report</h3>
               <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
                 <span>{dmarcMapping.dmarc_domain_name || dmarcMapping.dmarc_account_name}</span>
-                {fromCache && dmarcMapping?.last_synced && (
+                {fromCache && lastSynced && (
                   <span className="flex items-center gap-1 text-slate-400">
                     <Clock className="w-3 h-3" />
-                    {new Date(dmarcMapping.last_synced).toLocaleDateString()}
+                    {new Date(lastSynced).toLocaleDateString()}
                   </span>
                 )}
               </div>
@@ -343,7 +369,7 @@ export default function DmarcReportTab({ customerId, dmarcMapping, queryClient }
           </div>
           <Button onClick={handleSync} disabled={syncing} variant="outline" size="sm" className="gap-2">
             <RefreshCw className={cn("w-4 h-4", syncing && "animate-spin")} />
-            Sync
+            Refresh
           </Button>
         </div>
       </div>
@@ -424,10 +450,10 @@ export default function DmarcReportTab({ customerId, dmarcMapping, queryClient }
         <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed">
           <Shield className="w-10 h-10 text-slate-300 mx-auto mb-3" />
           <p className="text-sm text-slate-600 font-medium">No DMARC data cached</p>
-          <p className="text-xs text-slate-400 mt-1">Click Sync to pull the latest report data</p>
+          <p className="text-xs text-slate-400 mt-1">Click Refresh to pull the latest report data</p>
           <Button onClick={handleSync} variant="outline" size="sm" className="mt-4 gap-2">
             <RefreshCw className="w-4 h-4" />
-            Sync Now
+            Refresh Now
           </Button>
         </div>
       )}

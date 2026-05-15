@@ -12,8 +12,8 @@ export default function FloatingAdminland() {
       try {
         const currentUser = await client.auth.me();
         setUser(currentUser);
-      } catch (error) {
-        console.error('Failed to load user', error);
+      } catch (_error) {
+        // Auth check failed; hide admin button silently
       }
     };
     loadUser();

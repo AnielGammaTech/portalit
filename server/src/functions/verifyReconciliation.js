@@ -85,6 +85,8 @@ RULES FOR SIGN-OFF:
 5. Unmatched billing items (status "unmatched_line_item") should be flagged as WARNINGS — they're on the invoice but not reconciled. However, if they are minor amounts or common items like "Remote Access" or "Server Support", they are low priority.
 6. Items with exclusions are OK if the exclusion reason makes sense.
 7. Reviewed items with notes are considered resolved — don't flag them as issues. Check that the notes make sense and explain the discrepancy.
+8. Force-matched items that haven't been re-verified in 30+ days should be flagged as WARNINGS — they may have drifted from original approval.
+9. Exclusions older than 90 days without re-verification should be flagged as WARNINGS — the excluded accounts may no longer be valid.
 
 Respond with JSON:
 {

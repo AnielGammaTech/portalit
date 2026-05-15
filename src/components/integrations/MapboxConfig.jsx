@@ -13,7 +13,6 @@ import {
   Save,
   CheckCircle2,
   XCircle,
-  RefreshCw,
   Loader2,
   MapPin,
   Eye,
@@ -53,7 +52,7 @@ export default function MapboxConfig() {
       setToken('');
       setStyle(config.style || 'dark-v11');
     } catch (error) {
-      console.error('Failed to load Mapbox settings:', error);
+      toast.error(error.message || 'Failed to load Mapbox settings');
     } finally {
       setLoading(false);
     }

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,6 @@ function flattenAccountDomains(accounts) {
       rows.push({
         accountId: String(account.id), accountName: account.title,
         domainId: String(domain.id), domainName: domain.address,
-        domainCount: (account.domains || []).length,
       });
     }
   }
@@ -30,9 +29,19 @@ function flattenAccountDomains(accounts) {
 }
 
 function buildUnifiedRows(flatDomains, mappings) {
+  // Each row is one domain. The count surfaced in the table is the customer's
+  // recent DMARC message volume (from cached_data.totalMessages) — actually
+  // useful per row. Previously this was set to the *account's* total domain
+  // count, which produced the same number on every row (e.g., "55").
+  const messageCount = (mapping) => mapping?.cached_data?.totalMessages ?? 0;
   const rows = flatDomains.map(fd => {
     const mapping = mappings.find(m => m.dmarc_domain_id === fd.domainId);
-    return { ...fd, mapping, isMapped: Boolean(mapping), isStale: mapping ? isStale(mapping.last_synced) : false };
+    return {
+      ...fd, mapping,
+      isMapped: Boolean(mapping),
+      isStale: mapping ? isStale(mapping.last_synced) : false,
+      messageCount: messageCount(mapping),
+    };
   });
   const apiDomainIds = new Set(flatDomains.map(fd => fd.domainId));
   for (const mapping of mappings) {
@@ -40,7 +49,8 @@ function buildUnifiedRows(flatDomains, mappings) {
       rows.push({
         accountId: mapping.dmarc_account_id || '', accountName: mapping.dmarc_account_name || '',
         domainId: mapping.dmarc_domain_id, domainName: mapping.dmarc_domain_name || mapping.dmarc_domain_id,
-        domainCount: 0, mapping, isMapped: true, isStale: isStale(mapping.last_synced),
+        mapping, isMapped: true, isStale: isStale(mapping.last_synced),
+        messageCount: messageCount(mapping),
       });
     }
   }
@@ -326,7 +336,7 @@ function DomainRow({ row, customers, getCustomerName, onMap, onDelete, isOdd }) 
   return (
     <MappingRow
       statusDot={statusDot} itemName={itemLabel}
-      countValue={row.domainCount} countLabel="domains"
+      countValue={row.messageCount} countLabel="messages"
       isMapped={row.isMapped}
       customerName={row.isMapped ? getCustomerName(row.mapping.customer_id) : null}
       syncTime={syncTime} suggestedMatch={suggestedMatch} customers={customers}

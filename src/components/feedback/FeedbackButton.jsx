@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { client } from '@/api/client';
-import { MessageSquarePlus, X, Upload, Image, Bug, Lightbulb, HelpCircle, Send, Loader2, Paperclip } from 'lucide-react';
+import { MessageSquarePlus, X, Image, Bug, Lightbulb, HelpCircle, Send, Loader2, Paperclip } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { toast } from 'sonner';
 

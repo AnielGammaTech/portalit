@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from './utils';
 import { client, resolveFileUrl } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
@@ -10,11 +10,14 @@ import {
   FileText,
   Settings,
   Cloud,
+  BarChart3,
   ChevronDown,
   LogOut,
   Bell,
   Menu,
   CreditCard,
+  HelpCircle,
+  Monitor,
   MoreHorizontal,
   Coins,
 } from 'lucide-react';
@@ -64,7 +67,7 @@ function NavItem({ item, isActive, primaryColor }) {
       ? "text-pink-400 hover:text-pink-300"
       : isActive
         ? "text-white"
-        : "text-white/60 hover:text-white hover:bg-white/5"
+        : "text-slate-400 hover:text-white hover:bg-white/5"
   );
   const style = isLootIT ? { textShadow: '0 0 12px rgba(236,72,153,0.6), 0 0 24px rgba(236,72,153,0.3)' } : undefined;
   const content = (
@@ -73,8 +76,7 @@ function NavItem({ item, isActive, primaryColor }) {
       <span>{item.name}</span>
       {isActive && (
         <span
-          className="absolute bottom-0 left-0 right-0 h-0.5"
-          style={{ backgroundColor: isLootIT ? '#ec4899' : primaryColor }}
+          className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/40"
         />
       )}
       {isLootIT && !isActive && (
@@ -141,11 +143,18 @@ function MobileBottomTab({ item, isActive, primaryColor }) {
   );
 }
 
-function MobileDrawerNav({ navigation, currentPageName, primaryColor, user, isAdmin, isStaff }) {
+function isNavigationItemActive(item, currentPageName, activeCustomerTab) {
+  if (item.page === 'CustomerDetail') {
+    return currentPageName === 'CustomerDetail' && (!item.tab || item.tab === activeCustomerTab);
+  }
+  return currentPageName === item.page;
+}
+
+function MobileDrawerNav({ navigation, currentPageName, activeCustomerTab, primaryColor, user, isAdmin, isStaff, features }) {
   return (
-    <div className="flex flex-col h-full" style={{ backgroundColor: '#13082E' }}>
+    <div className="flex flex-col h-full bg-slate-900">
       {/* User info at top */}
-      <div className="p-4 border-b border-white/10">
+      <div className="p-4 border-b border-white/5">
         <div className="flex items-center gap-3">
           <div
             className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold text-white"
@@ -157,7 +166,7 @@ function MobileDrawerNav({ navigation, currentPageName, primaryColor, user, isAd
             <p className="text-sm font-medium text-white truncate">
               {user?.full_name || 'User'}
             </p>
-            <p className="text-xs text-white/50 truncate">
+            <p className="text-xs text-slate-400 truncate">
               {user?.email}
             </p>
           </div>
@@ -178,8 +187,7 @@ function MobileDrawerNav({ navigation, currentPageName, primaryColor, user, isAd
       {/* Navigation items */}
       <nav className="flex-1 p-3 space-y-1">
         {navigation.map((item) => {
-          const isActive = currentPageName === item.page ||
-            (item.page === 'CustomerDetail' && currentPageName === 'CustomerDetail');
+          const isActive = isNavigationItemActive(item, currentPageName, activeCustomerTab);
           const Icon = item.icon;
           const isLootIT = item.page === 'LootIT';
           const drawerClassName = cn(
@@ -188,20 +196,18 @@ function MobileDrawerNav({ navigation, currentPageName, primaryColor, user, isAd
               ? "text-pink-400 hover:text-pink-300 hover:bg-pink-500/10"
               : isActive
                 ? "bg-white/10 text-white"
-                : "text-white/60 hover:text-white hover:bg-white/5"
+                : "text-slate-400 hover:text-white hover:bg-white/5"
           );
           const drawerStyle = isLootIT ? { textShadow: '0 0 10px rgba(236,72,153,0.5)' } : undefined;
           const drawerContent = (
             <>
               <Icon
                 className={cn("w-5 h-5", isLootIT && "text-pink-400 drop-shadow-[0_0_6px_rgba(236,72,153,0.6)]")}
-                style={!isLootIT && isActive ? { color: primaryColor } : undefined}
               />
               <span>{item.name}</span>
               {isActive && (
                 <span
-                  className="ml-auto w-1.5 h-1.5 rounded-full"
-                  style={{ backgroundColor: isLootIT ? '#ec4899' : primaryColor }}
+                  className="ml-auto w-1.5 h-1.5 rounded-full bg-white/40"
                 />
               )}
             </>
@@ -288,11 +294,13 @@ function MobileDrawerNav({ navigation, currentPageName, primaryColor, user, isAd
 
 export default function Layout({ children, currentPageName }) {
   const { user, isLoadingAuth } = useAuth();
+  const [searchParams] = useSearchParams();
   const userRole = user?.role || 'user';
   const isAdmin = userRole === 'admin';
   const isStaff = userRole === 'admin' || userRole === 'sales';
   const features = getFeatures(userRole);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const activeCustomerTab = searchParams.get('tab') || 'dashboard';
 
   // Fetch portal settings
   const { data: portalSettingsData = [] } = useQuery({
@@ -301,7 +309,7 @@ export default function Layout({ children, currentPageName }) {
     staleTime: 1000 * 60 * 5,
   });
 
-  const portalSettings = portalSettingsData[0] || {};
+  const portalSettings = (portalSettingsData ?? [])[0] || {};
   const primaryColor = portalSettings.primary_color || DEFAULT_PRIMARY;
 
   // Fetch customer for non-admin users (only their own record)
@@ -309,7 +317,7 @@ export default function Layout({ children, currentPageName }) {
     queryKey: ['layout_customer', user?.customer_id],
     queryFn: async () => {
       const results = await client.entities.Customer.filter({ id: user.customer_id });
-      return results[0] || null;
+      return (results ?? [])[0] || null;
     },
     enabled: !!user && !isStaff && !!user.customer_id,
     staleTime: 1000 * 60 * 10,
@@ -329,15 +337,29 @@ export default function Layout({ children, currentPageName }) {
     return items;
   }, [features.canAccessLootIT]);
 
-  const customerNavigation = useMemo(() => [
-    {
-      name: 'Services',
-      page: 'CustomerDetail',
-      icon: Cloud,
-      query: user?.customer_id ? `?id=${user.customer_id}` : '',
-    },
-    { name: 'Settings', page: 'CustomerSettings', icon: Settings },
-  ], [user?.customer_id]);
+  const customerNavigation = useMemo(() => {
+    const customerQuery = (tab) => user?.customer_id
+      ? `?id=${user.customer_id}&tab=${tab}`
+      : `?tab=${tab}`;
+
+    return [
+      { name: 'Home', page: 'CustomerDetail', tab: 'dashboard', icon: BarChart3, query: customerQuery('dashboard') },
+      { name: 'Billing', page: 'CustomerDetail', tab: 'billing', icon: CreditCard, query: customerQuery('billing') },
+      { name: 'Services', page: 'CustomerDetail', tab: 'services', icon: Cloud, query: customerQuery('services') },
+      { name: 'M365', page: 'CustomerDetail', tab: 'm365', icon: Monitor, query: customerQuery('m365') },
+      { name: 'SaaS', page: 'CustomerDetail', tab: 'licenses', icon: Cloud, query: customerQuery('licenses') },
+      { name: 'Quotes', page: 'CustomerDetail', tab: 'quotes', icon: FileText, query: customerQuery('quotes') },
+      { name: 'Tickets', page: 'CustomerDetail', tab: 'tickets', icon: HelpCircle, query: customerQuery('tickets') },
+      { name: 'Settings', page: 'CustomerSettings', icon: Settings },
+    ];
+  }, [user?.customer_id]);
+
+  const customerBottomTabs = useMemo(
+    () => customerNavigation.filter(item =>
+      item.page === 'CustomerSettings' || ['dashboard', 'services', 'm365', 'tickets'].includes(item.tab)
+    ),
+    [customerNavigation]
+  );
 
   // Staff mobile bottom tabs — filtered by role
   const staffBottomTabs = useMemo(() => {
@@ -393,7 +415,7 @@ export default function Layout({ children, currentPageName }) {
       `}</style>
 
       {/* ─── Fixed Top Header ─── */}
-      <header className="fixed top-0 left-0 right-0 h-14 text-white z-40" style={{ backgroundColor: '#13082E' }}>
+      <header className="fixed top-0 left-0 right-0 h-14 bg-slate-900 text-white z-40 border-b border-white/5">
         <div className="flex items-center justify-between h-full px-4 sm:px-6 max-w-full">
 
           {/* Left: Mobile hamburger + Logo */}
@@ -401,7 +423,7 @@ export default function Layout({ children, currentPageName }) {
             {/* Mobile hamburger */}
             <Sheet open={mobileDrawerOpen} onOpenChange={setMobileDrawerOpen}>
               <SheetTrigger asChild>
-                <button className="lg:hidden p-1.5 rounded-md text-white/70 hover:text-white hover:bg-white/10 transition-colors">
+                <button className="lg:hidden p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
                   <Menu className="w-5 h-5" />
                 </button>
               </SheetTrigger>
@@ -409,16 +431,18 @@ export default function Layout({ children, currentPageName }) {
                 <MobileDrawerNav
                   navigation={navigation}
                   currentPageName={currentPageName}
+                  activeCustomerTab={activeCustomerTab}
                   primaryColor={primaryColor}
                   user={user}
                   isAdmin={isAdmin}
                   isStaff={isStaff}
+                  features={features}
                 />
               </SheetContent>
             </Sheet>
 
             {/* Logo / Portal name */}
-            <Link to={createPageUrl((isStaff && !isCustomerPortal) ? 'Dashboard' : 'CustomerDetail') + ((isStaff && !isCustomerPortal) ? '' : `?id=${user?.customer_id || ''}`)} className="flex items-center gap-2.5">
+            <Link to={createPageUrl((isStaff && !isCustomerPortal) ? 'Dashboard' : 'CustomerDetail') + ((isStaff && !isCustomerPortal) ? '' : `?id=${user?.customer_id || ''}&tab=dashboard`)} className="flex items-center gap-2.5">
               {portalSettings.logo_url ? (
                 <img
                   src={resolveFileUrl(portalSettings.logo_url)}
@@ -432,19 +456,18 @@ export default function Layout({ children, currentPageName }) {
                   className="h-8 w-8"
                 />
               )}
-              <span className="text-base font-extrabold text-white hidden sm:block tracking-tight">
+              <span className="text-base font-bold text-white hidden sm:block tracking-tight">
                 {(isStaff && !isCustomerPortal)
-                  ? <>{(portalSettings.portal_name || 'Portal').replace(/IT$/i, '')}<span className="text-violet-300">IT</span></>
+                  ? <>{(portalSettings.portal_name || 'Portal').replace(/IT$/i, '')}<span className="text-violet-400">IT</span></>
                   : (customer?.name || 'Client Portal')}
               </span>
             </Link>
           </div>
 
           {/* Center: Desktop navigation */}
-          <nav className="hidden lg:flex items-center h-full">
+          <nav className="hidden lg:flex min-w-0 flex-1 items-center justify-center h-full overflow-x-auto scrollbar-hide px-8">
             {navigation.map((item) => {
-              const isActive = currentPageName === item.page ||
-                (item.page === 'CustomerDetail' && currentPageName === 'CustomerDetail');
+              const isActive = isNavigationItemActive(item, currentPageName, activeCustomerTab);
               return (
                 <NavItem
                   key={item.page + (item.query || '')}
@@ -574,9 +597,8 @@ export default function Layout({ children, currentPageName }) {
               </button>
             </>
           ) : (
-            customerNavigation.map((item) => {
-              const isActive = currentPageName === item.page ||
-                (item.page === 'CustomerDetail' && currentPageName === 'CustomerDetail');
+            customerBottomTabs.map((item) => {
+              const isActive = isNavigationItemActive(item, currentPageName, activeCustomerTab);
               return (
                 <MobileBottomTab
                   key={item.page + (item.query || '')}

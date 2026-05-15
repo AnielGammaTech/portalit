@@ -11,6 +11,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: true,
     storage: createAuthStorage(),
+    lock: async (_name, _acquireTimeout, fn) => fn(),
   },
   global: {
     fetch: (url, options = {}) => {
@@ -193,6 +194,7 @@ const ENTITY_TABLE_MAP = {
   VultrMapping: 'vultr_mappings',
   User: 'users',
   VendorBilling: 'vendor_billings',
+  GraphusMapping: 'graphus_mappings',
 };
 
 // ── Entity Proxy ───────────────────────────────────────────────────────

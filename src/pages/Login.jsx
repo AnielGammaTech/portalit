@@ -66,18 +66,28 @@ export default function Login() {
 
       const role = profile?.role || 'user';
 
-      // Customer users → redirect to customer portal with session token (no second login)
+      // Customer users → redirect to customer portal. The session is
+      // already in the .gtools.io cookie (auth-storage.js D-21), so the
+      // customer portal reads it automatically. No fragment handoff = no
+      // refresh-token leak via bookmarks/history sync/referrer.
       if (role === 'user' && CUSTOMER_PORTAL_URL && authData.session) {
         toast.success('Redirecting to your portal...');
-        const { access_token, refresh_token } = authData.session;
-        window.location.href = `${CUSTOMER_PORTAL_URL}/auth-redirect#access_token=${access_token}&refresh_token=${refresh_token}`;
+        window.location.href = `${CUSTOMER_PORTAL_URL}/`;
         return;
       }
 
       // Admin/sales → stay on main portal
       toast.success('Signed in successfully');
-      if (returnUrl) {
-        window.location.href = returnUrl;
+      // Only follow returnUrl if it's a same-origin relative path. Reject
+      // protocol-relative ("//evil.com") and absolute URLs to avoid an
+      // open-redirect phishing vector.
+      const safeReturn = returnUrl
+        && returnUrl.startsWith('/')
+        && !returnUrl.startsWith('//')
+        ? returnUrl
+        : null;
+      if (safeReturn) {
+        navigate(safeReturn);
       } else {
         navigate('/');
       }
@@ -304,7 +314,7 @@ export default function Login() {
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full h-12 rounded-hero-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-[15px] shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all duration-[250ms] gap-2 group"
+                  className="w-full h-12 rounded-hero-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-[15px] shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all duration-200 gap-2 group"
                 >
                   {isLoading ? (
                     <Loader2 className="w-5 h-5 animate-spin" />

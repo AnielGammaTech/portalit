@@ -1,0 +1,322 @@
+<h2>LootIT Customer Detail Redesign — Full Design</h2>
+<p class="subtitle">Two tabs: Dashboard (read-only snapshot) + Reconciliation (active verification with inline flags)</p>
+
+<!-- SECTION 1: TAB STRUCTURE -->
+<div class="section">
+  <h3>1. Tab Structure</h3>
+  <div class="mockup">
+    <div class="mockup-header">Tab Bar — New "Dashboard" tab added</div>
+    <div class="mockup-body" style="padding: 0; background: #0f0a18; font-family: system-ui, sans-serif;">
+      <div style="display: flex; gap: 0; border-bottom: 1px solid #2a1f3a; background: #0d0815;">
+        <div style="padding: 14px 24px; color: #f472b6; border-bottom: 2px solid #f472b6; font-weight: 600; margin-bottom: -1px; font-size: 13px;">Dashboard</div>
+        <div style="padding: 14px 24px; color: #888; font-size: 13px;">Reconciliation</div>
+        <div style="padding: 14px 24px; color: #888; font-size: 13px;">Recurring</div>
+        <div style="padding: 14px 24px; color: #888; font-size: 13px;">Invoices</div>
+        <div style="padding: 14px 24px; color: #888; font-size: 13px;">Contract</div>
+      </div>
+      <div style="padding: 16px 24px; color: #666; font-size: 12px;">
+        Dashboard = default landing tab (read-only snapshot) · Reconciliation = active audit with verification flags
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 2: DASHBOARD TAB -->
+<div class="section">
+  <h3>2. Dashboard Tab — Last Reconciliation Snapshot</h3>
+  <div class="mockup">
+    <div class="mockup-header">Dashboard — Acme Corp — Read-Only Snapshot from Mar 15, 2026</div>
+    <div class="mockup-body" style="padding: 0; background: #0f0a18; color: #e0e0e0; font-family: system-ui, sans-serif;">
+
+      <!-- Sign-off banner -->
+      <div style="background: #0d1a0d; border-bottom: 1px solid #22c55e20; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 8px; height: 8px; border-radius: 50%; background: #22c55e;"></div>
+          <span style="font-size: 13px; color: #22c55e; font-weight: 500;">Signed off Mar 15, 2026</span>
+          <span style="font-size: 13px; color: #666;">by Daniel R.</span>
+        </div>
+        <button style="background: #f472b620; color: #f472b6; border: 1px solid #f472b640; padding: 6px 16px; border-radius: 6px; font-size: 12px; cursor: pointer;">Start New Reconciliation →</button>
+      </div>
+
+      <!-- Cards grid (read-only) -->
+      <div style="padding: 20px 24px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+
+          <!-- Card: Matched -->
+          <div style="background: #12121f; border: 1px solid #22c55e30; border-radius: 10px; padding: 16px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+              <div style="font-size: 13px; font-weight: 600; color: #e0e0e0;">Cove Backup</div>
+              <div style="background: #22c55e20; color: #22c55e; font-size: 10px; padding: 2px 8px; border-radius: 10px;">Match</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <div><div style="font-size: 10px; color: #666;">PSA</div><div style="font-size: 18px; font-weight: 700; color: white;">12</div></div>
+              <div><div style="font-size: 10px; color: #666;">Vendor</div><div style="font-size: 18px; font-weight: 700; color: white;">12</div></div>
+              <div><div style="font-size: 10px; color: #666;">Diff</div><div style="font-size: 18px; font-weight: 700; color: #22c55e;">0</div></div>
+            </div>
+            <div style="border-top: 1px solid #1e1e35; padding-top: 8px; font-size: 11px; color: #666;">
+              Reviewed by Daniel R. · Mar 15
+            </div>
+          </div>
+
+          <!-- Card: Matched -->
+          <div style="background: #12121f; border: 1px solid #22c55e30; border-radius: 10px; padding: 16px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+              <div style="font-size: 13px; font-weight: 600; color: #e0e0e0;">Datto RMM</div>
+              <div style="background: #22c55e20; color: #22c55e; font-size: 10px; padding: 2px 8px; border-radius: 10px;">Match</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <div><div style="font-size: 10px; color: #666;">PSA</div><div style="font-size: 18px; font-weight: 700; color: white;">30</div></div>
+              <div><div style="font-size: 10px; color: #666;">Vendor</div><div style="font-size: 18px; font-weight: 700; color: white;">30</div></div>
+              <div><div style="font-size: 10px; color: #666;">Diff</div><div style="font-size: 18px; font-weight: 700; color: #22c55e;">0</div></div>
+            </div>
+            <div style="border-top: 1px solid #1e1e35; padding-top: 8px; font-size: 11px; color: #666;">
+              Reviewed by Daniel R. · Mar 15
+            </div>
+          </div>
+
+          <!-- Card: Force Matched -->
+          <div style="background: #12121f; border: 1px solid #3b82f630; border-radius: 10px; padding: 16px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+              <div style="font-size: 13px; font-weight: 600; color: #e0e0e0;">Datto EDR</div>
+              <div style="background: #3b82f620; color: #3b82f6; font-size: 10px; padding: 2px 8px; border-radius: 10px;">Force Matched</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <div><div style="font-size: 10px; color: #666;">PSA</div><div style="font-size: 18px; font-weight: 700; color: white;">28</div></div>
+              <div><div style="font-size: 10px; color: #666;">Vendor</div><div style="font-size: 18px; font-weight: 700; color: white;">25</div></div>
+              <div><div style="font-size: 10px; color: #666;">Diff</div><div style="font-size: 18px; font-weight: 700; color: #eab308;">+3</div></div>
+            </div>
+            <div style="border-top: 1px solid #1e1e35; padding-top: 8px; font-size: 11px; color: #666;">
+              Reviewed by Daniel R. · Mar 15
+            </div>
+          </div>
+
+          <!-- Pax8 Card: Matched -->
+          <div style="background: #12121f; border: 1px solid #22c55e30; border-radius: 10px; padding: 16px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+              <div style="font-size: 13px; font-weight: 600; color: #e0e0e0;">M365 Business Premium</div>
+              <div style="background: #22c55e20; color: #22c55e; font-size: 10px; padding: 2px 8px; border-radius: 10px;">Match</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <div><div style="font-size: 10px; color: #666;">PSA</div><div style="font-size: 18px; font-weight: 700; color: white;">45</div></div>
+              <div><div style="font-size: 10px; color: #666;">Pax8</div><div style="font-size: 18px; font-weight: 700; color: white;">45</div></div>
+              <div><div style="font-size: 10px; color: #666;">Diff</div><div style="font-size: 18px; font-weight: 700; color: #22c55e;">0</div></div>
+            </div>
+            <div style="border-top: 1px solid #1e1e35; padding-top: 8px; font-size: 11px; color: #666;">
+              Reviewed by Maria S. · Mar 15
+            </div>
+          </div>
+
+          <!-- Pax8 Card: Dismissed -->
+          <div style="background: #12121f; border: 1px solid #66666630; border-radius: 10px; padding: 16px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+              <div style="font-size: 13px; font-weight: 600; color: #e0e0e0;">Acronis Backup</div>
+              <div style="background: #66666620; color: #888; font-size: 10px; padding: 2px 8px; border-radius: 10px;">Dismissed</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <div><div style="font-size: 10px; color: #666;">PSA</div><div style="font-size: 18px; font-weight: 700; color: white;">10</div></div>
+              <div><div style="font-size: 10px; color: #666;">Pax8</div><div style="font-size: 18px; font-weight: 700; color: white;">12</div></div>
+              <div><div style="font-size: 10px; color: #666;">Diff</div><div style="font-size: 18px; font-weight: 700; color: #888;">+2</div></div>
+            </div>
+            <div style="border-top: 1px solid #1e1e35; padding-top: 8px; font-size: 11px; color: #666;">
+              Dismissed by Daniel R. · Mar 15
+            </div>
+          </div>
+
+          <!-- Card: Excluded -->
+          <div style="background: #12121f; border: 1px solid #8b5cf630; border-radius: 10px; padding: 16px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+              <div style="font-size: 13px; font-weight: 600; color: #e0e0e0;">JumpCloud</div>
+              <div style="background: #8b5cf620; color: #8b5cf6; font-size: 10px; padding: 2px 8px; border-radius: 10px;">5 Excluded</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <div><div style="font-size: 10px; color: #666;">PSA</div><div style="font-size: 18px; font-weight: 700; color: white;">50</div></div>
+              <div><div style="font-size: 10px; color: #666;">Vendor</div><div style="font-size: 18px; font-weight: 700; color: white;">55</div></div>
+              <div><div style="font-size: 10px; color: #666;">Excl.</div><div style="font-size: 18px; font-weight: 700; color: #8b5cf6;">5</div></div>
+            </div>
+            <div style="border-top: 1px solid #1e1e35; padding-top: 8px; font-size: 11px; color: #666;">
+              Reviewed by Daniel R. · Mar 15
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 3: RECONCILIATION TAB -->
+<div class="section">
+  <h3>3. Reconciliation Tab — Active Verification with Inline Flags</h3>
+  <div class="mockup">
+    <div class="mockup-header">Reconciliation — Acme Corp — Live Data with Staleness Flags</div>
+    <div class="mockup-body" style="padding: 0; background: #0f0a18; color: #e0e0e0; font-family: system-ui, sans-serif;">
+
+      <!-- Filter bar -->
+      <div style="padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e1e35;">
+        <div style="display: flex; gap: 8px;">
+          <button style="background: #f472b620; color: #f472b6; border: 1px solid #f472b640; padding: 5px 14px; border-radius: 6px; font-size: 12px;">All (8)</button>
+          <button style="background: transparent; color: #888; border: 1px solid #333; padding: 5px 14px; border-radius: 6px; font-size: 12px;">Issues (2)</button>
+          <button style="background: transparent; color: #888; border: 1px solid #333; padding: 5px 14px; border-radius: 6px; font-size: 12px;">Stale (3)</button>
+          <button style="background: transparent; color: #888; border: 1px solid #333; padding: 5px 14px; border-radius: 6px; font-size: 12px;">Matched</button>
+          <button style="background: transparent; color: #888; border: 1px solid #333; padding: 5px 14px; border-radius: 6px; font-size: 12px;">Reviewed</button>
+        </div>
+        <button style="background: #22c55e20; color: #22c55e; border: 1px solid #22c55e40; padding: 6px 18px; border-radius: 6px; font-size: 12px; cursor: pointer;">Sign Off Reconciliation</button>
+      </div>
+
+      <!-- Cards grid -->
+      <div style="padding: 20px 24px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+
+          <!-- Card: Stale override (flagged) -->
+          <div style="background: #12121f; border: 1px solid #eab30860; border-radius: 10px; padding: 16px; position: relative;">
+            <div style="position: absolute; top: -6px; right: 12px; background: #eab308; color: #000; font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Stale · 62 days</div>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+              <div style="font-size: 13px; font-weight: 600; color: #e0e0e0;">Datto EDR</div>
+              <div style="background: #3b82f620; color: #3b82f6; font-size: 10px; padding: 2px 8px; border-radius: 10px;">Force Matched</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <div><div style="font-size: 10px; color: #666;">PSA</div><div style="font-size: 18px; font-weight: 700; color: white;">28</div></div>
+              <div><div style="font-size: 10px; color: #666;">Vendor</div><div style="font-size: 18px; font-weight: 700; color: white;">25</div></div>
+              <div><div style="font-size: 10px; color: #666;">Diff</div><div style="font-size: 18px; font-weight: 700; color: #eab308;">+3</div></div>
+            </div>
+            <div style="border-top: 1px solid #eab30820; padding-top: 8px; font-size: 11px; color: #eab308;">
+              ⚠ Last verified by Daniel R. · Jan 12
+            </div>
+          </div>
+
+          <!-- Card: Mismatch (new issue) -->
+          <div style="background: #12121f; border: 1px solid #ef444460; border-radius: 10px; padding: 16px; position: relative;">
+            <div style="position: absolute; top: -6px; right: 12px; background: #ef4444; color: #fff; font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">New Issue</div>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+              <div style="font-size: 13px; font-weight: 600; color: #e0e0e0;">Spanning Backup</div>
+              <div style="background: #ef444420; color: #ef4444; font-size: 10px; padding: 2px 8px; border-radius: 10px;">Under</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <div><div style="font-size: 10px; color: #666;">PSA</div><div style="font-size: 18px; font-weight: 700; color: white;">40</div></div>
+              <div><div style="font-size: 10px; color: #666;">Vendor</div><div style="font-size: 18px; font-weight: 700; color: white;">48</div></div>
+              <div><div style="font-size: 10px; color: #666;">Diff</div><div style="font-size: 18px; font-weight: 700; color: #ef4444;">-8</div></div>
+            </div>
+            <div style="border-top: 1px solid #ef444420; padding-top: 8px; font-size: 11px; color: #ef4444;">
+              ⚠ Changed since last sign-off (was 40/40)
+            </div>
+          </div>
+
+          <!-- Card: Current / OK -->
+          <div style="background: #12121f; border: 1px solid #22c55e30; border-radius: 10px; padding: 16px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+              <div style="font-size: 13px; font-weight: 600; color: #e0e0e0;">Cove Backup</div>
+              <div style="background: #22c55e20; color: #22c55e; font-size: 10px; padding: 2px 8px; border-radius: 10px;">Match</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <div><div style="font-size: 10px; color: #666;">PSA</div><div style="font-size: 18px; font-weight: 700; color: white;">12</div></div>
+              <div><div style="font-size: 10px; color: #666;">Vendor</div><div style="font-size: 18px; font-weight: 700; color: white;">12</div></div>
+              <div><div style="font-size: 10px; color: #666;">Diff</div><div style="font-size: 18px; font-weight: 700; color: #22c55e;">0</div></div>
+            </div>
+            <div style="border-top: 1px solid #1e1e35; padding-top: 8px; font-size: 11px; color: #666;">
+              Reviewed by Daniel R. · Mar 15
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 4: CARD DETAIL MODAL WITH AUDIT LOG -->
+<div class="section">
+  <h3>4. Card Detail Modal — Full Audit Log</h3>
+  <div class="mockup">
+    <div class="mockup-header">Detail Modal — Datto EDR (clicked from Reconciliation tab)</div>
+    <div class="mockup-body" style="padding: 0; background: #0f0a18; color: #e0e0e0; font-family: system-ui, sans-serif;">
+
+      <div style="padding: 24px;">
+        <!-- Header -->
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+          <div>
+            <div style="font-size: 18px; font-weight: 700; color: white;">Datto EDR</div>
+            <div style="font-size: 12px; color: #888; margin-top: 2px;">Integration: Datto · Rule: endpoint-protection</div>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <div style="background: #eab30820; color: #eab308; font-size: 11px; padding: 4px 12px; border-radius: 12px; border: 1px solid #eab30830;">Stale · 62 days</div>
+            <div style="background: #3b82f620; color: #3b82f6; font-size: 11px; padding: 4px 12px; border-radius: 12px;">Force Matched</div>
+          </div>
+        </div>
+
+        <!-- Quantities -->
+        <div style="display: flex; gap: 16px; margin-bottom: 20px;">
+          <div style="flex: 1; background: #1e1e35; border-radius: 8px; padding: 14px; text-align: center;">
+            <div style="font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 1px;">PSA Qty</div>
+            <div style="font-size: 28px; font-weight: 700; color: white; margin-top: 4px;">28</div>
+          </div>
+          <div style="flex: 1; background: #1e1e35; border-radius: 8px; padding: 14px; text-align: center;">
+            <div style="font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 1px;">Vendor Qty</div>
+            <div style="font-size: 28px; font-weight: 700; color: white; margin-top: 4px;">25</div>
+          </div>
+          <div style="flex: 1; background: #eab30810; border: 1px solid #eab30830; border-radius: 8px; padding: 14px; text-align: center;">
+            <div style="font-size: 10px; color: #eab308; text-transform: uppercase; letter-spacing: 1px;">Difference</div>
+            <div style="font-size: 28px; font-weight: 700; color: #eab308; margin-top: 4px;">+3</div>
+          </div>
+        </div>
+
+        <!-- Action buttons -->
+        <div style="display: flex; gap: 8px; margin-bottom: 24px;">
+          <button style="background: #22c55e; color: white; border: none; padding: 8px 18px; border-radius: 6px; font-size: 12px; cursor: pointer;">Re-verify</button>
+          <button style="background: transparent; color: #f472b6; border: 1px solid #f472b640; padding: 8px 18px; border-radius: 6px; font-size: 12px; cursor: pointer;">Update Override</button>
+          <button style="background: transparent; color: #888; border: 1px solid #333; padding: 8px 18px; border-radius: 6px; font-size: 12px; cursor: pointer;">Dismiss</button>
+          <button style="background: transparent; color: #ef4444; border: 1px solid #ef444440; padding: 8px 18px; border-radius: 6px; font-size: 12px; cursor: pointer;">Remove Override</button>
+        </div>
+
+        <!-- Audit Log -->
+        <div style="border-top: 1px solid #1e1e35; padding-top: 20px;">
+          <div style="font-size: 14px; font-weight: 600; color: white; margin-bottom: 16px;">Audit Log</div>
+
+          <div style="display: flex; flex-direction: column; gap: 0; position: relative;">
+            <!-- Timeline line -->
+            <div style="position: absolute; left: 15px; top: 20px; bottom: 20px; width: 1px; background: #2a1f3a;"></div>
+
+            <!-- Entry 1 -->
+            <div style="display: flex; gap: 16px; padding: 12px 0; position: relative;">
+              <div style="width: 30px; height: 30px; border-radius: 50%; background: #3b82f620; border: 2px solid #3b82f6; display: flex; align-items: center; justify-content: center; font-size: 12px; z-index: 1; flex-shrink: 0;">⚡</div>
+              <div style="flex: 1;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 13px; font-weight: 600; color: #e0e0e0;">Force Matched</span>
+                  <span style="font-size: 11px; color: #666;">Jan 12, 2026 · 3:42 PM</span>
+                </div>
+                <div style="font-size: 12px; color: #3b82f6; margin-top: 2px;">Daniel R.</div>
+                <div style="font-size: 12px; color: #888; margin-top: 4px; background: #1e1e35; padding: 8px 12px; border-radius: 6px;">"3 test machines excluded per Mike — confirmed these are dev endpoints not in production"</div>
+                <div style="font-size: 11px; color: #555; margin-top: 4px;">PSA: 28 · Vendor: 25 · Exclusions: 3</div>
+              </div>
+            </div>
+
+            <!-- Entry 2 -->
+            <div style="display: flex; gap: 16px; padding: 12px 0; position: relative;">
+              <div style="width: 30px; height: 30px; border-radius: 50%; background: #22c55e20; border: 2px solid #22c55e; display: flex; align-items: center; justify-content: center; font-size: 12px; z-index: 1; flex-shrink: 0;">✓</div>
+              <div style="flex: 1;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 13px; font-weight: 600; color: #e0e0e0;">Reviewed</span>
+                  <span style="font-size: 11px; color: #666;">Nov 30, 2025 · 10:15 AM</span>
+                </div>
+                <div style="font-size: 12px; color: #22c55e; margin-top: 2px;">Maria S.</div>
+                <div style="font-size: 11px; color: #555; margin-top: 4px;">PSA: 26 · Vendor: 26 · Exclusions: 0</div>
+              </div>
+            </div>
+
+            <!-- Entry 3 -->
+            <div style="display: flex; gap: 16px; padding: 12px 0; position: relative;">
+              <div style="width: 30px; height: 30px; border-radius: 50%; background: #f472b620; border: 2px solid #f472b6; display: flex; align-items: center; justify-content: center; font-size: 12px; z-index: 1; flex-shrink: 0;">+</div>
+              <div style="flex: 1;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 13px; font-weight: 600; color: #e0e0e0;">Rule Created</span>
+                  <span style="font-size: 11px; color: #666;">Sep 5, 2025 · 2:30 PM</span>
+                </div>
+                <div style="font-size: 12px; color: #f472b6; margin-top: 2px;">Daniel R.</div>
+                <div style="font-size: 12px; color: #888; margin-top: 4px; background: #1e1e35; padding: 8px 12px; border-radius: 6px;">"Initial setup — matching endpoint-protection pattern to Datto EDR integration"</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

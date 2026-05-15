@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Cloud, Monitor, ChevronDown, CheckCircle2, Shield, Users, HardDrive, Wifi,
+  Cloud, Monitor, Shield, Users, HardDrive, Wifi,
   ShieldAlert, Database, Fish, AlertTriangle, Rocket, Brain, ShieldCheck,
   Phone, Globe, ArrowLeft,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { client } from '@/api/client';
-import { formatDistanceToNow } from 'date-fns';
 import HaloPSAConfig from '../components/integrations/HaloPSAConfig';
 import DattoRMMConfig from '../components/integrations/DattoRMMConfig';
 import RocketCyberConfig from '../components/integrations/RocketCyberConfig';

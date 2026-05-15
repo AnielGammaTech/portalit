@@ -31,7 +31,7 @@ export function useCustomerSync(customer, customerId) {
       }
 
       // Sync JumpCloud if mapped
-      const jcMappings = await client.entities.JumpCloudMapping.filter({ customer_id: customerId });
+      const jcMappings = (await client.entities.JumpCloudMapping.filter({ customer_id: customerId })) ?? [];
       if (jcMappings.length > 0) {
         try {
           const res = await client.functions.invoke('syncJumpCloudLicenses', {
@@ -44,7 +44,7 @@ export function useCustomerSync(customer, customerId) {
       }
 
       // Sync Spanning if mapped
-      const spanMappings = await client.entities.SpanningMapping.filter({ customer_id: customerId });
+      const spanMappings = (await client.entities.SpanningMapping.filter({ customer_id: customerId })) ?? [];
       if (spanMappings.length > 0) {
         try {
           const res = await client.functions.invoke('syncSpanningBackup', {
@@ -57,7 +57,7 @@ export function useCustomerSync(customer, customerId) {
       }
 
       // Sync Datto if mapped
-      const dattoMappings = await client.entities.DattoSiteMapping.filter({ customer_id: customerId });
+      const dattoMappings = (await client.entities.DattoSiteMapping.filter({ customer_id: customerId })) ?? [];
       if (dattoMappings.length > 0) {
         try {
           const res = await client.functions.invoke('syncDattoRMMDevices', {

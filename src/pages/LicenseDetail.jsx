@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client, resolveFileUrl } from '@/api/client';
 import { toast } from 'sonner';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import Breadcrumbs from '../components/ui/breadcrumbs';
 import { 
@@ -48,7 +48,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { DollarSign, BarChart3 } from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 
 // Spend Analysis Card Component
 function SpendAnalysisCard({
@@ -165,7 +165,7 @@ export default function LicenseDetail() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const licenseId = searchParams.get('id');
-  const appId = searchParams.get('appId');
+  const appId = searchParams.get('appId'); // For catalog-only entries
   const queryClient = useQueryClient();
   // UI State
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -175,7 +175,7 @@ export default function LicenseDetail() {
   const [showAddIndividualLicense, setShowAddIndividualLicense] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRenewalModal, setShowRenewalModal] = useState(false);
-  const [deletingManagedLicense, setDeletingManagedLicense] = useState(null);
+  const [deleteManagedLicense, setDeleteManagedLicense] = useState(null);
   
   // Section expansion
   const [managedSectionExpanded, setManagedSectionExpanded] = useState(true);
@@ -223,7 +223,7 @@ export default function LicenseDetail() {
     queryKey: ['license', licenseId],
     queryFn: async () => {
       const licenses = await client.entities.SaaSLicense.filter({ id: licenseId });
-      return licenses[0];
+      return (licenses ?? [])[0];
     },
     enabled: !!licenseId,
     staleTime: 1000 * 60 // Cache for 1 minute
@@ -248,7 +248,7 @@ export default function LicenseDetail() {
     queryKey: ['customer', software?.customer_id],
     queryFn: async () => {
       const customers = await client.entities.Customer.filter({ id: software.customer_id });
-      return customers[0];
+      return (customers ?? [])[0];
     },
     enabled: !!software?.customer_id,
     staleTime: 1000 * 60 * 5 // Cache customer for 5 minutes
@@ -310,11 +310,12 @@ export default function LicenseDetail() {
       const licenseIds = relatedLicenses.map(l => l.id);
       if (licenseIds.length === 0) return [];
       
-      const assignmentPromises = licenseIds.map(id => 
+      const assignmentPromises = licenseIds.map(id =>
         client.entities.LicenseAssignment.filter({ license_id: id })
       );
       const results = await Promise.all(assignmentPromises);
       const allResults = results.flat();
+
       return allResults;
     },
     enabled: relatedLicenses.length > 0,
@@ -331,9 +332,9 @@ export default function LicenseDetail() {
         queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
       }
     });
-    
+
     const unsubLicenses = client.entities.SaaSLicense.subscribe((event) => {
-      if (event.data?.customer_id === software.customer_id && 
+      if (event.data?.customer_id === software.customer_id &&
           event.data?.application_name === software.application_name) {
         queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
       }
@@ -360,12 +361,12 @@ export default function LicenseDetail() {
   // Redirect to Customer detail if no license/app id or not found
   useEffect(() => {
     if (!licenseId && !appId) {
-      navigate(createPageUrl('CustomerDetail'), { replace: true });
+      navigate(createPageUrl('CustomerDetail'));
       return;
     }
     const isLoading = licenseId ? loadingLicense : loadingApplication;
     if (!isLoading && !software) {
-      navigate(createPageUrl('CustomerDetail'), { replace: true });
+      navigate(createPageUrl('CustomerDetail'));
     }
   }, [licenseId, appId, loadingLicense, loadingApplication, software, navigate]);
 
@@ -424,6 +425,7 @@ export default function LicenseDetail() {
       }
     }
 
+    // Optimistic update - add to cache immediately
     const newAssignment = {
       id: `temp-${Date.now()}-${contactId}`,
       license_id: licenseToAssign,
@@ -433,13 +435,12 @@ export default function LicenseDetail() {
       status: 'active'
     };
 
-    try {
-      // Optimistic update - add to cache immediately
-      queryClient.setQueryData(['all_license_assignments', software?.application_name, software?.customer_id], (old) =>
-        old ? [...old, newAssignment] : [newAssignment]
-      );
+    queryClient.setQueryData(['all_license_assignments', software?.application_name, software?.customer_id], (old) =>
+      old ? [...old, newAssignment] : [newAssignment]
+    );
 
-      // Then persist to database
+    // Then persist to database
+    try {
       await client.entities.LicenseAssignment.create({
         license_id: licenseToAssign,
         contact_id: contactId,
@@ -447,22 +448,21 @@ export default function LicenseDetail() {
         assigned_date: new Date().toISOString().split('T')[0],
         status: 'active'
       });
-
-      // Refresh to get real IDs
       queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
       toast.success('License assigned!');
-    } catch (err) {
+    } catch (error) {
+      // Rollback optimistic update
       queryClient.setQueryData(['all_license_assignments', software?.application_name, software?.customer_id], (old) =>
         old ? old.filter(a => a.id !== newAssignment.id) : []
       );
-      toast.error(err.message || 'Operation failed');
+      toast.error(error.message || 'Failed to assign license');
     }
   };
 
   const handleAddIndividualLicense = async (data) => {
-    try {
-      const contact = contacts.find(c => c.id === data.contact_id);
+    const contact = contacts.find(c => c.id === data.contact_id);
 
+    try {
       // Find existing per_user license or create one
       let perUserLicense = individualLicenses[0];
 
@@ -498,8 +498,8 @@ export default function LicenseDetail() {
       // Close modal and show success AFTER save completes
       setShowAddIndividualLicense(false);
       toast.success(`License added for ${contact?.full_name || 'user'}!`);
-    } catch (err) {
-      toast.error(err.message || 'Operation failed');
+    } catch (error) {
+      toast.error(error.message || 'Failed to add license');
     }
   };
 
@@ -529,33 +529,31 @@ export default function LicenseDetail() {
       queryClient.invalidateQueries({ queryKey: ['license', licenseId] });
       setShowAddManagedLicense(false);
       toast.success('Managed license added!');
-    } catch (err) {
-      toast.error(err.message || 'Operation failed');
+    } catch (error) {
+      toast.error(error.message || 'Failed to add managed license');
     }
   };
 
   const handleRevoke = async (contactId) => {
-    let assignment = null;
-    try {
-      assignment = allAssignments.find(a => a.contact_id === contactId && a.status === 'active');
-      if (assignment) {
-        // Optimistic update - remove from cache immediately
-        queryClient.setQueryData(['all_license_assignments', software?.application_name, software?.customer_id], (old) =>
-          old ? old.filter(a => a.id !== assignment.id) : []
-        );
+    const assignment = allAssignments.find(a => a.contact_id === contactId && a.status === 'active');
+    if (assignment) {
+      // Optimistic update - remove from cache immediately
+      queryClient.setQueryData(['all_license_assignments', software?.application_name, software?.customer_id], (old) =>
+        old ? old.filter(a => a.id !== assignment.id) : []
+      );
 
-        // Then persist to database
+      // Then persist to database
+      try {
         await client.entities.LicenseAssignment.update(assignment.id, { status: 'revoked' });
         queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
         toast.success('License revoked!');
-      }
-    } catch (err) {
-      if (assignment) {
+      } catch (error) {
+        // Rollback - restore the removed assignment
         queryClient.setQueryData(['all_license_assignments', software?.application_name, software?.customer_id], (old) =>
           old ? [...old, assignment] : [assignment]
         );
+        toast.error(error.message || 'Failed to revoke license');
       }
-      toast.error(err.message || 'Operation failed');
     }
   };
 
@@ -565,8 +563,8 @@ export default function LicenseDetail() {
       queryClient.invalidateQueries({ queryKey: ['license', licenseId] });
       setShowEditModal(false);
       toast.success('License updated!');
-    } catch (err) {
-      toast.error(err.message || 'Operation failed');
+    } catch (error) {
+      toast.error(error.message || 'Failed to update license');
     }
   };
 
@@ -647,7 +645,7 @@ export default function LicenseDetail() {
       setSeatChange(0);
       toast.success(`Seats updated to ${newQuantity}!`);
     } catch (error) {
-      toast.error('Failed to modify seats');
+      toast.error(error.message || 'Failed to update seats');
     }
   };
 
@@ -1085,7 +1083,7 @@ export default function LicenseDetail() {
                                   <Plus className="w-3 h-3" />
                                 </Button>
                                 <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => {
-                                  setDeletingManagedLicense(ml);
+                                  setDeleteManagedLicense({ license: ml, assignments: mlAssignments });
                                 }}>
                                   <Trash2 className="w-3 h-3" />
                                 </Button>
@@ -1442,37 +1440,36 @@ export default function LicenseDetail() {
 
 
       {/* Delete Managed License Confirmation */}
-      <AlertDialog open={!!deletingManagedLicense} onOpenChange={(open) => { if (!open) setDeletingManagedLicense(null); }}>
+      <AlertDialog open={!!deleteManagedLicense} onOpenChange={(open) => { if (!open) setDeleteManagedLicense(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {deletingManagedLicense?.license_type || ''} License?</AlertDialogTitle>
+            <AlertDialogTitle>Delete {deleteManagedLicense?.license?.license_type || ''} License</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete this license and revoke all seat assignments. This action cannot be undone.
+              This will permanently delete this license and {deleteManagedLicense?.assignments?.length || 0} seat assignment(s). This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <Button
+            <AlertDialogAction
               className="bg-red-600 hover:bg-red-700"
               onClick={async () => {
-                const ml = deletingManagedLicense;
-                if (!ml) return;
                 try {
-                  const mlAssignments = getAssignmentsForLicense(ml.id);
-                  for (const a of mlAssignments) await client.entities.LicenseAssignment.delete(a.id);
+                  const { license: ml, assignments } = deleteManagedLicense;
+                  for (const a of assignments) await client.entities.LicenseAssignment.delete(a.id);
                   await client.entities.SaaSLicense.delete(ml.id);
                   queryClient.invalidateQueries({ queryKey: ['related_licenses'] });
                   queryClient.invalidateQueries({ queryKey: ['all_license_assignments'] });
                   toast.success('License deleted!');
-                } catch (err) {
-                  toast.error(err.message || 'Failed to delete license');
+                } catch (error) {
+                  toast.error(error.message || 'Failed to delete license');
+                } finally {
+                  setDeleteManagedLicense(null);
                 }
-                setDeletingManagedLicense(null);
               }}
             >
               <Trash2 className="w-4 h-4 mr-2" />
               Delete License
-            </Button>
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

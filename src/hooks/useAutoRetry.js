@@ -1,34 +1,47 @@
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/api/client';
 
 /**
  * Auto-retry hook: if key data arrays are all empty after initial load,
- * refresh the auth session and invalidate the cache to refetch.
+ * invalidate the cache to refetch.
  * Retries up to 2 times within 15 seconds of mount.
  */
-export function useAutoRetry(dataArrays, isLoading, queryKeys) {
+export function useAutoRetry(dataArrays = [], isLoading, queryKeys = []) {
   const queryClient = useQueryClient();
   const retryCount = useRef(0);
   const mountTime = useRef(Date.now());
+  const retryTimer = useRef(null);
+  const queryKeysRef = useRef(queryKeys);
+
+  queryKeysRef.current = queryKeys;
+
+  const dataLengths = dataArrays.map(arr => (Array.isArray(arr) ? arr.length : 0));
+  const dataSignature = dataLengths.join('|');
+  const allEmpty = dataLengths.length > 0 && dataLengths.every(length => length === 0);
+
+  useEffect(() => () => {
+    if (retryTimer.current) {
+      clearTimeout(retryTimer.current);
+    }
+  }, []);
 
   useEffect(() => {
     if (Date.now() - mountTime.current > 15000) return;
     if (isLoading) return;
     if (retryCount.current >= 2) return;
-
-    const allEmpty = dataArrays.every(arr => !arr || arr.length === 0);
     if (!allEmpty) return;
+    if (retryTimer.current) return;
 
     retryCount.current += 1;
     const attempt = retryCount.current;
-    console.warn(`[AutoRetry] Page loaded with all empty data — retry ${attempt}/2`);
+    console.warn(`[AutoRetry] Page loaded with empty data; retry ${attempt}/2`);
 
-    // Refresh session first (empty data often means auth wasn't ready), then refetch
-    supabase.auth.refreshSession().catch(() => {}).finally(() => {
-      for (const key of queryKeys) {
+    // The API/auth client owns token refresh. This hook only retries active data queries.
+    retryTimer.current = setTimeout(() => {
+      retryTimer.current = null;
+      for (const key of queryKeysRef.current) {
         queryClient.invalidateQueries({ queryKey: key });
       }
-    });
-  }, [isLoading, dataArrays, queryKeys, queryClient]);
+    }, 350);
+  }, [isLoading, allEmpty, dataSignature, queryClient]);
 }

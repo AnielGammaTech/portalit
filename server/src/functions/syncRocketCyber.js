@@ -1,4 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
+import { fetchWithTimeout } from '../lib/sync-utils.js';
 
 const API_BASE_URL = 'https://api-us.rocketcyber.com/v2';
 const API_V3_BASE_URL = 'https://api-us.rocketcyber.com/v3';
@@ -12,7 +13,7 @@ async function rocketCyberApiCall(endpoint, params = {}) {
     }
   });
 
-  const response = await fetch(url.toString(), {
+  const response = await fetchWithTimeout(url.toString(), {
     headers: {
       'Authorization': `Bearer ${ROCKETCYBER_API_TOKEN}`,
       'Content-Type': 'application/json'
@@ -64,6 +65,41 @@ function buildIncidentData(incident, customerId) {
   };
 }
 
+function buildIncidentSummaryCache(incidents = []) {
+  const incidentList = Array.isArray(incidents) ? incidents : [];
+  const recentIncidents = [...incidentList]
+    .sort((a, b) => new Date(b.detected_at || 0) - new Date(a.detected_at || 0))
+    .slice(0, 25)
+    .map(incident => ({
+      id: incident.id,
+      incident_id: incident.incident_id,
+      title: incident.title || 'Security Incident',
+      description: incident.description || '',
+      severity: incident.severity || 'medium',
+      status: incident.status || 'open',
+      category: incident.category || '',
+      app_name: incident.app_name || '',
+      hostname: incident.hostname || '',
+      detected_at: incident.detected_at || null,
+      resolved_at: incident.resolved_at || null,
+      manually_closed: Boolean(incident.manually_closed),
+    }));
+
+  return {
+    totalIncidents: incidentList.length,
+    openIncidents: incidentList.filter(i => i.status === 'open' || i.status === 'investigating').length,
+    resolvedIncidents: incidentList.filter(i => i.status === 'resolved' || i.status === 'closed').length,
+    bySeverity: {
+      critical: incidentList.filter(i => i.severity === 'critical').length,
+      high: incidentList.filter(i => i.severity === 'high').length,
+      medium: incidentList.filter(i => i.severity === 'medium').length,
+      low: incidentList.filter(i => i.severity === 'low').length,
+      informational: incidentList.filter(i => i.severity === 'informational').length,
+    },
+    recentIncidents,
+  };
+}
+
 async function rocketCyberV3ApiCall(endpoint, params = {}) {
   const ROCKETCYBER_API_TOKEN = process.env.ROCKETCYBER_API_TOKEN;
   const url = new URL(`${API_V3_BASE_URL}${endpoint}`);
@@ -73,7 +109,7 @@ async function rocketCyberV3ApiCall(endpoint, params = {}) {
     }
   });
 
-  const response = await fetch(url.toString(), {
+  const response = await fetchWithTimeout(url.toString(), {
     headers: {
       'Authorization': `Bearer ${ROCKETCYBER_API_TOKEN}`,
       'Content-Type': 'application/json',
@@ -111,8 +147,7 @@ function extractAgents(data) {
   }));
 }
 
-async function fetchAgents(rcAccountId) {
-  // Try v3 first, then v2 with multiple endpoint formats
+async function fetchAgents(rcAccountId, cachedEndpoint) {
   const attempts = [
     { label: 'v3 /agents', fn: () => rocketCyberV3ApiCall('/agents', { accountId: rcAccountId }) },
     { label: 'v3 /account/agents', fn: () => rocketCyberV3ApiCall(`/account/${rcAccountId}/agents`) },
@@ -120,24 +155,35 @@ async function fetchAgents(rcAccountId) {
     { label: 'v2 /account/agents', fn: () => rocketCyberApiCall(`/account/${rcAccountId}/agents`) },
   ];
 
+  // If we have a cached working endpoint, try it first
+  if (cachedEndpoint) {
+    const cached = attempts.find(a => a.label === cachedEndpoint);
+    if (cached) {
+      try {
+        const data = await cached.fn();
+        const agents = extractAgents(data);
+        if (agents.length > 0) {
+          return { count: agents.length, agents, endpoint: cachedEndpoint };
+        }
+      } catch (_) { /* fall through to full probe */ }
+    }
+  }
+
   for (const { label, fn } of attempts) {
+    if (label === cachedEndpoint) continue;
     try {
       const data = await fn();
-      const snippet = JSON.stringify(data).slice(0, 500);
-      console.log(`[RocketCyber] ${label} for ${rcAccountId}: ${snippet}`);
-
       const agents = extractAgents(data);
       if (agents.length > 0) {
         console.log(`[RocketCyber] Found ${agents.length} agents via ${label} for ${rcAccountId}`);
-        return { count: agents.length, agents };
+        return { count: agents.length, agents, endpoint: label };
       }
     } catch (err) {
       console.log(`[RocketCyber] ${label} failed for ${rcAccountId}: ${err.message}`);
     }
   }
 
-  console.warn(`[RocketCyber] All agent endpoints returned 0 for account ${rcAccountId}`);
-  return { count: 0, agents: [] };
+  return { count: 0, agents: [], endpoint: null };
 }
 
 // Cache endpoint probe results to avoid redundant API calls per account
@@ -424,19 +470,14 @@ export async function syncRocketCyber(body, user) {
       .eq('customer_id', customer_id);
     const allCustomerIncidents = allDbIncidents.data || [];
 
+    const previousAgentCount = (mapping.cached_data || {}).total_agents || 0;
+    const agentCount = (agentResult.count === 0 && previousAgentCount > 0) ? previousAgentCount : agentResult.count;
+    const agentList = (agentResult.count === 0 && previousAgentCount > 0) ? (mapping.cached_data?.agents || []) : agentResult.agents;
+
     const cachedData = {
-      total_agents: agentResult.count,
-      agents: agentResult.agents,
-      totalIncidents: allCustomerIncidents.length,
-      openIncidents: allCustomerIncidents.filter(i => i.status === 'open' || i.status === 'investigating').length,
-      resolvedIncidents: allCustomerIncidents.filter(i => i.status === 'resolved' || i.status === 'closed').length,
-      bySeverity: {
-        critical: allCustomerIncidents.filter(i => i.severity === 'critical').length,
-        high: allCustomerIncidents.filter(i => i.severity === 'high').length,
-        medium: allCustomerIncidents.filter(i => i.severity === 'medium').length,
-        low: allCustomerIncidents.filter(i => i.severity === 'low').length,
-        informational: allCustomerIncidents.filter(i => i.severity === 'informational').length,
-      }
+      total_agents: agentCount,
+      agents: agentList,
+      ...buildIncidentSummaryCache(allCustomerIncidents),
     };
 
     // Update mapping last_synced + cached_data
@@ -449,7 +490,8 @@ export async function syncRocketCyber(body, user) {
       success: true,
       recordsSynced: syncedCount,
       totalIncidents: allIncidents.length,
-      totalAgents: agentResult.count
+      totalAgents: agentCount,
+      cachedData
     };
   }
 
@@ -518,19 +560,14 @@ export async function syncRocketCyber(body, user) {
           .eq('customer_id', mapping.customer_id);
         const allCustomerIncidents = allDbIncidents.data || [];
 
+        const prevAgentCount = (mapping.cached_data || {}).total_agents || 0;
+        const finalAgentCount = (agentResult.count === 0 && prevAgentCount > 0) ? prevAgentCount : agentResult.count;
+        const finalAgentList = (agentResult.count === 0 && prevAgentCount > 0) ? (mapping.cached_data?.agents || []) : agentResult.agents;
+
         const cachedData = {
-          total_agents: agentResult.count,
-          agents: agentResult.agents,
-          totalIncidents: allCustomerIncidents.length,
-          openIncidents: allCustomerIncidents.filter(i => i.status === 'open' || i.status === 'investigating').length,
-          resolvedIncidents: allCustomerIncidents.filter(i => i.status === 'resolved' || i.status === 'closed').length,
-          bySeverity: {
-            critical: allCustomerIncidents.filter(i => i.severity === 'critical').length,
-            high: allCustomerIncidents.filter(i => i.severity === 'high').length,
-            medium: allCustomerIncidents.filter(i => i.severity === 'medium').length,
-            low: allCustomerIncidents.filter(i => i.severity === 'low').length,
-            informational: allCustomerIncidents.filter(i => i.severity === 'informational').length,
-          }
+          total_agents: finalAgentCount,
+          agents: finalAgentList,
+          ...buildIncidentSummaryCache(allCustomerIncidents),
         };
 
         await supabase
@@ -583,6 +620,56 @@ export async function syncRocketCyber(body, user) {
     };
 
     return { success: true, summary };
+  }
+
+  // Action: Fast agents-only sync (for LootIT billing — skip incidents entirely)
+  if (action === 'sync_agents' || action === 'sync_agents_only') {
+    let query = supabase.from('rocket_cyber_mappings').select('*');
+    if (customer_id) query = query.eq('customer_id', customer_id);
+    const { data: allMappings } = await query;
+
+    if (!allMappings || allMappings.length === 0) {
+      return { success: true, message: 'No mappings found' };
+    }
+
+    const batchSize = 5;
+    let totalUpdated = 0;
+    const errors = [];
+
+    for (let i = 0; i < allMappings.length; i += batchSize) {
+      const batch = allMappings.slice(i, i + batchSize);
+      const results = await Promise.allSettled(
+        batch.map(async (mapping) => {
+          const agentResult = await fetchAgents(mapping.rc_account_id, mapping.agent_endpoint);
+          const existingCached = mapping.cached_data || {};
+          const previousCount = existingCached.total_agents || 0;
+
+          if (agentResult.count === 0 && previousCount > 0) {
+            console.warn(`[RocketCyber] Skipping update for ${mapping.rc_account_name || mapping.rc_account_id} — API returned 0 but previous count was ${previousCount}`);
+            return mapping.rc_account_name || mapping.rc_account_id;
+          }
+
+          const cachedData = {
+            ...existingCached,
+            total_agents: agentResult.count,
+            agents: agentResult.agents,
+          };
+          const updatePayload = { last_synced: new Date().toISOString(), cached_data: cachedData };
+          if (agentResult.endpoint) updatePayload.agent_endpoint = agentResult.endpoint;
+          await supabase
+            .from('rocket_cyber_mappings')
+            .update(updatePayload)
+            .eq('id', mapping.id);
+          return mapping.rc_account_name || mapping.rc_account_id;
+        })
+      );
+      for (const r of results) {
+        if (r.status === 'fulfilled') totalUpdated++;
+        else errors.push(r.reason?.message || 'Unknown error');
+      }
+    }
+
+    return { success: true, totalUpdated, errors: errors.length > 0 ? errors : undefined };
   }
 
   const err = new Error('Invalid action');

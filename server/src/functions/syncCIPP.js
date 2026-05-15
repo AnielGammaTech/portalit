@@ -1,4 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
+import { fetchWithTimeout, runWithConcurrency } from '../lib/sync-utils.js';
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -8,6 +9,172 @@ function chunks(array, size) {
     result.push(array.slice(i, i + size));
   }
   return result;
+}
+
+function asArray(payload, keys = []) {
+  if (Array.isArray(payload)) return payload;
+  if (!payload || typeof payload !== 'object') return [];
+  const candidates = [
+    ...keys,
+    'value',
+    'Value',
+    'results',
+    'Results',
+    'data',
+    'Data',
+    'items',
+    'Items',
+    'rows',
+    'Rows',
+  ];
+  for (const key of candidates) {
+    if (Array.isArray(payload[key])) return payload[key];
+  }
+  return [];
+}
+
+function firstValue(source, keys) {
+  for (const key of keys) {
+    const value = source?.[key];
+    if (value !== undefined && value !== null && value !== '') return value;
+  }
+  return null;
+}
+
+function firstNestedValue(source, paths) {
+  for (const path of paths) {
+    const value = String(path)
+      .split('.')
+      .reduce((current, key) => (current && current[key] !== undefined ? current[key] : undefined), source);
+    if (value !== undefined && value !== null && value !== '') return value;
+  }
+  return null;
+}
+
+function normalizeDateValue(value) {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+  const text = String(value).trim();
+  if (!text || ['never', 'none', 'unknown', 'not available', 'n/a'].includes(text.toLowerCase())) return null;
+  const date = new Date(text);
+  return Number.isNaN(date.getTime()) ? text : date.toISOString();
+}
+
+function getLastSignInDate(record) {
+  return normalizeDateValue(firstNestedValue(record, [
+    'lastSignInDateTime',
+    'LastSignInDateTime',
+    'lastSuccessfulSignInDateTime',
+    'LastSuccessfulSignInDateTime',
+    'lastNonInteractiveSignInDateTime',
+    'LastNonInteractiveSignInDateTime',
+    'lastSignIn',
+    'LastSignIn',
+    'lastLogonDateTime',
+    'LastLogonDateTime',
+    'lastLogon',
+    'LastLogon',
+    'lastLogin',
+    'LastLogin',
+    'signInActivity.lastSignInDateTime',
+    'signInActivity.lastSuccessfulSignInDateTime',
+    'signInActivity.lastNonInteractiveSignInDateTime',
+    'SignInActivity.lastSignInDateTime',
+    'SignInActivity.lastSuccessfulSignInDateTime',
+    'SignInActivity.lastNonInteractiveSignInDateTime',
+  ]));
+}
+
+function numberValue(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function getSkuId(sku) {
+  return firstValue(sku, ['skuId', 'SkuId', 'id', 'Id', 'accountSkuId', 'AccountSkuId']);
+}
+
+function getSkuName(sku) {
+  return firstValue(sku, [
+    'skuName',
+    'SkuName',
+    'displayName',
+    'DisplayName',
+    'productName',
+    'ProductName',
+    'skuPartNumber',
+    'SkuPartNumber',
+    'accountSkuId',
+    'AccountSkuId',
+  ]);
+}
+
+function getSkuTotal(sku) {
+  const prepaid = sku?.prepaidUnits || sku?.PrepaidUnits || {};
+  return numberValue(firstValue(prepaid, ['enabled', 'Enabled']))
+    ?? numberValue(firstValue(sku, [
+      'totalLicenses',
+      'TotalLicenses',
+      'activeUnits',
+      'ActiveUnits',
+      'enabled',
+      'Enabled',
+      'purchased',
+      'Purchased',
+    ]));
+}
+
+function getSkuConsumed(sku) {
+  return numberValue(firstValue(sku, [
+    'consumedUnits',
+    'ConsumedUnits',
+    'assigned',
+    'Assigned',
+    'assignedUnits',
+    'AssignedUnits',
+    'used',
+    'Used',
+  ]));
+}
+
+function buildLicenseSummary(skuList, userLicenseCounts) {
+  const summary = new Map();
+
+  for (const sku of skuList) {
+    const id = getSkuId(sku);
+    const name = getSkuName(sku) || id;
+    if (!name) continue;
+    const consumed = getSkuConsumed(sku);
+    const total = getSkuTotal(sku);
+    summary.set(name, {
+      sku_id: id || null,
+      name,
+      assigned: consumed ?? userLicenseCounts.get(name) ?? 0,
+      total,
+      available: total === null ? null : Math.max(total - (consumed ?? userLicenseCounts.get(name) ?? 0), 0),
+    });
+  }
+
+  for (const [name, assigned] of userLicenseCounts.entries()) {
+    if (!summary.has(name)) {
+      summary.set(name, {
+        sku_id: null,
+        name,
+        assigned,
+        total: null,
+        available: null,
+      });
+    }
+  }
+
+  return [...summary.values()].sort((a, b) => (b.assigned || 0) - (a.assigned || 0));
 }
 
 async function upsertAndPrune(supabase, table, records, conflictKey, customerId) {
@@ -56,7 +223,7 @@ async function getCIPPToken() {
     throw new Error('CIPP credentials not configured. Set CIPP_API_URL, CIPP_AUTH_TOKEN_URL, CIPP_AUTH_CLIENT_ID, CIPP_AUTH_CLIENT_SECRET, and CIPP_AUTH_SCOPE.');
   }
 
-  const response = await fetch(tokenUrl, {
+  const response = await fetchWithTimeout(tokenUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -94,7 +261,7 @@ async function cippApiCall(endpoint, params = {}) {
 
   console.log(`[CIPP] Calling: ${url.toString()}`);
 
-  const response = await fetch(url.toString(), {
+  const response = await fetchWithTimeout(url.toString(), {
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: 'application/json',
@@ -115,7 +282,7 @@ async function cippApiCall(endpoint, params = {}) {
 
 async function testConnection() {
   const tenants = await cippApiCall('ListTenants');
-  const tenantList = Array.isArray(tenants) ? tenants : [];
+  const tenantList = asArray(tenants, ['tenants', 'Tenants']);
   return {
     success: true,
     totalTenants: tenantList.length,
@@ -125,7 +292,7 @@ async function testConnection() {
 
 async function listTenants() {
   const tenants = await cippApiCall('ListTenants');
-  const tenantList = Array.isArray(tenants) ? tenants : [];
+  const tenantList = asArray(tenants, ['tenants', 'Tenants']);
   return {
     success: true,
     tenants: tenantList.map((t) => ({
@@ -137,66 +304,160 @@ async function listTenants() {
   };
 }
 
+async function fetchGraphUserSignInActivity(tenantId) {
+  const select = [
+    'id',
+    'displayName',
+    'mail',
+    'userPrincipalName',
+    'signInActivity',
+  ].join(',');
+  const attempts = [
+    { tenantFilter: tenantId, Endpoint: 'users', '$select': select, '$top': 999, manualPagination: true },
+    { tenantFilter: tenantId, endpoint: 'users', '$select': select, '$top': 999, manualPagination: true },
+  ];
+
+  for (const params of attempts) {
+    try {
+      const data = await cippApiCall('ListGraphRequest', params);
+      const rows = asArray(data, ['Results', 'results', 'value', 'Value']);
+      if (rows.length > 0) return rows;
+    } catch (err) {
+      console.warn(`[CIPP] ListGraphRequest signInActivity failed (non-critical): ${err.message}`);
+    }
+  }
+
+  return [];
+}
+
+function getGraphSignInActivity(record) {
+  return record?.signInActivity || record?.SignInActivity || record?.sign_in_activity || {};
+}
+
+function buildGraphSignInActivityMap(records) {
+  const map = {};
+
+  for (const record of records) {
+    const upn = (record.userPrincipalName || record.UserPrincipalName || record.mail || record.Mail || '').toLowerCase();
+    if (!upn) continue;
+
+    const activity = getGraphSignInActivity(record);
+    const successfulDate = normalizeDateValue(firstNestedValue(activity, [
+      'lastSuccessfulSignInDateTime',
+      'LastSuccessfulSignInDateTime',
+    ]));
+    const interactiveDate = normalizeDateValue(firstNestedValue(activity, [
+      'lastSignInDateTime',
+      'LastSignInDateTime',
+    ]));
+    const nonInteractiveDate = normalizeDateValue(firstNestedValue(activity, [
+      'lastNonInteractiveSignInDateTime',
+      'LastNonInteractiveSignInDateTime',
+    ]));
+    const date = successfulDate || interactiveDate || nonInteractiveDate || getLastSignInDate(record);
+
+    if (!date) continue;
+    map[upn] = {
+      date,
+      status: successfulDate ? 'success' : 'activity',
+      source: 'graph_user_signinactivity',
+      lastSuccessfulSignInDateTime: successfulDate,
+      lastSignInDateTime: interactiveDate,
+      lastNonInteractiveSignInDateTime: nonInteractiveDate,
+    };
+  }
+
+  return map;
+}
+
+function getActivityTime(activity) {
+  if (!activity?.date) return 0;
+  const parsed = new Date(activity.date).getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function selectBestUserActivity(graphActivity, lastSignIn, inactiveAccount) {
+  const candidates = [graphActivity, lastSignIn].filter((activity) => activity?.date);
+  if (candidates.length > 0) {
+    return candidates.sort((a, b) => getActivityTime(b) - getActivityTime(a))[0];
+  }
+  if (!inactiveAccount?.date) return null;
+  return {
+    date: inactiveAccount.date,
+    status: 'inactive',
+    source: 'cipp_inactive_accounts',
+    refreshed: inactiveAccount.refreshed,
+    assigned_licenses: inactiveAccount.assignedLicenses,
+  };
+}
+
 async function syncUsers(customerId, tenantId) {
   const supabase = getServiceSupabase();
 
   // Fetch users + enrichment data in parallel
-  const [users, mfaData, licenseSKUs, signIns] = await Promise.all([
+  const [users, licenseSKUs, graphSignInUsers, signIns, inactiveAccounts] = await Promise.all([
     cippApiCall('ListUsers', { tenantFilter: tenantId }),
-    safeApiCall('ListPerUserMFA', { tenantFilter: tenantId }),
     safeApiCall('ListLicenses', { tenantFilter: tenantId }),
-    safeApiCall('ListSignIns', { tenantFilter: tenantId, filter: 'createdDateTime ge ' + new Date(Date.now() - 30 * 86400000).toISOString() }),
+    fetchGraphUserSignInActivity(tenantId),
+    safeApiCall('ListSignIns', { tenantFilter: tenantId, Days: 30, filter: 'createdDateTime ge ' + new Date(Date.now() - 30 * 86400000).toISOString() }),
+    safeApiCall('ListInactiveAccounts', { tenantFilter: tenantId }),
   ]);
 
-  const userList = Array.isArray(users) ? users : [];
-  const mfaList = Array.isArray(mfaData) ? mfaData : [];
-  const skuList = Array.isArray(licenseSKUs) ? licenseSKUs : [];
-  const signInList = Array.isArray(signIns) ? signIns : [];
-
-  // Build MFA lookup by UPN
-  const mfaMap = {};
-  for (const m of mfaList) {
-    const upn = m.userPrincipalName || m.UserPrincipalName || '';
-    if (upn) {
-      mfaMap[upn.toLowerCase()] = {
-        status: m.accountEnabled === false ? 'disabled'
-          : m.perUser || m.PerUser || m.MFAState || 'unknown',
-        methods: m.MFAMethods || m.authMethods || [],
-      };
-    }
-  }
+  const userList = asArray(users, ['users', 'Users']);
+  const skuList = asArray(licenseSKUs, ['licenses', 'Licenses', 'skus', 'Skus']);
+  const signInList = asArray(signIns, ['signIns', 'SignIns']);
+  const inactiveList = asArray(inactiveAccounts, ['users', 'Users', 'accounts', 'Accounts']);
+  const graphSignInMap = buildGraphSignInActivityMap(graphSignInUsers);
 
   // Build SKU name lookup (skuId → friendly name)
   const skuMap = {};
   for (const sku of skuList) {
-    const skuId = sku.skuId || sku.SkuId || '';
+    const skuId = getSkuId(sku) || '';
     if (skuId) {
-      skuMap[skuId] = sku.skuName || sku.SkuName || sku.skuPartNumber || sku.SkuPartNumber || skuId;
+      skuMap[skuId] = getSkuName(sku) || skuId;
     }
   }
+
+  const userLicenseCounts = new Map();
 
   // Build last sign-in lookup by UPN (most recent)
   const signInMap = {};
   for (const s of signInList) {
     const upn = (s.userPrincipalName || s.UserPrincipalName || '').toLowerCase();
     if (!upn) continue;
-    const dt = s.createdDateTime || s.CreatedDateTime || '';
+    const dt = normalizeDateValue(s.createdDateTime || s.CreatedDateTime) || '';
     if (!signInMap[upn] || dt > signInMap[upn].date) {
+      const errorCode = s.status?.errorCode ?? s.errorCode ?? s.ErrorCode;
+      const isSuccess = errorCode === undefined || errorCode === null || Number(errorCode) === 0;
       signInMap[upn] = {
         date: dt,
         ip: s.ipAddress || s.IPAddress || null,
-        location: [s.location?.city, s.location?.state, s.location?.countryOrRegion].filter(Boolean).join(', ') || null,
-        app: s.appDisplayName || s.AppDisplayName || null,
-        status: s.status?.errorCode === 0 ? 'success' : 'failed',
-        error: s.status?.failureReason || null,
+        location: s.locationcipp || s.LocationCipp || [s.location?.city, s.location?.state, s.location?.countryOrRegion].filter(Boolean).join(', ') || null,
+        app: s.appDisplayName || s.AppDisplayName || s.clientAppUsed || s.ClientAppUsed || null,
+        status: isSuccess ? 'success' : 'failed',
+        error: s.status?.failureReason || s.additionalDetails || s.AdditionalDetails || null,
       };
     }
   }
 
+  const inactiveMap = {};
+  for (const account of inactiveList) {
+    const upn = (account.userPrincipalName || account.UserPrincipalName || account.UPN || '').toLowerCase();
+    if (!upn) continue;
+    inactiveMap[upn] = {
+      date: getLastSignInDate(account),
+      refreshed: account.lastRefreshedDateTime || null,
+      assignedLicenses: account.numberOfAssignedLicenses ?? null,
+    };
+  }
+
   const records = userList.map((u) => {
     const upn = (u.userPrincipalName || u.UserPrincipalName || '').toLowerCase();
-    const mfa = mfaMap[upn] || { status: 'unknown', methods: [] };
+    const graphActivity = graphSignInMap[upn] || null;
     const lastSignIn = signInMap[upn] || null;
+    const inactiveAccount = inactiveMap[upn] || null;
+    const bestActivity = selectBestUserActivity(graphActivity, lastSignIn, inactiveAccount);
+    const lastSignInDate = bestActivity?.date || getLastSignInDate(u) || null;
 
     // Resolve license SKU IDs to friendly names
     const rawLicenses = u.assignedLicenses || [];
@@ -210,6 +471,10 @@ async function syncUsers(customerId, tenantId) {
       ? resolvedLicenses.join(', ')
       : licJoined;
 
+    for (const licenseName of licenseString.split(',').map(l => l.trim()).filter(Boolean)) {
+      userLicenseCounts.set(licenseName, (userLicenseCounts.get(licenseName) || 0) + 1);
+    }
+
     return {
       customer_id: customerId,
       cipp_tenant_id: tenantId,
@@ -222,14 +487,12 @@ async function syncUsers(customerId, tenantId) {
       user_type: u.userType || u.UserType || 'Member',
       assigned_licenses: rawLicenses,
       created_date_time: u.createdDateTime || u.CreatedDateTime || null,
-      last_sign_in: lastSignIn?.date || u.lastSignInDateTime || u.LastSignIn || null,
+      last_sign_in: lastSignInDate,
       on_premises_sync_enabled: u.onPremisesSyncEnabled ?? u.OnPremisesSyncEnabled ?? false,
       external_id: u.id || u.Id || u.ObjectId || '',
       cached_data: {
         licenses: licenseString,
-        mfa_status: mfa.status,
-        mfa_methods: mfa.methods,
-        last_sign_in_details: lastSignIn,
+        last_sign_in_details: bestActivity,
         given_name: u.givenName || null,
         surname: u.surname || null,
         city: u.city || null,
@@ -254,7 +517,7 @@ async function syncUsers(customerId, tenantId) {
     ? await upsertAndPrune(supabase, 'cipp_users', records, 'cipp_tenant_id,external_id', customerId)
     : 0;
 
-  return { success: true, count };
+  return { success: true, count, licenseSummary: buildLicenseSummary(skuList, userLicenseCounts) };
 }
 
 // Safe API call that returns empty array on failure (non-critical enrichment)
@@ -267,73 +530,108 @@ async function safeApiCall(endpoint, params) {
   }
 }
 
+function getGroupId(group) {
+  return group?.id || group?.Id || group?.groupId || group?.GroupId || group?.idTxt || '';
+}
+
+function getGroupMemberName(member) {
+  if (typeof member === 'string') return member;
+  return member?.displayName ||
+    member?.DisplayName ||
+    member?.userPrincipalName ||
+    member?.UserPrincipalName ||
+    member?.mail ||
+    member?.Mail ||
+    member?.id ||
+    '';
+}
+
+function getGroupMembersFromPayload(payload) {
+  if (!payload) return [];
+  if (Array.isArray(payload)) {
+    return payload.map(getGroupMemberName).filter(Boolean);
+  }
+  const members = asArray(payload.members || payload.Members || payload.memberList || payload.MemberList);
+  return members.map(getGroupMemberName).filter(Boolean);
+}
+
 async function syncGroups(customerId, tenantId) {
   const supabase = getServiceSupabase();
   const groups = await cippApiCall('ListGroups', { tenantFilter: tenantId });
-  const groupList = Array.isArray(groups) ? groups : [];
+  const groupList = asArray(groups, ['groups', 'Groups']);
 
-  // Fetch members for each group (batch 5 at a time to avoid rate limits)
+  // CIPP's ListGroups detail endpoint returns members when groupID + members=true are provided.
   const MEMBER_BATCH = 5;
   const groupMembersMap = {};
+  const groupDetailsMap = {};
   for (let i = 0; i < groupList.length; i += MEMBER_BATCH) {
     const batch = groupList.slice(i, i + MEMBER_BATCH);
     const results = await Promise.allSettled(
       batch.map(async (g) => {
+        const groupId = getGroupId(g);
+        if (!groupId) return { groupId, detail: null, members: [] };
         try {
-          const members = await cippApiCall('ListGroupMembers', {
+          const detail = await cippApiCall('ListGroups', {
             tenantFilter: tenantId,
-            groupId: g.id || g.Id,
+            groupID: groupId,
+            members: true,
+            owners: true,
           });
-          const memberList = Array.isArray(members) ? members : [];
           return {
-            groupId: g.id || g.Id,
-            members: memberList.map(m => m.displayName || m.userPrincipalName || m.mail || 'Unknown'),
+            groupId,
+            detail,
+            members: getGroupMembersFromPayload(detail),
           };
         } catch {
-          return { groupId: g.id || g.Id, members: [] };
+          return { groupId, detail: null, members: [] };
         }
       })
     );
     for (const r of results) {
       if (r.status === 'fulfilled') {
         groupMembersMap[r.value.groupId] = r.value.members;
+        groupDetailsMap[r.value.groupId] = r.value.detail;
       }
     }
   }
 
   const records = groupList.map((g) => {
-    const groupType = g.calculatedGroupType || g.groupType || (() => {
-      const types = g.groupTypes || [];
-      const mailEnabled = g.mailEnabled ?? false;
-      const secEnabled = g.securityEnabled ?? false;
+    const groupId = getGroupId(g);
+    const detail = groupDetailsMap[groupId] || {};
+    const groupInfo = detail.groupInfo || detail.GroupInfo || detail;
+    const groupType = g.calculatedGroupType || g.groupType || groupInfo.calculatedGroupType || groupInfo.groupType || (() => {
+      const types = g.groupTypes || groupInfo.groupTypes || [];
+      const mailEnabled = g.mailEnabled ?? groupInfo.mailEnabled ?? false;
+      const secEnabled = g.securityEnabled ?? groupInfo.securityEnabled ?? false;
       if (types.includes('Unified')) return 'M365 Group';
       if (mailEnabled && secEnabled) return 'Mail-Enabled Security';
       if (mailEnabled && !secEnabled) return 'Distribution List';
       return 'Security';
     })();
 
-    // Use fetched members, fall back to CSV
-    const groupId = g.id || g.Id || '';
+    // Use fetched members from group details, fall back to any list-level CSV/detail payload.
     const fetchedMembers = groupMembersMap[groupId] || [];
-    const csvMembers = (g.membersCsv || '').split(',').map(m => m.trim()).filter(Boolean);
+    const detailMembers = getGroupMembersFromPayload(g);
+    const csvMembers = (g.membersCsv || groupInfo.membersCsv || '').split(',').map(m => m.trim()).filter(Boolean);
     const members = fetchedMembers.length > 0 ? fetchedMembers : csvMembers;
+    const resolvedMembers = members.length > 0 ? members : detailMembers;
 
     return {
       customer_id: customerId,
       cipp_tenant_id: tenantId,
-      display_name: g.displayName || g.DisplayName || '',
-      description: g.description || g.Description || null,
-      mail: g.mail || g.Mail || null,
+      display_name: g.displayName || g.DisplayName || groupInfo.displayName || groupInfo.DisplayName || '',
+      description: g.description || g.Description || groupInfo.description || groupInfo.Description || null,
+      mail: g.mail || g.Mail || groupInfo.mail || groupInfo.Mail || null,
       group_type: groupType,
-      member_count: members.length,
+      member_count: resolvedMembers.length,
       external_id: groupId,
       cached_data: {
-        members,
-        teams_enabled: g.teamsEnabled ?? false,
-        on_premises_sync: g.onPremisesSyncEnabled ?? false,
-        visibility: g.visibility || null,
-        dynamic: g.dynamicGroupBool ?? false,
-        membership_rule: g.membershipRule || null,
+        members: resolvedMembers,
+        teams_enabled: g.teamsEnabled ?? groupInfo.teamsEnabled ?? false,
+        on_premises_sync: g.onPremisesSyncEnabled ?? groupInfo.onPremisesSyncEnabled ?? false,
+        visibility: g.visibility || groupInfo.visibility || null,
+        dynamic: g.dynamicGroupBool ?? groupInfo.dynamicGroupBool ?? false,
+        membership_rule: g.membershipRule || groupInfo.membershipRule || null,
       },
     };
   });
@@ -349,7 +647,7 @@ async function syncGroups(customerId, tenantId) {
 async function syncMailboxes(customerId, tenantId) {
   const supabase = getServiceSupabase();
   const mailboxes = await cippApiCall('ListMailboxes', { tenantFilter: tenantId });
-  const mailboxList = Array.isArray(mailboxes) ? mailboxes : [];
+  const mailboxList = asArray(mailboxes, ['mailboxes', 'Mailboxes']);
 
   const records = mailboxList.map((m) => ({
     customer_id: customerId,
@@ -372,11 +670,12 @@ async function syncMailboxes(customerId, tenantId) {
 async function syncCustomer(customerId, tenantId) {
   console.log(`[CIPP] syncCustomer called: customerId=${customerId}, tenantId=${tenantId}`);
   const supabase = getServiceSupabase();
-  const results = { users: 0, groups: 0, mailboxes: 0, errors: [] };
+  const results = { users: 0, groups: 0, mailboxes: 0, licenses: [], errors: [] };
 
   try {
     const userResult = await syncUsers(customerId, tenantId);
     results.users = userResult.count;
+    results.licenses = userResult.licenseSummary || [];
   } catch (err) {
     results.errors.push(`Users: ${err.message}`);
   }
@@ -400,7 +699,12 @@ async function syncCustomer(customerId, tenantId) {
     .from('cipp_mappings')
     .update({
       last_synced: new Date().toISOString(),
-      cached_data: { users: results.users, groups: results.groups, mailboxes: results.mailboxes },
+      cached_data: {
+        users: results.users,
+        groups: results.groups,
+        mailboxes: results.mailboxes,
+        licenses: results.licenses,
+      },
     })
     .eq('customer_id', customerId);
 
@@ -420,17 +724,20 @@ async function syncAll() {
     return { success: true, message: 'No CIPP mappings configured' };
   }
 
-  const results = [];
-  for (const mapping of mappings) {
-    try {
-      const result = await syncCustomer(mapping.customer_id, mapping.cipp_tenant_id);
-      results.push({ customer: mapping.customer_name, ...result });
-    } catch (err) {
-      results.push({ customer: mapping.customer_name, success: false, error: err.message });
-    }
-  }
+  // Concurrency 4 — CIPP per-customer hits multiple downstream MS Graph
+  // endpoints (users, groups+members, mailboxes, SKUs, signins). 4 in flight
+  // keeps the CIPP proxy from rate-limiting / queueing.
+  const startedAt = Date.now();
+  const settled = await runWithConcurrency(mappings, 4, async (mapping) => {
+    const result = await syncCustomer(mapping.customer_id, mapping.cipp_tenant_id);
+    return { customer: mapping.customer_name, ...result };
+  });
+  const results = settled.map((r, i) => r.ok
+    ? r.value
+    : { customer: mappings[i]?.customer_name, success: false, error: r.error?.message || 'unknown' });
 
   const succeeded = results.filter((r) => r.success).length;
+  console.log(`[CIPP] sync_all done in ${Date.now() - startedAt}ms — ${succeeded}/${results.length}`);
   return {
     success: true,
     message: `Synced ${succeeded}/${results.length} customers`,

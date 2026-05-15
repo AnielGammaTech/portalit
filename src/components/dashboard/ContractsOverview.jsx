@@ -2,7 +2,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../../utils';
 import { FileText, AlertTriangle, Calendar } from 'lucide-react';
-import { Badge } from "@/components/ui/badge";
 // date-fns calls replaced by safe wrappers from @/lib/utils
 import { cn, safeFormatDate, safeDifferenceInDays } from "@/lib/utils";
 

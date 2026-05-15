@@ -159,16 +159,29 @@ export async function getHaloToken(config) {
 
   // Try auth URL as-is first (matches QuoteIT pattern)
   let authUrl = cfg.authUrl;
-  let authRes = await fetch(authUrl, { method: 'POST', headers, body: params.toString() });
+  const authController = new AbortController();
+  const authTimeoutId = setTimeout(() => authController.abort(), 30000);
+  let authRes;
+  try {
+    authRes = await fetch(authUrl, { method: 'POST', headers, body: params.toString(), signal: authController.signal });
+  } finally {
+    clearTimeout(authTimeoutId);
+  }
 
   // If we get HTML back (login page), retry with /token suffix
   const ct = authRes.headers.get('content-type') || '';
   const isHtml = ct.includes('text/html') || ct.includes('application/xhtml');
   if ((!authRes.ok || isHtml) && !authUrl.endsWith('/token')) {
     const retryUrl = authUrl.endsWith('/') ? `${authUrl}token` : `${authUrl}/token`;
-    const retryRes = await fetch(retryUrl, { method: 'POST', headers, body: params.toString() });
-    if (retryRes.ok) {
-      authRes = retryRes;
+    const retryController = new AbortController();
+    const retryTimeoutId = setTimeout(() => retryController.abort(), 30000);
+    try {
+      const retryRes = await fetch(retryUrl, { method: 'POST', headers, body: params.toString(), signal: retryController.signal });
+      if (retryRes.ok) {
+        authRes = retryRes;
+      }
+    } finally {
+      clearTimeout(retryTimeoutId);
     }
   }
 
@@ -232,12 +245,20 @@ export async function haloGet(path, config) {
   // Small delay for rate limiting
   await new Promise(r => setTimeout(r, 300));
 
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  let response;
+  try {
+    response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -245,12 +266,20 @@ export async function haloGet(path, config) {
     if (response.status === 401) {
       clearTokenCache();
       const freshToken = await getHaloToken(cfg);
-      const retry = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${freshToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const retryController = new AbortController();
+      const retryTimeoutId = setTimeout(() => retryController.abort(), 30000);
+      let retry;
+      try {
+        retry = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${freshToken}`,
+            'Content-Type': 'application/json',
+          },
+          signal: retryController.signal,
+        });
+      } finally {
+        clearTimeout(retryTimeoutId);
+      }
       if (!retry.ok) {
         const retryText = await retry.text();
         throw new Error(`HaloPSA API error (${path}): ${retry.status} - ${safeExternalError(retryText)}`);
@@ -273,14 +302,22 @@ export async function haloPost(path, body, config) {
 
   await new Promise(r => setTimeout(r, 300));
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  let response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -362,6 +399,48 @@ export function mapHaloClientToCustomer(client, site) {
     phone: client.main_contact_phone || client.primary_contact_phone || client.PrimaryContactPhone || client.phonenumber || '',
     address: addressParts.join(', '),
     notes: client.notes || client.Notes || '',
+  };
+}
+
+function firstText(...values) {
+  for (const value of values) {
+    if (value !== undefined && value !== null && String(value).trim()) return String(value).trim();
+  }
+  return '';
+}
+
+function buildHaloAddress(source) {
+  const addressSources = [
+    source?.delivery_address,
+    source?.invoice_address,
+    source?.postal_address,
+    source?.client_to_site?.delivery_address,
+    source?.toplevel?.delivery_address,
+  ].filter(Boolean);
+
+  function pick(addrKey, ...fallbackKeys) {
+    for (const addrObj of addressSources) {
+      if (addrObj[addrKey] && String(addrObj[addrKey]).trim()) return String(addrObj[addrKey]).trim();
+    }
+    return firstText(...fallbackKeys.map(key => source?.[key]));
+  }
+
+  const line1 = pick('line1', 'address1', 'Address1', 'street', 'Street', 'addressline1', 'AddressLine1');
+  const line2 = pick('line2', 'address2', 'Address2', 'addressline2', 'AddressLine2');
+  const city = pick('line3', 'city', 'City', 'town', 'Town');
+  const stateCountry = pick('line4', 'state', 'State', 'county', 'County', 'region', 'Region');
+  const zip = pick('postcode', 'Postcode', 'zip', 'Zip', 'postal_code', 'PostalCode', 'zipcode', 'ZipCode');
+
+  return [line1, line2, city, stateCountry, zip].filter(Boolean).join(', ');
+}
+
+export function mapHaloSiteToLocation(site) {
+  const address = buildHaloAddress(site);
+  return {
+    id: String(site?.id || site?.site_id || site?.SiteId || ''),
+    name: firstText(site?.name, site?.sitename, site?.site_name, site?.SiteName, site?.description, 'Location'),
+    address,
+    isPrimary: Boolean(site?.isprimary || site?.is_primary || site?.main_site || site?.is_main_site),
   };
 }
 

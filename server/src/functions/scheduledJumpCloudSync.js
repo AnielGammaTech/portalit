@@ -277,10 +277,28 @@ export async function scheduledJumpCloudSync(body, user) {
         }
       }
 
-      // Update last_synced
+      // Update last_synced and cache user list for exclusion picker
       await supabase
         .from('jump_cloud_mappings')
-        .update({ last_synced: new Date().toISOString() })
+        .update({
+          last_synced: new Date().toISOString(),
+          cached_data: {
+            totalUsers,
+            ssoApps: applications?.length || 0,
+            usersCreated,
+            usersUpdated,
+            licensesCreated,
+            licensesUpdated,
+            users: jcUsers.map(u => ({
+              id: u._id || u.id,
+              email: u.email,
+              username: u.username,
+              firstname: u.firstname,
+              lastname: u.lastname,
+              state: u.state || (u.activated ? 'ACTIVATED' : 'STAGED'),
+            })),
+          },
+        })
         .eq('id', mapping.id);
 
       results.push({

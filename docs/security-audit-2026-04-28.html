@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PortalIT Security Audit Report — 2026-04-28</title>
+<style>
+  @page { size: Letter; margin: 0.7in 0.6in; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.5;
+    color: #1f2937;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  h1 {
+    font-size: 22pt;
+    margin: 0 0 4pt 0;
+    color: #0f172a;
+    border-bottom: 3px solid #4c1d95;
+    padding-bottom: 6pt;
+  }
+  h2 {
+    font-size: 14pt;
+    margin: 22pt 0 8pt 0;
+    color: #4c1d95;
+    page-break-after: avoid;
+  }
+  h3 {
+    font-size: 11.5pt;
+    margin: 16pt 0 6pt 0;
+    color: #0f172a;
+    page-break-after: avoid;
+  }
+  .meta {
+    font-size: 9pt;
+    color: #64748b;
+    margin-bottom: 14pt;
+  }
+  p { margin: 6pt 0; }
+  ul { margin: 6pt 0 6pt 18pt; padding: 0; }
+  li { margin: 3pt 0; }
+  code {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 9pt;
+    background: #f1f5f9;
+    padding: 1pt 4pt;
+    border-radius: 3pt;
+    color: #be185d;
+  }
+  pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 10pt;
+    border-radius: 5pt;
+    font-size: 8.5pt;
+    line-height: 1.4;
+    overflow-x: auto;
+    page-break-inside: avoid;
+  }
+  pre code { background: transparent; color: inherit; padding: 0; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 8pt 0;
+    font-size: 9.5pt;
+    page-break-inside: avoid;
+  }
+  th, td {
+    border: 1px solid #cbd5e1;
+    padding: 5pt 7pt;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: #f1f5f9;
+    font-weight: 600;
+    color: #0f172a;
+  }
+  .severity-h { color: #b91c1c; font-weight: 600; }
+  .severity-m { color: #b45309; font-weight: 600; }
+  .severity-c { color: #dc2626; font-weight: 700; }
+  .finding {
+    border-left: 4px solid #cbd5e1;
+    padding: 8pt 12pt;
+    margin: 12pt 0;
+    background: #f8fafc;
+    page-break-inside: avoid;
+  }
+  .finding.high { border-left-color: #b91c1c; }
+  .finding.medium { border-left-color: #d97706; }
+  .finding.critical { border-left-color: #dc2626; background: #fef2f2; }
+  .finding-header {
+    font-size: 12pt;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 6pt;
+  }
+  .label {
+    font-weight: 600;
+    color: #475569;
+    text-transform: uppercase;
+    font-size: 8.5pt;
+    letter-spacing: 0.4pt;
+    margin-top: 6pt;
+    margin-bottom: 1pt;
+  }
+  .pill {
+    display: inline-block;
+    padding: 1pt 7pt;
+    border-radius: 999pt;
+    font-size: 8.5pt;
+    font-weight: 600;
+    margin-left: 6pt;
+    vertical-align: middle;
+  }
+  .pill.high { background: #fee2e2; color: #b91c1c; }
+  .pill.medium { background: #fef3c7; color: #b45309; }
+  .pill.critical { background: #fecaca; color: #991b1b; }
+  hr {
+    border: 0;
+    border-top: 1px solid #e2e8f0;
+    margin: 18pt 0;
+  }
+  .footer {
+    margin-top: 30pt;
+    padding-top: 10pt;
+    border-top: 1px solid #cbd5e1;
+    color: #64748b;
+    font-size: 8.5pt;
+    text-align: center;
+  }
+  .toc {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 4pt;
+    padding: 10pt 16pt;
+    margin: 12pt 0 18pt 0;
+  }
+  .toc-title { font-weight: 600; margin-bottom: 4pt; color: #4c1d95; }
+  .toc ol { margin: 4pt 0 4pt 16pt; padding: 0; }
+  .toc li { margin: 1pt 0; font-size: 9.5pt; }
+</style>
+</head>
+<body>
+
+<h1>Security Audit Report — PortalIT / LootIT</h1>
+<div class="meta">
+  Date: 2026-04-28 &nbsp;·&nbsp; Source: external auditor vs. internal parallel-agent review &nbsp;·&nbsp; Status: action plan
+</div>
+
+<div class="toc">
+  <div class="toc-title">Contents</div>
+  <ol>
+    <li>Why my audit missed what it missed</li>
+    <li>Finding-by-finding report (10 items)</li>
+    <li>Risk-vs-effort matrix</li>
+    <li>Recommended fix order</li>
+  </ol>
+</div>
+
+<h2>Why my audit missed what it missed — root cause</h2>
+<p>My audit ran 4 parallel agents, each scoped to a directory (<code>src/</code>, <code>apps/lootit/</code>, <code>server/</code>, plus a generic security pass). The misses fall into three patterns:</p>
+<ol>
+  <li><strong>No cross-cutting "where do secrets live" pass.</strong> Each agent looked at code in its directory. None of them did <code>SELECT column_name FROM information_schema WHERE column_name LIKE '%api_key%' OR '%secret%' OR '%token%'</code> then mapped those columns back to RLS policies. That's how the <code>spanning_api_key</code> exposure went unnoticed.</li>
+  <li><strong>Scope didn't include the entire repo.</strong> I excluded <code>extensions/</code>, the <code>scripts/</code> audit tooling, and didn't cross-reference frontend <code>client.entities.*</code> calls against migration files. That's how INKY token storage, the incomplete RLS audit script, and <code>lootit_contracts</code> schema drift slipped through.</li>
+  <li><strong>Generic flags without file:line citations.</strong> My security agent said "watch for open redirects" but didn't grep <code>returnUrl|window.location.href</code>. The auditor pointed to <code>Login.jsx:80</code> directly.</li>
+</ol>
+<p>The pattern: my agents reported categories of problems where they searched. The auditor specifically searched for known dangerous patterns in known dangerous places. Theirs is a more disciplined methodology.</p>
+
+<hr>
+
+<h2>Finding-by-finding report</h2>
+
+<div class="finding high">
+  <div class="finding-header">H1 — Cross-customer line item RLS leak <span class="pill high">HIGH</span></div>
+  <div class="label">What it is</div>
+  <p>RLS on <code>invoice_line_items</code>, <code>recurring_bill_line_items</code>, <code>contract_items</code>, <code>quote_items</code> allows any authenticated user to SELECT all rows. A photography-firm customer login can read a fostering-nonprofit's invoice line items via direct Supabase REST.</p>
+  <div class="label">Why I missed it (technically I didn't)</div>
+  <p>My security agent flagged this as <strong>C2</strong> in its report. I added it to the Tier 1 list but never executed fixes — I asked you which to fix and we got pulled into other work.</p>
+  <div class="label">Impact of fixing</div>
+  <ul>
+    <li><strong>DB:</strong> Replace <code>USING (auth.uid() IS NOT NULL)</code> with a parent-join policy: <code>EXISTS (SELECT 1 FROM invoices WHERE invoices.id = invoice_line_items.invoice_id AND invoices.customer_id = current_user_customer_id())</code></li>
+    <li><strong>App:</strong> No frontend changes — components already fetch parent records first, then line items. RLS just needs to enforce what the code already assumes.</li>
+    <li><strong>Risk if shipped:</strong> Very low. Existing queries continue working because they're already customer-scoped at the parent level.</li>
+    <li><strong>Risk if NOT fixed:</strong> High. Tenant data leak. Any malicious customer user can dump every other tenant's billing data with one fetch.</li>
+  </ul>
+</div>
+
+<div class="finding high">
+  <div class="finding-header">H2 — Public unauthenticated file proxy <span class="pill high">HIGH</span></div>
+  <div class="label">What it is</div>
+  <p><code>GET /api/upload/file/:fileName</code> proxies the private storage bucket with no auth and <code>Access-Control-Allow-Origin: *</code>. Filenames are <code>Date.now()_&lt;sanitized&gt;.ext</code> — guessable. SVG is served as <code>image/svg+xml</code> (XSS vector).</p>
+  <div class="label">Why I missed it (technically I didn't)</div>
+  <p>My backend agent flagged this as <strong>H3</strong>. Same reason as H1 — I listed it but didn't fix.</p>
+  <div class="label">Impact of fixing</div>
+  <ul>
+    <li><strong>App breakage:</strong> Any place that embeds files via <code>/api/upload/file/...</code> URLs would 401 until the user is authenticated. That includes:
+      <ul>
+        <li>Email exports/templates that link to logo/attachment files</li>
+        <li>The customer portal logo display (<code>CustomerSettings.jsx</code>)</li>
+        <li>Possibly contract/quote PDF previews</li>
+      </ul>
+    </li>
+    <li><strong>Mitigation:</strong> Switch to short-lived signed URLs (5-min expiry) generated server-side and embedded at email-send/page-render time. Existing image tags continue working — URLs just rotate.</li>
+    <li><strong>Risk if shipped:</strong> Medium. Need to test every file-display path. The signed-URL pattern is well-known.</li>
+    <li><strong>Risk if NOT fixed:</strong> Medium-high. File contents leak via guessed/leaked URLs. SVG XSS could escalate to admin compromise if an admin opens a shared link.</li>
+  </ul>
+</div>
+
+<div class="finding high">
+  <div class="finding-header">H3 — reconciliation_snapshots and reconciliation_excluded_items RLS <span class="pill high">HIGH</span></div>
+  <div class="label">What it is</div>
+  <p>Two LootIT tables grant full read/write to <em>any</em> authenticated user. Customers can read other customers' sign-off history, exclusion rules, and billing reconciliation state — and can also tamper with them.</p>
+  <div class="label">Why I missed it (technically I didn't)</div>
+  <p>My backend agent flagged this as <strong>C1 and C2</strong>. Same — listed, not fixed.</p>
+  <div class="label">Impact of fixing</div>
+  <ul>
+    <li><strong>DB:</strong> Replace <code>USING (true)</code> and <code>USING (auth.uid() IS NOT NULL)</code> with admin-only writes plus customer-scoped reads (matching the pattern used in <code>20260331_fix_rls_security.sql</code>).</li>
+    <li><strong>App breakage:</strong> None. Only LootIT admin users currently write to these tables in normal flow. Customers don't have UI hitting these endpoints.</li>
+    <li><strong>Risk if shipped:</strong> Very low.</li>
+    <li><strong>Risk if NOT fixed:</strong> High. Cross-tenant tampering possible. A customer user could sign off another customer's reconciliation or add exclusions to falsify their billing audit.</li>
+  </ul>
+</div>
+
+<div class="finding critical">
+  <div class="finding-header">H4 — spanning_api_key exposed to customer reads <span class="pill critical">CRITICAL</span></div>
+  <div class="label">What it is</div>
+  <p><code>spanning_mappings</code> table stores plaintext <code>spanning_api_key</code> (line 411 of <code>001_initial_schema.sql</code>). The customer-scoped policy at <code>001:750-769</code> includes <code>spanning_mappings</code>. <strong>A customer user can fetch their own <code>spanning_api_key</code> via Supabase REST.</strong> They can then use it to call Spanning's API directly — read others' backups, change settings, exfiltrate data.</p>
+  <div class="label">Why I missed this (genuinely)</div>
+  <p>I never asked "which columns store credentials, and who can read them?" My agents looked at JS source code for hardcoded keys (none found, correctly), but didn't audit the <em>schema</em> for credential columns and cross-reference with RLS. That's the gap.</p>
+  <div class="label">Impact of fixing</div>
+  <ul>
+    <li><strong>Option A (best):</strong> Drop <code>spanning_api_key</code> from <code>spanning_mappings</code>. Move credentials to a server-only <code>vendor_credentials</code> table that only service-role can read. The backend already uses the service-role client — frontend never needs the key.</li>
+    <li><strong>Option B (faster):</strong> Add a column-level RLS policy that hides <code>spanning_api_key</code> from non-admin reads (Supabase supports this via security-invoker views).</li>
+    <li><strong>Option C (cheapest):</strong> Modify the customer-scoped RLS policy to exclude <code>spanning_mappings</code> from the customer-readable set entirely.</li>
+    <li><strong>App breakage check needed:</strong> Run <code>grep -rn "spanning_api_key" src/ apps/lootit/src/</code> — if frontend code reads this, that path needs server-side proxy.</li>
+    <li><strong>Risk if shipped:</strong> Low if frontend doesn't read it directly (likely the case — backend syncs Spanning).</li>
+    <li><strong>Risk if NOT fixed:</strong> Critical. This is a <strong>vendor credential leak across tenants</strong>. A customer can call Spanning's API impersonating Gamma Tech, with full access to all your Spanning operations.</li>
+  </ul>
+</div>
+
+<div class="finding medium">
+  <div class="finding-header">M5 — RLS audit script doesn't catch all permissive policies <span class="pill medium">MEDIUM</span></div>
+  <div class="label">What it is</div>
+  <p><code>scripts/test-rls-security.sql</code> has hardcoded checks that only catch policy <em>names</em> matching <code>Authenticated users can manage</code>. New permissive policies created with different names slip through (which is exactly what happened with <code>reconciliation_snapshots</code>).</p>
+  <div class="label">Why I missed it</div>
+  <p>I read the script's <em>output</em> but didn't audit the script's <em>coverage</em>. Classic blindspot — the auditor of auditors is missing.</p>
+  <div class="label">Impact of fixing</div>
+  <ul>
+    <li><strong>Script:</strong> Rewrite to check all <code>pg_policies</code> rows for <code>qual = 'true'</code> or <code>qual ILIKE '%auth.uid() IS NOT NULL%'</code> regardless of policy name. Around 10 lines.</li>
+    <li><strong>CI:</strong> Run this on every PR; fail the build if any tenant table has a permissive policy.</li>
+    <li><strong>App breakage:</strong> None — internal tooling.</li>
+    <li><strong>Risk if shipped:</strong> None.</li>
+    <li><strong>Risk if NOT fixed:</strong> Future RLS regressions silently pass. Auditor proves this isn't theoretical.</li>
+  </ul>
+</div>
+
+<div class="finding medium">
+  <div class="finding-header">M6 — Login open redirect <span class="pill medium">MEDIUM</span></div>
+  <div class="label">What it is</div>
+  <p><code>Login.jsx:35</code> reads <code>?returnUrl=</code> from the query string and <code>Login.jsx:80</code> does <code>window.location.href = returnUrl</code> after successful login. No same-origin check. An attacker sends <code>https://portalit.gtools.io/login?returnUrl=https://evil.com/phishing</code> — user logs in, gets redirected to attacker site.</p>
+  <div class="label">Why I missed it</div>
+  <p>My security agent flagged "open redirect" as a category to watch but didn't grep specifically for <code>returnUrl|window.location.href</code> patterns. Generic vs. specific.</p>
+  <div class="label">Impact of fixing</div>
+  <ul>
+    <li><strong>Code:</strong> One-line guard:
+    <pre><code>if (returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//')) {
+  window.location.href = returnUrl;
+}</code></pre>
+    </li>
+    <li><strong>App breakage:</strong> None — legitimate use is always relative paths.</li>
+    <li><strong>Risk if shipped:</strong> Zero.</li>
+    <li><strong>Risk if NOT fixed:</strong> Phishing vector. Attacker dresses up a portalit.gtools.io login link to steal credentials by redirecting to a clone after success.</li>
+  </ul>
+</div>
+
+<div class="finding medium">
+  <div class="finding-header">M7 — Auth tokens in URL fragment <span class="pill medium">MEDIUM</span></div>
+  <div class="label">What it is</div>
+  <p>Login flow at <code>Login.jsx:73-74</code> redirects to <code>${CUSTOMER_PORTAL_URL}/auth-redirect#access_token=...&amp;refresh_token=...</code>. URL fragments leak via:</p>
+  <ul>
+    <li>Browser bookmarks</li>
+    <li>Browser history sync (Chrome → Google account)</li>
+    <li>Password manager URL capture</li>
+    <li>Some referrer-leak edge cases</li>
+  </ul>
+  <div class="label">Why I missed it (technically I didn't)</div>
+  <p>My security agent flagged this as <strong>H-6</strong>. Listed, not fixed.</p>
+  <div class="label">Impact of fixing</div>
+  <ul>
+    <li><strong>Cleanest:</strong> Remove the fragment-handoff entirely. The <code>.gtools.io</code> cookie already carries the session across subdomains (via <code>auth-storage.js</code>). Just redirect to <code>${CUSTOMER_PORTAL_URL}/</code>.</li>
+    <li><strong>App breakage:</strong> Need to verify the cookie flow works on customer portal subdomain. If the cookie is set on <code>portalit.gtools.io</code> only (not <code>.gtools.io</code>), customer portal won't see it and login will silently fail.</li>
+    <li><strong>Risk if shipped:</strong> Medium — auth flow changes deserve real testing on multiple browsers.</li>
+    <li><strong>Risk if NOT fixed:</strong> Tokens leak. Refresh tokens are long-lived, so a leaked refresh token = persistent access until rotated.</li>
+  </ul>
+</div>
+
+<div class="finding medium">
+  <div class="finding-header">M8 — INKY token storage in browser extensions <span class="pill medium">MEDIUM</span></div>
+  <div class="label">What it is</div>
+  <p><code>extensions/lootit-link/inject.js</code> and <code>extensions/inky-sync/*</code> intercept INKY bearer/refresh tokens and store them in <code>chrome.storage.local</code>. If the extension is installed by anyone outside your team, those tokens are in their browser cache.</p>
+  <div class="label">Why I missed it</div>
+  <p>I excluded <code>extensions/</code> from agent scope — didn't even know it existed.</p>
+  <div class="label">Impact of fixing</div>
+  <ul>
+    <li><strong>Scope:</strong> First, audit who has these extensions installed (just Gamma techs, or also customers?). If customer-installed, this is significantly worse.</li>
+    <li><strong>Mitigation:</strong> Use only access tokens (short-lived), don't store refresh tokens client-side, scope token use to the active session, document clearly that extension is internal.</li>
+    <li><strong>App breakage:</strong> Depends on what features need the refresh token persisted. If "auto-resume after browser restart" is a feature, you'd lose it.</li>
+    <li><strong>Risk if NOT fixed:</strong> Medium. INKY token theft = read others' email phishing analyses. Privacy issue more than active-attack vector.</li>
+  </ul>
+</div>
+
+<div class="finding medium">
+  <div class="finding-header">M9 — npm audit vulns <span class="pill medium">MEDIUM</span></div>
+  <div class="label">What it is</div>
+  <p>Root: 13 prod findings (high in <code>react-router-dom</code>, <code>lodash</code>, <code>glob/minimatch/picomatch</code>). Server: 3 prod findings (high in <code>path-to-regexp</code> via Express, moderate in <code>node-cron/uuid</code>).</p>
+  <div class="label">Why I missed it (technically I didn't)</div>
+  <p>Security agent flagged these as <strong>M-11/M-12</strong>. Listed, not fixed.</p>
+  <div class="label">Impact of fixing</div>
+  <ul>
+    <li><strong>lodash upgrade:</strong> Drop-in. Zero breakage expected.</li>
+    <li><strong>react-router-dom upgrade:</strong> Could be a major version bump. v6 → v7 has API changes (Routes/Outlet behavior). Needs testing on all routes.</li>
+    <li><strong>path-to-regexp via Express:</strong> Bump to Express ≥4.20 or pin transitively. Test all route patterns since regex behavior could shift.</li>
+    <li><strong>App breakage risk:</strong> Medium — touches routing in two places (Express + React Router). Run E2E tests after.</li>
+    <li><strong>Risk if NOT fixed:</strong> Each CVE has different exploitability. <code>path-to-regexp</code> DoS via crafted route patterns is the most exploitable in production.</li>
+  </ul>
+</div>
+
+<div class="finding medium">
+  <div class="finding-header">M10 — lootit_contracts table and bucket schema drift <span class="pill medium">MEDIUM</span></div>
+  <div class="label">What it is</div>
+  <p>Frontend uses <code>lootit_contracts</code> table and <code>lootit-contracts</code> storage bucket. They exist in production (verified) but no migration creates them. They were created by hand via Supabase dashboard.</p>
+  <div class="label">Why I missed it</div>
+  <p>I didn't cross-reference <code>client.entities.*</code> calls against <code>supabase/migrations/</code> to find tables that exist in code but not in schema files.</p>
+  <div class="label">Impact of fixing</div>
+  <ul>
+    <li><strong>Generate retrospective migration:</strong> Dump current schema for <code>lootit_contracts</code> table and <code>lootit-contracts</code> bucket policies, write a migration file. Mark it as already-applied in production.</li>
+    <li><strong>App breakage:</strong> None — just makes existing reality reproducible.</li>
+    <li><strong>Risk if shipped:</strong> None.</li>
+    <li><strong>Risk if NOT fixed:</strong> A new environment (staging, future tenant) won't have these resources, app breaks silently. Schema-drift is a compounding cost.</li>
+  </ul>
+</div>
+
+<hr>
+
+<h2>Risk-vs-effort matrix</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Finding</th>
+      <th>Impact if exploited</th>
+      <th>Fix effort</th>
+      <th>Test surface</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>H4 spanning_api_key</td><td><strong class="severity-c">Critical — vendor credential leak</strong></td><td>Small (drop column or restrict policy)</td><td>Server sync still works</td></tr>
+    <tr><td>H1 line items RLS</td><td class="severity-h">High — billing data leak</td><td>Small (replace policy)</td><td>None (frontend already scoped)</td></tr>
+    <tr><td>H3 reconciliation tables RLS</td><td class="severity-h">High — cross-tenant tampering</td><td>Small (replace policy)</td><td>None</td></tr>
+    <tr><td>H2 file proxy</td><td class="severity-m">Medium — file/SVG leak</td><td>Medium (signed URLs)</td><td>All file display paths</td></tr>
+    <tr><td>M7 fragment tokens</td><td class="severity-m">Medium</td><td>Medium (cookie handoff)</td><td>Auth flow on multiple browsers</td></tr>
+    <tr><td>M9 npm vulns</td><td class="severity-m">Medium (CVE-dependent)</td><td>Medium-large (router upgrade)</td><td>All routes</td></tr>
+    <tr><td>M6 open redirect</td><td>Low (phishing)</td><td>Trivial (1 line)</td><td>None</td></tr>
+    <tr><td>M5 audit script</td><td>None now, future regressions</td><td>Small (rewrite)</td><td>None</td></tr>
+    <tr><td>M8 extension tokens</td><td>Low (internal)</td><td>Medium (token redesign)</td><td>Extension flows</td></tr>
+    <tr><td>M10 schema drift</td><td>None now, future env breaks</td><td>Small (write migration)</td><td>None</td></tr>
+  </tbody>
+</table>
+
+<h2>Recommended fix order</h2>
+<p><strong>Wave 1 (today, low-risk wins):</strong> H4 spanning_api_key + H1 line items + H3 reconciliation tables + M5 audit script + M6 open redirect + M10 schema drift. All RLS-only, no app behavior changes, ~30 min of SQL + 1 line of JS + 1 SQL script.</p>
+<p><strong>Wave 2 (this week, needs testing):</strong> H2 file proxy (signed URLs) + M7 cookie handoff. Touches auth + file display, deserves QA.</p>
+<p><strong>Wave 3 (when ready):</strong> M9 dependency upgrades + M8 extension token cleanup. Major-version bumps need bandwidth for regression testing.</p>
+
+<div class="footer">
+  Generated 2026-04-28 · Comparison of internal multi-agent security review against external auditor findings · 10 findings, 0 false positives
+</div>
+
+</body>
+</html>

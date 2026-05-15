@@ -1,12 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { client } from '@/api/client';
-import { Link } from 'react-router-dom';
-import { createPageUrl } from '../../utils';
 import {
-  Building2,
   FileText,
-  Receipt,
   HelpCircle,
   Cloud,
   RefreshCw,
@@ -18,8 +14,6 @@ import {
   Filter,
   Clock
 } from 'lucide-react';
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, safeFormatDistanceToNow } from "@/lib/utils";
 

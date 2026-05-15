@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { client } from '@/api/client';
 import { createPageUrl } from '../utils';
 import { Shield } from 'lucide-react';
@@ -40,13 +40,13 @@ export default function Settings() {
           // Non-admin users go to CustomerSettings
           navigate(createPageUrl('CustomerSettings'), { replace: true });
         }
-      } catch (error) {
+      } catch (_error) {
         setIsLoading(false);
       }
     };
 
     redirect();
-  }, [navigate, searchParams]);
+  }, []);
 
   if (isLoading) {
     return (

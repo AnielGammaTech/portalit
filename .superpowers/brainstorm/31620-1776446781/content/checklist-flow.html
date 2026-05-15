@@ -1,0 +1,168 @@
+<h2>Option B: Checklist-Style Verification Flow</h2>
+<p class="subtitle">Single page, collapsible sections — complete in any order, all must be confirmed to sign off</p>
+
+<div class="mockup">
+  <div class="mockup-header">LootIT — Acme Corp — Reconciliation</div>
+  <div class="mockup-body" style="padding: 0; background: #0f0a18; color: #e0e0e0; font-family: system-ui, sans-serif;">
+
+    <!-- Tab bar -->
+    <div style="display: flex; gap: 0; border-bottom: 1px solid #2a1f3a; background: #0d0815;">
+      <div style="padding: 12px 24px; color: #666; font-size: 13px;">Dashboard</div>
+      <div style="padding: 12px 24px; color: #f472b6; border-bottom: 2px solid #f472b6; font-weight: 600; margin-bottom: -1px; font-size: 13px;">Reconciliation</div>
+      <div style="padding: 12px 24px; color: #666; font-size: 13px;">Recurring</div>
+      <div style="padding: 12px 24px; color: #666; font-size: 13px;">Contract</div>
+    </div>
+
+    <!-- Top bar: status + action -->
+    <div style="display: flex; align-items: center; justify-content: space-between; padding: 20px 28px 16px; background: #0f0a18;">
+      <div>
+        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 4px;">Reconciliation Audit</div>
+        <div style="font-size: 20px; font-weight: 700; color: white;">Acme Corp</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <div style="text-align: right;">
+          <div style="font-size: 11px; color: #666;">Last completed</div>
+          <div style="font-size: 13px; color: #aaa;">Mar 15, 2026 — Daniel R.</div>
+        </div>
+        <div style="background: #2E0820; border: 1px solid #f472b640; padding: 8px 16px; border-radius: 8px; display: flex; align-items: center; gap: 8px;">
+          <div style="font-size: 22px; font-weight: 700; color: #f472b6;">2</div>
+          <div style="font-size: 11px; color: #f472b6; line-height: 1.2;">of 4<br>verified</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Checklist sections -->
+    <div style="padding: 0 28px 28px; display: flex; flex-direction: column; gap: 8px;">
+
+      <!-- Section 1: Excluded Licenses — VERIFIED -->
+      <div style="background: #0d1a0d; border: 1px solid #22c55e30; border-radius: 10px; overflow: hidden;">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; cursor: pointer;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 28px; height: 28px; border-radius: 6px; background: #22c55e; display: flex; align-items: center; justify-content: center; font-size: 14px; color: white;">✓</div>
+            <div>
+              <div style="font-size: 14px; font-weight: 600; color: #e0e0e0;">Excluded Licenses</div>
+              <div style="font-size: 12px; color: #22c55e;">5 exclusions verified — 2 min ago</div>
+            </div>
+          </div>
+          <div style="color: #666; font-size: 18px;">›</div>
+        </div>
+      </div>
+
+      <!-- Section 2: Manual Overrides — VERIFIED -->
+      <div style="background: #0d1a0d; border: 1px solid #22c55e30; border-radius: 10px; overflow: hidden;">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; cursor: pointer;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 28px; height: 28px; border-radius: 6px; background: #22c55e; display: flex; align-items: center; justify-content: center; font-size: 14px; color: white;">✓</div>
+            <div>
+              <div style="font-size: 14px; font-weight: 600; color: #e0e0e0;">Manual Overrides</div>
+              <div style="font-size: 12px; color: #22c55e;">3 overrides verified — 1 removed</div>
+            </div>
+          </div>
+          <div style="color: #666; font-size: 18px;">›</div>
+        </div>
+      </div>
+
+      <!-- Section 3: Pax8 Mappings — OPEN / ACTIVE -->
+      <div style="background: #1a1028; border: 1px solid #f472b6; border-radius: 10px; overflow: hidden; box-shadow: 0 0 24px #f472b610;">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; cursor: pointer; border-bottom: 1px solid #2a1f3a;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 28px; height: 28px; border-radius: 6px; background: #f472b6; display: flex; align-items: center; justify-content: center; font-size: 13px; color: white; font-weight: 700;">3</div>
+            <div>
+              <div style="font-size: 14px; font-weight: 600; color: white;">Pax8 Mappings</div>
+              <div style="font-size: 12px; color: #f472b6;">6 mappings — 4 confirmed, 2 remaining</div>
+            </div>
+          </div>
+          <div style="color: #f472b6; font-size: 18px; transform: rotate(90deg);">›</div>
+        </div>
+
+        <!-- Expanded content -->
+        <div style="padding: 16px 20px; display: flex; flex-direction: column; gap: 10px;">
+
+          <!-- Confirmed items (compact) -->
+          <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #0d1a0d40; border-radius: 8px; border: 1px solid #22c55e15;">
+            <div style="color: #22c55e; font-size: 14px;">✓</div>
+            <div style="flex: 1; font-size: 13px; color: #aaa;">Microsoft 365 Bus. Premium — 45 seats</div>
+            <div style="font-size: 11px; color: #666;">Match</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #0d1a0d40; border-radius: 8px; border: 1px solid #22c55e15;">
+            <div style="color: #22c55e; font-size: 14px;">✓</div>
+            <div style="flex: 1; font-size: 13px; color: #aaa;">Azure AD P1 — 45 seats</div>
+            <div style="font-size: 11px; color: #666;">Match</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #0d1a0d40; border-radius: 8px; border: 1px solid #22c55e15;">
+            <div style="color: #22c55e; font-size: 14px;">✓</div>
+            <div style="flex: 1; font-size: 13px; color: #aaa;">Microsoft Defender — 45 seats</div>
+            <div style="font-size: 11px; color: #666;">Match</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #0d1a0d40; border-radius: 8px; border: 1px solid #22c55e15;">
+            <div style="color: #22c55e; font-size: 14px;">✓</div>
+            <div style="flex: 1; font-size: 13px; color: #aaa;">Exchange Online Plan 2 — 45 seats</div>
+            <div style="font-size: 11px; color: #666;">Match</div>
+          </div>
+
+          <!-- Needs action items -->
+          <div style="background: #1a0a14; border: 1px solid #f472b650; border-radius: 8px; padding: 14px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <div>
+                <div style="font-size: 13px; font-weight: 600; color: white;">Acronis Backup Cloud</div>
+                <div style="font-size: 12px; color: #888; margin-top: 2px;">PSA: 10 seats | Pax8: 12 seats | <span style="color: #ef4444;">+2 over</span></div>
+              </div>
+              <div style="background: #ef444420; color: #ef4444; font-size: 11px; padding: 3px 10px; border-radius: 12px;">Mismatch</div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button style="background: #22c55e; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer;">Confirm</button>
+              <button style="background: transparent; color: #f472b6; border: 1px solid #f472b640; padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer;">Adjust</button>
+              <button style="background: transparent; color: #888; border: 1px solid #33333380; padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer;">Exclude</button>
+            </div>
+          </div>
+
+          <div style="background: #1a1510; border: 1px solid #eab30840; border-radius: 8px; padding: 14px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <div>
+                <div style="font-size: 13px; font-weight: 600; color: white;">SentinelOne Complete</div>
+                <div style="font-size: 12px; color: #888; margin-top: 2px;">PSA: 42 seats | Pax8: — | <span style="color: #eab308;">No vendor data</span></div>
+              </div>
+              <div style="background: #eab30820; color: #eab308; font-size: 11px; padding: 3px 10px; border-radius: 12px;">No Vendor</div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button style="background: #22c55e; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer;">Approve As-Is</button>
+              <button style="background: transparent; color: #f472b6; border: 1px solid #f472b640; padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer;">Map to Vendor</button>
+            </div>
+          </div>
+
+          <!-- Section confirm button -->
+          <div style="display: flex; justify-content: flex-end; margin-top: 4px;">
+            <button style="background: #333; color: #666; border: none; padding: 8px 20px; border-radius: 6px; font-size: 12px; cursor: not-allowed;">Confirm All (2 remaining)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 4: Sign Off — LOCKED -->
+      <div style="background: #111; border: 1px solid #222; border-radius: 10px; opacity: 0.5;">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 20px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 28px; height: 28px; border-radius: 6px; background: #222; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #555; font-weight: 700;">4</div>
+            <div>
+              <div style="font-size: 14px; font-weight: 600; color: #666;">Sign Off & Complete</div>
+              <div style="font-size: 12px; color: #555;">Complete all sections above to unlock</div>
+            </div>
+          </div>
+          <div style="color: #444;">🔒</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 20px;">
+  <h3>Key differences from Option A</h3>
+  <ul style="color: #bbb; font-size: 14px; line-height: 1.8;">
+    <li><strong>No forced order</strong> — jump to any section, tackle what you want first</li>
+    <li><strong>Everything on one page</strong> — expand/collapse to manage visual noise</li>
+    <li><strong>Progress visible at a glance</strong> — counter badge (2 of 4) + green checks</li>
+    <li><strong>Confirmed items compress</strong> — verified items collapse into compact rows</li>
+    <li><strong>Sign Off unlocks only when all sections are green</strong></li>
+    <li><strong>Each item has inline actions</strong> — confirm, adjust, exclude, map — no modal needed</li>
+  </ul>
+</div>

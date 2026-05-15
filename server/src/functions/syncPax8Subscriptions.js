@@ -1,4 +1,5 @@
 import { getServiceSupabase } from '../lib/supabase.js';
+import { fetchWithTimeout } from '../lib/sync-utils.js';
 
 const PAX8_API_BASE = 'https://api.pax8.com/v1';
 const PAX8_TOKEN_URL = 'https://api.pax8.com/v1/token';
@@ -20,7 +21,7 @@ async function getPax8Token() {
     throw new Error('PAX8_CLIENT_ID and PAX8_CLIENT_SECRET must be set');
   }
 
-  const response = await fetch(PAX8_TOKEN_URL, {
+  const response = await fetchWithTimeout(PAX8_TOKEN_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -53,7 +54,7 @@ async function pax8ApiCall(endpoint) {
   const url = `${PAX8_API_BASE}${endpoint}`;
   console.log(`[Pax8] GET ${url}`);
 
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     headers: {
       'Authorization': `Bearer ${token}`,
       'Accept': 'application/json',
