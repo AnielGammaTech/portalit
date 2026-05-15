@@ -354,6 +354,17 @@ export default function Layout({ children, currentPageName }) {
     ];
   }, [user?.customer_id]);
 
+  const customerHeaderNavigation = useMemo(() => {
+    const dashboardQuery = user?.customer_id
+      ? `?id=${user.customer_id}&tab=dashboard`
+      : '?tab=dashboard';
+
+    return [
+      { name: 'Dashboard', page: 'CustomerDetail', tab: 'dashboard', icon: LayoutDashboard, query: dashboardQuery },
+      { name: 'Settings', page: 'CustomerSettings', icon: Settings },
+    ];
+  }, [user?.customer_id]);
+
   const customerBottomTabs = useMemo(
     () => customerNavigation.filter(item =>
       item.page === 'CustomerSettings' || ['dashboard', 'services', 'm365', 'tickets'].includes(item.tab)
@@ -375,7 +386,8 @@ export default function Layout({ children, currentPageName }) {
   }, [features.canAccessLootIT]);
 
   const navigation = (isStaff && !isCustomerPortal) ? staffNavigation : customerNavigation;
-  const showDesktopNavigation = isStaff && !isCustomerPortal;
+  const desktopNavigation = (isStaff && !isCustomerPortal) ? staffNavigation : customerHeaderNavigation;
+  const showDesktopNavigation = desktopNavigation.length > 0;
 
   // Show loading state
   if (isLoading) {
@@ -468,7 +480,7 @@ export default function Layout({ children, currentPageName }) {
           {/* Center: Desktop navigation */}
           {showDesktopNavigation ? (
             <nav className="hidden lg:flex min-w-0 flex-1 items-center justify-center h-full overflow-x-auto scrollbar-hide px-8">
-              {navigation.map((item) => {
+              {desktopNavigation.map((item) => {
                 const isActive = isNavigationItemActive(item, currentPageName, activeCustomerTab);
                 return (
                   <NavItem
