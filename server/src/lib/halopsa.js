@@ -402,6 +402,48 @@ export function mapHaloClientToCustomer(client, site) {
   };
 }
 
+function firstText(...values) {
+  for (const value of values) {
+    if (value !== undefined && value !== null && String(value).trim()) return String(value).trim();
+  }
+  return '';
+}
+
+function buildHaloAddress(source) {
+  const addressSources = [
+    source?.delivery_address,
+    source?.invoice_address,
+    source?.postal_address,
+    source?.client_to_site?.delivery_address,
+    source?.toplevel?.delivery_address,
+  ].filter(Boolean);
+
+  function pick(addrKey, ...fallbackKeys) {
+    for (const addrObj of addressSources) {
+      if (addrObj[addrKey] && String(addrObj[addrKey]).trim()) return String(addrObj[addrKey]).trim();
+    }
+    return firstText(...fallbackKeys.map(key => source?.[key]));
+  }
+
+  const line1 = pick('line1', 'address1', 'Address1', 'street', 'Street', 'addressline1', 'AddressLine1');
+  const line2 = pick('line2', 'address2', 'Address2', 'addressline2', 'AddressLine2');
+  const city = pick('line3', 'city', 'City', 'town', 'Town');
+  const stateCountry = pick('line4', 'state', 'State', 'county', 'County', 'region', 'Region');
+  const zip = pick('postcode', 'Postcode', 'zip', 'Zip', 'postal_code', 'PostalCode', 'zipcode', 'ZipCode');
+
+  return [line1, line2, city, stateCountry, zip].filter(Boolean).join(', ');
+}
+
+export function mapHaloSiteToLocation(site) {
+  const address = buildHaloAddress(site);
+  return {
+    id: String(site?.id || site?.site_id || site?.SiteId || ''),
+    name: firstText(site?.name, site?.sitename, site?.site_name, site?.SiteName, site?.description, 'Location'),
+    address,
+    isPrimary: Boolean(site?.isprimary || site?.is_primary || site?.main_site || site?.is_main_site),
+  };
+}
+
 /**
  * Fetch HaloPSA site details (with delivery_address) for a list of site IDs.
  * Returns a map of client_id → site detail object.

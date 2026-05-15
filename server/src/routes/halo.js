@@ -11,7 +11,7 @@
  */
 
 import { Router } from 'express';
-import { requireAdmin } from '../middleware/auth.js';
+import { requireAdmin, requireAuth } from '../middleware/auth.js';
 import { getServiceSupabase } from '../lib/supabase.js';
 import {
   getHaloConfig,
@@ -19,12 +19,76 @@ import {
   haloGet,
   extractRecords,
   mapHaloClientToCustomer,
+  mapHaloSiteToLocation,
   mapHaloUserToContact,
   fetchSitesByClientId,
   validateHaloId,
 } from '../lib/halopsa.js';
 
 const router = Router();
+
+function canReadCustomer(req, customerId) {
+  return req.user?.role === 'admin'
+    || req.user?.role === 'sales'
+    || String(req.user?.customer_id || '') === String(customerId);
+}
+
+function uniqueLocations(locations) {
+  const seen = new Set();
+  return locations.filter(location => {
+    const key = String(location.address || '').toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+async function fetchDetailedSites(config, siteStubs) {
+  const byId = new Map();
+  for (const site of siteStubs) {
+    const id = site?.id || site?.site_id || site?.SiteId;
+    if (id) byId.set(String(id), site);
+  }
+
+  const ids = [...byId.keys()].slice(0, 30);
+  const details = [];
+  for (let i = 0; i < ids.length; i += 5) {
+    const batch = ids.slice(i, i + 5);
+    const results = await Promise.allSettled(
+      batch.map(async (siteId) => haloGet(`Site/${validateHaloId(siteId, 'site_id')}`, config))
+    );
+    results.forEach((result, index) => {
+      details.push(result.status === 'fulfilled' ? result.value : byId.get(batch[index]));
+    });
+  }
+
+  return details.length > 0 ? details : siteStubs;
+}
+
+async function fetchSitesForClient(config, haloClientId) {
+  const sites = [];
+  const seen = new Set();
+  const safeClientId = validateHaloId(haloClientId, 'customer_id');
+  const pageSize = 100;
+
+  for (let page = 1; page <= 10; page++) {
+    const data = await haloGet(`Site?client_id=${safeClientId}&paginate=true&page_size=${pageSize}&page_no=${page}`, config);
+    const pageSites = extractRecords(data, 'sites');
+    for (const site of pageSites) {
+      const id = site?.id || site?.site_id || site?.SiteId || `${site?.name || ''}-${sites.length}`;
+      const key = String(id);
+      if (!seen.has(key)) {
+        seen.add(key);
+        sites.push(site);
+      }
+    }
+    const total = data.record_count || data.recordCount || data.total_count || 0;
+    if (pageSites.length < pageSize) break;
+    if (total > 0 && sites.length >= total) break;
+  }
+
+  return fetchDetailedSites(config, sites);
+}
 
 // ── GET /api/halo/status ─────────────────────────────────────────────────
 
@@ -50,6 +114,61 @@ router.get('/status', requireAdmin, async (_req, res, next) => {
       configured,
       customerCount: count || 0,
       lastSync: lastSync?.[0] || null,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ── GET /api/halo/customers/:customerId/sites ────────────────────────────
+// Customer-facing map pins from HaloPSA Sites.
+
+router.get('/customers/:customerId/sites', requireAuth, async (req, res, next) => {
+  try {
+    const supabase = getServiceSupabase();
+    const customerId = String(req.params.customerId || '').trim();
+
+    if (!customerId) {
+      return res.status(400).json({ error: 'customerId is required' });
+    }
+    if (!canReadCustomer(req, customerId)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const { data: customer, error } = await supabase
+      .from('customers')
+      .select('id, name, source, external_id, address')
+      .eq('id', customerId)
+      .single();
+
+    if (error || !customer) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    if (customer.source !== 'halopsa' || !customer.external_id) {
+      const fallback = customer.address ? [{ id: 'customer', name: customer.name, address: customer.address, isPrimary: true }] : [];
+      return res.json({ locations: fallback, source: 'customer' });
+    }
+
+    const config = await getHaloConfig();
+    let siteDetails = await fetchSitesForClient(config, customer.external_id);
+
+    if (siteDetails.length === 0) {
+      const clientData = await haloGet(`Client/${validateHaloId(customer.external_id, 'customer_id')}`, config);
+      const siteMap = await fetchSitesByClientId(config, [clientData]);
+      siteDetails = Object.values(siteMap);
+    }
+
+    const locations = uniqueLocations(
+      siteDetails
+        .map(mapHaloSiteToLocation)
+        .filter(location => location.address)
+    );
+
+    const fallback = customer.address ? [{ id: 'customer', name: customer.name, address: customer.address, isPrimary: true }] : [];
+    res.json({
+      locations: locations.length > 0 ? locations : fallback,
+      source: locations.length > 0 ? 'halopsa_sites' : 'customer',
     });
   } catch (error) {
     next(error);

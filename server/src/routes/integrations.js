@@ -501,7 +501,7 @@ router.post('/mapbox/static', requireAuth, async (req, res, next) => {
     const { row } = await getSettingsRow();
     const style = validateMapboxStyle(req.body?.style || row?.mapbox_style || DEFAULT_MAPBOX_STYLE);
     const addresses = Array.isArray(req.body?.addresses)
-      ? req.body.addresses.map(a => cleanText(a, 500)).filter(Boolean).slice(0, 5)
+      ? [...new Set(req.body.addresses.map(a => cleanText(a, 500)).filter(Boolean))].slice(0, 25)
       : [];
 
     if (addresses.length === 0) {

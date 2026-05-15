@@ -473,6 +473,11 @@ const integrations = {
       return URL.createObjectURL(blob);
     },
   },
+  halo: {
+    async listCustomerSites(customerId) {
+      return apiFetch(`/api/halo/customers/${encodeURIComponent(customerId)}/sites`, { method: 'GET' });
+    },
+  },
   threecx: {
     async listMappings(params = {}) {
       const query = new URLSearchParams();

@@ -2,10 +2,8 @@ import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Cloud,
-  CreditCard,
   FileText,
   Monitor,
-  Package,
   ReceiptText,
 } from 'lucide-react';
 
@@ -42,50 +40,29 @@ function Panel({ title, description, action, children, className }) {
   );
 }
 
-function PulseMetric({ icon: Icon, label, value, detail, to, tone = 'slate' }) {
+function NumberMetric({ label, value, detail, to, tone = 'slate' }) {
   const toneClass = {
-    emerald: {
-      card: 'border-emerald-200 bg-emerald-50/70 hover:bg-emerald-50',
-      icon: 'bg-white text-emerald-700 border-emerald-200',
-    },
-    amber: {
-      card: 'border-amber-200 bg-amber-50/75 hover:bg-amber-50',
-      icon: 'bg-white text-amber-700 border-amber-200',
-    },
-    rose: {
-      card: 'border-rose-200 bg-rose-50/80 hover:bg-rose-50',
-      icon: 'bg-white text-rose-700 border-rose-200',
-    },
-    blue: {
-      card: 'border-blue-200 bg-blue-50/70 hover:bg-blue-50',
-      icon: 'bg-white text-blue-700 border-blue-200',
-    },
-    violet: {
-      card: 'border-violet-200 bg-violet-50/70 hover:bg-violet-50',
-      icon: 'bg-white text-violet-700 border-violet-200',
-    },
-    slate: {
-      card: 'border-slate-200 bg-white hover:bg-slate-50',
-      icon: 'bg-slate-50 text-slate-700 border-slate-200',
-    },
-  }[tone];
+    emerald: 'text-emerald-700',
+    amber: 'text-amber-700',
+    rose: 'text-rose-700',
+    blue: 'text-blue-700',
+    violet: 'text-violet-700',
+    slate: 'text-slate-950',
+  }[tone] || 'text-slate-950';
 
   const content = (
-    <div className={cn('rounded-xl border p-4 shadow-sm transition-colors', toneClass.card)}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-          <p className="mt-2 truncate text-2xl font-bold tabular-nums text-slate-950">{value}</p>
-          {detail && <p className="mt-1 truncate text-xs text-slate-500">{detail}</p>}
-        </div>
-        <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border', toneClass.icon)}>
-          <Icon className="h-5 w-5" />
-        </div>
-      </div>
+    <div className="min-w-0 py-1">
+      <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className={cn('mt-1 truncate text-xl font-bold leading-6 tabular-nums', toneClass)}>{value}</p>
+      {detail && <p className="mt-0.5 truncate text-xs text-slate-500">{detail}</p>}
     </div>
   );
 
-  return to ? <Link to={to}>{content}</Link> : content;
+  return to ? (
+    <Link to={to} className="min-w-0 transition-opacity hover:opacity-80">
+      {content}
+    </Link>
+  ) : content;
 }
 
 function StatusPill({ tone, children }) {
@@ -202,7 +179,8 @@ export default function CustomerDashboardTab({
     const overdue = invoices.filter(i => normalized(i.status) === 'overdue');
     const paid = invoices.filter(i => normalized(i.status) === 'paid');
     const dueAmount = due.reduce((sum, inv) => sum + (Number(inv.amount_due ?? inv.total ?? inv.amount) || 0), 0);
-    return { due, overdue, paid, dueAmount };
+    const overdueAmount = overdue.reduce((sum, inv) => sum + (Number(inv.amount_due ?? inv.total ?? inv.amount) || 0), 0);
+    return { due, overdue, paid, dueAmount, overdueAmount };
   }, [invoices]);
 
   const quoteStats = useMemo(() => {
@@ -252,42 +230,52 @@ export default function CustomerDashboardTab({
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <PulseMetric
-          icon={CreditCard}
-          label="Invoice balance"
-          value={money(invoiceStats.dueAmount)}
-          detail={invoiceStats.overdue.length > 0
-            ? `${invoiceStats.overdue.length} overdue invoice${invoiceStats.overdue.length !== 1 ? 's' : ''}`
-            : `${invoiceStats.due.length} invoice${invoiceStats.due.length !== 1 ? 's' : ''} with a balance`}
-          tone={invoiceStats.overdue.length > 0 ? 'rose' : invoiceStats.due.length > 0 ? 'amber' : 'blue'}
-          to={tabUrl(customerId, 'billing')}
-        />
-        <PulseMetric
-          icon={FileText}
-          label="Quotes"
-          value={`${quoteStats.active.length} active`}
-          detail={`${money(quoteStats.total, 0)} total quoted`}
-          tone={quoteStats.active.length > 0 ? 'amber' : 'slate'}
-          to={tabUrl(customerId, 'quotes')}
-        />
-        <PulseMetric
-          icon={Monitor}
-          label="Inventory"
-          value={`${deviceStats.total} devices`}
-          detail={`${deviceStats.servers.length} servers - ${deviceStats.workstations.length} workstations`}
-          tone="violet"
-          to={tabUrl(customerId, 'services')}
-        />
-        <PulseMetric
-          icon={Package}
-          label="Service plan"
-          value={`${activeContracts.length} active`}
-          detail={`${activeLineItems.length} recurring line item${activeLineItems.length !== 1 ? 's' : ''}`}
-          tone={activeContracts.length > 0 ? 'amber' : 'slate'}
-          to={tabUrl(customerId, 'billing')}
-        />
-      </div>
+      <section className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+        <div className="grid grid-cols-2 gap-x-5 gap-y-3 md:grid-cols-3 xl:grid-cols-6 xl:divide-x xl:divide-slate-100">
+          <NumberMetric
+            label="Monthly billing"
+            value={money(monthlyCost)}
+            detail={`${activeLineItems.length} active line item${activeLineItems.length !== 1 ? 's' : ''}`}
+            tone="emerald"
+            to={tabUrl(customerId, 'billing')}
+          />
+          <NumberMetric
+            label="Past due"
+            value={money(invoiceStats.overdueAmount)}
+            detail={invoiceStats.overdue.length > 0 ? `${invoiceStats.overdue.length} overdue invoice${invoiceStats.overdue.length !== 1 ? 's' : ''}` : 'No overdue balance'}
+            tone={invoiceStats.overdueAmount > 0 ? 'rose' : 'slate'}
+            to={tabUrl(customerId, 'billing')}
+          />
+          <NumberMetric
+            label="Open balance"
+            value={money(invoiceStats.dueAmount)}
+            detail={`${invoiceStats.due.length} open invoice${invoiceStats.due.length !== 1 ? 's' : ''}`}
+            tone={invoiceStats.dueAmount > 0 ? 'amber' : 'slate'}
+            to={tabUrl(customerId, 'billing')}
+          />
+          <NumberMetric
+            label="Quotes"
+            value={`${quoteStats.active.length} active`}
+            detail={`${money(quoteStats.total, 0)} quoted`}
+            tone={quoteStats.active.length > 0 ? 'amber' : 'slate'}
+            to={tabUrl(customerId, 'quotes')}
+          />
+          <NumberMetric
+            label="Devices"
+            value={deviceStats.total}
+            detail={`${deviceStats.servers.length} servers - ${deviceStats.workstations.length} workstations`}
+            tone="violet"
+            to={tabUrl(customerId, 'services')}
+          />
+          <NumberMetric
+            label="Services"
+            value={activeContracts.length}
+            detail={`${activeLineItems.length} recurring line item${activeLineItems.length !== 1 ? 's' : ''}`}
+            tone={activeContracts.length > 0 ? 'blue' : 'slate'}
+            to={tabUrl(customerId, 'billing')}
+          />
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.8fr)]">
         <div className="space-y-4">
@@ -303,14 +291,16 @@ export default function CustomerDashboardTab({
                 <p className="mt-1 text-xs text-slate-500">{activeLineItems.length} active line item{activeLineItems.length !== 1 ? 's' : ''}</p>
               </div>
               <div className="p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Invoice balance</p>
-                <p className="mt-2 text-2xl font-bold tabular-nums text-slate-950">{money(invoiceStats.dueAmount)}</p>
-                <p className="mt-1 text-xs text-slate-500">{invoiceStats.due.length} invoice{invoiceStats.due.length !== 1 ? 's' : ''}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Past due</p>
+                <p className={cn('mt-2 text-2xl font-bold tabular-nums', invoiceStats.overdueAmount > 0 ? 'text-rose-700' : 'text-slate-950')}>
+                  {money(invoiceStats.overdueAmount)}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">{invoiceStats.overdue.length} overdue invoice{invoiceStats.overdue.length !== 1 ? 's' : ''}</p>
               </div>
               <div className="p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Paid invoices</p>
-                <p className="mt-2 text-2xl font-bold tabular-nums text-slate-950">{invoiceStats.paid.length}</p>
-                <p className="mt-1 text-xs text-slate-500">Synced from billing</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Open balance</p>
+                <p className="mt-2 text-2xl font-bold tabular-nums text-slate-950">{money(invoiceStats.dueAmount)}</p>
+                <p className="mt-1 text-xs text-slate-500">{invoiceStats.due.length} invoice{invoiceStats.due.length !== 1 ? 's' : ''} with a balance</p>
               </div>
             </div>
           </Panel>

@@ -314,6 +314,26 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
   // Auto-retry only after the core customer datasets finish their first load.
   useAutoRetry(autoRetryData, isCoreDataLoading, autoRetryKeys);
 
+  const { data: haloLocations = [] } = useQuery({
+    queryKey: ['halopsa-sites', customerId],
+    queryFn: async () => {
+      const result = await client.integrations.halo.listCustomerSites(customerId);
+      return result.locations || [];
+    },
+    enabled: !!customerId && customer?.source === 'halopsa',
+    staleTime: 1000 * 60 * 30,
+    retry: 1,
+  });
+
+  const mapAddresses = useMemo(() => {
+    const siteAddresses = [...new Set(
+      (haloLocations || [])
+        .map(location => location?.address)
+        .filter(Boolean)
+    )];
+    return siteAddresses.length > 0 ? siteAddresses : (customer?.address ? [customer.address] : []);
+  }, [haloLocations, customer?.address]);
+
   // Fetch JumpCloud mapping for this customer
   const { data: jumpcloudMapping } = useQuery({
     queryKey: ['jumpcloud-mapping', customerId],
@@ -623,13 +643,18 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
     );
   }
 
-  const totalLicenseCost = licenses
-    .filter(l => l.status === 'active')
-    .reduce((sum, l) => sum + (l.total_cost || 0), 0);
   const customerLogoUrl = customer.logo_url ? resolveFileUrl(customer.logo_url) : null;
   const showCustomerLogo = customerLogoUrl && failedCustomerLogoUrl !== customerLogoUrl;
-  const invoiceBalance = invoices
-    .filter(i => ['overdue', 'pending', 'sent', 'open', 'unpaid'].includes((i.status || '').toLowerCase()))
+  const monthlyBillIds = new Set(
+    recurringBills
+      .filter(b => activeBillIdSet.has(b.id) && !['yearly', 'annual', 'annually'].includes((b.frequency || '').toLowerCase()))
+      .map(b => b.id)
+  );
+  const monthlyBilling = activeLineItems
+    .filter(item => monthlyBillIds.has(item.recurring_bill_id))
+    .reduce((sum, item) => sum + (Number(item.net_amount ?? item.total ?? item.amount) || 0), 0);
+  const pastDueInvoices = invoices.filter(i => (i.status || '').toLowerCase() === 'overdue');
+  const pastDueBalance = pastDueInvoices
     .reduce((sum, inv) => sum + (Number(inv.amount_due ?? inv.total ?? inv.amount) || 0), 0);
   const activeQuoteCount = quotes.filter(q => !['rejected', 'expired', 'void', 'cancelled', 'canceled'].includes((q.status || '').toLowerCase())).length;
   const activeServiceCount = serviceTags.length;
@@ -745,15 +770,16 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
                 </div>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-2 xl:min-w-[360px]">
+            <div className="flex flex-wrap gap-x-5 gap-y-2 xl:min-w-[480px] xl:justify-end">
               {[
-                { label: 'Billing', value: invoiceBalance > 0 ? `$${invoiceBalance.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '$0', tone: 'text-blue-700 bg-blue-50 border-blue-200' },
-                { label: 'Quotes', value: activeQuoteCount, tone: 'text-amber-700 bg-amber-50 border-amber-200' },
-                { label: 'Services', value: activeServiceCount, tone: 'text-violet-700 bg-violet-50 border-violet-200' },
+                { label: 'Monthly billing', value: `$${monthlyBilling.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, tone: 'text-emerald-700' },
+                { label: 'Past due', value: `$${pastDueBalance.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, tone: pastDueBalance > 0 ? 'text-rose-700' : 'text-slate-950' },
+                { label: 'Quotes', value: activeQuoteCount, tone: 'text-amber-700' },
+                { label: 'Services', value: activeServiceCount, tone: 'text-violet-700' },
               ].map(item => (
-                <div key={item.label} className={cn('flex min-h-[60px] flex-col items-center justify-center rounded-lg border px-3 py-2 text-center', item.tone)}>
-                  <p className="max-w-full truncate text-xl font-bold tabular-nums">{item.value}</p>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide">{item.label}</p>
+                <div key={item.label} className="min-w-[86px] border-l border-slate-200 pl-3">
+                  <p className={cn('truncate text-lg font-bold leading-6 tabular-nums', item.tone)}>{item.value}</p>
+                  <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-500">{item.label}</p>
                 </div>
               ))}
             </div>
@@ -777,9 +803,9 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
           </div>
         )}
 
-        {customer.address && (
+        {mapAddresses.length > 0 && (
           <div className="px-5 py-4">
-            <CustomerMap addresses={[customer.address]} />
+            <CustomerMap addresses={mapAddresses} />
           </div>
         )}
       </motion.div>
@@ -791,7 +817,8 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
         className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 rounded-lg px-2 py-1.5 text-sm"
       >
         {[
-          { icon: DollarSign, value: `$${totalLicenseCost.toLocaleString('en-US', { minimumFractionDigits: 0 })}`, label: 'SaaS spend', color: 'text-emerald-700', bg: 'bg-emerald-50' },
+          { icon: DollarSign, value: `$${monthlyBilling.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, label: 'Monthly billing', color: 'text-emerald-700', bg: 'bg-emerald-50' },
+          { icon: DollarSign, value: `$${pastDueBalance.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, label: 'Past due', color: pastDueBalance > 0 ? 'text-rose-700' : 'text-slate-700', bg: pastDueBalance > 0 ? 'bg-rose-50' : 'bg-slate-50' },
           { icon: Users, value: contacts.length, label: 'Team', color: 'text-blue-700', bg: 'bg-blue-50' },
           { icon: FileText, value: contracts.filter(c => c.status === 'active').length, label: 'Contracts', color: 'text-amber-700', bg: 'bg-amber-50' },
           { icon: HelpCircle, value: customer?.total_tickets || tickets.length, label: 'Tickets all time', color: 'text-slate-700', bg: 'bg-slate-50' },
