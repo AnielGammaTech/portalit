@@ -817,12 +817,12 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
         <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm scrollbar-hide md:justify-center">
           {[
             { value: 'dashboard', icon: BarChart3, label: 'Dashboard' },
+            { value: 'tickets', icon: HelpCircle, label: 'Helpdesk' },
             { value: 'billing', icon: DollarSign, label: 'Billing' },
             { value: 'services', icon: Cloud, label: 'Services' },
             { value: 'm365', icon: Monitor, label: 'M365' },
             { value: 'licenses', icon: Cloud, label: 'SaaS' },
             { value: 'quotes', icon: FileText, label: 'Quotes' },
-            { value: 'tickets', icon: HelpCircle, label: 'Requests' },
           ].map(tab => (
             <TabsTrigger
               key={tab.value}
@@ -1414,6 +1414,8 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
             ticketPage={ticketPage}
             setTicketPage={setTicketPage}
             customer={customer}
+            contacts={contacts}
+            devices={devices}
           />
         </TabsContent>
 

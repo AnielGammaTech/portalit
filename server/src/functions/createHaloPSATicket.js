@@ -71,13 +71,13 @@ export async function createHaloPSATicket(body, _user) {
       customer_id,
       external_id: String(createdTicket.id),
       source: 'halopsa',
-      ticket_number: String(createdTicket.id),
-      summary,
-      details: details || '',
+      subject: summary,
+      description: details || '',
       status: 'new',
       priority: priority || 'medium',
       ticket_type: 'Gamma Default',
-      date_opened: new Date().toISOString(),
+      created_date: new Date().toISOString(),
+      updated_date: new Date().toISOString(),
     });
   if (ticketError) throw new Error(ticketError.message);
 

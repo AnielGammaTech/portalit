@@ -1,21 +1,25 @@
-import React, { useMemo, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import React, { useMemo, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
   CheckCircle2,
   Clock,
+  FileText,
   HelpCircle,
   KeyRound,
   LifeBuoy,
   Loader2,
   MessageSquare,
   Monitor,
+  Paperclip,
   Search,
   Send,
   ShoppingCart,
+  Sparkles,
   UserCircle,
   UserMinus,
   UserPlus,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -164,6 +168,18 @@ function Field({ label, children, required = false }) {
   );
 }
 
+function FormSection({ title, description, children }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+      <div className="mb-3">
+        <p className="text-sm font-semibold text-slate-950">{title}</p>
+        {description && <p className="mt-0.5 text-xs text-slate-500">{description}</p>}
+      </div>
+      <div className="space-y-3">{children}</div>
+    </div>
+  );
+}
+
 function makeInitialForm(typeKey) {
   return {
     summary: '',
@@ -171,14 +187,30 @@ function makeInitialForm(typeKey) {
     notes: '',
     fields: {
       affected_user: '',
+      affected_user_ref: '',
+      affected_contact_id: '',
+      affected_user_email: '',
+      affected_user_halo_id: '',
       issue: '',
       impact: 'single_user',
       device_or_app: '',
+      device_ref: '',
+      device_name: '',
+      device_ip: '',
+      device_serial: '',
+      device_source: '',
       employee_name: '',
+      employee_user_ref: '',
+      employee_contact_id: '',
+      employee_email: '',
+      employee_halo_id: '',
       job_title: '',
       department: '',
       start_date: '',
       manager_name: '',
+      manager_user_ref: '',
+      manager_contact_id: '',
+      manager_email: '',
       equipment_needed: [],
       access_needed: [],
       last_day: '',
@@ -188,6 +220,9 @@ function makeInitialForm(typeKey) {
       access_items: '',
       business_reason: '',
       approval_contact: '',
+      approval_contact_id: '',
+      approval_contact_email: '',
+      approval_contact_ref: '',
       due_date: '',
       item_needed: '',
       quantity: '',
@@ -218,6 +253,114 @@ function CheckboxGroup({ options, value = [], onChange }) {
   );
 }
 
+function contactDisplayName(contact) {
+  return contact?.full_name ||
+    contact?.name ||
+    [contact?.first_name, contact?.last_name].filter(Boolean).join(' ') ||
+    contact?.email ||
+    'Unnamed user';
+}
+
+function cippDisplayName(user) {
+  return user?.display_name || user?.user_principal_name || user?.mail || 'Microsoft 365 user';
+}
+
+function buildUserOptions(contacts = [], cippUsers = []) {
+  const options = [];
+  const seenEmails = new Map();
+
+  (contacts || []).forEach(contact => {
+    const email = String(contact.email || '').trim().toLowerCase();
+    const option = {
+      value: `contact:${contact.id}`,
+      label: contactDisplayName(contact),
+      sub: [contact.email, contact.title].filter(Boolean).join(' - '),
+      source: 'HaloPSA',
+      contactId: contact.id,
+      haloId: contact.halopsa_id || contact.external_id || '',
+      email: contact.email || '',
+      title: contact.title || '',
+      department: contact.department || '',
+    };
+    options.push(option);
+    if (email) seenEmails.set(email, option);
+  });
+
+  (cippUsers || []).forEach(cippUser => {
+    const email = String(cippUser.mail || cippUser.user_principal_name || '').trim().toLowerCase();
+    const existing = email ? seenEmails.get(email) : null;
+    if (existing) {
+      existing.title ||= cippUser.job_title || '';
+      existing.department ||= cippUser.department || '';
+      if (cippUser.job_title && !existing.sub.includes(cippUser.job_title)) {
+        existing.sub = [existing.email, cippUser.job_title].filter(Boolean).join(' - ');
+      }
+      return;
+    }
+
+    options.push({
+      value: `cipp:${cippUser.id}`,
+      label: cippDisplayName(cippUser),
+      sub: [cippUser.mail || cippUser.user_principal_name, cippUser.job_title || cippUser.department].filter(Boolean).join(' - '),
+      source: 'M365',
+      contactId: '',
+      haloId: '',
+      email: cippUser.mail || cippUser.user_principal_name || '',
+      title: cippUser.job_title || '',
+      department: cippUser.department || '',
+    });
+  });
+
+  return options.sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function buildDeviceOptions(devices = []) {
+  return (devices || [])
+    .map(device => {
+      const name = device.name || device.hostname || device.serial_number || device.external_id || 'Unnamed device';
+      return {
+        value: `device:${device.id}`,
+        label: name,
+        sub: [device.device_type, device.operating_system, device.ip_address].filter(Boolean).join(' - '),
+        source: device.source || '',
+        name,
+        ip: device.ip_address || '',
+        serial: device.serial_number || '',
+      };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function LookupSelect({ value, options, placeholder, emptyLabel, onChange }) {
+  const hasOptions = options.length > 0;
+  return (
+    <Select value={value || '__none'} onValueChange={nextValue => onChange(nextValue === '__none' ? '' : nextValue)}>
+      <SelectTrigger className="bg-white">
+        <SelectValue placeholder={hasOptions ? placeholder : emptyLabel} />
+      </SelectTrigger>
+      <SelectContent className="max-h-72">
+        <SelectItem value="__none">{hasOptions ? placeholder : emptyLabel}</SelectItem>
+        {options.map(option => (
+          <SelectItem key={option.value} value={option.value}>
+            <div className="flex min-w-0 flex-col">
+              <span className="truncate font-medium">{option.label}</span>
+              {option.sub && <span className="truncate text-xs text-slate-500">{option.sub}</span>}
+            </div>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function formatBytes(size) {
+  const number = Number(size);
+  if (!Number.isFinite(number) || number <= 0) return '';
+  if (number < 1024) return `${number} B`;
+  if (number < 1024 * 1024) return `${Math.round(number / 102.4) / 10} KB`;
+  return `${Math.round(number / 1024 / 102.4) / 10} MB`;
+}
+
 export default function CustomerTicketsTab({
   tickets = [],
   ticketFilter,
@@ -225,13 +368,31 @@ export default function CustomerTicketsTab({
   ticketPage,
   setTicketPage,
   customer,
+  contacts = [],
+  devices = [],
 }) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const fileInputRef = useRef(null);
   const [selectedType, setSelectedType] = useState(null);
   const [form, setForm] = useState(makeInitialForm('support'));
   const [submitting, setSubmitting] = useState(false);
+  const [enhancing, setEnhancing] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [attachments, setAttachments] = useState([]);
   const [search, setSearch] = useState('');
+
+  const { data: cippUsers = [] } = useQuery({
+    queryKey: ['cipp-users', customer?.id],
+    queryFn: () => client.entities.CIPPUser.filter({ customer_id: customer.id }),
+    enabled: !!customer?.id,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const userOptions = useMemo(() => buildUserOptions(contacts, cippUsers), [contacts, cippUsers]);
+  const deviceOptions = useMemo(() => buildDeviceOptions(devices), [devices]);
+  const usersByValue = useMemo(() => new Map(userOptions.map(option => [option.value, option])), [userOptions]);
+  const devicesByValue = useMemo(() => new Map(deviceOptions.map(option => [option.value, option])), [deviceOptions]);
 
   const filteredTickets = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -260,10 +421,120 @@ export default function CustomerTicketsTab({
   const openRequestForm = (type) => {
     setSelectedType(type);
     setForm(makeInitialForm(type.key));
+    setAttachments([]);
   };
 
   const updateField = (key, value) => {
     setForm(prev => ({ ...prev, fields: { ...prev.fields, [key]: value } }));
+  };
+
+  const applyUserSelection = (fieldGroup, value) => {
+    const selected = usersByValue.get(value);
+    const emailKey = fieldGroup === 'affected' ? 'affected_user_email' : `${fieldGroup}_email`;
+    const haloKey = fieldGroup === 'affected' ? 'affected_user_halo_id' : `${fieldGroup}_halo_id`;
+    const updates = {
+      [`${fieldGroup}_user_ref`]: value,
+      [`${fieldGroup}_contact_id`]: selected?.contactId || '',
+      [emailKey]: selected?.email || '',
+      [haloKey]: selected?.haloId || '',
+    };
+
+    if (fieldGroup === 'affected') {
+      updates.affected_user = selected?.label || '';
+    } else if (fieldGroup === 'employee') {
+      updates.employee_name = selected?.label || '';
+      updates.job_title = selected?.title || form.fields.job_title;
+      updates.department = selected?.department || form.fields.department;
+    } else if (fieldGroup === 'manager') {
+      updates.manager_name = selected?.label || '';
+    } else if (fieldGroup === 'approval_contact') {
+      updates.approval_contact = selected?.label || '';
+      updates.approval_contact_id = selected?.contactId || '';
+      updates.approval_contact_email = selected?.email || '';
+      updates.approval_contact_ref = value;
+    }
+
+    setForm(prev => ({ ...prev, fields: { ...prev.fields, ...updates } }));
+  };
+
+  const applyDeviceSelection = (value) => {
+    const selected = devicesByValue.get(value);
+    setForm(prev => ({
+      ...prev,
+      fields: {
+        ...prev.fields,
+        device_ref: value,
+        device_or_app: selected?.label || '',
+        device_name: selected?.name || '',
+        device_ip: selected?.ip || '',
+        device_serial: selected?.serial || '',
+        device_source: selected?.source || '',
+      },
+    }));
+  };
+
+  const uploadFiles = async (files) => {
+    const validFiles = Array.from(files || []).filter(Boolean).slice(0, 8 - attachments.length);
+    if (validFiles.length === 0) return;
+
+    setUploading(true);
+    try {
+      for (const file of validFiles) {
+        const { file_url: fileUrl } = await client.integrations.Core.UploadFile({ file });
+        setAttachments(prev => [
+          ...prev,
+          { url: fileUrl, name: file.name || 'Pasted image', type: file.type, size: file.size },
+        ]);
+      }
+      toast.success(validFiles.length === 1 ? 'Attachment added.' : `${validFiles.length} attachments added.`);
+    } catch (error) {
+      toast.error(error.message || 'Upload failed.');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handlePaste = (event) => {
+    const items = Array.from(event.clipboardData?.items || []);
+    const imageFiles = items
+      .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
+      .map(item => item.getAsFile())
+      .filter(Boolean)
+      .map(file => (file.name ? file : new File([file], `pasted-${Date.now()}.png`, { type: file.type || 'image/png' })));
+
+    if (imageFiles.length > 0) {
+      event.preventDefault();
+      uploadFiles(imageFiles);
+    }
+  };
+
+  const removeAttachment = (url) => {
+    setAttachments(prev => prev.filter(attachment => attachment.url !== url));
+  };
+
+  const enhanceRequest = async () => {
+    if (!selectedType || !customer?.id) return;
+    setEnhancing(true);
+    try {
+      const response = await client.customerRequests.enhance({
+        customer_id: customer.id,
+        request_type: selectedType.key,
+        summary: form.summary,
+        fields: form.fields,
+        notes: form.notes,
+      });
+      setForm(prev => ({
+        ...prev,
+        summary: response.summary || prev.summary,
+        notes: response.notes || prev.notes,
+      }));
+      toast.success('Request wording improved.');
+    } catch (error) {
+      toast.error(error.message || 'AI enhance is unavailable.');
+    } finally {
+      setEnhancing(false);
+    }
   };
 
   const submitRequest = async () => {
@@ -291,6 +562,7 @@ export default function CustomerTicketsTab({
         priority: form.priority,
         fields: form.fields,
         notes: form.notes,
+        attachments,
         requester_name: user?.full_name || user?.email,
         requester_email: user?.email,
       });
@@ -317,77 +589,138 @@ export default function CustomerTicketsTab({
     switch (selectedType.key) {
       case 'onboarding':
         return (
-          <>
+          <FormSection title="New team member" description="Capture the start date, manager, and access needed for setup.">
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Employee name" required><Input value={form.fields.employee_name} onChange={e => updateField('employee_name', e.target.value)} /></Field>
               <Field label="Start date" required><Input type="date" value={form.fields.start_date} onChange={e => updateField('start_date', e.target.value)} /></Field>
               <Field label="Job title"><Input value={form.fields.job_title} onChange={e => updateField('job_title', e.target.value)} /></Field>
               <Field label="Department"><Input value={form.fields.department} onChange={e => updateField('department', e.target.value)} /></Field>
-              <Field label="Manager"><Input value={form.fields.manager_name} onChange={e => updateField('manager_name', e.target.value)} /></Field>
+              <Field label="Manager">
+                <LookupSelect
+                  value={form.fields.manager_user_ref}
+                  options={userOptions}
+                  placeholder="Select manager"
+                  emptyLabel="No synced users"
+                  onChange={value => applyUserSelection('manager', value)}
+                />
+              </Field>
             </div>
             <Field label="Access needed"><CheckboxGroup options={ACCESS_OPTIONS} value={form.fields.access_needed} onChange={value => updateField('access_needed', value)} /></Field>
             <Field label="Equipment needed"><CheckboxGroup options={EQUIPMENT_OPTIONS} value={form.fields.equipment_needed} onChange={value => updateField('equipment_needed', value)} /></Field>
-          </>
+          </FormSection>
         );
       case 'offboarding':
         return (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Employee name" required><Input value={form.fields.employee_name} onChange={e => updateField('employee_name', e.target.value)} /></Field>
-            <Field label="Last day" required><Input type="date" value={form.fields.last_day} onChange={e => updateField('last_day', e.target.value)} /></Field>
-            <Field label="Disable timing">
-              <Select value={form.fields.disable_timing} onValueChange={value => updateField('disable_timing', value)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="immediately">Immediately</SelectItem>
-                  <SelectItem value="end_of_day">End of final day</SelectItem>
-                  <SelectItem value="scheduled">Specific scheduled time in notes</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="Retain mailbox">
-              <Select value={form.fields.retain_mailbox} onValueChange={value => updateField('retain_mailbox', value)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="yes">Yes</SelectItem>
-                  <SelectItem value="no">No</SelectItem>
-                  <SelectItem value="convert_shared">Convert to shared mailbox</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="Forward email to"><Input value={form.fields.forward_email_to} onChange={e => updateField('forward_email_to', e.target.value)} /></Field>
-            <Field label="Manager or approver"><Input value={form.fields.manager_name} onChange={e => updateField('manager_name', e.target.value)} /></Field>
-          </div>
+          <FormSection title="Account shutdown" description="Select the user from synced customer users so the ticket ties back to the right person.">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Employee" required>
+                <LookupSelect
+                  value={form.fields.employee_user_ref}
+                  options={userOptions}
+                  placeholder="Select employee"
+                  emptyLabel="No synced users"
+                  onChange={value => applyUserSelection('employee', value)}
+                />
+              </Field>
+              <Field label="Last day" required><Input type="date" value={form.fields.last_day} onChange={e => updateField('last_day', e.target.value)} /></Field>
+              <Field label="Disable timing">
+                <Select value={form.fields.disable_timing} onValueChange={value => updateField('disable_timing', value)}>
+                  <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="immediately">Immediately</SelectItem>
+                    <SelectItem value="end_of_day">End of final day</SelectItem>
+                    <SelectItem value="scheduled">Specific scheduled time in notes</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Mailbox handling">
+                <Select value={form.fields.retain_mailbox} onValueChange={value => updateField('retain_mailbox', value)}>
+                  <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="yes">Keep mailbox active for now</SelectItem>
+                    <SelectItem value="convert_shared">Convert to shared mailbox</SelectItem>
+                    <SelectItem value="no">Disable mailbox access</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Forward email to"><Input value={form.fields.forward_email_to} onChange={e => updateField('forward_email_to', e.target.value)} placeholder="Name or email" /></Field>
+              <Field label="Manager or approver">
+                <LookupSelect
+                  value={form.fields.manager_user_ref}
+                  options={userOptions}
+                  placeholder="Select approver"
+                  emptyLabel="No synced users"
+                  onChange={value => applyUserSelection('manager', value)}
+                />
+              </Field>
+            </div>
+          </FormSection>
         );
       case 'access_change':
         return (
-          <>
+          <FormSection title="Access request" description="Pick the user and describe the permission, app, folder, group, or mailbox change.">
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="User needing access" required><Input value={form.fields.employee_name} onChange={e => updateField('employee_name', e.target.value)} /></Field>
+              <Field label="User needing access" required>
+                <LookupSelect
+                  value={form.fields.employee_user_ref}
+                  options={userOptions}
+                  placeholder="Select user"
+                  emptyLabel="No synced users"
+                  onChange={value => applyUserSelection('employee', value)}
+                />
+              </Field>
               <Field label="Needed by"><Input type="date" value={form.fields.due_date} onChange={e => updateField('due_date', e.target.value)} /></Field>
-              <Field label="Approver"><Input value={form.fields.approval_contact} onChange={e => updateField('approval_contact', e.target.value)} /></Field>
+              <Field label="Approver">
+                <LookupSelect
+                  value={form.fields.approval_contact_ref}
+                  options={userOptions}
+                  placeholder="Select approver"
+                  emptyLabel="No synced users"
+                  onChange={value => applyUserSelection('approval_contact', value)}
+                />
+              </Field>
             </div>
             <Field label="Access requested" required><Textarea rows={3} value={form.fields.access_items} onChange={e => updateField('access_items', e.target.value)} placeholder="Mailbox, app, folder, security group, VPN, or role..." /></Field>
             <Field label="Business reason"><Textarea rows={3} value={form.fields.business_reason} onChange={e => updateField('business_reason', e.target.value)} /></Field>
-          </>
+          </FormSection>
         );
       case 'quote':
         return (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Item or service" required><Input value={form.fields.item_needed} onChange={e => updateField('item_needed', e.target.value)} /></Field>
-            <Field label="Quantity"><Input value={form.fields.quantity} onChange={e => updateField('quantity', e.target.value)} /></Field>
-            <Field label="Needed by"><Input type="date" value={form.fields.needed_by} onChange={e => updateField('needed_by', e.target.value)} /></Field>
-            <Field label="Budget or approval note"><Input value={form.fields.budget} onChange={e => updateField('budget', e.target.value)} /></Field>
-          </div>
+          <FormSection title="Quote details" description="Tell us what needs to be quoted and when the decision is needed.">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Item or service" required><Input value={form.fields.item_needed} onChange={e => updateField('item_needed', e.target.value)} /></Field>
+              <Field label="Quantity"><Input value={form.fields.quantity} onChange={e => updateField('quantity', e.target.value)} /></Field>
+              <Field label="Needed by"><Input type="date" value={form.fields.needed_by} onChange={e => updateField('needed_by', e.target.value)} /></Field>
+              <Field label="Budget or approval note"><Input value={form.fields.budget} onChange={e => updateField('budget', e.target.value)} /></Field>
+            </div>
+          </FormSection>
         );
       default:
         return (
-          <>
+          <FormSection title="Problem details" description="Select the affected user and device when it applies.">
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Affected user"><Input value={form.fields.affected_user} onChange={e => updateField('affected_user', e.target.value)} /></Field>
-              <Field label="Device or app"><Input value={form.fields.device_or_app} onChange={e => updateField('device_or_app', e.target.value)} /></Field>
+              <Field label="Affected user">
+                <LookupSelect
+                  value={form.fields.affected_user_ref}
+                  options={userOptions}
+                  placeholder="Select user"
+                  emptyLabel="No synced users"
+                  onChange={value => applyUserSelection('affected', value)}
+                />
+              </Field>
+              <Field label="Device">
+                <LookupSelect
+                  value={form.fields.device_ref}
+                  options={deviceOptions}
+                  placeholder="Select device"
+                  emptyLabel="No synced devices"
+                  onChange={applyDeviceSelection}
+                />
+              </Field>
+              <Field label="App or service"><Input value={form.fields.device_or_app} onChange={e => updateField('device_or_app', e.target.value)} placeholder="VPN, printer, Outlook, line-of-business app..." /></Field>
               <Field label="Impact">
                 <Select value={form.fields.impact} onValueChange={value => updateField('impact', value)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="single_user">One user affected</SelectItem>
                     <SelectItem value="multiple_users">Multiple users affected</SelectItem>
@@ -397,7 +730,7 @@ export default function CustomerTicketsTab({
               </Field>
             </div>
             <Field label="What is happening?" required><Textarea rows={4} value={form.fields.issue} onChange={e => updateField('issue', e.target.value)} /></Field>
-          </>
+          </FormSection>
         );
     }
   };
@@ -407,7 +740,7 @@ export default function CustomerTicketsTab({
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
           <div>
-            <h3 className="font-semibold text-slate-950">Requests & support</h3>
+            <h3 className="font-semibold text-slate-950">Helpdesk</h3>
             <p className="text-sm text-slate-500">Choose a category so the support team gets the right details the first time.</p>
           </div>
           <Badge variant="outline" className="bg-slate-50 text-slate-600">Creates HaloPSA ticket</Badge>
@@ -454,7 +787,7 @@ export default function CustomerTicketsTab({
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
           <div>
-            <h3 className="font-semibold text-slate-950">Request history</h3>
+            <h3 className="font-semibold text-slate-950">Helpdesk history</h3>
             <p className="text-sm text-slate-500">Progress and history sorted by most recent activity.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -541,50 +874,104 @@ export default function CustomerTicketsTab({
       </section>
 
       <Dialog open={!!selectedType} onOpenChange={(open) => !open && setSelectedType(null)}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="max-h-[92vh] overflow-y-auto p-0 sm:max-w-3xl" onPaste={handlePaste}>
           {selectedType && (
             <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-3 pr-8">
-                  <span className={cn('flex h-9 w-9 items-center justify-center rounded-lg border', TONE_CLASSES[selectedType.tone])}>
-                    {React.createElement(selectedType.icon, { className: 'h-4 w-4' })}
+              <DialogHeader className="border-b border-slate-100 bg-slate-50/80 px-5 py-4 text-left">
+                <DialogTitle className="flex items-center gap-3 pr-8 text-lg">
+                  <span className={cn('flex h-10 w-10 items-center justify-center rounded-xl border shadow-sm', TONE_CLASSES[selectedType.tone])}>
+                    {React.createElement(selectedType.icon, { className: 'h-5 w-5' })}
                   </span>
-                  {selectedType.label}
+                  <span>
+                    {selectedType.label}
+                    <span className="mt-0.5 block text-xs font-medium text-slate-500">{selectedType.description}</span>
+                  </span>
                 </DialogTitle>
               </DialogHeader>
 
-              <div className="space-y-4 pt-2">
-                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_170px]">
-                  <Field label="Subject" required>
-                    <Input
-                      value={form.summary}
-                      onChange={event => setForm(prev => ({ ...prev, summary: event.target.value }))}
-                      placeholder={selectedType.subjectPlaceholder}
-                    />
-                  </Field>
-                  <Field label="Urgency">
-                    <Select value={form.priority} onValueChange={value => setForm(prev => ({ ...prev, priority: value }))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Standard</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="critical">Critical</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                </div>
+              <div className="space-y-4 px-5 py-4">
+                <FormSection title="Request summary" description="Keep the subject short. Add the real detail below or let AI clean it up after you type.">
+                  <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_170px]">
+                    <Field label="Subject" required>
+                      <Input
+                        value={form.summary}
+                        onChange={event => setForm(prev => ({ ...prev, summary: event.target.value }))}
+                        placeholder={selectedType.subjectPlaceholder}
+                        className="bg-white"
+                      />
+                    </Field>
+                    <Field label="Urgency">
+                      <Select value={form.priority} onValueChange={value => setForm(prev => ({ ...prev, priority: value }))}>
+                        <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">Low</SelectItem>
+                          <SelectItem value="medium">Standard</SelectItem>
+                          <SelectItem value="high">High</SelectItem>
+                          <SelectItem value="critical">Critical</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  </div>
+                </FormSection>
 
                 {renderDynamicFields()}
 
-                <Field label="Anything else">
+                <div className="rounded-xl border border-slate-200 bg-white p-3">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-950">Message</p>
+                      <p className="text-xs text-slate-500">Paste screenshots here or attach files below.</p>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={enhanceRequest} disabled={enhancing} className="h-8 gap-2">
+                      {enhancing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                      AI enhance
+                    </Button>
+                  </div>
                   <Textarea
-                    rows={3}
+                    rows={5}
                     value={form.notes}
                     onChange={event => setForm(prev => ({ ...prev, notes: event.target.value }))}
-                    placeholder="Add approval notes, special timing, screenshots link, or anything the team should know."
+                    placeholder="Add approval notes, timing, what changed, error text, or anything the team should know."
+                    className="bg-white"
                   />
-                </Field>
+                </div>
+
+                <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-950">Attachments</p>
+                      <p className="text-xs text-slate-500">Upload files or paste screenshots directly into the form.</p>
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept="image/*,.pdf,.docx,.xlsx,.txt,.csv"
+                      className="hidden"
+                      onChange={event => uploadFiles(event.target.files)}
+                    />
+                    <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading || attachments.length >= 8} className="h-8 gap-2 bg-white">
+                      {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />}
+                      Attach
+                    </Button>
+                  </div>
+                  {attachments.length > 0 && (
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      {attachments.map(attachment => (
+                        <div key={attachment.url} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                          <FileText className="h-4 w-4 shrink-0 text-slate-400" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-slate-800">{attachment.name}</p>
+                            <p className="text-xs text-slate-500">{formatBytes(attachment.size) || attachment.type || 'Attached file'}</p>
+                          </div>
+                          <button type="button" onClick={() => removeAttachment(attachment.url)} className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                   <AlertTriangle className="mr-1.5 inline h-3.5 w-3.5" />

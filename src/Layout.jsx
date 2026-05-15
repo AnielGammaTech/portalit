@@ -343,13 +343,13 @@ export default function Layout({ children, currentPageName }) {
       : `?tab=${tab}`;
 
     return [
-      { name: 'Home', page: 'CustomerDetail', tab: 'dashboard', icon: BarChart3, query: customerQuery('dashboard') },
+      { name: 'Dashboard', page: 'CustomerDetail', tab: 'dashboard', icon: BarChart3, query: customerQuery('dashboard') },
+      { name: 'Helpdesk', page: 'CustomerDetail', tab: 'tickets', icon: HelpCircle, query: customerQuery('tickets') },
       { name: 'Billing', page: 'CustomerDetail', tab: 'billing', icon: CreditCard, query: customerQuery('billing') },
       { name: 'Services', page: 'CustomerDetail', tab: 'services', icon: Cloud, query: customerQuery('services') },
       { name: 'M365', page: 'CustomerDetail', tab: 'm365', icon: Monitor, query: customerQuery('m365') },
       { name: 'SaaS', page: 'CustomerDetail', tab: 'licenses', icon: Cloud, query: customerQuery('licenses') },
       { name: 'Quotes', page: 'CustomerDetail', tab: 'quotes', icon: FileText, query: customerQuery('quotes') },
-      { name: 'Requests', page: 'CustomerDetail', tab: 'tickets', icon: HelpCircle, query: customerQuery('tickets') },
       { name: 'Settings', page: 'CustomerSettings', icon: Settings },
     ];
   }, [user?.customer_id]);

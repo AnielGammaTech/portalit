@@ -65,6 +65,8 @@ router.post('/', uploadRateLimit, requireAuth, upload.single('file'), async (req
       'image/gif',
       'image/x-icon',
       'image/vnd.microsoft.icon',
+      'text/csv',
+      'text/plain',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     ];
