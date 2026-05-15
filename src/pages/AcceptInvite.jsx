@@ -26,6 +26,7 @@ async function apiFetchPublic(path, body) {
 export default function AcceptInvite() {
   const [searchParams] = useSearchParams();
   const prefillEmail = searchParams.get('email') || '';
+  const isResetFlow = searchParams.get('mode') === 'reset';
 
   const [step, setStep] = useState('email'); // email → otp → password
   const [email, setEmail] = useState(prefillEmail);
@@ -183,7 +184,9 @@ export default function AcceptInvite() {
           {step === 'email' && (
             <form onSubmit={handleSendCode} className="space-y-4">
               <p className="text-slate-500 text-center text-sm mb-2">
-                Enter the email address your PortalIT admin invited.
+                {isResetFlow
+                  ? 'Enter your email to receive a secure password reset code.'
+                  : 'Enter the email address your PortalIT admin invited.'}
               </p>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
@@ -258,7 +261,7 @@ export default function AcceptInvite() {
           {step === 'password' && (
             <form onSubmit={handleSetPassword} className="space-y-4">
               <p className="text-slate-500 text-center text-sm mb-2">
-                Set your password to activate your account
+                {isResetFlow ? 'Set your new password' : 'Set your password to activate your account'}
               </p>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
@@ -290,7 +293,7 @@ export default function AcceptInvite() {
                 disabled={loading}
                 className="w-full bg-slate-900 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {loading ? 'Activating...' : 'Activate account'}
+                {loading ? (isResetFlow ? 'Saving...' : 'Activating...') : (isResetFlow ? 'Save new password' : 'Activate account')}
               </button>
             </form>
           )}

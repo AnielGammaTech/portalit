@@ -4,7 +4,7 @@ import { requireAdmin, requireAuth } from '../middleware/auth.js';
 import { createRateLimiter } from '../middleware/rate-limit.js';
 import { getServiceSupabase } from '../lib/supabase.js';
 import { sendEmail, isEmailConfigured } from '../lib/email.js';
-import { welcomeEmailTemplate, otpEmailTemplate } from '../lib/email-templates.js';
+import { welcomeEmailTemplate, otpEmailTemplate, passwordResetEmailTemplate } from '../lib/email-templates.js';
 
 const router = Router();
 
@@ -206,6 +206,19 @@ async function sendInviteEmail({ to, firstName, invitedBy, customerName, role })
   });
 }
 
+async function sendPasswordResetEmail({ to, firstName }) {
+  const portalUrl = getPortalUrl();
+  const resetUrl = `${portalUrl}/accept-invite?email=${encodeURIComponent(to)}&mode=reset`;
+  return sendEmail({
+    to,
+    subject: 'Reset your PortalIT password',
+    body: passwordResetEmailTemplate({
+      firstName,
+      resetUrl,
+    }),
+  });
+}
+
 // ── POST /api/users/invite ─────────────────────────────────────────────
 
 router.post('/invite', requireAdmin, async (req, res, next) => {
@@ -244,7 +257,7 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
     }
 
     const finalRole = invite_type === 'customer' ? 'user' : role;
-    const lowerEmail = email.toLowerCase();
+    const lowerEmail = email.trim().toLowerCase();
     const supabase = getServiceSupabase();
 
     // Check if user already exists
@@ -364,7 +377,7 @@ router.post('/send-otp', otpSendIpLimiter, async (req, res, next) => {
       return res.status(400).json({ error: 'Invalid email format' });
     }
 
-    const lowerEmail = email.toLowerCase();
+    const lowerEmail = email.trim().toLowerCase();
 
     // Per-email rate limit: max 5 OTP sends per hour
     const emailLimit = checkEmailRateLimit(
@@ -439,7 +452,7 @@ router.post('/verify-otp', otpVerifyIpLimiter, async (req, res, next) => {
       return res.status(400).json({ error: 'Invalid email format' });
     }
 
-    const lowerEmail = email.toLowerCase();
+    const lowerEmail = email.trim().toLowerCase();
 
     // Per-email rate limit: max 10 verify attempts per hour
     const emailLimit = checkEmailRateLimit(
@@ -504,7 +517,7 @@ router.post('/resend-invite', requireAdmin, async (req, res, next) => {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    const lowerEmail = email.toLowerCase();
+    const lowerEmail = email.trim().toLowerCase();
     const supabase = getServiceSupabase();
 
     const { data: users } = await supabase
@@ -573,16 +586,10 @@ router.post('/reset-password', requireAdmin, resetPasswordLimiter, async (req, r
       }
       res.json({ success: true, method: 'direct', email: profile.email });
     } else {
-      // Send password reset email via Supabase
-      const portalUrl = getPortalUrl();
-      const { error } = await supabase.auth.admin.generateLink({
-        type: 'recovery',
-        email: profile.email,
-        options: { redirectTo: `${portalUrl}/login` },
+      await sendPasswordResetEmail({
+        to: profile.email,
+        firstName: profile.full_name?.split(' ')[0] || 'there',
       });
-      if (error) {
-        return res.status(500).json({ error: error.message });
-      }
       res.json({ success: true, method: 'email', email: profile.email });
     }
   } catch (error) {
@@ -677,6 +684,15 @@ router.patch('/:id', requireAdmin, async (req, res, next) => {
       }
       if (req.user?.id === id && req.body.role !== 'admin') {
         return res.status(400).json({ error: 'You cannot remove your own admin role' });
+      }
+      const existingIsCustomer = existing.role === 'user';
+      const nextIsCustomer = req.body.role === 'user';
+      if (existingIsCustomer !== nextIsCustomer) {
+        return res.status(400).json({
+          error: existingIsCustomer
+            ? 'Customer users cannot be converted into internal team members. Send a team invite instead.'
+            : 'Internal team members cannot be converted into customer users. Send a customer invite instead.',
+        });
       }
       if (existing.role === 'admin' && req.body.role !== 'admin') {
         const hasAnotherAdmin = await ensureAnotherAdminExists(supabase, id);

@@ -23,6 +23,9 @@ import {
   RefreshCw,
   Loader2,
   Crown,
+  Ban,
+  Unlock,
+  AlertCircle,
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,6 +68,8 @@ const ROLE_BADGES = {
   user:  { label: 'Customer', className: 'bg-green-100 text-green-700 border-green-200' },
 };
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function timeAgo(dateStr) {
   if (!dateStr) return '';
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -98,13 +103,20 @@ function parseUA(ua) {
 }
 
 function getUserStatus(user, auth) {
-  if (!auth.email_confirmed_at && !auth.last_sign_in_at) {
-    return { label: 'Invited', color: 'text-amber-700 bg-amber-50 border-amber-200' };
+  if (!user.auth_id) {
+    return { label: 'Needs setup', key: 'needs-review', color: 'text-red-700 bg-red-50 border-red-200' };
   }
   if (auth.banned_until) {
-    return { label: 'Banned', color: 'text-red-700 bg-red-50 border-red-200' };
+    return { label: 'Suspended', key: 'suspended', color: 'text-red-700 bg-red-50 border-red-200' };
   }
-  return { label: 'Active', color: 'text-emerald-700 bg-emerald-50 border-emerald-200' };
+  if (!auth.last_sign_in_at) {
+    return { label: 'Pending', key: 'pending', color: 'text-amber-700 bg-amber-50 border-amber-200' };
+  }
+  return { label: 'Active', key: 'active', color: 'text-emerald-700 bg-emerald-50 border-emerald-200' };
+}
+
+function getStatusKey(user, auth = {}) {
+  return getUserStatus(user, auth).key;
 }
 
 function CompanyPicker({ customers, value, onSelect, placeholder = "Search and select company..." }) {
@@ -184,55 +196,82 @@ function UserRow({
   openEditProfile,
   resendInviteMutation,
   deleteUserMutation,
+  suspendUserMutation,
+  unsuspendUserMutation,
   getRoleBadge,
   onResetPassword,
 }) {
+  const isSuspended = status.key === 'suspended';
+  const canSuspend = user.role !== 'admin' && user.auth_id;
+
   return (
     <div className={cn('transition-all', isExpanded ? 'bg-slate-50/50' : '')}>
       <div
-        className="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors"
+        className="px-4 py-3 grid grid-cols-1 gap-3 cursor-pointer hover:bg-slate-50 transition-colors lg:grid-cols-[minmax(260px,1fr)_150px_minmax(180px,240px)_150px_72px] lg:items-center"
         onClick={() => setExpandedUserId(isExpanded ? null : user.id)}
       >
-        <div className="flex items-center gap-3 min-w-0 flex-1">
+        <div className="flex items-center gap-3 min-w-0">
           <div className="relative shrink-0">
             <div className={cn(
-              'w-10 h-10 rounded-full flex items-center justify-center text-white font-medium text-sm',
+              'w-9 h-9 rounded-full flex items-center justify-center text-white font-medium text-sm',
               user.role === 'admin' ? 'bg-purple-500' :
               user.role === 'sales' ? 'bg-blue-500' :
               'bg-green-500'
             )}>
               {(user.full_name?.charAt(0) || user.email?.charAt(0) || '?').toUpperCase()}
             </div>
-            {status.label === 'Active' && isOnline && (
+            {status.key === 'active' && isOnline && (
               <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full" />
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-medium text-slate-900 text-sm">{user.full_name || 'Unnamed User'}</p>
-              <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded border', status.color)}>
-                {status.label}
-              </span>
-              {getRoleBadge(user.role)}
-            </div>
-            <div className="flex items-center gap-3 mt-0.5">
-              <p className="text-xs text-slate-500 truncate">{user.email}</p>
-              {user.role === 'user' && user.customer_name && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-green-50 text-green-700 border border-green-200 rounded-full px-2 py-0.5 shrink-0">
-                  <Building2 className="w-3 h-3" />
-                  {user.customer_name}
-                </span>
-              )}
-              {auth.last_sign_in_at && (
-                <p className="text-[11px] text-slate-400 shrink-0 hidden sm:block">
-                  Last seen {timeAgo(auth.last_sign_in_at)}
-                </p>
-              )}
-            </div>
+            <p className="font-medium text-slate-900 text-sm truncate">{user.full_name || 'Unnamed User'}</p>
+            <p className="text-xs text-slate-500 truncate">{user.email}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          {getRoleBadge(user.role)}
+          <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded border', status.color)}>
+            {status.label}
+          </span>
+        </div>
+
+        <div className="min-w-0">
+          <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold lg:hidden">Scope</p>
+          {user.role === 'user' ? (
+            user.customer_name ? (
+              <span className="inline-flex max-w-full items-center gap-1 text-xs font-medium text-slate-700">
+                <Building2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                <span className="truncate">{user.customer_name}</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600">
+                <AlertCircle className="w-3.5 h-3.5" />
+                No company assigned
+              </span>
+            )
+          ) : (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-600">
+              <Shield className="w-3.5 h-3.5 text-purple-500" />
+              Internal team
+            </span>
+          )}
+        </div>
+
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold lg:hidden">Last seen</p>
+          <p className="text-xs font-medium text-slate-700">
+            {auth.last_sign_in_at ? timeAgo(auth.last_sign_in_at) : 'Never'}
+          </p>
+          {auth.last_sign_in_at && (
+            <p className="text-[11px] text-slate-400 hidden sm:block">
+              {new Date(auth.last_sign_in_at).toLocaleDateString()}
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 shrink-0">
           <div className="relative" onClick={(e) => e.stopPropagation()}>
             <Button
               variant="ghost"
@@ -247,7 +286,7 @@ function UserRow({
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setActiveUserMenu(null)} />
                 <div className="absolute right-0 top-9 z-50 w-52 bg-white rounded-xl border shadow-xl py-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
-                  {(status.label === 'Invited' || !auth.last_sign_in_at) && (
+                  {(status.key === 'pending' || status.key === 'needs-review') && (
                     <button
                       className="w-full px-3.5 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
                       onClick={() => {
@@ -269,13 +308,32 @@ function UserRow({
                     <Pencil className="w-3.5 h-3.5 text-slate-400" />
                     Edit Profile
                   </button>
-                  <button
-                    className="w-full px-3.5 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
-                    onClick={() => { onResetPassword(user); setActiveUserMenu(null); }}
-                  >
-                    <KeyRound className="w-3.5 h-3.5 text-slate-400" />
-                    Reset Password
-                  </button>
+                  {user.auth_id && (
+                    <button
+                      className="w-full px-3.5 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                      onClick={() => { onResetPassword(user); setActiveUserMenu(null); }}
+                    >
+                      <KeyRound className="w-3.5 h-3.5 text-slate-400" />
+                      Reset Password
+                    </button>
+                  )}
+                  {canSuspend && (
+                    <button
+                      className="w-full px-3.5 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                      onClick={() => {
+                        if (isSuspended) {
+                          unsuspendUserMutation.mutate(user.id);
+                        } else if (confirm(`Suspend ${user.full_name || user.email}? They will not be able to sign in until reactivated.`)) {
+                          suspendUserMutation.mutate(user.id);
+                        }
+                        setActiveUserMenu(null);
+                      }}
+                      disabled={suspendUserMutation.isPending || unsuspendUserMutation.isPending}
+                    >
+                      {isSuspended ? <Unlock className="w-3.5 h-3.5 text-slate-400" /> : <Ban className="w-3.5 h-3.5 text-slate-400" />}
+                      {isSuspended ? 'Reactivate User' : 'Suspend User'}
+                    </button>
+                  )}
                   {user.role !== 'admin' && (
                     <>
                       <div className="border-t border-slate-100 my-1" />
@@ -311,6 +369,9 @@ function UserRow({
 
 export default function UserAssignmentPanel() {
   const queryClient = useQueryClient();
+  const [activeDirectory, setActiveDirectory] = useState('team');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [customerFilter, setCustomerFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [inviteType, setInviteType] = useState(null);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -353,14 +414,49 @@ export default function UserAssignmentPanel() {
     enabled: !!expandedUserId,
   });
 
-  const filteredUsers = allUsers.filter(u =>
-    u.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.customer_name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const teamAll = allUsers.filter(u => u.role === 'admin' || u.role === 'sales');
+  const customerAll = allUsers.filter(u => u.role === 'user');
+  const activeBaseUsers = activeDirectory === 'team' ? teamAll : customerAll;
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filteredDirectoryUsers = activeBaseUsers.filter((u) => {
+    const auth = authDetails[u.auth_id] || {};
+    const matchesSearch = !normalizedSearch ||
+      u.full_name?.toLowerCase().includes(normalizedSearch) ||
+      u.email?.toLowerCase().includes(normalizedSearch) ||
+      u.customer_name?.toLowerCase().includes(normalizedSearch);
+    const matchesStatus = statusFilter === 'all' || getStatusKey(u, auth) === statusFilter;
+    const matchesCustomer = activeDirectory !== 'customers' || customerFilter === 'all' || u.customer_id === customerFilter;
+    return matchesSearch && matchesStatus && matchesCustomer;
+  });
 
-  const teamUsers = filteredUsers.filter(u => u.role === 'admin' || u.role === 'sales');
-  const customerUsers = filteredUsers.filter(u => u.role === 'user');
+  const summary = allUsers.reduce((acc, u) => {
+    const auth = authDetails[u.auth_id] || {};
+    const statusKey = getStatusKey(u, auth);
+    if (u.role === 'admin') acc.admins += 1;
+    if (u.role === 'sales') acc.sales += 1;
+    if (u.role === 'user') {
+      acc.customers += 1;
+      if (u.customer_id) acc.customerCompanies.add(u.customer_id);
+      else acc.reviewUserIds.add(u.id);
+    }
+    if (statusKey === 'pending') acc.pending += 1;
+    if (statusKey === 'suspended') acc.suspended += 1;
+    if (statusKey === 'pending' || statusKey === 'suspended' || statusKey === 'needs-review') {
+      acc.reviewUserIds.add(u.id);
+    }
+    return acc;
+  }, {
+    admins: 0,
+    sales: 0,
+    customers: 0,
+    customerCompanies: new Set(),
+    pending: 0,
+    suspended: 0,
+    reviewUserIds: new Set(),
+  });
+  const needsReviewCount = summary.reviewUserIds.size;
+  const customerFilterOptions = customers.filter(c => customerAll.some(u => u.customer_id === c.id));
+  const inviteEmailValid = EMAIL_RE.test(inviteEmail.trim());
 
   const updateUserMutation = useMutation({
     mutationFn: async ({ userId, data }) => {
@@ -369,6 +465,7 @@ export default function UserAssignmentPanel() {
     onSuccess: () => {
       toast.success('User updated');
       queryClient.invalidateQueries({ queryKey: ['all-users'] });
+      queryClient.invalidateQueries({ queryKey: ['user-auth-details'] });
     },
     onError: (error) => {
       toast.error('Failed to update user: ' + error.message);
@@ -386,6 +483,7 @@ export default function UserAssignmentPanel() {
     onSuccess: () => {
       toast.success('User deleted');
       queryClient.invalidateQueries({ queryKey: ['all-users'] });
+      queryClient.invalidateQueries({ queryKey: ['user-auth-details'] });
     },
     onError: (error) => toast.error('Failed to delete: ' + error.message),
   });
@@ -403,7 +501,31 @@ export default function UserAssignmentPanel() {
     onError: (error) => toast.error('Failed to reset password: ' + error.message),
   });
 
+  const suspendUserMutation = useMutation({
+    mutationFn: (userId) => client.users.suspendUser(userId),
+    onSuccess: () => {
+      toast.success('User suspended');
+      queryClient.invalidateQueries({ queryKey: ['user-auth-details'] });
+    },
+    onError: (error) => toast.error('Failed to suspend: ' + error.message),
+  });
+
+  const unsuspendUserMutation = useMutation({
+    mutationFn: (userId) => client.users.unsuspendUser(userId),
+    onSuccess: () => {
+      toast.success('User reactivated');
+      queryClient.invalidateQueries({ queryKey: ['user-auth-details'] });
+    },
+    onError: (error) => toast.error('Failed to reactivate: ' + error.message),
+  });
+
   const handleRoleChange = (user, newRole) => {
+    const existingIsCustomer = user.role === 'user';
+    const nextIsCustomer = newRole === 'user';
+    if (existingIsCustomer !== nextIsCustomer) {
+      toast.error('Customer users and internal team members must be invited separately.');
+      return;
+    }
     updateUserMutation.mutate({ userId: user.id, data: { role: newRole } });
   };
 
@@ -419,20 +541,30 @@ export default function UserAssignmentPanel() {
   };
 
   const handleInviteUser = async () => {
-    if (!inviteEmail) return;
+    const cleanEmail = inviteEmail.trim().toLowerCase();
+    const cleanName = inviteName.trim();
+    if (!cleanEmail || !cleanName) return;
+    if (!EMAIL_RE.test(cleanEmail)) {
+      toast.error('Enter a valid email address');
+      return;
+    }
+    if (inviteType === 'customer' && !inviteCustomerId) {
+      toast.error('Select the customer company first');
+      return;
+    }
     setIsInviting(true);
     try {
       const result = await client.users.inviteUser(
-        inviteEmail.trim().toLowerCase(),
+        cleanEmail,
         inviteType === 'customer' ? 'user' : inviteRole,
         inviteType,
         inviteType === 'customer' ? inviteCustomerId : undefined,
-        inviteName.trim()
+        cleanName
       );
       if (result.email_sent === false) {
-        toast.warning(`User was created, but the invitation email did not send. Try Resend Invitation for ${inviteEmail.trim().toLowerCase()}.`);
+        toast.warning(`User was created, but the invitation email did not send. Try Resend Invitation for ${cleanEmail}.`);
       } else {
-        toast.success('Invitation sent to ' + inviteEmail.trim().toLowerCase());
+        toast.success('Invitation sent to ' + cleanEmail);
       }
       setInviteType(null);
       setInviteEmail('');
@@ -550,17 +682,25 @@ export default function UserAssignmentPanel() {
                 </div>
               </div>
             )}
-            <div className="space-y-1">
-              <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Role</p>
-              <Select value={user.role || 'user'} onValueChange={(value) => handleRoleChange(user, value)}>
-                <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="user">Customer</SelectItem>
-                  <SelectItem value="sales">Sales</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {user.role !== 'user' ? (
+              <div className="space-y-1">
+                <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Internal Role</p>
+                <Select value={user.role || 'sales'} onValueChange={(value) => handleRoleChange(user, value)}>
+                  <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sales">Sales</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Access Type</p>
+                <div className="h-10 px-3 rounded-md border border-slate-200 bg-white flex items-center text-sm font-medium text-green-700">
+                  Customer portal
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Sign-in Sessions */}
@@ -651,6 +791,8 @@ export default function UserAssignmentPanel() {
                 openEditProfile={openEditProfile}
                 resendInviteMutation={resendInviteMutation}
                 deleteUserMutation={deleteUserMutation}
+                suspendUserMutation={suspendUserMutation}
+                unsuspendUserMutation={unsuspendUserMutation}
                 getRoleBadge={getRoleBadge}
                 onResetPassword={(u) => { setResetPasswordUser(u); setNewPassword(''); }}
               />
@@ -663,93 +805,130 @@ export default function UserAssignmentPanel() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Role Permissions Reference */}
-      <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
-          <Shield className="w-3.5 h-3.5" /> Role Permissions
-        </h4>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="bg-white rounded-lg border border-purple-100 p-3">
-            <Badge className="bg-purple-100 text-purple-700 border-purple-200 mb-2">Admin</Badge>
-            <p className="text-xs text-slate-600">Full access — Dashboard, Customers, LootIT, Integrations, Settings, User Management</p>
-          </div>
-          <div className="bg-white rounded-lg border border-blue-100 p-3">
-            <Badge className="bg-blue-100 text-blue-700 border-blue-200 mb-2">Sales</Badge>
-            <p className="text-xs text-slate-600">Dashboard, Customers, Billing, Quotes — no LootIT, Integrations, or Settings</p>
-          </div>
-          <div className="bg-white rounded-lg border border-green-100 p-3">
-            <Badge className="bg-green-100 text-green-700 border-green-200 mb-2">Customer</Badge>
-            <p className="text-xs text-slate-600">Own data only — Overview, Billing, Services, SaaS (can add/remove apps), Quotes, Tickets</p>
-          </div>
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Internal team</p>
+          <p className="mt-1 text-2xl font-bold text-slate-950">{teamAll.length}</p>
+          <p className="text-xs text-slate-500">{summary.admins} admin · {summary.sales} sales</p>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Customer users</p>
+          <p className="mt-1 text-2xl font-bold text-slate-950">{summary.customers}</p>
+          <p className="text-xs text-slate-500">{summary.customerCompanies.size} companies</p>
+        </div>
+        <div className={cn(
+          "rounded-xl border bg-white px-4 py-3",
+          needsReviewCount > 0 ? "border-amber-200 bg-amber-50/50" : "border-slate-200"
+        )}>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Needs review</p>
+          <p className="mt-1 text-2xl font-bold text-slate-950">{needsReviewCount}</p>
+          <p className="text-xs text-slate-500">pending, suspended, or incomplete</p>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Invitations</p>
+          <p className="mt-1 text-2xl font-bold text-slate-950">{summary.pending}</p>
+          <p className="text-xs text-slate-500">never signed in</p>
         </div>
       </div>
 
-      {/* Top Bar: Search + Invite Buttons */}
-      <div className="flex flex-wrap items-center gap-3">
-        {allUsers.length > 3 && (
-          <div className="relative flex-1 min-w-[200px] max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Search users..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" />
-          </div>
-        )}
-        <div className="flex gap-3 ml-auto">
-          <Button onClick={() => setInviteType('customer')} variant="outline" className="gap-2">
-            <Building2 className="w-4 h-4" /> Invite Customer
-          </Button>
-          <Button onClick={() => setInviteType('tech')} className="bg-slate-900 hover:bg-slate-800 gap-2">
-            <UserPlus className="w-4 h-4" /> Invite Tech
-          </Button>
-        </div>
-      </div>
-
-      {/* Loading Skeletons */}
-      {loadingUsers && (
-        <>
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <div className="p-4 border-b border-slate-200 flex items-center gap-2">
-              <Shimmer className="h-5 w-16 rounded" />
-              <Shimmer className="h-5 w-10 rounded-full" />
-            </div>
-            <UserSkeletonRows count={3} />
-          </div>
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <div className="p-4 border-b border-slate-200 flex items-center gap-2">
-              <Shimmer className="h-5 w-32 rounded" />
-              <Shimmer className="h-5 w-10 rounded-full" />
-            </div>
-            <UserSkeletonRows count={4} />
-          </div>
-        </>
-      )}
-
-      {/* Team Section */}
-      {!loadingUsers && (
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-            <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-              <Shield className="w-4 h-4 text-purple-500" />
-              Team
-            </h3>
-            <Badge variant="secondary">{teamUsers.length}</Badge>
-          </div>
-          {renderUserList(teamUsers, 'No team members found')}
-        </div>
-      )}
-
-      {/* Customer Users Section */}
-      {!loadingUsers && (
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-            <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-green-500" />
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="p-4 border-b border-slate-200 flex flex-wrap items-center gap-3">
+          <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+            <button
+              type="button"
+              onClick={() => { setActiveDirectory('team'); setStatusFilter('all'); setCustomerFilter('all'); setExpandedUserId(null); }}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors',
+                activeDirectory === 'team' ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-600 hover:text-slate-950'
+              )}
+            >
+              <Shield className="w-4 h-4" />
+              Internal Team
+              <span className={cn('rounded-full px-1.5 text-[11px]', activeDirectory === 'team' ? 'bg-white/20' : 'bg-white text-slate-500')}>
+                {teamAll.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setActiveDirectory('customers'); setStatusFilter('all'); setExpandedUserId(null); }}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors',
+                activeDirectory === 'customers' ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-600 hover:text-slate-950'
+              )}
+            >
+              <Building2 className="w-4 h-4" />
               Customer Users
-            </h3>
-            <Badge variant="secondary">{customerUsers.length}</Badge>
+              <span className={cn('rounded-full px-1.5 text-[11px]', activeDirectory === 'customers' ? 'bg-white/20' : 'bg-white text-slate-500')}>
+                {customerAll.length}
+              </span>
+            </button>
           </div>
-          {renderUserList(customerUsers, 'No customer users found')}
+
+          <div className="flex gap-2 ml-auto">
+            <Button onClick={() => setInviteType('customer')} variant="outline" className="gap-2">
+              <Building2 className="w-4 h-4" /> Invite Customer
+            </Button>
+            <Button onClick={() => setInviteType('tech')} className="bg-slate-900 hover:bg-slate-800 gap-2">
+              <UserPlus className="w-4 h-4" /> Invite Team
+            </Button>
+          </div>
         </div>
-      )}
+
+        <div className="p-4 border-b border-slate-100 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(260px,1fr)_180px_minmax(180px,240px)]">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input
+              placeholder={activeDirectory === 'team' ? 'Search team by name or email...' : 'Search customers, email, or company...'}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="pending">Pending invite</SelectItem>
+              <SelectItem value="suspended">Suspended</SelectItem>
+              <SelectItem value="needs-review">Needs setup</SelectItem>
+            </SelectContent>
+          </Select>
+          {activeDirectory === 'customers' ? (
+            <Select value={customerFilter} onValueChange={setCustomerFilter}>
+              <SelectTrigger><SelectValue placeholder="All companies" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All companies</SelectItem>
+                {customerFilterOptions.map((customer) => (
+                  <SelectItem key={customer.id} value={customer.id}>{customer.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <div className="hidden lg:flex items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-500">
+              Team roles are limited to Admin and Sales.
+            </div>
+          )}
+        </div>
+
+        <div className="hidden lg:grid grid-cols-[minmax(260px,1fr)_150px_minmax(180px,240px)_150px_72px] gap-3 px-4 py-2 border-b border-slate-100 bg-slate-50 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+          <span>User</span>
+          <span>Access</span>
+          <span>{activeDirectory === 'team' ? 'Scope' : 'Company'}</span>
+          <span>Last seen</span>
+          <span className="text-right">Actions</span>
+        </div>
+
+        {loadingUsers ? (
+          <UserSkeletonRows count={activeDirectory === 'team' ? 4 : 7} />
+        ) : (
+          renderUserList(
+            filteredDirectoryUsers,
+            activeDirectory === 'team' ? 'No internal team members found' : 'No customer users found'
+          )
+        )}
+      </div>
 
       {/* Invite Customer Dialog */}
       <Dialog open={inviteType === 'customer'} onOpenChange={(open) => !open && setInviteType(null)}>
@@ -785,7 +964,7 @@ export default function UserAssignmentPanel() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setInviteType(null)}>Cancel</Button>
-            <Button onClick={handleInviteUser} disabled={!inviteName || !inviteEmail || !inviteCustomerId || isInviting} className="bg-green-600 hover:bg-green-700 gap-2">
+            <Button onClick={handleInviteUser} disabled={!inviteName.trim() || !inviteEmailValid || !inviteCustomerId || isInviting} className="bg-green-600 hover:bg-green-700 gap-2">
               <UserPlus className="w-4 h-4" /> {isInviting ? 'Sending...' : 'Send Invitation'}
             </Button>
           </DialogFooter>
@@ -801,7 +980,7 @@ export default function UserAssignmentPanel() {
                 <Shield className="w-6 h-6 text-purple-600" />
               </div>
             </div>
-            <DialogTitle className="text-center">Invite Tech Team Member</DialogTitle>
+            <DialogTitle className="text-center">Invite Internal Team Member</DialogTitle>
             <DialogDescription className="text-center">
               Send an invitation to join the internal team.
             </DialogDescription>
@@ -851,7 +1030,7 @@ export default function UserAssignmentPanel() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setInviteType(null)}>Cancel</Button>
-            <Button onClick={handleInviteUser} disabled={!inviteName || !inviteEmail || isInviting} className="bg-purple-600 hover:bg-purple-700 gap-2">
+            <Button onClick={handleInviteUser} disabled={!inviteName.trim() || !inviteEmailValid || isInviting} className="bg-purple-600 hover:bg-purple-700 gap-2">
               <UserPlus className="w-4 h-4" /> {isInviting ? 'Sending...' : 'Send Invitation'}
             </Button>
           </DialogFooter>
@@ -871,7 +1050,8 @@ export default function UserAssignmentPanel() {
             <div>
               <label className="text-sm font-medium text-slate-700 mb-1.5 block">New Password</label>
               <Input
-                type="text"
+                type="password"
+                autoComplete="new-password"
                 placeholder="Enter new password (min 8 characters)"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}

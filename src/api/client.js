@@ -581,6 +581,14 @@ const users = {
       body: { user_id: userId, new_password: newPassword || undefined },
     });
   },
+
+  async suspendUser(userId) {
+    return apiFetch(`/api/users/${userId}/suspend`);
+  },
+
+  async unsuspendUser(userId) {
+    return apiFetch(`/api/users/${userId}/unsuspend`);
+  },
 };
 
 // ── HaloPSA ─────────────────────────────────────────────────────────────

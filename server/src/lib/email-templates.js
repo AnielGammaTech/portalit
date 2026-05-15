@@ -148,3 +148,32 @@ export function otpEmailTemplate({ code, firstName }) {
     </p>
   `);
 }
+
+/**
+ * Password reset email sent from Adminland.
+ * Links into the OTP activation flow so the user verifies email before setting
+ * a new password.
+ */
+export function passwordResetEmailTemplate({ firstName, resetUrl }) {
+  const greeting = firstName || 'there';
+
+  return wrapTemplate(`
+    <h2 style="color: #1e293b; font-size: 20px; margin: 0 0 8px;">
+      Reset your PortalIT password
+    </h2>
+    <p style="color: #64748b; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
+      Hi ${greeting}, use the secure reset flow below to verify your email and set a new password.
+    </p>
+
+    <div style="text-align: center; margin: 24px 0;">
+      <a href="${resetUrl}" style="${buttonStyles}">
+        Reset Password
+      </a>
+    </div>
+
+    <p style="color: #94a3b8; font-size: 13px; line-height: 1.5;">
+      Or copy and paste this link into your browser:<br/>
+      <a href="${resetUrl}" style="color: #7C3AED; word-break: break-all;">${resetUrl}</a>
+    </p>
+  `);
+}
