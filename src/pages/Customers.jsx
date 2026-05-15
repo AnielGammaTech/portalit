@@ -59,12 +59,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { SkeletonGrid } from "@/components/ui/shimmer-skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 
-const STATUS_COLORS = {
-  active: { bg: 'bg-success/15', text: 'text-success', dot: 'bg-success' },
-  inactive: { bg: 'bg-zinc-100 dark:bg-zinc-800', text: 'text-zinc-500', dot: 'bg-zinc-400' },
-  suspended: { bg: 'bg-destructive/15', text: 'text-destructive', dot: 'bg-destructive' },
-};
-
 const FILTER_CHIPS = [
   { value: 'all', label: 'All' },
   { value: 'active', label: 'Active' },
@@ -113,21 +107,14 @@ export default function Customers() {
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
 
-  const { data: tickets = [], isLoading: loadingTickets } = useQuery({
-    queryKey: ['all_tickets'],
-    queryFn: () => client.entities.Ticket.list('-created_date', 1000),
-    retry: 3,
-    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
-  });
-
   // Auto-retry if any of the main queries loads empty
   useAutoRetry(
-    [customers, contracts, recurringBills, tickets],
-    isLoading || loadingContracts || loadingBills || loadingTickets,
-    [['customers'], ['all_contracts'], ['all_recurring_bills'], ['all_tickets']]
+    [customers, contracts, recurringBills],
+    isLoading || loadingContracts || loadingBills,
+    [['customers'], ['all_contracts'], ['all_recurring_bills']]
   );
 
-  const statsReady = !loadingContracts && !loadingBills && !loadingTickets;
+  const statsReady = !loadingContracts && !loadingBills;
 
   const createMutation = useMutation({
     mutationFn: (data) => client.entities.Customer.create(data),
@@ -218,8 +205,14 @@ export default function Customers() {
 
   const filteredCustomers = customers
     .filter(customer => {
-      const matchesSearch = customer.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           customer.email?.toLowerCase().includes(searchQuery.toLowerCase());
+      const query = searchQuery.toLowerCase();
+      const matchesSearch = [
+        customer.name,
+        customer.email,
+        customer.primary_contact,
+        customer.phone,
+        customer.address,
+      ].some(value => String(value || '').toLowerCase().includes(query));
       const matchesStatus = statusFilter === 'all' || customer.status === statusFilter;
       return matchesSearch && matchesStatus;
     })
@@ -227,7 +220,6 @@ export default function Customers() {
 
   const getCustomerStats = (customerId) => {
     const customerContracts = contracts.filter(c => c.customer_id === customerId && c.status === 'active');
-    const customerTickets = tickets.filter(t => t.customer_id === customerId && ['new', 'open', 'in_progress'].includes(t.status));
     const now = new Date();
     const customerBills = recurringBills.filter(b => {
       if (b.customer_id !== customerId) return false;
@@ -245,12 +237,13 @@ export default function Customers() {
       if (['yearly', 'annual', 'annually', 'year'].includes(freq)) return sum + amount / 12;
       return sum + amount;
     }, 0);
-    return { contracts: customerContracts.length, tickets: customerTickets.length, mrr };
+    return { contracts: customerContracts.length, services: customerBills.length, mrr };
   };
 
   const activeCount = customers.filter(c => c.status === 'active').length;
   const totalMonthly = customers.reduce((sum, customer) => sum + getCustomerStats(customer.id).mrr, 0);
-  const inProgressTickets = tickets.filter(t => ['new', 'open', 'in_progress'].includes(t.status)).length;
+  const accountsWithServices = customers.filter(customer => getCustomerStats(customer.id).services > 0).length;
+  const activeContracts = contracts.filter(c => c.status === 'active').length;
 
   return (
     <div className="space-y-6">
@@ -275,9 +268,9 @@ export default function Customers() {
 
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <PortalMetricCard icon={Building2} label="Total customers" value={customers.length} detail={`${activeCount} active`} tone="violet" />
-        <PortalMetricCard icon={DollarSign} label="Monthly services" value={`$${Math.round(totalMonthly).toLocaleString()}`} detail="estimated recurring" tone="emerald" />
-        <PortalMetricCard icon={FileText} label="Contracts" value={contracts.filter(c => c.status === 'active').length} detail="active agreements" tone="blue" />
-        <PortalMetricCard icon={AlertCircle} label="Service requests" value={inProgressTickets} detail="currently in progress" tone={inProgressTickets > 0 ? 'amber' : 'slate'} />
+        <PortalMetricCard icon={DollarSign} label="Monthly billing" value={`$${Math.round(totalMonthly).toLocaleString()}`} detail="recurring services" tone="emerald" />
+        <PortalMetricCard icon={FileText} label="Active contracts" value={activeContracts} detail="current agreements" tone="blue" />
+        <PortalMetricCard icon={RefreshCw} label="Service accounts" value={accountsWithServices} detail="with recurring billing" tone="slate" />
       </div>
 
       <PortalSection
@@ -344,12 +337,12 @@ export default function Customers() {
           </div>
         ) : (
           <>
-            <div className="hidden grid-cols-[minmax(0,1.2fr)_minmax(150px,0.8fr)_110px_110px_130px_72px] gap-3 border-b border-slate-100 bg-slate-50 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 lg:grid">
+            <div className="hidden grid-cols-[minmax(0,1.3fr)_minmax(170px,0.9fr)_120px_120px_120px_72px] gap-3 border-b border-slate-100 bg-slate-50 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 lg:grid">
               <div>Customer</div>
-              <div>Primary</div>
+              <div>Primary contact</div>
               <div className="text-right">Monthly</div>
               <div className="text-center">Contracts</div>
-              <div className="text-center">Requests</div>
+              <div className="text-center">Status</div>
               <div />
             </div>
             <div className="divide-y divide-slate-100">
@@ -359,7 +352,7 @@ export default function Customers() {
                   <div
                     key={customer.id}
                     onClick={() => navigate(createPageUrl(`CustomerDetail?id=${customer.id}`))}
-                    className="grid cursor-pointer grid-cols-1 gap-3 px-5 py-3 transition-colors hover:bg-slate-50 lg:grid-cols-[minmax(0,1.2fr)_minmax(150px,0.8fr)_110px_110px_130px_72px] lg:items-center"
+                    className="grid cursor-pointer grid-cols-1 gap-3 px-5 py-3 transition-colors hover:bg-slate-50 lg:grid-cols-[minmax(0,1.3fr)_minmax(170px,0.9fr)_120px_120px_120px_72px] lg:items-center"
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
@@ -381,12 +374,33 @@ export default function Customers() {
                         <p className="truncate text-xs text-slate-500">{customer.email || customer.address || 'No email on file'}</p>
                       </div>
                     </div>
-                    <div className="truncate text-sm text-slate-600">{customer.primary_contact || customer.email || '-'}</div>
-                    <div className="text-sm font-semibold tabular-nums text-slate-950 lg:text-right">
-                      {statsReady ? `$${Math.round(stats.mrr).toLocaleString()}` : '-'}
+                    <div className="min-w-0 text-sm text-slate-700">
+                      <p className="truncate font-medium text-slate-800">{customer.primary_contact || 'No primary contact'}</p>
+                      <p className="truncate text-xs text-slate-500">{customer.phone || customer.email || 'No contact detail'}</p>
                     </div>
-                    <div className="text-sm text-slate-600 lg:text-center">{statsReady ? stats.contracts : '-'}</div>
-                    <div className="text-sm text-slate-600 lg:text-center">{statsReady ? stats.tickets : '-'}</div>
+                    <div className="lg:text-right">
+                      <p className="text-sm font-semibold tabular-nums text-slate-950">
+                        {statsReady ? `$${Math.round(stats.mrr).toLocaleString()}` : '-'}
+                      </p>
+                      <p className="text-xs text-slate-500">{statsReady ? `${stats.services} service${stats.services === 1 ? '' : 's'}` : 'loading'}</p>
+                    </div>
+                    <div className="lg:text-center">
+                      <span className={cn(
+                        'inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold',
+                        statsReady && stats.contracts > 0
+                          ? 'border-blue-200 bg-blue-50 text-blue-700'
+                          : 'border-slate-200 bg-slate-50 text-slate-500'
+                      )}>
+                        {statsReady ? `${stats.contracts} active` : '-'}
+                      </span>
+                    </div>
+                    <div className="lg:text-center">
+                      <PortalStatusPill
+                        tone={customer.status === 'active' ? 'emerald' : customer.status === 'suspended' ? 'rose' : 'slate'}
+                        label={customer.status || 'active'}
+                        className="py-1 text-[11px]"
+                      />
+                    </div>
                     <div className="flex items-center justify-end gap-1" onClick={(event) => event.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
