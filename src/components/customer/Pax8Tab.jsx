@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import { toast } from 'sonner';
 import {
@@ -7,12 +7,12 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  DollarSign,
   Hash,
   Loader2,
   Package,
   RefreshCw,
   Search,
+  Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +30,22 @@ const STATUS_TONES = {
   canceled: 'rose',
 };
 
+const LICENSE_ALIASES = {
+  O365_BUSINESS_PREMIUM: 'Microsoft 365 Business Premium',
+  SPB: 'Microsoft 365 Business Premium',
+  O365_BUSINESS_ESSENTIALS: 'Microsoft 365 Business Basic',
+  O365_BUSINESS: 'Microsoft 365 Apps for Business',
+  O365_BUSINESS_STANDARD: 'Microsoft 365 Business Standard',
+  EXCHANGESTANDARD: 'Exchange Online Plan 1',
+  EXCHANGEENTERPRISE: 'Exchange Online Plan 2',
+  SPE_E3: 'Microsoft 365 E3',
+  SPE_E5: 'Microsoft 365 E5',
+  ENTERPRISEPACK: 'Office 365 E3',
+  ENTERPRISEPREMIUM: 'Office 365 E5',
+  VISIOCLIENT: 'Visio Plan 2',
+  PROJECTPROFESSIONAL: 'Project Plan 3',
+};
+
 function parseCachedData(raw) {
   if (!raw) return null;
   if (typeof raw === 'string') {
@@ -45,6 +61,15 @@ function parseCachedData(raw) {
 function safeNumber(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function asArray(value) {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+  if (typeof value === 'string') {
+    return value.split(',').map(item => item.trim()).filter(Boolean);
+  }
+  return [value].filter(Boolean);
 }
 
 function safeDate(value) {
@@ -71,16 +96,6 @@ function formatDateTime(value) {
   });
 }
 
-function formatCurrency(value) {
-  const amount = safeNumber(value);
-  if (amount === null || amount <= 0) return 'Not shown';
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: amount >= 100 ? 0 : 2,
-  }).format(amount);
-}
-
 function formatBillingTerm(term) {
   const value = String(term || '').trim();
   if (!value) return 'Term not shown';
@@ -100,25 +115,78 @@ function statusTone(status) {
   return STATUS_TONES[String(status || '').toLowerCase()] || 'slate';
 }
 
-function subscriptionTotal(sub) {
-  const price = safeNumber(sub?.price);
-  if (price === null || price <= 0) return 0;
-  return price * (safeNumber(sub?.quantity) || 1);
-}
-
 function normalizeProduct(product) {
   const subscriptions = Array.isArray(product?.subscriptions) ? product.subscriptions : [];
   const subscriptionQuantity = subscriptions.reduce((sum, sub) => sum + (safeNumber(sub?.quantity) || 1), 0);
   const quantity = safeNumber(product?.quantity) ?? subscriptionQuantity;
-  const estimatedTotal = subscriptions.reduce((sum, sub) => sum + subscriptionTotal(sub), 0);
 
   return {
     ...product,
     name: product?.name || 'Unnamed product',
     quantity,
     subscriptions,
-    estimatedTotal,
   };
+}
+
+function formatLicenseName(raw) {
+  const value = String(raw || '').trim();
+  if (!value) return '';
+  const sku = value.includes(':') ? value.split(':').pop() : value;
+  if (LICENSE_ALIASES[sku]) return LICENSE_ALIASES[sku];
+  return sku
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function licenseMatchKey(raw) {
+  const value = formatLicenseName(raw).toLowerCase();
+  if (!value) return '';
+
+  const compact = value.replace(/[^a-z0-9]/g, '');
+  const has365 = value.includes('365');
+
+  if (has365 && /\be5\b/.test(value)) return 'm365-e5';
+  if (has365 && /\be3\b/.test(value)) return 'm365-e3';
+  if (value.includes('business premium') || compact.includes('businesspremium')) return 'm365-business-premium';
+  if (value.includes('business standard') || compact.includes('businessstandard')) return 'm365-business-standard';
+  if (value.includes('business basic') || compact.includes('businessbasic')) return 'm365-business-basic';
+  if (value.includes('exchange online') && (value.includes('plan 1') || compact.includes('plan1'))) return 'exchange-online-plan-1';
+  if (value.includes('exchange online') && (value.includes('plan 2') || compact.includes('plan2'))) return 'exchange-online-plan-2';
+  if (value.includes('power bi pro') || compact.includes('powerbipro')) return 'power-bi-pro';
+  if (value.includes('visio') && (value.includes('plan 2') || compact.includes('plan2'))) return 'visio-plan-2';
+  if (value.includes('project') && (value.includes('plan 3') || compact.includes('plan3'))) return 'project-plan-3';
+  if (value.includes('audio conferencing')) return 'audio-conferencing';
+
+  return value
+    .replace(/\b(microsoft|office|365|license|licenses|subscription|commercial|nce|annual|monthly)\b/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, '-');
+}
+
+function cippUserLicenses(user) {
+  const cached = parseCachedData(user?.cached_data) || {};
+  const fromCache = asArray(cached.license_names || cached.licenses)
+    .map(formatLicenseName)
+    .filter(Boolean);
+
+  if (fromCache.length > 0) return [...new Set(fromCache)];
+
+  return asArray(user?.assigned_licenses)
+    .map(license => {
+      if (typeof license === 'string') return formatLicenseName(license);
+      return formatLicenseName(
+        license?.skuName ||
+        license?.SkuName ||
+        license?.displayName ||
+        license?.skuPartNumber ||
+        license?.SkuPartNumber ||
+        license?.skuId ||
+        license?.SkuId
+      );
+    })
+    .filter(Boolean);
 }
 
 export default function Pax8Tab({ customerId, pax8Mapping, queryClient: externalQC }) {
@@ -128,6 +196,14 @@ export default function Pax8Tab({ customerId, pax8Mapping, queryClient: external
   const [syncing, setSyncing] = useState(false);
   const [search, setSearch] = useState('');
   const [expandedProduct, setExpandedProduct] = useState(null);
+
+  const { data: cippUsersRaw = [], isLoading: loadingCippUsers } = useQuery({
+    queryKey: ['cipp-users', customerId],
+    queryFn: () => client.entities.CIPPUser.filter({ customer_id: customerId }),
+    enabled: !!customerId,
+    staleTime: 1000 * 60 * 5,
+  });
+  const cippUsers = cippUsersRaw ?? [];
 
   const cachedData = useMemo(() => parseCachedData(pax8Mapping?.cached_data), [pax8Mapping?.cached_data]);
 
@@ -151,8 +227,27 @@ export default function Pax8Tab({ customerId, pax8Mapping, queryClient: external
   const totalQuantity = safeNumber(cachedData?.totalQuantity) ?? products.reduce((sum, product) => sum + product.quantity, 0);
   const totalSubscriptions = safeNumber(cachedData?.totalSubscriptions)
     ?? products.reduce((sum, product) => sum + product.subscriptions.length, 0);
-  const estimatedTotal = products.reduce((sum, product) => sum + product.estimatedTotal, 0);
-  const hasCostData = estimatedTotal > 0;
+  const cippUsersByLicense = useMemo(() => {
+    const map = new Map();
+    for (const user of cippUsers) {
+      for (const license of cippUserLicenses(user)) {
+        const key = licenseMatchKey(license);
+        if (!key) continue;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(user);
+      }
+    }
+    return map;
+  }, [cippUsers]);
+  const matchedCippUserCount = useMemo(() => {
+    const userIds = new Set();
+    for (const product of products) {
+      for (const user of cippUsersByLicense.get(licenseMatchKey(product.name)) || []) {
+        userIds.add(user.id || user.user_principal_name || user.mail);
+      }
+    }
+    return userIds.size;
+  }, [cippUsersByLicense, products]);
   const accountName = pax8Mapping?.pax8_company_name || 'Pax8 account';
   const lastSynced = formatDateTime(pax8Mapping?.last_synced);
 
@@ -200,7 +295,7 @@ export default function Pax8Tab({ customerId, pax8Mapping, queryClient: external
         </Button>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-4">
         <PortalMetricCard
           icon={Package}
           label="Subscriptions"
@@ -226,11 +321,11 @@ export default function Pax8Tab({ customerId, pax8Mapping, queryClient: external
           className="p-3"
         />
         <PortalMetricCard
-          icon={DollarSign}
-          label="Listed Cost"
-          value={hasCostData ? formatCurrency(estimatedTotal) : '-'}
-          detail={hasCostData ? 'From Pax8 subscription prices' : 'Price not returned'}
-          tone={hasCostData ? 'amber' : 'slate'}
+          icon={Users}
+          label="CIPP Matches"
+          value={matchedCippUserCount}
+          detail={loadingCippUsers ? 'Checking CIPP users' : 'Users matched to products'}
+          tone="slate"
           className="p-3"
         />
       </div>
@@ -265,23 +360,24 @@ export default function Pax8Tab({ customerId, pax8Mapping, queryClient: external
           </div>
         ) : (
           <div className="min-w-[780px]">
-            <div className="grid grid-cols-[minmax(0,1fr)_110px_110px_140px_40px] gap-3 border-b border-slate-200 bg-slate-50 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <div className="grid grid-cols-[minmax(0,1fr)_110px_120px_120px_40px] gap-3 border-b border-slate-200 bg-slate-50 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
               <span>Product</span>
               <span className="text-right">Licenses</span>
               <span className="text-right">Subscriptions</span>
-              <span className="text-right">Listed cost</span>
+              <span className="text-right">CIPP users</span>
               <span />
             </div>
 
             <div className="divide-y divide-slate-100">
               {filteredProducts.map(product => {
                 const isExpanded = expandedProduct === product.name;
+                const matchedUsers = cippUsersByLicense.get(licenseMatchKey(product.name)) || [];
                 return (
                   <div key={product.name}>
                     <button
                       type="button"
                       onClick={() => setExpandedProduct(isExpanded ? null : product.name)}
-                      className="grid w-full grid-cols-[minmax(0,1fr)_110px_110px_140px_40px] items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-slate-50"
+                      className="grid w-full grid-cols-[minmax(0,1fr)_110px_120px_120px_40px] items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-slate-50"
                     >
                       <div className="flex min-w-0 items-center gap-3">
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-700">
@@ -296,9 +392,7 @@ export default function Pax8Tab({ customerId, pax8Mapping, queryClient: external
                       </div>
                       <span className="text-right text-sm font-semibold tabular-nums text-slate-950">{product.quantity}</span>
                       <span className="text-right text-sm tabular-nums text-slate-700">{product.subscriptions.length || 0}</span>
-                      <span className="text-right text-sm font-semibold tabular-nums text-slate-950">
-                        {product.estimatedTotal > 0 ? formatCurrency(product.estimatedTotal) : '-'}
-                      </span>
+                      <span className="text-right text-sm font-semibold tabular-nums text-slate-950">{matchedUsers.length || '-'}</span>
                       <span className="flex justify-end text-slate-400">
                         {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                       </span>
@@ -306,13 +400,53 @@ export default function Pax8Tab({ customerId, pax8Mapping, queryClient: external
 
                     {isExpanded && (
                       <div className="border-t border-slate-100 bg-slate-50/70 px-5 py-3">
+                        <div className="mb-4 rounded-lg border border-slate-200 bg-white">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-950">Assigned users in Microsoft 365</p>
+                              <p className="text-xs text-slate-500">Matched by Pax8 product name to CIPP license names.</p>
+                            </div>
+                            <PortalStatusPill
+                              label={loadingCippUsers ? 'Checking CIPP' : `${matchedUsers.length} matched`}
+                              tone={matchedUsers.length > 0 ? 'blue' : 'slate'}
+                              icon={Users}
+                            />
+                          </div>
+                          {loadingCippUsers ? (
+                            <p className="px-4 py-3 text-sm text-slate-500">Loading CIPP users...</p>
+                          ) : matchedUsers.length > 0 ? (
+                            <div className="divide-y divide-slate-100">
+                              {matchedUsers
+                                .slice()
+                                .sort((a, b) => (a.display_name || a.user_principal_name || '').localeCompare(b.display_name || b.user_principal_name || ''))
+                                .map(user => (
+                                  <div key={user.id || user.user_principal_name} className="grid grid-cols-[minmax(0,1fr)_160px_110px] items-center gap-3 px-4 py-2.5 text-sm">
+                                    <div className="min-w-0">
+                                      <p className="truncate font-semibold text-slate-950">{user.display_name || user.user_principal_name}</p>
+                                      <p className="truncate text-xs text-slate-500">{user.mail || user.user_principal_name}</p>
+                                    </div>
+                                    <p className="truncate text-xs text-slate-600">{user.job_title || 'No title shown'}</p>
+                                    <PortalStatusPill
+                                      label={user.account_enabled === false ? 'Disabled' : 'Active'}
+                                      tone={user.account_enabled === false ? 'amber' : 'emerald'}
+                                      className="w-fit justify-self-end px-2 py-0.5"
+                                    />
+                                  </div>
+                                ))}
+                            </div>
+                          ) : (
+                            <p className="px-4 py-3 text-sm text-slate-500">
+                              No CIPP users matched this Pax8 product. The product name may not line up with the Microsoft license name.
+                            </p>
+                          )}
+                        </div>
+
                         {product.subscriptions.length > 0 ? (
                           <div className="divide-y divide-slate-200">
-                            <div className="grid grid-cols-[minmax(0,1fr)_100px_90px_120px_130px] gap-3 pb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            <div className="grid grid-cols-[minmax(0,1fr)_100px_90px_130px] gap-3 pb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                               <span>Subscription</span>
                               <span>Status</span>
                               <span className="text-right">Qty</span>
-                              <span className="text-right">Unit price</span>
                               <span className="text-right">Start date</span>
                             </div>
                             {product.subscriptions.map((sub, index) => {
@@ -320,7 +454,7 @@ export default function Pax8Tab({ customerId, pax8Mapping, queryClient: external
                               const term = formatBillingTerm(sub.billingTerm);
                               const code = billingCode(sub.billingTerm);
                               return (
-                                <div key={key} className="grid grid-cols-[minmax(0,1fr)_100px_90px_120px_130px] items-center gap-3 py-2 text-sm">
+                                <div key={key} className="grid grid-cols-[minmax(0,1fr)_100px_90px_130px] items-center gap-3 py-2 text-sm">
                                   <div className="min-w-0">
                                     <div className="flex min-w-0 items-center gap-2">
                                       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-[11px] font-bold text-slate-600">
@@ -332,7 +466,6 @@ export default function Pax8Tab({ customerId, pax8Mapping, queryClient: external
                                   </div>
                                   <PortalStatusPill label={sub.status || 'Unknown'} tone={statusTone(sub.status)} className="w-fit px-2 py-0.5" />
                                   <span className="text-right font-semibold tabular-nums text-slate-950">{safeNumber(sub.quantity) || 1}</span>
-                                  <span className="text-right tabular-nums text-slate-700">{formatCurrency(sub.price)}</span>
                                   <span className="flex items-center justify-end gap-1.5 text-right text-slate-600">
                                     <CalendarDays className="h-3.5 w-3.5 text-slate-400" />
                                     {formatDate(sub.startDate)}

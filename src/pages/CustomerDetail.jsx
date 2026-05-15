@@ -788,7 +788,7 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
         variants={staggerContainer}
         initial="initial"
         animate="animate"
-        className="grid grid-cols-2 gap-2 lg:grid-cols-5"
+        className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 rounded-lg px-2 py-1.5 text-sm"
       >
         {[
           { icon: DollarSign, value: `$${totalLicenseCost.toLocaleString('en-US', { minimumFractionDigits: 0 })}`, label: 'SaaS spend', color: 'text-emerald-700', bg: 'bg-emerald-50' },
@@ -800,16 +800,12 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
           <motion.div
             key={stat.label}
             variants={staggerItem}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm"
+            className="flex min-w-[112px] items-center justify-center gap-2"
           >
-            <div className="flex min-h-[48px] items-center justify-center gap-2 text-center">
-              <div className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', stat.bg)}>
-                <stat.icon className={cn('h-3.5 w-3.5', stat.color)} />
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-lg font-bold leading-5 tabular-nums text-slate-950">{stat.value}</p>
-                <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{stat.label}</p>
-              </div>
+            <stat.icon className={cn('h-3.5 w-3.5 shrink-0', stat.color)} />
+            <div className="flex min-w-0 items-baseline gap-1.5">
+              <span className="truncate text-base font-bold leading-5 tabular-nums text-slate-950">{stat.value}</span>
+              <span className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-500">{stat.label}</span>
             </div>
           </motion.div>
         ))}
