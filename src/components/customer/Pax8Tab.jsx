@@ -144,10 +144,13 @@ function licenseMatchKey(raw) {
   if (!value) return '';
 
   const compact = value.replace(/[^a-z0-9]/g, '');
-  const has365 = value.includes('365');
+  const isMicrosoft365 = value.includes('microsoft 365');
+  const isOffice365 = value.includes('office 365');
 
-  if (has365 && /\be5\b/.test(value)) return 'm365-e5';
-  if (has365 && /\be3\b/.test(value)) return 'm365-e3';
+  if (isMicrosoft365 && /\be5\b/.test(value)) return 'microsoft-365-e5';
+  if (isMicrosoft365 && /\be3\b/.test(value)) return 'microsoft-365-e3';
+  if (isOffice365 && /\be5\b/.test(value)) return 'office-365-e5';
+  if (isOffice365 && /\be3\b/.test(value)) return 'office-365-e3';
   if (value.includes('business premium') || compact.includes('businesspremium')) return 'm365-business-premium';
   if (value.includes('business standard') || compact.includes('businessstandard')) return 'm365-business-standard';
   if (value.includes('business basic') || compact.includes('businessbasic')) return 'm365-business-basic';
@@ -155,8 +158,13 @@ function licenseMatchKey(raw) {
   if (value.includes('exchange online') && (value.includes('plan 2') || compact.includes('plan2'))) return 'exchange-online-plan-2';
   if (value.includes('power bi pro') || compact.includes('powerbipro')) return 'power-bi-pro';
   if (value.includes('visio') && (value.includes('plan 2') || compact.includes('plan2'))) return 'visio-plan-2';
+  if (value.includes('planner') && value.includes('project') && (value.includes('plan 3') || compact.includes('plan3'))) return 'project-plan-3';
   if (value.includes('project') && (value.includes('plan 3') || compact.includes('plan3'))) return 'project-plan-3';
   if (value.includes('audio conferencing')) return 'audio-conferencing';
+  if (value.includes('teams rooms basic')) return 'teams-rooms-basic';
+  if (value.includes('teams rooms pro')) return 'teams-rooms-pro';
+  if (value.includes('defender for office') && (value.includes('plan 2') || compact.includes('plan2'))) return 'defender-office-365-plan-2';
+  if (value.includes('entra id p2') || compact.includes('entraidp2')) return 'entra-id-p2';
 
   return value
     .replace(/\b(microsoft|office|365|license|licenses|subscription|commercial|nce|annual|monthly)\b/g, ' ')

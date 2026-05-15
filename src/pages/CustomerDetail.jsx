@@ -656,8 +656,10 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
   const pastDueInvoices = invoices.filter(i => (i.status || '').toLowerCase() === 'overdue');
   const pastDueBalance = pastDueInvoices
     .reduce((sum, inv) => sum + (Number(inv.amount_due ?? inv.total ?? inv.amount) || 0), 0);
+  const openBalance = invoices
+    .filter(i => ['overdue', 'pending', 'sent', 'open', 'unpaid'].includes((i.status || '').toLowerCase()))
+    .reduce((sum, inv) => sum + (Number(inv.amount_due ?? inv.total ?? inv.amount) || 0), 0);
   const activeQuoteCount = quotes.filter(q => !['rejected', 'expired', 'void', 'cancelled', 'canceled'].includes((q.status || '').toLowerCase())).length;
-  const activeServiceCount = serviceTags.length;
 
   return (
     <div className="space-y-5">
@@ -773,9 +775,9 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
             <div className="flex flex-wrap gap-x-5 gap-y-2 xl:min-w-[480px] xl:justify-end">
               {[
                 { label: 'Monthly billing', value: `$${monthlyBilling.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, tone: 'text-emerald-700' },
+                { label: 'Open balance', value: `$${openBalance.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, tone: openBalance > 0 ? 'text-amber-700' : 'text-slate-950' },
                 { label: 'Past due', value: `$${pastDueBalance.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, tone: pastDueBalance > 0 ? 'text-rose-700' : 'text-slate-950' },
                 { label: 'Quotes', value: activeQuoteCount, tone: 'text-amber-700' },
-                { label: 'Services', value: activeServiceCount, tone: 'text-violet-700' },
               ].map(item => (
                 <div key={item.label} className="min-w-[86px] border-l border-slate-200 pl-3">
                   <p className={cn('truncate text-lg font-bold leading-6 tabular-nums', item.tone)}>{item.value}</p>
@@ -821,7 +823,7 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
           { icon: DollarSign, value: `$${pastDueBalance.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, label: 'Past due', color: pastDueBalance > 0 ? 'text-rose-700' : 'text-slate-700', bg: pastDueBalance > 0 ? 'bg-rose-50' : 'bg-slate-50' },
           { icon: Users, value: contacts.length, label: 'Team', color: 'text-blue-700', bg: 'bg-blue-50' },
           { icon: FileText, value: contracts.filter(c => c.status === 'active').length, label: 'Contracts', color: 'text-amber-700', bg: 'bg-amber-50' },
-          { icon: HelpCircle, value: customer?.total_tickets || tickets.length, label: 'Tickets all time', color: 'text-slate-700', bg: 'bg-slate-50' },
+          { icon: HelpCircle, value: tickets.length, label: 'Tickets 90 days', color: 'text-slate-700', bg: 'bg-slate-50' },
           { icon: Monitor, value: devices.length, label: 'Devices', color: 'text-violet-700', bg: 'bg-violet-50' },
         ].map(stat => (
           <motion.div

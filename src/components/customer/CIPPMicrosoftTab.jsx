@@ -12,6 +12,7 @@ import {
   KeyRound,
   Layers3,
   LogIn,
+  Mail,
   MapPin,
   Monitor,
   Phone,
@@ -54,6 +55,14 @@ const USER_FILTERS = [
   { key: 'stale', label: 'No recent sign-in' },
   { key: 'mfa_enabled', label: 'MFA enabled' },
   { key: 'mfa_missing', label: 'MFA disabled' },
+];
+
+const GROUP_FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'groups', label: 'Groups' },
+  { key: 'distribution', label: 'Distribution lists' },
+  { key: 'shared_mailboxes', label: 'Shared mailboxes' },
+  { key: 'security', label: 'Security' },
 ];
 
 const LICENSE_ALIASES = {
@@ -124,6 +133,68 @@ function formatLicenseName(raw) {
     .replace(/_/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function licenseMatchKey(raw) {
+  const value = formatLicenseName(raw).toLowerCase();
+  if (!value) return '';
+
+  const compact = value.replace(/[^a-z0-9]/g, '');
+  const isMicrosoft365 = value.includes('microsoft 365');
+  const isOffice365 = value.includes('office 365');
+
+  if (isMicrosoft365 && /\be5\b/.test(value)) return 'microsoft-365-e5';
+  if (isMicrosoft365 && /\be3\b/.test(value)) return 'microsoft-365-e3';
+  if (isOffice365 && /\be5\b/.test(value)) return 'office-365-e5';
+  if (isOffice365 && /\be3\b/.test(value)) return 'office-365-e3';
+  if (value.includes('business premium') || compact.includes('businesspremium')) return 'm365-business-premium';
+  if (value.includes('business standard') || compact.includes('businessstandard')) return 'm365-business-standard';
+  if (value.includes('business basic') || compact.includes('businessbasic')) return 'm365-business-basic';
+  if (value.includes('exchange online') && (value.includes('plan 1') || compact.includes('plan1'))) return 'exchange-online-plan-1';
+  if (value.includes('exchange online') && (value.includes('plan 2') || compact.includes('plan2'))) return 'exchange-online-plan-2';
+  if (value.includes('power bi pro') || compact.includes('powerbipro')) return 'power-bi-pro';
+  if (value.includes('visio') && (value.includes('plan 2') || compact.includes('plan2'))) return 'visio-plan-2';
+  if (value.includes('planner') && value.includes('project') && (value.includes('plan 3') || compact.includes('plan3'))) return 'project-plan-3';
+  if (value.includes('project') && (value.includes('plan 3') || compact.includes('plan3'))) return 'project-plan-3';
+  if (value.includes('audio conferencing')) return 'audio-conferencing';
+  if (value.includes('teams rooms basic')) return 'teams-rooms-basic';
+  if (value.includes('teams rooms pro')) return 'teams-rooms-pro';
+  if (value.includes('defender for office') && (value.includes('plan 2') || compact.includes('plan2'))) return 'defender-office-365-plan-2';
+  if (value.includes('entra id p2') || compact.includes('entraidp2')) return 'entra-id-p2';
+
+  return value
+    .replace(/\b(microsoft|office|365|license|licenses|subscription|commercial|nce|annual|monthly)\b/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, '-');
+}
+
+function normalizePax8Product(product) {
+  const subscriptions = Array.isArray(product?.subscriptions) ? product.subscriptions : [];
+  const subscriptionQuantity = subscriptions.reduce((sum, sub) => sum + (asNumber(sub?.quantity) || 1), 0);
+  return {
+    name: formatLicenseName(product?.name || product?.productName || product?.description),
+    quantity: asNumber(product?.quantity) ?? subscriptionQuantity,
+  };
+}
+
+function buildPax8LicenseTotals(pax8Mappings) {
+  const totals = new Map();
+  for (const mapping of pax8Mappings) {
+    const cd = parseCachedData(mapping.cached_data);
+    const products = asArray(cd.products);
+    for (const rawProduct of products) {
+      const product = normalizePax8Product(rawProduct);
+      const key = licenseMatchKey(product.name);
+      if (!key || !product.name) continue;
+      const existing = totals.get(key) || { quantity: 0, names: [] };
+      totals.set(key, {
+        quantity: existing.quantity + (product.quantity || 0),
+        names: [...new Set([...existing.names, product.name])],
+      });
+    }
+  }
+  return totals;
 }
 
 function getLicenseNames(user) {
@@ -219,13 +290,73 @@ function hasRecentSignIn(value, days = 30) {
 }
 
 function formatGroupType(type) {
-  return String(type || 'Group')
+  const value = String(type || 'Group');
+  if (/^m365$/i.test(value) || /unified/i.test(value)) return 'M365 Group';
+  if (/sharedmailbox|shared mailbox/i.test(value)) return 'Shared Mailbox';
+  if (/usermailbox|user mailbox/i.test(value)) return 'User Mailbox';
+  return value
     .replace(/microsoft365/i, 'Microsoft 365')
     .replace(/distributionList/i, 'Distribution List')
     .replace(/mailEnabledSecurity/i, 'Mail-Enabled Security');
 }
 
-function buildLicenseSummary(users, mappings) {
+function groupCategory(groupType) {
+  const value = formatGroupType(groupType).toLowerCase();
+  if (value.includes('distribution')) return 'distribution';
+  if (value.includes('security')) return 'security';
+  return 'groups';
+}
+
+function mailboxCategory(mailboxType) {
+  const value = formatGroupType(mailboxType).toLowerCase();
+  if (value.includes('shared')) return 'shared_mailboxes';
+  return 'mailboxes';
+}
+
+function buildDirectoryRows(groups, mailboxes) {
+  const groupRows = groups.map(group => {
+    const cd = parseCachedData(group.cached_data);
+    const members = asArray(cd.members);
+    const typeLabel = formatGroupType(group.group_type);
+    return {
+      id: `group-${group.id}`,
+      sourceId: group.id,
+      kind: 'group',
+      category: groupCategory(group.group_type),
+      name: group.display_name || 'Group',
+      email: group.mail || '',
+      description: group.description || '',
+      typeLabel,
+      tone: GROUP_TYPE_STYLES[group.group_type] || GROUP_TYPE_STYLES[typeLabel] || 'slate',
+      count: group.member_count ?? members.length,
+      countLabel: 'members',
+      members,
+      cachedData: cd,
+    };
+  });
+
+  const sharedMailboxRows = mailboxes
+    .filter(mailbox => mailboxCategory(mailbox.mailbox_type) === 'shared_mailboxes')
+    .map(mailbox => ({
+      id: `mailbox-${mailbox.id}`,
+      sourceId: mailbox.id,
+      kind: 'mailbox',
+      category: 'shared_mailboxes',
+      name: mailbox.display_name || mailbox.primary_smtp_address || 'Shared mailbox',
+      email: mailbox.primary_smtp_address || mailbox.user_principal_name || '',
+      description: mailbox.user_principal_name || '',
+      typeLabel: formatGroupType(mailbox.mailbox_type),
+      tone: 'blue',
+      count: null,
+      countLabel: 'mailbox',
+      members: [],
+      cachedData: parseCachedData(mailbox.cached_data),
+    }));
+
+  return [...groupRows, ...sharedMailboxRows].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function buildLicenseSummary(users, mappings, pax8LicenseTotals = new Map()) {
   const userCounts = new Map();
   for (const user of users) {
     for (const license of getLicenseNames(user)) {
@@ -268,6 +399,35 @@ function buildLicenseSummary(users, mappings) {
     if (!byName.has(name)) {
       byName.set(name, { name, assigned, total: null, available: null });
     }
+  }
+
+  const matchedPax8Keys = new Set();
+  for (const [name, row] of byName.entries()) {
+    const key = licenseMatchKey(name);
+    const pax8 = pax8LicenseTotals.get(key);
+    if (!pax8) continue;
+    matchedPax8Keys.add(key);
+    const assigned = asNumber(row.assigned) || 0;
+    byName.set(name, {
+      ...row,
+      total: pax8.quantity,
+      available: Math.max(pax8.quantity - assigned, 0),
+      source: 'pax8',
+      pax8ProductName: pax8.names[0] || null,
+    });
+  }
+
+  for (const [key, pax8] of pax8LicenseTotals.entries()) {
+    if (matchedPax8Keys.has(key)) continue;
+    const name = formatLicenseName(pax8.names[0] || key);
+    byName.set(name, {
+      name,
+      assigned: 0,
+      total: pax8.quantity,
+      available: pax8.quantity,
+      source: 'pax8',
+      pax8ProductName: pax8.names[0] || null,
+    });
   }
 
   return [...byName.values()].sort((a, b) => (b.assigned || 0) - (a.assigned || 0));
@@ -506,7 +666,27 @@ export default function CIPPMicrosoftTab({ customerId }) {
   });
   const groups = groupsRaw ?? [];
 
-  const licenseSummary = useMemo(() => buildLicenseSummary(users, mappings), [users, mappings]);
+  const { data: mailboxesRaw = [], isLoading: loadingMailboxes } = useQuery({
+    queryKey: ['cipp-mailboxes', customerId],
+    queryFn: () => client.entities.CIPPMailbox.filter({ customer_id: customerId }),
+    enabled: !!customerId,
+    staleTime: 1000 * 60 * 5,
+  });
+  const mailboxes = mailboxesRaw ?? [];
+
+  const { data: pax8MappingsRaw = [] } = useQuery({
+    queryKey: ['pax8-mapping', customerId],
+    queryFn: () => client.entities.Pax8Mapping.filter({ customer_id: customerId }),
+    enabled: !!customerId,
+    staleTime: 1000 * 60 * 5,
+  });
+  const pax8Mappings = pax8MappingsRaw ?? [];
+
+  const pax8LicenseTotals = useMemo(() => buildPax8LicenseTotals(pax8Mappings), [pax8Mappings]);
+  const licenseSummary = useMemo(
+    () => buildLicenseSummary(users, mappings, pax8LicenseTotals),
+    [users, mappings, pax8LicenseTotals]
+  );
 
   const stats = useMemo(() => {
     const licensedUsers = users.filter(user => getLicenseNames(user).length > 0);
@@ -526,8 +706,9 @@ export default function CIPPMicrosoftTab({ customerId }) {
       staleUsers: staleUsers.length,
       mfaShown: mfaShown.length,
       groups: groups.length,
+      sharedMailboxes: mailboxes.filter(mailbox => mailboxCategory(mailbox.mailbox_type) === 'shared_mailboxes').length,
     };
-  }, [users, groups]);
+  }, [users, groups, mailboxes]);
 
   const tenantName = mappings[0]?.cipp_tenant_name || mappings[0]?.cipp_default_domain || 'Microsoft 365 tenant';
   const lastSynced = mappings
@@ -541,10 +722,6 @@ export default function CIPPMicrosoftTab({ customerId }) {
   }, [users]);
 
   const licenseOptions = useMemo(() => licenseSummary.map(license => license.name), [licenseSummary]);
-  const groupTypeOptions = useMemo(() => {
-    return [...new Set(groups.map(group => group.group_type || 'Group'))].sort((a, b) => a.localeCompare(b));
-  }, [groups]);
-
   const searchLower = search.trim().toLowerCase();
 
   const filteredUsers = useMemo(() => {
@@ -582,16 +759,17 @@ export default function CIPPMicrosoftTab({ customerId }) {
       .sort((a, b) => (a.display_name || a.user_principal_name || '').localeCompare(b.display_name || b.user_principal_name || ''));
   }, [users, statusFilter, licenseFilter, titleFilter, searchLower]);
 
-  const filteredGroups = useMemo(() => {
-    return groups.filter(group => {
-      const cd = parseCachedData(group.cached_data);
-      const searchable = [group.display_name, group.mail, group.description, group.group_type, ...asArray(cd.members)]
+  const directoryRows = useMemo(() => buildDirectoryRows(groups, mailboxes), [groups, mailboxes]);
+
+  const filteredDirectoryRows = useMemo(() => {
+    return directoryRows.filter(row => {
+      const searchable = [row.name, row.email, row.description, row.typeLabel, ...row.members]
         .filter(Boolean).join(' ').toLowerCase();
       const searchMatches = !searchLower || searchable.includes(searchLower);
-      const typeMatches = groupTypeFilter === 'all' || group.group_type === groupTypeFilter;
+      const typeMatches = groupTypeFilter === 'all' || row.category === groupTypeFilter;
       return searchMatches && typeMatches;
     });
-  }, [groups, searchLower, groupTypeFilter]);
+  }, [directoryRows, searchLower, groupTypeFilter]);
 
   const filteredLicenseSummary = useMemo(() => {
     return licenseSummary.filter(license => {
@@ -605,7 +783,7 @@ export default function CIPPMicrosoftTab({ customerId }) {
     return Math.max(...filteredLicenseSummary.map(license => asNumber(license.assigned) || 0), 1);
   }, [filteredLicenseSummary]);
 
-  const isLoading = loadingMappings || loadingUsers || loadingGroups;
+  const isLoading = loadingMappings || loadingUsers || loadingGroups || loadingMailboxes;
 
   if (isLoading) {
     return (
@@ -638,6 +816,7 @@ export default function CIPPMicrosoftTab({ customerId }) {
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
           <PortalStatusPill label={`${stats.licensedUsers} licensed`} tone="blue" icon={KeyRound} />
           <PortalStatusPill label={`${stats.groups} groups`} tone="slate" icon={Shield} />
+          <PortalStatusPill label={`${stats.sharedMailboxes} shared mailboxes`} tone="blue" icon={Mail} />
         </div>
       </div>
 
@@ -717,17 +896,36 @@ export default function CIPPMicrosoftTab({ customerId }) {
         )}
 
         {activeView === 'groups' && (
-          <SelectFilter label="Group Type" value={groupTypeFilter} onChange={setGroupTypeFilter}>
-            <option value="all">All groups</option>
-            {groupTypeOptions.map(type => <option key={type} value={type}>{formatGroupType(type)}</option>)}
-          </SelectFilter>
+          <div className="flex flex-wrap gap-1.5 xl:min-w-[520px] xl:justify-end">
+            {GROUP_FILTERS.map(filter => {
+              const count = filter.key === 'all'
+                ? directoryRows.length
+                : directoryRows.filter(row => row.category === filter.key).length;
+              return (
+                <button
+                  key={filter.key}
+                  type="button"
+                  onClick={() => setGroupTypeFilter(filter.key)}
+                  className={cn(
+                    'rounded-lg border px-3 py-2 text-xs font-semibold transition-colors',
+                    groupTypeFilter === filter.key
+                      ? 'border-slate-950 bg-slate-950 text-white'
+                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-950'
+                  )}
+                >
+                  {filter.label}
+                  <span className="ml-1.5 opacity-70">{count}</span>
+                </button>
+              );
+            })}
+          </div>
         )}
       </div>
 
       {activeView === 'licenses' && (
         <PortalSection
           title="License Utilization"
-          description="Assigned Microsoft 365 products from CIPP."
+          description="CIPP assigned users compared with purchased seats from Pax8 when available."
           badge={<PortalStatusPill label={`${filteredLicenseSummary.length} products`} tone="blue" />}
           bodyClassName="p-4"
         >
@@ -739,6 +937,7 @@ export default function CIPPMicrosoftTab({ customerId }) {
                 const total = asNumber(license.total);
                 const assigned = asNumber(license.assigned) || 0;
                 const available = total === null ? null : Math.max(total - assigned, 0);
+                const overAssigned = total !== null && assigned > total;
                 const percent = total && total > 0
                   ? Math.min(Math.round((assigned / total) * 100), 100)
                   : Math.min(Math.round((assigned / maxAssignedLicenses) * 100), 100);
@@ -749,9 +948,12 @@ export default function CIPPMicrosoftTab({ customerId }) {
                         <p className="truncate text-sm font-semibold text-slate-950">{license.name}</p>
                         <p className="mt-1 text-xs text-slate-500">
                           {total !== null ? `${assigned} of ${total} assigned` : `${assigned} assigned users`}
+                          {license.source === 'pax8' ? ' · Pax8 total' : ''}
                         </p>
                       </div>
-                      {available === 0 && total !== null && (
+                      {overAssigned ? (
+                        <PortalStatusPill label={`Over by ${assigned - total}`} tone="rose" icon={AlertCircle} className="shrink-0 px-2 py-0.5" />
+                      ) : available === 0 && total !== null && (
                         <PortalStatusPill label="Full" tone="amber" icon={AlertCircle} className="shrink-0 px-2 py-0.5" />
                       )}
                     </div>
@@ -767,13 +969,13 @@ export default function CIPPMicrosoftTab({ customerId }) {
                       </div>
                       <div className="px-2 py-2">
                         <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Open</p>
-                        <p className="text-base font-bold tabular-nums text-slate-950">{available ?? '-'}</p>
+                        <p className={cn('text-base font-bold tabular-nums', overAssigned ? 'text-rose-700' : 'text-slate-950')}>{available ?? '-'}</p>
                       </div>
                     </div>
 
                     <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
                       <div
-                        className={cn('h-full rounded-full', available === 0 && total !== null ? 'bg-amber-500' : 'bg-blue-500')}
+                        className={cn('h-full rounded-full', overAssigned ? 'bg-rose-500' : available === 0 && total !== null ? 'bg-amber-500' : 'bg-blue-500')}
                         style={{ width: `${percent}%` }}
                       />
                     </div>
@@ -873,69 +1075,76 @@ export default function CIPPMicrosoftTab({ customerId }) {
 
       {activeView === 'groups' && (
         <PortalSection
-          title="Groups And Distribution"
-          description={`Showing ${filteredGroups.length} of ${groups.length} Microsoft 365 groups and lists.`}
+          title="Groups, Lists, And Shared Mailboxes"
+          description={`Showing ${filteredDirectoryRows.length} of ${directoryRows.length} Microsoft 365 directory objects.`}
           bodyClassName="divide-y divide-slate-100"
         >
-          {filteredGroups.length === 0 ? (
+          {filteredDirectoryRows.length === 0 ? (
             <EmptyState icon={Shield} title="No groups match this view" description="Adjust the search or group type filter." />
           ) : (
-            filteredGroups.map(group => {
-              const cd = parseCachedData(group.cached_data);
-              const members = asArray(cd.members);
-              const isExpanded = expandedGroup === group.id;
-              const tone = GROUP_TYPE_STYLES[group.group_type] || 'slate';
+            filteredDirectoryRows.map(row => {
+              const isExpanded = expandedGroup === row.id;
+              const RowIcon = row.kind === 'mailbox' ? Mail : Shield;
               return (
-                <div key={group.id}>
+                <div key={row.id}>
                   <button
                     type="button"
-                    onClick={() => setExpandedGroup(isExpanded ? null : group.id)}
-                    className="grid w-full gap-3 px-5 py-4 text-left transition-colors hover:bg-slate-50 md:grid-cols-[minmax(0,1fr)_170px_110px_32px] md:items-center"
+                    onClick={() => setExpandedGroup(isExpanded ? null : row.id)}
+                    className="grid w-full gap-2 px-4 py-2.5 text-left transition-colors hover:bg-slate-50 md:grid-cols-[minmax(0,1fr)_145px_78px_28px] md:items-center"
                   >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
-                        <Shield className="h-4 w-4" />
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+                        <RowIcon className="h-4 w-4" />
                       </div>
                       <div className="min-w-0">
-                        <p className="truncate font-semibold text-slate-950">{group.display_name || 'Group'}</p>
-                        <p className="truncate text-xs text-slate-500">{group.mail || group.description || 'No email address shown'}</p>
+                        <p className="truncate text-sm font-semibold text-slate-950">{row.name}</p>
+                        <p className="truncate text-xs text-slate-500">{row.email || row.description || 'No address shown'}</p>
                       </div>
                     </div>
-                    <PortalStatusPill label={formatGroupType(group.group_type)} tone={tone} className="justify-center" />
+                    <PortalStatusPill label={row.typeLabel} tone={row.tone} className="justify-center px-2 py-0.5" />
                     <div className="text-left md:text-right">
-                      <p className="text-sm font-bold tabular-nums text-slate-950">{group.member_count ?? members.length}</p>
-                      <p className="text-xs text-slate-500">members</p>
+                      {row.count === null ? (
+                        <p className="text-xs font-semibold text-slate-500">{row.countLabel}</p>
+                      ) : (
+                        <>
+                          <p className="text-sm font-bold leading-4 tabular-nums text-slate-950">{row.count}</p>
+                          <p className="text-[11px] text-slate-500">{row.countLabel}</p>
+                        </>
+                      )}
                     </div>
                     <ChevronDown className={cn('h-4 w-4 text-slate-400 transition-transform', isExpanded && 'rotate-180')} />
                   </button>
                   {isExpanded && (
-                    <div className="px-5 pb-4">
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                        {group.description && <p className="mb-3 text-sm text-slate-600">{group.description}</p>}
+                    <div className="px-4 pb-3">
+                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                        {row.description && <p className="mb-3 text-sm text-slate-600">{row.description}</p>}
                         <div className="flex flex-wrap gap-2">
-                          {cd.teams_enabled && <PortalStatusPill label="Teams enabled" tone="violet" icon={Layers3} />}
-                          {cd.dynamic && <PortalStatusPill label="Dynamic membership" tone="blue" icon={CheckCircle2} />}
-                          {cd.on_premises_sync && <PortalStatusPill label="Hybrid synced" tone="blue" icon={Monitor} />}
+                          <PortalStatusPill label={row.typeLabel} tone={row.tone} icon={RowIcon} />
+                          {row.cachedData.teams_enabled && <PortalStatusPill label="Teams enabled" tone="violet" icon={Layers3} />}
+                          {row.cachedData.dynamic && <PortalStatusPill label="Dynamic membership" tone="blue" icon={CheckCircle2} />}
+                          {row.cachedData.on_premises_sync && <PortalStatusPill label="Hybrid synced" tone="blue" icon={Monitor} />}
                         </div>
-                        <div className="mt-4">
+                        {row.kind === 'group' && (
+                        <div className="mt-3">
                           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Members</p>
-                          {members.length === 0 ? (
+                          {row.members.length === 0 ? (
                             <p className="mt-2 text-sm text-slate-500">No members shown in the current CIPP sync.</p>
                           ) : (
                             <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                              {members.slice(0, 60).map((member, index) => (
-                                <div key={`${member}-${index}`} className="truncate rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800">
+                              {row.members.slice(0, 60).map((member, index) => (
+                                <div key={`${member}-${index}`} className="truncate rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800">
                                   {member}
                                 </div>
                               ))}
-                              {members.length > 60 && (
-                                <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-500">
-                                  +{members.length - 60} more
+                              {row.members.length > 60 && (
+                                <div className="rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-500">
+                                  +{row.members.length - 60} more
                                 </div>
                               )}
                             </div>
                           )}
                         </div>
+                        )}
                       </div>
                     </div>
                   )}

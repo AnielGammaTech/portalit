@@ -240,17 +240,17 @@ export default function CustomerDashboardTab({
             to={tabUrl(customerId, 'billing')}
           />
           <NumberMetric
-            label="Past due"
-            value={money(invoiceStats.overdueAmount)}
-            detail={invoiceStats.overdue.length > 0 ? `${invoiceStats.overdue.length} overdue invoice${invoiceStats.overdue.length !== 1 ? 's' : ''}` : 'No overdue balance'}
-            tone={invoiceStats.overdueAmount > 0 ? 'rose' : 'slate'}
-            to={tabUrl(customerId, 'billing')}
-          />
-          <NumberMetric
             label="Open balance"
             value={money(invoiceStats.dueAmount)}
             detail={`${invoiceStats.due.length} open invoice${invoiceStats.due.length !== 1 ? 's' : ''}`}
             tone={invoiceStats.dueAmount > 0 ? 'amber' : 'slate'}
+            to={tabUrl(customerId, 'billing')}
+          />
+          <NumberMetric
+            label="Past due"
+            value={money(invoiceStats.overdueAmount)}
+            detail={invoiceStats.overdue.length > 0 ? `${invoiceStats.overdue.length} overdue invoice${invoiceStats.overdue.length !== 1 ? 's' : ''}` : 'No overdue balance'}
+            tone={invoiceStats.overdueAmount > 0 ? 'rose' : 'slate'}
             to={tabUrl(customerId, 'billing')}
           />
           <NumberMetric

@@ -55,8 +55,8 @@ export default function CustomerTicketsTab({
         {[
           { label: 'In progress', value: inProgress, detail: 'being worked', tone: 'blue' },
           { label: 'Your input needed', value: inputNeeded, detail: 'waiting on customer', tone: inputNeeded > 0 ? 'amber' : 'slate' },
-          { label: 'Completed', value: completed, detail: 'resolved history', tone: 'emerald' },
-          { label: 'All time', value: tickets.length, detail: 'total requests', tone: 'slate' },
+          { label: 'Completed', value: completed, detail: 'resolved in last 90 days', tone: 'emerald' },
+          { label: 'Last 90 days', value: tickets.length, detail: 'synced requests', tone: 'slate' },
         ].map(metric => (
           <div
             key={metric.label}
