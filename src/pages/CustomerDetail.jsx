@@ -646,6 +646,7 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
 
   const customerLogoUrl = customer.logo_url ? resolveFileUrl(customer.logo_url) : null;
   const showCustomerLogo = customerLogoUrl && failedCustomerLogoUrl !== customerLogoUrl;
+  const showCustomerHero = !isCustomerView || currentTab === 'dashboard';
   const monthlyBillIds = new Set(
     recurringBills
       .filter(b => activeBillIdSet.has(b.id) && !['yearly', 'annual', 'annually'].includes((b.frequency || '').toLowerCase()))
@@ -698,6 +699,7 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
       )}
 
       {/* Customer Home Header */}
+      {showCustomerHero && (
       <motion.div
         {...fadeInUp}
         className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
@@ -707,7 +709,7 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
             <div className="flex min-w-0 items-start gap-3 sm:gap-4">
               <div
                 className={cn(
-                  "relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white group sm:h-14 sm:w-14",
+                  "relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white group sm:h-14 sm:w-14",
                   canUseAdminActions && "cursor-pointer"
                 )}
                 onClick={() => canUseAdminActions && logoInputRef.current?.click()}
@@ -716,11 +718,11 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
                   <img
                     src={customerLogoUrl}
                     alt={customer.name}
-                    className="h-10 w-10 rounded-xl object-cover sm:h-14 sm:w-14"
+                    className="h-9 w-9 rounded-xl object-cover sm:h-14 sm:w-14"
                     onError={() => setFailedCustomerLogoUrl(customerLogoUrl)}
                   />
                 ) : (
-                  <span className="text-lg font-bold text-primary sm:text-2xl">
+                  <span className="text-base font-bold text-primary sm:text-2xl">
                     {customer.name?.charAt(0)?.toUpperCase() || 'C'}
                   </span>
                 )}
@@ -743,10 +745,10 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
               </div>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="truncate text-lg font-semibold leading-6 text-slate-950 sm:text-2xl">{customer.name}</h1>
+                  <h1 className="truncate text-base font-semibold leading-5 text-slate-950 sm:text-2xl">{customer.name}</h1>
                   <Badge
                     variant={customer.status === 'active' ? 'flat-success' : customer.status === 'suspended' ? 'flat-destructive' : 'secondary'}
-                    className="h-6 px-2 text-[11px] capitalize sm:text-xs"
+                    className="h-5 px-2 text-[10px] capitalize sm:h-6 sm:text-xs"
                   >
                     {customer.status || 'Active'}
                   </Badge>
@@ -773,16 +775,16 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
                 </div>
               </div>
             </div>
-            <div className="grid w-full grid-cols-2 gap-x-3 gap-y-2 border-t border-slate-100 pt-3 sm:grid-cols-4 xl:w-auto xl:min-w-[480px] xl:border-t-0 xl:pt-0 xl:justify-end">
+            <div className="grid w-full grid-cols-4 gap-x-1 border-t border-slate-100 pt-3 xl:w-auto xl:min-w-[430px] xl:border-t-0 xl:pt-0 xl:justify-end">
               {[
                 { label: 'Monthly billing', value: `$${monthlyBilling.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, tone: 'text-emerald-700' },
                 { label: 'Open balance', value: `$${openBalance.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, tone: openBalance > 0 ? 'text-amber-700' : 'text-slate-950' },
                 { label: 'Past due', value: `$${pastDueBalance.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, tone: pastDueBalance > 0 ? 'text-rose-700' : 'text-slate-950' },
                 { label: 'Quotes', value: activeQuoteCount, tone: 'text-amber-700' },
               ].map(item => (
-                <div key={item.label} className="min-w-0 border-l border-slate-200 pl-3">
-                  <p className={cn('truncate text-base font-bold leading-5 tabular-nums sm:text-lg sm:leading-6', item.tone)}>{item.value}</p>
-                  <p className="truncate text-[9px] font-semibold uppercase tracking-wide text-slate-500 sm:text-[10px]">{item.label}</p>
+                <div key={item.label} className="min-w-0 border-l border-slate-200 pl-2 sm:pl-3">
+                  <p className={cn('truncate text-sm font-bold leading-4 tabular-nums sm:text-base sm:leading-5', item.tone)}>{item.value}</p>
+                  <p className="mt-0.5 truncate text-[8px] font-semibold uppercase tracking-wide text-slate-500 sm:text-[9px]">{item.label}</p>
                 </div>
               ))}
             </div>
@@ -812,6 +814,7 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
           </div>
         )}
       </motion.div>
+      )}
 
       <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-3 sm:space-y-6" id="customer-tabs">
         <TabsList className={cn(

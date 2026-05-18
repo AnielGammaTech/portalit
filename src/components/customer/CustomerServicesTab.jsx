@@ -620,8 +620,8 @@ export default function CustomerServicesTab({
 
   return (
     <ServiceTabErrorBoundary>
-    <div className="space-y-6">
-      <Tabs defaultValue="recurring" className="space-y-4">
+	    <div className="space-y-3 sm:space-y-4">
+	      <Tabs defaultValue="recurring" className="space-y-3 sm:space-y-4">
         {/* Service Tabs — only show tabs for services the customer has */}
         <div className="flex justify-center">
           <TabsList className="flex h-auto w-full max-w-5xl flex-wrap justify-center gap-1 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
@@ -655,29 +655,29 @@ export default function CustomerServicesTab({
 
         {/* Recurring Services Tab */}
         <TabsContent value="recurring">
-          <motion.div {...fadeInUp} className="space-y-4">
-            {/* Stats row */}
-            <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid grid-cols-1 md:grid-cols-3 gap-4">
+	          <motion.div {...fadeInUp} className="space-y-3 sm:space-y-4">
+	            {/* Stats row */}
+	            <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {[
                 { icon: DollarSign, label: 'Monthly Recurring', value: `$${lineItems.reduce((sum, item) => sum + (item.net_amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, color: 'text-emerald-600', bg: 'bg-emerald-500/10', raw: true },
                 { icon: HardDrive, label: 'Active Services', value: lineItems.length, color: 'text-primary', bg: 'bg-primary/10' },
                 { icon: DollarSign, label: 'Billable Items', value: lineItems.filter(i => i.net_amount > 0).length, color: 'text-violet-600', bg: 'bg-violet-500/10' },
               ].map((stat) => (
-                <motion.div key={stat.label} variants={staggerItem} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:bg-slate-50">
-                  <div className="flex items-center gap-3">
-                    <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg', stat.bg)}>
-                      <stat.icon className={cn('w-5 h-5', stat.color)} />
-                    </div>
-                    <div>
-                      {stat.raw ? (
-                        <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-                      ) : (
-                        <AnimatedCounter value={stat.value} className="text-2xl font-bold text-foreground" />
-                      )}
-                      <p className="text-xs text-muted-foreground">{stat.label}</p>
-                    </div>
-                  </div>
-                </motion.div>
+	                <motion.div key={stat.label} variants={staggerItem} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm transition-colors hover:bg-slate-50">
+	                  <div className="flex items-center gap-2.5">
+	                    <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', stat.bg)}>
+	                      <stat.icon className={cn('h-4 w-4', stat.color)} />
+	                    </div>
+	                    <div className="min-w-0">
+	                      {stat.raw ? (
+	                        <p className="truncate text-base font-bold leading-5 text-foreground sm:text-lg">{stat.value}</p>
+	                      ) : (
+	                        <AnimatedCounter value={stat.value} className="text-base font-bold leading-5 text-foreground sm:text-lg" />
+	                      )}
+	                      <p className="truncate text-[11px] text-muted-foreground">{stat.label}</p>
+	                    </div>
+	                  </div>
+	                </motion.div>
               ))}
             </motion.div>
 
@@ -779,26 +779,26 @@ export default function CustomerServicesTab({
 
         {/* Users Tab */}
         <TabsContent value="users">
-          <motion.div {...fadeInUp} className="space-y-4">
-            {/* Stats */}
-            <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid grid-cols-1 md:grid-cols-4 gap-4">
+	          <motion.div {...fadeInUp} className="space-y-3 sm:space-y-4">
+	            {/* Stats */}
+	            <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {[
                 { icon: Users, label: 'Total Contacts', value: contacts.length, color: 'text-primary', bg: 'bg-primary/10' },
                 { icon: CheckCircle2, label: 'Primary Contacts', value: contacts.filter(c => c.is_primary).length, color: 'text-success', bg: 'bg-success/10' },
                 { icon: Shield, label: 'With Email', value: contacts.filter(c => c.email).length, color: 'text-violet-600', bg: 'bg-violet-500/10' },
                 { icon: Laptop, label: 'With Devices', value: contacts.filter(c => devicesByContact[c.id]?.length > 0).length, color: 'text-blue-600', bg: 'bg-blue-500/10' },
               ].map((stat) => (
-                <motion.div key={stat.label} variants={staggerItem} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:bg-slate-50">
-                  <div className="flex items-center gap-3">
-                    <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg', stat.bg)}>
-                      <stat.icon className={cn('w-5 h-5', stat.color)} />
-                    </div>
-                    <div>
-                      <AnimatedCounter value={stat.value} className="text-2xl font-bold text-foreground" />
-                      <p className="text-xs text-muted-foreground">{stat.label}</p>
-                    </div>
-                  </div>
-                </motion.div>
+	                <motion.div key={stat.label} variants={staggerItem} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm transition-colors hover:bg-slate-50">
+	                  <div className="flex items-center gap-2.5">
+	                    <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', stat.bg)}>
+	                      <stat.icon className={cn('h-4 w-4', stat.color)} />
+	                    </div>
+	                    <div className="min-w-0">
+	                      <AnimatedCounter value={stat.value} className="text-base font-bold leading-5 text-foreground sm:text-lg" />
+	                      <p className="truncate text-[11px] text-muted-foreground">{stat.label}</p>
+	                    </div>
+	                  </div>
+	                </motion.div>
               ))}
             </motion.div>
 
@@ -918,23 +918,23 @@ export default function CustomerServicesTab({
           {jumpcloudMapping ? (
             <motion.div {...fadeInUp} className="space-y-4">
               {/* Stats */}
-              <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid grid-cols-1 md:grid-cols-3 gap-4">
+	              <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 {[
                   { icon: Users, label: 'Directory Users', value: jumpcloudCachedStats?.totalUsers || jumpcloudContacts.length, color: 'text-[#7828C8]', bg: 'bg-[#7828C8]/10' },
                   { icon: Cloud, label: 'SSO Applications', value: jumpcloudCachedStats?.ssoApps || jumpcloudLicenses.length, color: 'text-primary', bg: 'bg-primary/10' },
                   { icon: CheckCircle2, label: 'App Assignments', value: jumpcloudLicenses.reduce((sum, l) => sum + (l.assigned_users || 0), 0), color: 'text-success', bg: 'bg-success/10' },
                 ].map((stat) => (
-                  <motion.div key={stat.label} variants={staggerItem} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:bg-slate-50">
-                    <div className="flex items-center gap-3">
-                      <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg', stat.bg)}>
-                        <stat.icon className={cn('w-5 h-5', stat.color)} />
-                      </div>
-                      <div>
-                        <AnimatedCounter value={stat.value} className="text-2xl font-bold text-foreground" />
-                        <p className="text-xs text-muted-foreground">{stat.label}</p>
-                      </div>
-                    </div>
-                  </motion.div>
+	                  <motion.div key={stat.label} variants={staggerItem} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm transition-colors hover:bg-slate-50">
+	                    <div className="flex items-center gap-2.5">
+	                      <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', stat.bg)}>
+	                        <stat.icon className={cn('h-4 w-4', stat.color)} />
+	                      </div>
+	                      <div className="min-w-0">
+	                        <AnimatedCounter value={stat.value} className="text-base font-bold leading-5 text-foreground sm:text-lg" />
+	                        <p className="truncate text-[11px] text-muted-foreground">{stat.label}</p>
+	                      </div>
+	                    </div>
+	                  </motion.div>
                 ))}
               </motion.div>
 
