@@ -21,6 +21,7 @@ import {
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/empty-state";
+import MetricHelp from './MetricHelp';
 
 // Safely convert any value to a renderable string
 function safeStr(val, fallback = '') {
@@ -57,6 +58,15 @@ const severityConfig = {
 function SeverityDot({ severity }) {
   const conf = severityConfig[severity] || severityConfig.info;
   return <span className={cn("w-2 h-2 rounded-full inline-block flex-shrink-0", conf.dot)} />;
+}
+
+function MetricLabel({ children, help }) {
+  return (
+    <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+      <span>{children}</span>
+      {help && <MetricHelp label={`${children} help`}>{help}</MetricHelp>}
+    </div>
+  );
 }
 
 export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClient, canSync = false }) {
@@ -198,7 +208,9 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
             </div>
           </div>
           <p className={cn("text-2xl font-bold", actionableCount > 0 ? "text-red-700" : "text-gray-900")}>{actionableCount}</p>
-          <p className="text-xs text-muted-foreground">Actionable Alerts</p>
+          <MetricLabel help="SaaS Alerts events rated medium, high, or critical. These are not automatically outages; they are sign-ins or app events worth reviewing.">
+            Items to Review
+          </MetricLabel>
           {actionableCount > 0 && (
             <div className="flex gap-2 mt-2">
               {summary.critical > 0 && <span className="text-[10px] font-medium text-red-600">{summary.critical} critical</span>}
@@ -216,7 +228,9 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
             </div>
           </div>
           <p className="text-2xl font-bold text-gray-900">{totalEvents.toLocaleString()}</p>
-          <p className="text-xs text-muted-foreground">Events (7 days)</p>
+          <MetricLabel help="All SaaS Alerts events synced for the last 7 days, including normal low-risk and informational activity.">
+            Events (7 days)
+          </MetricLabel>
           <p className="text-[10px] text-muted-foreground mt-1">{uniqueUsers.length} unique user{uniqueUsers.length !== 1 ? 's' : ''}</p>
         </div>
 
@@ -228,7 +242,9 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
             </div>
           </div>
           <p className="text-2xl font-bold text-gray-900">{vpnEvents + datacenterEvents + threatEvents}</p>
-          <p className="text-xs text-muted-foreground">Risky Access</p>
+          <MetricLabel help="Events from VPN, datacenter, or threat-labeled network sources. These often need context before deciding whether action is required.">
+            Risky Access
+          </MetricLabel>
           <p className="text-[10px] text-muted-foreground mt-1">
             {vpnEvents} VPN · {datacenterEvents} datacenter · {threatEvents} threat
           </p>
@@ -242,7 +258,9 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
             </div>
           </div>
           <p className="text-2xl font-bold text-gray-900">{monitoredApps.length}</p>
-          <p className="text-xs text-muted-foreground">Monitored Apps</p>
+          <MetricLabel help="Cloud apps currently represented in the SaaS Alerts data for this customer.">
+            Monitored Apps
+          </MetricLabel>
           <div className="flex flex-wrap gap-1 mt-2">
             {monitoredApps.slice(0, 3).map((app, i) => (
               <span key={i} className="text-[10px] px-1.5 py-0.5 bg-gray-100 rounded text-gray-600">{safeStr(app)}</span>
@@ -259,7 +277,12 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {/* Severity Breakdown Bar */}
           <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Severity Breakdown</h4>
+            <h4 className="mb-3 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Severity Breakdown
+              <MetricHelp label="Severity breakdown help">
+                SaaS Alerts groups events by severity. Low and info are usually awareness. Medium and above are shown as items to review.
+              </MetricHelp>
+            </h4>
             <div className="space-y-2">
               {['critical', 'high', 'medium', 'low', 'info'].map(level => {
                 const count = summary[level] || 0;
@@ -280,7 +303,12 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
 
           {/* Top Event Types */}
           <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Top Event Types</h4>
+            <h4 className="mb-3 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Top Event Types
+              <MetricHelp label="Top event types help">
+                The most common event names in the synced SaaS Alerts data. Repeated event types help explain what is driving the totals above.
+              </MetricHelp>
+            </h4>
             <div className="space-y-2">
               {Object.entries(eventTypeCounts)
                 .sort(([, a], [, b]) => b - a)
@@ -344,8 +372,13 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
       {/* Events List */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-          <div>
-            <h4 className="text-sm font-semibold text-gray-900">Recent Events</h4>
+	          <div>
+	            <h4 className="flex items-center gap-1 text-sm font-semibold text-gray-900">
+                Recent Events
+                <MetricHelp label="Recent events help">
+                  Raw SaaS Alerts event feed used to support the summary cards above. These are shown for visibility and may include normal activity.
+                </MetricHelp>
+              </h4>
             <p className="text-xs text-muted-foreground">{filteredEvents.length} of {recentEvents.length} events shown</p>
           </div>
           {totalEvents > 0 && (
