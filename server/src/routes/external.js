@@ -8,6 +8,117 @@ function cleanText(value, fallback = '') {
   return text || fallback;
 }
 
+const SERVICE_TAG_SOURCES = [
+  {
+    key: 'spanning',
+    label: 'Spanning',
+    mark: 'SP',
+    color: 'purple',
+    table: 'spanning_mappings',
+    nameKeys: ['spanning_tenant_name', 'customer_name'],
+    idKeys: ['spanning_tenant_id'],
+  },
+  {
+    key: 'jumpcloud',
+    label: 'JumpCloud',
+    mark: 'JC',
+    color: 'green',
+    table: 'jump_cloud_mappings',
+    nameKeys: ['jumpcloud_org_name', 'jump_cloud_org_name', 'customer_name'],
+    idKeys: ['jumpcloud_org_id', 'jump_cloud_org_id'],
+  },
+  {
+    key: 'datto',
+    label: 'RMM',
+    mark: 'D',
+    color: 'blue',
+    table: 'datto_site_mappings',
+    nameKeys: ['datto_site_name', 'site_name', 'customer_name'],
+    idKeys: ['datto_site_uid', 'datto_site_id'],
+  },
+  {
+    key: 'edr',
+    label: 'EDR',
+    mark: 'E',
+    color: 'cyan',
+    table: 'datto_edr_mappings',
+    nameKeys: ['edr_tenant_name', 'tenant_name', 'customer_name'],
+    idKeys: ['edr_tenant_id'],
+  },
+  {
+    key: 'rocketcyber',
+    label: 'SOC',
+    mark: 'RC',
+    color: 'orange',
+    table: 'rocket_cyber_mappings',
+    nameKeys: ['rocketcyber_customer_name', 'rocket_cyber_customer_name', 'customer_name'],
+    idKeys: ['rocketcyber_customer_id', 'rocket_cyber_customer_id'],
+  },
+  {
+    key: 'unifi',
+    label: 'Firewall',
+    mark: 'UF',
+    color: 'sky',
+    table: 'unifi_mappings',
+    nameKeys: ['unifi_site_name', 'site_name', 'customer_name'],
+    idKeys: ['unifi_site_id'],
+  },
+  {
+    key: 'threecx',
+    label: 'VoIP',
+    mark: '3C',
+    color: 'emerald',
+    table: 'threecx_reports',
+    nameKeys: ['customer_name', 'tenant_name', 'name'],
+    idKeys: ['external_id', 'tenant_id'],
+  },
+  {
+    key: 'dmarc',
+    label: 'DMARC',
+    mark: 'DM',
+    color: 'teal',
+    table: 'dmarc_report_mappings',
+    nameKeys: ['dmarc_account_name', 'domain', 'customer_name'],
+    idKeys: ['dmarc_account_id'],
+  },
+  {
+    key: 'saas_alerts',
+    label: 'SaaS Alerts',
+    mark: 'SA',
+    color: 'violet',
+    table: 'saas_alerts_mappings',
+    nameKeys: ['saas_alerts_customer_name', 'tenant_name', 'customer_name'],
+    idKeys: ['saas_alerts_customer_id'],
+  },
+  {
+    key: 'pax8',
+    label: 'M365',
+    mark: 'M',
+    color: 'pink',
+    table: 'pax8_mappings',
+    nameKeys: ['pax8_company_name', 'company_name', 'customer_name'],
+    idKeys: ['pax8_company_id'],
+  },
+  {
+    key: 'cove',
+    label: 'Backup',
+    mark: 'CV',
+    color: 'amber',
+    table: 'cove_data_mappings',
+    nameKeys: ['cove_partner_name', 'device_name', 'customer_name'],
+    idKeys: ['cove_partner_id', 'device_id'],
+  },
+  {
+    key: 'cipp',
+    label: 'CIPP',
+    mark: 'CP',
+    color: 'sky',
+    table: 'cipp_mappings',
+    nameKeys: ['cipp_tenant_name', 'tenant_name', 'customer_name'],
+    idKeys: ['cipp_tenant_id', 'tenant_id'],
+  },
+];
+
 function normalizeLimit(value, fallback = 100, max = 1000) {
   const parsed = Number.parseInt(String(value || ''), 10);
   if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
@@ -160,7 +271,67 @@ function normalizeQuote(quote) {
   };
 }
 
-function summarizeSnapshot({ devices, tickets, recurringBills, recurringLineItems, saasLicenses, quotes }) {
+function pickFirst(row, keys = []) {
+  for (const key of keys) {
+    const value = cleanText(row?.[key]);
+    if (value) return value;
+  }
+  return '';
+}
+
+function latestDate(rows) {
+  const timestamps = rows
+    .map((row) => row.last_synced || row.updated_date || row.created_date || row.created_at)
+    .filter(Boolean)
+    .map((value) => new Date(value).getTime())
+    .filter((value) => Number.isFinite(value));
+  if (!timestamps.length) return null;
+  return new Date(Math.max(...timestamps)).toISOString();
+}
+
+function serviceTagShape(source, rows) {
+  const mappings = rows.map((row) => ({
+    id: row.id,
+    display_name: pickFirst(row, source.nameKeys) || source.label,
+    external_id: pickFirst(row, source.idKeys),
+    last_synced: row.last_synced || null,
+    updated_date: row.updated_date || row.created_date || row.created_at || null,
+  }));
+
+  return {
+    key: source.key,
+    label: source.label,
+    mark: source.mark,
+    color: source.color,
+    table: source.table,
+    status: 'Connected',
+    count: mappings.length,
+    display_name: mappings[0]?.display_name || source.label,
+    last_synced: latestDate(rows),
+    mappings,
+  };
+}
+
+async function getServiceTagsForCustomer(supabase, customerId) {
+  const tags = await Promise.all(
+    SERVICE_TAG_SOURCES.map(async (source) => {
+      const { data, error } = await supabase
+        .from(source.table)
+        .select('*')
+        .eq('customer_id', customerId)
+        .limit(25);
+
+      if (error) return null;
+      const rows = data || [];
+      if (!rows.length) return null;
+      return serviceTagShape(source, rows);
+    }),
+  );
+
+  return tags.filter(Boolean);
+}
+
+function summarizeSnapshot({ devices, tickets, recurringBills, recurringLineItems, saasLicenses, quotes, serviceTags }) {
   const openTickets = tickets.filter((ticket) => isOpenStatus(ticket.status));
   const closedTickets = tickets.filter((ticket) => isClosedStatus(ticket.status));
   const onlineDevices = devices.filter(deviceIsOnline);
@@ -187,6 +358,7 @@ function summarizeSnapshot({ devices, tickets, recurringBills, recurringLineItem
     services: {
       recurring_bills: recurringBills.length,
       recurring_line_items: recurringLineItems.length,
+      service_tags: serviceTags.length,
       monthly_total: recurringMonthly || lineMonthly,
     },
     saas: {
@@ -234,6 +406,7 @@ async function buildCustomerSnapshot(customer) {
   }
 
   const recurringBills = recurringBillsRes.data || [];
+  const serviceTags = await getServiceTagsForCustomer(supabase, customerId);
   const billIds = recurringBills.map((bill) => bill.id).filter(Boolean);
   let recurringLineItems = [];
   if (billIds.length > 0) {
@@ -282,6 +455,7 @@ async function buildCustomerSnapshot(customer) {
     devices,
     tickets,
     contracts: contractsRes.data || [],
+    service_tags: serviceTags,
     services,
     quotes,
     quote_items: quoteItems,
@@ -296,6 +470,7 @@ async function buildCustomerSnapshot(customer) {
       recurringLineItems,
       saasLicenses,
       quotes,
+      serviceTags,
     }),
   };
 }
