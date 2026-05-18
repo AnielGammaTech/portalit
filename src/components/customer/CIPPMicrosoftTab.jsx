@@ -125,6 +125,10 @@ function formatLicenseName(raw) {
   if (LICENSE_ALIASES[sku]) return LICENSE_ALIASES[sku];
   return sku
     .replace(/^Microsoft\s+/i, 'Microsoft ')
+    .replace(/\[[^\]]*(new\s+commerce|nce)[^\]]*\]/gi, ' ')
+    .replace(/\([^)]*(new\s+commerce|nce)[^)]*\)/gi, ' ')
+    .replace(/\bnew\s+commerce\s+experience\b/gi, ' ')
+    .replace(/\bnce\b/gi, ' ')
     .replace(/_/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -145,6 +149,8 @@ function licenseMatchKey(raw) {
   if (value.includes('business premium') || compact.includes('businesspremium')) return 'm365-business-premium';
   if (value.includes('business standard') || compact.includes('businessstandard')) return 'm365-business-standard';
   if (value.includes('business basic') || compact.includes('businessbasic')) return 'm365-business-basic';
+  if (value.includes('apps for business') || compact.includes('appsforbusiness')) return 'm365-apps-for-business';
+  if (value.includes('apps for enterprise') || compact.includes('appsforenterprise')) return 'm365-apps-for-enterprise';
   if (value.includes('exchange online') && (value.includes('plan 1') || compact.includes('plan1'))) return 'exchange-online-plan-1';
   if (value.includes('exchange online') && (value.includes('plan 2') || compact.includes('plan2'))) return 'exchange-online-plan-2';
   if (value.includes('power bi pro') || compact.includes('powerbipro')) return 'power-bi-pro';
@@ -873,7 +879,7 @@ export default function CIPPMicrosoftTab({ customerId }) {
       {activeView === 'licenses' && (
         <PortalSection
           title="License Utilization"
-          description="CIPP assigned users compared with purchased seats from Pax8 when available."
+          description="Microsoft assigned users compared with purchased seats from Pax8 when available."
           badge={<PortalStatusPill label={`${filteredLicenseSummary.length} products`} tone="blue" />}
           bodyClassName="p-4"
         >

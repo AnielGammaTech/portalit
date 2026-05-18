@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/api/client';
 import { toast } from 'sonner';
 import {
+  AlertCircle,
   CalendarDays,
   CheckCircle2,
   ChevronDown,
@@ -22,6 +23,7 @@ import {
   PortalSection,
   PortalStatusPill,
 } from '@/components/ui/portal-primitives';
+import MetricHelp from './MetricHelp';
 
 const STATUS_TONES = {
   active: 'emerald',
@@ -119,10 +121,12 @@ function normalizeProduct(product) {
   const subscriptions = Array.isArray(product?.subscriptions) ? product.subscriptions : [];
   const subscriptionQuantity = subscriptions.reduce((sum, sub) => sum + (safeNumber(sub?.quantity) || 1), 0);
   const quantity = safeNumber(product?.quantity) ?? subscriptionQuantity;
+  const rawName = product?.name || product?.productName || product?.description || '';
 
   return {
     ...product,
-    name: product?.name || 'Unnamed product',
+    rawName,
+    name: formatLicenseName(rawName) || 'Unnamed product',
     quantity,
     subscriptions,
   };
@@ -134,6 +138,10 @@ function formatLicenseName(raw) {
   const sku = value.includes(':') ? value.split(':').pop() : value;
   if (LICENSE_ALIASES[sku]) return LICENSE_ALIASES[sku];
   return sku
+    .replace(/\[[^\]]*(new\s+commerce|nce)[^\]]*\]/gi, ' ')
+    .replace(/\([^)]*(new\s+commerce|nce)[^)]*\)/gi, ' ')
+    .replace(/\bnew\s+commerce\s+experience\b/gi, ' ')
+    .replace(/\bnce\b/gi, ' ')
     .replace(/_/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -154,6 +162,8 @@ function licenseMatchKey(raw) {
   if (value.includes('business premium') || compact.includes('businesspremium')) return 'm365-business-premium';
   if (value.includes('business standard') || compact.includes('businessstandard')) return 'm365-business-standard';
   if (value.includes('business basic') || compact.includes('businessbasic')) return 'm365-business-basic';
+  if (value.includes('apps for business') || compact.includes('appsforbusiness')) return 'm365-apps-for-business';
+  if (value.includes('apps for enterprise') || compact.includes('appsforenterprise')) return 'm365-apps-for-enterprise';
   if (value.includes('exchange online') && (value.includes('plan 1') || compact.includes('plan1'))) return 'exchange-online-plan-1';
   if (value.includes('exchange online') && (value.includes('plan 2') || compact.includes('plan2'))) return 'exchange-online-plan-2';
   if (value.includes('power bi pro') || compact.includes('powerbipro')) return 'power-bi-pro';
@@ -258,6 +268,11 @@ export default function Pax8Tab({ customerId, pax8Mapping, queryClient: external
   }, [cippUsersByLicense, products]);
   const accountName = pax8Mapping?.pax8_company_name || 'Pax8 account';
   const lastSynced = formatDateTime(pax8Mapping?.last_synced);
+  const userMatchLabel = canSync ? 'CIPP Matches' : 'User Assignments';
+  const userMatchDetail = loadingCippUsers
+    ? (canSync ? 'Checking CIPP users' : 'Checking Microsoft users')
+    : (canSync ? 'Users matched to products' : 'Microsoft users linked to products');
+  const productUserColumn = canSync ? 'CIPP users' : 'Assigned users';
 
   const handleSync = async () => {
     if (!canSync) return;
@@ -333,9 +348,9 @@ export default function Pax8Tab({ customerId, pax8Mapping, queryClient: external
         />
         <PortalMetricCard
           icon={Users}
-          label="CIPP Matches"
+          label={userMatchLabel}
           value={matchedCippUserCount}
-          detail={loadingCippUsers ? 'Checking CIPP users' : 'Users matched to products'}
+          detail={userMatchDetail}
           tone="slate"
           className="p-3"
         />
@@ -344,7 +359,16 @@ export default function Pax8Tab({ customerId, pax8Mapping, queryClient: external
       <PortalSection
         title="Product Inventory"
         description={`Showing ${filteredProducts.length} of ${products.length} Pax8 products.`}
-        badge={<PortalStatusPill label={`${totalQuantity} licenses`} tone="blue" />}
+        badge={(
+          <div className="flex items-center gap-2">
+            <PortalStatusPill label={`${totalQuantity} licenses`} tone="blue" />
+            <MetricHelp label="Pax8 product matching help">
+              {canSync
+                ? 'Pax8 is the billing source. Microsoft user assignments are linked by normalized license names, so add-ons, stale sync data, or vendor naming differences may need internal review.'
+                : 'Pax8 is the billing source. Microsoft assignment detail appears when the portal can cleanly link the subscription to Microsoft users.'}
+            </MetricHelp>
+          </div>
+        )}
         actions={(
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -375,7 +399,7 @@ export default function Pax8Tab({ customerId, pax8Mapping, queryClient: external
               <span>Product</span>
               <span className="text-right">Licenses</span>
               <span className="text-right">Subscriptions</span>
-              <span className="text-right">CIPP users</span>
+              <span className="text-right">{productUserColumn}</span>
               <span />
             </div>
 
@@ -383,6 +407,13 @@ export default function Pax8Tab({ customerId, pax8Mapping, queryClient: external
               {filteredProducts.map(product => {
                 const isExpanded = expandedProduct === product.name;
                 const matchedUsers = cippUsersByLicense.get(licenseMatchKey(product.name)) || [];
+                const hasMatchedUsers = matchedUsers.length > 0;
+                const matchStatusLabel = loadingCippUsers
+                  ? (canSync ? 'Checking CIPP' : 'Checking')
+                  : hasMatchedUsers ? `${matchedUsers.length} linked`
+                    : canSync ? 'Review mapping'
+                      : 'Details unavailable';
+                const matchStatusTone = hasMatchedUsers ? 'blue' : canSync ? 'amber' : 'slate';
                 return (
                   <div key={product.name}>
                     <button
@@ -403,7 +434,9 @@ export default function Pax8Tab({ customerId, pax8Mapping, queryClient: external
                       </div>
                       <span className="text-right text-sm font-semibold tabular-nums text-slate-950">{product.quantity}</span>
                       <span className="text-right text-sm tabular-nums text-slate-700">{product.subscriptions.length || 0}</span>
-                      <span className="text-right text-sm font-semibold tabular-nums text-slate-950">{matchedUsers.length || '-'}</span>
+                      <span className="text-right text-sm font-semibold tabular-nums text-slate-950">
+                        {matchedUsers.length || (canSync ? 'Review' : '-')}
+                      </span>
                       <span className="flex justify-end text-slate-400">
                         {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                       </span>
@@ -414,17 +447,30 @@ export default function Pax8Tab({ customerId, pax8Mapping, queryClient: external
                         <div className="mb-4 rounded-lg border border-slate-200 bg-white">
                           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
                             <div>
-                              <p className="text-sm font-semibold text-slate-950">Assigned users in Microsoft 365</p>
-                              <p className="text-xs text-slate-500">Matched by Pax8 product name to CIPP license names.</p>
+                              <div className="flex items-center gap-1.5">
+                                <p className="text-sm font-semibold text-slate-950">Assigned users in Microsoft 365</p>
+                                <MetricHelp label="Assigned users matching help">
+                                  {canSync
+                                    ? 'Internal view: this list is matched by normalized Pax8 product names and Microsoft/CIPP license names.'
+                                    : 'This list appears when the portal can safely link the billing subscription to Microsoft user assignments.'}
+                                </MetricHelp>
+                              </div>
+                              <p className="text-xs text-slate-500">
+                                {canSync
+                                  ? 'Matched by Pax8 product name to Microsoft license names.'
+                                  : 'Microsoft assignment details appear when the license can be linked cleanly.'}
+                              </p>
                             </div>
                             <PortalStatusPill
-                              label={loadingCippUsers ? 'Checking CIPP' : `${matchedUsers.length} matched`}
-                              tone={matchedUsers.length > 0 ? 'blue' : 'slate'}
-                              icon={Users}
+                              label={matchStatusLabel}
+                              tone={matchStatusTone}
+                              icon={hasMatchedUsers ? Users : canSync ? AlertCircle : Users}
                             />
                           </div>
                           {loadingCippUsers ? (
-                            <p className="px-4 py-3 text-sm text-slate-500">Loading CIPP users...</p>
+                            <p className="px-4 py-3 text-sm text-slate-500">
+                              {canSync ? 'Loading CIPP users...' : 'Loading Microsoft users...'}
+                            </p>
                           ) : matchedUsers.length > 0 ? (
                             <div className="divide-y divide-slate-100">
                               {matchedUsers
@@ -446,9 +492,23 @@ export default function Pax8Tab({ customerId, pax8Mapping, queryClient: external
                                 ))}
                             </div>
                           ) : (
-                            <p className="px-4 py-3 text-sm text-slate-500">
-                              No CIPP users matched this Pax8 product. The product name may not line up with the Microsoft license name.
-                            </p>
+                            <div className={`px-4 py-3 text-sm ${canSync ? 'bg-amber-50 text-amber-800' : 'text-slate-500'}`}>
+                              {canSync ? (
+                                <div className="flex gap-2">
+                                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                                  <div>
+                                    <p className="font-semibold">Mapping review needed</p>
+                                    <p className="mt-1 text-xs leading-5">
+                                      Pax8 returned this as "{product.rawName || product.name}", but no Microsoft users matched the normalized license key yet. Common causes are NCE billing suffixes, Microsoft SKU aliases, add-ons that are not user-assigned, stale CIPP sync data, or a real open-seat difference.
+                                    </p>
+                                  </div>
+                                </div>
+                              ) : (
+                                <p>
+                                  Assignment detail is not available for this subscription in the portal yet. The subscription is still included in the license totals above.
+                                </p>
+                              )}
+                            </div>
                           )}
                         </div>
 
