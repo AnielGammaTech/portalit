@@ -118,6 +118,9 @@ app.use('/api', (req, res, next) => {
   if (req.path.startsWith('/upload/file/')) {
     return next();
   }
+  if (req.path.startsWith('/external')) {
+    return next();
+  }
   if (AUTH_RATE_LIMITED_PATHS.some(p => req.path.startsWith(p.replace('/api', '')))) {
     return next();
   }
