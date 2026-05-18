@@ -22,11 +22,31 @@ function getApiKey(req) {
   return '';
 }
 
+function getEnvApiKeys() {
+  return [
+    process.env.PORTALIT_EXTERNAL_API_KEY,
+    process.env.GAMMASTACK_EXTERNAL_API_KEY,
+    process.env.GAMMASTACK_API_KEY,
+  ]
+    .map((value) => cleanText(value))
+    .filter(Boolean);
+}
+
 async function requireExternalApiKey(req, res, next) {
   const key = getApiKey(req);
   if (!key) return res.status(401).json({ success: false, error: 'PortalIT API key required' });
 
   try {
+    if (getEnvApiKeys().includes(key)) {
+      req.externalUser = {
+        id: 'env:portalit-external-api',
+        email: 'quoteit-sync@gamma.tech',
+        role: 'service',
+        full_name: 'QuoteIT Sync',
+      };
+      return next();
+    }
+
     const supabase = getServiceSupabase();
     const { data: user, error } = await supabase
       .from('users')
