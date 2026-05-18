@@ -4,7 +4,6 @@ import {
   Cloud,
   FileText,
   Monitor,
-  ReceiptText,
 } from 'lucide-react';
 
 import { cn, safeFormatDate } from '@/lib/utils';
@@ -28,7 +27,7 @@ function tabUrl(customerId, tab) {
 function Panel({ title, description, action, children, className }) {
   return (
     <section className={cn('overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm', className)}>
-      <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
+      <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-3 py-3 sm:px-4">
         <div className="min-w-0">
           <h3 className="font-semibold text-slate-950">{title}</h3>
           {description && <p className="mt-0.5 text-sm text-slate-500">{description}</p>}
@@ -83,7 +82,7 @@ function StatusPill({ tone, children }) {
 
 function EmptyMessage({ icon: Icon, title, description }) {
   return (
-    <div className="px-4 py-8 text-center">
+    <div className="px-4 py-6 text-center sm:py-8">
       <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-slate-50 text-slate-400">
         <Icon className="h-5 w-5" />
       </div>
@@ -207,30 +206,8 @@ export default function CustomerDashboardTab({
   const activeContracts = useMemo(() => contracts.filter(c => normalized(c.status) === 'active'), [contracts]);
 
   return (
-    <div className="space-y-4">
-      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700">
-              <ReceiptText className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="font-semibold text-slate-950">Account overview</p>
-              <p className="mt-0.5 text-sm text-slate-600">
-                Billing, quotes, services, and inventory for this customer account.
-              </p>
-            </div>
-          </div>
-          <Link
-            to={tabUrl(customerId, 'billing')}
-            className="inline-flex h-9 items-center justify-center rounded-lg bg-slate-950 px-4 text-sm font-medium text-white hover:bg-slate-800"
-          >
-            View billing
-          </Link>
-        </div>
-      </section>
-
-      <section className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+    <div className="space-y-3 sm:space-y-4">
+      <section className="hidden rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:block">
         <div className="grid grid-cols-2 gap-x-5 gap-y-3 md:grid-cols-3 xl:grid-cols-6 xl:divide-x xl:divide-slate-100">
           <NumberMetric
             label="Monthly billing"
@@ -277,12 +254,13 @@ export default function CustomerDashboardTab({
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.8fr)]">
-        <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.8fr)]">
+        <div className="space-y-3 sm:space-y-4">
           <Panel
             title="Billing summary"
             description="Recurring service cost and invoice balance."
             action={<Link to={tabUrl(customerId, 'billing')} className="text-sm font-medium text-slate-600 hover:text-slate-950">Billing</Link>}
+            className="hidden sm:block"
           >
             <div className="grid grid-cols-1 divide-y divide-slate-100 md:grid-cols-3 md:divide-x md:divide-y-0">
               <div className="p-4">
@@ -326,7 +304,7 @@ export default function CustomerDashboardTab({
           </Panel>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           <Panel title="Account totals" description="Quick customer account reference.">
             <div className="grid grid-cols-2 gap-1.5 p-3">
               <div className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">

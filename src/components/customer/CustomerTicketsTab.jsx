@@ -124,6 +124,15 @@ function customerStatus(status) {
   return { label: status || 'Request', tone: 'slate' };
 }
 
+function matchesTicketFilter(ticket, filter) {
+  const status = customerStatus(ticket.status);
+  if (filter === 'all') return status.tone !== 'emerald';
+  if (filter === 'history') return true;
+  if (filter === 'completed') return status.tone === 'emerald';
+  if (filter === 'waiting') return status.tone === 'amber';
+  return normalized(ticket.status) === filter;
+}
+
 function StatusBadge({ status }) {
   const view = customerStatus(status);
   return (
@@ -393,11 +402,12 @@ export default function CustomerTicketsTab({
   const deviceOptions = useMemo(() => buildDeviceOptions(devices), [devices]);
   const usersByValue = useMemo(() => new Map(userOptions.map(option => [option.value, option])), [userOptions]);
   const devicesByValue = useMemo(() => new Map(deviceOptions.map(option => [option.value, option])), [deviceOptions]);
+  const activeTicketFilter = ticketFilter || 'all';
 
   const filteredTickets = useMemo(() => {
     const query = search.trim().toLowerCase();
     return tickets
-      .filter(ticket => ticketFilter === 'all' || normalized(ticket.status) === ticketFilter)
+      .filter(ticket => matchesTicketFilter(ticket, activeTicketFilter))
       .filter(ticket => {
         if (!query) return true;
         return [
@@ -410,13 +420,15 @@ export default function CustomerTicketsTab({
         ].some(value => String(value || '').toLowerCase().includes(query));
       })
       .sort((a, b) => new Date(ticketDateInfo(b).sortDate || 0) - new Date(ticketDateInfo(a).sortDate || 0));
-  }, [search, ticketFilter, tickets]);
+  }, [search, activeTicketFilter, tickets]);
 
   const totalPages = Math.max(1, Math.ceil(filteredTickets.length / 10));
-  const visibleTickets = filteredTickets.slice((ticketPage - 1) * 10, ticketPage * 10);
+  const currentTicketPage = Math.min(ticketPage, totalPages);
+  const visibleTickets = filteredTickets.slice((currentTicketPage - 1) * 10, currentTicketPage * 10);
   const inProgress = tickets.filter(ticket => ['open', 'new', 'in_progress', 'active', 'pending'].includes(normalized(ticket.status))).length;
   const inputNeeded = tickets.filter(ticket => ['waiting', 'awaiting_customer', 'customer_waiting'].includes(normalized(ticket.status))).length;
   const completed = tickets.filter(ticket => ['closed', 'resolved', 'completed'].includes(normalized(ticket.status))).length;
+  const openTotal = inProgress + inputNeeded;
 
   const openRequestForm = (type) => {
     setSelectedType(type);
@@ -736,16 +748,31 @@ export default function CustomerTicketsTab({
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3 sm:space-y-5">
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5 sm:py-4">
           <div>
             <h3 className="font-semibold text-slate-950">Helpdesk</h3>
-            <p className="text-sm text-slate-500">Choose a category so the support team gets the right details the first time.</p>
+            <p className="text-sm text-slate-500">Open requests and quick support tickets.</p>
           </div>
-          <Badge variant="outline" className="bg-slate-50 text-slate-600">Creates HaloPSA ticket</Badge>
+          <Button type="button" onClick={() => openRequestForm(REQUEST_BY_KEY.support)} className="h-9 shrink-0 gap-2">
+            <LifeBuoy className="h-4 w-4" />
+            New request
+          </Button>
         </div>
-        <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100">
+          {[
+            { label: 'Open', value: openTotal, tone: 'text-blue-700' },
+            { label: 'Need you', value: inputNeeded, tone: inputNeeded > 0 ? 'text-amber-700' : 'text-slate-950' },
+            { label: 'Done', value: completed, tone: 'text-emerald-700' },
+          ].map(metric => (
+            <div key={metric.label} className="px-4 py-3 text-center sm:px-5">
+              <p className={cn('text-xl font-bold leading-6 tabular-nums', metric.tone)}>{metric.value}</p>
+              <p className="mt-0.5 truncate text-[10px] font-semibold uppercase tracking-wide text-slate-500">{metric.label}</p>
+            </div>
+          ))}
+        </div>
+        <div className="hidden gap-2 border-t border-slate-100 p-3 sm:grid sm:grid-cols-2 lg:grid-cols-5">
           {REQUEST_TYPES.map(type => {
             const Icon = type.icon;
             return (
@@ -753,67 +780,51 @@ export default function CustomerTicketsTab({
                 key={type.key}
                 type="button"
                 onClick={() => openRequestForm(type)}
-                className="group rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                className="group rounded-lg border border-slate-200 bg-white px-3 py-2 text-left transition hover:border-slate-300 hover:bg-slate-50"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg border', TONE_CLASSES[type.tone])}>
+                <div className="flex items-center gap-2">
+                  <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border', TONE_CLASSES[type.tone])}>
                     <Icon className="h-4 w-4" />
                   </div>
-                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-500">{type.eta}</span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-950">{type.label}</p>
+                    <p className="truncate text-xs text-slate-500">{type.eta}</p>
+                  </div>
                 </div>
-                <p className="mt-3 text-sm font-semibold text-slate-950">{type.label}</p>
-                <p className="mt-1 min-h-[34px] text-xs leading-5 text-slate-500">{type.description}</p>
               </button>
             );
           })}
         </div>
       </section>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {[
-          { label: 'In progress', value: inProgress, detail: 'being worked', tone: 'blue' },
-          { label: 'Your input needed', value: inputNeeded, detail: 'waiting on you', tone: inputNeeded > 0 ? 'amber' : 'slate' },
-          { label: 'Completed', value: completed, detail: 'resolved history', tone: 'emerald' },
-          { label: 'Visible requests', value: tickets.length, detail: 'portal history', tone: 'slate' },
-        ].map(metric => (
-          <div key={metric.label} className={cn('rounded-xl border p-4 shadow-sm', TONE_CLASSES[metric.tone])}>
-            <p className="text-[11px] font-semibold uppercase tracking-wide opacity-80">{metric.label}</p>
-            <p className="mt-2 text-2xl font-bold tabular-nums text-slate-950">{metric.value}</p>
-            <p className="mt-1 text-xs text-slate-500">{metric.detail}</p>
-          </div>
-        ))}
-      </div>
-
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+        <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 sm:px-5 sm:py-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h3 className="font-semibold text-slate-950">Helpdesk history</h3>
-            <p className="text-sm text-slate-500">Progress and history sorted by most recent activity.</p>
+            <h3 className="font-semibold text-slate-950">Open tickets</h3>
+            <p className="text-sm text-slate-500">{filteredTickets.length} request{filteredTickets.length !== 1 ? 's' : ''} matching this view.</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
+          <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_180px] lg:w-auto lg:min-w-[420px]">
+            <div className="relative min-w-0">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <Input
                 value={search}
                 onChange={(event) => { setSearch(event.target.value); setTicketPage(1); }}
                 placeholder="Search requests"
-                className="h-9 w-48 pl-9"
+                className="h-9 w-full pl-9"
               />
             </div>
             <select
-              value={ticketFilter}
+              value={activeTicketFilter}
               onChange={(event) => {
                 setTicketFilter(event.target.value);
                 setTicketPage(1);
               }}
-              className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
+              className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
             >
-              <option value="all">All requests</option>
-              <option value="open">In progress</option>
-              <option value="in_progress">Currently active</option>
+              <option value="all">Open tickets</option>
               <option value="waiting">Your input needed</option>
-              <option value="resolved">Resolved</option>
-              <option value="closed">Closed</option>
+              <option value="completed">Completed history</option>
+              <option value="history">All history</option>
             </select>
           </div>
         </div>
@@ -822,7 +833,7 @@ export default function CustomerTicketsTab({
           <div className="px-5 py-12 text-center">
             <MessageSquare className="mx-auto mb-3 h-9 w-9 text-slate-300" />
             <p className="font-medium text-slate-900">No requests to show</p>
-            <p className="mt-1 text-sm text-slate-500">Select a request category above when you need help or a change.</p>
+            <p className="mt-1 text-sm text-slate-500">Use New request when you need help or a change.</p>
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
@@ -832,7 +843,7 @@ export default function CustomerTicketsTab({
               const TypeIcon = type.icon || HelpCircle;
 
               return (
-                <div key={ticket.id} className="grid grid-cols-1 gap-3 px-5 py-4 transition-colors hover:bg-slate-50 md:grid-cols-[minmax(0,1fr)_135px_145px_120px] md:items-center">
+                <div key={ticket.id} className="grid grid-cols-1 gap-3 px-4 py-3 transition-colors hover:bg-slate-50 sm:px-5 sm:py-4 md:grid-cols-[minmax(0,1fr)_135px_145px_120px] md:items-center">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <Monitor className="h-4 w-4 shrink-0 text-slate-400" />
@@ -866,19 +877,19 @@ export default function CustomerTicketsTab({
 
         {filteredTickets.length > 10 && (
           <div className="flex items-center justify-center gap-2 border-t border-slate-100 px-5 py-3">
-            <Button variant="outline" size="sm" onClick={() => setTicketPage(page => Math.max(1, page - 1))} disabled={ticketPage === 1}>Previous</Button>
-            <span className="px-3 text-sm text-slate-600">Page {ticketPage} of {totalPages}</span>
-            <Button variant="outline" size="sm" onClick={() => setTicketPage(page => Math.min(totalPages, page + 1))} disabled={ticketPage >= totalPages}>Next</Button>
+            <Button variant="outline" size="sm" onClick={() => setTicketPage(page => Math.max(1, page - 1))} disabled={currentTicketPage === 1}>Previous</Button>
+            <span className="px-3 text-sm text-slate-600">Page {currentTicketPage} of {totalPages}</span>
+            <Button variant="outline" size="sm" onClick={() => setTicketPage(page => Math.min(totalPages, page + 1))} disabled={currentTicketPage >= totalPages}>Next</Button>
           </div>
         )}
       </section>
 
       <Dialog open={!!selectedType} onOpenChange={(open) => !open && setSelectedType(null)}>
-        <DialogContent className="max-h-[92vh] overflow-y-auto p-0 sm:max-w-3xl" onPaste={handlePaste}>
+        <DialogContent className="w-[calc(100vw-1rem)] max-h-[92vh] overflow-y-auto p-0 sm:max-w-3xl" onPaste={handlePaste}>
           {selectedType && (
             <>
-              <DialogHeader className="border-b border-slate-100 bg-slate-50/80 px-5 py-4 text-left">
-                <DialogTitle className="flex items-center gap-3 pr-8 text-lg">
+              <DialogHeader className="border-b border-slate-100 bg-slate-50/80 px-4 py-4 text-left sm:px-5">
+                <DialogTitle className="flex items-center gap-3 pr-8 text-base sm:text-lg">
                   <span className={cn('flex h-10 w-10 items-center justify-center rounded-xl border shadow-sm', TONE_CLASSES[selectedType.tone])}>
                     {React.createElement(selectedType.icon, { className: 'h-5 w-5' })}
                   </span>
@@ -889,7 +900,7 @@ export default function CustomerTicketsTab({
                 </DialogTitle>
               </DialogHeader>
 
-              <div className="space-y-4 px-5 py-4">
+              <div className="space-y-3 px-4 py-4 sm:space-y-4 sm:px-5">
                 <FormSection title="Request summary" description="Keep the subject short. Add the real detail below or let AI clean it up after you type.">
                   <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_170px]">
                     <Field label="Subject" required>
@@ -978,7 +989,7 @@ export default function CustomerTicketsTab({
                   Critical requests should be used only for outages or blocked business operations.
                 </div>
 
-                <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+                <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
                   <Button variant="outline" onClick={() => setSelectedType(null)}>Cancel</Button>
                   <Button onClick={submitRequest} disabled={submitting} className="gap-2">
                     {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

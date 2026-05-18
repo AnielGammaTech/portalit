@@ -36,7 +36,6 @@ import {
   SheetClose,
 } from "@/components/ui/sheet";
 import FloatingAdminland from './components/admin/FloatingAdminland';
-import FeedbackButton from './components/feedback/FeedbackButton';
 import AwaitingAccess from './pages/AwaitingAccess';
 import { isCustomerPortal } from '@/lib/portal-mode';
 import { getFeatures } from '@/lib/permissions';
@@ -312,17 +311,6 @@ export default function Layout({ children, currentPageName }) {
   const portalSettings = (portalSettingsData ?? [])[0] || {};
   const primaryColor = portalSettings.primary_color || DEFAULT_PRIMARY;
 
-  // Fetch customer for non-admin users (only their own record)
-  const { data: customer = null } = useQuery({
-    queryKey: ['layout_customer', user?.customer_id],
-    queryFn: async () => {
-      const results = await client.entities.Customer.filter({ id: user.customer_id });
-      return (results ?? [])[0] || null;
-    },
-    enabled: !!user && !isStaff && !!user.customer_id,
-    staleTime: 1000 * 60 * 10,
-  });
-
   const isLoading = isLoadingAuth;
 
   // Navigation definitions — filtered by role permissions
@@ -583,7 +571,7 @@ export default function Layout({ children, currentPageName }) {
 
       {/* ─── Page Content ─── */}
       <main className="pt-14 pb-20 lg:pb-0">
-        <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+        <div className="p-3 sm:p-6 lg:p-8 max-w-7xl mx-auto">
           {children}
         </div>
       </main>
@@ -643,10 +631,6 @@ export default function Layout({ children, currentPageName }) {
       {/* ─── Floating Adminland Button (admin only, hidden in customer portal mode) ─── */}
       {features.canViewAdminland && !isCustomerPortal && <FloatingAdminland />}
 
-      {/* ─── Feedback Button (non-staff only) ─── */}
-      {!isStaff && user && customer && (
-        <FeedbackButton user={user} customer={customer} />
-      )}
     </div>
   );
 }

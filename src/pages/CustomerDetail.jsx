@@ -702,12 +702,12 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
         {...fadeInUp}
         className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
       >
-        <div className="border-b border-slate-100 bg-slate-50/70 px-5 py-4">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex min-w-0 items-start gap-4">
+        <div className="border-b border-slate-100 bg-slate-50/70 px-3 py-3 sm:px-5 sm:py-4">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex min-w-0 items-start gap-3 sm:gap-4">
               <div
                 className={cn(
-                  "relative flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white group",
+                  "relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white group sm:h-14 sm:w-14",
                   canUseAdminActions && "cursor-pointer"
                 )}
                 onClick={() => canUseAdminActions && logoInputRef.current?.click()}
@@ -716,11 +716,11 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
                   <img
                     src={customerLogoUrl}
                     alt={customer.name}
-                    className="h-14 w-14 rounded-xl object-cover"
+                    className="h-10 w-10 rounded-xl object-cover sm:h-14 sm:w-14"
                     onError={() => setFailedCustomerLogoUrl(customerLogoUrl)}
                   />
                 ) : (
-                  <span className="text-2xl font-bold text-primary">
+                  <span className="text-lg font-bold text-primary sm:text-2xl">
                     {customer.name?.charAt(0)?.toUpperCase() || 'C'}
                   </span>
                 )}
@@ -743,15 +743,15 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
               </div>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="truncate text-2xl font-semibold text-slate-950">{customer.name}</h1>
+                  <h1 className="truncate text-lg font-semibold leading-6 text-slate-950 sm:text-2xl">{customer.name}</h1>
                   <Badge
                     variant={customer.status === 'active' ? 'flat-success' : customer.status === 'suspended' ? 'flat-destructive' : 'secondary'}
-                    className="capitalize"
+                    className="h-6 px-2 text-[11px] capitalize sm:text-xs"
                   >
                     {customer.status || 'Active'}
                   </Badge>
                 </div>
-                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-slate-500">
+                <div className="mt-1.5 hidden flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-slate-500 sm:flex">
                   {customer.email && (
                     <a href={`mailto:${customer.email}`} className="flex items-center gap-1.5 hover:text-slate-900">
                       <Mail className="w-3.5 h-3.5" />
@@ -773,16 +773,16 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
                 </div>
               </div>
             </div>
-            <div className="flex flex-wrap gap-x-5 gap-y-2 xl:min-w-[480px] xl:justify-end">
+            <div className="grid w-full grid-cols-2 gap-x-3 gap-y-2 border-t border-slate-100 pt-3 sm:grid-cols-4 xl:w-auto xl:min-w-[480px] xl:border-t-0 xl:pt-0 xl:justify-end">
               {[
                 { label: 'Monthly billing', value: `$${monthlyBilling.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, tone: 'text-emerald-700' },
                 { label: 'Open balance', value: `$${openBalance.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, tone: openBalance > 0 ? 'text-amber-700' : 'text-slate-950' },
                 { label: 'Past due', value: `$${pastDueBalance.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, tone: pastDueBalance > 0 ? 'text-rose-700' : 'text-slate-950' },
                 { label: 'Quotes', value: activeQuoteCount, tone: 'text-amber-700' },
               ].map(item => (
-                <div key={item.label} className="min-w-[86px] border-l border-slate-200 pl-3">
-                  <p className={cn('truncate text-lg font-bold leading-6 tabular-nums', item.tone)}>{item.value}</p>
-                  <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-500">{item.label}</p>
+                <div key={item.label} className="min-w-0 border-l border-slate-200 pl-3">
+                  <p className={cn('truncate text-base font-bold leading-5 tabular-nums sm:text-lg sm:leading-6', item.tone)}>{item.value}</p>
+                  <p className="truncate text-[9px] font-semibold uppercase tracking-wide text-slate-500 sm:text-[10px]">{item.label}</p>
                 </div>
               ))}
             </div>
@@ -790,7 +790,7 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
         </div>
 
         {serviceTags.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-5 py-3">
+          <div className="hidden flex-wrap items-center gap-2 border-b border-slate-100 px-5 py-3 sm:flex">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Connected services</span>
             {serviceTags.map((tag) => (
               <span
@@ -807,14 +807,17 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
         )}
 
         {mapAddresses.length > 0 && (
-          <div className="px-5 py-4">
+          <div className="px-3 py-3 sm:px-5 sm:py-4">
             <CustomerMap addresses={mapAddresses} />
           </div>
         )}
       </motion.div>
 
-      <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6" id="customer-tabs">
-        <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm scrollbar-hide md:justify-center">
+      <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-3 sm:space-y-6" id="customer-tabs">
+        <TabsList className={cn(
+          "h-auto w-full justify-start gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm scrollbar-hide md:justify-center",
+          isCustomerView ? "hidden sm:flex" : "flex"
+        )}>
           {[
             { value: 'dashboard', icon: BarChart3, label: 'Dashboard' },
             { value: 'tickets', icon: HelpCircle, label: 'Helpdesk' },
