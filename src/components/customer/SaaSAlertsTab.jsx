@@ -21,6 +21,12 @@ import {
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import MetricHelp from './MetricHelp';
 
 // Safely convert any value to a renderable string
@@ -60,12 +66,40 @@ function SeverityDot({ severity }) {
   return <span className={cn("w-2 h-2 rounded-full inline-block flex-shrink-0", conf.dot)} />;
 }
 
+function HoverHint({ children, help, side = 'top', className }) {
+  if (!help) return children;
+
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className={cn('cursor-help underline decoration-slate-300 decoration-dotted underline-offset-2', className)}>
+            {children}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side={side} className="max-w-[260px] rounded-lg bg-slate-950 px-3 py-2 text-left text-xs leading-5 text-white shadow-lg">
+          {help}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 function MetricLabel({ children, help }) {
   return (
     <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
       <span>{children}</span>
       {help && <MetricHelp label={`${children} help`}>{help}</MetricHelp>}
     </div>
+  );
+}
+
+function DetailLabel({ children, help }) {
+  return (
+    <span className="mb-0.5 flex items-center gap-1 text-muted-foreground">
+      {children}
+      {help && <MetricHelp label={`${children} help`}>{help}</MetricHelp>}
+    </span>
   );
 }
 
@@ -155,8 +189,7 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
     return true;
   }), [recentEvents, searchQuery, severityFilter]);
 
-  // Count non-info events for "actionable alerts"
-  const actionableCount = summary.critical + summary.high + summary.medium;
+  const reviewCount = summary.critical + summary.high + summary.medium;
 
   if (!saasAlertsMapping) {
     return (
@@ -197,21 +230,24 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
 
       {/* Dashboard Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* Actionable Alerts */}
+        {/* Items to Review */}
         <div className={cn(
           "rounded-xl border p-4 shadow-sm",
-          actionableCount > 0 ? "bg-red-50 border-red-200" : "bg-white border-gray-200"
+          reviewCount > 0 ? "bg-amber-50/70 border-amber-200" : "bg-white border-gray-200"
         )}>
           <div className="flex items-center gap-2 mb-1">
-            <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", actionableCount > 0 ? "bg-red-100" : "bg-gray-100")}>
-              <AlertTriangle className={cn("w-4 h-4", actionableCount > 0 ? "text-red-600" : "text-gray-400")} />
+            <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", reviewCount > 0 ? "bg-amber-100" : "bg-gray-100")}>
+              <AlertTriangle className={cn("w-4 h-4", reviewCount > 0 ? "text-amber-700" : "text-gray-400")} />
             </div>
           </div>
-          <p className={cn("text-2xl font-bold", actionableCount > 0 ? "text-red-700" : "text-gray-900")}>{actionableCount}</p>
-          <MetricLabel help="SaaS Alerts events rated medium, high, or critical. These are not automatically outages; they are sign-ins or app events worth reviewing.">
+          <p className={cn("text-2xl font-bold", reviewCount > 0 ? "text-amber-800" : "text-gray-900")}>{reviewCount}</p>
+          <MetricLabel help={canSync
+            ? 'Internal review queue: SaaS Alerts events rated medium, high, or critical. This is not automatically an outage or confirmed compromise.'
+            : 'Events rated medium, high, or critical by SaaS Alerts. This does not mean an outage or confirmed compromise; it means the activity may deserve a look.'}
+          >
             Items to Review
           </MetricLabel>
-          {actionableCount > 0 && (
+          {reviewCount > 0 && (
             <div className="flex gap-2 mt-2">
               {summary.critical > 0 && <span className="text-[10px] font-medium text-red-600">{summary.critical} critical</span>}
               {summary.high > 0 && <span className="text-[10px] font-medium text-orange-600">{summary.high} high</span>}
@@ -280,7 +316,7 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
             <h4 className="mb-3 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Severity Breakdown
               <MetricHelp label="Severity breakdown help">
-                SaaS Alerts groups events by severity. Low and info are usually awareness. Medium and above are shown as items to review.
+                SaaS Alerts groups events by severity. Low and info are usually awareness. Medium and above are grouped into Items to Review so the team can check context.
               </MetricHelp>
             </h4>
             <div className="space-y-2">
@@ -290,7 +326,20 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
                 const conf = severityConfig[level];
                 return (
                   <div key={level} className="flex items-center gap-3">
-                    <span className="text-xs font-medium text-gray-600 w-14">{conf.label}</span>
+                    <HoverHint
+                      className="w-14 text-xs font-medium text-gray-600"
+                      help={level === 'critical'
+                        ? 'Highest severity event. This should be reviewed quickly, but still needs context from the source system.'
+                        : level === 'high'
+                          ? 'Higher-risk event that should be reviewed, especially if the user, location, or app looks unexpected.'
+                          : level === 'medium'
+                            ? 'Moderate-risk event. Often informational, but included in Items to Review.'
+                            : level === 'low'
+                              ? 'Lower-risk activity, usually normal user or app behavior.'
+                              : 'Informational event. Usually useful for visibility rather than action.'}
+                    >
+                      {conf.label}
+                    </HoverHint>
                     <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
                       <div className={cn("h-full rounded-full transition-all", conf.dot)} style={{ width: `${Math.max(pct, count > 0 ? 1 : 0)}%` }} />
                     </div>
@@ -332,14 +381,22 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
             <MapPin className="w-3 h-3" /> Locations:
+            <MetricHelp label="Locations help">
+              Countries seen in the synced SaaS Alerts event feed. This is location context, not a confirmed issue by itself.
+            </MetricHelp>
           </span>
           {Object.entries(countryCounts)
             .sort(([, a], [, b]) => b - a)
             .slice(0, 8)
             .map(([country, count]) => (
-              <Badge key={country} variant="outline" className="text-xs gap-1 font-normal">
-                {country} <span className="font-mono text-muted-foreground">{count}</span>
-              </Badge>
+              <HoverHint
+                key={country}
+                help={`${count} event${count === 1 ? '' : 's'} reported from ${country || 'an unknown location'} in the synced feed.`}
+              >
+                <Badge variant="outline" className="text-xs gap-1 font-normal">
+                  {country} <span className="font-mono text-muted-foreground">{count}</span>
+                </Badge>
+              </HoverHint>
             ))}
         </div>
       )}
@@ -358,6 +415,7 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
         <select
           value={severityFilter}
           onChange={(e) => setSeverityFilter(e.target.value)}
+          title="Filter the event list by SaaS Alerts severity."
           className="text-sm border rounded-md px-3 py-2 bg-white"
         >
           <option value="all">All Severities</option>
@@ -372,13 +430,13 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
       {/* Events List */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-	          <div>
-	            <h4 className="flex items-center gap-1 text-sm font-semibold text-gray-900">
-                Recent Events
-                <MetricHelp label="Recent events help">
-                  Raw SaaS Alerts event feed used to support the summary cards above. These are shown for visibility and may include normal activity.
-                </MetricHelp>
-              </h4>
+          <div>
+            <h4 className="flex items-center gap-1 text-sm font-semibold text-gray-900">
+              Recent Events
+              <MetricHelp label="Recent events help">
+                Raw SaaS Alerts event feed used to support the summary cards above. These are shown for visibility and may include normal activity.
+              </MetricHelp>
+            </h4>
             <p className="text-xs text-muted-foreground">{filteredEvents.length} of {recentEvents.length} events shown</p>
           </div>
           {totalEvents > 0 && (
@@ -432,7 +490,9 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
                         <span className="text-sm font-medium text-gray-900 truncate">
                           {safeStr(event.description) || safeStr(event.event_type, 'Unknown Event')}
                         </span>
-                        <Badge variant="outline" className="text-[10px] font-normal">{safeStr(event.product, '—')}</Badge>
+                        <HoverHint help="Product or application that generated the event.">
+                          <Badge variant="outline" className="text-[10px] font-normal">{safeStr(event.product, '—')}</Badge>
+                        </HoverHint>
                       </div>
 
                       <div className="flex items-center gap-3 mt-1 flex-wrap">
@@ -452,13 +512,19 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
                         {hasFlags && (
                           <div className="flex gap-1">
                             {event.is_vpn && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-medium">VPN</span>
+                              <HoverHint help="The IP appears to be a VPN or privacy network. This can be legitimate remote access, but it is useful context.">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-medium">VPN</span>
+                              </HoverHint>
                             )}
                             {event.is_datacenter && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 font-medium">DC</span>
+                              <HoverHint help="The IP belongs to a datacenter or hosted network instead of a typical home or office ISP.">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 font-medium">DC</span>
+                              </HoverHint>
                             )}
                             {event.is_threat && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">Threat</span>
+                              <HoverHint help="The IP/source has threat-intelligence context. This should be reviewed, but the event still needs user and application context.">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">Threat</span>
+                              </HoverHint>
                             )}
                           </div>
                         )}
@@ -475,41 +541,41 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
                   {isExpanded && (
                     <div className="mt-3 ml-5 grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs bg-gray-50 rounded-lg p-3 border border-gray-100">
                       <div>
-                        <span className="text-muted-foreground block mb-0.5">Event Type</span>
+                        <DetailLabel help="The event category reported by SaaS Alerts, such as sign-in activity, file activity, or app access.">Event Type</DetailLabel>
                         <span className="font-medium">{safeStr(event.event_type, '—')}</span>
                       </div>
                       <div>
-                        <span className="text-muted-foreground block mb-0.5">Application</span>
+                        <DetailLabel help="The cloud app or source associated with the event when SaaS Alerts provides it.">Application</DetailLabel>
                         <span className="font-medium">{safeStr(event.app_name) || safeStr(event.user, '—')}</span>
                       </div>
                       <div>
-                        <span className="text-muted-foreground block mb-0.5">IP Address</span>
+                        <DetailLabel help="Public IP address observed for the activity. It can help identify office, remote, VPN, or unusual network sources.">IP Address</DetailLabel>
                         <span className="font-mono">{safeStr(event.ip_address, '—')}</span>
                       </div>
                       <div>
-                        <span className="text-muted-foreground block mb-0.5">Location</span>
+                        <DetailLabel help="Approximate geolocation from the IP address. This can be inaccurate and should be treated as context, not proof.">Location</DetailLabel>
                         <span>{hasLocation ? [event.city, event.region, event.country].filter(Boolean).join(', ') : '—'}</span>
                       </div>
                       {event.ip_owner && (
                         <div>
-                          <span className="text-muted-foreground block mb-0.5">IP Owner</span>
+                          <DetailLabel help="Network owner or ISP associated with the IP address.">IP Owner</DetailLabel>
                           <span>{safeStr(event.ip_owner)}</span>
                         </div>
                       )}
                       <div>
-                        <span className="text-muted-foreground block mb-0.5">Severity</span>
+                        <DetailLabel help="SaaS Alerts risk rating. Medium and above feed the Items to Review count.">Severity</DetailLabel>
                         <Badge className={cn("text-[10px]", conf.color)}>{conf.label}</Badge>
                       </div>
                       {(event.threat_score > 0 || event.trust_score > 0) && (
                         <>
                           <div>
-                            <span className="text-muted-foreground block mb-0.5">Threat Score</span>
+                            <DetailLabel help="Higher values mean the source has more risk indicators according to SaaS Alerts or its enrichment data.">Threat Score</DetailLabel>
                             <span className={cn("font-medium", event.threat_score >= 80 ? "text-red-600" : event.threat_score >= 50 ? "text-yellow-600" : "text-green-600")}>
                               {event.threat_score}/100
                             </span>
                           </div>
                           <div>
-                            <span className="text-muted-foreground block mb-0.5">Trust Score</span>
+                            <DetailLabel help="Higher values are generally more trusted. Low values may deserve review with the user and app context.">Trust Score</DetailLabel>
                             <span className={cn("font-medium", event.trust_score <= 30 ? "text-red-600" : event.trust_score <= 60 ? "text-yellow-600" : "text-green-600")}>
                               {event.trust_score}/100
                             </span>
@@ -517,7 +583,7 @@ export default function SaaSAlertsTab({ customerId, saasAlertsMapping, queryClie
                         </>
                       )}
                       <div className="col-span-full">
-                        <span className="text-muted-foreground block mb-0.5">Full Timestamp</span>
+                        <DetailLabel help="Exact event time from the synced SaaS Alerts data.">Full Timestamp</DetailLabel>
                         <span>{event.timestamp ? new Date(event.timestamp).toLocaleString() : '—'}</span>
                       </div>
                     </div>
