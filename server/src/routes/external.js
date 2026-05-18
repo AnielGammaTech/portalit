@@ -219,7 +219,7 @@ async function buildCustomerSnapshot(customer) {
     quotesRes,
     syncLogsRes,
   ] = await Promise.all([
-    supabase.from('contacts').select('*').eq('customer_id', customerId).order('name', { ascending: true }),
+    supabase.from('contacts').select('*').eq('customer_id', customerId).order('full_name', { ascending: true }),
     supabase.from('devices').select('*').eq('customer_id', customerId).order('hostname', { ascending: true }),
     supabase.from('tickets').select('*').eq('customer_id', customerId).order('created_date', { ascending: false }).limit(250),
     supabase.from('contracts').select('*').eq('customer_id', customerId).order('updated_date', { ascending: false }).limit(100),
