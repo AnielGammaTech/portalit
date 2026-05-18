@@ -1,6 +1,6 @@
 import React, { useState, useMemo, Component } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { client } from '@/api/client';
+import { client, resolveFileUrl } from '@/api/client';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { staggerContainer, staggerItem, fadeInUp } from '@/lib/motion';
@@ -73,6 +73,30 @@ import InkyTab from './InkyTab';
 import ThreeCXTab from './ThreeCXTab';
 import DmarcReportTab from './DmarcReportTab';
 
+function money(value) {
+  return `$${(Number(value) || 0).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function serviceUsageLabel(item) {
+  const quantity = Number(item?.quantity ?? item?.user_count ?? item?.assigned_users ?? 0);
+  if (!Number.isFinite(quantity) || quantity <= 0) return 'No count synced';
+
+  const label = String(item?.description || '').toLowerCase();
+  if (/device|endpoint|agent|workstation|server/.test(label)) {
+    return `${quantity.toLocaleString()} ${quantity === 1 ? 'device' : 'devices'}`;
+  }
+  if (/extension|phone|voice|voip/.test(label)) {
+    return `${quantity.toLocaleString()} ${quantity === 1 ? 'extension' : 'extensions'}`;
+  }
+  if (/user|seat|license|mailbox|account|microsoft|backup|sharepoint|team/.test(label)) {
+    return `${quantity.toLocaleString()} ${quantity === 1 ? 'user / seat' : 'users / seats'}`;
+  }
+  return `${quantity.toLocaleString()} ${quantity === 1 ? 'item' : 'items'}`;
+}
+
 export default function CustomerServicesTab({
   customerId,
   customer,
@@ -95,6 +119,7 @@ export default function CustomerServicesTab({
   const [spanningUsersPage, setSpanningUsersPage] = useState(0);
   const [selectedContact, setSelectedContact] = useState(null);
   const [usersSearch, setUsersSearch] = useState('');
+  const [failedServiceLogoUrl, setFailedServiceLogoUrl] = useState(null);
   const [syncStatuses, setSyncStatuses] = useState({
     halopsa: { status: 'idle', lastSync: null, error: null },
     datto: { status: 'idle', lastSync: null, error: null },
@@ -553,7 +578,20 @@ export default function CustomerServicesTab({
 
   const hasJumpCloud = !!jumpcloudMapping;
   const hasSpanning = !!spanningMapping;
-  const hasRecurringServices = lineItems.length > 0;
+  const monthlyServicesTotal = useMemo(
+    () => lineItems.reduce((sum, item) => sum + (Number(item.net_amount) || 0), 0),
+    [lineItems]
+  );
+  const billableLineItems = useMemo(
+    () => lineItems.filter(item => Number(item.net_amount) > 0),
+    [lineItems]
+  );
+  const totalServiceUsers = useMemo(
+    () => lineItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0),
+    [lineItems]
+  );
+  const serviceLogoUrl = customer?.logo_url ? resolveFileUrl(customer.logo_url) : null;
+  const showServiceLogo = serviceLogoUrl && failedServiceLogoUrl !== serviceLogoUrl;
 
   const hasHaloPSA = customer?.source === 'halopsa' && customer?.external_id;
   const hasDatto = !!dattoMapping;
@@ -618,16 +656,47 @@ export default function CustomerServicesTab({
     );
   }
 
-  return (
-    <ServiceTabErrorBoundary>
-	    <div className="space-y-3 sm:space-y-4">
+	  return (
+	    <ServiceTabErrorBoundary>
+		    <div className="space-y-3 sm:space-y-4">
+          <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 text-sm font-bold text-primary">
+                {showServiceLogo ? (
+                  <img
+                    src={serviceLogoUrl}
+                    alt={customer?.name || 'Customer'}
+                    className="h-full w-full object-cover"
+                    onError={() => setFailedServiceLogoUrl(serviceLogoUrl)}
+                  />
+                ) : (
+                  customer?.name?.charAt(0)?.toUpperCase() || 'C'
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Services</p>
+                <h2 className="truncate text-sm font-semibold leading-5 text-slate-950">{customer?.name || 'Customer'}</h2>
+              </div>
+              <div className="grid shrink-0 grid-cols-2 gap-x-3 border-l border-slate-200 pl-3 text-right">
+                <div>
+                  <p className="text-sm font-bold leading-4 text-emerald-700 tabular-nums">{money(monthlyServicesTotal)}</p>
+                  <p className="mt-0.5 text-[8px] font-semibold uppercase tracking-wide text-slate-500">Monthly</p>
+                </div>
+                <div>
+                  <p className="text-sm font-bold leading-4 text-slate-950 tabular-nums">{lineItems.length}</p>
+                  <p className="mt-0.5 text-[8px] font-semibold uppercase tracking-wide text-slate-500">Services</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
 	      <Tabs defaultValue="recurring" className="space-y-3 sm:space-y-4">
-        {/* Service Tabs — only show tabs for services the customer has */}
-        <div className="flex justify-center">
-          <TabsList className="flex h-auto w-full max-w-5xl flex-wrap justify-center gap-1 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
-            {[
-              { value: 'recurring', label: 'Recurring', icon: DollarSign, show: true },
-              { value: 'users', label: 'Users', icon: Users, show: contacts.length > 0 },
+	        {/* Service Tabs — only show tabs for services the customer has */}
+	        <div className="flex justify-center">
+	          <TabsList className="flex h-auto w-full max-w-5xl flex-wrap justify-center gap-1 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
+	            {[
+	              { value: 'recurring', label: 'Services', icon: HardDrive, show: true },
+	              { value: 'users', label: 'Users', icon: Users, show: contacts.length > 0 },
               { value: 'devices', label: 'Devices', icon: Monitor, show: hasDevices },
               { value: 'jumpcloud', label: 'JumpCloud', icon: Shield, iconClass: 'text-[#7828C8]', show: hasJumpCloud },
               { value: 'spanning', label: 'Spanning', icon: Cloud, iconClass: 'text-cyan-500', show: hasSpanning },
@@ -653,15 +722,15 @@ export default function CustomerServicesTab({
           </TabsList>
         </div>
 
-        {/* Recurring Services Tab */}
+	        {/* Services Tab */}
         <TabsContent value="recurring">
 	          <motion.div {...fadeInUp} className="space-y-3 sm:space-y-4">
 	            {/* Stats row */}
 	            <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {[
-                { icon: DollarSign, label: 'Monthly Recurring', value: `$${lineItems.reduce((sum, item) => sum + (item.net_amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, color: 'text-emerald-600', bg: 'bg-emerald-500/10', raw: true },
+                { icon: DollarSign, label: 'Monthly', value: money(monthlyServicesTotal), color: 'text-emerald-600', bg: 'bg-emerald-500/10', raw: true },
                 { icon: HardDrive, label: 'Active Services', value: lineItems.length, color: 'text-primary', bg: 'bg-primary/10' },
-                { icon: DollarSign, label: 'Billable Items', value: lineItems.filter(i => i.net_amount > 0).length, color: 'text-violet-600', bg: 'bg-violet-500/10' },
+                { icon: Users, label: 'Users / Seats', value: totalServiceUsers, color: 'text-violet-600', bg: 'bg-violet-500/10' },
               ].map((stat) => (
 	                <motion.div key={stat.label} variants={staggerItem} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm transition-colors hover:bg-slate-50">
 	                  <div className="flex items-center gap-2.5">
@@ -681,13 +750,13 @@ export default function CustomerServicesTab({
               ))}
             </motion.div>
 
-            {/* Services table card */}
-            <div className="bg-card rounded-[14px] border shadow-hero-sm overflow-hidden">
-              <div className="px-5 py-3 border-b border-border/50 flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-foreground text-sm">Active Services</h3>
-                  <p className="text-xs text-muted-foreground">{lineItems.length} line items from HaloPSA</p>
-                </div>
+	            {/* Services table card */}
+	            <div className="bg-card rounded-[14px] border shadow-hero-sm overflow-hidden">
+	              <div className="px-5 py-3 border-b border-border/50 flex items-center justify-between">
+	                <div>
+	                  <h3 className="font-semibold text-foreground text-sm">Services</h3>
+	                  <p className="text-xs text-muted-foreground">{lineItems.length} synced line item{lineItems.length !== 1 ? 's' : ''} · {billableLineItems.length} billable</p>
+	                </div>
                 {canSync && customer?.source === 'halopsa' && (
                   <Button
                     variant="outline"
@@ -730,30 +799,36 @@ export default function CustomerServicesTab({
                   />
                 </div>
               ) : (
-                <div className="divide-y divide-border/40">
-                  {lineItems.map((item) => {
-                    const amount = item.net_amount || 0;
-                    const isCredit = amount < 0;
-                    return (
-                      <div
-                        key={item.id}
-                        className="flex items-center gap-3 px-5 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors duration-150"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm text-foreground truncate">
-                            {formatLineItemDescription(item.description)}
-                          </p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-xs text-muted-foreground">
-                              Qty {item.quantity}
-                            </span>
-                            {item.unit_price > 0 && (
-                              <span className="text-xs text-muted-foreground/50">
-                                · ${parseFloat(item.unit_price).toLocaleString('en-US', { minimumFractionDigits: 2 })}/ea
+	                <div className="divide-y divide-border/40">
+	                  {lineItems.map((item) => {
+	                    const amount = item.net_amount || 0;
+	                    const isCredit = amount < 0;
+                      const usage = serviceUsageLabel(item);
+	                    return (
+	                      <div
+	                        key={item.id}
+	                        className="flex items-center gap-3 px-4 py-3 transition-colors duration-150 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 sm:px-5"
+	                      >
+	                        <div className="flex-1 min-w-0">
+                            <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center">
+                              <p className="font-medium text-sm text-foreground truncate">
+                                {formatLineItemDescription(item.description)}
+                              </p>
+                              <span className="inline-flex w-fit shrink-0 items-center rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
+                                {usage}
                               </span>
-                            )}
-                          </div>
-                        </div>
+                            </div>
+	                          <div className="flex flex-wrap items-center gap-2 mt-0.5">
+	                            {item.unit_price > 0 && (
+	                              <span className="text-xs text-muted-foreground/50">
+	                                ${parseFloat(item.unit_price).toLocaleString('en-US', { minimumFractionDigits: 2 })}/ea
+	                              </span>
+	                            )}
+                              <span className="text-xs text-muted-foreground/50">
+                                Qty {Number(item.quantity || 0).toLocaleString()}
+                              </span>
+	                          </div>
+	                        </div>
                         <p className={cn(
                           "text-sm font-semibold tabular-nums flex-shrink-0",
                           isCredit ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"
@@ -765,12 +840,12 @@ export default function CustomerServicesTab({
                   })}
 
                   {/* Footer total */}
-                  <div className="flex items-center justify-between px-5 py-3 bg-zinc-50 dark:bg-zinc-800/40">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Monthly</p>
-                    <p className="text-base font-bold text-foreground tabular-nums">
-                      ${lineItems.reduce((sum, item) => sum + (item.net_amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </p>
-                  </div>
+	                  <div className="flex items-center justify-between px-5 py-3 bg-zinc-50 dark:bg-zinc-800/40">
+	                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Monthly</p>
+	                    <p className="text-base font-bold text-foreground tabular-nums">
+	                      {money(monthlyServicesTotal)}
+	                    </p>
+	                  </div>
                 </div>
               )}
             </div>
