@@ -646,7 +646,7 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
 
   const customerLogoUrl = customer.logo_url ? resolveFileUrl(customer.logo_url) : null;
   const showCustomerLogo = customerLogoUrl && failedCustomerLogoUrl !== customerLogoUrl;
-  const showCustomerHero = !isCustomerView || currentTab === 'dashboard';
+  const hideCustomerHeroOnMobile = isCustomerView && currentTab !== 'dashboard';
   const monthlyBillIds = new Set(
     recurringBills
       .filter(b => activeBillIdSet.has(b.id) && !['yearly', 'annual', 'annually'].includes((b.frequency || '').toLowerCase()))
@@ -699,10 +699,12 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
       )}
 
       {/* Customer Home Header */}
-      {showCustomerHero && (
       <motion.div
         {...fadeInUp}
-        className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+        className={cn(
+          "overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm",
+          hideCustomerHeroOnMobile && "hidden sm:block"
+        )}
       >
         <div className="border-b border-slate-100 bg-slate-50/70 px-3 py-3 sm:px-5 sm:py-4">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -814,7 +816,6 @@ export default function CustomerDetail({ mirrorMode = false, previewCustomerId =
           </div>
         )}
       </motion.div>
-      )}
 
       <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-3 sm:space-y-6" id="customer-tabs">
         <TabsList className={cn(
